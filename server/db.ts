@@ -1131,6 +1131,59 @@ db.exec(`
 `);
 
 // ============================================================================
+// NEW INVOICE SYSTEM (modular, module-source-aware)
+// ============================================================================
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS invoices (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    numero TEXT NOT NULL UNIQUE,
+    type TEXT NOT NULL,                  -- VENTE | ACHAT | PRODUCTION | TRANSFERT
+    source_module TEXT NOT NULL,          -- MODE | ATEL | MAGA | COUP | STRA | MODEL
+    source_id TEXT,                       -- optional FK to the source record
+
+    tiers_nom TEXT,
+    tiers_ice TEXT,
+    tiers_adresse TEXT,
+    tiers_tel TEXT,
+    tiers_email TEXT,
+
+    date_invoice TEXT NOT NULL,
+    date_echeance TEXT,
+
+    total_ht REAL NOT NULL DEFAULT 0,
+    taux_tva REAL DEFAULT 0,
+    total_tva REAL DEFAULT 0,
+    total_ttc REAL NOT NULL DEFAULT 0,
+
+    statut TEXT DEFAULT 'BROUILLON',     -- BROUILLON | VALIDEE | ANNULEE
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS invoice_lines (
+    id TEXT PRIMARY KEY,
+    invoice_id TEXT NOT NULL,
+    product_id TEXT,
+    designation TEXT NOT NULL,
+    quantite REAL NOT NULL DEFAULT 1,
+    prix_unitaire REAL NOT NULL DEFAULT 0,
+    total REAL NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_invoices_owner ON invoices(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_invoices_type ON invoices(type);
+  CREATE INDEX IF NOT EXISTS idx_invoices_source ON invoices(source_module);
+  CREATE INDEX IF NOT EXISTS idx_invoice_lines_invoice ON invoice_lines(invoice_id);
+  CREATE INDEX IF NOT EXISTS idx_invoice_lines_product ON invoice_lines(product_id);
+`);
+
+// ============================================================================
 // MIGRATIONS FOR SUBCONTRACT ORDERS ADVANCED FIELDS
 // ============================================================================
 try {

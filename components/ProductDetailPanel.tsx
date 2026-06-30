@@ -9,6 +9,7 @@ import {
 import { MouvementStock } from '../types';
 import { tx, type TxMap } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import InlineInvoiceList from './InlineInvoiceList';
 
 export interface MagasinProduct {
     id: string;
@@ -92,7 +93,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
     const { lang: ctxLang } = useLang();
     const lang = ctxLang || propLang;
     const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
-    const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'supplier' | 'lots'>(initialTab || 'overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'supplier' | 'lots' | 'factures'>(initialTab || 'overview');
     const [isEditing, setIsEditing] = useState(!!startEditing);
     const [editData, setEditData] = useState<MagasinProduct>({ ...product });
 
@@ -243,6 +244,7 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                             { id: 'history', k: 'Historique', icon: History },
                             { id: 'supplier', k: 'Fournisseur', icon: Building2 },
                             { id: 'lots', k: 'Lots/Bains', icon: Droplets },
+                            { id: 'factures', k: 'Factures', icon: FileText },
                         ].map(tab => (
                             <button
                                 key={tab.id}
@@ -257,7 +259,8 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                 {_(tab.id === 'overview' ? {fr:'Aperçu',ar:'نظرة عامة',en:'Overview',es:'Resumen',pt:'Visão Geral',tr:'Genel Bakış'} :
                                   tab.id === 'history' ? {fr:'Historique',ar:'السجل',en:'History',es:'Historial',pt:'Histórico',tr:'Geçmiş'} :
                                   tab.id === 'supplier' ? {fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'} :
-                                  {fr:'Lots/Bains',ar:'الدفعات/الأحواض',en:'Lots/Baths',es:'Lotes/Baños',pt:'Lotes/Tingimentos',tr:'Partiler/Banyolar'})}
+                                  tab.id === 'lots' ? {fr:'Lots/Bains',ar:'الدفعات/الأحواض',en:'Lots/Baths',es:'Lotes/Baños',pt:'Lotes/Tingimentos',tr:'Partiler/Banyolar'} :
+                                  {fr:'Factures',ar:'الفواتير',en:'Invoices',es:'Facturas',pt:'Faturas',tr:'Faturalar'})}
                             </button>
                         ))}
                     </div>
@@ -808,6 +811,16 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                                     )}
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'factures' && (
+                        <div className="p-6">
+                            <InlineInvoiceList
+                                productId={product.id}
+                                productLabel={product.designation}
+                                sourceModule="magasin"
+                            />
                         </div>
                     )}
                 </div>

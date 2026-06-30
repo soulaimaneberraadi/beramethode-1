@@ -5,7 +5,8 @@ import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 import { lsGet, lsSet } from '../lib/storageKeys';
 import { pushSnapshotToCloud } from '../src/lib/cloudSync';
-import { Search, FolderOpen, MoreVertical, FileJson, Clock, Users, Calendar, Download, Copy, Trash2, Edit2, SortAsc, Scissors, Filter, Upload, AlertTriangle, Plus, Share2, LayoutGrid, ZoomIn, ZoomOut, List as ListIcon, Database, UploadCloud, DownloadCloud, CheckCircle2, Loader2 } from 'lucide-react';
+import { Search, FolderOpen, MoreVertical, FileJson, Clock, Users, Calendar, Download, Copy, Trash2, Edit2, SortAsc, Scissors, Filter, Upload, AlertTriangle, Plus, Share2, LayoutGrid, ZoomIn, ZoomOut, List as ListIcon, Database, UploadCloud, DownloadCloud, CheckCircle2, Loader2, FileText, X } from 'lucide-react';
+import InlineInvoiceList from './InlineInvoiceList';
 import { ModelData } from '../types';
 
 function getModelAbbrev(model: ModelData): string {
@@ -66,6 +67,7 @@ export default function Library({
     const [renameValue, setRenameValue] = useState("");
     const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null);
     const [dbStatus, setDbStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+    const [invoiceModalModelId, setInvoiceModalModelId] = useState<string | null>(null);
     const [syncPhotoStatus, setSyncPhotoStatus] = useState<'idle' | 'syncing' | 'done' | 'error'>('idle');
     const { user } = useAuth();
     const { lang } = useLang();
@@ -505,6 +507,13 @@ export default function Library({
                                     {tx(lang, { fr: "Lancer Suivi", ar: "بدء المتابعة", en: "Start Tracking", es: "Iniciar Seguimiento", pt: "Iniciar Acompanhamento", tr: "Takibi Başlat" })}
                                 </button>
                             )}
+                            <button
+                                type="button"
+                                onClick={() => { setInvoiceModalModelId(activeModel.id); setContextMenu(null); }}
+                                className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-dk-text-soft hover:bg-indigo-50 dark:hover:bg-dk-elevated/60 flex items-center gap-3 transition-colors"
+                            >
+                                <FileText className="w-4 h-4" /> {tx(lang, { fr: "Voir Factures", ar: "عرض الفواتير", en: "View Invoices", es: "Ver Facturas", pt: "Ver Faturas", tr: "Faturaları Görüntüle" })}
+                            </button>
                             <div className="h-px bg-slate-100 dark:bg-dk-elevated dark:border-dk-border my-1"></div>
                             <button
                                 type="button"
@@ -572,6 +581,30 @@ export default function Library({
                             >
                                 {tx(lang, { fr: "Supprimer", ar: "حذف", en: "Delete", es: "Eliminar", pt: "Excluir", tr: "Sil" })}
                             </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {invoiceModalModelId && createPortal(
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 dark:bg-black/40" onClick={() => setInvoiceModalModelId(null)}>
+                    <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border w-full max-w-3xl max-h-[90vh] flex flex-col shadow-sm" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-5 h-12 border-b border-slate-100 dark:border-dk-border">
+                            <h2 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">
+                                {tx(lang, { fr: "Factures liées", ar: "الفواتير المرتبطة", en: "Related Invoices", es: "Facturas relacionadas", pt: "Faturas relacionadas", tr: "İlgili Faturalar" })}
+                            </h2>
+                            <button onClick={() => setInvoiceModalModelId(null)} className="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors">
+                                <X className="w-3.5" strokeWidth={1.75} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-5">
+                            <InlineInvoiceList
+                                productId={invoiceModalModelId}
+                                productLabel={models.find(m => m.id === invoiceModalModelId)?.meta_data?.nom_modele || ''}
+                                sourceModule="model"
+                                sourceId={invoiceModalModelId}
+                            />
                         </div>
                     </div>
                 </div>,

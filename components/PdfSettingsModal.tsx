@@ -1,8 +1,17 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { FileDown, X, Palette, Minus, Plus, Layout, ZoomIn, FileText, Printer, Check, FileSpreadsheet, ArrowLeft, Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileDown, X, Palette, Minus, Plus, Layout, ZoomIn, FileText, Printer, Check, FileSpreadsheet, ArrowLeft, Maximize2, Minimize2, ChevronLeft, ChevronRight, Building2, Users, ListOrdered, Calculator, Signature, PenLine } from 'lucide-react';
 import { PdfSettings } from '../types';
 import { tx, type TxMap } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+
+export interface InvoiceSections {
+    header: boolean;
+    client: boolean;
+    lignes: boolean;
+    totals: boolean;
+    notes: boolean;
+    signature: boolean;
+}
 
 interface PdfSettingsModalProps {
     t: any;
@@ -13,7 +22,7 @@ interface PdfSettingsModalProps {
     isLibLoaded: boolean;
     pdfSettings: PdfSettings;
     setPdfSettings: React.Dispatch<React.SetStateAction<PdfSettings>>;
-    generatePDF: (action: 'save' | 'preview') => void;
+    generatePDF: (action: 'save' | 'preview', options?: { invoiceId?: string; productId?: string }) => void;
     onPrint?: () => void;
     onExcel?: () => void;
     pdfSections?: { info: boolean; nomenclature: boolean; pricing: boolean; order: boolean; notes: boolean };
@@ -23,6 +32,11 @@ interface PdfSettingsModalProps {
     setTicketSize?: React.Dispatch<React.SetStateAction<{ width: number; height: number }>>;
     totalPages?: number;
     children: React.ReactNode;
+    context?: 'cost' | 'invoice';
+    invoiceSections?: InvoiceSections;
+    setInvoiceSections?: React.Dispatch<React.SetStateAction<InvoiceSections>>;
+    invoiceId?: string;
+    productId?: string;
 }
 
 const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
@@ -31,12 +45,15 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
     onPrint, onExcel, pdfSections, setPdfSections,
     mode = 'a4', ticketSize = { width: 80, height: 150 }, setTicketSize,
     totalPages = 1,
+    context = 'cost', invoiceSections, setInvoiceSections,
+    invoiceId, productId,
     children
 }) => {
     const { lang } = useLang();
     const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
     const isTicket = mode === 'ticket';
     const isCompact = mode === 'compact';
+    const isInvoice = context === 'invoice';
     const mmToPx = (mm: number) => Math.round((mm / 25.4) * 96);
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
     const containerRef = useRef<HTMLDivElement>(null);
@@ -177,8 +194,9 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
     if (!showPdfModal) return null;
 
     const isLandscape = pdfSettings.orientation === 'landscape';
-    const paperWidth = isTicket ? mmToPx(ticketSize.width) : (isLandscape ? 1123 : 794);
-    const paperHeight = isTicket ? mmToPx(ticketSize.height) : (isLandscape ? 794 : 1123);
+    const [aW, aH] = (pdfSettings.format ?? 'A4') === 'A3' ? [1123, 1587] : [794, 1123];
+    const paperWidth = isTicket ? mmToPx(ticketSize.width) : (isLandscape ? aH : aW);
+    const paperHeight = isTicket ? mmToPx(ticketSize.height) : (isLandscape ? aW : aH);
 
     const padding = 40;
     const availableWidth = containerSize.width - padding * 2;
@@ -261,8 +279,8 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                             <FileText className="w-4 h-4 text-white" />
                         </div>
                         <div className="min-w-0">
-                            <h3 className={`font-bold text-sm truncate ${darkMode ? 'text-white' : 'text-slate-800 dark:text-dk-text'}`}>{isTicket ? _({fr:'Paramètres Ticket',ar:'إعدادات التذكرة',en:'Ticket Settings',es:'Configuración de Ticket',pt:'Configurações do Ticket',tr:'Bilet Ayarları'}) : isCompact ? _({fr:'Fiche Compacte',ar:'بطاقة مضغوطة',en:'Compact Sheet',es:'Ficha Compacta',pt:'Ficha Compacta',tr:'Kompakt Kart'}) : t.pdfSettings}</h3>
-                            <p className={`text-[10px] truncate ${darkMode ? 'text-gray-400 dark:text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>{isTicket ? _({fr:'Format personnalisé',ar:'تنسيق مخصص',en:'Custom format',es:'Formato personalizado',pt:'Formato personalizado',tr:'Özel format'}) : isCompact ? _({fr:'Format A4 compact',ar:'تنسيق A4 مضغوط',en:'Compact A4 format',es:'Formato A4 compacto',pt:'Formato A4 compacto',tr:'Kompakt A4 formatı'}) : _({fr:'Mise en page PDF',ar:'تخطيط PDF',en:'PDF layout',es:'Diseño PDF',pt:'Layout PDF',tr:'PDF düzeni'})}</p>
+                            <h3 className={`font-bold text-sm truncate ${darkMode ? 'text-white' : 'text-slate-800 dark:text-dk-text'}`}>{isTicket ? _({fr:'Paramètres Ticket',ar:'إعدادات التذكرة',en:'Ticket Settings',es:'Configuración de Ticket',pt:'Configurações do Ticket',tr:'Bilet Ayarları'}) : isCompact ? _({fr:'Fiche Compacte',ar:'بطاقة مضغوطة',en:'Compact Sheet',es:'Ficha Compacta',pt:'Ficha Compacta',tr:'Kompakt Kart'}) : isInvoice ? _({fr:'Paramètres Facture',ar:'إعدادات الفاتورة',en:'Invoice Settings',es:'Configuración de Factura',pt:'Configurações da Fatura',tr:'Fatura Ayarları'}) : t.pdfSettings}</h3>
+                            <p className={`text-[10px] truncate ${darkMode ? 'text-gray-400 dark:text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>{isTicket ? _({fr:'Format personnalisé',ar:'تنسيق مخصص',en:'Custom format',es:'Formato personalizado',pt:'Formato personalizado',tr:'Özel format'}) : isCompact ? _({fr:'Format A4 compact',ar:'تنسيق A4 مضغوط',en:'Compact A4 format',es:'Formato A4 compacto',pt:'Formato A4 compacto',tr:'Kompakt A4 formatı'}) : isInvoice ? _({fr:'Mise en page facture',ar:'تخطيط الفاتورة',en:'Invoice layout',es:'Diseño de factura',pt:'Layout de fatura',tr:'Fatura düzeni'}) : _({fr:'Mise en page PDF',ar:'تخطيط PDF',en:'PDF layout',es:'Diseño PDF',pt:'Layout PDF',tr:'PDF düzeni'})}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -326,6 +344,34 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                         </div>
                                     )}
                                 </button>
+                            </div>
+                        </section>
+                        )}
+
+                        {isInvoice && (
+                        <section>
+                            <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-500 dark:text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
+                                {_({fr:'Format papier',ar:'حجم الورق',en:'Paper size',es:'Tamaño de papel',pt:'Tamanho do papel',tr:'Kağıt boyutu'})}
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {(['A4', 'A3'] as const).map(f => (
+                                    <button key={f} onClick={() => setPdfSettings({ ...pdfSettings, format: f })}
+                                        className={`relative p-2.5 rounded-lg border-2 transition-all flex flex-col items-center gap-1.5 ${(pdfSettings.format ?? 'A4') === f
+                                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                                : darkMode
+                                                    ? 'border-gray-700 bg-gray-900 text-gray-400 dark:text-dk-muted hover:border-gray-600'
+                                                    : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:border-slate-300'
+                                            }`}
+                                    >
+                                        <div className={`border-2 border-current rounded-sm ${f === 'A3' ? 'w-7 h-9' : 'w-5 h-8'}`}></div>
+                                        <span className="text-[10px] font-bold">{f}</span>
+                                        {(pdfSettings.format ?? 'A4') === f && (
+                                            <div className="absolute top-1 right-1 w-3 h-3 rounded-full bg-blue-500 flex items-center justify-center">
+                                                <Check className="w-2 h-2 text-white" />
+                                            </div>
+                                        )}
+                                    </button>
+                                ))}
                             </div>
                         </section>
                         )}
@@ -442,7 +488,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                             </div>
                         </section>
 
-                        {pdfSections && setPdfSections && (
+                        {pdfSections && setPdfSections && !isInvoice && (
                             <section>
                                 <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-500 dark:text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
                                     {_({fr:'Sections à afficher',ar:'الأقسام المراد عرضها',en:'Sections to show',es:'Secciones a mostrar',pt:'Secções a mostrar',tr:'Gösterilecek bölümler'})}
@@ -470,6 +516,38 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                 </div>
                             </section>
                         )}
+                        {isInvoice && invoiceSections && setInvoiceSections && (
+                            <section>
+                                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-2 ${darkMode ? 'text-gray-500 dark:text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
+                                    {_({fr:'Sections de la facture',ar:'أقسام الفاتورة',en:'Invoice sections',es:'Secciones de factura',pt:'Secções da fatura',tr:'Fatura bölümleri'})}
+                                </label>
+                                <div className="space-y-1.5">
+                                    {([
+                                        ['header', _({fr:'En-tête société',ar:'رأس الشركة',en:'Company header',es:'Encabezado de empresa',pt:'Cabeçalho da empresa',tr:'Şirket başlığı'}), Building2],
+                                        ['client', _({fr:'Informations client',ar:'معلومات العميل',en:'Client info',es:'Información del cliente',pt:'Informações do cliente',tr:'Müşteri bilgileri'}), Users],
+                                        ['lignes', _({fr:'Lignes de facture',ar:'بنود الفاتورة',en:'Invoice lines',es:'Líneas de factura',pt:'Linhas da fatura',tr:'Fatura kalemleri'}), ListOrdered],
+                                        ['totals', _({fr:'Totaux & TVA',ar:'الإجماليات والضريبة',en:'Totals & tax',es:'Totales e impuestos',pt:'Totais e IVA',tr:'Toplamlar ve vergi'}), Calculator],
+                                        ['notes', _({fr:'Notes & conditions',ar:'ملاحظات وشروط',en:'Notes & terms',es:'Notas y términos',pt:'Notas e condições',tr:'Notlar ve koşullar'}), PenLine],
+                                        ['signature', _({fr:'Signature & cachet',ar:'التوقيع والختم',en:'Signature & stamp',es:'Firma y sello',pt:'Assinatura e carimbo',tr:'İmza ve mühür'}), Signature],
+                                    ] as const).map(([key, label, Icon]) => (
+                                        <label key={key} className="flex items-center justify-between gap-2 cursor-pointer select-none">
+                                            <span className={`flex items-center gap-1.5 text-[11px] font-medium ${darkMode ? 'text-gray-300 dark:text-dk-muted' : 'text-slate-600 dark:text-dk-text-soft'}`}>
+                                                <Icon className="w-3 h-3 text-slate-400" />
+                                                {label}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setInvoiceSections(p => ({ ...p, [key]: !p[key] }))}
+                                                className={`relative w-8 h-4 rounded-full transition-colors shrink-0 ${invoiceSections[key] ? 'bg-blue-500' : darkMode ? 'bg-gray-600' : 'bg-slate-300'}`}
+                                                aria-pressed={invoiceSections[key]}
+                                            >
+                                                <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white dark:bg-dk-surface shadow transition-all ${invoiceSections[key] ? 'left-[18px]' : 'left-0.5'}`} />
+                                            </button>
+                                        </label>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
 
                         <section className={`p-3 rounded-lg ${darkMode ? 'bg-blue-900/20 border border-blue-800/30' : 'bg-blue-50 dark:bg-blue-900/30 border border-blue-100'}`}>
                             <div className="flex items-start gap-2">
@@ -486,7 +564,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
 
                     <div className={`p-3 border-t ${darkMode ? 'border-gray-700' : 'border-slate-200 dark:border-dk-border'}`}>
                         <button
-                            onClick={() => generatePDF('save')}
+                            onClick={() => generatePDF('save', isInvoice ? { invoiceId, productId } : undefined)}
                             disabled={!isLibLoaded || isGeneratingPdf}
                             className={`w-full py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${isGeneratingPdf
                                     ? 'bg-slate-300 text-slate-500 dark:text-dk-muted cursor-not-allowed'
@@ -501,7 +579,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                             ) : (
                                 <>
                                     <FileDown className="w-4 h-4" />
-                                    <span>{_({fr:'Télécharger PDF',ar:'تحميل PDF',en:'Download PDF',es:'Descargar PDF',pt:'Descarregar PDF',tr:'PDF İndir'})}</span>
+                                    <span>{isInvoice ? _({fr:'Exporter PDF',ar:'تصدير PDF',en:'Export PDF',es:'Exportar PDF',pt:'Exportar PDF',tr:'PDF Dışa Aktar'}) : _({fr:'Télécharger PDF',ar:'تحميل PDF',en:'Download PDF',es:'Descargar PDF',pt:'Descarregar PDF',tr:'PDF İndir'})}</span>
                                 </>
                             )}
                         </button>
@@ -515,7 +593,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                                     <span>{_({fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}</span>
                                 </button>
                             )}
-                            {onExcel && !isTicket && (
+                            {onExcel && (isInvoice || (!isTicket && !isCompact)) && (
                                 <button
                                     onClick={onExcel}
                                     className={`py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] border ${darkMode ? 'bg-gray-800 border-gray-600 text-gray-100 hover:bg-gray-700' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
@@ -538,7 +616,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                     <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 px-1.5 py-1 rounded-full shadow-md dark:shadow-dk-md border bg-white dark:bg-dk-surface/90 backdrop-blur-sm border-slate-200 dark:border-dk-border">
                         <div className="px-2 py-0.5 text-[10px] font-bold flex items-center gap-1.5 border-r border-slate-200 dark:border-dk-border">
                             <Layout className="w-3 h-3 text-blue-500" />
-                            <span className="text-slate-700 dark:text-dk-text-soft">{isTicket ? _({fr:'Ticket',ar:'تذكرة',en:'Ticket',es:'Ticket',pt:'Ticket',tr:'Bilet'}) : isCompact ? _({fr:'Compact',ar:'مضغوط',en:'Compact',es:'Compacto',pt:'Compacto',tr:'Kompakt'}) : 'A4'}</span>
+                            <span className="text-slate-700 dark:text-dk-text-soft">{isTicket ? _({fr:'Ticket',ar:'تذكرة',en:'Ticket',es:'Ticket',pt:'Ticket',tr:'Bilet'}) : isCompact ? _({fr:'Compact',ar:'مضغوط',en:'Compact',es:'Compacto',pt:'Compacto',tr:'Kompakt'}) : isInvoice ? pdfSettings.format ?? 'A4' : 'A4'}</span>
                         </div>
                         <button onClick={() => setPreviewZoom(z => clampZoom(z - 0.25))} disabled={previewZoom <= 1} className="p-1 rounded-full hover:bg-slate-100 text-slate-500 dark:text-dk-muted disabled:opacity-30 transition" title={_({fr:'Dézoomer',ar:'تصغير',en:'Zoom out',es:'Alejar',pt:'Afastar',tr:'Uzaklaştır'})} aria-label={_({fr:'Dézoomer',ar:'تصغير',en:'Zoom out',es:'Alejar',pt:'Afastar',tr:'Uzaklaştır'})}>
                             <Minus className="w-3 h-3" />
@@ -550,7 +628,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
                             <Plus className="w-3 h-3" />
                         </button>
                         <span className="hidden md:inline px-2 py-0.5 text-[10px] font-mono text-slate-400 dark:text-dk-muted border-l border-slate-200 dark:border-dk-border">
-                            {isTicket ? `${ticketSize.width} × ${ticketSize.height}mm` : isCompact ? _({fr:'A4 Compact',ar:'A4 مضغوط',en:'Compact A4',es:'A4 Compacto',pt:'A4 Compacto',tr:'Kompakt A4'}) : `${paperWidth} × ${paperHeight}px`}
+                            {isTicket ? `${ticketSize.width} × ${ticketSize.height}mm` : isCompact ? _({fr:'A4 Compact',ar:'A4 مضغوط',en:'Compact A4',es:'A4 Compacto',pt:'A4 Compacto',tr:'Kompakt A4'}) : isInvoice ? `${pdfSettings.format ?? 'A4'} · ${paperWidth} × ${paperHeight}px` : `${paperWidth} × ${paperHeight}px`}
                         </span>
                     </div>
 

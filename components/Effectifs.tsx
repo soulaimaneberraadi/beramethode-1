@@ -3,6 +3,7 @@ import { Users, ChevronDown, UserCog, Factory, Plus, Trash2, Check, X, Settings2
 import { tx } from '../lib/i18n';
 import { lsGet, lsSet } from '../lib/storageKeys';
 import { useLang } from '../src/context/LanguageContext';
+import { useIsDark } from '../src/context/ThemeContext';
 import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { ResponsiveChart } from './ui/ResponsiveChart';
 import { SuiviData, PlanningEvent, AppSettings } from '../types';
@@ -54,9 +55,9 @@ const ConfirmModal = ({ isOpen, title, message, type = 'danger', onConfirm, onCa
 
   const getColors = () => {
     switch (type) {
-      case 'danger': return { icon: 'text-red-500 bg-red-100', btn: 'bg-red-500 hover:bg-red-600' };
-      case 'success': return { icon: 'text-emerald-500 bg-emerald-100', btn: 'bg-emerald-500 hover:bg-emerald-600' };
-      default: return { icon: 'text-amber-500 bg-amber-100', btn: 'bg-amber-500 hover:bg-amber-600' };
+      case 'danger': return { icon: 'text-red-500 bg-red-100 dark:bg-red-900/30', btn: 'bg-red-500 hover:bg-red-600' };
+      case 'success': return { icon: 'text-emerald-500 bg-emerald-100 dark:bg-emerald-900/30', btn: 'bg-emerald-500 hover:bg-emerald-600' };
+      default: return { icon: 'text-amber-500 bg-amber-100 dark:bg-amber-900/30', btn: 'bg-amber-500 hover:bg-amber-600' };
     }
   };
 
@@ -221,6 +222,7 @@ export default function Effectifs({
   setSelectedDate: propSetSelectedDate
 }: EffectifsPageProps) {
   const { lang } = useLang();
+  const isDark = useIsDark();
   const effectifsDtpSettings = settings ?? DEFAULT_CALENDAR_APP_SETTINGS;
   const [activeTab, setActiveTab] = useState<'grid' | 'analytics'>('grid');
 
@@ -893,7 +895,7 @@ export default function Effectifs({
         cx={cx}
         cy={cy}
         r={4}
-        fill="#fff"
+        fill={isDark ? '#1D2E28' : '#fff'}
         strokeWidth={2}
         stroke="#6366f1"
         className="recharts-dot cursor-context-menu outline-none"
@@ -915,7 +917,7 @@ export default function Effectifs({
         cy={cy}
         r={6}
         fill="#6366f1"
-        stroke="#fff"
+        stroke={isDark ? '#1D2E28' : '#fff'}
         strokeWidth={2}
         className="recharts-active-dot cursor-context-menu outline-none"
         onContextMenu={(e) => {
@@ -1250,7 +1252,7 @@ export default function Effectifs({
                           className="px-3 py-1.5 rounded-lg border border-amber-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 w-36 bg-amber-50 dark:bg-amber-900/30 placeholder-amber-400/70 text-amber-900"
                           onKeyDown={e => e.key === 'Enter' && handleAddPartitionItem(partition.id)}
                         />
-                        <button onClick={() => handleAddPartitionItem(partition.id)} disabled={!newItemNames[partition.id]?.trim()} className="p-1.5 bg-amber-200 text-amber-800 rounded-lg hover:bg-amber-300 disabled:opacity-50 transition-colors">
+                        <button onClick={() => handleAddPartitionItem(partition.id)} disabled={!newItemNames[partition.id]?.trim()} className="p-1.5 bg-amber-200 dark:bg-amber-800/50 text-amber-800 dark:text-amber-200 rounded-lg hover:bg-amber-300 dark:hover:bg-amber-700/50 disabled:opacity-50 transition-colors">
                           <Plus className="w-4 h-4" />
                         </button>
                       </div>
@@ -1398,7 +1400,7 @@ export default function Effectifs({
                 <table className="w-full text-sm text-left">
                   <thead>
                     <tr className="bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border">
-                      <th className="px-2 py-2 text-xs font-semibold text-slate-600 dark:text-dk-text-soft whitespace-normal leading-snug sm:px-4 sm:py-3 sm:text-sm sticky left-0 z-10 bg-slate-50 dark:bg-dk-bg shadow-[1px_0_0_0_#e2e8f0] min-w-[6.75rem] w-[28vw] max-w-[10rem] sm:min-w-[11rem] sm:w-44 sm:max-w-none md:min-w-[14rem] md:w-56 lg:w-64 lg:min-w-[16rem]">
+                      <th className="px-2 py-2 text-xs font-semibold text-slate-600 dark:text-dk-text-soft whitespace-normal leading-snug sm:px-4 sm:py-3 sm:text-sm sticky left-0 z-10 bg-slate-50 dark:bg-dk-bg shadow-[1px_0_0_0_#e2e8f0] dark:shadow-[1px_0_0_0_#2E463C] min-w-[6.75rem] w-[28vw] max-w-[10rem] sm:min-w-[11rem] sm:w-44 sm:max-w-none md:min-w-[14rem] md:w-56 lg:w-64 lg:min-w-[16rem]">
                         {tx(lang,{fr:'Rôle / ',ar:'الدور / ',en:'Role / ',es:'Rol / ',pt:'Função / ',tr:'Rol / '})}{config.displayBy === 'CHAINES' ? tx(lang,{fr:'Chaine',ar:'خط الإنتاج',en:'Chain',es:'Cadena',pt:'Linha',tr:'Hat'}) : config.displayBy === 'GLOBAL' ? tx(lang,{fr:'Global',ar:'إجمالي',en:'Global',es:'Global',pt:'Global',tr:'Genel'}) : customPartitions.find(p => p.id === config.displayBy)?.name || tx(lang,{fr:'Partition',ar:'تقسيم',en:'Partition',es:'Distribución',pt:'Partição',tr:'Bölüm'})}
                       </th>
                       {cols.map(c => {
@@ -1464,15 +1466,15 @@ export default function Effectifs({
                         </th>
                       );
                       })}
-                      <th className="px-2 py-2 sm:px-4 sm:py-3 font-bold text-slate-800 dark:text-dk-text text-center text-xs sm:text-sm bg-slate-100/50 min-w-[3.25rem] sm:min-w-[5rem]">{tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</th>
+                      <th className="px-2 py-2 sm:px-4 sm:py-3 font-bold text-slate-800 dark:text-dk-text text-center text-xs sm:text-sm bg-slate-100/50 dark:bg-dk-elevated/50 min-w-[3.25rem] sm:min-w-[5rem]">{tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                     {visibleRoles.map(row => {
                       const totalRow = calculateTotalForRow(row.id, category);
                       return (
                       <tr key={row.id} className={`hover:bg-slate-50/50 transition-colors group ${row.isArchived ? 'opacity-60 bg-slate-50 dark:bg-dk-bg' : ''}`}>
-                        <td className={`px-2 py-2 sm:px-4 sm:py-3 font-medium text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface group-hover:bg-slate-50/50 sticky left-0 shadow-[1px_0_0_0_#e2e8f0] z-10 flex flex-wrap items-center justify-between gap-x-1 gap-y-1 min-w-[6.75rem] w-[28vw] max-w-[10rem] sm:min-w-[11rem] sm:w-44 sm:max-w-none md:min-w-[12rem] md:w-auto md:max-w-none lg:min-w-[200px] ${row.isArchived ? 'bg-slate-50 dark:bg-dk-bg' : ''}`}>
+                        <td className={`px-2 py-2 sm:px-4 sm:py-3 font-medium text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface group-hover:bg-slate-50/50 sticky left-0 shadow-[1px_0_0_0_#e2e8f0] dark:shadow-[1px_0_0_0_#2E463C] z-10 flex flex-wrap items-center justify-between gap-x-1 gap-y-1 min-w-[6.75rem] w-[28vw] max-w-[10rem] sm:min-w-[11rem] sm:w-44 sm:max-w-none md:min-w-[12rem] md:w-auto md:max-w-none lg:min-w-[200px] ${row.isArchived ? 'bg-slate-50 dark:bg-dk-bg' : ''}`}>
                           <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
                             {isEditMode ? (
                               <EditableText 
@@ -1539,7 +1541,7 @@ export default function Effectifs({
                             </td>
                           );
                         })}
-                        <td className="px-4 py-3 text-center font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-slate-100/50">
+                        <td className="px-4 py-3 text-center font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-slate-100/50 dark:bg-dk-elevated/50">
                           {totalRow}
                         </td>
                       </tr>
@@ -1668,7 +1670,7 @@ export default function Effectifs({
                             axisLine={false} 
                             tickLine={false} 
                           />
-                          <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc', stroke: '#e2e8f0', strokeWidth: 1, strokeDasharray: '3 3' }} />
+                          <Tooltip content={<CustomTooltip />} cursor={{ fill: isDark ? '#14211C' : '#f8fafc', stroke: isDark ? '#2E463C' : '#e2e8f0', strokeWidth: 1, strokeDasharray: '3 3' }} />
                           <Area 
                             type="monotone" 
                             isAnimationActive={false}
@@ -1803,7 +1805,7 @@ export default function Effectifs({
                                 <button
                                   type="button"
                                   onClick={() => deleteUserObservation(note.id)}
-                                  className="shrink-0 rounded-xl p-2 text-violet-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                  className="shrink-0 rounded-xl p-2 text-violet-400 dark:text-violet-300 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400"
                                   title={tx(lang,{fr:'Supprimer cette observation',ar:'حذف هذه الملاحظة',en:'Delete this observation',es:'Eliminar esta observación',pt:'Eliminar esta observação',tr:'Bu gözlemi sil'})}
                                   aria-label={tx(lang,{fr:'Supprimer cette observation',ar:'حذف هذه الملاحظة',en:'Delete this observation',es:'Eliminar esta observación',pt:'Eliminar esta observação',tr:'Bu gözlemi sil'})}
                                 >
@@ -1848,7 +1850,7 @@ export default function Effectifs({
                        <th className="px-6 py-3 font-semibold text-slate-500 dark:text-dk-muted text-center">{tx(lang,{fr:'Principales Catégories',ar:'الفئات الرئيسية',en:'Main Categories',es:'Principales Categorías',pt:'Principais Categorias',tr:'Ana Kategoriler'})}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                     {allKnownChains.map(chain => {
                       const val = analyticsData.today.byChain[chain] || 0;
                       if (val === 0) return null;

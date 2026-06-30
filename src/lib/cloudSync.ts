@@ -9,6 +9,7 @@ const SYNC_KEYS = [
   'beramethode_planning',
   'beramethode_suivis',
   'beramethode_settings',
+  'beramethode_company',
   'beramethode_machine_instances',
   'beramethode_machines_v1',
   'beramethode_machines_fleet_history_v1',

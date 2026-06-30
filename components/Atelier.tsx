@@ -3,6 +3,7 @@ import { ModelData, PlanningEvent, MouvementStock, DemandeAppro, SuiviData, AppS
 import { Factory, Calendar, Package, CheckSquare, Plus, AlertCircle, Clock, ChevronRight, Search, FileText, Send, ArrowLeft, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import InlineInvoiceList from './InlineInvoiceList';
 
 interface AtelierProps {
     models: ModelData[];
@@ -294,6 +295,15 @@ export default function Atelier({ models, planningEvents, suivis, settings, hand
                                                     <CheckSquare className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Clôture Rapide', ar: 'إغلاق سريع', en: 'Quick Closure', es: 'Cierre Rápido', pt: 'Encerramento Rápido', tr: 'Hızlı Kapatma' })}
                                                 </button>
                                             </div>
+                                            {evt.modelId && (
+                                                <div className="mt-3 pt-3 border-t border-dashed border-slate-100 dark:border-dk-border">
+                                                    <InlineInvoiceList
+                                                        productId={String(evt.modelId)}
+                                                        productLabel={mName || ''}
+                                                        sourceModule="atelier"
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })

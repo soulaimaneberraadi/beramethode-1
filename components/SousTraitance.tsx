@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ModelData, SubcontractOrder, PlanningEvent } from '../types';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import InlineInvoiceList from './InlineInvoiceList';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
@@ -2755,6 +2756,16 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated/70 p-3.5 border border-indigo-100 rounded-xl">
                   <span className="text-[10px] font-bold text-indigo-700 dark:text-dk-accent-text dark:text-dk-accent block uppercase tracking-wide">{tx(lang,{fr:'Instructions',ar:'تعليمات',en:'Instructions',es:'Instrucciones',pt:'Instruções',tr:'Talimatlar'})}</span>
                   <p className="mt-1 font-semibold text-indigo-950 dark:text-dk-accent italic">{detailOrder.notes}</p>
+                </div>
+              )}
+
+              {detailOrder.modelId && (
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-dk-border">
+                  <InlineInvoiceList
+                    productId={detailOrder.modelId}
+                    productLabel={detailOrder.modelName || ''}
+                    sourceModule="sousTraitance"
+                  />
                 </div>
               )}
             </div>

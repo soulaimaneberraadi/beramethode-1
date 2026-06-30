@@ -1,312 +1,441 @@
-import React, { useState, useEffect } from 'react';
-import { 
-    FileText, Plus, Search, Filter, Printer, Download, Mail, 
-    Trash2, Edit, ChevronRight, CheckCircle2, AlertCircle, XCircle,
-    Building2, FileCheck2, Calculator, Receipt, Tag, ArrowRight
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+    Receipt, Search, FileText, ArrowRight, Tag, FileCheck2, DollarSign,
+    TrendingUp, Clock, AlertCircle, Eye, Filter, RefreshCw, ChevronRight,
+    ExternalLink, CreditCard
 } from 'lucide-react';
-import { Facture, FactureLigne, BonLivraison, Paiement } from '../types';
-import { tx } from '../lib/i18n';
-import { useLang } from '../src/context/LanguageContext';
+import { Facture } from '../types';
 
 interface FacturationProps {
     t: (key: string) => string;
 }
 
+const STATUS_COLORS: Record<string, string> = {
+    BROUILLON: 'bg-slate-400',
+    ENVOYEE: 'bg-[#2149C1]',
+    PAYEE: 'bg-emerald-700',
+    PARTIELLEMENT: 'bg-amber-500',
+    ANNULEE: 'bg-red-500',
+    ACCEPTE: 'bg-emerald-700',
+    REFUSE: 'bg-red-500',
+};
+
+const formatCurrency = (val: number) =>
+    val.toLocaleString('fr-FR', { minimumFractionDigits: 2 });
+
+const StatusDot = ({ status }: { status: string }) => (
+    <span className={`inline-block w-2 h-2 rounded-full ${STATUS_COLORS[status] || 'bg-slate-400'} flex-shrink-0`} />
+);
+
+function getDateRangeLabel(key: 'today' | 'week' | 'month'): { start: Date; end: Date } {
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    let start: Date;
+    if (key === 'today') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (key === 'week') {
+        const day = now.getDay();
+        const diff = day === 0 ? 6 : day - 1;
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff);
+    } else {
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+    return { start, end };
+}
+
 export default function Facturation({ t }: FacturationProps) {
-    const { lang } = useLang();
-    const [activeTab, setActiveTab] = useState<'ACHAT' | 'VENTE' | 'DEVIS' | 'BL'>('VENTE');
-    const [factures, setFactures] = useState<Facture[]>([]);
-    const [bonsLivraison, setBonsLivraison] = useState<BonLivraison[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
+    const [allFactures, setAllFactures] = useState<Facture[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+    const [view, setView] = useState<'dashboard' | 'pending'>('dashboard');
 
     useEffect(() => {
-        loadData();
-    }, [activeTab]);
+        loadAll();
+    }, []);
 
-    const loadData = async () => {
+    const loadAll = async () => {
         setIsLoading(true);
+        setError(null);
         try {
-            if (activeTab === 'BL') {
-                const res = await fetch('/api/facturation/bl');
-                const data = await res.json();
-                setBonsLivraison(data);
-            } else {
-                const res = await fetch(`/api/facturation/factures?type=${activeTab}`);
-                const data = await res.json();
-                setFactures(data);
-            }
-        } catch (e) {
-            console.error('Error loading facturation data', e);
+            const res = await fetch('/api/facturation/factures');
+            if (!res.ok) throw new Error('Erreur chargement factures');
+            const data = await res.json();
+            setAllFactures(data);
+        } catch (e: any) {
+            setError(e.message || 'Erreur de chargement');
         } finally {
             setIsLoading(false);
         }
     };
 
-    const StatusBadge = ({ status }: { status: string }) => {
-        const styles: Record<string, string> = {
-            'BROUILLON': 'bg-gray-100 dark:bg-dk-elevated text-gray-700 dark:text-dk-text-soft border-gray-200 dark:border-dk-border',
-            'ENVOYEE': 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 border-blue-200',
-            'PAYEE': 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200',
-            'PARTIELLEMENT': 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 border-amber-200',
-            'ANNULEE': 'bg-red-50 dark:bg-red-900/30 text-red-700 border-red-200',
-            'ACCEPTE': 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200',
-            'REFUSE': 'bg-red-50 dark:bg-red-900/30 text-red-700 border-red-200',
-            'PREPARE': 'bg-gray-100 dark:bg-dk-elevated text-gray-700 dark:text-dk-text-soft border-gray-200 dark:border-dk-border',
-            'EXPEDIE': 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 border-blue-200',
-            'LIVRE': 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border-emerald-200',
-            'RETOUR': 'bg-red-50 dark:bg-red-900/30 text-red-700 border-red-200'
-        };
-        return (
-            <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${styles[status] || styles['BROUILLON']}`}>
-                {t(status)}
-            </span>
-        );
-    };
+    const facturesFiltrees = useMemo(() => {
+        let filtered = allFactures;
 
-    const renderFactureList = () => {
-        const filtered = factures.filter(f => 
-            f.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            f.tiers_nom.toLowerCase().includes(searchTerm.toLowerCase())
+        if (searchTerm) {
+            const s = searchTerm.toLowerCase();
+            filtered = filtered.filter(f =>
+                f.numero?.toLowerCase().includes(s) ||
+                f.tiers_nom?.toLowerCase().includes(s)
+            );
+        }
+
+        if (dateFilter !== 'all') {
+            const { start, end } = getDateRangeLabel(dateFilter);
+            filtered = filtered.filter(f => {
+                const d = new Date(f.date_facture);
+                return d >= start && d <= end;
+            });
+        }
+
+        return filtered;
+    }, [allFactures, searchTerm, dateFilter]);
+
+    const stats = useMemo(() => {
+        const totalTTC = allFactures.reduce((s, f) => s + (f.total_ttc || 0), 0);
+        const totalPaye = allFactures.reduce((s, f) => s + (f.montant_paye || 0), 0);
+        const totalRestant = totalTTC - totalPaye;
+
+        const countByType: Record<string, number> = {};
+        for (const f of allFactures) {
+            countByType[f.type] = (countByType[f.type] || 0) + 1;
+        }
+
+        const facturesNonPayees = allFactures.filter(f =>
+            f.statut !== 'PAYEE' && f.statut !== 'ANNULEE'
         );
 
+        return { totalTTC, totalPaye, totalRestant, countByType, facturesNonPayees };
+    }, [allFactures]);
+
+    const recentFactures = useMemo(() =>
+        [...allFactures].sort((a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ).slice(0, 5),
+    [allFactures]);
+
+    if (error) {
         return (
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-medium">
-                            <tr>
-                                <th className="px-6 py-4">{tx(lang,{fr:'N° Document',ar:'رقم المستند',en:'Doc. No.',es:'N.º Doc.',pt:'N.º Doc.',tr:'Belge No.'})}</th>
-                                <th className="px-6 py-4">{activeTab === 'ACHAT' ? tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'}) : tx(lang,{fr:'Client',ar:'العميل',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Montant TTC',ar:'المبلغ شامل الضريبة',en:'Total incl. Tax',es:'Total IVA incl.',pt:'Total c/ Imposto',tr:'Vergi Dahil Toplam'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})}</th>
-                                <th className="px-6 py-4 text-right">{tx(lang,{fr:'Actions',ar:'الإجراءات',en:'Actions',es:'Acciones',pt:'Ações',tr:'İşlemler'})}</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
-                            {filtered.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 dark:text-dk-muted">
-                                        <FileText className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                        <p>{tx(lang,{fr:'Aucun document trouvé',ar:'لم يتم العثور على أي مستند',en:'No document found',es:'No se encontró ningún documento',pt:'Nenhum documento encontrado',tr:'Hiçbir belge bulunamadı'})}</p>
-                                    </td>
-                                </tr>
-                            ) : filtered.map(f => (
-                                <tr key={f.id} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors group">
-                                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-dk-text">{f.numero}</td>
-                                    <td className="px-6 py-4 text-slate-600 dark:text-dk-text-soft">{f.tiers_nom}</td>
-                                    <td className="px-6 py-4 text-slate-600 dark:text-dk-text-soft">
-                                        {new Date(f.date_facture).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-6 py-4 font-semibold text-slate-700 dark:text-dk-text-soft">
-                                        {f.total_ttc.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} <span className="text-xs text-slate-400 dark:text-dk-muted">{tx(lang, {fr: 'MAD', ar: 'درهم', en: 'MAD', es: 'MAD', pt: 'MAD', tr: 'MAD'})}</span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <StatusBadge status={f.statut} />
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button className="p-2 text-slate-400 dark:text-dk-muted hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                                                <Printer className="w-4 h-4" />
-                                            </button>
-                                            <button className="p-2 text-slate-400 dark:text-dk-muted hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-                                                <Edit className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            <div className="space-y-5">
+                <div className="flex items-center justify-between h-14 border-b border-slate-100 dark:border-dk-border">
+                    <div className="flex items-center gap-2.5">
+                        <Receipt className="w-4 text-slate-400" strokeWidth={1.75} />
+                        <h1 className="text-[15px] font-semibold text-slate-900 dark:text-dk-text">Dashboard Facturation</h1>
+                    </div>
+                </div>
+                <div className="p-5 border border-red-200 dark:border-red-900/30 rounded-lg bg-red-50/60 dark:bg-red-900/20">
+                    <p className="text-[13px] text-red-700">{error}</p>
+                    <button onClick={loadAll} className="mt-2 text-[12px] font-medium text-slate-900 dark:text-dk-text underline flex items-center gap-1">
+                        <RefreshCw className="w-3" strokeWidth={1.75} />
+                        Réessayer
+                    </button>
                 </div>
             </div>
         );
-    };
+    }
 
-    const renderBLList = () => {
-        const filtered = bonsLivraison.filter(bl => 
-            bl.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            bl.tiers_nom.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-
-        return (
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-medium">
-                            <tr>
-                                <th className="px-6 py-4">{tx(lang,{fr:'N° BL',ar:'رقم إيصال التسليم',en:'DN No.',es:'N.º Alb.',pt:'N.º GR',tr:'TN No.'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Destinataire',ar:'المستلم',en:'Recipient',es:'Destinatario',pt:'Destinatário',tr:'Alıcı'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Date de livraison',ar:'تاريخ التسليم',en:'Delivery Date',es:'Fecha de entrega',pt:'Data de entrega',tr:'Teslimat Tarihi'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Ref. Facture',ar:'رقم الفاتورة',en:'Invoice Ref.',es:'Ref. Factura',pt:'Ref. Fatura',tr:'Fatura Ref.'})}</th>
-                                <th className="px-6 py-4">{tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})}</th>
-                                <th className="px-6 py-4 text-right">{tx(lang,{fr:'Actions',ar:'الإجراءات',en:'Actions',es:'Acciones',pt:'Ações',tr:'İşlemler'})}</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
-                            {filtered.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 dark:text-dk-muted">
-                                        <FileCheck2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                        <p>{tx(lang,{fr:'Aucun bon de livraison trouvé',ar:'لم يتم العثور على أي إيصال تسليم',en:'No delivery note found',es:'No se encontró ningún albarán',pt:'Nenhuma guia de remessa encontrada',tr:'Hiçbir teslimat notu bulunamadı'})}</p>
-                                    </td>
-                                </tr>
-                            ) : filtered.map(bl => (
-                                <tr key={bl.id} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors group">
-                                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-dk-text">{bl.numero}</td>
-                                    <td className="px-6 py-4 text-slate-600 dark:text-dk-text-soft">{bl.tiers_nom}</td>
-                                    <td className="px-6 py-4 text-slate-600 dark:text-dk-text-soft">
-                                        {new Date(bl.date_livraison).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-6 py-4 text-slate-500 dark:text-dk-muted">{bl.facture_id || '-'}</td>
-                                    <td className="px-6 py-4">
-                                        <StatusBadge status={bl.statut} />
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button className="p-2 text-slate-400 dark:text-dk-muted hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                                                <Printer className="w-4 h-4" />
-                                            </button>
-                                            <button className="p-2 text-slate-400 dark:text-dk-muted hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-                                                <Edit className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+    const renderStatsRow = () => (
+        <div className="grid grid-cols-3 gap-3">
+            <div className="border border-slate-200 dark:border-dk-border rounded-lg p-4 bg-slate-50/60 dark:bg-dk-surface">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-dk-muted uppercase tracking-wide">Total TTC</span>
+                <p className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tabular-nums mt-1">
+                    {formatCurrency(stats.totalTTC)} <span className="text-[10px] font-normal text-slate-400">MAD</span>
+                </p>
             </div>
-        );
-    };
-
-    return (
-        <div className="space-y-6">
-            {/* Header section with gradient background matching BERAMETHODE theme */}
-            <div className="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-8 text-white shadow-xl dark:shadow-dk-elevated relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none">
-                    <Receipt className="w-64 h-64 transform rotate-12" />
-                </div>
-                
-                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div>
-                        <h1 className="text-3xl font-bold mb-2 tracking-tight">{tx(lang,{fr:'Facturation & Documents',ar:'الفوترة والمستندات',en:'Invoicing & Documents',es:'Facturación & Documentos',pt:'Faturação & Documentos',tr:'Faturalama & Belgeler'})}</h1>
-                        <p className="text-indigo-200 max-w-xl text-lg">
-                            {tx(lang,{fr:'Gérez vos factures d\'achat, de vente, devis et bons de livraison en un seul endroit.',ar:'إدارة فواتير الشراء والبيع وعروض الأسعار وإيصالات التسليم في مكان واحد.',en:'Manage your purchase invoices, sales invoices, quotes and delivery notes in one place.',es:'Gestione sus facturas de compra, venta, presupuestos y albaranes en un solo lugar.',pt:'Gerencie suas faturas de compra, venda, orçamentos e guias de remessa em um só lugar.',tr:'Satın alma faturalarınızı, satış faturalarınızı, tekliflerinizi ve teslimat notlarınızı tek bir yerde yönetin.'})}
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <button className="bg-white dark:bg-dk-surface/10 hover:bg-white text-white px-5 py-2.5 rounded-xl transition-all flex items-center gap-2 font-medium border border-white/10 backdrop-blur-sm">
-                            <Settings className="w-5 h-5" />
-                            <span>{tx(lang,{fr:'Paramètres',ar:'الإعدادات',en:'Settings',es:'Ajustes',pt:'Configurações',tr:'Ayarlar'})}</span>
-                        </button>
-                        <button className="bg-emerald-500 hover:bg-emerald-400 text-white px-6 py-2.5 rounded-xl transition-all shadow-lg dark:shadow-dk-lg hover:shadow-emerald-500/30 flex items-center gap-2 font-medium border border-emerald-400/50">
-                            <Plus className="w-5 h-5" />
-                            <span>{tx(lang,{fr:'Nouveau Document',ar:'مستند جديد',en:'New Document',es:'Nuevo Documento',pt:'Novo Documento',tr:'Yeni Belge'})}</span>
-                        </button>
-                    </div>
-                </div>
+            <div className="border border-slate-200 dark:border-dk-border rounded-lg p-4 bg-slate-50/60 dark:bg-dk-surface">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-dk-muted uppercase tracking-wide">Payé</span>
+                <p className="text-[15px] font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums mt-1">
+                    {formatCurrency(stats.totalPaye)} <span className="text-[10px] font-normal text-slate-400">MAD</span>
+                </p>
             </div>
-
-            {/* Main Tabs */}
-            <div className="flex flex-col md:flex-row gap-6">
-                <div className="w-full md:w-64 shrink-0 space-y-2">
-                    <button 
-                        onClick={() => setActiveTab('VENTE')}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'VENTE' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
-                    >
-                        <div className="flex items-center gap-3 font-medium">
-                            <ArrowRight className="w-5 h-5" />
-                            <span>{tx(lang,{fr:'Factures Clients',ar:'فواتير العملاء',en:'Customer Invoices',es:'Facturas de Clientes',pt:'Faturas de Clientes',tr:'Müşteri Faturaları'})}</span>
-                        </div>
-                        {activeTab === 'VENTE' && <ChevronRight className="w-5 h-5 opacity-50" />}
-                    </button>
-                    
-                    <button 
-                        onClick={() => setActiveTab('ACHAT')}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'ACHAT' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
-                    >
-                        <div className="flex items-center gap-3 font-medium">
-                            <ArrowRight className="w-5 h-5 rotate-180" />
-                            <span>{tx(lang,{fr:'Factures Achats',ar:'فواتير المشتريات',en:'Purchase Invoices',es:'Facturas de Compra',pt:'Faturas de Compra',tr:'Satın Alma Faturaları'})}</span>
-                        </div>
-                        {activeTab === 'ACHAT' && <ChevronRight className="w-5 h-5 opacity-50" />}
-                    </button>
-
-                    <button 
-                        onClick={() => setActiveTab('DEVIS')}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'DEVIS' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
-                    >
-                        <div className="flex items-center gap-3 font-medium">
-                            <Tag className="w-5 h-5" />
-                            <span>{tx(lang,{fr:'Devis & Proformas',ar:'عروض الأسعار والفواتير الأولية',en:'Quotes & Proformas',es:'Presupuestos & Proformas',pt:'Orçamentos & Proformas',tr:'Teklifler & Proformalar'})}</span>
-                        </div>
-                        {activeTab === 'DEVIS' && <ChevronRight className="w-5 h-5 opacity-50" />}
-                    </button>
-
-                    <button 
-                        onClick={() => setActiveTab('BL')}
-                        className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === 'BL' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-600/20' : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border'}`}
-                    >
-                        <div className="flex items-center gap-3 font-medium">
-                            <FileCheck2 className="w-5 h-5" />
-                            <span>{tx(lang,{fr:'Bons de Livraison',ar:'إيصالات التسليم',en:'Delivery Notes',es:'Albaranes',pt:'Guias de Remessa',tr:'Teslimat Notları'})}</span>
-                        </div>
-                        {activeTab === 'BL' && <ChevronRight className="w-5 h-5 opacity-50" />}
-                    </button>
-                </div>
-
-                <div className="flex-1 space-y-4">
-                    {/* Toolbar */}
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="relative flex-1 max-w-md">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-dk-muted" />
-                            <input 
-                                type="text"
-                                placeholder={activeTab === 'ACHAT' ? tx(lang,{fr:'Rechercher un document ou fournisseur...',ar:'ابحث عن مستند أو مورد...',en:'Search document or supplier...',es:'Buscar documento o proveedor...',pt:'Pesquisar documento ou fornecedor...',tr:'Belge veya tedarikçi ara...'}) : tx(lang,{fr:'Rechercher un document ou client...',ar:'ابحث عن مستند أو عميل...',en:'Search document or client...',es:'Buscar documento o cliente...',pt:'Pesquisar documento ou cliente...',tr:'Belge veya müşteri ara...'})}
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-400"
-                            />
-                        </div>
-                        <button className="p-2.5 text-slate-500 dark:text-dk-muted bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 rounded-xl transition-all">
-                            <Filter className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    {/* Content Area */}
-                    {isLoading ? (
-                        <div className="h-64 flex items-center justify-center bg-white dark:bg-dk-surface rounded-2xl border border-slate-100 dark:border-dk-border shadow-sm dark:shadow-dk-sm">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                        </div>
-                    ) : (
-                        activeTab === 'BL' ? renderBLList() : renderFactureList()
-                    )}
-                </div>
+            <div className="border border-slate-200 dark:border-dk-border rounded-lg p-4 bg-slate-50/60 dark:bg-dk-surface">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-dk-muted uppercase tracking-wide">Restant</span>
+                <p className="text-[15px] font-semibold text-amber-600 dark:text-amber-400 tabular-nums mt-1">
+                    {formatCurrency(stats.totalRestant)} <span className="text-[10px] font-normal text-slate-400">MAD</span>
+                </p>
             </div>
         </div>
     );
-}
 
-// Ensure icons used are defined if missing in the import
-function Settings(props: any) {
+    const renderTypeCounts = () => (
+        <div className="flex flex-wrap gap-2">
+            {Object.entries(stats.countByType).map(([type, count]) => (
+                <div key={type} className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 dark:border-dk-border rounded-md bg-white dark:bg-dk-surface">
+                    <span className="text-[11px] font-medium text-slate-500 dark:text-dk-muted">{type}</span>
+                    <span className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">{count}</span>
+                </div>
+            ))}
+        </div>
+    );
+
+    const renderSearch = () => (
+        <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 text-slate-400" strokeWidth={1.75} />
+            <input
+                type="text"
+                placeholder="Rechercher par numéro ou tiers..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full h-9 pl-8 pr-3 bg-slate-50/60 dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md text-[12px] text-slate-700 dark:text-dk-text placeholder:text-slate-400 dark:placeholder:text-dk-muted focus:bg-white dark:focus:bg-dk-surface focus:border-slate-300 dark:focus:border-dk-border focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border outline-none transition-all"
+            />
+        </div>
+    );
+
+    const renderDateFilter = () => (
+        <div className="bg-slate-100/60 dark:bg-dk-elevated rounded-md p-0.5 inline-flex">
+            {(['all', 'today', 'week', 'month'] as const).map(key => (
+                <button
+                    key={key}
+                    onClick={() => setDateFilter(key)}
+                    className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-all ${
+                        dateFilter === key
+                            ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]'
+                            : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
+                    }`}
+                >
+                    {key === 'all' ? 'Tout' : key === 'today' ? 'Aujourd\'hui' : key === 'week' ? 'Cette semaine' : 'Ce mois'}
+                </button>
+            ))}
+        </div>
+    );
+
+    const renderRecentActivity = () => (
+        <div className="border border-slate-200 dark:border-dk-border rounded-lg">
+            <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Clock className="w-4 text-slate-400" strokeWidth={1.75} />
+                    <h2 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">Activité récente</h2>
+                </div>
+                <span className="text-[11px] text-slate-400 tabular-nums">{allFactures.length} factures</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+                {recentFactures.length === 0 ? (
+                    <div className="px-5 py-10 text-center text-slate-400">
+                        <FileText className="w-6 h-6 mx-auto mb-2 opacity-20" strokeWidth={1.75} />
+                        <p className="text-[12px]">Aucune facture récente</p>
+                    </div>
+                ) : recentFactures.map(f => (
+                    <div key={f.id} className="px-5 py-2.5 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-dk-elevated transition-colors">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 border border-slate-200 dark:border-dk-border uppercase">
+                                {f.type}
+                            </span>
+                            <span className="text-[13px] font-medium text-slate-900 dark:text-dk-text tabular-nums truncate">{f.numero}</span>
+                            <span className="text-[12px] text-slate-500 truncate">{f.tiers_nom}</span>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                            <span className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">
+                                {formatCurrency(f.total_ttc || 0)} <span className="text-[10px] font-normal text-slate-400">MAD</span>
+                            </span>
+                            <span className="inline-flex items-center gap-1.5 text-[12px] text-slate-500">
+                                <StatusDot status={f.statut} />
+                                {f.statut}
+                            </span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+
+    const renderPendingPayments = () => {
+        const pending = stats.facturesNonPayees;
+        return (
+            <div className="border border-slate-200 dark:border-dk-border rounded-lg">
+                <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 text-slate-400" strokeWidth={1.75} />
+                        <h2 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">Paiements en attente</h2>
+                        {pending.length > 0 && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">{pending.length}</span>
+                        )}
+                    </div>
+                </div>
+                <div className="divide-y divide-slate-100">
+                    {pending.length === 0 ? (
+                        <div className="px-5 py-10 text-center text-slate-400">
+                            <CreditCard className="w-6 h-6 mx-auto mb-2 opacity-20" strokeWidth={1.75} />
+                            <p className="text-[12px]">Toutes les factures sont payées</p>
+                        </div>
+                    ) : pending.map(f => (
+                        <div key={f.id} className="px-5 py-2.5 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-dk-elevated transition-colors">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 border border-slate-200 dark:border-dk-border uppercase">
+                                    {f.type}
+                                </span>
+                                <span className="text-[13px] font-medium text-slate-900 dark:text-dk-text tabular-nums">{f.numero}</span>
+                                <span className="text-[12px] text-slate-500 truncate">{f.tiers_nom}</span>
+                            </div>
+                            <div className="flex items-center gap-4 flex-shrink-0">
+                                <div className="text-right">
+                                    <p className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">{formatCurrency(f.total_ttc || 0)} MAD</p>
+                                    <p className="text-[11px] text-slate-400 tabular-nums">Payé: {formatCurrency(f.montant_paye || 0)} MAD</p>
+                                </div>
+                                <span className="inline-flex items-center gap-1.5 text-[12px] text-slate-500">
+                                    <StatusDot status={f.statut} />
+                                    {f.statut}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    const renderSearchResults = () => {
+        if (!searchTerm) return null;
+        return (
+            <div className="border border-slate-200 dark:border-dk-border rounded-lg">
+                <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Search className="w-4 text-slate-400" strokeWidth={1.75} />
+                        <h2 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">Résultats de recherche</h2>
+                    </div>
+                    <span className="text-[11px] text-slate-400 tabular-nums">{facturesFiltrees.length} trouvé(s)</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                    {facturesFiltrees.length === 0 ? (
+                        <div className="px-5 py-10 text-center text-slate-400">
+                            <FileText className="w-6 h-6 mx-auto mb-2 opacity-20" strokeWidth={1.75} />
+                            <p className="text-[12px]">Aucun résultat pour "{searchTerm}"</p>
+                        </div>
+                    ) : facturesFiltrees.map(f => (
+                        <div key={f.id} className="px-5 py-2.5 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-dk-elevated transition-colors">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-slate-500 border border-slate-200 dark:border-dk-border uppercase">
+                                    {f.type}
+                                </span>
+                                <span className="text-[13px] font-medium text-slate-900 dark:text-dk-text tabular-nums">{f.numero}</span>
+                                <span className="text-[12px] text-slate-500 truncate">{f.tiers_nom}</span>
+                                <span className="text-[11px] text-slate-400 tabular-nums">
+                                    {new Date(f.date_facture).toLocaleDateString('fr-FR')}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-3 flex-shrink-0">
+                                <span className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">
+                                    {formatCurrency(f.total_ttc || 0)} MAD
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 text-[12px] text-slate-500">
+                                    <StatusDot status={f.statut} />
+                                    {f.statut}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    const renderInlineInvoiceLink = () => (
+        <div className="border border-slate-200 dark:border-dk-border rounded-lg p-4 bg-slate-50/60 dark:bg-dk-surface">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <FileText className="w-4 text-slate-400" strokeWidth={1.75} />
+                    <div>
+                        <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">عرض فواتير مادة</h3>
+                        <p className="text-[11px] text-slate-500 dark:text-dk-muted">تصفح الفواتير المرتبطة بمنتج معين</p>
+                    </div>
+                </div>
+                <ChevronRight className="w-4 text-slate-400" strokeWidth={1.75} />
+            </div>
+        </div>
+    );
+
+    const renderPendingTab = () => (
+        <div className="space-y-5">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 text-slate-400" strokeWidth={1.75} />
+                    <h2 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">Factures non payées</h2>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">{stats.facturesNonPayees.length}</span>
+                </div>
+                <span className="text-[12px] text-slate-500 tabular-nums">
+                    Total: {formatCurrency(stats.facturesNonPayees.reduce((s, f) => s + (f.total_ttc || 0), 0))} MAD
+                </span>
+            </div>
+            {renderPendingPayments()}
+        </div>
+    );
+
     return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-            <circle cx="12" cy="12" r="3" />
-        </svg>
-    )
+        <div className="space-y-5">
+            <div className="flex items-center justify-between h-14 border-b border-slate-100 dark:border-dk-border">
+                <div className="flex items-center gap-2.5">
+                    <Receipt className="w-4 text-slate-400" strokeWidth={1.75} />
+                    <h1 className="text-[15px] font-semibold text-slate-900 dark:text-dk-text">Dashboard Facturation</h1>
+                    {isLoading && (
+                        <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-slate-400 ml-2" />
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="bg-slate-100/60 dark:bg-dk-elevated rounded-md p-0.5 inline-flex">
+                        <button
+                            onClick={() => setView('dashboard')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all ${
+                                view === 'dashboard'
+                                    ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]'
+                                    : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
+                            }`}
+                        >
+                            <TrendingUp className="w-3.5" strokeWidth={1.75} />
+                            Dashboard
+                        </button>
+                        <button
+                            onClick={() => setView('pending')}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all ${
+                                view === 'pending'
+                                    ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]'
+                                    : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
+                            }`}
+                        >
+                            <DollarSign className="w-3.5" strokeWidth={1.75} />
+                            Impayés
+                            {stats.facturesNonPayees.length > 0 && (
+                                <span className="px-1 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">
+                                    {stats.facturesNonPayees.length}
+                                </span>
+                            )}
+                        </button>
+                    </div>
+                    <button
+                        onClick={loadAll}
+                        className="w-8 h-8 flex items-center justify-center rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-900 dark:text-dk-text dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
+                        title="Actualiser"
+                    >
+                        <RefreshCw className="w-3.5" strokeWidth={1.75} />
+                    </button>
+                </div>
+            </div>
+
+            {view === 'pending' ? (
+                renderPendingTab()
+            ) : (
+                <>
+                    {renderStatsRow()}
+
+                    {renderTypeCounts()}
+
+                    <div className="flex items-center gap-3">
+                        {renderSearch()}
+                        {renderDateFilter()}
+                    </div>
+
+                    {searchTerm ? renderSearchResults() : (
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="col-span-2 space-y-3">
+                                {renderRecentActivity()}
+                            </div>
+                            <div className="space-y-3">
+                                {renderPendingPayments()}
+                                {renderInlineInvoiceLink()}
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
 }

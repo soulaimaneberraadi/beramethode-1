@@ -196,11 +196,32 @@ const filterAlive = (type: string, arr: any[]): any[] => {
   return dead.size === 0 ? arr : arr.filter((it: any) => !dead.has(String(it.id)));
 };
 
+// Lit l'identité société depuis le localStorage (clé synchronisée via cloudSync).
+const readCompany = () => {
+  const c = readJson('beramethode_company') || {};
+  return {
+    ok: true,
+    store: 'company_settings' as const,
+    canEdit: true,
+    name: c.name || '',
+    logo: c.logo || null,
+    specialty: c.specialty || '',
+    accountType: c.accountType || 'societe',
+    profileMeta: c.profileMeta || null,
+  };
+};
+
 const handleGet = (pathname: string): any => {
   // Specials
   if (/^\/api\/auth\/me$/.test(pathname)) return { user: null };
   if (/^\/api\/network-info$/.test(pathname)) return { ip: '127.0.0.1', host: 'static' };
   if (/^\/api\/settings$/.test(pathname)) return readJson('beramethode_settings') || {};
+  // Identité société (onglet Entreprise de l'admin) — sinon « Chargement… » infini.
+  if (/^\/api\/permissions\/company$/.test(pathname)) return readCompany();
+  if (/^\/api\/permissions\/me$/.test(pathname)) {
+    const c = readJson('beramethode_company') || {};
+    return { isSuper: true, ownerId: null, roleId: null, pages: {}, fields: {}, hiddenPages: [], accountType: c.accountType || 'societe' };
+  }
   if (/^\/api\/dashboard\/kpis$/.test(pathname)) {
     const planning = filterAlive('planning', readArray('planning'));
     const models = filterAlive('models', readArray('models'));
@@ -270,6 +291,13 @@ export const installApiShim = () => {
       const txt = init?.body ? (typeof init.body === 'string' ? init.body : await new Response(init.body as any).text()) : '';
       body = txt ? JSON.parse(txt) : null;
     } catch { body = null; }
+
+    // Identité société : persiste dans le localStorage (clé synchronisée).
+    if (/^\/api\/permissions\/company$/.test(url.pathname) && (method === 'PUT' || method === 'POST')) {
+      const prev = readJson('beramethode_company') || {};
+      writeJson('beramethode_company', { ...prev, ...(body || {}) });
+      return reply(readCompany());
+    }
 
     const r = resolveTypeAndId(url.pathname);
     if (!r) return reply({ ok: true, static: true, note: 'no store for path' });

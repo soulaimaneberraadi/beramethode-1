@@ -1,6 +1,69 @@
 import { Request, Response } from 'express';
 import db from './db';
 
+const DEFAULT_PREFIXES: Record<string, string> = {
+  ACHAT: 'FA', VENTE: 'FV', DEVIS: 'DEV', PROFORMA: 'FP', AVOIR: 'AV'
+};
+
+const NUMERO_RETRIES = 5;
+
+function generateNumero(
+  type: string,
+  ownerId: number,
+  table: 'factures' | 'bons_livraison' = 'factures',
+  prefixMap?: Record<string, string>,
+): string {
+  const year = new Date().getFullYear().toString();
+  const pfx = prefixMap?.[type] || DEFAULT_PREFIXES[type] || 'DOC';
+
+  for (let attempt = 0; attempt < NUMERO_RETRIES; attempt++) {
+    let row: { maxSeq: number };
+    if (table === 'bons_livraison') {
+      row = db.prepare(`
+        SELECT COALESCE(MAX(CAST(SUBSTR(numero, -4) AS INTEGER)), 0) AS maxSeq
+        FROM bons_livraison
+        WHERE owner_id = ? AND numero LIKE ?
+      `).get(ownerId, `${pfx}-${year}-%`) as { maxSeq: number };
+    } else {
+      row = db.prepare(`
+        SELECT COALESCE(MAX(CAST(SUBSTR(numero, -4) AS INTEGER)), 0) AS maxSeq
+        FROM factures
+        WHERE owner_id = ? AND type = ? AND numero LIKE ?
+      `).get(ownerId, type, `${pfx}-${year}-%`) as { maxSeq: number };
+    }
+
+    const seq = (row.maxSeq + 1).toString().padStart(4, '0');
+    const candidate = `${pfx}-${year}-${seq}`;
+
+    try {
+      const exists = db.prepare(`SELECT 1 FROM ${table} WHERE numero = ? AND owner_id = ?`).get(candidate, ownerId);
+      if (!exists) return candidate;
+    } catch {
+      return candidate;
+    }
+  }
+
+  return `${pfx}-${year}-${Date.now().toString().slice(-4)}`;
+}
+
+function generateBLNumero(ownerId: number): string {
+  return generateNumero('BL', ownerId, 'bons_livraison', { BL: 'BL' });
+}
+
+function updateStatutApresPaiement(factureId: string, ownerId: number): void {
+  const f = db.prepare('SELECT total_ttc, montant_paye FROM factures WHERE id = ? AND owner_id = ?').get(factureId, ownerId) as any;
+  if (!f) return;
+  let nouveauStatut: string;
+  if (f.montant_paye <= 0) {
+    nouveauStatut = 'ENVOYEE';
+  } else if (f.montant_paye >= f.total_ttc) {
+    nouveauStatut = 'PAYEE';
+  } else {
+    nouveauStatut = 'PARTIELLEMENT';
+  }
+  db.prepare('UPDATE factures SET statut = ? WHERE id = ? AND owner_id = ?').run(nouveauStatut, factureId, ownerId);
+}
+
 // --------------------------------------------------------------------------------
 // FACTURES (ACHAT, VENTE, DEVIS, PROFORMA, AVOIR)
 // --------------------------------------------------------------------------------
@@ -56,18 +119,32 @@ export const saveFacture = (req: Request, res: Response) => {
     const ownerId = (req as any).companyId as number;
     let payload = req.body;
     
-    if (!payload.id) {
+    const isNew = !payload.id;
+    if (isNew) {
         payload.id = 'FAC_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
     }
 
     const {
-        id, numero, type,
+        id, numero: rawNumero, type,
         tiers_nom, tiers_ice, tiers_rc, tiers_if, tiers_adresse, tiers_tel, tiers_email,
         date_facture, date_echeance,
         total_ht, taux_tva, total_tva, total_ttc, montant_paye,
         devis_id, planning_id, commande_id,
         statut, notes, lignes
     } = payload;
+
+    const numero = isNew ? generateNumero(type, ownerId) : rawNumero;
+
+    const lignesArr: { designation?: string; quantite?: number; prix_unitaire?: number; total?: number }[] = lignes || [];
+    let computedHt = total_ht ?? 0;
+    let computedTva = total_tva ?? 0;
+    let computedTtc = total_ttc ?? 0;
+    if (computedHt === 0 && lignesArr.length > 0) {
+      computedHt = lignesArr.reduce((s, l) => s + (l.total ?? (l.prix_unitaire ?? 0) * (l.quantite ?? 0)), 0);
+      const tvaRate = taux_tva ?? 0;
+      computedTva = computedHt * (tvaRate / 100);
+      computedTtc = computedHt + computedTva;
+    }
 
     const query = `
       INSERT INTO factures (
@@ -111,16 +188,21 @@ export const saveFacture = (req: Request, res: Response) => {
         updated_at = CURRENT_TIMESTAMP
     `;
 
+    const finalHt = isNew ? computedHt : (total_ht ?? computedHt);
+    const finalTva = isNew ? computedTva : (total_tva ?? computedTva);
+    const finalTtc = isNew ? computedTtc : (total_ttc ?? computedTtc);
+    const finalTaux = taux_tva ?? (computedHt > 0 && total_ht === 0 ? 0 : taux_tva) ?? 0;
+
     db.prepare(query).run(
         id, ownerId, numero, type,
         tiers_nom, tiers_ice || null, tiers_rc || null, tiers_if || null, tiers_adresse || null, tiers_tel || null, tiers_email || null,
         date_facture, date_echeance || null,
-        total_ht || 0, taux_tva || 0, total_tva || 0, total_ttc || 0, montant_paye || 0,
+        finalHt, finalTaux, finalTva, finalTtc, montant_paye || 0,
         devis_id || null, planning_id || null, commande_id || null,
         statut || 'BROUILLON', notes || null, JSON.stringify(lignes || [])
     );
 
-    res.json({ success: true, id });
+    res.json({ success: true, id, numero });
   } catch (error: any) {
     console.error('saveFacture error:', error);
     res.status(500).json({ error: error.message });
@@ -167,13 +249,16 @@ export const saveBonLivraison = (req: Request, res: Response) => {
     const ownerId = (req as any).companyId as number;
     let payload = req.body;
     
-    if (!payload.id) {
+    const isNew = !payload.id;
+    if (isNew) {
         payload.id = 'BL_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
     }
 
     const {
-        id, numero, facture_id, tiers_nom, date_livraison, adresse_livraison, transporteur, lignes, statut, notes
+        id, numero: rawNumero, facture_id, tiers_nom, date_livraison, adresse_livraison, transporteur, lignes, statut, notes
     } = payload;
+
+    const numero = isNew ? generateBLNumero(ownerId) : rawNumero;
 
     const query = `
       INSERT INTO bons_livraison (
@@ -197,7 +282,7 @@ export const saveBonLivraison = (req: Request, res: Response) => {
         id, ownerId, numero, facture_id || null, tiers_nom, date_livraison, adresse_livraison || null, transporteur || null, JSON.stringify(lignes || []), statut || 'PREPARE', notes || null
     );
 
-    res.json({ success: true, id });
+    res.json({ success: true, id, numero });
   } catch (error: any) {
     console.error('saveBonLivraison error:', error);
     res.status(500).json({ error: error.message });
@@ -274,10 +359,14 @@ export const savePaiement = (req: Request, res: Response) => {
         const totalPaid = totalPaidRes.total || 0;
 
         db.prepare('UPDATE factures SET montant_paye = ? WHERE id = ? AND owner_id = ?').run(totalPaid, facture_id, ownerId);
+
+        updateStatutApresPaiement(facture_id, ownerId);
     });
 
     tx();
-    res.json({ success: true, id });
+
+    const fUpdated = db.prepare('SELECT montant_paye, statut FROM factures WHERE id = ? AND owner_id = ?').get(facture_id, ownerId) as any;
+    res.json({ success: true, id, montant_paye: fUpdated?.montant_paye ?? montant, statut: fUpdated?.statut });
   } catch (error: any) {
     console.error('savePaiement error:', error);
     res.status(500).json({ error: error.message });
@@ -297,10 +386,13 @@ export const deletePaiement = (req: Request, res: Response) => {
         const totalPaid = totalPaidRes?.total || 0;
 
         db.prepare('UPDATE factures SET montant_paye = ? WHERE id = ? AND owner_id = ?').run(totalPaid, facture_id, ownerId);
+
+        updateStatutApresPaiement(facture_id, ownerId);
     });
 
     tx();
-    res.json({ success: true });
+    const fUpdated = db.prepare('SELECT montant_paye, statut FROM factures WHERE id = ? AND owner_id = ?').get(facture_id, ownerId) as any;
+    res.json({ success: true, montant_paye: fUpdated?.montant_paye ?? 0, statut: fUpdated?.statut });
   } catch (error: any) {
     console.error('deletePaiement error:', error);
     res.status(500).json({ error: error.message });

@@ -29,6 +29,7 @@ import Balancing from './Balancing';
 import Implantation from './Implantation';
 import CostCalculator from './CostCalculator';
 import Pedido from './Pedido';
+import InlineInvoiceList from './InlineInvoiceList';
 
 import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste, FicheData, Material, ChronoData, AppSettings, ManualLink, PlanningEvent, CustomStation } from '../types';
 import { tx, pickT } from '../lib/i18n';
@@ -647,6 +648,16 @@ export default function ModelWorkflow({
                             />
                         );
                     })()}
+
+                    {currentStep === 'couts' && currentModelId && (
+                        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-dk-border">
+                            <InlineInvoiceList
+                                productId={currentModelId}
+                                productLabel={articleName}
+                                sourceModule="model"
+                            />
+                        </div>
+                    )}
 
                     {currentStep === 'pedido' && (
                         <Pedido

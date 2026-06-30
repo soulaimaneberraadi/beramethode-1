@@ -76,10 +76,10 @@ export default function PlanningHeader({
 
     if (isMobile) {
         return (
-            <header className="shrink-0 bg-white/80 dark:bg-slate-900/80 border-b border-slate-200/45 dark:border-slate-700/60 backdrop-blur-md shadow-sm dark:shadow-dk-sm">
+            <header className="shrink-0 bg-white/80 dark:bg-dk-surface/80 border-b border-slate-200/45 dark:border-dk-border backdrop-blur-md shadow-sm dark:shadow-dk-sm">
                 {/* ROW 1 — title + primary actions */}
                 <div className="px-3 h-12 flex items-center gap-2">
-                    <h1 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 tracking-tight">{tx(lang,{fr:"Planning",ar:"التخطيط",en:"Planning",es:"Planificación",pt:"Planejamento",tr:"Planlama"})}</h1>
+                    <h1 className="text-[15px] font-bold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang,{fr:"Planning",ar:"التخطيط",en:"Planning",es:"Planificación",pt:"Planejamento",tr:"Planlama"})}</h1>
 
                     {/* Stat dots compact */}
                     <div className="flex items-center gap-2 ml-1">
@@ -217,13 +217,13 @@ export default function PlanningHeader({
     }
 
     return (
-        <header className="shrink-0 bg-white/70 dark:bg-slate-900/70 border-b border-slate-200/45 dark:border-slate-700/60 backdrop-blur-md sticky top-0 z-40 shadow-sm dark:shadow-dk-sm">
+        <header className="shrink-0 bg-white/70 dark:bg-dk-surface/70 border-b border-slate-200/45 dark:border-dk-border backdrop-blur-md sticky top-0 z-40 shadow-sm dark:shadow-dk-sm">
             {/* ROW 1 — Brand + actions */}
             <div className="px-6 h-14 flex items-center gap-4">
 
                 {/* Title */}
                 <div className="flex items-baseline gap-2 shrink-0">
-                    <h1 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 tracking-tight">{tx(lang,{fr:"Planning",ar:"التخطيط",en:"Planning",es:"Planificación",pt:"Planejamento",tr:"Planlama"})}</h1>
+                    <h1 className="text-[15px] font-bold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang,{fr:"Planning",ar:"التخطيط",en:"Planning",es:"Planificación",pt:"Planejamento",tr:"Planlama"})}</h1>
                     <span className="text-[11px] text-slate-400 dark:text-dk-muted font-bold uppercase tracking-wider">{tx(lang,{fr:"Production",ar:"الإنتاج",en:"Production",es:"Producción",pt:"Produção",tr:"Üretim"})}</span>
                 </div>
 
@@ -385,10 +385,10 @@ function MobileMenuBtn({
 
 function Stat({ label, value, color, emphasize }: { label: string; value: number; color: string; emphasize?: boolean }) {
     return (
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/10 dark:border-slate-700/30 backdrop-blur-sm shadow-[0_1px_2px_rgba(0,0,0,0.01)] text-[11px] font-medium text-slate-650 dark:text-slate-300">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100/50 dark:bg-dk-elevated/50 border border-slate-200/10 dark:border-dk-border/30 backdrop-blur-sm shadow-[0_1px_2px_rgba(0,0,0,0.01)] text-[11px] font-medium text-slate-650 dark:text-dk-text-soft">
             <span className={`w-1.5 h-1.5 rounded-full ${color} ${emphasize && value > 0 ? 'animate-pulse' : ''}`} />
             <span className="text-[11px] text-slate-500 dark:text-dk-muted font-bold">{label}</span>
-            <span className={`text-[11px] font-extrabold tabular-nums ${emphasize && value > 0 ? 'text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'}`}>
+            <span className={`text-[11px] font-extrabold tabular-nums ${emphasize && value > 0 ? 'text-slate-900 dark:text-dk-text' : 'text-slate-700 dark:text-dk-muted'}`}>
                 {value}
             </span>
         </div>

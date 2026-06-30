@@ -354,11 +354,11 @@ export default function GanttView({
 
     return (
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <div ref={scrollRef} className="flex-1 overflow-auto bg-white dark:bg-slate-900 relative">
+        <div ref={scrollRef} className="flex-1 overflow-auto bg-white dark:bg-dk-bg relative">
             <div style={{ minWidth: SIDEBAR_W + dates.length * dayWidth }}>
                 {/* Header timeline */}
                 <div className="flex">
-                    <div className="shrink-0 sticky left-0 z-[31] bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 relative" style={{ width: SIDEBAR_W }}>
+                    <div className="shrink-0 sticky left-0 z-[31] bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border relative" style={{ width: SIDEBAR_W }}>
                         <div className="h-[64px] flex items-center justify-between border-b border-slate-100 dark:border-dk-border overflow-hidden">
                             {!sidebarCollapsed && (
                                 <span className="text-[10px] font-medium text-slate-400 dark:text-dk-muted uppercase tracking-wider px-3 whitespace-nowrap">

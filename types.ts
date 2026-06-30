@@ -396,6 +396,7 @@ export interface PdfSettings {
   orientation: 'portrait' | 'landscape';
   colorMode: 'color' | 'grayscale';
   scale: number;
+  format?: 'A4' | 'A3';
 }
 
 export interface Translations {
@@ -1111,6 +1112,47 @@ export interface Paiement {
   reference?: string | null;
   notes?: string | null;
   created_at: string;
+}
+
+// --------------- INVOICES 2.0 (Decentralized / Material-Centric) ---------------
+
+export type InvoiceType = 'ACHAT' | 'VENTE' | 'TRANSFERT' | 'PRODUCTION';
+export type InvoiceStatut = 'BROUILLON' | 'VALIDEE' | 'PAYEE' | 'ANNULEE';
+export type InvoiceSourceModule = 'atelier' | 'magasin' | 'coupe' | 'model' | 'sous_traitance' | 'global';
+
+export interface InvoiceLine {
+  id: string;
+  invoice_id: string;
+  product_id?: string | null;
+  designation: string;
+  quantite: number;
+  prix_unitaire: number;
+  total: number;
+}
+
+export interface Invoice {
+  id: string;
+  owner_id: number;
+  numero: string;
+  type: InvoiceType;
+  source_module: InvoiceSourceModule;
+  source_id?: string | null;
+  tiers_nom?: string | null;
+  tiers_ice?: string | null;
+  tiers_adresse?: string | null;
+  tiers_tel?: string | null;
+  tiers_email?: string | null;
+  date_invoice: string;
+  date_echeance?: string | null;
+  statut: InvoiceStatut;
+  total_ht: number;
+  taux_tva: number;
+  total_tva: number;
+  total_ttc: number;
+  notes?: string | null;
+  lines: InvoiceLine[];
+  created_at: string;
+  updated_at: string;
 }
 
 // --------------------------------------------------------------------------------

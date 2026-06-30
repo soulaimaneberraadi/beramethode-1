@@ -109,6 +109,7 @@ import {
   getBonsLivraison, saveBonLivraison, deleteBonLivraison,
   getPaiementsParFacture, savePaiement, deletePaiement
 } from './server/facturationController';
+import * as invoiceController from './server/invoiceController';
 import { getDashboardKPIs, streamDashboardKPIs } from './server/dashboardController';
 import { authenticateToken, requirePermission, clearAuthCookie } from './server/middleware';
 import { postAnalyzeTextile, postSuggestVocabulary, postGenerateOperations, postOptimizePlanning } from './server/geminiController';
@@ -732,6 +733,14 @@ async function startServer() {
   app.get('/api/facturation/paiements/:facture_id', authenticateToken, requirePermission('page', 'facturation', 'view'), getPaiementsParFacture);
   app.post('/api/facturation/paiements', authenticateToken, requirePermission('page', 'facturation', 'edit'), savePaiement);
   app.delete('/api/facturation/paiements/:facture_id/:id', authenticateToken, requirePermission('page', 'facturation', 'edit'), deletePaiement);
+
+  // Invoices
+  app.get('/api/invoices', authenticateToken, invoiceController.getInvoices);
+  app.get('/api/invoices/:id', authenticateToken, invoiceController.getInvoiceById);
+  app.get('/api/invoices/product/:productId', authenticateToken, invoiceController.getInvoicesByProduct);
+  app.post('/api/invoices', authenticateToken, invoiceController.saveInvoice);
+  app.delete('/api/invoices/:id', authenticateToken, invoiceController.deleteInvoice);
+  app.post('/api/invoices/:id/publish', authenticateToken, invoiceController.publishInvoice);
 
   // Gemini / IA — API key server-side only
   app.post('/api/ai/analyze-textile', authenticateToken, requirePermission('page', 'ingenierie', 'view'), postAnalyzeTextile);

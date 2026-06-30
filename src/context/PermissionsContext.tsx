@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { AccountType, normalizeAccountType, DEFAULT_ACCOUNT_TYPE } from '../../app/accountTypes';
+import { pkey } from '../../lib/storageKeys';
 
 /**
  * Contexte de permissions hiérarchiques (Epic 2).
@@ -47,8 +48,17 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
 
   const load = useCallback(async () => {
     // Static mode ou pas connecté => super par défaut (non-breaking).
+    // En static on relit le type de compte depuis le localStorage (choisi dans
+    // l'onglet Entreprise) pour que les modules masqués suivent ce choix.
     if (IS_STATIC || !user) {
-      setState({ ...DEFAULT, loading: false });
+      let accountType = DEFAULT_ACCOUNT_TYPE;
+      if (IS_STATIC) {
+        try {
+          const c = JSON.parse(localStorage.getItem(pkey('beramethode_company')) || '{}');
+          accountType = normalizeAccountType(c.accountType);
+        } catch { /* défaut conservé */ }
+      }
+      setState({ ...DEFAULT, loading: false, accountType });
       return;
     }
     try {

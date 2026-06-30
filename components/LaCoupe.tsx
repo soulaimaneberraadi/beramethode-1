@@ -12,6 +12,7 @@ import {
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import ExcelInput from './ExcelInput';
+import InlineInvoiceList from './InlineInvoiceList';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
 
@@ -1716,6 +1717,13 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     </button>
                                 </div>
                             )}
+                            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-dk-border">
+                                <InlineInvoiceList
+                                    productId={selectedModel.id}
+                                    productLabel={selectedModel.meta_data?.nom_modele || ''}
+                                    sourceModule="coupe"
+                                />
+                            </div>
                         </div>
                     ) : (
                         viewMode === 'board' ? (
@@ -2388,14 +2396,14 @@ function EmptyDashboard({
             </div>
 
             {/* Quick guide */}
-            <div className="bg-gradient-to-r from-indigo-50 to-rose-50 rounded-xl border border-indigo-100 p-4 md:p-5">
+            <div className="bg-gradient-to-r from-indigo-50 to-rose-50 dark:from-dk-surface dark:to-dk-bg rounded-xl border border-indigo-100 dark:border-dk-border p-4 md:p-5">
                 <div className="flex items-center gap-2 mb-3">
                     <Zap className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     <h3 className="text-[13px] font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Guide Rapide', ar: 'دليل سريع', en: 'Quick Guide', es: 'Guía Rápida', pt: 'Guia Rápido', tr: 'Hızlı Rehber' })}</h3>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="flex items-start gap-2.5">
-                        <div className="w-6 h-6 rounded bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded bg-indigo-100 dark:bg-dk-accent/20 flex items-center justify-center shrink-0 mt-0.5">
                             <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">1</span>
                         </div>
                         <div>
@@ -2404,7 +2412,7 @@ function EmptyDashboard({
                         </div>
                     </div>
                     <div className="flex items-start gap-2.5">
-                        <div className="w-6 h-6 rounded bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded bg-indigo-100 dark:bg-dk-accent/20 flex items-center justify-center shrink-0 mt-0.5">
                             <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">2</span>
                         </div>
                         <div>
@@ -2413,7 +2421,7 @@ function EmptyDashboard({
                         </div>
                     </div>
                     <div className="flex items-start gap-2.5">
-                        <div className="w-6 h-6 rounded bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded bg-indigo-100 dark:bg-dk-accent/20 flex items-center justify-center shrink-0 mt-0.5">
                             <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">3</span>
                         </div>
                         <div>
