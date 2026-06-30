@@ -510,7 +510,7 @@ export default function App() {
     const [machineFleetHistory, setMachineFleetHistory] = useState<MachineFleetHistoryEntry[]>(loadMachineFleetHistoryFromStorage);
 
     const [machineInstances, setMachineInstances] = useState<MachineInstance[]>(() => {
-        try { const s = localStorage.getItem(MACHINE_INSTANCES_KEY); return s ? JSON.parse(s) : []; } catch { return []; }
+        try { const s = lsGetMig(MACHINE_INSTANCES_KEY); return s ? JSON.parse(s) : []; } catch { return []; }
     });
 
     useEffect(() => {
@@ -536,19 +536,19 @@ export default function App() {
 
     useEffect(() => {
         try {
-            localStorage.setItem(MACHINES_STORAGE_KEY, JSON.stringify(machines));
+            lsSet(MACHINES_STORAGE_KEY, JSON.stringify(machines));
         } catch {
             /* ignore quota / private mode */
         }
     }, [machines]);
 
     useEffect(() => {
-        try { localStorage.setItem(MACHINE_INSTANCES_KEY, JSON.stringify(machineInstances)); } catch { /* ignore */ }
+        try { lsSet(MACHINE_INSTANCES_KEY, JSON.stringify(machineInstances)); } catch { /* ignore */ }
     }, [machineInstances]);
 
     useEffect(() => {
         try {
-            localStorage.setItem(MACHINE_FLEET_HISTORY_KEY, JSON.stringify(machineFleetHistory));
+            lsSet(MACHINE_FLEET_HISTORY_KEY, JSON.stringify(machineFleetHistory));
         } catch {
             /* ignore */
         }
@@ -934,7 +934,7 @@ export default function App() {
         autosaveRestoredForRef.current = ownerKey;
         if (!user || IS_STATIC) {
             try {
-                const localRaw = localStorage.getItem(AUTO_SAVE_KEY);
+                const localRaw = lsGetMig(AUTO_SAVE_KEY);
                 if (localRaw) {
                     const ws = JSON.parse(localRaw);
                     if (ws && typeof ws === 'object') {
@@ -961,7 +961,7 @@ export default function App() {
                 try {
                     const ws = typeof data.autosave_workspace === 'string' ? JSON.parse(data.autosave_workspace) : data.autosave_workspace;
                     if (!ws || typeof ws !== 'object') return;
-                    const localRaw = localStorage.getItem(AUTO_SAVE_KEY);
+                    const localRaw = lsGetMig(AUTO_SAVE_KEY);
                     const localTs = localRaw ? (JSON.parse(localRaw).lastSaved || 0) : 0;
                     const target = (ws.lastSaved || 0) > localTs ? ws : (localRaw ? JSON.parse(localRaw) : ws);
                     if (target.articleName !== undefined) setArticleName(target.articleName);
@@ -1172,7 +1172,7 @@ export default function App() {
         const timer = setTimeout(() => {
             const dataToSave = { currentModelId, articleName, operations, assignments, postes, ficheData, ficheImages, efficiency, numWorkers, presenceTime, layoutMemory, activeLayout, manualLinks, savedPlantations, chronoData, chronoCustomStations, chronoLayoutSide, lastSaved: Date.now() };
             try {
-                localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(dataToSave));
+                lsSet(AUTO_SAVE_KEY, JSON.stringify(dataToSave));
                 setSaveStatus('saved');
             } catch (e) {
                 console.error('Auto-save failed (likely quota exceeded)', e);

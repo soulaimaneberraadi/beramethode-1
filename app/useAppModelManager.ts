@@ -7,6 +7,7 @@ const launchDateTimeIso = (date: string, launchTime?: string) => {
 };
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 import { AUTO_SAVE_KEY } from './constants';
+import { lsRemove } from '../lib/storageKeys';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 
@@ -282,7 +283,7 @@ export function useAppModelManager({
     }, [setCurrentView, setModels]);
 
     const createNewProject = useCallback(() => {
-        localStorage.removeItem(AUTO_SAVE_KEY);
+        lsRemove(AUTO_SAVE_KEY);
         if (!IS_STATIC) {
             fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autosave_workspace: null }) }).catch(() => {});
         }
