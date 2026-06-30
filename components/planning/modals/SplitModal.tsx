@@ -5,6 +5,8 @@ import type { PlanningEvent, ModelData, Lot as TypeLot } from '../../../types';
 import { evClientName, evModelName, evQty, evModelThumb } from '../shared/eventAccessors';
 import { getClientColor } from '../shared/clientColors';
 import { Package, Plus, Minus, Scissors, Grid3X3, ChevronDown, ChevronUp } from 'lucide-react';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 interface Lot {
     id: string;
@@ -25,6 +27,7 @@ interface Props {
 }
 
 export default function SplitModal({ open, event, models, onClose, onSubmit }: Props) {
+    const { lang } = useLang();
     const [mode, setMode] = useState<'simple' | 'lots'>('simple');
     const [qty, setQty] = useState(0);
     const [lots, setLots] = useState<Lot[]>([]);
@@ -218,19 +221,19 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
         <Modal
             open={open}
             onClose={onClose}
-            title="Fractionner l'ordre"
+            title={tx(lang,{fr:"Fractionner l'ordre",ar:'تقسيم الطلب',en:'Split Order',es:'Dividir pedido',pt:'Dividir pedido',tr:'Siparişi Böl'})}
             subtitle={`${client} · ${modelName}`}
             size="lg"
             footer={
                 <>
-                    <Button variant="ghost" onClick={onClose}>Annuler</Button>
+                    <Button variant="ghost" onClick={onClose}>{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</Button>
                     {mode === 'simple' ? (
                         <Button variant="primary" onClick={handleSimpleSubmit} disabled={!valid}>
-                            Fractionner
+                            {tx(lang,{fr:'Fractionner',ar:'تقسيم',en:'Split',es:'Dividir',pt:'Dividir',tr:'Böl'})}
                         </Button>
                     ) : (
                         <Button variant="primary" onClick={handleLotsSubmit} disabled={!lotsValid}>
-                            Créer les lots
+                            {tx(lang,{fr:'Créer les lots',ar:'إنشاء الدفعات',en:'Create lots',es:'Crear lotes',pt:'Criar lotes',tr:'Partiler oluştur'})}
                         </Button>
                     )}
                 </>
@@ -238,49 +241,49 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
         >
             <div className="space-y-4">
                 {/* Model preview */}
-                <div className="flex items-center gap-3 bg-slate-50 rounded-xl p-3">
-                    <div className="w-12 h-12 rounded-lg flex items-center justify-center text-lg font-black text-white shadow-sm" style={{ background: color }}>
+                <div className="flex items-center gap-3 bg-slate-50 dark:bg-dk-bg rounded-xl p-3">
+                    <div className="w-12 h-12 rounded-lg flex items-center justify-center text-lg font-black text-white shadow-sm dark:shadow-dk-sm" style={{ background: color }}>
                         {client[0]?.toUpperCase() || '?'}
                     </div>
                     <div className="flex-1">
-                        <div className="text-[13px] font-semibold text-slate-900">{modelName}</div>
-                        <div className="text-[11px] text-slate-500">{client}</div>
+                        <div className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">{modelName}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-dk-muted">{client}</div>
                     </div>
                     <div className="text-right">
-                        <div className="text-[18px] font-black text-slate-900 tabular-nums">{total}</div>
-                        <div className="text-[10px] text-slate-500">pcs total</div>
+                        <div className="text-[18px] font-black text-slate-900 dark:text-dk-text tabular-nums">{total}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'pcs total',ar:'إجمالي القطع',en:'pcs total',es:'pcs total',pt:'pcs total',tr:'toplam adet'})}</div>
                     </div>
                 </div>
 
                 {/* Mode switcher */}
-                <div className="flex bg-slate-100 p-1 rounded-xl">
+                <div className="flex bg-slate-100 dark:bg-dk-elevated p-1 rounded-xl">
                     <button
                         type="button"
                         onClick={() => setMode('simple')}
                         className={`flex-1 py-2 text-[12px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                            mode === 'simple' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            mode === 'simple' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm dark:shadow-dk-sm' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
                         }`}
                     >
                         <Scissors className="w-3.5 h-3.5" />
-                        Simple
+                        {tx(lang,{fr:'Simple',ar:'بسيط',en:'Simple',es:'Simple',pt:'Simples',tr:'Basit'})}
                     </button>
                     <button
                         type="button"
                         onClick={() => setMode('lots')}
                         className={`flex-1 py-2 text-[12px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                            mode === 'lots' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            mode === 'lots' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm dark:shadow-dk-sm' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
                         }`}
                     >
                         <Package className="w-3.5 h-3.5" />
-                        Par lots / Livraisons
+                        {tx(lang,{fr:'Par lots / Livraisons',ar:'دفعات / تسليمات',en:'By lots / Deliveries',es:'Por lotes / Entregas',pt:'Por lotes / Entregas',tr:'Partiler / Teslimatlar'})}
                     </button>
                 </div>
 
                 {mode === 'simple' ? (
                     <>
                         {/* Simple split */}
-                        <div className="text-[13px] text-slate-600">
-                            Quantité à transférer vers un nouvel ordre :
+                        <div className="text-[13px] text-slate-600 dark:text-dk-text-soft">
+                            {tx(lang,{fr:'Quantité à transférer vers un nouvel ordre :',ar:'الكمية المراد نقلها إلى طلب جديد:',en:'Quantity to transfer to a new order:',es:'Cantidad a transferir a un nuevo pedido:',pt:'Quantidade a transferir para um novo pedido:',tr:'Yeni siparişe aktarılacak miktar:'})}
                         </div>
 
                         <div className="space-y-2">
@@ -297,17 +300,17 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                     type="number"
                                     value={qty || ''}
                                     onChange={(e) => setQty(Number(e.target.value) || 0)}
-                                    className="w-24 h-8 px-2 text-[13px] tabular-nums text-slate-900 bg-white border border-slate-200 rounded-md focus:border-slate-400 outline-none"
+                                    className="w-24 h-8 px-2 text-[13px] tabular-nums text-slate-900 dark:text-dk-text bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md focus:border-slate-400 outline-none"
                                     min={1}
                                     max={total - 1}
                                 />
-                                <span className="text-[12px] text-slate-500 tabular-nums">sur {total}</span>
+                                <span className="text-[12px] text-slate-500 dark:text-dk-muted tabular-nums">{tx(lang,{fr:'sur',ar:'من',en:'of',es:'de',pt:'de',tr:'/ toplam'})} {total}</span>
                             </div>
                         </div>
 
                         {/* Visual bar */}
                         <div className="space-y-2">
-                            <div className="flex h-2 rounded-full overflow-hidden bg-slate-100">
+                            <div className="flex h-2 rounded-full overflow-hidden bg-slate-100 dark:bg-dk-border">
                                 <div
                                     className="bg-slate-700 transition-all"
                                     style={{ width: `${(remain / total) * 100}%` }}
@@ -318,54 +321,56 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                 />
                             </div>
                             <div className="flex justify-between text-[11px]">
-                                <span className="text-slate-700">Original : <span className="font-semibold tabular-nums">{remain} pcs</span></span>
-                                <span className="text-emerald-700">Nouveau : <span className="font-semibold tabular-nums">{qty} pcs</span></span>
+                                <span className="text-slate-700 dark:text-dk-text-soft">Original : <span className="font-semibold tabular-nums">{remain} pcs</span></span>
+                                <span className="text-emerald-700 dark:text-emerald-400">Nouveau : <span className="font-semibold tabular-nums">{qty} pcs</span></span>
                             </div>
                         </div>
                     </>
                 ) : (
                     <>
                         {/* Lots mode */}
-                        <div className="text-[13px] text-slate-600">
+                        <div className="text-[13px] text-slate-600 dark:text-dk-text-soft">
                             Divisez la commande en lots selon les livraisons client :
                         </div>
 
                         {/* Remaining grid to allocate */}
                         {hasGrid && lots.length > 0 && (
-                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-                                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <div className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-3 space-y-2">
+                                <div className="text-[11px] font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wider flex items-center gap-1.5">
                                     <Grid3X3 className="w-3.5 h-3.5 text-indigo-500" />
                                     Reste à attribuer par taille/couleur
                                 </div>
                                 <div className="overflow-x-auto border border-slate-150 rounded-lg">
-                                    <table className="w-full text-[11px] bg-white">
+                                    <table className="w-full text-[11px] bg-white dark:bg-dk-surface">
                                         <thead>
-                                            <tr className="bg-slate-50 border-b border-slate-150">
-                                                <th className="px-2 py-1.5 text-left text-slate-500 font-semibold sticky left-0 bg-slate-50">Couleur</th>
+                                            <tr className="bg-slate-50 dark:bg-dk-bg border-b border-slate-150">
+                                                <th className="px-2 py-1.5 text-left text-slate-500 dark:text-dk-muted font-semibold sticky left-0 bg-slate-50 dark:bg-dk-bg">{tx(lang, {fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk'})}</th>
                                                 {sizes.map(s => (
-                                                    <th key={s} className="px-2 py-1.5 text-center text-slate-500 font-semibold min-w-[50px]">{s}</th>
+                                                    <th key={s} className="px-2 py-1.5 text-center text-slate-500 dark:text-dk-muted font-semibold min-w-[50px]">{s}</th>
                                                 ))}
-                                                <th className="px-2 py-1.5 text-center font-bold text-slate-700 bg-slate-100">Total</th>
+                                                <th className="px-2 py-1.5 text-center font-bold text-slate-700 dark:text-dk-text-soft bg-slate-100 dark:bg-dk-elevated">{tx(lang, {fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam'})}</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-100">
+                                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                             {colors.map((color, cIdx) => {
                                                 const rowRemaining = Object.values(remainingDistribution[color.id] || {}).reduce((s, q) => s + q, 0);
                                                 return (
-                                                    <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/50">
-                                                        <td className="px-2 py-1.5 sticky left-0 bg-white border-r border-slate-100 flex items-center gap-1.5">
-                                                            <div className="w-2.5 h-2.5 rounded-full border border-slate-300" style={{ background: color.id }} />
-                                                            <span className="truncate max-w-[80px] text-slate-750 font-medium">{color.name}</span>
+                                                    <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/40">
+                                                        <td className="px-2 py-1.5 sticky left-0 bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="w-2.5 h-2.5 rounded-full border border-slate-300" style={{ background: color.id }} />
+                                                                <span className="truncate max-w-[80px] text-slate-750 dark:text-dk-text-soft font-medium">{color.name}</span>
+                                                            </div>
                                                         </td>
                                                         {sizes.map(size => {
                                                             const qtyVal = remainingDistribution[color.id]?.[size] ?? 0;
                                                             return (
-                                                                <td key={size} className={`px-2 py-1.5 text-center font-mono tabular-nums ${qtyVal < 0 ? 'text-red-655 bg-red-50 font-bold' : qtyVal === 0 ? 'text-slate-300' : 'text-slate-650 font-semibold'}`}>
+                                                                <td key={size} className={`px-2 py-1.5 text-center font-mono tabular-nums ${qtyVal < 0 ? 'text-red-655 bg-red-50 dark:bg-red-900/30 font-bold' : qtyVal === 0 ? 'text-slate-300 dark:text-dk-muted' : 'text-slate-650 font-semibold'}`}>
                                                                     {qtyVal}
                                                                 </td>
                                                             );
                                                         })}
-                                                        <td className={`px-2 py-1.5 text-center font-bold font-mono ${rowRemaining < 0 ? 'text-red-700 bg-red-100' : rowRemaining === 0 ? 'text-slate-400' : 'text-indigo-650'}`}>
+                                                        <td className={`px-2 py-1.5 text-center font-bold font-mono ${rowRemaining < 0 ? 'text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30' : rowRemaining === 0 ? 'text-slate-400 dark:text-dk-muted' : 'text-indigo-650 dark:text-dk-accent-text'}`}>
                                                             {rowRemaining}
                                                         </td>
                                                     </tr>
@@ -380,24 +385,24 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         {/* Lots list */}
                         <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                             {lots.map((lot, idx) => (
-                                <div key={lot.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2.5">
+                                <div key={lot.id} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-3 space-y-2.5">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm" style={{ background: color }}>
+                                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm dark:shadow-dk-sm" style={{ background: color }}>
                                                 {idx + 1}
                                             </div>
                                             <input
                                                 type="text"
                                                 value={lot.label}
                                                 onChange={(e) => updateLot(lot.id, 'label', e.target.value)}
-                                                className="text-[12px] font-bold text-slate-900 bg-transparent outline-none w-32 border-b border-transparent focus:border-slate-350"
+                                                className="text-[12px] font-bold text-slate-900 dark:text-dk-text bg-transparent outline-none w-32 border-b border-transparent focus:border-slate-350"
                                                 placeholder="Nom du lot"
                                             />
                                         </div>
                                         <button
                                             type="button"
                                             onClick={() => removeLot(lot.id)}
-                                            className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                                            className="p-1 text-slate-400 dark:text-dk-muted hover:text-red-500 transition-colors"
                                         >
                                             <Minus className="w-3.5 h-3.5" />
                                         </button>
@@ -405,36 +410,36 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
 
                                     <div className="grid grid-cols-3 gap-2">
                                         <div>
-                                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Quantité</label>
+                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">Quantité</label>
                                             <input
                                                 type="number"
                                                 value={lot.quantity || ''}
                                                 onChange={(e) => updateLot(lot.id, 'quantity', Number(e.target.value) || 0)}
-                                                className={`w-full h-8 px-2 text-[12px] font-mono tabular-nums bg-white border border-slate-200 rounded-md outline-none ${
-                                                    hasGrid ? 'opacity-75 cursor-not-allowed bg-slate-100 font-bold text-indigo-700' : ''
+                                                className={`w-full h-8 px-2 text-[12px] font-mono tabular-nums bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md outline-none ${
+                                                    hasGrid ? 'opacity-75 cursor-not-allowed bg-slate-100 dark:bg-dk-elevated font-bold text-indigo-700 dark:text-dk-accent-text' : ''
                                                 }`}
                                                 min={0}
                                                 readOnly={hasGrid}
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Livraison</label>
+                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">{tx(lang, {fr: 'Livraison', ar: 'التسليم', en: 'Delivery', es: 'Entrega', pt: 'Entrega', tr: 'Teslimat'})}</label>
                                             <input
                                                 type="date"
                                                 value={lot.deliveryDate}
                                                 onChange={(e) => updateLot(lot.id, 'deliveryDate', e.target.value)}
-                                                className="w-full h-8 px-2 text-[11px] bg-white border border-slate-200 rounded-md outline-none"
+                                                className="w-full h-8 px-2 text-[11px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md outline-none"
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Statut</label>
+                                            <label className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">{tx(lang, {fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum'})}</label>
                                             <select
                                                 value={lot.status}
                                                 onChange={(e) => updateLot(lot.id, 'status', e.target.value)}
-                                                className="w-full h-8 px-2 text-[11px] bg-white border border-slate-200 rounded-md outline-none"
+                                                className="w-full h-8 px-2 text-[11px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md outline-none"
                                             >
-                                                <option value="PENDING">En attente</option>
-                                                <option value="READY">Prêt</option>
+                                                <option value="PENDING">{tx(lang, {fr: 'En attente', ar: 'قيد الانتظار', en: 'Pending', es: 'Pendiente', pt: 'Pendente', tr: 'Beklemede'})}</option>
+                                                <option value="READY">{tx(lang, {fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır'})}</option>
                                                 <option value="DELIVERED">Livré</option>
                                             </select>
                                         </div>
@@ -446,41 +451,43 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                             <button
                                                 type="button"
                                                 onClick={() => setExpandedLotId(expandedLotId === lot.id ? null : lot.id)}
-                                                className="w-full flex items-center justify-between py-1.5 px-2.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm"
+                                                className="w-full flex items-center justify-between py-1.5 px-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-900 transition-all shadow-sm dark:shadow-dk-sm"
                                             >
                                                 <span className="flex items-center gap-1.5">
                                                     <Grid3X3 className="w-3.5 h-3.5 text-indigo-500" />
                                                     Répartition Tailles / Couleurs
                                                 </span>
                                                 {expandedLotId === lot.id ? (
-                                                    <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+                                                    <ChevronUp className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" />
                                                 ) : (
-                                                    <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                                                    <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" />
                                                 )}
                                             </button>
 
                                             {expandedLotId === lot.id && (
-                                                <div className="border border-slate-150 rounded-lg overflow-hidden bg-white mt-1.5 p-1.5 animate-[planning-slide-in-right_150ms_ease-out]">
+                                                <div className="border border-slate-150 rounded-lg overflow-hidden bg-white dark:bg-dk-surface mt-1.5 p-1.5 animate-[planning-slide-in-right_150ms_ease-out]">
                                                     <div className="overflow-x-auto">
                                                         <table className="w-full text-[10px]">
                                                             <thead>
-                                                                <tr className="bg-slate-50 border-b border-slate-200">
-                                                                    <th className="px-2 py-1 text-left text-slate-500 font-semibold sticky left-0 bg-slate-50">Couleur</th>
+                                                                <tr className="bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border">
+                                                                    <th className="px-2 py-1 text-left text-slate-500 dark:text-dk-muted font-semibold sticky left-0 bg-slate-50 dark:bg-dk-bg">Couleur</th>
                                                                     {sizes.map(s => (
-                                                                        <th key={s} className="px-1 py-1 text-center text-slate-500 font-semibold min-w-[45px]">{s}</th>
+                                                                        <th key={s} className="px-1 py-1 text-center text-slate-500 dark:text-dk-muted font-semibold min-w-[45px]">{s}</th>
                                                                     ))}
-                                                                    <th className="px-2 py-1 text-center font-bold text-slate-700 bg-slate-100">Total</th>
+                                                                    <th className="px-2 py-1 text-center font-bold text-slate-700 dark:text-dk-text-soft bg-slate-100 dark:bg-dk-elevated">Total</th>
                                                                 </tr>
                                                             </thead>
-                                                            <tbody className="divide-y divide-slate-100">
+                                                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                                                 {colors.map((color, cIdx) => {
                                                                     const colorMap = lot.sizeColorDistribution?.[color.id] || {};
                                                                     const colorTotal = Object.values(colorMap).reduce((s, q) => s + q, 0);
                                                                     return (
-                                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/30">
-                                                                            <td className="px-2 py-1 sticky left-0 bg-white border-r border-slate-100 flex items-center gap-1">
-                                                                                <div className="w-2.5 h-2.5 rounded-full border border-slate-350" style={{ background: color.id }} />
-                                                                                <span className="truncate max-w-[60px] text-slate-750 font-medium">{color.name}</span>
+                                                                        <tr key={`${color.id}-${cIdx}`} className="hover:bg-slate-50/30 dark:hover:bg-dk-elevated/30">
+                                                                            <td className="px-2 py-1 sticky left-0 bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border">
+                                                                                <div className="flex items-center gap-1">
+                                                                                    <div className="w-2.5 h-2.5 rounded-full border border-slate-350" style={{ background: color.id }} />
+                                                                                    <span className="truncate max-w-[60px] text-slate-750 font-medium">{color.name}</span>
+                                                                                </div>
                                                                             </td>
                                                                             {sizes.map(size => {
                                                                                 const val = colorMap[size] || 0;
@@ -492,12 +499,12 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                                                             value={val || ''}
                                                                                             onChange={(e) => updateLotDistribution(lot.id, color.id, size, Number(e.target.value) || 0)}
                                                                                             placeholder="0"
-                                                                                            className="w-full h-6 px-1 text-center text-[10px] font-mono tabular-nums bg-slate-50 border border-slate-200 rounded outline-none focus:border-indigo-400 focus:bg-white transition-all"
+                                                                                            className="w-full h-6 px-1 text-center text-[10px] font-mono tabular-nums bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded outline-none focus:border-indigo-400 focus:bg-white transition-all"
                                                                                         />
                                                                                     </td>
                                                                                 );
                                                                             })}
-                                                                            <td className="px-2 py-1 text-center font-bold font-mono text-indigo-650 bg-indigo-50/20">
+                                                                            <td className="px-2 py-1 text-center font-bold font-mono text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20">
                                                                                 {colorTotal}
                                                                             </td>
                                                                         </tr>
@@ -518,26 +525,26 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                         <button
                             type="button"
                             onClick={addLot}
-                            className="w-full py-2 border-2 border-dashed border-slate-300 rounded-xl text-[12px] font-semibold text-slate-500 hover:border-indigo-400 hover:text-indigo-650 hover:bg-slate-50/30 transition-all flex items-center justify-center gap-1.5"
+                            className="w-full py-2 border-2 border-dashed border-slate-300 dark:border-dk-border rounded-xl text-[12px] font-semibold text-slate-500 dark:text-dk-muted hover:border-indigo-400 hover:text-indigo-650 dark:text-dk-accent-text hover:bg-slate-50/30 dark:hover:bg-dk-elevated/30 transition-all flex items-center justify-center gap-1.5"
                         >
                             <Plus className="w-3.5 h-3.5" />
-                            Ajouter un lot
+                            {tx(lang, {fr: 'Ajouter un lot', ar: 'إضافة دفعة', en: 'Add a lot', es: 'Agregar lote', pt: 'Adicionar lote', tr: 'Parti ekle'})}
                         </button>
 
                         {/* Summary */}
-                        <div className="bg-slate-50 rounded-xl p-3 space-y-2">
+                        <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-3 space-y-2">
                             <div className="flex justify-between text-[11px]">
-                                <span className="text-slate-600 font-medium">Total lots</span>
-                                <span className="font-bold tabular-nums text-slate-900">{lotsTotal} / {total} pcs</span>
+                                <span className="text-slate-600 dark:text-dk-muted font-medium">{tx(lang, {fr: 'Total lots', ar: 'إجمالي الدُفعات', en: 'Total lots', es: 'Total lotes', pt: 'Total lotes', tr: 'Toplam partiler'})}</span>
+                                <span className="font-bold tabular-nums text-slate-900 dark:text-dk-text">{lotsTotal} / {total} pcs</span>
                             </div>
-                            <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-200">
+                            <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-200 dark:bg-dk-border">
                                 <div
                                     className="bg-indigo-500 transition-all"
                                     style={{ width: `${Math.min(100, (lotsTotal / total) * 100)}%` }}
                                 />
                             </div>
                             {lotsTotal > total && (
-                                <div className="text-[10px] text-red-600 font-semibold flex items-center gap-1 animate-pulse">
+                                <div className="text-[10px] text-red-600 dark:text-red-400 font-semibold flex items-center gap-1 animate-pulse">
                                     <span>⚠</span> Excédent de {lotsTotal - total} pcs
                                 </div>
                             )}

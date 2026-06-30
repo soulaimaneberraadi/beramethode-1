@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 
 // Get all chrono sessions for a model
 export const getChronoSessions = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { modelId } = req.query;
 
     try {
@@ -48,7 +48,7 @@ export const getChronoSessions = (req: Request, res: Response) => {
 
 // Create a new chrono session
 export const createChronoSession = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { modelId, label, entries, opNames, totalTempMajore, gammeType, orderSource } = req.body;
 
     if (!modelId || !label) {
@@ -92,7 +92,7 @@ export const createChronoSession = (req: Request, res: Response) => {
 
 // Update a chrono session (rename, update entries)
 export const updateChronoSession = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
     const { label, entries, opNames, totalTempMajore } = req.body;
 
@@ -128,7 +128,7 @@ export const updateChronoSession = (req: Request, res: Response) => {
 
 // Delete a chrono session
 export const deleteChronoSession = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
 
     try {
@@ -147,7 +147,7 @@ export const deleteChronoSession = (req: Request, res: Response) => {
 
 // Batch save all sessions for a model (replaces all)
 export const batchSaveChronoSessions = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { modelId, sessions } = req.body;
 
     if (!modelId || !Array.isArray(sessions)) {

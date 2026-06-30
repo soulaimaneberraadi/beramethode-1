@@ -5,7 +5,11 @@ const launchDateTimeIso = (date: string, launchTime?: string) => {
     const t = launchTime && /^\d{2}:\d{2}$/.test(launchTime) ? launchTime : '08:00';
     return `${date}T${t}:00`;
 };
+const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 import { AUTO_SAVE_KEY } from './constants';
+import { lsRemove } from '../lib/storageKeys';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 interface UseAppModelManagerProps {
     user: any;
@@ -66,6 +70,8 @@ export function useAppModelManager({
     chronoCustomStations, setChronoCustomStations, chronoLayoutSide, setChronoLayoutSide
 }: UseAppModelManagerProps) {
 
+    const { lang } = useLang();
+
     const saveCurrentModel = useCallback((navigateNext: boolean = true, silent: boolean = false) => {
         // 1. PREPARE DATA
         const currentLayoutSnapshot = postes.map(p => ({
@@ -120,17 +126,17 @@ export function useAppModelManager({
             ev.modelId === modelToSave.id
                 ? { 
                     ...ev, 
-                    dateLancement: launchDateTimeIso(ficheData.date, ficheData.launchTime), 
-                    startDate: ficheData.date,
-                    typeMarche: ficheData.typeMarche ?? 'Local',
-                    facteurPlanning: ficheData.facteurPlanning ?? 60,
-                    bufferLancement: ficheData.bufferLancement ?? 120,
+                    dateLancement: ev.dateLancement || launchDateTimeIso(ficheData.date, ficheData.launchTime), 
+                    startDate: ev.startDate || ficheData.date,
+                    typeMarche: ev.typeMarche ?? ficheData.typeMarche ?? 'Local',
+                    facteurPlanning: ev.facteurPlanning ?? ficheData.facteurPlanning ?? 60,
+                    bufferLancement: ev.bufferLancement ?? ficheData.bufferLancement ?? 120,
                   }
                 : ev
         ));
 
         // 3. UPDATE OR ADD
-        if (user) {
+        if (user && !IS_STATIC) {
             fetch('/api/models', {
                 credentials: 'include',
                 method: 'POST',
@@ -144,17 +150,17 @@ export function useAppModelManager({
                 .then(() => {
                     setModels(prev => currentModelId ? prev.map(m => m.id === currentModelId ? modelToSave : m) : [modelToSave, ...prev]);
                     setCurrentModelId(modelToSave.id);
-                    if (!silent) showToast("Modèle sauvegardé avec succès (Cloud) !");
+                    if (!silent) showToast(tx(lang, {fr:"Modèle sauvegardé avec succès (Cloud) !",ar:"تم حفظ النموذج بنجاح (سحابة)!",en:"Model saved successfully (Cloud)!",es:"Modelo guardado con éxito (Nube)!",pt:"Modelo salvo com sucesso (Nuvem)!",tr:"Model başarıyla kaydedildi (Bulut)!"}));
                     if (navigateNext) setCurrentView('library');
                 })
                 .catch(err => {
                     console.error(err);
-                    showToast("Erreur lors de la sauvegarde sur le serveur.", "error");
+                    showToast(tx(lang, {fr:"Erreur lors de la sauvegarde sur le serveur.",ar:"خطأ أثناء الحفظ على الخادم.",en:"Error saving to server.",es:"Error al guardar en el servidor.",pt:"Erro ao salvar no servidor.",tr:"Sunucuya kaydedilirken hata oluştu."}), "error");
                 });
         } else {
             setModels(prev => currentModelId ? prev.map(m => m.id === currentModelId ? modelToSave : m) : [modelToSave, ...prev]);
             setCurrentModelId(modelToSave.id);
-            if (!silent) showToast("Modèle sauvegardé avec succès (Local) !");
+            if (!silent) showToast(tx(lang, {fr:"Modèle sauvegardé avec succès (Local) !",ar:"تم حفظ النموذج بنجاح (محلي)!",en:"Model saved successfully (Local)!",es:"Modelo guardado con éxito (Local)!",pt:"Modelo salvo com sucesso (Local)!",tr:"Model başarıyla kaydedildi (Yerel)!"}));
             if (navigateNext) setCurrentView('library');
         }
     }, [activeLayout, articleName, assignments, currentModelId, ficheData, ficheImages, globalStats.tempsArticle, layoutMemory, manualLinks, models, numWorkers, operations, postes, setCurrentModelId, setCurrentView, setLayoutMemory, setModels, setPlanningEvents, showToast, user, efficiency, chronoData, chronoCustomStations, chronoLayoutSide]);
@@ -245,7 +251,7 @@ export function useAppModelManager({
             deleteManualLinksByModel(id);
             if (currentModelId === id) setCurrentModelId(null);
         };
-        if (user) {
+        if (user && !IS_STATIC) {
             fetch(`/api/models/${id}`, { credentials: 'include', method: 'DELETE' })
                 .then(res => { if (res.ok) removeLocal(); })
                 .catch(err => console.error(err));
@@ -277,8 +283,10 @@ export function useAppModelManager({
     }, [setCurrentView, setModels]);
 
     const createNewProject = useCallback(() => {
-        localStorage.removeItem(AUTO_SAVE_KEY);
-        fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autosave_workspace: null }) }).catch(() => {});
+        lsRemove(AUTO_SAVE_KEY);
+        if (!IS_STATIC) {
+            fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autosave_workspace: null }) }).catch(() => {});
+        }
         setCurrentModelId(null);
         setArticleName('');
         setOperations([]);

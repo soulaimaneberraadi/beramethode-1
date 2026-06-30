@@ -1,0 +1,29 @@
+﻿CONTRAT DE LICENCE UTILISATEUR FINAL (CLUF) - BERAMETHODE ERP
+
+Veuillez lire attentivement le présent Contrat de Licence Utilisateur Final ("Contrat") avant d'installer et d'utiliser l'application BERAMETHODE ("le Logiciel").
+
+En installant, copiant ou utilisant le Logiciel, vous acceptez d'être lié par les termes du présent Contrat. Si vous n'acceptez pas ces termes, veuillez interrompre l'installation et ne pas utiliser le Logiciel.
+
+1. CONCESSION DE LICENCE
+BERAMETHODE concède à l'Utilisateur une licence d'utilisation non exclusive, non transférable et limitée, permettant d'installer et d'exploiter le Logiciel sur un environnement local à des fins exclusives de gestion de production industrielle et de planification ERP Textile.
+
+2. RESTRICTIONS D'UTILISATION
+L'Utilisateur s'engage formellement à ne pas :
+a) Copier, modifier, adapter ou créer des œuvres dérivées du Logiciel ;
+b) Rétroconcevoir (reverse-engineering), décompiler ou désassembler le Logiciel, sauf disposition légale impérative contraire ;
+c) Distribuer, louer, vendre, sous-licencier ou mettre à disposition de tiers le Logiciel sans l'accord écrit et préalable de BERAMETHODE.
+
+3. PROPRIÉTÉ INTELLECTUELLE
+Tous les droits de propriété intellectuelle relatifs au Logiciel (notamment le code source, l'interface graphique, les algorithmes d'ordonnancement textile, la structure de la base de données et les logos) demeurent la propriété exclusive de BERAMETHODE et de ses ayants droit.
+
+4. LICENCE PAR POSTE (SEAT LICENSING)
+L'activation et l'usage du Logiciel sont soumis à un système de licence par poste ("Seat Licensing"). Le nombre d'utilisateurs actifs simultanés ou de postes configurés ne peut en aucun cas dépasser le quota souscrit lors de l'achat ou défini dans l'abonnement en vigueur. BERAMETHODE se réserve le droit de suspendre automatiquement l'accès en cas de dépassement ou de contournement technique de ces limites.
+
+5. SÉCURITÉ ET SYNCHRONISATION DES DONNÉES
+Le Logiciel fonctionne selon un modèle "Local-First" avec synchronisation décentralisée vers une infrastructure cloud sécurisée (Supabase). Bien que le Logiciel intègre des mécanismes de sauvegarde automatique, l'Utilisateur demeure seul responsable de la configuration de ses options de sauvegarde locale et de la confidentialité de ses identifiants de connexion.
+
+6. LIMITATION DE RESPONSABILITÉ
+Le Logiciel est fourni "en l'état", sans garantie d'aucune sorte, expresse ou implicite. En aucun cas BERAMETHODE ne pourra être tenu responsable des dommages directs ou indirects, incluant sans limitation les pertes d'exploitation, interruptions de production industrielle ou pertes de données, découlant de l'utilisation ou de l'impossibilité d'utiliser le Logiciel.
+
+7. DROIT APPLICABLE ET JURIDICTION
+Le présent Contrat est régi et interprété conformément aux lois du Royaume du Maroc. Tout litige relatif à sa validité, son interprétation ou son exécution sera soumis à la compétence exclusive des Tribunaux de Commerce du Maroc.

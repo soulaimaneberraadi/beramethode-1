@@ -5,6 +5,8 @@ import { getClientColor } from '../../shared/clientColors';
 import { getModelColor } from '../../shared/modelColors';
 import { parsePlanningDateAtNoon, planningLocalDateKey } from '../../../../utils/planning';
 import type { PlanningChain } from '../../hooks/usePlanningChains';
+import { tx } from '../../../../lib/i18n';
+import { useLang } from '../../../../src/context/LanguageContext';
 
 interface Props {
     chains: PlanningChain[];
@@ -23,6 +25,8 @@ export default function MiniMap({
     chains, events, models, timelineDates, dayWidth,
     scrollLeft, viewportWidth, contentWidth, onJumpTo,
 }: Props) {
+    const { lang } = useLang();
+    const isRtl = lang === 'ar';
     const ref = useRef<HTMLDivElement>(null);
     const MAP_HEIGHT = 36;
 
@@ -48,29 +52,30 @@ export default function MiniMap({
         if (!ref.current) return;
         const rect = ref.current.getBoundingClientRect();
         const x = e.clientX - rect.left;
-        const ratio = x / rect.width;
+        const baseRatio = x / rect.width;
+        const ratio = isRtl ? 1 - baseRatio : baseRatio;
         // centrer la vue sur ce point
         onJumpTo(Math.max(0, ratio * contentWidth - viewportWidth / 2));
     };
 
     return (
-        <div className="shrink-0 border-t border-slate-100 bg-white px-6 py-2">
+        <div className="shrink-0 border-t border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface px-6 py-2">
             <div className="flex items-center gap-3">
-                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider shrink-0">
-                    Vue d'ensemble
+                <span className="text-[10px] font-medium text-slate-400 dark:text-dk-muted uppercase tracking-wider shrink-0">
+{tx(lang, { fr: "Vue d'ensemble", ar: 'نظرة عامة', en: 'Overview', es: 'Vista general', pt: 'Visão geral', tr: 'Genel bakış' })}
                 </span>
                 <div
                     ref={ref}
                     onClick={handleClick}
-                    className="relative flex-1 bg-slate-50 rounded-md cursor-pointer overflow-hidden"
+                    className="relative flex-1 bg-slate-50 dark:bg-dk-bg dark:bg-slate-800 rounded-md cursor-pointer overflow-hidden"
                     style={{ height: MAP_HEIGHT }}
-                    title="Cliquez pour naviguer"
+                    title={tx(lang, { fr: 'Cliquez pour naviguer', ar: 'انقر للتنقل', en: 'Click to navigate', es: 'Haga clic para navegar', pt: 'Clique para navegar', tr: 'Gezinmek için tıklayın' })}
                 >
                     {/* Lignes de chaînes en arrière-plan */}
                     {chains.map((_, i) => (
                         <div
                             key={i}
-                            className="absolute left-0 right-0 border-b border-slate-100/50"
+                            className="absolute left-0 right-0 border-b border-slate-100/50 dark:border-dk-border/30"
                             style={{ top: ((i + 1) / chains.length) * MAP_HEIGHT }}
                         />
                     ))}
@@ -85,16 +90,20 @@ export default function MiniMap({
                         if (e < first.getTime() || s > last.getTime()) return null;
                         const leftRatio = Math.max(0, (s - first.getTime()) / totalMs);
                         const widthRatio = Math.max(0.005, (e - s) / totalMs);
-                        const chainIdx = chains.findIndex(c => c.id === ev.chaineId);
-                        if (chainIdx < 0) return null;
-                        const color = (ev.modelId || evModelName(ev, models)) ? getModelColor(ev.modelId || evModelName(ev, models)) : (ev.color || getModelColor(evClientName(ev, models)));
-                        const topRatio = chainIdx / chains.length;
+                        
+                        const chainIndex = chains.findIndex(c => c.id === ev.chaineId);
+                        if (chainIndex === -1) return null;
+                        
+                        const topRatio = chainIndex / chains.length;
+                        const color = getModelColor(ev.modelId || evModelName(ev, models));
+                        
                         return (
                             <div
                                 key={ev.id}
                                 className="absolute rounded-[1px]"
                                 style={{
-                                    left: `${leftRatio * 100}%`,
+                                    left: isRtl ? 'auto' : `${leftRatio * 100}%`,
+                                    right: isRtl ? `${leftRatio * 100}%` : 'auto',
                                     width: `${widthRatio * 100}%`,
                                     top: `${topRatio * 100}%`,
                                     height: `${(1 / chains.length) * MAP_HEIGHT - 1}px`,
@@ -109,15 +118,19 @@ export default function MiniMap({
                     {todayPos >= 0 && (
                         <div
                             className="absolute top-0 bottom-0 w-px bg-orange-500"
-                            style={{ left: `${todayPos * 100}%` }}
+                            style={{
+                                left: isRtl ? 'auto' : `${todayPos * 100}%`,
+                                right: isRtl ? `${todayPos * 100}%` : 'auto',
+                            }}
                         />
                     )}
 
                     {/* Viewport indicator */}
                     <div
-                        className="absolute top-0 bottom-0 border-2 border-slate-900/70 rounded-md bg-white/20 pointer-events-none"
+                        className="absolute top-0 bottom-0 border-2 border-slate-900/70 dark:border-dk-accent/70 rounded-md bg-white/20 dark:bg-dk-accent/20 pointer-events-none"
                         style={{
-                            left: `${scrollRatio * 100}%`,
+                            left: isRtl ? 'auto' : `${scrollRatio * 100}%`,
+                            right: isRtl ? `${scrollRatio * 100}%` : 'auto',
                             width: `${Math.min(100, viewportRatio * 100)}%`,
                         }}
                     />

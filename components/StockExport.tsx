@@ -8,6 +8,8 @@ import {
     ChevronDown, ChevronUp, Layers, Calendar, Plus, Clock, 
     ClipboardList, DollarSign, Check, AlertCircle, Trash2, X
 } from 'lucide-react';
+import { tx } from '../lib/i18n';
+import { useLang } from '../src/context/LanguageContext';
 
 interface StockExportProps {
     models: ModelData[];
@@ -31,6 +33,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
     const [entryMode, setEntryMode] = useState<'jour' | 'heure'>('jour');
     const [activeModelId, setActiveModelId] = useState<string | null>(null);
     const [modelPickerOpen, setModelPickerOpen] = useState(false);
+    const { lang } = useLang();
 
     // Finished Goods Stock from Database
     const [finishedGoods, setFinishedGoods] = useState<any[]>([]);
@@ -233,7 +236,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                 body: JSON.stringify({ suivis: newSuivis })
             });
         } catch (e) {
-            console.error("Failed to save défauts to database", e);
+            console.error(tx(lang, {fr:'Échec de l\'enregistrement des défauts dans la base de données',ar:'فشل حفظ العيوب في قاعدة البيانات',en:'Failed to save défauts to database',es:'Error al guardar défauts en la base de datos',pt:'Falha ao salvar défauts no banco de dados',tr:'Defauts veritabanına kaydedilemedi'}), e);
         }
     };
 
@@ -642,16 +645,16 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
     }, [activeModels, suivis, finishedGoods]);
 
     return (
-        <div className="h-full flex flex-col bg-slate-50 relative pb-20">
+        <div className="h-full flex flex-col bg-slate-50 dark:bg-dk-bg relative pb-20">
             <style>{`.scrollbar-hide{-ms-overflow-style:none;scrollbar-width:none}.scrollbar-hide::-webkit-scrollbar{display:none}`}</style>
             {/* Top Header */}
-            <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-3 md:py-4 shrink-0 shadow-sm z-20">
+            <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border px-4 md:px-6 py-3 md:py-4 shrink-0 shadow-sm dark:shadow-dk-sm z-20">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
                     {/* Title + Nouveau Modèle */}
                     <div className="flex items-center justify-between gap-2 min-w-0 w-full md:w-auto">
                         <div className="flex items-center gap-2 min-w-0">
-                            <PackageCheck className="w-5 h-5 md:w-6 md:h-6 text-emerald-600 shrink-0" />
-                            <h1 className="text-lg md:text-2xl font-black text-slate-800 tracking-tight truncate">Suivi Emballage & Dépôt</h1>
+                            <PackageCheck className="w-5 h-5 md:w-6 md:h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <h1 className="text-lg md:text-2xl font-black text-slate-800 dark:text-dk-text tracking-tight truncate">{tx(lang, {fr:"Suivi Emballage & Dépôt",ar:"متابعة التغليف والمستودع",en:"Packaging & Warehouse Tracking",es:"Seguimiento de Embalaje y Almacén",pt:"Acompanhamento de Embalagem e Depósito",tr:"Paketleme ve Depo Takibi"})}</h1>
                         </div>
                         {setCurrentView && (
                             <button
@@ -659,9 +662,9 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                     if (createNewProject) createNewProject();
                                     setCurrentView('ingenierie');
                                 }}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] md:text-xs px-2.5 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl transition-all shadow-sm flex items-center gap-1 hover:scale-[1.02] active:scale-95 shrink-0 ml-auto"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] md:text-xs px-2.5 md:px-3 py-1.5 md:py-2 rounded-lg md:rounded-xl transition-all shadow-sm dark:shadow-dk-sm flex items-center gap-1 hover:scale-[1.02] active:scale-95 shrink-0 ml-auto"
                             >
-                                Nouveau
+                                {tx(lang,{fr:"Nouveau",ar:"جديد",en:"New",es:"Nuevo",pt:"Novo",tr:"Yeni"})}
                                 <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
                             </button>
                         )}
@@ -670,18 +673,18 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                     {/* Search & Actions */}
                     <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full md:w-auto">
                         <div className="relative w-full sm:w-auto">
-                            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <Search className="w-4 h-4 text-slate-400 dark:text-dk-muted absolute left-3 top-1/2 -translate-y-1/2" />
                             <input
                                 type="text"
-                                placeholder="Rechercher..."
+                                placeholder={tx(lang,{fr:"Rechercher...",ar:"بحث...",en:"Search...",es:"Buscar...",pt:"Pesquisar...",tr:"Ara..."})}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 pr-4 py-2.5 md:py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 w-full sm:w-60 bg-slate-50 font-bold"
+                                className="pl-9 pr-4 py-2.5 md:py-2 border border-slate-200 dark:border-dk-border rounded-xl text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 w-full sm:w-60 bg-slate-50 dark:bg-dk-bg font-bold"
                             />
                         </div>
 
                         {activeTab !== 'complet' && (
-                            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-2 md:px-3 py-1.5 text-emerald-700 shrink-0">
+                            <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 rounded-xl px-2 md:px-3 py-1.5 text-emerald-700 shrink-0">
                                 <Calendar className="w-4 h-4 shrink-0" />
                                 <input
                                     type="date"
@@ -694,64 +697,64 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
                         {/* Bascule Jour / Heure */}
                         {activeTab !== 'complet' && (
-                            <div className="flex items-center bg-slate-100 rounded-xl p-0.5 text-xs font-black shrink-0">
+                            <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-xl p-0.5 text-xs font-black shrink-0">
                                 <button
                                     onClick={() => setEntryMode('jour')}
-                                    className={`px-3 py-1.5 rounded-lg transition-all ${entryMode === 'jour' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
+                                    className={`px-3 py-1.5 rounded-lg transition-all ${entryMode === 'jour' ? 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm' : 'text-slate-500 dark:text-dk-muted'}`}
                                 >
-                                    Jour
+                                    {tx(lang,{fr:"Jour",ar:"يوم",en:"Day",es:"Día",pt:"Dia",tr:"Gün"})}
                                 </button>
                                 <button
                                     onClick={() => setEntryMode('heure')}
-                                    className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${entryMode === 'heure' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}
+                                    className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${entryMode === 'heure' ? 'bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm' : 'text-slate-500 dark:text-dk-muted'}`}
                                 >
                                     <Clock className="w-3.5 h-3.5" />
-                                    Heure
+                                    {tx(lang,{fr:"Heure",ar:"ساعة",en:"Hour",es:"Hora",pt:"Hora",tr:"Saat"})}
                                 </button>
                             </div>
                         )}
                     </div>
                 </div>
-                <p className="text-slate-550 mt-1 text-xs md:text-sm font-medium hidden md:block">Suivi de finition, emballage et expédition des modèles au dépôt final.</p>
+                <p className="text-slate-550 mt-1 text-xs md:text-sm font-medium hidden md:block">{tx(lang,{fr:"Suivi de finition, emballage et expédition des modèles au dépôt final.",ar:"متابعة التشطيب والتغليف وشحن الموديلات إلى المستودع النهائي.",en:"Tracking finishing, packaging and shipping of models to the final warehouse.",es:"Seguimiento de acabado, embalaje y envío de modelos al almacén final.",pt:"Acompanhamento de acabamento, embalagem e expedição dos modelos ao depósito final.",tr:"Modellerin bitirme, paketleme ve nihai depoya sevkiyatının takibi."})}</p>
             </div>
 
             {/* Navigation Tabs */}
-            <div className="bg-white border-b border-slate-200 px-4 md:px-6 py-2 shrink-0 flex items-center gap-1.5 md:gap-2 overflow-x-auto scrollbar-hide">
+            <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border px-4 md:px-6 py-2 shrink-0 flex items-center gap-1.5 md:gap-2 overflow-x-auto scrollbar-hide">
                 <button
                     onClick={() => { setActiveTab('finition'); setExpandedModelId(null); }}
                     className={`px-3 md:px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${
                         activeTab === 'finition' 
-                            ? 'bg-slate-100 text-slate-800 shadow-sm border border-slate-200' 
-                            : 'text-slate-500 hover:bg-slate-50'
+                            ? 'bg-slate-100 dark:bg-dk-elevated text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border' 
+                            : 'text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
                     }`}
                 >
                     <Layers className="w-4 h-4" />
-                    <span className="hidden sm:inline">Suivi Finition</span>
-                    <span className="sm:hidden">Finition</span>
+                    <span className="hidden sm:inline">{tx(lang,{fr:"Suivi Finition",ar:"متابعة التشطيب",en:"Finishing Tracking",es:"Seguimiento de Acabado",pt:"Acompanhamento de Acabamento",tr:"Bitirme Takibi"})}</span>
+                    <span className="sm:hidden">{tx(lang,{fr:"Finition",ar:"تشطيب",en:"Finishing",es:"Acabado",pt:"Acabamento",tr:"Bitirme"})}</span>
                 </button>
                 <button
                     onClick={() => { setActiveTab('emballage'); setExpandedModelId(null); }}
                     className={`px-3 md:px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${
                         activeTab === 'emballage' 
-                            ? 'bg-slate-100 text-slate-800 shadow-sm border border-slate-200' 
-                            : 'text-slate-500 hover:bg-slate-50'
+                            ? 'bg-slate-100 dark:bg-dk-elevated text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border' 
+                            : 'text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
                     }`}
                 >
                     <Package className="w-4 h-4" />
-                    <span className="hidden sm:inline">Suivi Emballage & Dépôt</span>
-                    <span className="sm:hidden">Emballage</span>
+                    <span className="hidden sm:inline">{tx(lang,{fr:"Suivi Emballage & Dépôt",ar:"متابعة التغليف والمستودع",en:"Packaging & Warehouse Tracking",es:"Seguimiento de Embalaje y Almacén",pt:"Acompanhamento de Embalagem e Depósito",tr:"Paketleme ve Depo Takibi"})}</span>
+                    <span className="sm:hidden">{tx(lang,{fr:"Emballage",ar:"تغليف",en:"Packaging",es:"Embalaje",pt:"Embalagem",tr:"Paketleme"})}</span>
                 </button>
                 <button
                     onClick={() => { setActiveTab('complet'); setExpandedModelId(null); }}
                     className={`px-3 md:px-4 py-2 rounded-lg text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${
                         activeTab === 'complet' 
-                            ? 'bg-slate-100 text-slate-800 shadow-sm border border-slate-200' 
-                            : 'text-slate-500 hover:bg-slate-50'
+                            ? 'bg-slate-100 dark:bg-dk-elevated text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border' 
+                            : 'text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
                     }`}
                 >
                     <ClipboardList className="w-4 h-4" />
-                    <span className="hidden sm:inline">Stock Complet & Tarifs</span>
-                    <span className="sm:hidden">Stock</span>
+                    <span className="hidden sm:inline">{tx(lang,{fr:"Stock Complet & Tarifs",ar:"المخزون الكامل والأسعار",en:"Complete Stock & Prices",es:"Stock Completo y Precios",pt:"Stock Completo e Preços",tr:"Tam Stok ve Fiyatlar"})}</span>
+                    <span className="sm:hidden">{tx(lang,{fr:"Stock",ar:"مخزون",en:"Stock",es:"Stock",pt:"Stock",tr:"Stok"})}</span>
                 </button>
             </div>
 
@@ -765,43 +768,43 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                     const atRiskModels = filteredModels.filter(m => getModelCadence(m).atRisk);
                     if (atRiskModels.length === 0) return null;
                     return (
-                        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 md:p-4 shadow-sm">
+                        <div className="bg-rose-50 dark:bg-rose-900/30 border border-rose-200 rounded-2xl p-3 md:p-4 shadow-sm dark:shadow-dk-sm">
                             <div className="flex items-center gap-2 mb-2 md:mb-3">
-                                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
-                                <span className="font-black text-sm text-rose-800">{atRiskModels.length} modèle(s) à risque</span>
+                                <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
+                                <span className="font-black text-sm text-rose-800">{atRiskModels.length} {tx(lang,{fr:"modèle(s) à risque",ar:"موديل(ات) معرضة للخطر",en:"model(s) at risk",es:"modelo(s) en riesgo",pt:"modelo(s) em risco",tr:"risk altındaki model(ler)"})}</span>
                             </div>
                             <div className="space-y-1.5 mb-3">
                                 {atRiskModels.map(m => {
                                     const c = getModelCadence(m);
                                     return (
                                         <div key={m.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
-                                            <span className="font-bold text-slate-800">{m.meta_data?.nom_modele || 'Sans Nom'}</span>
-                                            <span className="text-rose-700 font-bold">Reste {c.reste.toLocaleString()} pcs</span>
-                                            <span className="text-slate-600">
-                                                {c.days !== null && c.days <= 0 ? 'délai dépassé' : `${c.days}j restants`} · requis ≈ {c.cadenceRequise.toLocaleString()} pcs/j
-                                                {c.capacityPerDay > 0 && <span className="text-slate-400"> (capacité ≈ {c.capacityPerDay.toLocaleString()} pcs/j)</span>}
+                                            <span className="font-bold text-slate-800 dark:text-dk-text">{m.meta_data?.nom_modele || tx(lang,{fr:"Sans Nom",ar:"بدون اسم",en:"Unnamed",es:"Sin Nombre",pt:"Sem Nome",tr:"İsimsiz"})}</span>
+                                            <span className="text-rose-700 font-bold">{tx(lang,{fr:"Reste",ar:"المتبقي",en:"Remaining",es:"Restante",pt:"Restante",tr:"Kalan"})} {c.reste.toLocaleString()} pcs</span>
+                                            <span className="text-slate-600 dark:text-dk-text-soft">
+                                                {c.days !== null && c.days <= 0 ? tx(lang,{fr:"délai dépassé",ar:"تجاوز الموعد",en:"deadline passed",es:"plazo vencido",pt:"prazo excedido",tr:"süre aşıldı"}) : `${c.days} ${tx(lang,{fr:"j restants",ar:"أيام متبقية",en:"d remaining",es:"d restantes",pt:"d restantes",tr:"g kalan"})}`} · {tx(lang,{fr:"requis ≈",ar:"المطلوب ≈",en:"required ≈",es:"requerido ≈",pt:"necessário ≈",tr:"gerekli ≈"})} {c.cadenceRequise.toLocaleString()} pcs/j
+                                                {c.capacityPerDay > 0 && <span className="text-slate-400 dark:text-dk-muted"> ({tx(lang,{fr:"capacité ≈",ar:"الطاقة ≈",en:"capacity ≈",es:"capacidad ≈",pt:"capacidade ≈",tr:"kapasite ≈"})} {c.capacityPerDay.toLocaleString()} pcs/j)</span>}
                                             </span>
                                         </div>
                                     );
                                 })}
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-[11px] font-bold text-slate-500">Solutions :</span>
+                                <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted">{tx(lang,{fr:"Solutions :",ar:"الحلول:",en:"Solutions:",es:"Soluciones:",pt:"Soluções:",tr:"Çözümler:"})}</span>
                                 {setCurrentView && (
                                     <>
                                         <button
                                             onClick={() => setCurrentView('planning')}
-                                            className="bg-white hover:bg-slate-50 text-slate-700 font-bold text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 transition-colors inline-flex items-center gap-1.5"
+                                            className="bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft font-bold text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border transition-colors inline-flex items-center gap-1.5"
                                         >
                                             <Layers className="w-3.5 h-3.5" />
-                                            Fractionner sur une autre chaîne
+                                            {tx(lang,{fr:"Fractionner sur une autre chaîne",ar:"توزيع على خط إنتاج آخر",en:"Split to another line",es:"Dividir en otra línea",pt:"Dividir noutra linha",tr:"Başka bir hatta böl"})}
                                         </button>
                                         <button
                                             onClick={() => setCurrentView('sousTraitance')}
-                                            className="bg-white hover:bg-slate-50 text-slate-700 font-bold text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 transition-colors inline-flex items-center gap-1.5"
+                                            className="bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft font-bold text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border transition-colors inline-flex items-center gap-1.5"
                                         >
                                             <Truck className="w-3.5 h-3.5" />
-                                            Sous-traiter
+                                            {tx(lang,{fr:"Sous-traiter",ar:"مقاولة من الباطن",en:"Subcontract",es:"Subcontratar",pt:"Subcontratar",tr:"Taşeron"})}
                                         </button>
                                     </>
                                 )}
@@ -811,28 +814,28 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                 })()}
 
                 {/* Main Table Card */}
-                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                    <div className="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                        <h2 className="font-black text-sm text-slate-800 flex items-center gap-2 truncate">
-                            <ClipboardList className="w-4 h-4 text-slate-500 shrink-0" />
+                <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl shadow-sm dark:shadow-dk-sm overflow-hidden">
+                    <div className="p-4 bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border flex justify-between items-center">
+                        <h2 className="font-black text-sm text-slate-800 dark:text-dk-text flex items-center gap-2 truncate">
+                            <ClipboardList className="w-4 h-4 text-slate-500 dark:text-dk-muted shrink-0" />
                             <span className="hidden sm:inline">
-                                {activeTab === 'finition' ? 'Journal de Suivi Quotidien - Finition' :
-                                 activeTab === 'emballage' ? 'Journal de Suivi Quotidien - Emballage & Dépôt' :
-                                 'État Général du Stock Complet & Valeurs Financières'}
+                                {activeTab === 'finition' ? tx(lang,{fr:"Journal de Suivi Quotidien - Finition",ar:"سجل المتابعة اليومية - التشطيب",en:"Daily Tracking Log - Finishing",es:"Registro Diario de Seguimiento - Acabado",pt:"Registo Diário de Acompanhamento - Acabamento",tr:"Günlük Takip Defteri - Bitirme"}) :
+                                 activeTab === 'emballage' ? tx(lang,{fr:"Journal de Suivi Quotidien - Emballage & Dépôt",ar:"سجل المتابعة اليومية - التغليف والمستودع",en:"Daily Tracking Log - Packaging & Warehouse",es:"Registro Diario de Seguimiento - Embalaje y Almacén",pt:"Registo Diário de Acompanhamento - Embalagem e Depósito",tr:"Günlük Takip Defteri - Paketleme ve Depo"}) :
+                                 tx(lang,{fr:"État Général du Stock Complet & Valeurs Financières",ar:"الحالة العامة للمخزون الكامل والقيم المالية",en:"General Status of Complete Stock & Financial Values",es:"Estado General del Stock Completo y Valores Financieros",pt:"Estado Geral do Stock Completo e Valores Financeiros",tr:"Tam Stok ve Finansal Değerler Genel Durumu"})}
                             </span>
                             <span className="sm:hidden">
-                                {activeTab === 'finition' ? 'Suivi Finition' :
-                                 activeTab === 'emballage' ? 'Suivi Emballage' :
-                                 'Stock Complet'}
+                                {activeTab === 'finition' ? tx(lang,{fr:"Suivi Finition",ar:"متابعة التشطيب",en:"Finishing Tracking",es:"Seguimiento de Acabado",pt:"Acompanhamento de Acabamento",tr:"Bitirme Takibi"}) :
+                                 activeTab === 'emballage' ? tx(lang,{fr:"Suivi Emballage",ar:"متابعة التغليف",en:"Packaging Tracking",es:"Seguimiento de Embalaje",pt:"Acompanhamento de Embalagem",tr:"Paketleme Takibi"}) :
+                                 tx(lang,{fr:"Stock Complet",ar:"المخزون الكامل",en:"Complete Stock",es:"Stock Completo",pt:"Stock Completo",tr:"Tam Stok"})}
                             </span>
                         </h2>
                     </div>
 
                     {filteredModels.length === 0 ? (
-                        <div className="p-8 md:p-16 text-center text-slate-400">
+                        <div className="p-8 md:p-16 text-center text-slate-400 dark:text-dk-muted">
                             <PackageCheck className="w-12 h-12 md:w-16 md:h-16 text-slate-200 mx-auto mb-3 md:mb-4" />
-                            <p className="font-bold text-slate-700">Aucun modèle actif à afficher.</p>
-                            <p className="text-xs mt-2 text-slate-500">Créez un nouveau modèle ou clôturez une production pour le voir apparaître.</p>
+                            <p className="font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:"Aucun modèle actif à afficher.",ar:"لا يوجد موديل نشط للعرض.",en:"No active model to display.",es:"No hay modelo activo para mostrar.",pt:"Nenhum modelo ativo para exibir.",tr:"Gösterilecek aktif model yok."})}</p>
+                            <p className="text-xs mt-2 text-slate-500 dark:text-dk-muted">{tx(lang,{fr:"Créez un nouveau modèle ou clôturez une production pour le voir apparaître.",ar:"أنشئ موديلاً جديداً أو أنهِ إنتاجاً ليظهر هنا.",en:"Create a new model or close a production for it to appear here.",es:"Cree un nuevo modelo o cierre una producción para que aparezca aquí.",pt:"Crie um novo modelo ou encerre uma produção para que apareça aqui.",tr:"Burada görünmesi için yeni bir model oluşturun veya bir üretimi kapatın."})}</p>
                         </div>
                     ) : activeTab !== 'complet' && entryMode === 'heure' ? (
                         <div className="p-3 md:p-4 space-y-3 md:space-y-4">
@@ -850,45 +853,45 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                     <>
                                         {/* Carte modèle actif = sélecteur (photo + réf + chaîne + client), style Suivi Production */}
                                         <div className="relative">
-                                            <span className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-wider">Modèle actif</span>
+                                            <span className="text-[9px] md:text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider">{tx(lang,{fr:"Modèle actif",ar:"الموديل النشط",en:"Active Model",es:"Modelo Activo",pt:"Modelo Ativo",tr:"Aktif Model"})}</span>
                                             <button
                                                 onClick={() => setModelPickerOpen(o => !o)}
-                                                className="mt-1 w-full flex items-center gap-2 md:gap-3 bg-slate-50 border border-slate-200 rounded-xl p-2.5 md:p-3 hover:border-emerald-300 transition-colors text-left"
+                                                className="mt-1 w-full flex items-center gap-2 md:gap-3 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-2.5 md:p-3 hover:border-emerald-300 transition-colors text-left"
                                             >
-                                                <div className="w-10 h-10 md:w-14 md:h-14 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                                                <div className="w-10 h-10 md:w-14 md:h-14 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border overflow-hidden flex items-center justify-center shrink-0">
                                                     {activeModel.image ? (
                                                         <img src={activeModel.image} className="w-full h-full object-cover" alt="" />
                                                     ) : (
-                                                        <Package className="w-6 h-6 text-slate-300" />
+                                                        <Package className="w-6 h-6 text-slate-300 dark:text-dk-muted" />
                                                     )}
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <div className="font-black text-slate-800 text-sm truncate">{activeModel.meta_data?.nom_modele || 'Sans Nom'}</div>
-                                                    <div className="text-[11px] text-slate-500 font-bold flex flex-wrap gap-x-2">
-                                                        <span>Réf: {activeModel.meta_data?.reference || 'N/A'}</span>
-                                                        <span className="text-emerald-600">{getModelChaine(activeModel)}</span>
-                                                        <span>{activeModel.ficheData?.client || 'Client Divers'}</span>
+                                                    <div className="font-black text-slate-800 dark:text-dk-text text-sm truncate">{activeModel.meta_data?.nom_modele || tx(lang,{fr:"Sans Nom",ar:"بدون اسم",en:"Unnamed",es:"Sin Nombre",pt:"Sem Nome",tr:"İsimsiz"})}</div>
+                                                    <div className="text-[11px] text-slate-500 dark:text-dk-muted font-bold flex flex-wrap gap-x-2">
+                                                        <span>{tx(lang,{fr:"Réf:",ar:"المرجع:",en:"Ref:",es:"Ref:",pt:"Ref:",tr:"Ref:"})} {activeModel.meta_data?.reference || 'N/A'}</span>
+                                                        <span className="text-emerald-600 dark:text-emerald-400">{getModelChaine(activeModel)}</span>
+                                                        <span>{activeModel.ficheData?.client || tx(lang,{fr:"Client Divers",ar:"عميل متنوع",en:"Various Client",es:"Cliente Varios",pt:"Cliente Diversos",tr:"Çeşitli Müşteri"})}</span>
                                                     </div>
                                                 </div>
-                                                <ChevronDown className={`w-5 h-5 text-slate-400 shrink-0 transition-transform ${modelPickerOpen ? 'rotate-180' : ''}`} />
+                                                <ChevronDown className={`w-5 h-5 text-slate-400 dark:text-dk-muted shrink-0 transition-transform ${modelPickerOpen ? 'rotate-180' : ''}`} />
                                             </button>
 
                                             {modelPickerOpen && (
                                                 <>
                                                     <div className="fixed inset-0 z-20" onClick={() => setModelPickerOpen(false)} />
-                                                    <div className="absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-72 overflow-y-auto py-1">
+                                                    <div className="absolute z-30 mt-1 w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg dark:shadow-dk-lg max-h-72 overflow-y-auto py-1">
                                                         {filteredModels.map(m => (
                                                             <button
                                                                 key={m.id}
                                                                 onClick={() => { setActiveModelId(m.id); setModelPickerOpen(false); }}
-                                                                className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 text-left transition-colors ${m.id === activeModel.id ? 'bg-emerald-50' : ''}`}
+                                                                className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-left transition-colors ${m.id === activeModel.id ? 'bg-emerald-50 dark:bg-emerald-900/30' : ''}`}
                                                             >
-                                                                <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
-                                                                    {m.image ? <img src={m.image} className="w-full h-full object-cover" alt="" /> : <Package className="w-4 h-4 text-slate-300" />}
+                                                                <div className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border overflow-hidden flex items-center justify-center shrink-0">
+                                                                    {m.image ? <img src={m.image} className="w-full h-full object-cover" alt="" /> : <Package className="w-4 h-4 text-slate-300 dark:text-dk-muted" />}
                                                                 </div>
                                                                 <div className="min-w-0">
-                                                                    <div className="font-bold text-slate-800 text-xs truncate">{m.meta_data?.nom_modele || 'Sans Nom'}</div>
-                                                                    <div className="text-[10px] text-slate-500 font-bold">{getModelChaine(m)} · {m.ficheData?.client || 'Client Divers'}</div>
+                                                                    <div className="font-bold text-slate-800 dark:text-dk-text text-xs truncate">{m.meta_data?.nom_modele || tx(lang,{fr:"Sans Nom",ar:"بدون اسم",en:"Unnamed",es:"Sin Nombre",pt:"Sem Nome",tr:"İsimsiz"})}</div>
+                                                                    <div className="text-[10px] text-slate-500 dark:text-dk-muted font-bold">{getModelChaine(m)} · {m.ficheData?.client || tx(lang,{fr:"Client Divers",ar:"عميل متنوع",en:"Various Client",es:"Cliente Varios",pt:"Cliente Diversos",tr:"Çeşitli Müşteri"})}</div>
                                                                 </div>
                                                             </button>
                                                         ))}
@@ -898,27 +901,27 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                         </div>
 
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 md:gap-2">
-                                            <div className="bg-slate-50 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-slate-500">Cible (OF)</p><p className="text-base md:text-lg font-black text-slate-800">{agg.totalExpected.toLocaleString()}</p></div>
-                                            <div className="bg-emerald-50 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-emerald-600">Total du jour</p><p className="text-base md:text-lg font-black text-emerald-700">{dayTotal.toLocaleString()}</p></div>
-                                            <div className="bg-indigo-50 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-indigo-600">{activeTab === 'finition' ? 'Cumul fini' : 'Cumul dépôt'}</p><p className="text-base md:text-lg font-black text-indigo-700">{cumul.toLocaleString()}</p></div>
-                                            <div className="bg-amber-50 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-amber-600">Reste à produire</p><p className="text-base md:text-lg font-black text-amber-700">{reste.toLocaleString()}</p></div>
+                                            <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-slate-500 dark:text-dk-muted">{tx(lang,{fr:"Cible (OF)",ar:"الهدف (أمر التصنيع)",en:"Target (OF)",es:"Objetivo (OF)",pt:"Alvo (OF)",tr:"Hedef (OF)"})}</p><p className="text-base md:text-lg font-black text-slate-800 dark:text-dk-text">{agg.totalExpected.toLocaleString()}</p></div>
+                                            <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{tx(lang,{fr:"Total du jour",ar:"إجمالي اليوم",en:"Day Total",es:"Total del día",pt:"Total do dia",tr:"Gün Toplamı"})}</p><p className="text-base md:text-lg font-black text-emerald-700">{dayTotal.toLocaleString()}</p></div>
+                                            <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">{activeTab === 'finition' ? tx(lang,{fr:"Cumul fini",ar:"الإجمالي النهائي",en:"Finished Total",es:"Total Terminado",pt:"Total Acabado",tr:"Bitmiş Toplam"}) : tx(lang,{fr:"Cumul dépôt",ar:"إجمالي المستودع",en:"Deposit Total",es:"Total Depósito",pt:"Total Depósito",tr:"Depo Toplamı"})}</p><p className="text-base md:text-lg font-black text-indigo-700 dark:text-dk-accent-text">{cumul.toLocaleString()}</p></div>
+                                            <div className="bg-amber-50 dark:bg-amber-900/30 rounded-xl p-2 md:p-3 text-center"><p className="text-[9px] md:text-[10px] font-bold text-amber-600 dark:text-amber-400">{tx(lang,{fr:"Reste à produire",ar:"المتبقي للإنتاج",en:"Remaining to Produce",es:"Restante por Producir",pt:"Restante por Produzir",tr:"Üretilecek Kalan"})}</p><p className="text-base md:text-lg font-black text-amber-700">{reste.toLocaleString()}</p></div>
                                         </div>
 
-                                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                                        <div className="overflow-x-auto border border-slate-200 dark:border-dk-border rounded-xl">
                                             <table className="w-full lg:w-auto lg:min-w-[680px] lg:mx-auto text-left border-collapse text-xs">
                                                 <thead>
-                                                    <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
-                                                        <th className="p-2 md:p-3 lg:px-6">H</th>
-                                                        {cols.map(c => <th key={c} className="p-2 md:p-3 lg:px-6 text-center">{c}</th>)}
-                                                        <th className="p-2 md:p-3 lg:px-6 text-center bg-indigo-50/40 text-indigo-700">Tot</th>
+                                                    <tr className="bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border text-[10px] uppercase tracking-wider text-slate-500 dark:text-dk-muted font-black">
+                                                            <th className="p-2 md:p-3 lg:px-6">{tx(lang,{fr:"H",ar:"س",en:"H",es:"H",pt:"H",tr:"S"})}</th>
+                                                            {cols.map(c => <th key={c} className="p-2 md:p-3 lg:px-6 text-center">{c}</th>)}
+                                                            <th className="p-2 md:p-3 lg:px-6 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/40 text-indigo-700 dark:text-dk-accent-text">{tx(lang,{fr:"Tot",ar:"المجموع",en:"Tot",es:"Tot",pt:"Tot",tr:"Top"})}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {grid.keys.map((key, i) => {
                                                         const rowTotal = cols.reduce((s2, c) => s2 + (Number(getHourlyValue(activeModel, key, c)) || 0), 0);
                                                         return (
-                                                            <tr key={key} className="border-b border-slate-100 hover:bg-slate-50/50">
-                                                                <td className="p-2 md:p-3 lg:px-6 font-black text-slate-700">{grid.hours[i]}</td>
+                                                            <tr key={key} className="border-b border-slate-100 dark:border-dk-border hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60">
+                                                                <td className="p-2 md:p-3 lg:px-6 font-black text-slate-700 dark:text-dk-text-soft">{grid.hours[i]}</td>
                                                                 {cols.map(c => (
                                                                     <td key={c} className="p-1.5 md:p-2 lg:px-6 text-center">
                                                                         <input
@@ -926,21 +929,21 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                                             value={getHourlyValue(activeModel, key, c)}
                                                                             onChange={(e) => handleUpdateHourly(activeModel, key, c, Math.max(0, parseInt(e.target.value) || 0))}
                                                                             placeholder="0"
-                                                                            className="w-14 md:w-20 lg:w-24 mx-auto block text-center font-bold text-sm bg-slate-50 border border-slate-200 rounded-lg py-2 focus:bg-white focus:border-emerald-500 outline-none transition-all"
+                                                                            className="w-14 md:w-20 lg:w-24 mx-auto block text-center font-bold text-sm bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg py-2 focus:bg-white focus:border-emerald-500 outline-none transition-all"
                                                                         />
                                                                     </td>
                                                                 ))}
-                                                                <td className="p-2 md:p-3 lg:px-6 text-center font-bold text-indigo-700">{rowTotal.toLocaleString()}</td>
+                                                                <td className="p-2 md:p-3 lg:px-6 text-center font-bold text-indigo-700 dark:text-dk-accent-text">{rowTotal.toLocaleString()}</td>
                                                             </tr>
                                                         );
                                                     })}
-                                                    <tr className="bg-slate-50 font-black border-t-2 border-slate-200 text-slate-800">
-                                                        <td className="p-2 md:p-3 lg:px-6 uppercase text-[10px]">Total</td>
+                                                    <tr className="bg-slate-50 dark:bg-dk-bg font-black border-t-2 border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text">
+                                                        <td className="p-2 md:p-3 lg:px-6 uppercase text-[10px]">{tx(lang,{fr:"Total",ar:"المجموع",en:"Total",es:"Total",pt:"Total",tr:"Toplam"})}</td>
                                                         {cols.map(c => {
                                                             const colTotal = grid.keys.reduce((acc, key) => acc + (Number(getHourlyValue(activeModel, key, c)) || 0), 0);
                                                             return <td key={c} className="p-2 md:p-3 lg:px-6 text-center">{colTotal.toLocaleString()}</td>;
                                                         })}
-                                                        <td className="p-2 md:p-3 lg:px-6 text-center text-indigo-700">{dayTotal.toLocaleString()}</td>
+                                                        <td className="p-2 md:p-3 lg:px-6 text-center text-indigo-700 dark:text-dk-accent-text">{dayTotal.toLocaleString()}</td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -949,17 +952,17 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                         {/* Détail par taille — toutes les tailles du modèle */}
                                         {sizes.length > 0 && (
                                             <div>
-                                                <p className="text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-wider mb-1.5 md:mb-2 flex items-center gap-1.5">
-                                                    <Layers className="w-3.5 h-3.5 text-emerald-600" /> Détail par taille
+                                                <p className="text-[10px] md:text-[11px] font-black text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1.5 md:mb-2 flex items-center gap-1.5">
+                                                    <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> {tx(lang,{fr:"Détail par taille",ar:"التفاصيل حسب المقاس",en:"Detail by Size",es:"Detalle por Talla",pt:"Detalhe por Tamanho",tr:"Beden Detayı"})}
                                                 </p>
-                                                <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                                                <div className="overflow-x-auto border border-slate-200 dark:border-dk-border rounded-xl">
                                                     <table className="w-full lg:w-auto lg:min-w-[520px] lg:mx-auto text-left border-collapse text-xs">
                                                         <thead>
-                                                            <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
-                                                                <th className="p-2 md:p-3 lg:px-8">Taille</th>
-                                                                <th className="p-2 md:p-3 text-right">Cible</th>
-                                                                <th className="p-2 md:p-3 text-right text-indigo-700">{activeTab === 'finition' ? 'Cumul' : 'Dépôt'}</th>
-                                                                <th className="p-2 md:p-3 text-right text-emerald-700">Reste</th>
+                                                            <tr className="bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border text-[10px] uppercase tracking-wider text-slate-500 dark:text-dk-muted font-black">
+                                                                <th className="p-2 md:p-3 lg:px-8">{tx(lang,{fr:"Taille",ar:"المقاس",en:"Size",es:"Talla",pt:"Tamanho",tr:"Beden"})}</th>
+                                                                <th className="p-2 md:p-3 text-right">{tx(lang,{fr:"Cible",ar:"الهدف",en:"Target",es:"Objetivo",pt:"Alvo",tr:"Hedef"})}</th>
+                                                                <th className="p-2 md:p-3 text-right text-indigo-700 dark:text-dk-accent-text">{activeTab === 'finition' ? tx(lang,{fr:"Cumul",ar:"الإجمالي",en:"Total",es:"Acumulado",pt:"Acumulado",tr:"Toplam"}) : tx(lang,{fr:"Dépôt",ar:"المستودع",en:"Deposit",es:"Depósito",pt:"Depósito",tr:"Depo"})}</th>
+                                                                <th className="p-2 md:p-3 text-right text-emerald-700">{tx(lang,{fr:"Reste",ar:"المتبقي",en:"Remaining",es:"Restante",pt:"Restante",tr:"Kalan"})}</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
@@ -979,10 +982,10 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                                 }
                                                                 const resteSize = Math.max(0, expected - cumulSize);
                                                                 return (
-                                                                    <tr key={sz} className="border-b border-slate-100">
-                                                                        <td className="p-2 md:p-3 font-black text-slate-800 uppercase">{sz}</td>
-                                                                        <td className="p-2 md:p-3 text-right text-slate-600">{expected.toLocaleString()}</td>
-                                                                        <td className="p-2 md:p-3 text-right font-bold text-indigo-700">{cumulSize.toLocaleString()}</td>
+                                                                    <tr key={sz} className="border-b border-slate-100 dark:border-dk-border">
+                                                                        <td className="p-2 md:p-3 font-black text-slate-800 dark:text-dk-text uppercase">{sz}</td>
+                                                                        <td className="p-2 md:p-3 text-right text-slate-600 dark:text-dk-text-soft">{expected.toLocaleString()}</td>
+                                                                        <td className="p-2 md:p-3 text-right font-bold text-indigo-700 dark:text-dk-accent-text">{cumulSize.toLocaleString()}</td>
                                                                         <td className="p-2 md:p-3 text-right font-bold text-emerald-700">{resteSize.toLocaleString()}</td>
                                                                     </tr>
                                                                 );
@@ -1001,17 +1004,17 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                             <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white via-white/80 to-transparent pointer-events-none z-10 md:hidden opacity-0 group-hover/table:opacity-100 transition-opacity" />
                             <table className="min-w-full lg:min-w-0 lg:w-auto lg:mx-auto text-left border-collapse whitespace-nowrap text-xs">
                                 <thead>
-                                    <tr className="bg-white border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
-                                        <th className="p-3 sticky left-0 bg-white z-10">Modèle (N° OF)</th>
-                                        <th className="p-3 text-center">Chaîne</th>
+                                    <tr className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border text-[10px] uppercase tracking-wider text-slate-500 dark:text-dk-muted font-black">
+                                        <th className="p-3 sticky left-0 bg-white dark:bg-dk-surface z-10">{tx(lang,{fr:"Modèle (N° OF)",ar:"الموديل (رقم أمر التصنيع)",en:"Model (OF No.)",es:"Modelo (N° OF)",pt:"Modelo (N° OF)",tr:"Model (İş Emri No.)"})}</th>
+                                        <th className="p-3 text-center">{tx(lang,{fr:"Chaîne",ar:"الخط",en:"Line",es:"Línea",pt:"Linha",tr:"Hat"})}</th>
                                         <th className="p-3 text-center">
-                                            <span className="hidden md:inline">Tailles — {activeTab === 'finition' ? 'sortie finition' : 'reçu dépôt'}</span>
-                                            <span className="md:hidden">Tailles</span>
+                                            <span className="hidden md:inline">{tx(lang,{fr:"Tailles —",ar:"المقاسات —",en:"Sizes —",es:"Tallas —",pt:"Tamanhos —",tr:"Bedenler —"})} {activeTab === 'finition' ? tx(lang,{fr:"sortie finition",ar:"مخرجات التشطيب",en:"finishing output",es:"salida acabado",pt:"saída acabamento",tr:"bitirme çıktısı"}) : tx(lang,{fr:"reçu dépôt",ar:"الوارد للمستودع",en:"received at deposit",es:"recibido depósito",pt:"recebido depósito",tr:"depoya alınan"})}</span>
+                                            <span className="md:hidden">{tx(lang,{fr:"Tailles",ar:"المقاسات",en:"Sizes",es:"Tallas",pt:"Tamanhos",tr:"Bedenler"})}</span>
                                         </th>
-                                        {activeTab === 'finition' && <th className="p-3 text-center bg-rose-50/40 text-rose-700">Défauts</th>}
-                                        <th className="p-3 text-center bg-amber-50/40 text-amber-700">WIP</th>
-                                        <th className="p-3 text-center bg-indigo-50/40 text-indigo-700">{activeTab === 'finition' ? 'Cumul' : 'Dépôt'}</th>
-                                        <th className="p-3 text-center bg-emerald-50/40 text-emerald-700">Reste</th>
+                                        {activeTab === 'finition' && <th className="p-3 text-center bg-rose-50 dark:bg-rose-900/40 text-rose-700">{tx(lang,{fr:"Défauts",ar:"العيوب",en:"Defects",es:"Defectos",pt:"Defeitos",tr:"Kusurlar"})}</th>}
+                                        <th className="p-3 text-center bg-amber-50 dark:bg-amber-900/40 text-amber-700">{tx(lang, {fr: 'WIP', ar: 'تحت التصنيع', en: 'WIP', es: 'PEP', pt: 'PEP', tr: 'YÜ'})}</th>
+                                        <th className="p-3 text-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/40 text-indigo-700 dark:text-dk-accent-text">{activeTab === 'finition' ? tx(lang,{fr:"Cumul",ar:"الإجمالي",en:"Total",es:"Acumulado",pt:"Acumulado",tr:"Toplam"}) : tx(lang,{fr:"Dépôt",ar:"المستودع",en:"Deposit",es:"Depósito",pt:"Depósito",tr:"Depo"})}</th>
+                                        <th className="p-3 text-center bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700">{tx(lang,{fr:"Reste",ar:"المتبقي",en:"Remaining",es:"Restante",pt:"Restante",tr:"Kalan"})}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1030,20 +1033,20 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                         const atRisk = cad.atRisk;
                                         const tight = !atRisk && reste > 0 && days !== null && days > 0 && days <= 3;
                                         return (
-                                            <tr key={model.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                                                <td className="p-3 sticky left-0 bg-white z-10">
-                                                    <div className="font-black text-slate-800 text-sm truncate max-w-[120px] sm:max-w-none">{model?.meta_data?.nom_modele || 'Sans Nom'}</div>
-                                                    <div className="text-[10px] text-slate-400 font-bold truncate">Réf: {model?.meta_data?.reference || 'N/A'}</div>
+                                            <tr key={model.id} className="border-b border-slate-100 dark:border-dk-border hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors">
+                                                <td className="p-3 sticky left-0 bg-white dark:bg-dk-surface z-10">
+                                                    <div className="font-black text-slate-800 dark:text-dk-text text-sm truncate max-w-[120px] sm:max-w-none">{model?.meta_data?.nom_modele || tx(lang,{fr:"Sans Nom",ar:"بدون اسم",en:"Unnamed",es:"Sin Nombre",pt:"Sem Nome",tr:"İsimsiz"})}</div>
+                                                    <div className="text-[10px] text-slate-400 dark:text-dk-muted font-bold truncate">{tx(lang,{fr:"Réf:",ar:"المرجع:",en:"Ref:",es:"Ref:",pt:"Ref:",tr:"Ref:"})} {model?.meta_data?.reference || 'N/A'}</div>
                                                 </td>
-                                                <td className="p-3 text-center font-bold text-slate-600">{getModelChaine(model)}</td>
+                                                <td className="p-3 text-center font-bold text-slate-600 dark:text-dk-text-soft">{getModelChaine(model)}</td>
                                                 <td className="p-2">
                                                     {sizes.length === 0 ? (
-                                                        <span className="text-slate-300 text-xs">— aucune taille définie —</span>
+                                                        <span className="text-slate-300 dark:text-dk-muted text-xs">{tx(lang,{fr:"— aucune taille définie —",ar:"— لم يتم تحديد أي مقاس —",en:"— no size defined —",es:"— ninguna talla definida —",pt:"— nenhum tamanho definido —",tr:"— beden tanımlanmamış —"})}</span>
                                                     ) : (
                                                         <div className="flex flex-wrap gap-2">
                                                             {sizes.map(sz => (
                                                                 <div key={sz} className="flex flex-col items-center">
-                                                                    <span className="text-[9px] font-black text-slate-400 uppercase">{sz}</span>
+                                                                    <span className="text-[9px] font-black text-slate-400 dark:text-dk-muted uppercase">{sz}</span>
                                                                     <input
                                                                         type="number"
                                                                         value={getCellValue(model, sz)}
@@ -1053,7 +1056,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                                             else handleUpdateEmballage(model, sz, 'depot', v);
                                                                         }}
                                                                         placeholder="0"
-                                                                        className="w-12 md:w-14 text-center font-bold text-xs bg-slate-50 border border-slate-200 rounded-lg py-2 md:py-1 focus:bg-white focus:border-emerald-500 outline-none transition-all"
+                                                                        className="w-12 md:w-14 text-center font-bold text-xs bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg py-2 md:py-1 focus:bg-white focus:border-emerald-500 outline-none transition-all"
                                                                     />
                                                                 </div>
                                                             ))}
@@ -1061,40 +1064,40 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                     )}
                                                 </td>
                                                 {activeTab === 'finition' && (
-                                                    <td className="p-2 text-center bg-rose-50/20">
+                                                    <td className="p-2 text-center bg-rose-50 dark:bg-rose-900/20">
                                                         <input
                                                             type="number"
                                                             value={getDefautsToday(model)}
                                                             onChange={(e) => handleUpdateDefauts(model, Math.max(0, parseInt(e.target.value) || 0))}
                                                             placeholder="0"
-                                                            className="w-12 md:w-14 text-center font-bold text-xs bg-rose-50/50 border border-rose-100 rounded-lg py-2 md:py-1 focus:bg-white focus:border-rose-400 outline-none transition-all text-rose-700"
+                                                            className="w-12 md:w-14 text-center font-bold text-xs bg-rose-50 dark:bg-rose-900/50 border border-rose-100 rounded-lg py-2 md:py-1 focus:bg-white focus:border-rose-400 outline-none transition-all text-rose-700"
                                                         />
                                                         {getModelDefauts(model) > 0 && (
-                                                            <div className="text-[9px] text-rose-500 font-bold mt-0.5">cumul {getModelDefauts(model).toLocaleString()}</div>
+                                                            <div className="text-[9px] text-rose-500 font-bold mt-0.5">{tx(lang,{fr:"cumul",ar:"الإجمالي",en:"total",es:"acum.",pt:"acum.",tr:"toplam"})} {getModelDefauts(model).toLocaleString()}</div>
                                                         )}
                                                     </td>
                                                 )}
-                                                <td className="p-3 text-center font-bold text-amber-600 bg-amber-50/20">{wip.toLocaleString()}</td>
-                                                <td className="p-3 text-center font-black text-sm text-indigo-700 bg-indigo-50/30">{cumul.toLocaleString()}</td>
-                                                <td className="p-3 text-center bg-emerald-50/30">
+                                                <td className="p-3 text-center font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20">{wip.toLocaleString()}</td>
+                                                <td className="p-3 text-center font-black text-sm text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/30">{cumul.toLocaleString()}</td>
+                                                <td className="p-3 text-center bg-emerald-50 dark:bg-emerald-900/30">
                                                     <div className={`font-black text-sm ${atRisk ? 'text-rose-700' : 'text-emerald-700'}`}>{reste.toLocaleString()} pcs</div>
                                                     {days !== null && (
-                                                        <div className={`text-[10px] font-bold ${days < 0 ? 'text-rose-600' : (atRisk || tight) ? 'text-amber-600' : 'text-slate-500'}`}>
-                                                            {reste === 0 ? '✓ Complet' : days < 0 ? `${Math.abs(days)}j de retard` : days === 0 ? "Aujourd'hui" : `${days} jours restants`}
+                                                        <div className={`text-[10px] font-bold ${days < 0 ? 'text-rose-600 dark:text-rose-400' : (atRisk || tight) ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-dk-muted'}`}>
+                                                            {reste === 0 ? tx(lang,{fr:"✓ Complet",ar:"✓ مكتمل",en:"✓ Complete",es:"✓ Completo",pt:"✓ Completo",tr:"✓ Tamamlandı"}) : days < 0 ? `${Math.abs(days)} ${tx(lang,{fr:"j de retard",ar:"أيام تأخير",en:"days late",es:"días de retraso",pt:"dias de atraso",tr:"gün gecikme"})}` : days === 0 ? tx(lang,{fr:"Aujourd'hui",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"}) : `${days} ${tx(lang,{fr:"jours restants",ar:"أيام متبقية",en:"days remaining",es:"días restantes",pt:"dias restantes",tr:"gün kalan"})}`}
                                                         </div>
                                                     )}
                                                     {reste > 0 && cad.cadenceRequise > 0 && (
-                                                        <div className="text-[10px] font-bold text-indigo-600">≈ {cad.cadenceRequise.toLocaleString()} pcs/j requis</div>
+                                                        <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">≈ {cad.cadenceRequise.toLocaleString()} {tx(lang,{fr:"pcs/j requis",ar:"قطعة/يوم مطلوب",en:"pcs/d required",es:"pcs/d requerido",pt:"pcs/d necessário",tr:"adet/gün gerekli"})}</div>
                                                     )}
                                                 </td>
                                             </tr>
                                         );
                                     })}
                                     {/* Ligne Total */}
-                                    <tr className="bg-slate-50 font-black border-t-2 border-slate-200 text-slate-800">
-                                        <td className="p-3 uppercase">Total</td>
-                                        <td className="p-3 text-center text-slate-300">—</td>
-                                        <td className="p-3 text-center text-slate-700">
+                                    <tr className="bg-slate-50 dark:bg-dk-bg font-black border-t-2 border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text">
+                                        <td className="p-3 uppercase">{tx(lang,{fr:"Total",ar:"المجموع",en:"Total",es:"Total",pt:"Total",tr:"Toplam"})}</td>
+                                        <td className="p-3 text-center text-slate-300 dark:text-dk-muted">—</td>
+                                        <td className="p-3 text-center text-slate-700 dark:text-dk-text-soft">
                                             {filteredModels.reduce((acc, m) => {
                                                 const szList = m.ficheData?.sizes || m.meta_data?.sizes || [];
                                                 const plan = planningEvents.find(p => p.modelId === m.id);
@@ -1106,14 +1109,14 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                         : (s as any)?.emballageData?.[sz]?.depot;
                                                     return s2 + (d || 0);
                                                 }, 0);
-                                            }, 0).toLocaleString()} <span className="text-[9px] text-slate-400">pcs / jour</span>
+                                            }, 0).toLocaleString()} <span className="text-[9px] text-slate-400 dark:text-dk-muted">{tx(lang,{fr:"pcs / jour",ar:"قطعة / يوم",en:"pcs / day",es:"pcs / día",pt:"pcs / dia",tr:"adet / gün"})}</span>
                                         </td>
                                         {activeTab === 'finition' && (
                                             <td className="p-3 text-center text-rose-700">
                                                 {filteredModels.reduce((acc, m) => acc + getModelDefauts(m), 0).toLocaleString()}
                                             </td>
                                         )}
-                                        <td className="p-3 text-center text-amber-600">
+                                        <td className="p-3 text-center text-amber-600 dark:text-amber-400">
                                             {filteredModels.reduce((acc, m) => {
                                                 const a = getModelAggregations(m);
                                                 const sizesM = m.ficheData?.sizes || m.meta_data?.sizes || [];
@@ -1124,7 +1127,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                 return acc + w;
                                             }, 0).toLocaleString()}
                                         </td>
-                                        <td className="p-3 text-center text-indigo-700">
+                                        <td className="p-3 text-center text-indigo-700 dark:text-dk-accent-text">
                                             {filteredModels.reduce((acc, m) => {
                                                 const a = getModelAggregations(m);
                                                 return acc + (activeTab === 'finition' ? a.totalFinitionOut : a.totalDepotIn);
@@ -1145,22 +1148,22 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                             <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white via-white/80 to-transparent pointer-events-none z-10 md:hidden opacity-0 group-hover/table:opacity-100 transition-opacity" />
                             <table className="w-full text-left border-collapse whitespace-nowrap text-xs">
                                 <thead>
-                                    <tr className="bg-white border-b border-slate-200 text-[10px] uppercase tracking-wider text-slate-500 font-black">
-                                        <th className="p-3 md:p-4 w-10 sticky left-0 bg-white z-10"></th>
-                                        <th className="p-3 md:p-4 w-12 hidden md:table-cell">Image</th>
-                                        <th className="p-3 md:p-4">Modèle</th>
-                                        <th className="p-3 md:p-4 hidden md:table-cell">Client</th>
-                                        <th className="p-3 md:p-4 text-center">Qté</th>
+                                    <tr className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border text-[10px] uppercase tracking-wider text-slate-500 dark:text-dk-muted font-black">
+                                        <th className="p-3 md:p-4 w-10 sticky left-0 bg-white dark:bg-dk-surface z-10"></th>
+                                        <th className="p-3 md:p-4 w-12 hidden md:table-cell">{tx(lang,{fr:"Image",ar:"الصورة",en:"Image",es:"Imagen",pt:"Imagem",tr:"Görsel"})}</th>
+                                        <th className="p-3 md:p-4">{tx(lang,{fr:"Modèle",ar:"الموديل",en:"Model",es:"Modelo",pt:"Modelo",tr:"Model"})}</th>
+                                        <th className="p-3 md:p-4 hidden md:table-cell">{tx(lang,{fr:"Client",ar:"العميل",en:"Client",es:"Cliente",pt:"Cliente",tr:"Müşteri"})}</th>
+                                        <th className="p-3 md:p-4 text-center">{tx(lang,{fr:"Qté",ar:"الكمية",en:"Qty",es:"Cdad",pt:"Qtd",tr:"Mik"})}</th>
                                         {activeTab === 'complet' && (
                                             <>
-                                                <th className="p-3 md:p-4 text-center">Reçu</th>
-                                                <th className="p-3 md:p-4 text-center hidden lg:table-cell">Stock</th>
-                                                <th className="p-3 md:p-4 text-center hidden lg:table-cell">Prix U.</th>
-                                                <th className="p-3 md:p-4 text-center hidden lg:table-cell">Valeur</th>
+                                                <th className="p-3 md:p-4 text-center">{tx(lang,{fr:"Reçu",ar:"الوارد",en:"Received",es:"Recibido",pt:"Recebido",tr:"Alınan"})}</th>
+                                                <th className="p-3 md:p-4 text-center hidden lg:table-cell">{tx(lang,{fr:"Stock",ar:"المخزون",en:"Stock",es:"Stock",pt:"Stock",tr:"Stok"})}</th>
+                                                <th className="p-3 md:p-4 text-center hidden lg:table-cell">{tx(lang,{fr:"Prix U.",ar:"سعر الوحدة",en:"Unit Price",es:"Precio U.",pt:"Preço U.",tr:"Birim Fiyat"})}</th>
+                                                <th className="p-3 md:p-4 text-center hidden lg:table-cell">{tx(lang,{fr:"Valeur",ar:"القيمة",en:"Value",es:"Valor",pt:"Valor",tr:"Değer"})}</th>
                                             </>
                                         )}
-                                        <th className="p-3 md:p-4 text-center">Statut</th>
-                                        <th className="p-3 md:p-4 text-right">Actions</th>
+                                        <th className="p-3 md:p-4 text-center">{tx(lang,{fr:"Statut",ar:"الحالة",en:"Status",es:"Estado",pt:"Estado",tr:"Durum"})}</th>
+                                        <th className="p-3 md:p-4 text-right">{tx(lang,{fr:"Actions",ar:"الإجراءات",en:"Actions",es:"Acciones",pt:"Ações",tr:"İşlemler"})}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1174,18 +1177,18 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
                                         return (
                                             <React.Fragment key={model.id}>
-                                                <tr className={`border-b border-slate-100 hover:bg-slate-50/50 transition-colors ${isExpanded ? 'bg-slate-50/20' : ''}`}>
-                                                    <td className="p-3 md:p-4 text-center sticky left-0 bg-white z-10">
+                                                <tr className={`border-b border-slate-100 dark:border-dk-border hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors ${isExpanded ? 'bg-slate-50 dark:bg-dk-bg/20' : ''}`}>
+                                                    <td className="p-3 md:p-4 text-center sticky left-0 bg-white dark:bg-dk-surface z-10">
                                                         <button 
                                                             onClick={() => setExpandedModelId(isExpanded ? null : model.id)}
-                                                            className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-500"
+                                                            className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors text-slate-500 dark:text-dk-muted"
                                                         >
                                                             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                                         </button>
                                                     </td>
 
                                                     <td className="p-3 md:p-4 text-center hidden md:table-cell">
-                                                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-slate-100 overflow-hidden shrink-0 mx-auto border border-slate-200 flex items-center justify-center">
+                                                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-slate-100 dark:bg-dk-elevated overflow-hidden shrink-0 mx-auto border border-slate-200 dark:border-dk-border flex items-center justify-center">
                                                             {model.image ? (
                                                                 <img src={model.image} className="w-full h-full object-cover" alt="" />
                                                             ) : (
@@ -1195,34 +1198,34 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                     </td>
 
                                                     <td className="p-3 md:p-4">
-                                                        <div className="font-black text-slate-800 text-sm truncate max-w-[100px] md:max-w-none">
-                                                            {model?.meta_data?.nom_modele || 'Sans Nom'}
+                                                        <div className="font-black text-slate-800 dark:text-dk-text text-sm truncate max-w-[100px] md:max-w-none">
+                                                            {model?.meta_data?.nom_modele || tx(lang,{fr:"Sans Nom",ar:"بدون اسم",en:"Unnamed",es:"Sin Nombre",pt:"Sem Nome",tr:"İsimsiz"})}
                                                         </div>
-                                                        <div className="text-[10px] text-slate-400 font-bold truncate">
-                                                            Réf: {model?.meta_data?.reference || 'N/A'}
+                                                        <div className="text-[10px] text-slate-400 dark:text-dk-muted font-bold truncate">
+                                                            {tx(lang,{fr:"Réf:",ar:"المرجع:",en:"Ref:",es:"Ref:",pt:"Ref:",tr:"Ref:"})} {model?.meta_data?.reference || 'N/A'}
                                                         </div>
                                                     </td>
 
-                                                    <td className="p-3 md:p-4 font-bold text-xs text-slate-600 hidden md:table-cell truncate max-w-[80px] md:max-w-none">
-                                                        {model.ficheData?.client || 'Client Divers'}
+                                                    <td className="p-3 md:p-4 font-bold text-xs text-slate-600 dark:text-dk-text-soft hidden md:table-cell truncate max-w-[80px] md:max-w-none">
+                                                        {model.ficheData?.client || tx(lang,{fr:"Client Divers",ar:"عميل متنوع",en:"Various Client",es:"Cliente Varios",pt:"Cliente Diversos",tr:"Çeşitli Müşteri"})}
                                                     </td>
 
-                                                    <td className="p-3 md:p-4 font-black text-slate-700 text-xs">
+                                                    <td className="p-3 md:p-4 font-black text-slate-700 dark:text-dk-text-soft text-xs">
                                                         {agg.totalExpected.toLocaleString()}
                                                     </td>
 
                                                     {activeTab === 'complet' && (
                                                         <>
-                                                            <td className="p-3 md:p-4 font-bold text-xs text-slate-600 text-center">
+                                                            <td className="p-3 md:p-4 font-bold text-xs text-slate-600 dark:text-dk-text-soft text-center">
                                                                 {agg.totalDepotIn.toLocaleString()}
                                                             </td>
                                                             <td className="p-3 md:p-4 font-black text-xs md:text-sm text-indigo-750 text-center hidden lg:table-cell">
                                                                 {agg.currentStock.toLocaleString()}
                                                             </td>
-                                                            <td className="p-3 md:p-4 font-bold text-xs text-slate-600 text-center hidden lg:table-cell">
+                                                            <td className="p-3 md:p-4 font-bold text-xs text-slate-600 dark:text-dk-text-soft text-center hidden lg:table-cell">
                                                                 {agg.unitPrice.toFixed(2)}
                                                             </td>
-                                                            <td className="p-3 md:p-4 font-black text-xs text-emerald-700 bg-emerald-50/30 text-center hidden lg:table-cell">
+                                                            <td className="p-3 md:p-4 font-black text-xs text-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 text-center hidden lg:table-cell">
                                                                 {agg.stockValue.toLocaleString()}
                                                             </td>
                                                         </>
@@ -1230,21 +1233,21 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
                                                     <td className="p-3 md:p-4 text-center">
                                                         {agg.isShipped ? (
-                                                            <span className="inline-flex items-center gap-1 px-1.5 md:px-2.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-black bg-slate-100 text-slate-600 border border-slate-200">
+                                                            <span className="inline-flex items-center gap-1 px-1.5 md:px-2.5 py-0.5 rounded-full text-[9px] md:text-[10px] font-black bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border">
                                                                 <Truck className="w-3 h-3" />
-                                                                <span className="hidden sm:inline">Expédié</span>
-                                                                <span className="sm:hidden">Envoyé</span>
+                                                                <span className="hidden sm:inline">{tx(lang,{fr:"Expédié",ar:"تم الشحن",en:"Shipped",es:"Enviado",pt:"Expedido",tr:"Sevk Edildi"})}</span>
+                                                                <span className="sm:hidden">{tx(lang,{fr:"Envoyé",ar:"مرسل",en:"Sent",es:"Enviado",pt:"Enviado",tr:"Gönderildi"})}</span>
                                                             </span>
                                                         ) : (
                                                             <span className={`inline-flex items-center px-1.5 md:px-2 py-0.5 rounded-full text-[9px] md:text-[10px] font-black ${
                                                                 agg.totalDepotIn >= agg.totalExpected && agg.totalExpected > 0
-                                                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-250'
+                                                                    ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-250'
                                                                     : agg.totalDepotIn > 0 
-                                                                        ? 'bg-amber-50 text-amber-700 border border-amber-250'
-                                                                        : 'bg-slate-50 text-slate-605 border border-slate-200'
+                                                                        ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 border border-amber-250'
+                                                                        : 'bg-slate-50 dark:bg-dk-bg text-slate-605 border border-slate-200 dark:border-dk-border'
                                                             }`}>
-                                                                {agg.totalDepotIn >= agg.totalExpected && agg.totalExpected > 0 ? 'Complet au Dépôt' :
-                                                                 agg.totalDepotIn > 0 ? 'Réception Partielle' : 'En attente'}
+                                                                {agg.totalDepotIn >= agg.totalExpected && agg.totalExpected > 0 ? tx(lang,{fr:"Complet au Dépôt",ar:"مكتمل في المستودع",en:"Complete at Deposit",es:"Completo en Depósito",pt:"Completo no Depósito",tr:"Depoda Tamamlandı"}) :
+                                                                 agg.totalDepotIn > 0 ? tx(lang,{fr:"Réception Partielle",ar:"استلام جزئي",en:"Partial Reception",es:"Recepción Parcial",pt:"Receção Parcial",tr:"Kısmi Tesellüm"}) : tx(lang,{fr:"En attente",ar:"قيد الانتظار",en:"Pending",es:"Pendiente",pt:"Pendente",tr:"Beklemede"})}
                                                             </span>
                                                         )}
                                                     </td>
@@ -1253,49 +1256,49 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                         {agg.isShipped && (
                                                             <button
                                                                 onClick={() => handleResetShipModel(model.id)}
-                                                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[9px] md:text-[10px] px-2 md:px-2.5 py-1.5 rounded-lg transition-colors border border-slate-200 inline-flex items-center gap-1"
+                                                                className="bg-slate-100 dark:bg-dk-elevated hover:bg-slate-200 text-slate-700 dark:text-dk-text-soft font-bold text-[9px] md:text-[10px] px-2 md:px-2.5 py-1.5 rounded-lg transition-colors border border-slate-200 dark:border-dk-border inline-flex items-center gap-1"
                                                             >
-                                                                Reset
+                                                                {tx(lang,{fr:"Reset",ar:"إعادة",en:"Reset",es:"Reiniciar",pt:"Repor",tr:"Sıfırla"})}
                                                             </button>
                                                         )}
                                                     </td>
                                                 </tr>
 
                                                 {isExpanded && (
-                                                    <tr className="bg-slate-50/60">
-                                                        <td colSpan={11} className="p-4 md:p-6 border-b border-slate-200">
-                                                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                                                <div className="px-3 md:px-4 py-2.5 md:py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                                                                    <span className="text-[10px] md:text-xs font-black text-slate-700 tracking-wider flex items-center gap-1.5">
-                                                                        <Layers className="w-4 h-4 text-emerald-600" />
-                                                                        Détails de Complétion Globale par Taille
+                                                    <tr className="bg-slate-50 dark:bg-dk-bg/60">
+                                                        <td colSpan={11} className="p-4 md:p-6 border-b border-slate-200 dark:border-dk-border">
+                                                            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
+                                                                <div className="px-3 md:px-4 py-2.5 md:py-3 bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border flex items-center justify-between">
+                                                                    <span className="text-[10px] md:text-xs font-black text-slate-700 dark:text-dk-text-soft tracking-wider flex items-center gap-1.5">
+                                                                    <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                                                    {tx(lang,{fr:"Détails de Complétion Globale par Taille",ar:"تفاصيل الإنجاز الكلي حسب المقاس",en:"Global Completion Details by Size",es:"Detalles de Finalización Global por Talla",pt:"Detalhes de Conclusão Global por Tamanho",tr:"Beden Bazında Genel Tamamlanma Detayları"})}
+                                                                </span>
+                                                                {agg.isShipped && (
+                                                                    <span className="text-[10px] font-bold text-slate-500 dark:text-dk-muted">
+                                                                        {tx(lang,{fr:"Expédié le :",ar:"تم الشحن في:",en:"Shipped on:",es:"Enviado el:",pt:"Expedido em:",tr:"Sevk tarihi:"})} {agg.shippedAt}
                                                                     </span>
-                                                                    {agg.isShipped && (
-                                                                        <span className="text-[10px] font-bold text-slate-500">
-                                                                            Expédié le : {agg.shippedAt}
-                                                                        </span>
-                                                                    )}
+                                                                )}
                                                                 </div>
 
                                                                 <div className="overflow-x-auto">
                                                                     <table className="w-full text-left border-collapse text-xs">
                                                                         <thead>
-                                                                            <tr className="bg-slate-50 text-[10px] font-black uppercase text-slate-500 border-b border-slate-200">
-                                                                                <th className="p-3">Taille</th>
-                                                                                <th className="p-3 text-right">Qté Attendue (OF)</th>
+                                                                            <tr className="bg-slate-50 dark:bg-dk-bg text-[10px] font-black uppercase text-slate-500 dark:text-dk-muted border-b border-slate-200 dark:border-dk-border">
+                                                                            <th className="p-3">{tx(lang,{fr:"Taille",ar:"المقاس",en:"Size",es:"Talla",pt:"Tamanho",tr:"Beden"})}</th>
+                                                                            <th className="p-3 text-right">{tx(lang,{fr:"Qté Attendue (OF)",ar:"الكمية المتوقعة (أمر التصنيع)",en:"Expected Qty (OF)",es:"Cdad Esperada (OF)",pt:"Qtd Esperada (OF)",tr:"Beklenen Mik. (OF)"})}</th>
 
-                                                                                {activeTab === 'complet' && (
-                                                                                    <>
-                                                                                        <th className="p-3 text-right">Reçu Cumulé</th>
-                                                                                        <th className="p-3 text-right">Reste</th>
-                                                                                        <th className="p-3 text-center">Taux de Complétion</th>
-                                                                                    </>
-                                                                                )}
+                                                                            {activeTab === 'complet' && (
+                                                                                <>
+                                                                                    <th className="p-3 text-right">{tx(lang,{fr:"Reçu Cumulé",ar:"الوارد التراكمي",en:"Cumulative Received",es:"Recibido Acumulado",pt:"Recebido Acumulado",tr:"Kümülatif Alınan"})}</th>
+                                                                                    <th className="p-3 text-right">{tx(lang,{fr:"Reste",ar:"المتبقي",en:"Remaining",es:"Restante",pt:"Restante",tr:"Kalan"})}</th>
+                                                                                    <th className="p-3 text-center">{tx(lang,{fr:"Taux de Complétion",ar:"معدل الإنجاز",en:"Completion Rate",es:"Tasa de Finalización",pt:"Taxa de Conclusão",tr:"Tamamlanma Oranı"})}</th>
+                                                                                </>
+                                                                            )}
 
-                                                                                <th className="p-3 text-center">Statut</th>
+                                                                            <th className="p-3 text-center">{tx(lang,{fr:"Statut",ar:"الحالة",en:"Status",es:"Estado",pt:"Estado",tr:"Durum"})}</th>
                                                                             </tr>
                                                                         </thead>
-                                                                        <tbody className="divide-y divide-slate-100">
+                                                                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                                                             {sizes.map((sizeName, sIdx) => {
                                                                                 const expected = getExpectedQtyForSize(model, sIdx);
                                                                                 
@@ -1328,22 +1331,22 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
                                                                                 return (
                                                                                     <tr key={sizeName} className="hover:bg-slate-50/40">
-                                                                                        <td className="p-3 font-black text-slate-800 text-sm">{sizeName}</td>
-                                                                                        <td className="p-3 text-right font-medium text-slate-600">{expected.toLocaleString()} pcs</td>
+                                                                                        <td className="p-3 font-black text-slate-800 dark:text-dk-text text-sm">{sizeName}</td>
+                                                                                        <td className="p-3 text-right font-medium text-slate-600 dark:text-dk-text-soft">{expected.toLocaleString()} pcs</td>
                                                                                         
                                                                                         {activeTab === 'complet' && (
                                                                                             <>
-                                                                                                <td className="p-3 text-right font-bold text-indigo-650">{totalDepotIn.toLocaleString()} pcs</td>
-                                                                                                <td className="p-3 text-right font-medium text-slate-500">{reste.toLocaleString()} pcs</td>
+                                                                                                <td className="p-3 text-right font-bold text-indigo-650 dark:text-dk-accent-text">{totalDepotIn.toLocaleString()} pcs</td>
+                                                                                                <td className="p-3 text-right font-medium text-slate-500 dark:text-dk-muted">{reste.toLocaleString()} pcs</td>
                                                                                                 <td className="p-3">
                                                                                                     <div className="flex items-center justify-center gap-2">
-                                                                                                        <div className="w-16 bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                                                                                        <div className="w-16 bg-slate-100 dark:bg-dk-elevated h-1.5 rounded-full overflow-hidden">
                                                                                                             <div
                                                                                                                 className={`h-full ${completionRate >= 100 ? 'bg-emerald-500' : completionRate >= 80 ? 'bg-amber-500' : 'bg-rose-500'}`}
                                                                                                                 style={{ width: `${completionRate}%` }}
                                                                                                             />
                                                                                                         </div>
-                                                                                                        <span className="font-bold text-slate-500">{Math.round(completionRate)}%</span>
+                                                                                                        <span className="font-bold text-slate-500 dark:text-dk-muted">{Math.round(completionRate)}%</span>
                                                                                                     </div>
                                                                                                 </td>
                                                                                             </>
@@ -1351,13 +1354,13 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
                                                                                         <td className="p-3 text-center">
                                                                                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black ${
-                                                                                                status === 'Clôturé' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                                                                                                status === 'En cours' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                                                                                                'bg-slate-50 text-slate-600 border border-slate-200'
+                                                                                                status === 'Clôturé' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-200' :
+                                                                                                status === 'En cours' ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 border border-amber-200' :
+                                                                                                'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
                                                                                             }`}>
-                                                                                                {status === 'Clôturé' ? '✅ Clôturé' :
-                                                                                                 status === 'En cours' ? '🔄 En cours' :
-                                                                                                 '⏳ En attente'}
+                                                                                                {status === 'Clôturé' ? '✅ ' + tx(lang,{fr:"Clôturé",ar:"مغلق",en:"Closed",es:"Cerrado",pt:"Fechado",tr:"Kapatıldı"}) :
+                                                                                                 status === 'En cours' ? '🔄 ' + tx(lang,{fr:"En cours",ar:"قيد التنفيذ",en:"In Progress",es:"En curso",pt:"Em curso",tr:"Devam Ediyor"}) :
+                                                                                                 '⏳ ' + tx(lang,{fr:"En attente",ar:"قيد الانتظار",en:"Pending",es:"Pendiente",pt:"Pendente",tr:"Beklemede"})}
                                                                                             </span>
                                                                                         </td>
                                                                                     </tr>
@@ -1365,13 +1368,13 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                                             })}
                                                                             
                                                                             {/* Summary total row */}
-                                                                            <tr className="bg-slate-55/40 font-black border-t border-slate-200 text-slate-800">
-                                                                                <td className="p-3 uppercase font-black">Total</td>
+                                                                            <tr className="bg-slate-55/40 font-black border-t border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text">
+                                                                                <td className="p-3 uppercase font-black">{tx(lang,{fr:"Total",ar:"المجموع",en:"Total",es:"Total",pt:"Total",tr:"Toplam"})}</td>
                                                                                 <td className="p-3 text-right">{sizes.reduce((sum, _, idx) => sum + getExpectedQtyForSize(model, idx), 0).toLocaleString()} pcs</td>
 
                                                                                 {activeTab === 'complet' && (
                                                                                     <>
-                                                                                        <td className="p-3 text-right text-indigo-600">{agg.totalDepotIn.toLocaleString()} pcs</td>
+                                                                                        <td className="p-3 text-right text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">{agg.totalDepotIn.toLocaleString()} pcs</td>
                                                                                         <td className="p-3 text-right text-slate-550">{Math.max(0, agg.totalExpected - agg.totalDepotIn).toLocaleString()} pcs</td>
                                                                                         <td className="p-3 text-center">
                                                                                             <div className="flex items-center justify-center gap-2">
@@ -1395,9 +1398,9 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                                                 <td className="p-3 text-center">
                                                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black ${
                                                                                         agg.totalDepotIn >= agg.totalExpected && agg.totalExpected > 0 ? 'bg-emerald-100 text-emerald-800' :
-                                                                                        agg.totalDepotIn > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
+                                                                                        agg.totalDepotIn > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft'
                                                                                     }`}>
-                                                                                        {agg.totalDepotIn >= agg.totalExpected && agg.totalExpected > 0 ? 'Clôturé' : 'En cours'}
+                                                                                        {agg.totalDepotIn >= agg.totalExpected && agg.totalExpected > 0 ? tx(lang,{fr:"Clôturé",ar:"مغلق",en:"Closed",es:"Cerrado",pt:"Fechado",tr:"Kapatıldı"}) : tx(lang,{fr:"En cours",ar:"قيد التنفيذ",en:"In Progress",es:"En curso",pt:"Em curso",tr:"Devam Ediyor"})}
                                                                                     </span>
                                                                                 </td>
                                                                             </tr>

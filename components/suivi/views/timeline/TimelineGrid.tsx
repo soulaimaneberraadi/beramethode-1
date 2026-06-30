@@ -5,6 +5,8 @@ import { useSuiviActiveContext, type ChainActiveContext } from '../../hooks/useS
 import { useSuiviGrid } from '../../hooks/useSuiviGrid';
 import { TimelineHeader } from './TimelineHeader';
 import { TimelineRow } from './TimelineRow';
+import { useLang } from '../../../../src/context/LanguageContext';
+import { tx } from '../../../../lib/i18n';
 
 interface Props {
     date: string;
@@ -22,12 +24,13 @@ export default function TimelineGrid({
     date, settings, chainIds, planningEvents, models, suivis,
     currentHourKey, selectedCell, onSelectCell,
 }: Props) {
+    const { lang } = useLang();
     const { hours, keys } = useMemo(() => deriveHourGrid(settings), [settings]);
     const active = useSuiviActiveContext({ date, planningEvents, models });
     const grid = useSuiviGrid({ date, chainIds, hourKeys: keys, suivis, planningEvents });
 
     return (
-        <div className="flex-1 overflow-auto bg-white">
+        <div className="flex-1 overflow-auto bg-white dark:bg-dk-surface">
             <div className="min-w-fit">
                 <TimelineHeader
                     hours={hours}
@@ -37,8 +40,8 @@ export default function TimelineGrid({
                 />
 
                 {chainIds.length === 0 ? (
-                    <div className="px-6 py-20 text-center text-[12px] text-slate-400">
-                        Aucune chaîne configurée. Ajoutez une chaîne dans Configuration.
+                    <div className="px-6 py-20 text-center text-[12px] text-slate-400 dark:text-dk-muted">
+                        {tx(lang, {fr:"Aucune chaîne configurée. Ajoutez une chaîne dans Configuration.",ar:"لا توجد خطوط إنتاج مكونة. أضف خط إنتاج في الإعدادات.",en:"No lines configured. Add a line in Configuration.",es:"Ninguna línea configurada. Añada una línea en Configuración.",pt:"Nenhuma linha configurada. Adicione uma linha na Configuração.",tr:"Yapılandırılmış hat yok. Yapılandırmaya bir hat ekleyin."})}
                     </div>
                 ) : (
                     chainIds.map((cid, idx) => {

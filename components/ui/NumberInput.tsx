@@ -40,6 +40,7 @@ const NumberInput: React.FC<Props> = ({ value, onValueChange, onChange, min = 0,
                     onValueChange(isNaN(n) ? min : Math.max(min, n));
                 }
             }}
+            className="dark:bg-dk-bg dark:border-dk-border dark:text-dk-text-soft"
             {...rest}
         />
     );

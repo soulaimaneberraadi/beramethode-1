@@ -12,7 +12,7 @@ export default function StatDot({ color, size = 6, pulsing, className = '' }: Pr
     const isHex = color.startsWith('#');
     return (
         <span
-            className={`inline-block shrink-0 rounded-full ${isHex ? '' : color} ${pulsing ? 'animate-pulse' : ''} ${className}`}
+            className={`inline-block shrink-0 rounded-full ${isHex ? '' : color} ${pulsing ? 'animate-pulse' : ''} ${className} dark:bg-dk-surface`}
             style={{
                 width: size,
                 height: size,

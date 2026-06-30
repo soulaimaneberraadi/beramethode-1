@@ -1,6 +1,8 @@
 import React from 'react';
 import type { ChainActiveContext } from '../../hooks/useSuiviActiveContext';
 import type { CellEntry } from '../../hooks/useSuiviGrid';
+import { useLang } from '../../../../src/context/LanguageContext';
+import { tx } from '../../../../lib/i18n';
 
 interface Props {
     index: number;
@@ -31,25 +33,26 @@ export function TimelineRow({
     index, chaineId, activeContext, hourKeys, hours, currentHourKey,
     chainTotal, getCell, selectedCell, onSelectCell,
 }: Props) {
+    const { lang } = useLang();
     const primaryColor = activeContext?.primary?.color || '#94a3b8';
     const conflict = !!activeContext?.conflict;
     const activeModels = activeContext?.activeModels || [];
 
     return (
         <div
-            className="flex border-b border-slate-50 hover:bg-slate-50/30 transition-colors animate-[planning-fade-in_240ms_ease-out]"
+            className="flex border-b border-slate-50 dark:border-dk-border/30 hover:bg-slate-50/30 dark:hover:bg-dk-elevated/60 transition-colors animate-[planning-fade-in_240ms_ease-out]"
             style={{ animationDelay: `${Math.min(index * 30, 240)}ms` }}
         >
             {/* Sidebar */}
             <div
-                className="shrink-0 sticky left-0 z-10 bg-white border-r border-slate-100 px-3 py-2 flex flex-col justify-center"
+                className="shrink-0 sticky left-0 z-10 bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border px-3 py-2 flex flex-col justify-center"
                 style={{ width: SIDEBAR_W, minHeight: ROW_H }}
             >
                 <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ background: primaryColor }} />
-                    <span className="text-[12px] font-semibold text-slate-900 truncate">{chaineId}</span>
+                    <span className="text-[12px] font-semibold text-slate-900 dark:text-dk-text truncate">{chaineId}</span>
                     {conflict && (
-                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
                             {activeModels.length}×
                         </span>
                     )}
@@ -59,18 +62,18 @@ export function TimelineRow({
                         {activeModels.slice(0, 2).map(m => (
                             <div key={m.planningId} className="flex items-center gap-1.5">
                                 <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: m.color }} />
-                                <span className="text-[10px] text-slate-600 truncate">{m.modelName}</span>
+                                <span className="text-[10px] text-slate-600 dark:text-dk-text-soft truncate">{m.modelName}</span>
                             </div>
                         ))}
                         {activeModels.length > 2 && (
-                            <span className="text-[9px] text-slate-400">+{activeModels.length - 2} autres</span>
+                            <span className="text-[9px] text-slate-400 dark:text-dk-muted">+{activeModels.length - 2} autres</span>
                         )}
                     </div>
                 ) : (
-                    <div className="mt-1 text-[10px] text-slate-400">Aucun OF actif</div>
+                    <div className="mt-1 text-[10px] text-slate-400 dark:text-dk-muted">{tx(lang, {fr:"Aucun OF actif",ar:"لا يوجد أمر تصنيع نشط",en:"No active WO",es:"Ningún OF activo",pt:"Nenhum OF ativo",tr:"Aktif İE yok"})}</div>
                 )}
-                <div className="mt-1 text-[10px] text-slate-500 tabular-nums">
-                    Total : <span className="font-semibold text-slate-900">{chainTotal}</span>
+                <div className="mt-1 text-[10px] text-slate-500 dark:text-dk-muted tabular-nums">
+                    {tx(lang, {fr:"Total :",ar:"المجموع:",en:"Total:",es:"Total:",pt:"Total:",tr:"Toplam:"})} <span className="font-semibold text-slate-900 dark:text-dk-text">{chainTotal}</span>
                 </div>
             </div>
 
@@ -107,24 +110,24 @@ export function TimelineRow({
                             key={hk}
                             type="button"
                             onClick={() => onSelectCell(chaineId, hk)}
-                            className={`shrink-0 relative border-r border-slate-100 transition-all flex items-center justify-center group ${
-                                isCurrent ? 'bg-red-50/30' : ''
-                            } ${isSelected ? 'ring-2 ring-indigo-400 ring-inset z-10' : 'hover:bg-slate-50'}`}
+                            className={`shrink-0 relative border-r border-slate-100 dark:border-dk-border transition-all flex items-center justify-center group ${
+                                isCurrent ? 'bg-red-50 dark:bg-red-900/30 dark:bg-red-900/20' : ''
+                            } ${isSelected ? 'ring-2 ring-indigo-400 ring-inset z-10' : 'hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                             style={{ width: HOUR_W, height: ROW_H, ...cellBg }}
                         >
                             {cell && cell.total > 0 ? (
                                 <div className="flex flex-col items-center">
-                                    <span className="text-[16px] font-bold text-slate-900 tabular-nums leading-none">
+                                    <span className="text-[16px] font-bold text-slate-900 dark:text-dk-text tabular-nums leading-none">
                                         {cell.total}
                                     </span>
                                     {cell.perPlanning.size > 1 && (
-                                        <span className="mt-0.5 text-[9px] text-slate-500 tabular-nums">
+                                        <span className="mt-0.5 text-[9px] text-slate-500 dark:text-dk-muted tabular-nums">
                                             {cell.perPlanning.size} modèles
                                         </span>
                                     )}
                                 </div>
                             ) : (
-                                <span className="text-[18px] text-slate-200 group-hover:text-slate-400 transition-colors">＋</span>
+                                <span className="text-[18px] text-slate-200 dark:text-dk-muted group-hover:text-slate-400 dark:group-hover:text-dk-text-soft transition-colors">＋</span>
                             )}
                         </button>
                     );

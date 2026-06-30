@@ -3,6 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { hasLocalDraftMarker, markPendingDraftAttachToEmail, notifyServerSessionEstablished } from '../../lib/dataIdentity';
 import { Lock, Mail, ArrowRight, User } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { tx } from '../../lib/i18n';
+import { useLang } from '../context/LanguageContext';
+import { useIsDark } from '../context/ThemeContext';
 
 // Icône Google officielle (multicolore)
 const GoogleIcon = ({ className }: { className?: string }) => (
@@ -14,12 +17,28 @@ const GoogleIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// Délai max avant d'abandonner une tentative de connexion (serveur injoignable / réseau bloqué).
+const LOGIN_TIMEOUT_MS = 15000;
+
+// Course entre une promesse et un timeout : évite qu'un appel réseau bloqué fige l'UI à l'infini.
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new DOMException('Timeout', 'TimeoutError')), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onGuest?: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login, staticLogin, signInWithGoogle } = useAuth();
+  const { lang } = useLang();
+  const isDark = useIsDark();
   
   // Forgot Password State
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -112,11 +131,16 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
     const raw = d.message ?? d.error;
     const s = typeof raw === 'string' ? raw.trim() : '';
     if (!s) return fallback;
-    if (s === 'Invalid credentials') return 'E-mail ou mot de passe incorrect.';
+    if (s === 'Invalid credentials') return tx(lang, {fr:'E-mail ou mot de passe incorrect.',ar:'البريد الإلكتروني أو كلمة السر غير صحيحة.',en:'Incorrect email or password.',es:'Correo o contraseña incorrectos.',pt:'E-mail ou palavra-passe incorretos.',tr:'E-posta veya şifre hatalı.'});
     return s;
   };
 
   const networkErrorMessage = (err: unknown): string => {
+    // Timeout (notre withTimeout) ou requête abandonnée (AbortController) : message clair.
+    const name = err && typeof err === 'object' && 'name' in err ? (err as { name?: string }).name : '';
+    if (name === 'TimeoutError' || name === 'AbortError') {
+      return tx(lang, {fr:'La connexion a expiré (délai dépassé). Vérifiez votre connexion Internet et réessayez.',ar:'انتهت مهلة الاتصال. تحقّق من اتصالك بالإنترنت وحاول مجدّداً.',en:'The connection timed out. Check your Internet connection and try again.',es:'La conexión expiró. Verifique su conexión a Internet e inténtelo de nuevo.',pt:'A ligação expirou. Verifique a sua ligação à Internet e tente novamente.',tr:'Bağlantı zaman aşımına uğradı. İnternet bağlantınızı kontrol edip tekrar deneyin.'});
+    }
     let msg = err instanceof Error ? err.message : String(err);
     msg = (msg || '').trim();
     // Message vide ou inexploitable ("{}", "[object Object]", page HTML d'erreur) :
@@ -133,15 +157,23 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       // En mode statique (Supabase), aucun backend local n'est requis : un échec
       // réseau signifie que le service d'authentification Supabase est injoignable.
       if (staticLogin) {
-        return (
-          'Impossible de joindre le serveur d\'authentification. ' +
-          'Vérifiez votre connexion Internet et réessayez dans quelques instants.'
-        );
+        return tx(lang, {
+          fr: 'Impossible de joindre le serveur d\'authentification. Vérifiez votre connexion Internet et réessayez dans quelques instants.',
+          ar: 'تعذّر الوصول إلى خادم المصادقة. تحقّق من اتصالك بالإنترنت وحاول مجدّداً بعد لحظات.',
+          en: 'Unable to reach the authentication server. Check your Internet connection and try again shortly.',
+          es: 'No se pudo conectar con el servidor de autenticación. Verifique su conexión a Internet e inténtelo de nuevo en unos instantes.',
+          pt: 'Não foi possível contactar o servidor de autenticação. Verifique a sua ligação à Internet e tente novamente dentro de momentos.',
+          tr: 'Kimlik doğrulama sunucusuna ulaşılamadı. İnternet bağlantınızı kontrol edip birazdan tekrar deneyin.'
+        });
       }
-      return (
-        'Impossible de joindre le serveur. Lancez « npm run dev » puis ouvrez http://localhost:8000. ' +
-        'Si vous utilisez uniquement « npm run dev:ui » (port 5173), le backend doit tourner sur le port 8000.'
-      );
+      return tx(lang, {
+        fr: 'Impossible de joindre le serveur. Lancez « npm run dev » puis ouvrez http://localhost:8000. Si vous utilisez uniquement « npm run dev:ui » (port 5173), le backend doit tourner sur le port 8000.',
+        ar: 'تعذّر الوصول إلى الخادم. شغّل « npm run dev » ثم افتح http://localhost:8000. إذا كنت تستعمل « npm run dev:ui » فقط (المنفذ 5173)، فيجب أن يعمل الخادم الخلفي على المنفذ 8000.',
+        en: 'Unable to reach the server. Run "npm run dev" then open http://localhost:8000. If you only use "npm run dev:ui" (port 5173), the backend must run on port 8000.',
+        es: 'No se pudo conectar con el servidor. Ejecute «npm run dev» y luego abra http://localhost:8000. Si solo usa «npm run dev:ui» (puerto 5173), el backend debe ejecutarse en el puerto 8000.',
+        pt: 'Não foi possível contactar o servidor. Execute «npm run dev» e abra http://localhost:8000. Se utilizar apenas «npm run dev:ui» (porta 5173), o backend tem de correr na porta 8000.',
+        tr: 'Sunucuya ulaşılamadı. "npm run dev" çalıştırın ve http://localhost:8000 adresini açın. Yalnızca "npm run dev:ui" (port 5173) kullanıyorsanız, arka uç 8000 portunda çalışmalıdır.'
+      });
     }
     return msg;
   };
@@ -157,26 +189,34 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       }
 
       if (staticLogin) {
-        const result = await staticLogin(email, password);
+        const result = await withTimeout(staticLogin(email, password), LOGIN_TIMEOUT_MS);
         if (!result.ok) throw new Error(result.message || 'E-mail ou mot de passe incorrect.');
         return;
       }
 
-      const res = await fetch('/api/auth/login', {
-        credentials: 'include',
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
-      });
+      // AbortController : coupe le fetch si le serveur ne répond pas dans le délai imparti.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), LOGIN_TIMEOUT_MS);
+      try {
+        const res = await fetch('/api/auth/login', {
+          credentials: 'include',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), password }),
+          signal: controller.signal,
+        });
 
-      const data = await res.json().catch(() => ({}));
+        const data = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
-        throw new Error(loginErrorMessage(data, 'E-mail ou mot de passe incorrect.'));
+        if (!res.ok) {
+          throw new Error(loginErrorMessage(data, 'E-mail ou mot de passe incorrect.'));
+        }
+
+        notifyServerSessionEstablished(data.user?.id ?? 0);
+        login(data.user);
+      } finally {
+        clearTimeout(timeoutId);
       }
-
-      notifyServerSessionEstablished(data.user?.id ?? 0);
-      login(data.user);
     } catch (err: unknown) {
       setError(networkErrorMessage(err));
     } finally {
@@ -188,10 +228,15 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
     if (!signInWithGoogle) return;
     setError('');
     setIsLoading(true);
-    const result = await signInWithGoogle();
-    if (!result.ok) {
-      // En cas de succès le navigateur redirige vers Google : pas de reset ici.
-      setError(result.message || 'Échec de la connexion avec Google.');
+    try {
+      const result = await withTimeout(signInWithGoogle(), LOGIN_TIMEOUT_MS);
+      if (!result.ok) {
+        // En cas de succès le navigateur redirige vers Google : pas de reset ici.
+        setError(result.message || tx(lang, {fr:'Échec de la connexion avec Google.',ar:'فشل تسجيل الدخول عبر Google.',en:'Google sign-in failed.',es:'Error al iniciar sesión con Google.',pt:'Falha ao iniciar sessão com o Google.',tr:'Google ile giriş başarısız oldu.'}));
+        setIsLoading(false);
+      }
+    } catch (err: unknown) {
+      setError(networkErrorMessage(err));
       setIsLoading(false);
     }
   };
@@ -293,11 +338,11 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center py-6 px-4 sm:py-12 sm:px-6 lg:px-8 relative overflow-hidden font-sans"
+      className="min-h-screen flex items-center justify-center py-6 px-4 sm:py-12 sm:px-6 lg:px-8 relative overflow-hidden font-sans dark:bg-dk-bg"
       style={{
-        backgroundColor: '#f8fafc',
+        backgroundColor: isDark ? '#14211C' : '#f8fafc',
         backgroundSize: '24px 24px',
-        backgroundImage: 'radial-gradient(circle, #cbd5e1 1.5px, transparent 1.5px)',
+        backgroundImage: isDark ? 'radial-gradient(circle, #2E463C 1.5px, transparent 1.5px)' : 'radial-gradient(circle, #cbd5e1 1.5px, transparent 1.5px)',
       }}
     >
       {/* Ambient decorative mesh elements */}
@@ -326,27 +371,27 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="max-w-md w-full bg-white border border-slate-200/80 rounded-3xl sm:rounded-[32px] p-6 sm:p-10 shadow-[0_25px_50px_-12px_rgba(15,23,42,0.08)] relative z-10 transition-all duration-500"
+        className="max-w-md w-full bg-white border border-slate-200/80 rounded-3xl sm:rounded-[32px] p-6 sm:p-10 shadow-[0_25px_50px_-12px_rgba(15,23,42,0.08)] relative z-10 transition-all duration-500 dark:bg-dk-surface dark:border-dk-border"
       >
         <motion.div variants={itemVariants} className="flex flex-col items-center">
           {/* Animated Logo & Brand */}
           <div className="flex flex-col items-center mb-8">
-            <h1 className="select-none text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-              BERA<span className="text-emerald-600">METHODE</span>
+            <h1 className="select-none text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-dk-text">
+              BERA<span className="text-emerald-600 dark:text-emerald-400">METHODE</span>
             </h1>
             
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] mt-1.5 text-slate-500">
-              Industrial Intelligence
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] mt-1.5 text-slate-500 dark:text-dk-muted">
+              {tx(lang, {fr:'Intelligence Industrielle',ar:'الذكاء الصناعي',en:'Industrial Intelligence',es:'Inteligencia Industrial',pt:'Inteligência Industrial',tr:'Endüstriyel Zeka'})}
             </span>
           </div>
 
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-center text-slate-900">
-            {showForgotPassword ? (resetStep === 3 ? 'New Password' : 'Reset Password') : 'Welcome back'}
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-center text-slate-900 dark:text-dk-text">
+            {showForgotPassword ? (resetStep === 3 ? tx(lang, {fr:'Nouveau mot de passe',ar:'كلمة سر جديدة',en:'New Password',es:'Nueva contraseña',pt:'Nova palavra-passe',tr:'Yeni Şifre'}) : tx(lang, {fr:'Réinitialiser le mot de passe',ar:'إعادة تعيين كلمة السر',en:'Reset Password',es:'Restablecer contraseña',pt:'Redefinir palavra-passe',tr:'Şifre Sıfırla'})) : tx(lang, {fr:'Bon retour',ar:'مرحباً بعودتك',en:'Welcome back',es:'Bienvenido de nuevo',pt:'Bem-vindo de volta',tr:'Hoş geldiniz'})}
           </h2>
-          <p className="mt-2 text-sm text-center max-w-xs text-slate-600">
+          <p className="mt-2 text-sm text-center max-w-xs text-slate-600 dark:text-dk-text-soft">
             {showForgotPassword 
-              ? (resetStep === 1 ? 'Enter your email to receive a verification code' : resetStep === 2 ? `Enter the code sent to ${getMaskedEmail(resetEmail)}` : 'Create a strong password for your account')
-              : 'Enter your credentials to access your industrial workspace'}
+              ? (resetStep === 1 ? tx(lang, {fr:'Saisissez votre e-mail pour recevoir un code de vérification',ar:'أدخل بريدك الإلكتروني لاستلام رمز التحقق',en:'Enter your email to receive a verification code',es:'Introduzca su correo para recibir un código de verificación',pt:'Introduza o seu e-mail para receber um código de verificação',tr:'Doğrulama kodu almak için e-postanızı girin'}) : resetStep === 2 ? `${tx(lang, {fr:'Saisissez le code envoyé à ',ar:'أدخل الرمز المرسل إلى ',en:'Enter the code sent to ',es:'Introduzca el código enviado a ',pt:'Introduza o código enviado para ',tr:'Gönderilen kodu girin: '})}${getMaskedEmail(resetEmail)}` : tx(lang, {fr:'Créez un mot de passe fort pour votre compte',ar:'أنشئ كلمة سر قوية لحسابك',en:'Create a strong password for your account',es:'Cree una contraseña segura para su cuenta',pt:'Crie uma palavra-passe forte para a sua conta',tr:'Hesabınız için güçlü bir şifre oluşturun'}))
+              : tx(lang, {fr:'Saisissez vos identifiants pour accéder à votre espace de travail',ar:'سجل الدخول للوصول إلى مساحة عملك',en:'Enter your credentials to access your industrial workspace',es:'Introduzca sus credenciales para acceder a su espacio de trabajo',pt:'Introduza as suas credenciais para aceder ao seu espaço de trabalho',tr:'Çalışma alanınıza erişmek için kimlik bilgilerinizi girin'})}
           </p>
         </motion.div>
 
@@ -356,13 +401,13 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 transition-colors duration-300 text-slate-400 group-focus-within:text-emerald-600" />
+                    <Mail className="h-5 w-5 transition-colors duration-300 text-slate-400 group-focus-within:text-emerald-600 dark:text-dk-muted" />
                   </div>
                   <input
                     type="email"
                     required
-                    className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm"
-                    placeholder="Email address"
+                    className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface"
+                    placeholder={tx(lang, {fr:'Adresse e-mail',ar:'البريد الإلكتروني',en:'Email address',es:'Correo electrónico',pt:'Endereço de e-mail',tr:'E-posta adresi'})}
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
                   />
@@ -375,7 +420,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 border-red-100 text-red-600">
+                      <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 dark:bg-red-900/30 border-red-100 text-red-600 dark:text-red-400 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
                         {resetError}
                       </div>
                     </motion.div>
@@ -388,7 +433,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   disabled={resetLoading}
                   className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 hover:shadow-emerald-500/20 shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {resetLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Send Verification Code'}
+                  {resetLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : tx(lang, {fr:'Envoyer le code de vérification',ar:'إرسال رمز التحقق',en:'Send Verification Code',es:'Enviar código de verificación',pt:'Enviar código de verificação',tr:'Doğrulama Kodu Gönder'})}
                 </motion.button>
               </form>
             )}
@@ -411,22 +456,22 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                           if (inputs[index - 1]) (inputs[index - 1] as HTMLInputElement).focus();
                         }
                       }}
-                      className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900 focus:border-emerald-500 focus:shadow-[0_0_15px_rgba(16,185,129,0.15)] focus:outline-none transition-all duration-200"
+                      className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl font-bold rounded-xl border border-slate-200 bg-slate-50 dark:bg-dk-bg focus:bg-white text-slate-900 focus:border-emerald-500 focus:shadow-[0_0_15px_rgba(16,185,129,0.15)] focus:outline-none transition-all duration-200 dark:border-dk-border dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:text-dk-text"
                     />
                   ))}
                 </div>
                 
                 <div className="text-center">
-                  <p className="text-sm text-slate-500">
-                    Resend code in <span className="font-mono font-bold text-emerald-500">00:{timer.toString().padStart(2, '0')}</span>
+          <p className="text-sm text-slate-500 dark:text-dk-muted">
+                    {tx(lang, {fr:'Renvoyer le code dans',ar:'إعادة إرسال الرمز بعد',en:'Resend code in',es:'Reenviar código en',pt:'Reenviar código em',tr:'Kodu yeniden gönder'})} <span className="font-mono font-bold text-emerald-500">00:{timer.toString().padStart(2, '0')}</span>
                   </p>
                   {canResend && (
                     <button
                       type="button"
                       onClick={handleResendCode}
-                      className="mt-2 text-sm font-medium text-emerald-600 hover:text-emerald-500 hover:underline"
+                      className="mt-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline dark:text-emerald-400 dark:hover:text-emerald-300"
                     >
-                      Resend Code
+                      {tx(lang, {fr:'Renvoyer le code',ar:'إعادة إرسال الرمز',en:'Resend Code',es:'Reenviar código',pt:'Reenviar código',tr:'Kodu Yeniden Gönder'})}
                     </button>
                   )}
                 </div>
@@ -439,7 +484,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 border-red-100 text-red-600">
+                      <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 dark:bg-red-900/30 border-red-100 text-red-600 dark:text-red-400 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
                         {resetError}
                       </div>
                     </motion.div>
@@ -452,7 +497,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   disabled={resetLoading}
                   className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 hover:shadow-emerald-500/20 shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {resetLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Verify Code'}
+                  {resetLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : tx(lang, {fr:'Vérifier le code',ar:'تحقق من الرمز',en:'Verify Code',es:'Verificar código',pt:'Verificar código',tr:'Kodu Doğrula'})}
                 </motion.button>
               </form>
             )}
@@ -461,13 +506,13 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
               <form onSubmit={handleResetPassword} className="space-y-4">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 transition-colors duration-300 text-slate-400 group-focus-within:text-emerald-600" />
+                    <Lock className="h-5 w-5 transition-colors duration-300 text-slate-400 group-focus-within:text-emerald-600 dark:text-dk-muted" />
                   </div>
                   <input
                     type="password"
                     required
-                    className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm"
-                    placeholder="New Password"
+                    className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
+                    placeholder={tx(lang, {fr:'Nouveau mot de passe',ar:'كلمة سر جديدة',en:'New Password',es:'Nueva contraseña',pt:'Nova palavra-passe',tr:'Yeni Şifre'})}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                   />
@@ -475,11 +520,11 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                 
                 {/* Password Strength Indicator */}
                 <div className="space-y-2">
-                  <div className="flex justify-between text-xs font-medium text-slate-550">
-                    <span>Password Strength</span>
-                    <span>{['Weak', 'Fair', 'Good', 'Strong'][passwordStrength - 1] || 'Too Weak'}</span>
+                  <div className="flex justify-between text-xs font-medium text-slate-550 dark:text-dk-text-soft">
+                    <span>{tx(lang, {fr:'Force du mot de passe',ar:'قوة كلمة السر',en:'Password Strength',es:'Fortaleza de la contraseña',pt:'Força da palavra-passe',tr:'Şifre Gücü'})}</span>
+                    <span>{[tx(lang, {fr:'Faible',ar:'ضعيفة',en:'Weak',es:'Débil',pt:'Fraca',tr:'Zayıf'}), tx(lang, {fr:'Moyen',ar:'مقبولة',en:'Fair',es:'Aceptable',pt:'Razoável',tr:'Orta'}), tx(lang, {fr:'Bon',ar:'جيدة',en:'Good',es:'Buena',pt:'Boa',tr:'İyi'}), tx(lang, {fr:'Fort',ar:'قوية',en:'Strong',es:'Fuerte',pt:'Forte',tr:'Güçlü'})][passwordStrength - 1] || tx(lang, {fr:'Trop faible',ar:'ضعيفة جداً',en:'Too Weak',es:'Muy débil',pt:'Muito fraca',tr:'Çok zayıf'})}</span>
                   </div>
-                  <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden flex">
+                  <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden flex dark:bg-dk-border">
                     {[1, 2, 3, 4].map((level) => (
                       <div 
                         key={level}
@@ -502,7 +547,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 border-red-100 text-red-600">
+                      <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 dark:bg-red-900/30 border-red-100 text-red-600 dark:text-red-400 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
                         {resetError}
                       </div>
                     </motion.div>
@@ -515,22 +560,22 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   disabled={resetLoading}
                   className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-emerald-400 hover:shadow-emerald-500/20 shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {resetLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Reset Password'}
+                  {resetLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : tx(lang, {fr:'Réinitialiser le mot de passe',ar:'إعادة تعيين كلمة السر',en:'Reset Password',es:'Restablecer contraseña',pt:'Redefinir palavra-passe',tr:'Şifre Sıfırla'})}
                 </motion.button>
               </form>
             )}
 
             <div className="text-center mt-4">
               <button
-                onClick={() => {
-                  setShowForgotPassword(false);
-                  setResetStep(1);
-                  setResetError('');
-                  setOtp(['', '', '', '', '', '']);
-                }}
-                className="text-sm font-medium text-slate-500 hover:text-slate-800 hover:underline transition-colors"
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setResetStep(1);
+                    setResetError('');
+                    setOtp(['', '', '', '', '', '']);
+                  }}
+                  className="text-sm font-medium text-slate-500 hover:text-slate-800 hover:underline transition-colors dark:text-dk-muted dark:hover:text-dk-text"
               >
-                Back to Login
+                {tx(lang, {fr:'Retour à la connexion',ar:'العودة إلى تسجيل الدخول',en:'Back to Login',es:'Volver al inicio de sesión',pt:'Voltar ao início de sessão',tr:'Girişe Dön'})}
               </button>
             </div>
           </div>
@@ -539,26 +584,26 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
             <motion.div variants={itemVariants} className="space-y-4">
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 transition-colors duration-300 text-slate-400 group-focus-within:text-emerald-600" />
+                  <Mail className="h-5 w-5 transition-colors duration-300 text-slate-400 dark:text-dk-muted group-focus-within:text-emerald-600" />
                 </div>
                 <input
                   type="email"
                   required
-                  className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm"
-                  placeholder="Email address"
+                  className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:shadow-dk-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
+                  placeholder={tx(lang, {fr:'Adresse e-mail',ar:'البريد الإلكتروني',en:'Email address',es:'Correo electrónico',pt:'Endereço de e-mail',tr:'E-posta adresi'})}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 transition-colors duration-300 text-slate-400 group-focus-within:text-emerald-600" />
+                  <Lock className="h-5 w-5 transition-colors duration-300 text-slate-400 dark:text-dk-muted group-focus-within:text-emerald-600" />
                 </div>
                 <input
                   type="password"
                   required
-                  className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm"
-                  placeholder="Password"
+                  className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:shadow-dk-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
+                  placeholder={tx(lang, {fr:'Mot de passe',ar:'كلمة السر',en:'Password',es:'Contraseña',pt:'Palavra-passe',tr:'Şifre'})}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -567,9 +612,9 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                 <button
                   type="button"
                   onClick={() => setShowForgotPassword(true)}
-                  className="text-sm font-medium text-emerald-600 hover:text-emerald-500 hover:underline transition-colors"
+                  className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 hover:underline transition-colors"
                 >
-                  Forgot password?
+                  {tx(lang, {fr:'Mot de passe oublié ?',ar:'هل نسيت كلمة السر؟',en:'Forgot password?',es:'¿Olvidó su contraseña?',pt:'Esqueceu a palavra-passe?',tr:'Şifrenizi mi unuttunuz?'})}
                 </button>
               </div>
             </motion.div>
@@ -582,7 +627,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 border-red-100 text-red-600">
+                  <div className="p-3 rounded-xl text-sm text-center font-medium border bg-red-50 dark:bg-red-900/30 border-red-100 text-red-600 dark:text-red-400 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300">
                     {error}
                   </div>
                 </motion.div>
@@ -595,13 +640,13 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-emerald-400 hover:shadow-emerald-500/20 shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full flex justify-center items-center gap-2 py-4 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-emerald-400 hover:shadow-emerald-500/20 shadow-lg dark:shadow-dk-lg transition-all duration-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  Sign in <ArrowRight className="w-4 h-4" />
+                  {tx(lang, {fr:'Se connecter',ar:'تسجيل الدخول',en:'Sign in',es:'Iniciar sesión',pt:'Iniciar sessão',tr:'Oturum Aç'})} <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </motion.button>
@@ -609,9 +654,9 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
             {(signInWithGoogle || onGuest) && (
               <motion.div variants={itemVariants} className="mt-6">
                 <div className="flex items-center gap-3">
-                  <div className="h-px flex-1 bg-slate-200" />
-                  <span className="text-xs font-medium uppercase tracking-wider text-slate-500">Or</span>
-                  <div className="h-px flex-1 bg-slate-200" />
+                  <div className="h-px flex-1 bg-slate-200 dark:bg-dk-border" />
+                  <span className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-dk-muted">{tx(lang, {fr:'Ou',ar:'أو',en:'Or',es:'O',pt:'Ou',tr:'Veya'})}</span>
+                  <div className="h-px flex-1 bg-slate-200 dark:bg-dk-border" />
                 </div>
 
                 {signInWithGoogle && (
@@ -621,10 +666,10 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                     type="button"
                     onClick={handleGoogleLogin}
                     disabled={isLoading}
-                    className="mt-4 w-full flex justify-center items-center gap-3 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="mt-4 w-full flex justify-center items-center gap-3 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed dark:border-dk-border dark:bg-dk-surface dark:text-dk-text-soft dark:hover:bg-dk-elevated/60"
                   >
                     <GoogleIcon className="w-5 h-5" />
-                    Continuer avec Google
+                    {tx(lang, {fr:'Continuer avec Google',ar:'الاستمرار مع Google',en:'Continue with Google',es:'Continuar con Google',pt:'Continuar com Google',tr:'Google ile Devam Et'})}
                   </motion.button>
                 )}
 
@@ -634,10 +679,10 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                     whileTap={{ scale: 0.98 }}
                     type="button"
                     onClick={onGuest}
-                    className="mt-3 w-full flex justify-center items-center gap-2 border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200"
+                    className="mt-3 w-full flex justify-center items-center gap-2 border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 dark:border-dk-border dark:bg-dk-surface dark:text-dk-text-soft dark:hover:bg-dk-elevated/60"
                   >
                     <User className="w-4 h-4" />
-                    Continue as Guest
+                    {tx(lang, {fr:'Continuer en tant qu\'invité',ar:'متابعة كضيف',en:'Continue as Guest',es:'Continuar como invitado',pt:'Continuar como convidado',tr:'Misafir Olarak Devam Et'})}
                   </motion.button>
                 )}
               </motion.div>
@@ -646,13 +691,13 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
         )}
         
         <motion.div variants={itemVariants} className="mt-8 text-center">
-          <p className="text-sm text-slate-500">
-            Don't have an account?{' '}
+          <p className="text-sm text-slate-500 dark:text-dk-muted">
+            {tx(lang, {fr:'Vous n\'avez pas de compte ?',ar:'ليس لديك حساب؟',en:'Don\'t have an account?',es:'¿No tiene una cuenta?',pt:'Não tem uma conta?',tr:'Hesabınız yok mu?'})}{' '}
             <button 
               onClick={onSwitch} 
-              className="font-bold transition-colors hover:underline decoration-2 underline-offset-4 text-emerald-600 hover:text-emerald-500"
+              className="font-bold transition-colors hover:underline decoration-2 underline-offset-4 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500"
             >
-              Create account
+              {tx(lang, {fr:'Créer un compte',ar:'إنشاء حساب',en:'Create account',es:'Crear cuenta',pt:'Criar conta',tr:'Hesap Oluştur'})}
             </button>
           </p>
         </motion.div>
@@ -660,7 +705,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
 
       {/* Footer Copyright */}
       <div className="absolute bottom-6 text-center w-full z-10">
-         <p className="text-xs font-medium text-slate-600">© {new Date().getFullYear()} BeraMethode. Tous droits réservés.</p>
+         <p className="text-xs font-medium text-slate-600 dark:text-dk-text-soft">© {new Date().getFullYear()} BeraMethode. {tx(lang, {fr:'Tous droits réservés.',ar:'جميع الحقوق محفوظة.',en:'All rights reserved.',es:'Todos los derechos reservados.',pt:'Todos os direitos reservados.',tr:'Tüm hakları saklıdır.'})}</p>
       </div>
     </div>
   );

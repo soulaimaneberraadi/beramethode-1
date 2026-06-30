@@ -3,6 +3,8 @@ import { X } from 'lucide-react';
 import type { WorkStatus } from '../shared/statusConfig';
 import { STATUS_META } from '../shared/statusConfig';
 import { getClientColor } from '../shared/clientColors';
+import { useLang } from '../../../src/context/LanguageContext';
+import { tx } from '../../../lib/i18n';
 
 interface Props {
     open: boolean;
@@ -39,16 +41,17 @@ export default function QuickFilters({
     showCriticalOnly,
     onToggleCriticalOnly,
 }: Props) {
+    const { lang } = useLang();
     if (!open) return null;
 
     return (
-        <div className="shrink-0 px-3 sm:px-6 py-3 border-b border-slate-200/40 bg-white/40 backdrop-blur-md transition-all duration-300 overflow-x-auto">
+        <div className="shrink-0 px-3 sm:px-6 py-3 border-b border-slate-200/40 dark:border-dk-border/50 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md transition-all duration-300 overflow-x-auto">
             <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-6 gap-y-3">
 
                 {/* Status section */}
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5">
-                        Statut
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mr-1.5">
+                        {tx(lang, {fr:"Statut",ar:"الحالة",en:"Status",es:"Estado",pt:"Status",tr:"Durum"})}
                     </span>
                     {STATUS_ORDER.map(s => {
                         const meta = STATUS_META[s];
@@ -60,8 +63,8 @@ export default function QuickFilters({
                                 onClick={() => onToggleStatus(s)}
                                 className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 ${
                                     active
-                                        ? 'bg-white text-slate-900 ring-1 ring-slate-200/60 shadow-[0_2px_6px_rgba(0,0,0,0.04)]'
-                                        : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
+                                        ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ring-1 ring-slate-200/60 dark:ring-slate-600/50 shadow-[0_2px_6px_rgba(0,0,0,0.04)]'
+                                        : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-dk-elevated/60'
                                 }`}
                             >
                                 <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
@@ -74,8 +77,8 @@ export default function QuickFilters({
                 {/* Chaîne section */}
                 {onToggleChain && allChains && allChains.length > 0 && (
                     <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5 shrink-0">
-                            Chaîne
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mr-1.5 shrink-0">
+                            {tx(lang, {fr:"Chaîne",ar:"خط الإنتاج",en:"Line",es:"Línea",pt:"Linha",tr:"Hat"})}
                         </span>
                         <div className="flex flex-wrap items-center gap-1.5">
                             {allChains.map(c => {
@@ -88,8 +91,8 @@ export default function QuickFilters({
                                         onClick={() => onToggleChain(c)}
                                         className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 max-w-[10rem] ${
                                             active
-                                                ? 'bg-white text-slate-900 ring-1 ring-slate-200/60 shadow-[0_2px_6px_rgba(0,0,0,0.04)]'
-                                                : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
+                                                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ring-1 ring-slate-200/60 dark:ring-slate-600/50 shadow-[0_2px_6px_rgba(0,0,0,0.04)]'
+                                                : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-dk-elevated/60'
                                         }`}
                                     >
                                         <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? 'bg-indigo-500' : 'bg-slate-350'}`} />
@@ -104,8 +107,8 @@ export default function QuickFilters({
                 {/* Clients section */}
                 {allClients.length > 0 && (
                     <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5 shrink-0">
-                            Client
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mr-1.5 shrink-0">
+                            {tx(lang, {fr:"Client",ar:"عميل",en:"Client",es:"Cliente",pt:"Cliente",tr:"Müşteri"})}
                         </span>
                         <div className="flex flex-wrap items-center gap-1.5">
                             {allClients.slice(0, 8).map(c => {
@@ -118,8 +121,8 @@ export default function QuickFilters({
                                         onClick={() => onToggleClient(c)}
                                         className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 max-w-[10rem] ${
                                             active
-                                                ? 'bg-white text-slate-900 ring-1 ring-slate-200/60 shadow-[0_2px_6px_rgba(0,0,0,0.04)]'
-                                                : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
+                                                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 ring-1 ring-slate-200/60 dark:ring-slate-600/50 shadow-[0_2px_6px_rgba(0,0,0,0.04)]'
+                                                : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-dk-elevated/60'
                                         }`}
                                     >
                                         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
@@ -128,7 +131,7 @@ export default function QuickFilters({
                                 );
                             })}
                             {allClients.length > 8 && (
-                                <span className="text-[10px] font-bold text-slate-400">
+                                <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">
                                     +{allClients.length - 8} autres
                                 </span>
                             )}
@@ -139,8 +142,8 @@ export default function QuickFilters({
                 {/* Critical Only Filter section */}
                 {onToggleCriticalOnly && (
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1.5">
-                            Filtres
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mr-1.5">
+                            {tx(lang, {fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}
                         </span>
                         <button
                             type="button"
@@ -148,11 +151,11 @@ export default function QuickFilters({
                             className={`inline-flex items-center gap-1.5 h-6 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 ${
                                 showCriticalOnly
                                     ? 'bg-red-500/10 text-red-700 ring-1 ring-red-550/25 shadow-[0_2px_6px_rgba(239,68,68,0.05)]'
-                                    : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
+                                    : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-dk-elevated/60'
                             }`}
                         >
                             <span className={`w-1.5 h-1.5 rounded-full ${showCriticalOnly ? 'bg-red-550' : 'bg-slate-350'}`} />
-                            Taux Critique (CR)
+                            {tx(lang, {fr:"Taux Critique (CR)",ar:"معدل حرج (CR)",en:"Critical Rate (CR)",es:"Tasa Crítica (CR)",pt:"Taxa Crítica (CR)",tr:"Kritik Oran (CR)"})}
                         </button>
                     </div>
                 )}
@@ -161,10 +164,10 @@ export default function QuickFilters({
                     <button
                         type="button"
                         onClick={onReset}
-                        className="inline-flex items-center gap-1 h-6 px-2.5 rounded-lg text-[11px] font-bold text-slate-500 hover:text-red-600 hover:bg-red-50/50 border border-transparent hover:border-red-200/50 ml-auto transition-all duration-200 active:scale-95"
+                        className="inline-flex items-center gap-1 h-6 px-2.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/50 dark:hover:bg-red-900/20 border border-transparent hover:border-red-200/50 dark:hover:border-red-800/50 ml-auto transition-all duration-200 active:scale-95"
                     >
                         <X className="w-3 h-3" />
-                        Effacer
+                        {tx(lang, {fr:"Effacer",ar:"مسح",en:"Clear",es:"Limpiar",pt:"Limpar",tr:"Temizle"})}
                     </button>
                 )}
             </div>

@@ -22,12 +22,12 @@ export interface SaasCardProps {
 
 /* ─── Variants ─── */
 const variantClasses: Record<CardVariant, string> = {
-  default: 'bg-white border border-slate-200',
+  default: 'bg-white border border-slate-200 dark:bg-dk-surface dark:border-dk-border',
   interactive:
-    'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer transition-all duration-150',
+    'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer transition-all duration-150 dark:bg-dk-surface dark:border-dk-border dark:hover:bg-dk-elevated/60',
   highlighted:
-    'bg-white border border-slate-200 ring-1 ring-slate-900/5',
-  flat: 'bg-slate-50/60 border border-transparent',
+    'bg-white border border-slate-200 ring-1 ring-slate-900/5 dark:bg-dk-surface dark:border-dk-border',
+  flat: 'bg-slate-50 dark:bg-dk-bg/60 border border-transparent dark:bg-dk-bg/60',
 };
 
 const sizeClasses: Record<CardSize, string> = {
@@ -75,7 +75,7 @@ export default function SaasCard({
         rounded-lg text-left w-full
         ${variantClasses[variant]}
         ${sizeClasses[size]}
-        ${selected ? 'ring-2 ring-[#2149C1] border-[#2149C1]' : ''}
+        ${selected ? 'ring-2 ring-[#2149C1] border-[#2149C1] dark:ring-dk-accent dark:border-dk-accent' : ''}
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         ${className}
       `}
@@ -85,18 +85,18 @@ export default function SaasCard({
         <div className="flex items-start justify-between gap-2 mb-3">
           <div className="flex items-center gap-2.5 min-w-0">
             {Icon && (
-              <div className="w-8 h-8 rounded-md bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
-                <Icon className="w-4 h-4 text-slate-500" strokeWidth={1.75} />
+              <div className="w-8 h-8 rounded-md bg-slate-50 dark:bg-dk-bg border border-slate-100 flex items-center justify-center shrink-0 dark:bg-dk-bg dark:border-dk-border">
+                <Icon className="w-4 h-4 text-slate-500 dark:text-dk-muted" strokeWidth={1.75} />
               </div>
             )}
             <div className="min-w-0">
               {title && (
-                <h4 className="text-[13px] font-semibold text-slate-900 truncate">
+                <h4 className="text-[13px] font-semibold text-slate-900 truncate dark:text-dk-text">
                   {title}
                 </h4>
               )}
               {subtitle && (
-                <p className="text-[11px] text-slate-400 truncate">{subtitle}</p>
+                <p className="text-[11px] text-slate-400 truncate dark:text-dk-muted">{subtitle}</p>
               )}
             </div>
           </div>
@@ -152,19 +152,19 @@ export function CardValue({
   trendValue?: string;
 }) {
   const trendColors = {
-    up: 'text-emerald-600',
-    down: 'text-red-500',
-    neutral: 'text-slate-400',
+    up: 'text-emerald-600 dark:text-emerald-400',
+    down: 'text-red-500 dark:text-red-400',
+    neutral: 'text-slate-400 dark:text-dk-muted',
   };
 
   return (
     <div className="flex items-baseline justify-between">
       <div className="min-w-0">
-        <p className="text-[11px] text-slate-400 mb-0.5">{label}</p>
-        <p className="text-[15px] font-semibold text-slate-900 tabular-nums">
+        <p className="text-[11px] text-slate-400 mb-0.5 dark:text-dk-muted">{label}</p>
+        <p className="text-[15px] font-semibold text-slate-900 tabular-nums dark:text-dk-text">
           {value}
           {unit && (
-            <span className="text-[10px] font-normal text-slate-400 ml-1">
+            <span className="text-[10px] font-normal text-slate-400 ml-1 dark:text-dk-muted">
               {unit}
             </span>
           )}

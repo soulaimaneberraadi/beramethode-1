@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { SCHEMA_VERSION, migrateSnapshot } from './dataVersion';
+import { pkey, lsGet, lsSet, isSyncKey, getCurrentEmail } from '../../lib/storageKeys';
 
 const SYNC_KEYS = [
   'beramethode_autosave_v1',
@@ -8,6 +9,7 @@ const SYNC_KEYS = [
   'beramethode_planning',
   'beramethode_suivis',
   'beramethode_settings',
+  'beramethode_company',
   'beramethode_machine_instances',
   'beramethode_machines_v1',
   'beramethode_machines_fleet_history_v1',
@@ -18,6 +20,8 @@ const SYNC_KEYS = [
   'BERA_CUSTOM_ROLES',
   'BERA_CUSTOM_PARTITIONS',
   'BERA_SALLES',
+  'beramethode_subcontract_orders',
+  'beramethode_subcontract_groups',
 ];
 
 const TABLE = 'user_data';
@@ -54,22 +58,39 @@ export const clearLocalAppData = () => {
   } catch { /* ignore */ }
 };
 
-/**
- * À appeler AVANT pullSnapshotFromCloud au login : si le compte diffère du
- * dernier compte synchronisé sur ce navigateur, on purge les données locales
- * pour que le pull reparte d'une base propre (aucune donnée de l'ancien compte).
- */
+// NOTE : les anciennes fonctions savePrefixedBackup/restorePrefixedBackup
+// (copie non-préfixé ↔ préfixé au changement de compte) ont été supprimées.
+// Désormais TOUTES les couches (App.tsx, apiShim, cloudSync) lisent/écrivent
+// directement les clés préfixées par compte via pkey()/lsGet()/lsSet(), donc
+// l'isolation par compte est garantie par le suffixe ; aucune copie n'est
+// nécessaire — et l'ancien savePrefixedBackup écrasait même les données
+// préfixées du compte précédent par des clés non-préfixées vides (perte de
+// données). Voir ensureLocalDataOwner ci-dessous.
+
 export const ensureLocalDataOwner = (userId: string) => {
   if (!userId) return;
   try {
     const prev = localStorage.getItem(LAST_SYNC_USER_KEY);
-    if (prev && prev !== userId) clearLocalAppData();
+    // Toutes les données métier sont désormais stockées PAR COMPTE via pkey()
+    // (App.tsx + apiShim + cloudSync utilisent tous les clés préfixées). Changer
+    // de compte = changer le suffixe pk() ; aucune copie préfixée↔non-préfixée
+    // n'est nécessaire — et surtout, l'ancien savePrefixedBackup() écrasait les
+    // données préfixées du compte précédent avec les clés non-préfixées (vides),
+    // d'où une perte de données. On se contente donc de purger les anciennes
+    // clés non-préfixées (legacy) et le marqueur de pull, pour forcer un pull
+    // frais du nouveau compte.
+    if (prev && prev !== userId) {
+      clearLocalAppData();
+    }
     localStorage.setItem(LAST_SYNC_USER_KEY, userId);
   } catch { /* ignore */ }
 };
 
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 let isApplyingRemote = false;
+
+/** Keep a reference to the original setItem so each startCloudSync patches from the same base. */
+const ORIGINAL_SET_ITEM = Storage.prototype.setItem;
 // Canal Realtime de type *Broadcast* uniquement (pas de postgres_changes).
 // Broadcast est un simple relais WebSocket : il ne lit jamais le WAL ni la base,
 // donc aucune charge DB. Sert à notifier les autres appareils qu'un pull est
@@ -105,10 +126,10 @@ const IMAGE_ARRAY_FIELDS = new Set(['images', 'machinePhotos']);
 const imgUrlCache = new Map<string, string>();
 
 // Max dimension and quality for compressed thumbnails stored inline in user_data
-const IMG_MAX_DIM = 700;
-const IMG_QUALITY = 0.72;
-// ~100KB in base64 (133 chars ≈ 100 bytes); images above this are stripped
-const IMG_MAX_INLINE_B64 = 140_000;
+const IMG_MAX_DIM = 600;
+const IMG_QUALITY = 0.5;
+// ~450KB in base64 (133 chars ≈ 100 bytes); images above this are stripped
+const IMG_MAX_INLINE_B64 = 600_000;
 
 /**
  * Compress a base64 image using Canvas.
@@ -131,6 +152,8 @@ const compressImage = (dataUrl: string): Promise<string | null> =>
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         if (!ctx) { resolve(null); return; }
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
         const out = canvas.toDataURL('image/jpeg', IMG_QUALITY);
         resolve(out.length <= IMG_MAX_INLINE_B64 ? out : null);
@@ -230,16 +253,17 @@ const replaceImages = async (o: any): Promise<any> => {
 const collectLocalSnapshot = (): Record<string, unknown> => {
   const out: Record<string, unknown> = {};
   for (const k of SYNC_KEYS) {
+    const v = lsGet(k);
+    if (v == null) continue;
     try {
-      const v = localStorage.getItem(k);
-      if (v != null) out[k] = JSON.parse(v);
+      out[k] = JSON.parse(v);
     } catch {
-      const raw = localStorage.getItem(k);
-      if (raw != null) out[k] = raw;
+      // Valeur brute non-JSON : on la conserve telle quelle.
+      out[k] = v;
     }
   }
   try {
-    const exp = localStorage.getItem('__bera_sqlite_export__');
+    const exp = lsGet('__bera_sqlite_export__');
     if (exp) out.__sqlite_export__ = JSON.parse(exp);
   } catch {}
   return out;
@@ -251,11 +275,35 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
   try {
     for (const k of SYNC_KEYS) {
       if (k in snapshot) {
-        try { localStorage.setItem(k, JSON.stringify(snapshot[k])); } catch {}
+        try {
+          if (k === 'beramethode_library') {
+            const localRaw = lsGet('beramethode_library');
+            if (localRaw) {
+              try {
+                const localModels = JSON.parse(localRaw);
+                const cloudModels = snapshot[k] as any[];
+                if (Array.isArray(cloudModels) && Array.isArray(localModels)) {
+                  const merged = cloudModels.map((cm: any) => {
+                    if (cm && !cm.image && !cm.images) {
+                      const lm = localModels.find((m: any) => m.id === cm.id);
+                      if (lm && (lm.image || lm.images)) {
+                        return { ...cm, image: lm.image || null, images: lm.images || null };
+                      }
+                    }
+                    return cm;
+                  });
+                  lsSet(k, JSON.stringify(merged));
+                  continue;
+                }
+              } catch { /* fall through */ }
+            }
+          }
+          lsSet(k, JSON.stringify(snapshot[k]));
+        } catch {}
       }
     }
     if ('__sqlite_export__' in snapshot) {
-      try { localStorage.setItem('__bera_sqlite_export__', JSON.stringify(snapshot.__sqlite_export__)); } catch {}
+      try { lsSet('__bera_sqlite_export__', JSON.stringify(snapshot.__sqlite_export__)); } catch {}
     }
   } finally {
     isApplyingRemote = false;
@@ -274,7 +322,11 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
   const lib = (snapshot as any).beramethode_library;
   const plan = (snapshot as any).beramethode_planning;
   const sqlExp = (snapshot as any).__sqlite_export__;
-  if ((!Array.isArray(lib) || !lib.length) && (!Array.isArray(plan) || !plan.length) && (!sqlExp || !Object.keys(sqlExp).length)) {
+  const allEmpty = SYNC_KEYS.every(k => {
+    const v = (snapshot as any)[k];
+    return v == null || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && v.constructor === Object && !Object.keys(v).length);
+  });
+  if (allEmpty) {
     console.warn('[cloudSync] push annulé: snapshot local vide');
     return true; // rien d'important à pousser — une purge ne perdrait rien
   }
@@ -407,10 +459,11 @@ export const startCloudSync = (userId: string) => {
   if (!userId) return;
 
   // Push à chaque écriture d'une clé synchronisée, regroupé via PUSH_DEBOUNCE_MS.
-  const originalSetItem = Storage.prototype.setItem;
+  // Restore original first to prevent stacking layers of monkey-patches on repeated calls.
+  Storage.prototype.setItem = ORIGINAL_SET_ITEM;
   Storage.prototype.setItem = function (key: string, value: string) {
-    originalSetItem.call(this, key, value);
-    if (this === localStorage && SYNC_KEYS.includes(key) && !isApplyingRemote) {
+    ORIGINAL_SET_ITEM.call(this, key, value);
+    if (this === localStorage && isSyncKey(key, SYNC_KEYS) && !isApplyingRemote) {
       if (syncTimer) clearTimeout(syncTimer);
       syncTimer = setTimeout(() => pushSnapshotToCloud(userId), PUSH_DEBOUNCE_MS);
     }
@@ -432,4 +485,6 @@ export const startCloudSync = (userId: string) => {
 export const stopCloudSync = () => {
   if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
   if (syncChannel) { syncChannel.unsubscribe(); syncChannel = null; }
+  // Restore original setItem so no further writes trigger push
+  Storage.prototype.setItem = ORIGINAL_SET_ITEM;
 };

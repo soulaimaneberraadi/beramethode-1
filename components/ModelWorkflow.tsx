@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
+    ArrowLeft,
     FileText,
     ClipboardList,
     Activity,
@@ -9,6 +10,7 @@ import {
     Banknote,
     Save,
     CheckCircle2,
+    ChevronLeft,
     ChevronRight,
     ArrowRight,
     Check,
@@ -27,8 +29,11 @@ import Balancing from './Balancing';
 import Implantation from './Implantation';
 import CostCalculator from './CostCalculator';
 import Pedido from './Pedido';
+import InlineInvoiceList from './InlineInvoiceList';
 
 import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste, FicheData, Material, ChronoData, AppSettings, ManualLink, PlanningEvent, CustomStation } from '../types';
+import { tx, pickT } from '../lib/i18n';
+import type { Lang } from '../app/constants';
 
 interface ModelWorkflowProps {
     // Shared Data Props
@@ -96,7 +101,7 @@ interface ModelWorkflowProps {
     canRedo?: boolean;
 
     // Language
-    lang?: 'fr' | 'ar';
+    lang?: Lang;
 
     // Global Settings
     settings: AppSettings;
@@ -121,6 +126,7 @@ const STEP_LABELS = {
         pedido: 'Pedido',
         save: 'Sauvegarder',
         next: 'Suivant',
+        back: 'Précédent',
         finish: 'Terminer',
         undo: 'Annuler (Ctrl+Z)',
         redo: 'Rétablir (Ctrl+Y)',
@@ -137,10 +143,79 @@ const STEP_LABELS = {
         pedido: 'الطلبية (Pedido)',
         save: 'حفظ',
         next: 'التالي',
+        back: 'السابق',
         finish: 'إنهاء',
         undo: 'تراجع (Ctrl+Z)',
         redo: 'إعادة (Ctrl+Y)',
         refresh: 'تحديث العرض',
+    },
+    en: {
+        fiche: 'Technical Sheet',
+        gamme: 'Operation Sequence',
+        chrono: 'Timing',
+        analyse: 'Analysis',
+        equilibrage: 'Balancing',
+        implantation: 'Layout',
+        couts: 'Costs & Budget',
+        pedido: 'Pedido',
+        save: 'Save',
+        next: 'Next',
+        back: 'Back',
+        finish: 'Finish',
+        undo: 'Undo (Ctrl+Z)',
+        redo: 'Redo (Ctrl+Y)',
+        refresh: 'Refresh view',
+    },
+    es: {
+        fiche: 'Ficha Técnica',
+        gamme: 'Secuencia de Operaciones',
+        chrono: 'Cronometraje',
+        analyse: 'Análisis',
+        equilibrage: 'Equilibrado',
+        implantation: 'Implantación',
+        couts: 'Costos y Presupuesto',
+        pedido: 'Pedido',
+        save: 'Guardar',
+        next: 'Siguiente',
+        back: 'Anterior',
+        finish: 'Finalizar',
+        undo: 'Deshacer (Ctrl+Z)',
+        redo: 'Rehacer (Ctrl+Y)',
+        refresh: 'Actualizar vista',
+    },
+    pt: {
+        fiche: 'Ficha Técnica',
+        gamme: 'Sequência de Operações',
+        chrono: 'Cronometragem',
+        analyse: 'Análise',
+        equilibrage: 'Balanceamento',
+        implantation: 'Implantação',
+        couts: 'Custos e Orçamento',
+        pedido: 'Pedido',
+        save: 'Salvar',
+        next: 'Próximo',
+        back: 'Anterior',
+        finish: 'Concluir',
+        undo: 'Desfazer (Ctrl+Z)',
+        redo: 'Refazer (Ctrl+Y)',
+        refresh: 'Atualizar vista',
+    },
+    tr: {
+        fiche: 'Teknik Föy',
+        gamme: 'Operasyon Sırası',
+        chrono: 'Zamanlama',
+        analyse: 'Analiz',
+        equilibrage: 'Dengeleme',
+        implantation: 'Yerleşim',
+        couts: 'Maliyet ve Bütçe',
+        pedido: 'Pedido',
+        save: 'Kaydet',
+        next: 'İleri',
+        back: 'Geri',
+        finish: 'Bitir',
+        undo: 'Geri al (Ctrl+Z)',
+        redo: 'Yinele (Ctrl+Y)',
+        refresh: 'Görünümü yenile',
     },
 } as const;
 
@@ -161,7 +236,7 @@ export default function ModelWorkflow({
     settings, setSettings,
     currentModelId, planningEvents, setPlanningEvents
 }: ModelWorkflowProps) {
-    const st = STEP_LABELS[lang];
+    const st = pickT(STEP_LABELS as any, lang);
 
     // Current Step State
     const [currentStep, setCurrentStep] = useState<'fiche' | 'gamme' | 'chrono' | 'analyse' | 'equilibrage' | 'implantation' | 'couts' | 'pedido'>('fiche');
@@ -174,7 +249,7 @@ export default function ModelWorkflow({
 
     const validateFiche = () => {
         if (!articleName || !articleName.trim()) {
-            showValidationError(lang === 'ar' ? 'مرجع الموديل مطلوب' : 'La référence du modèle est obligatoire.');
+            showValidationError(tx(lang, { fr: 'La référence du modèle est obligatoire.', ar: 'مرجع الموديل مطلوب', en: 'The model reference is required.', es: 'La referencia del modelo es obligatoria.', pt: 'A referência do modelo é obrigatória.', tr: 'Model referansı zorunludur.' }));
             return false;
         }
 
@@ -227,6 +302,32 @@ export default function ModelWorkflow({
         }
     };
 
+    // Linear "Previous" Button (retour d'une étape, sans validation)
+    const handleLinearPrev = () => {
+        const currentIndex = steps.findIndex(s => s.id === currentStep);
+        if (currentIndex > 0) {
+            setCurrentStep(steps[currentIndex - 1].id as any);
+        }
+    };
+
+    // Auto-scroll : garde l'étape active visible dans la barre quand elle déborde.
+    const activeStepRef = useRef<HTMLButtonElement>(null);
+    const stepperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        activeStepRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, [currentStep]);
+
+    const scrollSteps = (direction: 'left' | 'right') => {
+        if (stepperRef.current) {
+            const offset = 200;
+            stepperRef.current.scrollBy({
+                left: direction === 'left' ? -offset : offset,
+                behavior: 'smooth'
+            });
+        }
+    };
+
     const handleSave = () => {
         if (!validateFiche()) {
             if (currentStep !== 'fiche') setCurrentStep('fiche');
@@ -248,16 +349,16 @@ export default function ModelWorkflow({
         <div className="flex flex-col h-full overflow-hidden">
 
             {/* STEPPER HEADER + NAVIGATION */}
-            <div className="bg-white border-b border-slate-200 px-3 sm:px-4 py-2 sm:py-3 shrink-0 flex flex-wrap items-center justify-between gap-y-2 gap-x-4 shadow-sm z-20">
+            <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border px-3 sm:px-4 py-2 sm:py-3 shrink-0 flex flex-wrap items-center justify-between gap-y-2 gap-x-4 shadow-sm dark:shadow-dk-sm z-20">
 
                 {/* DATA UNDO/REDO NAVIGATION (Left) */}
-                <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200 shrink-0 mr-2 shadow-sm">
+                <div className="flex items-center gap-1 bg-slate-50 dark:bg-dk-bg p-1 rounded-lg border border-slate-200 dark:border-dk-border shrink-0 mr-2 shadow-sm dark:shadow-dk-sm">
                     <button
                         onClick={onUndo}
                         disabled={!canUndo}
                         className={`p-1.5 rounded-md transition-all ${!canUndo
-                            ? 'text-slate-300 cursor-not-allowed bg-slate-50'
-                            : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm active:scale-95'
+                            ? 'text-slate-300 dark:text-dk-muted cursor-not-allowed bg-slate-50 dark:bg-dk-bg'
+                            : 'text-slate-600 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface hover:text-indigo-600 dark:text-dk-accent-text hover:shadow-sm active:scale-95'
                             }`}
                         title={st.undo}
                     >
@@ -267,8 +368,8 @@ export default function ModelWorkflow({
                         onClick={onRedo}
                         disabled={!canRedo}
                         className={`p-1.5 rounded-md transition-all ${!canRedo
-                            ? 'text-slate-300 cursor-not-allowed bg-slate-50'
-                            : 'text-slate-600 hover:bg-white hover:text-indigo-600 hover:shadow-sm active:scale-95'
+                            ? 'text-slate-300 dark:text-dk-muted cursor-not-allowed bg-slate-50 dark:bg-dk-bg'
+                            : 'text-slate-600 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface hover:text-indigo-600 dark:text-dk-accent-text hover:shadow-sm active:scale-95'
                             }`}
                         title={st.redo}
                     >
@@ -277,31 +378,45 @@ export default function ModelWorkflow({
                     <div className="w-px h-4 bg-slate-200 mx-0.5"></div>
                     <button
                         onClick={handleRefresh}
-                        className="p-1.5 rounded-md text-slate-600 hover:bg-white hover:text-emerald-600 transition-all hover:shadow-sm active:scale-95"
+                        className="p-1.5 rounded-md text-slate-600 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface hover:text-emerald-600 transition-all hover:shadow-sm active:scale-95"
                         title={st.refresh}
                     >
                         <RotateCcw className="w-4 h-4" />
                     </button>
                 </div>
 
-                {/* CENTER: STEPS LIST (Scrollable) */}
-                <div className="order-last w-full md:order-none md:w-auto md:flex-1 flex items-center justify-start md:justify-center overflow-hidden">
-                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-full px-2">
+                {/* CENTER: STEPS LIST (Scrollable with Integrated Glassy Arrow Navigation) */}
+                <div className="order-last w-full md:order-none md:w-auto md:flex-1 flex items-center justify-start md:justify-center overflow-hidden relative group/stepper py-1">
+                    {/* Left Scroll Button */}
+                    <button
+                        onClick={() => scrollSteps('left')}
+                        className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-white/40 dark:bg-dk-surface/40 hover:bg-white dark:hover:bg-dk-surface/60 backdrop-blur-md border-r border-slate-200/50 dark:border-dk-border/50 text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text transition-all duration-200 active:bg-white dark:active:bg-dk-surface/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
+                        title={tx(lang, { fr: 'Précédent', ar: 'السابق', en: 'Previous', es: 'Anterior', pt: 'Anterior', tr: 'Önceki' })}
+                    >
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    {/* Scrollable Container */}
+                    <div 
+                        ref={stepperRef}
+                        className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-full px-10 scroll-smooth"
+                    >
                         {steps.map((step, index) => {
                             const isActive = currentStep === step.id;
                             const isPast = steps.findIndex(s => s.id === currentStep) > index;
                             return (
                                 <React.Fragment key={step.id}>
                                     <button
+                                        ref={isActive ? activeStepRef : undefined}
                                         onClick={() => navigateTo(step.id)}
                                         className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${isActive
-                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                            ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-200'
                                             : isPast
-                                                ? 'text-emerald-600 bg-emerald-50/50 hover:bg-emerald-100'
-                                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                                                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/50 hover:bg-emerald-100'
+                                                : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-bg'
                                             }`}
                                     >
-                                        {isPast ? <CheckCircle2 className="w-3.5 h-3.5" /> : <step.icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-200' : 'text-slate-400'}`} />}
+                                        {isPast ? <CheckCircle2 className="w-3.5 h-3.5" /> : <step.icon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-200' : 'text-slate-400 dark:text-dk-muted'}`} />}
                                         <span className="hidden md:inline">{step.label}</span>
                                         {/* Mobile : label complet sur l'étape active, numéro sinon */}
                                         <span className="md:hidden">{isActive ? step.label : index + 1}</span>
@@ -311,13 +426,35 @@ export default function ModelWorkflow({
                             );
                         })}
                     </div>
+
+                    {/* Right Scroll Button */}
+                    <button
+                        onClick={() => scrollSteps('right')}
+                        className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-white/40 dark:bg-dk-surface/40 hover:bg-white dark:hover:bg-dk-surface/60 backdrop-blur-md border-l border-slate-200/50 dark:border-dk-border/50 text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text transition-all duration-200 active:bg-white dark:active:bg-dk-surface/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
+                        title={tx(lang, { fr: 'Suivant', ar: 'التالي', en: 'Next', es: 'Siguiente', pt: 'Próximo', tr: 'İleri' })}
+                    >
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
                 </div>
 
                 {/* RIGHT: ACTIONS (Detached) */}
                 <div className="flex items-center gap-2 shrink-0">
                     <button
+                        onClick={handleLinearPrev}
+                        disabled={currentIndex === 0}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm border ${currentIndex === 0
+                            ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-dk-border text-slate-300 dark:text-dk-muted bg-white dark:bg-dk-surface'
+                            : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-bg text-slate-600 dark:text-dk-text-soft'
+                            }`}
+                        title={st.back}
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span className="hidden sm:inline">{st.back}</span>
+                    </button>
+
+                    <button
                         onClick={handleSave}
-                        className="flex items-center gap-2 px-3 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold shadow-sm transition-all"
+                        className="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-bg text-slate-600 dark:text-dk-text-soft rounded-xl text-xs font-bold shadow-sm dark:shadow-dk-sm transition-all"
                         title={st.save}
                     >
                         <Save className="w-4 h-4" />
@@ -326,9 +463,9 @@ export default function ModelWorkflow({
 
                     <button
                         onClick={isLastStep ? handleSave : handleLinearNext}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm ${isLastStep
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm ${isLastStep
                             ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 hover:shadow-emerald-300'
-                            : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 hover:shadow-indigo-300'
+                            : 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white shadow-indigo-200 hover:shadow-indigo-300'
                             }`}
                     >
                         <span className="hidden sm:inline">{isLastStep ? st.finish : st.next}</span>
@@ -338,11 +475,11 @@ export default function ModelWorkflow({
             </div>
 
             {/* CONTENT AREA */}
-            <div className="flex-1 overflow-hidden relative bg-slate-50/50">
+            <div className="flex-1 overflow-hidden relative bg-slate-50 dark:bg-dk-bg/50">
                 {/* FLOATING ERROR MESSAGE (4s with shake animation) */}
                 {validationError && (
                     <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4 duration-300">
-                        <div className="bg-rose-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border-2 border-rose-400 backdrop-blur-sm animate-pulse">
+                        <div className="bg-rose-600 text-white px-6 py-4 rounded-2xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg flex items-center gap-3 border-2 border-rose-400 backdrop-blur-sm animate-pulse">
                             <AlertTriangle className="w-6 h-6 text-rose-100 animate-bounce" />
                             <span className="font-black text-base tracking-wide">{validationError}</span>
                         </div>
@@ -370,7 +507,7 @@ export default function ModelWorkflow({
                             setPlanningEvents={setPlanningEvents}
                             articleName={articleName}
                             setArticleName={setArticleName}
-                            articleNameError={validationError?.includes(lang === 'ar' ? 'مرجع' : 'référence') || false}
+                            articleNameError={validationError?.includes(tx(lang, { fr: 'référence', ar: 'مرجع', en: 'reference', es: 'referencia', pt: 'referência', tr: 'referans' })) || false}
                         />
                     )}
 
@@ -499,6 +636,7 @@ export default function ModelWorkflow({
                                 initialTotalTime={globalStats.tempsArticle}
                                 chronoTotalTime={calculatedChronoTotal}
                                 initialImage={ficheImages.front}
+                                onImageChange={(img) => setFicheImages(prev => ({ ...prev, front: img }))}
                                 initialDate={ficheData.date}
                                 initialCostMinute={ficheData.costMinute}
                                 settings={settings}
@@ -511,6 +649,16 @@ export default function ModelWorkflow({
                         );
                     })()}
 
+                    {currentStep === 'couts' && currentModelId && (
+                        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-dk-border">
+                            <InlineInvoiceList
+                                productId={currentModelId}
+                                productLabel={articleName}
+                                sourceModule="model"
+                            />
+                        </div>
+                    )}
+
                     {currentStep === 'pedido' && (
                         <Pedido
                             data={ficheData}
@@ -518,7 +666,7 @@ export default function ModelWorkflow({
                             articleName={articleName}
                             setArticleName={setArticleName}
                             lang={lang}
-                            articleNameError={validationError?.includes(lang === 'ar' ? 'مرجع' : 'référence') || false}
+                            articleNameError={validationError?.includes(tx(lang, { fr: 'référence', ar: 'مرجع', en: 'reference', es: 'referencia', pt: 'referência', tr: 'referans' })) || false}
                             settings={settings}
                             currentModelId={currentModelId}
                             planningEvents={planningEvents}

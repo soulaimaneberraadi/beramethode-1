@@ -3,7 +3,8 @@ import db from './db';
 
 // Get all planning events for user
 export const getPlanningEvents = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    // Cloisonnement par workspace : owner_id = société active (companyId), repli user.id.
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const stmt = db.prepare('SELECT * FROM planning_events WHERE owner_id = ? ORDER BY created_at DESC');
         const rows = stmt.all(userId) as any[];
@@ -17,7 +18,8 @@ export const getPlanningEvents = (req: Request, res: Response) => {
 
 // Batch upsert planning events
 export const savePlanningEvents = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    // Cloisonnement par workspace : owner_id = société active (companyId), repli user.id.
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { events } = req.body;
 
     if (!Array.isArray(events)) {
@@ -78,7 +80,8 @@ export const savePlanningEvents = (req: Request, res: Response) => {
 };
 
 export const deletePlanningEvent = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    // Cloisonnement par workspace : owner_id = société active (companyId), repli user.id.
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
 
     try {
@@ -102,7 +105,8 @@ export const deletePlanningEvent = (req: Request, res: Response) => {
 
 // Get reservations for a planning event
 export const getReservations = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    // Cloisonnement par workspace : owner_id = société active (companyId), repli user.id.
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { planningId } = req.params;
 
     try {
@@ -124,7 +128,8 @@ export const getReservations = (req: Request, res: Response) => {
 
 // Create / update reservations for a planning event
 export const saveReservations = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    // Cloisonnement par workspace : owner_id = société active (companyId), repli user.id.
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { planningId } = req.params;
     const { allocations } = req.body; // Array of { productId, lotId, quantite }
 
@@ -171,7 +176,8 @@ export const saveReservations = (req: Request, res: Response) => {
 
 // Deduct reserved stock (completing or starting production)
 export const deductReservations = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    // Cloisonnement par workspace : owner_id = société active (companyId), repli user.id.
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { planningId } = req.params;
 
     try {
@@ -235,7 +241,8 @@ export const deductReservations = (req: Request, res: Response) => {
 
 // Release / Cancel reservations
 export const releaseReservations = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    // Cloisonnement par workspace : owner_id = société active (companyId), repli user.id.
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { planningId } = req.params;
 
     try {

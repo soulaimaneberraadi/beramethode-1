@@ -11,17 +11,25 @@
  * middleware that watches successful API writes.
  */
 
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import db from './db';
 import { Request, Response, NextFunction } from 'express';
 import { markLocalPushing, isApplyingRemoteSnapshot } from './supabaseRealtime';
+import path from 'path';
+import fs from 'fs';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://utrojjhscyatppgcszrt.supabase.co';
-const SUPABASE_ANON_KEY =
-  process.env.SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk';
+const dbPath = process.env.BERA_DB_PATH || path.join(process.cwd(), 'database.sqlite');
+const dbDir = path.dirname(dbPath);
+
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
 const OWNER_EMAIL = (process.env.SUPABASE_OWNER_EMAIL || '').trim().toLowerCase();
 const OWNER_PASSWORD = process.env.SUPABASE_OWNER_PASSWORD || '';
+const enabled = Boolean(OWNER_EMAIL && OWNER_PASSWORD);
+
+if (enabled && (!SUPABASE_URL || !SUPABASE_ANON_KEY)) {
+  throw new Error('[supabaseSync] CRITICAL: SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env when backup/sync is enabled.');
+}
 const PUSH_DELAY_MS = Number(process.env.SUPABASE_SYNC_DEBOUNCE_MS || 2000);
 const STORAGE_BUCKET = 'bera-assets';
 // When Storage upload fails (e.g. bucket missing / no service_role), keep the
@@ -29,8 +37,6 @@ const STORAGE_BUCKET = 'bera-assets';
 // under this base64 size. Larger images are still stripped to avoid bloating
 // the UPSERT payload. Override with SUPABASE_INLINE_IMAGE_MAX (bytes).
 const INLINE_IMAGE_MAX = Number(process.env.SUPABASE_INLINE_IMAGE_MAX || 700_000);
-
-const enabled = Boolean(OWNER_EMAIL && OWNER_PASSWORD);
 
 type Session = { userId: string; accessToken: string; expiresAt: number };
 let session: Session | null = null;
@@ -45,8 +51,8 @@ let bucketReady: boolean | null = null;
 
 // ─── DB helpers ───────────────────────────────────────────────────────────────
 
-const safe = <T = any>(sql: string): T[] => {
-  try { return db.prepare(sql).all() as T[]; } catch { return []; }
+const safe = <T = any>(sql: string, params: any[] = []): T[] => {
+  try { return db.prepare(sql).all(...params) as T[]; } catch { return []; }
 };
 
 const parseJsonFields = (row: any) => {
@@ -94,7 +100,7 @@ const ensureBucket = async (accessToken: string): Promise<boolean> => {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ id: STORAGE_BUCKET, name: STORAGE_BUCKET, public: true }),
+      body: JSON.stringify({ id: STORAGE_BUCKET, name: STORAGE_BUCKET, public: false }),
     });
     bucketReady = createRes.ok;
     if (!bucketReady) {
@@ -226,25 +232,58 @@ const replaceImages = async (o: any, accessToken: string): Promise<any> => {
 
 // ─── Snapshot builder ─────────────────────────────────────────────────────────
 
+const getLocalOwnerId = (): number | null => {
+  if (!OWNER_EMAIL) return null;
+  try {
+    const row = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(OWNER_EMAIL) as { id: number } | undefined;
+    return row ? row.id : null;
+  } catch {
+    return null;
+  }
+};
+
 const buildSnapshot = async (accessToken: string) => {
-  const models = safe('SELECT * FROM models');
-  const planningEvents = safe('SELECT * FROM planning_events');
-  const suiviData = safe('SELECT * FROM suivi_data');
-  const posteSuivi = safe('SELECT * FROM poste_suivi');
-  const workers = safe('SELECT * FROM workers');
-  const workerSkills = safe('SELECT * FROM worker_skills');
-  const workerPointage = safe('SELECT * FROM worker_pointage');
-  const magasinProducts = safe('SELECT * FROM magasin_products');
-  const magasinLots = safe('SELECT * FROM magasin_lots');
-  const magasinMouvements = safe('SELECT * FROM magasin_mouvements');
-  const magasinCommandes = safe('SELECT * FROM magasin_commandes');
-  const magasinDemandes = safe('SELECT * FROM magasin_demandes');
-  const demandesAppro = safe('SELECT * FROM demandes_appro');
-  const appSettings = safe('SELECT * FROM app_settings');
-  const hrWorkers = safe('SELECT * FROM hr_workers');
-  const hrPointage = safe('SELECT * FROM hr_pointage');
-  const hrProduction = safe('SELECT * FROM hr_production');
-  const hrAvances = safe('SELECT * FROM hr_avances');
+  const ownerId = getLocalOwnerId();
+  if (ownerId === null) {
+    console.warn('[supabaseSync] getLocalOwnerId found no local user matching OWNER_EMAIL:', OWNER_EMAIL);
+    return {
+      beramethode_library: [],
+      beramethode_planning: [],
+      beramethode_suivis: [],
+      beramethode_demandesAppro: [],
+      beramethode_settings: [],
+      beramethode_subcontract_orders: [],
+      beramethode_subcontract_groups: [],
+      __sqlite_export__: {
+        exported_at: new Date().toISOString(),
+        counts: { models: 0, planningEvents: 0, suiviData: 0, workers: 0, magasinProducts: 0, hrWorkers: 0 },
+        workers: [], workerSkills: [], workerPointage: [], posteSuivi: [],
+        magasin: { products: [], lots: [], mouvements: [], commandes: [], demandes: [] },
+        hr: { workers: [], pointage: [], production: [], avances: [] }
+      }
+    };
+  }
+
+  const models = safe('SELECT * FROM models WHERE owner_id = ?', [ownerId]);
+  const planningEvents = safe('SELECT * FROM planning_events WHERE owner_id = ?', [ownerId]);
+  const suiviData = safe('SELECT * FROM suivi_data WHERE owner_id = ?', [ownerId]);
+  const posteSuivi = safe('SELECT * FROM poste_suivi WHERE owner_id = ?', [ownerId]);
+  const workers = safe('SELECT * FROM workers WHERE owner_id = ?', [ownerId]);
+  const workerSkills = safe('SELECT * FROM worker_skills WHERE owner_id = ?', [ownerId]);
+  const workerPointage = safe('SELECT * FROM worker_pointage WHERE owner_id = ?', [ownerId]);
+  const magasinProducts = safe('SELECT * FROM magasin_products WHERE owner_id = ?', [ownerId]);
+  const magasinLots = safe('SELECT * FROM magasin_lots WHERE owner_id = ?', [ownerId]);
+  const magasinMouvements = safe('SELECT * FROM magasin_mouvements WHERE owner_id = ?', [ownerId]);
+  const magasinCommandes = safe('SELECT * FROM magasin_commandes WHERE owner_id = ?', [ownerId]);
+  const magasinDemandes = safe('SELECT * FROM magasin_demandes WHERE owner_id = ?', [ownerId]);
+  const demandesAppro = safe('SELECT * FROM demandes_appro WHERE owner_id = ?', [ownerId]);
+  const appSettings = safe('SELECT * FROM app_settings WHERE owner_id = ?', [ownerId]);
+  const hrWorkers = safe('SELECT * FROM hr_workers WHERE owner_id = ?', [ownerId]);
+  const hrPointage = safe('SELECT * FROM hr_pointage WHERE owner_id = ?', [ownerId]);
+  const hrProduction = safe('SELECT * FROM hr_production WHERE owner_id = ?', [ownerId]);
+  const hrAvances = safe('SELECT * FROM hr_avances WHERE owner_id = ?', [ownerId]);
+  const subcontractOrders = safe('SELECT * FROM subcontract_orders WHERE owner_id = ?', [ownerId]);
+  const subcontractorGroups = safe('SELECT * FROM subcontractor_groups WHERE owner_id = ?', [ownerId]);
 
   // Upload images to Storage and replace base64 with public URLs.
   // This runs in parallel per-model for speed.
@@ -278,6 +317,8 @@ const buildSnapshot = async (accessToken: string) => {
     beramethode_suivis: extractRawData(suiviData),
     beramethode_demandesAppro: demandesAppro.map(parseJsonFields),
     beramethode_settings: appSettings.length === 1 ? parseJsonFields(appSettings[0]) : appSettings.map(parseJsonFields),
+    beramethode_subcontract_orders: subcontractOrders.map(parseJsonFields),
+    beramethode_subcontract_groups: subcontractorGroups.map(parseJsonFields),
     __sqlite_export__: {
       exported_at: new Date().toISOString(),
       counts: {
@@ -373,6 +414,13 @@ const pushNow = async () => {
     } else {
       const c = (snapshot as any).__sqlite_export__?.counts || {};
       console.log(`[supabaseSync] ✅ pushed — models=${c.models||0} planning=${c.planningEvents||0} workers=${c.workers||0} hrWorkers=${c.hrWorkers||0} (images→Storage)`);
+      
+      // Clear outbox
+      try {
+        db.prepare("UPDATE sync_outbox SET status = 'synced' WHERE status = 'pending'").run();
+      } catch (e) {
+        console.warn('[supabaseSync] Failed to clear outbox:', e);
+      }
     }
   } catch (err) {
     console.warn('[supabaseSync] push error:', err);
@@ -392,7 +440,7 @@ export const schedulePush = () => {
 };
 
 /**
- * Express middleware: after a successful write to /api/*, schedule a push.
+ * Express middleware: after a successful write to /api/*, log to outbox and schedule a push.
  */
 export const supabaseSyncMiddleware = (req: Request, res: Response, next: NextFunction) => {
   if (!enabled) return next();
@@ -401,7 +449,55 @@ export const supabaseSyncMiddleware = (req: Request, res: Response, next: NextFu
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
   if (req.path.startsWith('/api/auth/')) return next();
   res.on('finish', () => {
-    if (res.statusCode >= 200 && res.statusCode < 300) schedulePush();
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      try {
+        const id = randomUUID();
+        let tableName = 'unknown';
+        const parts = req.path.split('/');
+        if (parts[2]) {
+          tableName = parts[2];
+          if (parts[3] && !/^[0-9a-fA-F-]{36}$|^\d+$/.test(parts[3])) {
+            tableName = `${parts[2]}_${parts[3]}`;
+          }
+        }
+        const recordId = req.params.id || req.body?.id || '';
+        const action = method === 'POST' ? 'INSERT' : method === 'PUT' ? 'UPDATE' : method === 'DELETE' ? 'DELETE' : method;
+        let payload: string | null = null;
+        if (req.body) {
+          const bodyCopy = { ...req.body };
+          const sensitiveFields = ['password', 'salary', 'cin', 'cnss', 'card_pin', 'pin', 'token'];
+          for (const field of sensitiveFields) {
+            if (field in bodyCopy) {
+              bodyCopy[field] = '[REDACTED]';
+            }
+          }
+          payload = JSON.stringify(bodyCopy);
+        }
+        
+        db.prepare(`
+          INSERT INTO sync_outbox (id, table_name, record_id, action, payload)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(id, tableName, String(recordId), action, payload);
+
+        // Impersonation audit trail
+        if ((req as any).viaImpersonation) {
+          try {
+            const actor = 'MASTER';
+            const targetUserId = (req as any).user?.id || null;
+            const auditAction = `${method}:${req.path}`;
+            db.prepare(`
+              INSERT INTO impersonation_audit_logs (id, actor, target_user_id, action, details, via_impersonation)
+              VALUES (?, ?, ?, ?, ?, 1)
+            `).run(randomUUID(), actor, targetUserId, auditAction, payload);
+          } catch (auditErr) {
+            console.error('[Impersonation Audit] Failed to log write:', auditErr);
+          }
+        }
+      } catch (err) {
+        console.error('[supabaseSyncMiddleware] outbox log error:', err);
+      }
+      schedulePush();
+    }
   });
   next();
 };
@@ -416,8 +512,79 @@ export const logSupabaseSyncStatus = () => {
   }
 };
 
+export const backupDatabaseToSupabase = async () => {
+  if (!enabled) return;
+  try {
+    const sess = await ensureSession();
+    if (!sess) return;
+
+    const companyId = sess.userId;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const tempBackupPath = path.join(dbDir, `temp_backup_${timestamp}.sqlite`);
+
+    console.log(`[supabaseSync] 🗄️ Starting SQLite database backup via VACUUM INTO...`);
+    db.prepare(`VACUUM INTO ?`).run(tempBackupPath);
+
+    if (!fs.existsSync(tempBackupPath)) {
+      throw new Error(`Temp backup file not found at ${tempBackupPath}`);
+    }
+
+    const buffer = fs.readFileSync(tempBackupPath);
+    const filename = `backups/${companyId}/backup_${timestamp}.sqlite`;
+    const backupBucket = 'bera-backups';
+
+    // Ensure bucket exists
+    const bucketRes = await fetch(`${SUPABASE_URL}/storage/v1/bucket/${backupBucket}`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${sess.accessToken}` },
+    });
+
+    if (!bucketRes.ok) {
+      // Create private bucket
+      const createRes = await fetch(`${SUPABASE_URL}/storage/v1/bucket`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${sess.accessToken}`,
+        },
+        body: JSON.stringify({ id: backupBucket, name: backupBucket, public: false }),
+      });
+      if (!createRes.ok) {
+        throw new Error(`Could not create backup bucket: ${await createRes.text()}`);
+      }
+    }
+
+    // Upload file
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${backupBucket}/${filename}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-sqlite3',
+        Authorization: `Bearer ${sess.accessToken}`,
+        apikey: SUPABASE_ANON_KEY,
+        'x-upsert': 'true',
+      },
+      body: buffer,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error(`Upload failed: ${await uploadRes.text()}`);
+    }
+
+    console.log(`[supabaseSync] ✅ SQLite backup uploaded successfully: ${filename}`);
+
+    // Delete temp file
+    fs.unlinkSync(tempBackupPath);
+  } catch (err) {
+    console.error('[supabaseSync] SQLite database backup failed:', err);
+  }
+};
+
 // Push once on boot so a fresh container/PC immediately reflects the
 // current SQLite state, even without subsequent writes.
 if (enabled) {
   setTimeout(() => { schedulePush(); }, 3000);
+  
+  // Schedule SQLite backup: run 15s after startup, then every 12 hours
+  setTimeout(() => { void backupDatabaseToSupabase(); }, 15000);
+  setInterval(() => { void backupDatabaseToSupabase(); }, 12 * 60 * 60 * 1000);
 }

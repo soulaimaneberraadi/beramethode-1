@@ -4,6 +4,8 @@ import { getChainDailyCapacity, maxDayLoadRatioInSpan } from '../../../utils/cap
 import { getChainMachineIds, validateMachineCoverage } from '../../../utils/machineMatch';
 import { isPlanningWorkingDay, planningLocalDateKey, calculateEndDate } from '../../../utils/planning';
 import type { PlanningChain } from './usePlanningChains';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 export interface ScheduleSuggestion {
     chaineId: string;
@@ -34,6 +36,7 @@ function nextWorkingDay(from: Date, settings: AppSettings): Date {
 }
 
 export function useAutoSchedule({ chains, planningEvents, models, machines, settings }: Args) {
+    const { lang } = useLang();
 
     const suggest = useCallback((input: {
         modelId: string;
@@ -113,7 +116,7 @@ export function useAutoSchedule({ chains, planningEvents, models, machines, sett
 
                 if (endYmd > ddsYmd) {
                     score -= 50;
-                    reasoning.push(isExport ? '✗ Dépasse le DDS (Transit -3j inclus)' : '✗ Dépasse le DDS');
+                    reasoning.push(isExport ? tx(lang, {fr:'✗ Dépasse le DDS (Transit -3j inclus)',ar:'✗ تجاوز DDS (ترانزيت -3أيام شامل)',en:'✗ Exceeds DDS (Transit -3d included)',es:'✗ Supera DDS (Tránsito -3d incluido)',pt:'✗ Excede DDS (Trânsito -3d incluído)',tr:'✗ DDS\'yi aşıyor (Transit -3g dahil)'}) : tx(lang, {fr:'✗ Dépasse le DDS',ar:'✗ تجاوز DDS',en:'✗ Exceeds DDS',es:'✗ Supera DDS',pt:'✗ Excede DDS',tr:'✗ DDS\'yi aşıyor'}));
                 } else {
                     const buffer = Math.round((adjustedDDS.getTime() - new Date(endYmd).getTime()) / 86400000);
                     if (buffer >= 5) {
@@ -137,7 +140,7 @@ export function useAutoSchedule({ chains, planningEvents, models, machines, sett
         const best = candidates[0];
         if (!best || best.score < 30) return null;
         return best;
-    }, [chains, planningEvents, models, machines, settings]);
+    }, [chains, planningEvents, models, machines, settings, lang]);
 
     return { suggest };
 }

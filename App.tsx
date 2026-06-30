@@ -1,4 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import { preloadAllChunks } from './lib/preloader';
+import { lsGet, lsSet } from './lib/storageKeys';
+import './src/context/ThemeContext';
 import GlobalLoader from './components/GlobalLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { createTicketFromReport } from './src/lib/support';
@@ -29,6 +32,7 @@ import {
 import { useAuth } from './src/context/AuthContext';
 import { useLicense } from './src/context/LicenseContext';
 import { usePermissions } from './src/context/PermissionsContext';
+import { ACCOUNT_TYPE_HIDDEN } from './app/accountTypes';
 import { DataOwnerProvider } from './src/context/DataOwnerContext';
 import { notifyServerSessionEstablished } from './lib/dataIdentity';
 import { Machine, MachineInstance, MachineFleetHistoryEntry, Operation, FicheData, Poste, SpeedFactor, ComplexityFactor, StandardTime, Guide, ModelData, AppSettings, ManualLink } from './types';
@@ -37,9 +41,11 @@ import { sumPiecesFromSuiviForPlanning } from './utils/produced';
 import { rollPlanningEvents } from './utils/planning';
 import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
+import { navigate, getCurrentRoute, parseHash, onRouteChange } from './lib/router';
 
 const Login = lazy(() => import('./src/components/Login'));
 const Signup = lazy(() => import('./src/components/Signup'));
+const Setup = lazy(() => import('./components/Setup'));
 const AdminDashboard = lazy(() => import('./src/components/AdminDashboard'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Planning = lazy(() => import('./components/Planning'));
@@ -60,11 +66,14 @@ const PageMachine = lazy(() => import('./components/PageMachine'));
 const Atelier = lazy(() => import('./components/Atelier'));
 const SousTraitance = lazy(() => import('./components/SousTraitance'));
 const CatalogueTemps = lazy(() => import('./components/CatalogueTemps'));
+const VueGenerale = lazy(() => import('./components/VueGenerale'));
 
 // ── Extracted modules ──
+import { tx } from './lib/i18n';
 import { TRANSLATIONS, Lang, DEFAULT_MACHINES, DEFAULT_GUIDES, AUTO_SAVE_KEY, LIBRARY_KEY, MANUAL_LINKS_BY_MODEL_KEY, MACHINES_STORAGE_KEY, MACHINE_INSTANCES_KEY, MACHINE_FLEET_HISTORY_KEY, MAX_MACHINE_FLEET_HISTORY, defaultNavOrder } from './app/constants';
+import { useLang } from './src/context/LanguageContext';
 import { isLegacyBundledMachineFleet, looksLikeGeneratedDemoFleet, isDemoMachineName, mergeServerFleetWithPendingLocal, loadMachinesFromStorage, loadMachineFleetHistoryFromStorage, normalizeLoadedLayout, loadManualLinksByModel, saveManualLinksByModel, deleteManualLinksByModel } from './app/machineUtils';
-import AppHeader from './app/AppHeader';
+import AppHeader, { VIEW_DEFS } from './app/AppHeader';
 import NavConfirmModal from './app/NavConfirmModal';
 import { useAppModelManager } from './app/useAppModelManager';
 
@@ -79,15 +88,44 @@ type HistoryState = {
 
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
+// Lecture des clés synchronisées : on lit la clé *préfixée par compte* (même
+// convention que cloudSync + apiShim). Repli sur l'ancienne clé non-préfixée
+// pour migrer en douceur les anciennes données locales (une seule fois : le
+// prochain lsSet réécrit en version préfixée).
+const lsGetMig = (key: string): string | null => {
+    const scoped = lsGet(key);
+    if (scoped != null) return scoped;
+    try { return localStorage.getItem(key); } catch { return null; }
+};
+
 export default function App() {
     const { user, loading: authLoading, logout: authLogout, login } = useAuth();
     // Licence BERA MASTER : modules masqués selon le forfait (vide si non appliqué).
     const { hiddenModules: licenseHiddenModules } = useLicense();
     // Permissions hiérarchiques (Epic 2) : pages masquées selon le rôle (vide si super/solo).
-    const { hiddenPages: permHiddenPages } = usePermissions();
+    const { hiddenPages: permHiddenPages, accountType } = usePermissions();
     const [authView, setAuthView] = useState<'login' | 'signup'>('login');
     const [isGuest, setIsGuest] = useState(false);
-    const [lang, setLang] = useState<Lang>('fr');
+
+    // Vérification first-boot (Express uniquement).
+    // setupNeeded = null → en cours de vérification, false → déjà initialisé, true → setup requis.
+    const [setupNeeded, setSetupNeeded] = useState<boolean | null>(IS_STATIC ? false : null);
+
+    useEffect(() => {
+        if (IS_STATIC) return; // setup uniquement en mode Express (EXE local)
+        fetch('/api/setup/status', { credentials: 'include' })
+            .then((r) => r.json())
+            .then((data: { initialized?: boolean }) => {
+                setSetupNeeded(data.initialized === false);
+            })
+            .catch(() => {
+                // En cas d'erreur réseau on suppose que le setup est déjà fait
+                // pour ne pas bloquer l'accès indéfiniment.
+                setSetupNeeded(false);
+            });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    const { lang, setLang } = useLang();
     const t = TRANSLATIONS[lang];
 
     const [appLoading, setAppLoading] = useState<{
@@ -104,7 +142,7 @@ export default function App() {
         isActive: !IS_STATIC,
         progress: 0,
         text: 'BERAMETHODE V2',
-        subText: 'Initialisation des modules...',
+        subText: tx(lang, {fr:'Initialisation des modules...',ar:'جاري تهيئة الوحدات...',en:'Initializing modules...',es:'Inicializando módulos...',pt:'A inicializar módulos...',tr:'Modüller başlatılıyor...'}),
         error: null,
     }));
     const [bootAttempt, setBootAttempt] = useState(0);
@@ -116,7 +154,7 @@ export default function App() {
             return;
         }
         if (authLoading) {
-            setAppLoading({ isActive: true, progress: 5, text: 'BERAMETHODE V2', subText: 'Vérification de la session...', error: null });
+            setAppLoading({ isActive: true, progress: 5, text: 'BERAMETHODE V2', subText: tx(lang, {fr:'Vérification de la session...',ar:'التحقق من الجلسة...',en:'Checking session...',es:'Verificando sesión...',pt:'A verificar sessão...',tr:'Oturum kontrol ediliyor...'}), error: null });
             return;
         }
         if (!user) {
@@ -131,8 +169,8 @@ export default function App() {
         const myRun = ++bootRunIdRef.current;
         const controller = new AbortController();
         let isCancelled = false;
-        setAppLoading(prev => ({ ...prev, isActive: true, progress: Math.max(prev.progress, 5), text: 'BERAMETHODE V2', subText: 'Initialisation des modules...', error: null }));
-        runBootSequence((p) => {
+        setAppLoading(prev => ({ ...prev, isActive: true, progress: Math.max(prev.progress, 5), text: 'BERAMETHODE V2', subText: tx(lang, {fr:'Initialisation des modules...',ar:'جاري تهيئة الوحدات...',en:'Initializing modules...',es:'Inicializando módulos...',pt:'A inicializar módulos...',tr:'Modüller başlatılıyor...'}), error: null }));
+        runBootSequence(lang, (p) => {
             if (isCancelled) return;
             if (myRun !== bootRunIdRef.current) return;
             setAppLoading(prev => ({ ...prev, progress: Math.max(prev.progress, p.progress), subText: p.currentLabel, error: null }));
@@ -140,7 +178,7 @@ export default function App() {
             if (isCancelled) return;
             if (myRun !== bootRunIdRef.current) return;
             if (!result.ok && result.error) {
-                setAppLoading(prev => ({ ...prev, isActive: true, error: `Étape « ${result.error!.stepId} » : ${result.error!.message}`, subText: 'Connexion impossible' }));
+                setAppLoading(prev => ({ ...prev, isActive: true, error: tx(lang, {fr:`Étape « ${result.error!.stepId} » : ${result.error!.message}`,ar:`الخطوة « ${result.error!.stepId} » : ${result.error!.message}`,en:`Step « ${result.error!.stepId} » : ${result.error!.message}`,es:`Paso « ${result.error!.stepId} » : ${result.error!.message}`,pt:`Etapa « ${result.error!.stepId} » : ${result.error!.message}`,tr:`Adım « ${result.error!.stepId} » : ${result.error!.message}`}), subText: tx(lang, {fr:'Connexion impossible',ar:'تعذر الاتصال',en:'Connection failed',es:'Conexión fallida',pt:'Falha de conexão',tr:'Bağlantı başarısız'}) }));
                 return;
             }
             setTimeout(() => {
@@ -191,7 +229,7 @@ export default function App() {
         setAuthView('login');
     };
 
-    const [currentView, setCurrentView] = useState<'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps'>('dashboard');
+    const [currentView, setCurrentView] = useState<'vuegenerale' | 'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps'>('dashboard');
     const [directSuiviModelId, setDirectSuiviModelId] = useState<string | null>(null);
     const [globalChaineId, setGlobalChaineId] = useState<string>('CHAINE 2');
     const [globalDate, setGlobalDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -216,7 +254,7 @@ export default function App() {
             { id: 'config', name: 'Config', views: ['machin', 'rendement', 'pageMachine', 'config'] }
         ];
         try {
-            const s = localStorage.getItem('bera_nav_config');
+            const s = lsGetMig('bera_nav_config');
             if (s) {
                 const parsed = JSON.parse(s);
                 if (!parsed.style) parsed.style = 'dropdown';
@@ -278,24 +316,41 @@ export default function App() {
             categories: defaultCategories
         };
     });
-    const saveNavConfig = (cfg: typeof navConfig) => { setNavConfig(cfg); localStorage.setItem('bera_nav_config', JSON.stringify(cfg)); };
+    const saveNavConfig = (cfg: typeof navConfig) => { setNavConfig(cfg); lsSet('bera_nav_config', JSON.stringify(cfg)); };
     const navOrder = navConfig.order.length ? navConfig.order : defaultNavOrder;
-    // Config de nav effective : fusionne les modules masqués par la licence (vide si non appliqué).
-    const extraHidden = [...licenseHiddenModules, ...permHiddenPages];
+    // Config de nav effective : fusionne les modules masqués par la licence,
+    // les permissions, et le type de compte (société = rien masqué).
+    const extraHidden = [...licenseHiddenModules, ...permHiddenPages, ...(ACCOUNT_TYPE_HIDDEN[accountType] || [])];
     const effectiveNavConfig = extraHidden.length
         ? { ...navConfig, hidden: [...new Set([...navConfig.hidden, ...extraHidden])] }
         : navConfig;
 
 
+    const [routeTokens, setRouteTokens] = useState<string[]>([]);
+    const [routeNotFound, setRouteNotFound] = useState(false);
+
     useEffect(() => {
-        const ALLOW = new Set(['dashboard', 'ingenierie', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'facturation', 'atelierProd', 'sousTraitance', 'catalogTemps']);
-        const applyHash = () => {
-            const h = window.location.hash.replace(/^#\/?/, '').toLowerCase();
-            if (h && ALLOW.has(h)) setCurrentView(h as typeof currentView);
+        const ALLOW = new Set(['vuegenerale', 'dashboard', 'ingenierie', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'facturation', 'atelierProd', 'sousTraitance', 'catalogTemps']);
+        const syncHashToView = () => {
+            const route = getCurrentRoute();
+            if (!route.view && !route.isNotFound) {
+                setCurrentView('dashboard');
+                setRouteTokens([]);
+                setRouteNotFound(false);
+            } else if (route.view && ALLOW.has(route.view)) {
+                setCurrentView(route.view as typeof currentView);
+                setRouteTokens(route.tokens);
+                setRouteNotFound(false);
+            } else if (route.isNotFound) {
+                setRouteNotFound(true);
+                setRouteTokens([]);
+            }
         };
-        applyHash();
-        window.addEventListener('hashchange', applyHash);
-        return () => window.removeEventListener('hashchange', applyHash);
+        syncHashToView();
+        window.addEventListener('hashchange', syncHashToView);
+        return () => {
+            window.removeEventListener('hashchange', syncHashToView);
+        };
     }, []);
 
     const [navigationContext, setNavigationContext] = useState<'coupe' | 'planning' | null>(null);
@@ -304,6 +359,13 @@ export default function App() {
     const [planningEvents, setPlanningEvents] = useState<import('./types').PlanningEvent[]>([]);
     const [suivis, setSuivis] = useState<import('./types').SuiviData[]>([]);
     const [demandesAppro, setDemandesAppro] = useState<import('./types').DemandeAppro[]>([]);
+
+    // Garde-fou anti-écrasement : tant que le GET initial (serveur) n'a pas répondu,
+    // on NE POST PAS l'état (qui démarre à []). Sans ça, un GET lent (>1.2s) laissait
+    // partir un POST { events: [] } qui effaçait planning/suivi côté serveur, puis tout
+    // revenait à 0 au rechargement. Réinitialisé à chaque changement de compte.
+    const planningHydratedRef = useRef(false);
+    const suivisHydratedRef = useRef(false);
 
     /** Baseline des suivis à l’entrée sur Effectifs (une fois par visite) pour détecter les changements. */
     const effectifsSuivisSnapshotRef = useRef<string>('');
@@ -339,13 +401,23 @@ export default function App() {
 
     useEffect(() => {
         const loadFromLocal = () => {
-            try { const s = localStorage.getItem('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
-            try { const s = localStorage.getItem('beramethode_suivis'); setSuivis(s ? JSON.parse(s) : []); } catch { setSuivis([]); }
-            try { const s = localStorage.getItem('beramethode_demandesAppro'); setDemandesAppro(s ? JSON.parse(s) : []); } catch { setDemandesAppro([]); }
+            try { const s = lsGetMig('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
+            try { const s = lsGetMig('beramethode_suivis'); setSuivis(s ? JSON.parse(s) : []); } catch { setSuivis([]); }
+            try { const s = lsGetMig('beramethode_demandesAppro'); setDemandesAppro(s ? JSON.parse(s) : []); } catch { setDemandesAppro([]); }
         };
         if (user && !IS_STATIC) {
-            fetch('/api/planning', { credentials: 'include' }).then(r => r.ok ? r.json() : []).then(data => setPlanningEvents(Array.isArray(data) ? data : [])).catch(() => setPlanningEvents([]));
-            fetch('/api/suivi', { credentials: 'include' }).then(r => r.ok ? r.json() : []).then(data => setSuivis(Array.isArray(data) ? data : [])).catch(() => setSuivis([]));
+            // Nouveau compte / rechargement : on bloque l'auto-save tant que le GET
+            // n'a pas confirmé l'état serveur (évite l'écrasement par un POST vide).
+            planningHydratedRef.current = false;
+            suivisHydratedRef.current = false;
+            fetch('/api/planning', { credentials: 'include' })
+                .then(r => r.ok ? r.json() : Promise.reject(new Error('planning GET failed')))
+                .then(data => { setPlanningEvents(Array.isArray(data) ? data : []); planningHydratedRef.current = true; })
+                .catch(() => { /* GET échoué : on NE marque PAS hydraté → pas de POST destructeur */ });
+            fetch('/api/suivi', { credentials: 'include' })
+                .then(r => r.ok ? r.json() : Promise.reject(new Error('suivi GET failed')))
+                .then(data => { setSuivis(Array.isArray(data) ? data : []); suivisHydratedRef.current = true; })
+                .catch(() => { /* idem */ });
             fetch('/api/demandes-appro', { credentials: 'include' }).then(r => r.ok ? r.json() : []).then(data => setDemandesAppro(Array.isArray(data) ? data : [])).catch(() => setDemandesAppro([]));
         } else {
             // Static mode (Vercel) or guest: localStorage is the source of truth.
@@ -360,16 +432,29 @@ export default function App() {
         }
     }, [user]);
 
+    // Preload all lazy component chunks in background after initial render
+    useEffect(() => {
+        if (!user) return;
+        const timer = setTimeout(() => { preloadAllChunks(); }, 2000);
+        return () => clearTimeout(timer);
+    }, [user]);
+
     useEffect(() => {
         if (!user || IS_STATIC) {
             // Guest & static (Vercel): persist to localStorage; cloudSync handles upstream sync.
-            localStorage.setItem('beramethode_planning', JSON.stringify(planningEvents));
+            // ⚠️ On n'écrit JAMAIS un tableau vide : au montage l'état initial est []
+            // AVANT que loadFromLocal n'hydrate, et comme on lit/écrit désormais la
+            // MÊME clé préfixée, un écrit vide effacerait les données (perte). Même
+            // garde que la persistance de `models` (models.length > 0).
+            if (planningEvents.length > 0) lsSet('beramethode_planning', JSON.stringify(planningEvents));
             if (!user) {
-                localStorage.setItem('beramethode_suivis', JSON.stringify(suivis));
-                localStorage.setItem('beramethode_demandesAppro', JSON.stringify(demandesAppro));
+                if (suivis.length > 0) lsSet('beramethode_suivis', JSON.stringify(suivis));
+                if (demandesAppro.length > 0) lsSet('beramethode_demandesAppro', JSON.stringify(demandesAppro));
             }
             return;
         }
+        // Tant que le GET initial n'a pas répondu, on ne POST pas (état encore à []).
+        if (!planningHydratedRef.current) return;
         const timer = setTimeout(() => {
             fetch('/api/planning', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ events: planningEvents }) }).catch(() => { });
         }, 1200);
@@ -379,9 +464,12 @@ export default function App() {
     useEffect(() => {
         if (!user) return;
         if (IS_STATIC) {
-            localStorage.setItem('beramethode_suivis', JSON.stringify(suivis));
+            // Idem : ne pas écraser un suivi existant par [] avant hydratation.
+            if (suivis.length > 0) lsSet('beramethode_suivis', JSON.stringify(suivis));
             return;
         }
+        // Tant que le GET initial n'a pas répondu, on ne POST pas (état encore à []).
+        if (!suivisHydratedRef.current) return;
         const timer = setTimeout(() => {
             fetch('/api/suivi', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ suivis }) }).catch(() => { });
         }, 1200);
@@ -408,21 +496,21 @@ export default function App() {
     const [layoutMemory, setLayoutMemory] = useState<Record<string, { id: string, x?: number, y?: number, isPlaced?: boolean, rotation?: number }[]>>({});
     const [activeLayout, setActiveLayout] = useState<'zigzag' | 'free' | 'line' | 'double-zigzag'>('double-zigzag');
     const [manualLinks, setManualLinks] = useState<ManualLink[]>(() => {
-        try { const saved = localStorage.getItem('beramethode_manual_links'); return saved ? JSON.parse(saved) : []; } catch { return []; }
+        try { const saved = lsGetMig('beramethode_manual_links'); return saved ? JSON.parse(saved) : []; } catch { return []; }
     });
     const [savedPlantations, setSavedPlantations] = useState<{ id: string, name: string, date: string, layoutType: string, postes: { id: string, x?: number, y?: number, isPlaced?: boolean, rotation?: number }[] }[]>([]);
 
     const [globalSettings, setGlobalSettings] = useState<AppSettings>(() => {
-        try { const saved = localStorage.getItem('beramethode_settings'); return saved ? JSON.parse(saved) : DEFAULT_SETTINGS; } catch { return DEFAULT_SETTINGS; }
+        try { const saved = lsGetMig('beramethode_settings'); return saved ? JSON.parse(saved) : DEFAULT_SETTINGS; } catch { return DEFAULT_SETTINGS; }
     });
 
-    useEffect(() => { localStorage.setItem('beramethode_settings', JSON.stringify(globalSettings)); }, [globalSettings]);
+    useEffect(() => { lsSet('beramethode_settings', JSON.stringify(globalSettings)); }, [globalSettings]);
 
     const [machines, setMachines] = useState<Machine[]>(loadMachinesFromStorage);
     const [machineFleetHistory, setMachineFleetHistory] = useState<MachineFleetHistoryEntry[]>(loadMachineFleetHistoryFromStorage);
 
     const [machineInstances, setMachineInstances] = useState<MachineInstance[]>(() => {
-        try { const s = localStorage.getItem(MACHINE_INSTANCES_KEY); return s ? JSON.parse(s) : []; } catch { return []; }
+        try { const s = lsGetMig(MACHINE_INSTANCES_KEY); return s ? JSON.parse(s) : []; } catch { return []; }
     });
 
     useEffect(() => {
@@ -448,19 +536,19 @@ export default function App() {
 
     useEffect(() => {
         try {
-            localStorage.setItem(MACHINES_STORAGE_KEY, JSON.stringify(machines));
+            lsSet(MACHINES_STORAGE_KEY, JSON.stringify(machines));
         } catch {
             /* ignore quota / private mode */
         }
     }, [machines]);
 
     useEffect(() => {
-        try { localStorage.setItem(MACHINE_INSTANCES_KEY, JSON.stringify(machineInstances)); } catch { /* ignore */ }
+        try { lsSet(MACHINE_INSTANCES_KEY, JSON.stringify(machineInstances)); } catch { /* ignore */ }
     }, [machineInstances]);
 
     useEffect(() => {
         try {
-            localStorage.setItem(MACHINE_FLEET_HISTORY_KEY, JSON.stringify(machineFleetHistory));
+            lsSet(MACHINE_FLEET_HISTORY_KEY, JSON.stringify(machineFleetHistory));
         } catch {
             /* ignore */
         }
@@ -846,7 +934,7 @@ export default function App() {
         autosaveRestoredForRef.current = ownerKey;
         if (!user || IS_STATIC) {
             try {
-                const localRaw = localStorage.getItem(AUTO_SAVE_KEY);
+                const localRaw = lsGetMig(AUTO_SAVE_KEY);
                 if (localRaw) {
                     const ws = JSON.parse(localRaw);
                     if (ws && typeof ws === 'object') {
@@ -873,7 +961,7 @@ export default function App() {
                 try {
                     const ws = typeof data.autosave_workspace === 'string' ? JSON.parse(data.autosave_workspace) : data.autosave_workspace;
                     if (!ws || typeof ws !== 'object') return;
-                    const localRaw = localStorage.getItem(AUTO_SAVE_KEY);
+                    const localRaw = lsGetMig(AUTO_SAVE_KEY);
                     const localTs = localRaw ? (JSON.parse(localRaw).lastSaved || 0) : 0;
                     const target = (ws.lastSaved || 0) > localTs ? ws : (localRaw ? JSON.parse(localRaw) : ws);
                     if (target.articleName !== undefined) setArticleName(target.articleName);
@@ -895,7 +983,7 @@ export default function App() {
     // Autosave effect moved below useAppModelManager to allow silent background saving of model data
 
     useEffect(() => {
-        localStorage.setItem('beramethode_manual_links', JSON.stringify(manualLinks));
+        lsSet('beramethode_manual_links', JSON.stringify(manualLinks));
         if (!user || IS_STATIC) return;
         const timer = setTimeout(() => {
             fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ manual_links: manualLinks }) }).catch(() => { });
@@ -982,7 +1070,7 @@ export default function App() {
             // Persist locally if offline/guest
             if (!user) {
                 try {
-                    localStorage.setItem('beramethode_planning', JSON.stringify(rolled));
+                    lsSet('beramethode_planning', JSON.stringify(rolled));
                 } catch (e) {}
             }
 
@@ -992,7 +1080,7 @@ export default function App() {
 
     useEffect(() => {
         const loadFromLocal = () => {
-            const savedLibrary = localStorage.getItem(LIBRARY_KEY);
+            const savedLibrary = lsGetMig(LIBRARY_KEY);
             if (savedLibrary) {
                 try {
                     const parsed = JSON.parse(savedLibrary);
@@ -1038,7 +1126,7 @@ export default function App() {
     useEffect(() => {
         if ((!user || IS_STATIC) && models.length > 0) {
             try {
-                localStorage.setItem(LIBRARY_KEY, JSON.stringify(models));
+                lsSet(LIBRARY_KEY, JSON.stringify(models));
             } catch (e) {
                 console.error("Failed to save Library (Quota?)", e);
             }
@@ -1084,7 +1172,7 @@ export default function App() {
         const timer = setTimeout(() => {
             const dataToSave = { currentModelId, articleName, operations, assignments, postes, ficheData, ficheImages, efficiency, numWorkers, presenceTime, layoutMemory, activeLayout, manualLinks, savedPlantations, chronoData, chronoCustomStations, chronoLayoutSide, lastSaved: Date.now() };
             try {
-                localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(dataToSave));
+                lsSet(AUTO_SAVE_KEY, JSON.stringify(dataToSave));
                 setSaveStatus('saved');
             } catch (e) {
                 console.error('Auto-save failed (likely quota exceeded)', e);
@@ -1115,6 +1203,55 @@ export default function App() {
                 subText={appLoading.subText}
             />
         );
+    }
+
+    // ── DEV PREVIEW GATE (dev-only, removable) ─────────────────────────────
+    // Affiche l'écran Setup isolé pour le design : http://localhost:5173/?preview=setup
+    // N'affecte PAS le boot réel (uniquement en mode DEV + query param explicite).
+    if (import.meta.env.DEV && (new URLSearchParams(window.location.search).get('preview') === 'setup' || (typeof localStorage !== 'undefined' && localStorage.getItem('bera_preview') === 'setup'))) {
+        return (
+            <Suspense fallback={<GlobalLoader isActive={true} progress={30} text="BERAMETHODE" subText="Preview…" />}>
+                <Setup onComplete={() => { /* preview: no-op */ }} />
+            </Suspense>
+        );
+    }
+
+    // ── First-boot setup (Express / EXE local uniquement) ──────────────────
+    // setupNeeded = null → vérification en cours → on attend avec le loader.
+    // setupNeeded = true ET pas d'utilisateur connecté → affiche le wizard.
+    if (!IS_STATIC) {
+        if (setupNeeded === null) {
+            return (
+                <GlobalLoader
+                    isActive
+                    progress={10}
+                    text="BERAMETHODE"
+                    subText="Vérification de la configuration…"
+                />
+            );
+        }
+        if (setupNeeded && !user) {
+            return (
+                <Suspense fallback={<GlobalLoader isActive={true} progress={30} text="BERAMETHODE" subText="Chargement du setup…" />}>
+                    <Setup
+                        onComplete={(newUser) => {
+                            // Le serveur a créé le compte et retourné l'utilisateur.
+                            // On l'injecte via login() (même chemin que la connexion normale).
+                            login(newUser);
+                            setSetupNeeded(false);
+                            // Reprendre les préférences écrites par le wizard (langue, devise, TVA)
+                            // pour qu'elles s'appliquent dès cette session, sans reload.
+                            try {
+                                const savedLang = localStorage.getItem('bera_lang');
+                                if (savedLang && ['fr', 'ar', 'en', 'es', 'pt', 'tr'].includes(savedLang)) setLang(savedLang as Lang);
+                                const savedSettings = lsGetMig('beramethode_settings');
+                                if (savedSettings) setGlobalSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) });
+                            } catch { /* non bloquant */ }
+                        }}
+                    />
+                </Suspense>
+            );
+        }
     }
 
     if (!user) {
@@ -1148,6 +1285,8 @@ export default function App() {
         }
 
         setCurrentView(targetView);
+        setRouteTokens([]);
+        navigate(targetView);
     };
 
     const handleModalConfirm = async (action: 'yes' | 'no' | 'cancel') => {
@@ -1171,6 +1310,7 @@ export default function App() {
                     }
                 }
                 setCurrentView(targetView);
+                navigate(targetView);
             }
             return;
         }
@@ -1178,19 +1318,22 @@ export default function App() {
         if (type === 'save') {
             if (action === 'yes') saveCurrentModel(false, true); // true = silent, no alert
             setCurrentView(targetView);
+            navigate(targetView);
         } else if (type === 'new') {
             if (action === 'yes') {
                 createNewProject();
                 setCurrentView('ingenierie');
+                navigate('ingenierie');
             } else {
                 setCurrentView(targetView);
+                navigate(targetView);
             }
         }
     };
 
     return (
         <DataOwnerProvider user={user ? { ...user, id: Number(user.id) } : null} isGuest={isGuest}>
-            <div className="flex flex-col h-screen bg-white text-gray-800 font-sans overflow-hidden" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+            <div className="flex flex-col h-screen bg-white dark:bg-dk-bg text-gray-800 dark:text-dk-text font-sans overflow-hidden transition-colors duration-300" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                 <AnnouncementBar />
                 <LicenseBanner />
                 {/* HEADER TOP BAR - COMPACT (h-12) & CLEAN */}
@@ -1210,11 +1353,11 @@ export default function App() {
                 {mobileMenuOpen && (
                     <div className="fixed inset-0 z-[200] flex">
                         <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-                        <nav className="relative w-72 max-w-[85vw] bg-white shadow-2xl h-full overflow-y-auto flex flex-col animate-in slide-in-from-left duration-200">
+                        <nav className="relative w-72 max-w-[85vw] bg-white dark:bg-dk-surface shadow-2xl h-full overflow-y-auto flex flex-col animate-in slide-in-from-left duration-200">
                             {/* Header */}
-                            <div className="px-4 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
-                                <span className="font-extrabold text-lg text-gray-900">BERA<span className="text-emerald-600">METHODE</span></span>
-                                <button onClick={() => setMobileMenuOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+                            <div className="px-4 py-4 border-b border-gray-100 dark:border-dk-border flex items-center justify-between shrink-0">
+                                <span className="font-extrabold text-lg text-gray-900 dark:text-dk-text">BERA<span className="text-emerald-600">METHODE</span></span>
+                                <button onClick={() => setMobileMenuOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dk-elevated/60 text-gray-400 dark:text-dk-muted">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
@@ -1222,34 +1365,30 @@ export default function App() {
                             {/* Menu Items */}
                             <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
                                 {(() => {
-                                    const allItems: Record<string, { label: string; icon: React.ReactNode; active: string }> = {
-                                        dashboard: { label: 'Tableau de bord', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></svg>, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-                                        planning: { label: 'Planning', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /></svg>, active: 'bg-blue-50 border-blue-100 text-blue-700' },
-                                        suivi: { label: 'Suivi Production', icon: <Activity className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-                                        rendement: { label: 'Rendement', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>, active: 'bg-violet-50 border-violet-100 text-violet-700' },
-                                        ingenierie: { label: t.ingenierie, icon: <Factory className="w-4 h-4" />, active: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
-                                        atelierProd: { label: 'Atelier Production', icon: <Factory className="w-4 h-4" />, active: 'bg-orange-50 border-orange-100 text-orange-700' },
-                                        coupe: { label: 'La Coupe', icon: <Scissors className="w-4 h-4" />, active: 'bg-rose-50 border-rose-100 text-rose-700' },
-                                        effectifs: { label: t.effectifs, icon: <Users className="w-4 h-4" />, active: 'bg-orange-50 border-orange-100 text-orange-700' },
-                                        gestionRh: { label: 'Gestion RH', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, active: 'bg-sky-50 border-sky-100 text-sky-700' },
-                                        magasin: { label: 'Magasin', icon: <Package className="w-4 h-4" />, active: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
-                                        export: { label: 'Stock Fini', icon: <PackageCheck className="w-4 h-4" />, active: 'bg-cyan-50 border-cyan-100 text-cyan-700' },
-                                        facturation: { label: 'Facturation', icon: <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>, active: 'bg-blue-50 border-blue-100 text-blue-700' },
-                                        library: { label: t.library, icon: <FolderOpen className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-                                        pageMachine: { label: 'Suivi Machines', icon: <Activity className="w-4 h-4" />, active: 'bg-fuchsia-50 border-fuchsia-100 text-fuchsia-700' },
-                                        machin: { label: 'Catalogue Machines', icon: <Layers className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-                                        catalogTemps: { label: 'Catalogue de Temps', icon: <Clock className="w-4 h-4" />, active: 'bg-violet-50 border-violet-100 text-violet-700' },
-                                        config: { label: t.configuration, icon: <SettingsIcon className="w-4 h-4" />, active: 'bg-amber-50 border-amber-100 text-amber-700' },
-                                        sousTraitance: { label: 'Sous-traitance', icon: <Truck className="w-4 h-4" />, active: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-                                        admin: { label: t.admin, icon: <Shield className="w-4 h-4" />, active: 'bg-purple-50 border-purple-100 text-purple-700' },
-                                    };
+                                    const allItems = Object.fromEntries(
+                                        Object.entries(VIEW_DEFS).map(([key, def]) => [
+                                            key,
+                                            {
+                                                label: typeof def.label === 'function' ? def.label(lang) : def.label,
+                                                icon: def.icon,
+                                                active: def.activeClass,
+                                            }
+                                        ])
+                                    );
 
+                                    const CATEGORY_TRANSLATIONS: Record<string, {fr:string,ar:string,en:string,es:string,pt:string,tr:string}> = {
+                                        principal: {fr:'Principal',ar:'الرئيسية',en:'Main',es:'Principal',pt:'Principal',tr:'Ana'},
+                                        production: {fr:'Production',ar:'الإنتاج',en:'Production',es:'Producción',pt:'Produção',tr:'Üretim'},
+                                        rh: {fr:'RH',ar:'الموارد البشرية',en:'HR',es:'RRHH',pt:'RH',tr:'İK'},
+                                        logistique: {fr:'Logistique',ar:'اللوجستيك',en:'Logistics',es:'Logística',pt:'Logística',tr:'Lojistik'},
+                                        config: {fr:'Config',ar:'الإعدادات',en:'Config',es:'Config',pt:'Config',tr:'Yapılandırma'},
+                                    };
                                     const sections = [
                                         ...(navConfig.categories || []).map(c => ({
-                                            title: c.name,
+                                            title: CATEGORY_TRANSLATIONS[c.id] ? tx(lang, CATEGORY_TRANSLATIONS[c.id]) : c.name,
                                             items: c.views
                                         })),
-                                        ...(user?.role === 'admin' ? [{ title: 'Administration', items: ['admin'] }] : []),
+                                        ...(user?.role === 'admin' ? [{ title: tx(lang, {fr:'Administration',ar:'الإدارة',en:'Administration',es:'Administración',pt:'Administração',tr:'Yönetim'}), items: ['admin'] }] : []),
                                     ];
 
                                     const visibleItems = new Set(
@@ -1266,14 +1405,14 @@ export default function App() {
                                         .filter(section => section.items.length > 0)
                                         .flatMap((section, si) => [
                                             <div key={`sep-${si}`} className="pt-4 pb-1.5 px-3">
-                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{section.title}</span>
+                                                <span className="text-[10px] font-bold text-gray-400 dark:text-dk-muted uppercase tracking-widest">{section.title}</span>
                                             </div>,
                                             ...section.items.map(view => {
                                                 const item = allItems[view];
                                                 const isActive = currentView === view;
                                                 return (
                                                     <button key={view} onClick={() => { handleNavigation(view as any); setMobileMenuOpen(false); }}
-                                                        className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wide transition-all border mb-0.5 ${isActive ? item.active : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50 border-transparent'}`}>
+                                                        className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wide transition-all border mb-0.5 ${isActive ? item.active : 'text-gray-500 dark:text-dk-text-soft hover:text-gray-900 dark:hover:text-dk-text hover:bg-gray-50 dark:hover:bg-dk-elevated/60 border-transparent'}`}>
                                                         {item.icon}{item.label}
                                                     </button>
                                                 );
@@ -1283,18 +1422,18 @@ export default function App() {
                             </div>
 
                             {/* Footer */}
-                            <div className="px-3 py-3 border-t border-gray-100 shrink-0">
+                            <div className="px-3 py-3 border-t border-gray-100 dark:border-dk-border shrink-0">
                                 <button onClick={() => { handleNavigation('profil' as any); setMobileMenuOpen(false); }}
-                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all">
+                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold text-gray-500 dark:text-dk-text-soft hover:text-gray-900 dark:hover:text-dk-text hover:bg-gray-50 dark:hover:bg-dk-elevated/60 transition-all">
                                     <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-gray-700 to-gray-600 flex items-center justify-center text-[10px] font-bold text-white">
                                         {user?.name ? user.name.substring(0, 2).toUpperCase() : 'SB'}
                                     </div>
-                                    Profil
+                                    {tx(lang, {fr:'Profil',ar:'الملف الشخصي',en:'Profile',es:'Perfil',pt:'Perfil',tr:'Profil'})}
                                 </button>
                                 <button onClick={() => { logout(); setMobileMenuOpen(false); }}
-                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 transition-all mt-0.5">
+                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all mt-0.5">
                                     <LogOut className="w-4 h-4" />
-                                    Déconnexion
+                                    {tx(lang, {fr:'Déconnexion',ar:'تسجيل الخروج',en:'Logout',es:'Cerrar sesión',pt:'Sair',tr:'Çıkış'})}
                                 </button>
                             </div>
                         </nav>
@@ -1302,12 +1441,31 @@ export default function App() {
                 )}
 
                 {/* MAIN CONTENT */}
-                <main className="flex-1 min-h-0 min-w-0 overflow-hidden relative flex flex-col bg-[#fafafa]">
+                <main className="flex-1 min-h-0 min-w-0 overflow-hidden relative flex flex-col bg-[#fafafa] dark:bg-dk-bg">
                   {/* Isole le crash d'une page : la barre de navigation et le reste
                       de l'app restent vivants. `key={currentView}` réinitialise le
                       garde-fou automatiquement à chaque changement de page. */}
                     <ErrorBoundary inline view={currentView} key={currentView} onReport={createTicketFromReport}>
 
+                    {routeNotFound ? (
+                        <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-0">
+                            <div className="text-center max-w-md">
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 flex items-center justify-center">
+                                    <AlertTriangle className="w-7 h-7 text-red-400" />
+                                </div>
+                                <h2 className="text-lg font-bold text-gray-800 dark:text-dk-text mb-2">الصفحة غير موجودة</h2>
+                                <p className="text-sm text-gray-500 dark:text-dk-text-soft mb-6">الرابط الذي أدخلته غير معروف في النظام</p>
+                                <button
+                                    onClick={() => handleNavigation('dashboard')}
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
+                                >
+                                    العودة إلى لوحة التحكم
+                                </button>
+                            </div>
+                        </div>
+                    ) : (<></>)}
+
+                    {!routeNotFound && (<>
                     {currentView === 'dashboard' && (
                         <Dashboard
                             models={models}
@@ -1316,14 +1474,23 @@ export default function App() {
                             settings={globalSettings}
                             setSettings={setGlobalSettings}
                             onOpenAgenda={() => {
-                                setCurrentView('config');
-                                // We need to signal Configuration to open Agenda. We can use a custom event or a temporary state.
-                                // The simplest way without refactoring too much is dispatching a custom event.
+                                handleNavigation('config');
                                 setTimeout(() => {
                                     window.dispatchEvent(new CustomEvent('open-agenda-modal'));
                                 }, 100);
                             }}
                             onNavigateModule={handleNavigation}
+                        />
+                    )}
+
+                    {currentView === 'vuegenerale' && (
+                        <VueGenerale
+                            models={models}
+                            planningEvents={planningEvents}
+                            settings={globalSettings}
+                            machines={machines}
+                            machineInstances={machineInstances}
+                            onNavigate={handleNavigation}
                         />
                     )}
 
@@ -1391,7 +1558,7 @@ export default function App() {
                             onRedo={handleRedo}
                             canUndo={historyIndex > 0}
                             canRedo={historyIndex < history.length - 1}
-                            lang={lang}
+                            lang={lang as 'fr' | 'ar'}
                         />
                     )}
 
@@ -1445,6 +1612,7 @@ export default function App() {
                                 setGlobalChaineId(chaineId);
                                 setGlobalDate(existing ? (existing.startDate || existing.dateLancement || today) : today);
                                 setCurrentView('suivi');
+                                navigate('suivi');
                             }}
                         />
                     )}
@@ -1462,7 +1630,7 @@ export default function App() {
                     {currentView === 'effectifs' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
                             <Effectifs 
-                                onOpenGestionRH={() => setCurrentView('gestionRh')} 
+                                onOpenGestionRH={() => handleNavigation('gestionRh')} 
                                 suivis={suivis} 
                                 setSuivis={setSuivis} 
                                 planningEvents={planningEvents} 
@@ -1481,7 +1649,7 @@ export default function App() {
                                 suivis={suivis}
                                 planningEvents={planningEvents}
                                 settings={globalSettings}
-                                onBack={() => setCurrentView('dashboard')}
+                                onBack={() => handleNavigation('dashboard')}
                                 initialWorkerName={hrInitialWorker?.name}
                                 initialWorkerNonce={hrInitialWorker?.ts}
                                 selectedDate={globalDate}
@@ -1501,10 +1669,10 @@ export default function App() {
                             setPlanningEvents={setPlanningEvents}
                             setModels={setModels}
                             setSuivis={setSuivis}
-                            setCurrentView={setCurrentView}
+                            setCurrentView={(v) => { setCurrentView(v); navigate(v); }}
                             onOpenInIngenierie={(modelId) => {
                                 const m = models.find(x => x.id === modelId);
-                                if (m) { loadModel(m, 'planning'); setCurrentView('ingenierie'); }
+                                if (m) { loadModel(m, 'planning'); setCurrentView('ingenierie'); navigate('ingenierie'); }
                             }}
                             onOpenSuivi={(planningEventId) => {
                                 const ev = planningEvents.find(e => e.id === planningEventId);
@@ -1514,6 +1682,7 @@ export default function App() {
                                     if (ev.startDate) setGlobalDate(ev.startDate);
                                 }
                                 setCurrentView('suivi');
+                                navigate('suivi');
                             }}
                             settings={globalSettings}
                             machines={machines}
@@ -1555,7 +1724,7 @@ export default function App() {
                             planningEvents={planningEvents}
                             demandes={demandesAppro}
                             setDemandes={setDemandesAppro}
-                            lang={lang}
+                            lang={lang as 'fr' | 'ar' | 'en'}
                             settings={globalSettings}
                         />
                     )}
@@ -1574,11 +1743,13 @@ export default function App() {
                     )}
 
                     {currentView === 'config' && (
-                        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafafa]">
+                        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafafa] dark:bg-dk-bg">
                             <Configuration
                                 settings={globalSettings}
                                 setSettings={setGlobalSettings}
-                                lang={lang}
+                                lang={lang as 'fr' | 'ar'}
+                                currentLang={lang}
+                                onSetLang={(l) => setLang(l as Lang)}
                                 machines={machines}
                                 navConfig={navConfig}
                                 setNavConfig={saveNavConfig}
@@ -1591,7 +1762,7 @@ export default function App() {
                     {currentView === 'profil' && <Profil />}
 
                     {currentView === 'pageMachine' && (
-                        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafcff] w-full relative">
+                        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafcff] dark:bg-dk-bg w-full relative">
                             <PageMachine 
                                 planningEvents={planningEvents}
                                 models={models}
@@ -1608,7 +1779,7 @@ export default function App() {
                     )}
 
                     {currentView === 'machin' && (
-                        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafafa]">
+                        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar bg-[#fafafa] dark:bg-dk-bg">
                             <Machin 
                                 machines={machines}
                                 onSaveMachine={handleSaveMachine}
@@ -1630,7 +1801,7 @@ export default function App() {
 
                     {currentView === 'facturation' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
-                            <Facturation t={(k) => k} lang={lang} />
+                            <Facturation t={(k) => k} />
                         </div>
                     )}
 
@@ -1649,38 +1820,45 @@ export default function App() {
                         </div>
                     )}
 
-                    {currentView === 'admin' && user?.role === 'admin' && <AdminDashboard />}
+                    {currentView === 'admin' && user?.role === 'admin' && (
+                        <AdminDashboard
+                            settings={globalSettings}
+                            setSettings={setGlobalSettings}
+                            machines={machines}
+                        />
+                    )}
 
                     {currentView === 'sousTraitance' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
-                            <Suspense fallback={<div className="p-8 text-center text-gray-500">Chargement...</div>}>
-                                <SousTraitance models={models} settings={globalSettings} onNavigate={(v) => setCurrentView(v as any)} planningEvents={planningEvents} setPlanningEvents={setPlanningEvents} />
+                            <Suspense fallback={<div className="p-8 text-center text-gray-500 dark:text-dk-text-soft">Chargement...</div>}>
+                                <SousTraitance models={models} settings={globalSettings} onNavigate={(v) => handleNavigation(v as any)} planningEvents={planningEvents} setPlanningEvents={setPlanningEvents} />
                             </Suspense>
                         </div>
                     )}
 
                     {currentView === 'catalogTemps' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
-                            <Suspense fallback={<div className="p-8 text-center text-gray-500">Chargement...</div>}>
+                            <Suspense fallback={<div className="p-8 text-center text-gray-500 dark:text-dk-text-soft">Chargement...</div>}>
                                 <CatalogueTemps
                                     models={models}
                                     settings={globalSettings}
-                                    onOpenWorker={(name) => { setHrInitialWorker({ name, ts: Date.now() }); setCurrentView('gestionRh'); }}
+                                    onOpenWorker={(name) => { setHrInitialWorker({ name, ts: Date.now() }); handleNavigation('gestionRh'); }}
                                 />
                             </Suspense>
                         </div>
                     )}
+                    </>)}
 
                     {/* --- FLOATING RETURN BUTTON --- */}
                     {navigationContext && (currentView === 'library' || currentView === 'ingenierie') && (
                         <div className="absolute bottom-4 right-4 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
                             <button
                                 onClick={() => {
-                                    setCurrentView(navigationContext);
-                                    setNavigationContext(null); // Clear context after returning
+                                    handleNavigation(navigationContext as any);
+                                    setNavigationContext(null);
                                 }}
                                 title={`Retourner au ${navigationContext === 'coupe' ? 'La Coupe' : 'Planning'}`}
-                                className="group flex items-center gap-2 bg-slate-900 border border-slate-700 text-white rounded-full pl-2.5 pr-3.5 py-1.5 shadow-lg hover:bg-slate-800 hover:-translate-y-0.5 transition-all"
+                                className="group flex items-center gap-2 bg-slate-900 dark:bg-dk-surface border border-slate-700 dark:border-dk-border text-white dark:text-dk-text rounded-full pl-2.5 pr-3.5 py-1.5 shadow-lg hover:bg-slate-800 dark:hover:bg-dk-elevated/80 hover:-translate-y-0.5 transition-all"
                             >
                                 <LogOut className="w-3.5 h-3.5 text-white rotate-180 shrink-0" />
                                 <span className="text-[11px] font-semibold whitespace-nowrap">Retour {navigationContext === 'coupe' ? 'La Coupe' : 'Planning'}</span>
@@ -1712,12 +1890,11 @@ export default function App() {
 
                 {/* TOAST NOTIFICATION */}
                 {toastMessage && (
-                    <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border animate-in slide-in-from-top-4 fade-in duration-300"
-                        style={{
-                            backgroundColor: toastMessage.type === 'success' ? '#ecfdf5' : '#fef2f2',
-                            borderColor: toastMessage.type === 'success' ? '#a7f3d0' : '#fecaca',
-                            color: toastMessage.type === 'success' ? '#065f46' : '#991b1b'
-                        }}
+                    <div className={`fixed top-16 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg border animate-in slide-in-from-top-4 fade-in duration-300 ${
+                        toastMessage.type === 'success'
+                            ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-300'
+                            : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300'
+                    }`}
                     >
                         {toastMessage.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <AlertTriangle className="w-5 h-5 text-red-500" />}
                         <span className="text-sm font-bold">{toastMessage.text}</span>

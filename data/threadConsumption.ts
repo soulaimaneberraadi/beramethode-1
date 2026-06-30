@@ -69,8 +69,8 @@ export const STITCH_TYPES: StitchType[] = [
 
   // --- أمان مركبة / Sécurité combinée ---
   { code: 'SECURITE_4F_CHAINETTE', name: 'Couture sécurité 4 fils double point de chaînette + Surjeteuse 2 fils', nameAr: 'خياطة أمان 4 خيوط سلسلة + حزام خيطين', isoNumber: 515, threadCount: 6, consumptionFactor: 20.9, observations: '4,8 (chaînette) + 16,1 (surjet)', machineCode: '514' },
-  { code: 'SECURITE_5F_CHAINETTE', name: 'Couture sécurité 5 fils double point de chaînette + surjeteuse 3 fils', nameAr: 'خياطة أمان 5 خيوط سلسلة + حزام 3 خيوط', isoNumber: 516, threadCount: 8, consumptionFactor: 23.4, observations: '4,8 (chaînette) + 18,6 (surjet)', machineCode: '516' },
-  { code: 'SECURITE_5F_RECOUV', name: 'Couture sécurité 5 fils double point de chaînette + surjeteuse 3 fils', nameAr: 'خياطة أمان 5 خيوط سلسلة + تغطية', isoNumber: 516, threadCount: 8, consumptionFactor: 26.7, observations: '4,8 (chaînette) + 21,9 (recouvrement)', machineCode: '516' },
+  { code: 'SECURITE_5F_CHAINETTE', name: 'Couture sécurité 5 fils double point de chaînette + surjeteuse 3 fils', nameAr: 'خياطة أمان 5 خيوط سلسلة + حزام 3 خيوط', isoNumber: 516, threadCount: 5, consumptionFactor: 23.4, observations: '4,8 (chaînette) + 18,6 (surjet)', machineCode: '516' },
+  { code: 'SECURITE_5F_RECOUV', name: 'Couture sécurité 5 fils double point de chaînette + surjeteuse 3 fils', nameAr: 'خياطة أمان 5 خيوط سلسلة + تغطية', isoNumber: 516, threadCount: 5, consumptionFactor: 26.7, observations: '4,8 (chaînette) + 21,9 (recouvrement)', machineCode: '516' },
 
   // --- أزرار / Boutonnières ---
   { code: 'BOUTONNIERE_2F', name: 'Bouton point de chaînette 1 fil', nameAr: 'فتحة زر - سلسلة بخيط واحد', isoNumber: 107, threadCount: 1, consumptionFactor: 0.2, observations: '2 trous', machineCode: '107' },

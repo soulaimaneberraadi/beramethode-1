@@ -2,12 +2,21 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CalendarRange } from 'lucide-react';
 import type { ModelData, PlanningEvent, SuiviData } from '../types';
 import { resolveSuiviContext } from '../lib/suiviContextResolver';
+import { useLang } from '../src/context/LanguageContext';
+import { tx, type Lang } from '../lib/i18n';
 
-function getFrenchWeekday(dateStr: string): string {
-  const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+function getFrenchWeekday(dateStr: string, lang?: Lang): string {
+  const days: Record<string, string[]> = {
+    fr: ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'],
+    ar: ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
+    en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+    es: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'],
+    pt: ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
+    tr: ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'],
+  };
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return '—';
-  return days[d.getDay()] || '—';
+  return (days[lang || 'fr'] || days.fr)[d.getDay()] || '—';
 }
 
 function formatDateDdMmYyyy(isoDate: string): string {
@@ -42,7 +51,6 @@ function isoDateFrom(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Lundi = début de semaine (usage atelier FR). */
 function startOfWeekMonday(iso: string): string {
   const d = parseISODateLocal(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -155,7 +163,6 @@ export type ModelOfJournalierSummaryProps = {
   suivis: SuiviData[];
   planningEvents: PlanningEvent[];
   models: ModelData[];
-  /** Si défini : saisie des pièces par créneau (même logique que la matrice principale). */
   onUpdateHourly?: (suiviId: string, hourKey: string, value: string) => void;
 };
 
@@ -248,6 +255,7 @@ function JournalierTableBlock({
   emptyText,
   onUpdateHourly,
 }: JournalierTableBlockProps) {
+  const { lang } = useLang();
   const conflictMap = useMemo(
     () => buildConflictMap(rows, hourKeys, suivis, planningEvents, chaineId),
     [rows, hourKeys, suivis, planningEvents, chaineId],
@@ -256,23 +264,23 @@ function JournalierTableBlock({
   const footerColSpan = showModelColumn ? 3 : 2;
 
   return (
-    <div className="border-t border-slate-200 first:border-t-0">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5 bg-slate-100/70 border-b border-slate-200/80">
+    <div className="border-t border-slate-200 dark:border-dk-border first:border-t-0">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5 bg-slate-100/70 border-b border-slate-200 dark:border-dk-border/80">
         <div className="min-w-0">
-          <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">{eyebrow}</p>
-          <h4 className="text-xs font-black text-slate-900 tracking-tight">{title}</h4>
-          <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">{hint}</p>
+          <p className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">{eyebrow}</p>
+          <h4 className="text-xs font-black text-slate-900 dark:text-dk-text tracking-tight">{title}</h4>
+          <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-0.5 leading-snug">{hint}</p>
         </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs border-collapse min-w-[720px]">
           <thead>
             <tr className="bg-slate-800 text-white">
-              <th className="px-2 py-2 text-center font-black border-r border-slate-600/50 w-[88px]">DATE</th>
-              <th className="px-2 py-2 text-center font-black border-r border-slate-600/50 w-[72px]">JOUR</th>
+              <th className="px-2 py-2 text-center font-black border-r border-slate-600/50 w-[88px]">{tx(lang, {fr:'DATE', ar:'التاريخ', en:'DATE', es:'FECHA', pt:'DATA', tr:'TARİH'})}</th>
+              <th className="px-2 py-2 text-center font-black border-r border-slate-600/50 w-[72px]">{tx(lang, {fr:'JOUR', ar:'اليوم', en:'DAY', es:'DÍA', pt:'DIA', tr:'GÜN'})}</th>
               {showModelColumn ? (
                 <th className="px-2 py-2 text-left font-black border-r border-slate-600/50 min-w-[100px] max-w-[160px]">
-                  MODÈLE
+                  {tx(lang, {fr:'MODÈLE', ar:'النموذج', en:'MODEL', es:'MODELO', pt:'MODELO', tr:'MODEL'})}
                 </th>
               ) : null}
               {hours.map(h => (
@@ -280,16 +288,16 @@ function JournalierTableBlock({
                   {h}
                 </th>
               ))}
-              <th className="px-2 py-2 text-center font-black border-r border-slate-600/50 bg-emerald-900/40">P. JOURN.</th>
-              <th className="px-2 py-2 text-center font-black bg-amber-900/30">CRÉN.</th>
+              <th className="px-2 py-2 text-center font-black border-r border-slate-600/50 bg-emerald-900/40">{tx(lang, {fr:'P. JOURN.', ar:'إ. الي.', en:'P. DAY', es:'P. DÍA', pt:'P. DIA', tr:'G. T.'})}</th>
+              <th className="px-2 py-2 text-center font-black bg-amber-900/30">{tx(lang, {fr:'CRÉN.', ar:'فترات', en:'SLOTS', es:'RAN.', pt:'SLOT', tr:'ARAL.'})}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
             {rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={footerColSpan + hourKeys.length + 2}
-                  className="px-4 py-6 text-center text-xs font-bold text-slate-500 bg-slate-50/50"
+                  className="px-4 py-6 text-center text-xs font-bold text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg/50"
                 >
                   {emptyText}
                 </td>
@@ -299,16 +307,16 @@ function JournalierTableBlock({
                 const p = sumSortiesRow(s, hourKeys);
                 const c = countActiveSlots(s, hourKeys);
                 return (
-                  <tr key={s.id} className="bg-white hover:bg-slate-50/80">
-                    <td className="px-2 py-1.5 text-center font-mono font-bold text-slate-700 border-r border-slate-100">
+                  <tr key={s.id} className="bg-white dark:bg-dk-surface hover:bg-slate-50/80">
+                    <td className="px-2 py-1.5 text-center font-mono font-bold text-slate-700 dark:text-dk-text-soft border-r border-slate-100 dark:border-dk-border">
                       {formatDateDdMmYyyy(s.date)}
                     </td>
-                    <td className="px-2 py-1.5 text-center font-bold text-slate-600 border-r border-slate-100">
-                      {getFrenchWeekday(s.date).slice(0, 3)}
+                    <td className="px-2 py-1.5 text-center font-bold text-slate-600 dark:text-dk-text-soft border-r border-slate-100 dark:border-dk-border">
+                      {getFrenchWeekday(s.date, lang).slice(0, 3)}
                     </td>
                     {showModelColumn ? (
                       <td
-                        className="px-2 py-1.5 text-left font-bold text-slate-800 border-r border-slate-100 truncate max-w-[160px]"
+                        className="px-2 py-1.5 text-left font-bold text-slate-800 dark:text-dk-text border-r border-slate-100 dark:border-dk-border truncate max-w-[160px]"
                         title={modelLabelForPlanning(s.planningId, planningEvents, models)}
                       >
                         {modelLabelForPlanning(s.planningId, planningEvents, models)}
@@ -319,15 +327,15 @@ function JournalierTableBlock({
                       const show = v !== undefined && v !== null && Number(v) >= 0;
                       const conflict = show && conflictMap.get(`${s.date}\t${k}\t${s.planningId}`);
                       const cellTitle = conflict
-                        ? 'Autre OF sur cette chaîne a aussi de la production sur ce créneau — vérifiez le planning.'
+                        ? tx(lang, {fr:'Autre OF sur cette chaîne a aussi de la production sur ce créneau — vérifiez le planning.', ar:'أمر تصنيع آخر على هذا الخط لديه إنتاج في هذه الفترة — تحقق من التخطيط.', en:'Another WO on this line also has production on this slot — check the schedule.', es:'Otra OF en esta línea también tiene producción en este horario — verifique la planificación.', pt:'Outra OF nesta linha também tem produção neste horário — verifique o planejamento.', tr:'Bu hattaki başka bir İE\'nin de bu aralıkta üretimi var — planlamayı kontrol edin.'})
                         : undefined;
                       const inputCls =
-                        'w-full min-w-[2.25rem] max-w-[3.25rem] h-7 mx-auto px-0.5 text-center text-[11px] font-bold rounded border border-slate-200 bg-white text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400/40 focus:border-indigo-400 tabular-nums';
+                        'w-full min-w-[2.25rem] max-w-[3.25rem] h-7 mx-auto px-0.5 text-center text-[11px] font-bold rounded border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text outline-none focus:ring-2 focus:ring-indigo-400/40 focus:border-indigo-400 tabular-nums';
                       return (
                         <td
                           key={k}
-                          className={`px-0.5 py-1 text-center font-bold border-r border-slate-100 tabular-nums align-middle ${
-                            conflict ? 'bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-300' : 'text-slate-800'
+                          className={`px-0.5 py-1 text-center font-bold border-r border-slate-100 dark:border-dk-border tabular-nums align-middle ${
+                            conflict ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-900 ring-1 ring-inset ring-amber-300' : 'text-slate-800 dark:text-dk-text'
                           }`}
                           title={cellTitle}
                         >
@@ -337,27 +345,27 @@ function JournalierTableBlock({
                                 type="number"
                                 min={0}
                                 step={1}
-                                className={`${inputCls} ${conflict ? 'border-amber-300 bg-amber-50/80' : ''}`}
+                                className={`${inputCls} ${conflict ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/80' : ''}`}
                                 value={show ? String(v) : ''}
                                 onChange={e => onUpdateHourly(s.id, k, e.target.value)}
                                 placeholder="—"
-                                aria-label={`Pièces ${k} ${formatDateDdMmYyyy(s.date)}`}
+                                aria-label={`${tx(lang, {fr:'Pièces', ar:'قطع', en:'Pieces', es:'Piezas', pt:'Peças', tr:'Parçalar'})} ${k} ${formatDateDdMmYyyy(s.date)}`}
                               />
-                              {conflict ? <AlertTriangle className="w-3 h-3 shrink-0 text-amber-600" aria-hidden /> : null}
+                              {conflict ? <AlertTriangle className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden /> : null}
                             </span>
                           ) : (
                             <span className="inline-flex items-center justify-center gap-0.5">
                               {show ? v : '—'}
-                              {conflict ? <AlertTriangle className="w-3 h-3 shrink-0 text-amber-600" aria-hidden /> : null}
+                              {conflict ? <AlertTriangle className="w-3 h-3 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden /> : null}
                             </span>
                           )}
                         </td>
                       );
                     })}
-                    <td className="px-2 py-1.5 text-center font-black text-emerald-800 bg-emerald-50/50 border-r border-slate-100 tabular-nums">
+                    <td className="px-2 py-1.5 text-center font-black text-emerald-800 bg-emerald-50 dark:bg-emerald-900/50 border-r border-slate-100 dark:border-dk-border tabular-nums">
                       {p}
                     </td>
-                    <td className="px-2 py-1.5 text-center font-black text-amber-800 bg-amber-50/40 tabular-nums">{c}</td>
+                    <td className="px-2 py-1.5 text-center font-black text-amber-800 bg-amber-50 dark:bg-amber-900/40 tabular-nums">{c}</td>
                   </tr>
                 );
               })
@@ -365,19 +373,19 @@ function JournalierTableBlock({
           </tbody>
           {rows.length > 0 ? (
             <tfoot>
-              <tr className="bg-slate-100 border-t-2 border-slate-300">
+              <tr className="bg-slate-100 dark:bg-dk-elevated border-t-2 border-slate-300">
                 <td
                   colSpan={footerColSpan}
-                  className="px-2 py-2 text-right font-black text-slate-600 uppercase text-[10px] border-r border-slate-200"
+                  className="px-2 py-2 text-right font-black text-slate-600 dark:text-dk-text-soft uppercase text-[10px] border-r border-slate-200 dark:border-dk-border"
                 >
-                  Total
+                  {tx(lang, {fr:'Total', ar:'المجموع', en:'Total', es:'Total', pt:'Total', tr:'Toplam'})}
                 </td>
                 {footer.hourSums.map((sum, i) => (
-                  <td key={hourKeys[i]} className="px-1 py-2 text-center font-black text-slate-800 border-r border-slate-200 tabular-nums">
+                  <td key={hourKeys[i]} className="px-1 py-2 text-center font-black text-slate-800 dark:text-dk-text border-r border-slate-200 dark:border-dk-border tabular-nums">
                     {sum > 0 ? sum : ''}
                   </td>
                 ))}
-                <td className="px-2 py-2 text-center font-black text-emerald-900 bg-emerald-100/60 border-r border-slate-200 tabular-nums">
+                <td className="px-2 py-2 text-center font-black text-emerald-900 bg-emerald-100/60 border-r border-slate-200 dark:border-dk-border tabular-nums">
                   {footer.pSum}
                 </td>
                 <td className="px-2 py-2 text-center font-black text-amber-900 bg-amber-100/50 tabular-nums">{footer.cSum}</td>
@@ -390,10 +398,6 @@ function JournalierTableBlock({
   );
 }
 
-/**
- * Vue **fusionnée** : deux tableaux complets l’un sous l’autre, liés au même contexte
- * (modèle / OF courant + chaîne d’affectation sur la même fenêtre de dates que l’OF).
- */
 export default function ModelOfJournalierSummary({
   chaineId,
   chainLabel,
@@ -406,6 +410,7 @@ export default function ModelOfJournalierSummary({
   models,
   onUpdateHourly,
 }: ModelOfJournalierSummaryProps) {
+  const { lang } = useLang();
   const ofRows = useMemo(
     () => [...events].sort((a, b) => a.date.localeCompare(b.date)),
     [events],
@@ -481,8 +486,8 @@ export default function ModelOfJournalierSummary({
 
   const periodSummary =
     preset === 'all' || !activeBounds
-      ? `Période affichée : ${formatDateDdMmYyyy(dataMin)} → ${formatDateDdMmYyyy(dataMax)} (toutes les lignes).`
-      : `Période affichée : ${formatDateDdMmYyyy(activeBounds.min)} → ${formatDateDdMmYyyy(activeBounds.max)}.`;
+      ? `${tx(lang, {fr:'Période affichée', ar:'الفترة المعروضة', en:'Displayed period', es:'Período mostrado', pt:'Período exibido', tr:'Görüntülenen dönem'})} : ${formatDateDdMmYyyy(dataMin)} → ${formatDateDdMmYyyy(dataMax)} ${tx(lang, {fr:'(toutes les lignes)', ar:'(جميع الأسطر)', en:'(all rows)', es:'(todas las filas)', pt:'(todas as linhas)', tr:'(tüm satırlar)'})}.`
+      : `${tx(lang, {fr:'Période affichée', ar:'الفترة المعروضة', en:'Displayed period', es:'Período mostrado', pt:'Período exibido', tr:'Görüntülenen dönem'})} : ${formatDateDdMmYyyy(activeBounds.min)} → ${formatDateDdMmYyyy(activeBounds.max)}.`;
 
   const presetBtn = (id: PeriodPreset, label: string) => (
     <button
@@ -491,8 +496,8 @@ export default function ModelOfJournalierSummary({
       onClick={() => setPreset(id)}
       className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide border transition-colors ${
         preset === id
-          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+          ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 shadow-sm dark:shadow-dk-sm'
+          : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
       }`}
     >
       {label}
@@ -500,65 +505,74 @@ export default function ModelOfJournalierSummary({
   );
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
-        <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-500">Journalier — vue liée</h3>
-        <p className="text-xs font-bold text-slate-800 mt-0.5">
+    <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/80">
+        <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">{tx(lang, {fr:'Journalier — vue liée', ar:'يومي — عرض مرتبط', en:'Daily — linked view', es:'Diario — vista vinculada', pt:'Diário — vista vinculada', tr:'Günlük — bağlı görünüm'})}</h3>
+        <p className="text-xs font-bold text-slate-800 dark:text-dk-text mt-0.5">
           {modelLabel}
-          <span className="text-slate-400 font-semibold mx-1">·</span>
-          <span className="text-indigo-700">{chainLabel}</span>
+          <span className="text-slate-400 dark:text-dk-muted font-semibold mx-1">·</span>
+          <span className="text-indigo-700 dark:text-dk-accent-text">{chainLabel}</span>
         </p>
-        <p className="text-[10px] text-slate-500 mt-1 max-w-prose leading-snug">
-          Les <strong className="text-slate-700">deux tableaux</strong> sont affichés ensemble : suivi <strong className="text-slate-700">de cet OF</strong>, puis suivi{' '}
-          <strong className="text-slate-700">de toute la chaîne</strong> sur la même période (dates des lignes journalières de l’OF). Même logique Excel (P. jour. = somme des créneaux ≥ 0 ; Créneaux = nombre de créneaux saisis).{' '}
-          <strong className="text-slate-700">Filtre</strong> : jour, semaine (lundi–dimanche), mois calendaire, ou plage libre — appliqué aux <strong className="text-slate-700">deux</strong> tableaux.
+        <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-1 max-w-prose leading-snug">
+          {tx(lang, {fr:'Les', ar:'تم', en:'The', es:'Los', pt:'Os', tr:''})}{' '}
+          <strong className="text-slate-700 dark:text-dk-text-soft">{tx(lang, {fr:'deux tableaux', ar:'الجدولان', en:'two tables', es:'dos tablas', pt:'duas tabelas', tr:'iki tablo'})}</strong>{' '}
+          {tx(lang, {fr:'sont affichés ensemble : suivi', ar:'معروضان معاً: متابعة', en:'are displayed together: tracking', es:'se muestran juntos: seguimiento', pt:'são exibidos juntos: acompanhamento', tr:'birlikte görüntülenir: takip'})}{' '}
+          <strong className="text-slate-700 dark:text-dk-text-soft">{tx(lang, {fr:'de cet OF', ar:'لهذا الأمر', en:'of this WO', es:'de esta OF', pt:'desta OF', tr:'bu İE\'nin'})}</strong>{' '}
+          {tx(lang, {fr:', puis suivi', ar:'، ثم متابعة', en:', then tracking', es:', luego seguimiento', pt:', depois acompanhamento', tr:', ardından takip'})}{' '}
+          <strong className="text-slate-700 dark:text-dk-text-soft">{tx(lang, {fr:'de toute la chaîne', ar:'للخط بأكمله', en:'of the entire line', es:'de toda la línea', pt:'de toda a linha', tr:'tüm hattın'})}</strong>{' '}
+          {tx(lang, {fr:'sur la même période (dates des lignes journalières de l\'OF). Même logique Excel (P. jour. = somme des créneaux ≥ 0 ; Créneaux = nombre de créneaux saisis).', ar:'على نفس الفترة (تواريخ الأسطر اليومية لأمر التصنيع). نفس منطق Excel (إ. الي. = مجموع الفترات ≥ 0 ; الفترات = عدد الفترات المدخلة).', en:'over the same period (daily row dates of the WO). Same Excel logic (P. day = sum of slots ≥ 0 ; Slots = number of entered slots).', es:'en el mismo período (fechas de las líneas diarias de la OF). Misma lógica de Excel (P. día = suma de ranuras ≥ 0 ; Ranuras = número de ranuras ingresadas).', pt:'no mesmo período (datas das linhas diárias da OF). Mesma lógica Excel (P. dia = soma dos slots ≥ 0 ; Slots = número de slots inseridos).', tr:'aynı dönemde (İE\'nin günlük satır tarihleri). Aynı Excel mantığı (G. T. = aralık toplamı ≥ 0 ; Aralıklar = girilen aralık sayısı).'})}{' '}
+          <strong className="text-slate-700 dark:text-dk-text-soft">{tx(lang, {fr:'Filtre', ar:'التصفية', en:'Filter', es:'Filtro', pt:'Filtro', tr:'Filtre'})}</strong>{' '}
+          {tx(lang, {fr:': jour, semaine (lundi–dimanche), mois calendaire, ou plage libre — appliqué aux', ar:': يوم، أسبوع (الاثنين–الأحد)، شهر تقويمي، أو نطاق حر — يُطبق على', en:': day, week (Mon–Sun), calendar month, or free range — applied to', es:': día, semana (lun–dom), mes calendario, o rango libre — aplicado a', pt:': dia, semana (seg–dom), mês calendário, ou intervalo livre — aplicado às', tr:': gün, hafta (Pzt–Paz), takvim ayı veya serbest aralık — uygulanan'})}{' '}
+          <strong className="text-slate-700 dark:text-dk-text-soft">{tx(lang, {fr:'deux', ar:'الجدولين', en:'both', es:'ambas', pt:'ambas', tr:'her iki'})}</strong>{' '}
+          {tx(lang, {fr:'tableaux.', ar:'الجدولين.', en:'tables.', es:'tablas.', pt:'tabelas.', tr:'tabloya.'})}
           {onUpdateHourly ? (
             <>
               {' '}
-              <strong className="text-slate-700">Saisie</strong> : les créneaux sont modifiables ici (même enregistrement que la matrice ci‑dessous).
+              <strong className="text-slate-700 dark:text-dk-text-soft">{tx(lang, {fr:'Saisie', ar:'الإدخال', en:'Entry', es:'Ingreso', pt:'Entrada', tr:'Giriş'})}</strong>{' '}
+              {tx(lang, {fr:': les créneaux sont modifiables ici (même enregistrement que la matrice ci‑dessous).', ar:': الفترات قابلة للتعديل هنا (نفس حفظ مصفوفة الإدخال أدناه).', en:': slots can be edited here (same saving as the input matrix below).', es:': los horarios se pueden modificar aquí (mismo guardado que la matriz de abajo).', pt:': os slots podem ser editados aqui (mesmo salvamento da matriz abaixo).', tr:': aralıklar burada düzenlenebilir (aşağıdaki giriş matrisi ile aynı kaydetme).'})}
             </>
           ) : null}
         </p>
       </div>
 
-      <div className="px-4 py-3 border-b border-slate-200 bg-white">
+      <div className="px-4 py-3 border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface">
         <div className="flex flex-wrap items-center gap-2 mb-2">
-          <CalendarRange className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden />
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Filtrer les tableaux</span>
+          <CalendarRange className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted shrink-0" aria-hidden />
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">{tx(lang, {fr:'Filtrer les tableaux', ar:'تصفية الجداول', en:'Filter tables', es:'Filtrar tablas', pt:'Filtrar tabelas', tr:'Tabloları filtrele'})}</span>
         </div>
         <div className="flex flex-wrap gap-1.5 mb-3">
-          {presetBtn('all', 'Tout')}
-          {presetBtn('day', 'Jour')}
-          {presetBtn('week', 'Semaine')}
-          {presetBtn('month', 'Mois')}
-          {presetBtn('range', 'Période')}
+          {presetBtn('all', tx(lang, {fr:'Tout', ar:'الكل', en:'All', es:'Todo', pt:'Tudo', tr:'Tümü'}))}
+          {presetBtn('day', tx(lang, {fr:'Jour', ar:'يوم', en:'Day', es:'Día', pt:'Dia', tr:'Gün'}))}
+          {presetBtn('week', tx(lang, {fr:'Semaine', ar:'أسبوع', en:'Week', es:'Semana', pt:'Semana', tr:'Hafta'}))}
+          {presetBtn('month', tx(lang, {fr:'Mois', ar:'شهر', en:'Month', es:'Mes', pt:'Mês', tr:'Ay'}))}
+          {presetBtn('range', tx(lang, {fr:'Période', ar:'فترة', en:'Period', es:'Período', pt:'Período', tr:'Dönem'}))}
         </div>
         {dataMin && dataMax ? (
           <div className="flex flex-col gap-2.5">
             {preset === 'day' ? (
-              <label className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-700">
-                <span className="text-slate-500 font-semibold shrink-0">Date :</span>
+              <label className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-700 dark:text-dk-text-soft">
+                <span className="text-slate-500 dark:text-dk-muted font-semibold shrink-0">{tx(lang, {fr:'Date :', ar:'التاريخ :', en:'Date:', es:'Fecha:', pt:'Data:', tr:'Tarih:'})}</span>
                 <select
                   value={dayPick || dataMin}
                   onChange={e => setDayPick(e.target.value)}
-                  className="min-w-[140px] rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-800"
+                  className="min-w-[140px] rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-2 py-1.5 text-xs font-bold text-slate-800 dark:text-dk-text"
                 >
                   {unionDates.map(d => (
                     <option key={d} value={d}>
-                      {formatDateDdMmYyyy(d)} ({getFrenchWeekday(d).slice(0, 3)})
+                      {formatDateDdMmYyyy(d)} ({getFrenchWeekday(d, lang).slice(0, 3)})
                     </option>
                   ))}
                 </select>
               </label>
             ) : null}
             {preset === 'week' ? (
-              <label className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-700">
-                <span className="text-slate-500 font-semibold shrink-0">Semaine :</span>
+              <label className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-700 dark:text-dk-text-soft">
+                <span className="text-slate-500 dark:text-dk-muted font-semibold shrink-0">{tx(lang, {fr:'Semaine :', ar:'الأسبوع :', en:'Week:', es:'Semana:', pt:'Semana:', tr:'Hafta:'})}</span>
                 {weekOptions.length > 0 ? (
                   <select
                     value={weekStartMonday || weekOptions[0] || ''}
                     onChange={e => setWeekStartMonday(e.target.value)}
-                    className="min-w-[220px] max-w-full flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-800"
+                    className="min-w-[220px] max-w-full flex-1 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-2 py-1.5 text-xs font-bold text-slate-800 dark:text-dk-text"
                   >
                     {weekOptions.map(ws => {
                       const we = addDaysIso(ws, 6);
@@ -570,18 +584,18 @@ export default function ModelOfJournalierSummary({
                     })}
                   </select>
                 ) : (
-                  <span className="text-xs text-slate-400">—</span>
+                  <span className="text-xs text-slate-400 dark:text-dk-muted">—</span>
                 )}
               </label>
             ) : null}
             {preset === 'month' ? (
-              <label className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-700">
-                <span className="text-slate-500 font-semibold shrink-0">Mois :</span>
+              <label className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-700 dark:text-dk-text-soft">
+                <span className="text-slate-500 dark:text-dk-muted font-semibold shrink-0">{tx(lang, {fr:'Mois :', ar:'الشهر :', en:'Month:', es:'Mes:', pt:'Mês:', tr:'Ay:'})}</span>
                 {monthOptions.length > 0 ? (
                   <select
                     value={monthYm || monthOptions[0] || ''}
                     onChange={e => setMonthYm(e.target.value)}
-                    className="min-w-[120px] rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs font-bold text-slate-800"
+                    className="min-w-[120px] rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-2 py-1.5 text-xs font-bold text-slate-800 dark:text-dk-text"
                   >
                     {monthOptions.map(ym => (
                       <option key={ym} value={ym}>
@@ -590,47 +604,47 @@ export default function ModelOfJournalierSummary({
                     ))}
                   </select>
                 ) : (
-                  <span className="text-xs text-slate-400">—</span>
+                  <span className="text-xs text-slate-400 dark:text-dk-muted">—</span>
                 )}
               </label>
             ) : null}
             {preset === 'range' ? (
               <div className="flex flex-wrap items-end gap-2">
-                <label className="flex flex-col gap-0.5 text-[10px] font-bold text-slate-500">
-                  Début
+                <label className="flex flex-col gap-0.5 text-[10px] font-bold text-slate-500 dark:text-dk-muted">
+                  {tx(lang, {fr:'Début', ar:'البداية', en:'Start', es:'Inicio', pt:'Início', tr:'Başlangıç'})}
                   <input
                     type="date"
                     value={rangeStart || dataMin}
                     min={dataMin}
                     max={dataMax}
                     onChange={e => setRangeStart(e.target.value)}
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-800"
+                    className="rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-2 py-1.5 text-xs font-bold text-slate-800 dark:text-dk-text"
                   />
                 </label>
-                <label className="flex flex-col gap-0.5 text-[10px] font-bold text-slate-500">
-                  Fin
+                <label className="flex flex-col gap-0.5 text-[10px] font-bold text-slate-500 dark:text-dk-muted">
+                  {tx(lang, {fr:'Fin', ar:'النهاية', en:'End', es:'Fin', pt:'Fim', tr:'Bitiş'})}
                   <input
                     type="date"
                     value={rangeEnd || dataMax}
                     min={dataMin}
                     max={dataMax}
                     onChange={e => setRangeEnd(e.target.value)}
-                    className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-800"
+                    className="rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-2 py-1.5 text-xs font-bold text-slate-800 dark:text-dk-text"
                   />
                 </label>
               </div>
             ) : null}
-            <p className="text-[10px] font-semibold text-slate-500 leading-snug">{periodSummary}</p>
+            <p className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted leading-snug">{periodSummary}</p>
           </div>
         ) : (
-          <p className="text-[10px] font-semibold text-slate-400">Aucune date — filtres indisponibles.</p>
+          <p className="text-[10px] font-semibold text-slate-400 dark:text-dk-muted">{tx(lang, {fr:'Aucune date — filtres indisponibles.', ar:'لا توجد تواريخ — التصفية غير متاحة.', en:'No dates — filters unavailable.', es:'Sin fechas — filtros no disponibles.', pt:'Nenhuma data — filtros indisponíveis.', tr:'Tarih yok — filtreler kullanılamıyor.'})}</p>
         )}
       </div>
 
       <JournalierTableBlock
-        eyebrow="Tableau 1 — suivi modèle / OF"
-        title="Cet OF (lignes journalières complètes)"
-        hint="Uniquement les enregistrements suivi rattachés à l’ordre de fabrication ouvert."
+        eyebrow={tx(lang, {fr:'Tableau 1 — suivi modèle / OF', ar:'الجدول 1 — متابعة النموذج / أمر التصنيع', en:'Table 1 — model / WO tracking', es:'Tabla 1 — seguimiento modelo / OF', pt:'Tabela 1 — acompanhamento modelo / OF', tr:'Tablo 1 — model / İE takibi'})}
+        title={tx(lang, {fr:'Cet OF (lignes journalières complètes)', ar:'هذا الأمر (الأسطر اليومية الكاملة)', en:'This WO (complete daily rows)', es:'Esta OF (líneas diarias completas)', pt:'Esta OF (linhas diárias completas)', tr:'Bu İE (tam günlük satırlar)'})}
+        hint={tx(lang, {fr:'Uniquement les enregistrements suivi rattachés à l\'ordre de fabrication ouvert.', ar:'فقط سجلات المتابعة المرتبطة بأمر التصنيع المفتوح.', en:'Only the tracking records attached to the open manufacturing order.', es:'Solo los registros de seguimiento vinculados a la orden de fabricación abierta.', pt:'Apenas os registos de acompanhamento vinculados à ordem de fabrico aberta.', tr:'Yalnızca açık üretim emrine bağlı takip kayıtları.'})}
         rows={ofRowsFiltered}
         showModelColumn={false}
         hours={hours}
@@ -639,14 +653,14 @@ export default function ModelOfJournalierSummary({
         planningEvents={planningEvents}
         chaineId={chaineId}
         models={models}
-        emptyText="Aucune ligne journalière pour cet OF — utilisez la matrice de saisie ci‑dessous pour créer des jours."
+        emptyText={tx(lang, {fr:'Aucune ligne journalière pour cet OF — utilisez la matrice de saisie ci‑dessous pour créer des jours.', ar:'لا يوجد سطر يومي لهذا الأمر — استخدم مصفوفة الإدخال أدناه لإنشاء الأيام.', en:'No daily row for this WO — use the input matrix below to create days.', es:'Ninguna línea diaria para esta OF — use la matriz de ingreso a continuación para crear días.', pt:'Nenhuma linha diária para esta OF — use a matriz de entrada abaixo para criar dias.', tr:'Bu İE için günlük satır yok — gün oluşturmak için aşağıdaki giriş matrisini kullanın.'})}
         onUpdateHourly={onUpdateHourly}
       />
 
       <JournalierTableBlock
-        eyebrow="Tableau 2 — chaîne liée"
-        title={`${chainLabel} — tous les OF (même période)`}
-        hint="Même plage de dates que ci‑dessus ; inclut les autres modèles planifiés sur cette chaîne. Colonne MODÈLE pour distinguer les OF."
+        eyebrow={tx(lang, {fr:'Tableau 2 — chaîne liée', ar:'الجدول 2 — الخط المرتبط', en:'Table 2 — linked line', es:'Tabla 2 — línea vinculada', pt:'Tabela 2 — linha vinculada', tr:'Tablo 2 — bağlı hat'})}
+        title={`${chainLabel} — ${tx(lang, {fr:'tous les OF (même période)', ar:'جميع أوامر التصنيع (نفس الفترة)', en:'all WOs (same period)', es:'todas las OF (mismo período)', pt:'todas as OF (mesmo período)', tr:'tüm İE\'ler (aynı dönem)'})}`}
+        hint={tx(lang, {fr:'Même plage de dates que ci‑dessus ; inclut les autres modèles planifiés sur cette chaîne. Colonne MODÈLE pour distinguer les OF.', ar:'نفس نطاق التواريخ أعلاه؛ يشمل النماذج الأخرى المخطط لها على هذا الخط. عمود النموذج لتمييز أوامر التصنيع.', en:'Same date range as above; includes other models scheduled on this line. MODEL column to distinguish WOs.', es:'Mismo rango de fechas que arriba; incluye otros modelos planificados en esta línea. Columna MODELO para distinguir las OF.', pt:'Mesmo intervalo de datas acima; inclui outros modelos planeados nesta linha. Coluna MODELO para distinguir as OF.', tr:'Yukarıdakiyle aynı tarih aralığı; bu hatta planlanan diğer modelleri içerir. İE\'leri ayırt etmek için MODEL sütunu.'})}
         rows={chainRowsFiltered}
         showModelColumn
         hours={hours}
@@ -655,7 +669,7 @@ export default function ModelOfJournalierSummary({
         planningEvents={planningEvents}
         chaineId={chaineId}
         models={models}
-        emptyText="Aucune saisie suivi sur cette chaîne pour cette période (ou la chaîne n’a pas d’autres OF saisis)."
+        emptyText={tx(lang, {fr:'Aucune saisie suivi sur cette chaîne pour cette période (ou la chaîne n\'a pas d\'autres OF saisis).', ar:'لا توجد إدخالات متابعة على هذا الخط لهذه الفترة (أو الخط ليس لديه أوامر تصنيع أخرى مدخلة).', en:'No tracking entries on this line for this period (or the line has no other WOs entered).', es:'Ninguna entrada de seguimiento en esta línea para este período (o la línea no tiene otras OF ingresadas).', pt:'Nenhuma entrada de acompanhamento nesta linha para este período (ou a linha não tem outras OF inseridas).', tr:'Bu dönem için bu hatta takip girişi yok (veya hatta girilmiş başka İE yok).'})}
         onUpdateHourly={onUpdateHourly}
       />
     </div>

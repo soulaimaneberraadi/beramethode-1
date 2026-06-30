@@ -3,7 +3,7 @@ import db from './db';
 
 // Get suivi data
 export const getSuiviData = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const planningId = req.query.planningId as string;
     
     try {
@@ -12,7 +12,7 @@ export const getSuiviData = (req: Request, res: Response) => {
           : 'SELECT * FROM suivi_data WHERE owner_id = ? ORDER BY date DESC';
           
         const stmt = db.prepare(query);
-        const rows = planningId ? stmt.all(userId, planningId) : stmt.all(userId);
+        const rows = planningId ? stmt.all(companyId, planningId) : stmt.all(companyId);
         
         const suivis = (rows as any[]).map(r => JSON.parse(r.raw_data));
         res.json(suivis);
@@ -24,7 +24,7 @@ export const getSuiviData = (req: Request, res: Response) => {
 
 // Batch upsert
 export const saveSuiviData = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const { suivis } = req.body;
 
     if (!Array.isArray(suivis)) {
@@ -49,13 +49,14 @@ export const saveSuiviData = (req: Request, res: Response) => {
                 // We save it to pJournaliere and totalHeure columns so database queries work correctly.
                 const actualProd = s.totalHeure || s.pJournaliere || 0;
                 stmt.run(
-                    s.id, userId, s.planningId, s.modelId || null, s.chaineId || null, s.date, s.entrer || 0,
+                    s.id, companyId, s.planningId, s.modelId || null, s.chaineId || null, s.date, s.entrer || 0,
                     actualProd, actualProd, s.totalWorkers || 0, s.trs || 0,
                     JSON.stringify(s)
                 );
 
-                // Auto-sync progress to Plan Master (planning_events)
-                const rows = db.prepare(`SELECT raw_data FROM suivi_data WHERE planningId = ?`).all(s.planningId);
+                // Auto-sync progress to Plan Master (planning_events) — TOUT scopé owner :
+                // un planningId forgé dans le body ne doit ni lire ni écrire l'OF d'un autre tenant.
+                const rows = db.prepare(`SELECT raw_data FROM suivi_data WHERE planningId = ? AND owner_id = ?`).all(s.planningId, companyId);
                 let totalProduced = 0;
                 for (const r of rows) {
                     try {
@@ -64,19 +65,19 @@ export const saveSuiviData = (req: Request, res: Response) => {
                     } catch(e) {}
                 }
 
-                const planRow = db.prepare(`SELECT status, qteTotal, raw_data FROM planning_events WHERE id = ?`).get(s.planningId) as { status: string, qteTotal: number, raw_data: string } | undefined;
+                const planRow = db.prepare(`SELECT status, qteTotal, raw_data FROM planning_events WHERE id = ? AND owner_id = ?`).get(s.planningId, companyId) as { status: string, qteTotal: number, raw_data: string } | undefined;
                 if (planRow) {
                     const status = totalProduced >= planRow.qteTotal ? 'DONE' : (totalProduced > 0 ? 'IN_PROGRESS' : planRow.status);
-                    
+
                     try {
                         const rawData = JSON.parse(planRow.raw_data);
                         rawData.qteProduite = totalProduced;
                         rawData.status = status;
-                        db.prepare(`UPDATE planning_events SET qteProduite = ?, status = ?, raw_data = ? WHERE id = ?`)
-                          .run(totalProduced, status, JSON.stringify(rawData), s.planningId);
+                        db.prepare(`UPDATE planning_events SET qteProduite = ?, status = ?, raw_data = ? WHERE id = ? AND owner_id = ?`)
+                          .run(totalProduced, status, JSON.stringify(rawData), s.planningId, companyId);
                     } catch(e) {
-                        db.prepare(`UPDATE planning_events SET qteProduite = ?, status = ? WHERE id = ?`)
-                          .run(totalProduced, status, s.planningId);
+                        db.prepare(`UPDATE planning_events SET qteProduite = ?, status = ? WHERE id = ? AND owner_id = ?`)
+                          .run(totalProduced, status, s.planningId, companyId);
                     }
                 }
             }
@@ -92,7 +93,7 @@ export const saveSuiviData = (req: Request, res: Response) => {
 
 // Simple Stats 
 export const getSuiviStats = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     // Just a placeholder for P1
     res.json({ message: "Stats endpoint available" });
 };

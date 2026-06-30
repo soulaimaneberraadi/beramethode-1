@@ -4,6 +4,8 @@ import { Calendar, X } from 'lucide-react';
 import type { AppSettings } from '../../types';
 import MonthGrid from './MonthGrid';
 import { planningLocalDateKey } from '../../utils/planning';
+import { useLang } from '../../src/context/LanguageContext';
+import { tx } from '../../lib/i18n';
 
 export interface DateTimePickerProps {
     value: string;
@@ -57,6 +59,7 @@ export default function DateTimePicker({
     showIcon = true,
     displayValue,
 }: DateTimePickerProps) {
+    const { lang } = useLang();
     const uid = useId();
     const [open, setOpen] = useState(false);
     const anchorRef = useRef<HTMLButtonElement>(null);
@@ -120,7 +123,7 @@ export default function DateTimePicker({
     const pop = open && (
         <div
             ref={popRef}
-            className="fixed z-[300] w-[min(100vw-24px,520px)] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl"
+            className="fixed z-[300] w-[min(100vw-24px,520px)] rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-4 shadow-2xl"
             style={{
                 top: Math.min(
                     (anchorRef.current?.getBoundingClientRect().bottom ?? 0) + 8,
@@ -135,12 +138,12 @@ export default function DateTimePicker({
                 ),
             }}
         >
-            <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-2">
-                <div className="flex items-center gap-2 text-sm font-black text-slate-800">
+            <div className="mb-3 flex items-center justify-between border-b border-slate-100 dark:border-dk-border pb-2">
+                <div className="flex items-center gap-2 text-sm font-black text-slate-800 dark:text-dk-text">
                     <Calendar className="h-4 w-4 text-[#2149C1]" />
-                    Date
+                    {tx(lang, {fr:"Date",ar:"التاريخ",en:"Date",es:"Fecha",pt:"Data",tr:"Tarih"})}
                 </div>
-                <button type="button" className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" onClick={() => setOpen(false)} aria-label="Fermer">
+                <button type="button" className="rounded-lg p-1 text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated" onClick={() => setOpen(false)} aria-label={tx(lang, {fr:"Fermer",ar:"إغلاق",en:"Close",es:"Cerrar",pt:"Fechar",tr:"Kapat"})}>
                     <X className="h-4 w-4" />
                 </button>
             </div>
@@ -159,8 +162,8 @@ export default function DateTimePicker({
                     />
                 </div>
                 {mode === 'datetime' && (
-                    <div className="flex w-full shrink-0 flex-col border-t border-slate-100 pt-3 sm:w-36 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
-                        <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-500">Heure</p>
+                    <div className="flex w-full shrink-0 flex-col border-t border-slate-100 dark:border-dk-border pt-3 sm:w-36 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">{tx(lang, {fr:"Heure",ar:"الوقت",en:"Time",es:"Hora",pt:"Hora",tr:"Saat"})}</p>
                         <div className="max-h-56 overflow-y-auto pr-1 [scrollbar-width:thin]">
                             {slots.map(({ h, m }) => {
                                 const active = timePart.h === h && timePart.m === m;
@@ -170,7 +173,7 @@ export default function DateTimePicker({
                                         type="button"
                                         onClick={() => emitDateTime(h, m)}
                                         className={`mb-0.5 w-full rounded-lg py-1.5 text-left text-xs font-bold ${
-                                            active ? 'bg-emerald-700 text-white' : 'text-slate-700 hover:bg-slate-50'
+                                            active ? 'bg-emerald-700 text-white' : 'text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
                                         }`}
                                     >
                                         {formatTimeLabel(h, m, fmt)}
@@ -181,9 +184,9 @@ export default function DateTimePicker({
                     </div>
                 )}
             </div>
-            <div className="mt-4 flex justify-end gap-2 border-t border-slate-100 pt-3">
-                <button type="button" className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100" onClick={() => setOpen(false)}>
-                    Fermer
+            <div className="mt-4 flex justify-end gap-2 border-t border-slate-100 dark:border-dk-border pt-3">
+                <button type="button" className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated" onClick={() => setOpen(false)}>
+                    {tx(lang, {fr:"Fermer",ar:"إغلاق",en:"Close",es:"Cerrar",pt:"Fechar",tr:"Kapat"})}
                 </button>
                 {mode === 'datetime' && (
                     <button
@@ -200,12 +203,12 @@ export default function DateTimePicker({
 
     const baseInp =
         inputClassName ||
-        'w-full bg-slate-50 border border-slate-200 focus:border-[#2149C1] focus:ring-2 focus:ring-[#2149C1]/10 text-slate-800 rounded-xl px-4 py-2.5 outline-none text-sm transition flex items-center justify-between text-left';
+        'w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border focus:border-[#2149C1] focus:ring-2 focus:ring-[#2149C1]/10 text-slate-800 dark:text-dk-text rounded-xl px-4 py-2.5 outline-none text-sm transition flex items-center justify-between text-left';
 
     return (
         <div className={className}>
             {label && (
-                <label htmlFor={uid} className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5 block">
+                <label htmlFor={uid} className="text-[10px] font-black text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1.5 block">
                     {label}
                 </label>
             )}
@@ -216,10 +219,10 @@ export default function DateTimePicker({
                 onClick={() => setOpen(o => !o)}
                 className={baseInp}
             >
-                <span className={datePart ? 'text-slate-800' : 'text-slate-400'}>
+                <span className={datePart ? 'text-slate-800 dark:text-dk-text' : 'text-slate-400 dark:text-dk-muted'}>
                     {displayValue !== undefined ? displayValue : (datePart ? displayLabel : 'Choisir…')}
                 </span>
-                {showIcon && <Calendar className="h-4 w-4 shrink-0 text-slate-400" />}
+                {showIcon && <Calendar className="h-4 w-4 shrink-0 text-slate-400 dark:text-dk-muted" />}
             </button>
             {typeof document !== 'undefined' && open && createPortal(pop, document.body)}
         </div>

@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { EffectifRoleTagKey, SuiviData } from '../types';
 import { X } from 'lucide-react';
+import { useLang } from '../src/context/LanguageContext';
+import { useIsDark } from '../src/context/ThemeContext';
+import { tx } from '../lib/i18n';
 
 const ROLE_KEYS: EffectifRoleTagKey[] = ['chaf', 'recta', 'sujet', 'transp', 'man', 'sp', 'stager'];
 
@@ -26,6 +29,8 @@ export type SuiviEffectifsModalProps = {
 };
 
 export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }: SuiviEffectifsModalProps) {
+    const { lang } = useLang();
+    const isDark = useIsDark();
     const [draft, setDraft] = useState<SuiviData | null>(null);
     const firstFieldRef = useRef<HTMLInputElement>(null);
 
@@ -116,33 +121,33 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
             }}
         >
             <div
-                className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl"
+                className={`w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg ${isDark ? 'border-dk-border bg-dk-surface' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface'}`}
                 onMouseDown={e => e.stopPropagation()}
             >
-                <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-                    <h2 id="suivi-effectifs-title" className="text-sm font-black text-slate-800 tracking-tight">
-                        Effectifs (AJANIF)
+                <div className={`flex items-center justify-between gap-3 border-b px-4 py-3 ${isDark ? 'border-dk-border' : 'border-slate-100 dark:border-dk-border'}`}>
+                    <h2 id="suivi-effectifs-title" className={`text-sm font-black tracking-tight ${isDark ? 'text-dk-text' : 'text-slate-800 dark:text-dk-text'}`}>
+                        {tx(lang, {fr:"Effectifs (AJANIF)",ar:"الموارد (AJANIF)",en:"Staff (AJANIF)",es:"Efectivos (AJANIF)",pt:"Efetivos (AJANIF)",tr:"Personel (AJANIF)"})}
                     </h2>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
-                        aria-label="Fermer"
+                        className={`p-2 rounded-lg ${isDark ? 'text-dk-muted hover:text-dk-text hover:bg-dk-bg' : 'text-slate-400 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100'}`}
+                        aria-label={tx(lang, {fr:"Fermer",ar:"إغلاق",en:"Close",es:"Cerrar",pt:"Fechar",tr:"Kapat"})}
                     >
                         <X className="w-5 h-5" />
                     </button>
                 </div>
                 <div className="px-4 py-3 space-y-3 text-xs">
-                    <p className="text-slate-500 font-medium">
-                        Date <span className="font-mono font-bold text-slate-700">{draft.date}</span>
+                    <p className={`font-medium ${isDark ? 'text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
+                        {tx(lang, {fr:"Date",ar:"التاريخ",en:"Date",es:"Fecha",pt:"Data",tr:"Tarih"})} <span className={`font-mono font-bold ${isDark ? 'text-dk-text' : 'text-slate-700 dark:text-dk-text-soft'}`}>{draft.date}</span>
                         {' · '}
-                        <span className="text-slate-400">Tot M (aperçu) :</span>{' '}
+                        <span className={isDark ? 'text-dk-muted' : 'text-slate-400 dark:text-dk-muted'}>{tx(lang, {fr:"Tot M (aperçu) :",ar:"المجموع (نظرة عامة):",en:"Tot M (preview):",es:"Total M (vista previa):",pt:"Total M (prévia):",tr:"Top M (ön izleme):"})}</span>{' '}
                         <span className="font-black text-emerald-700">{totalPreview}</span>
                     </p>
                     <div className="space-y-2">
                         {ROLE_KEYS.map((key, idx) => (
-                            <div key={key} className="rounded-xl border border-slate-100 bg-slate-50/80 p-2.5 space-y-1.5">
-                                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
+                            <div key={key} className={`rounded-xl border p-2.5 space-y-1.5 ${isDark ? 'border-dk-border bg-dk-bg/80' : 'border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/80'}`}>
+                                <label className={`block text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>
                                     {ROLE_LABELS[key]}
                                 </label>
                                 <div className="flex flex-wrap gap-2 items-center">
@@ -151,44 +156,44 @@ export default function SuiviEffectifsModal({ open, suivi, onClose, onConfirm }:
                                         type="number"
                                         min={0}
                                         step={1}
-                                        className="w-20 shrink-0 rounded-lg border border-slate-200 px-2 py-1.5 font-bold text-slate-800"
+                                        className={`w-20 shrink-0 rounded-lg border px-2 py-1.5 font-bold ${isDark ? 'border-dk-border bg-dk-bg text-dk-text' : 'border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text'}`}
                                         placeholder="—"
                                         value={draft[key] == null ? '' : String(draft[key])}
                                         onChange={e => setNum(key, e.target.value)}
                                     />
                                     <input
                                         type="text"
-                                        className="min-w-[120px] flex-1 rounded-lg border border-slate-200 px-2 py-1.5 font-medium text-slate-700"
+                                        className={`min-w-[120px] flex-1 rounded-lg border px-2 py-1.5 font-medium ${isDark ? 'border-dk-border bg-dk-bg text-dk-text' : 'border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text-soft'}`}
                                         placeholder="Tag (ex. OVR)"
                                         value={draft.effectifRoleTags?.[key] ?? ''}
                                         onChange={e => setTag(key, e.target.value)}
                                     />
                                     <button
                                         type="button"
-                                        className="text-[10px] font-bold text-rose-600 hover:underline shrink-0"
+                                        className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline shrink-0"
                                         onClick={() => resetRole(key)}
                                     >
-                                        Effacer
+                                        {tx(lang, {fr:"Effacer",ar:"مسح",en:"Clear",es:"Limpiar",pt:"Limpar",tr:"Temizle"})}
                                     </button>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
-                <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-4 py-3 bg-slate-50/80">
+                <div className={`flex items-center justify-end gap-2 border-t px-4 py-3 ${isDark ? 'border-dk-border bg-dk-bg/80' : 'border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/80'}`}>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200/80"
+                        className={`px-4 py-2 rounded-xl text-xs font-bold ${isDark ? 'text-dk-muted hover:bg-dk-bg' : 'text-slate-600 dark:text-dk-text-soft hover:bg-slate-200/80'}`}
                     >
-                        Annuler
+                        {tx(lang, {fr:"Annuler",ar:"إلغاء",en:"Cancel",es:"Cancelar",pt:"Cancelar",tr:"İptal"})}
                     </button>
                     <button
                         type="button"
                         onClick={handleConfirm}
-                        className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+                        className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 dark:bg-dk-accent text-white hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-sm dark:shadow-dk-sm"
                     >
-                        Confirmer
+                        {tx(lang, {fr:"Confirmer",ar:"تأكيد",en:"Confirm",es:"Confirmar",pt:"Confirmar",tr:"Onayla"})}
                     </button>
                 </div>
             </div>

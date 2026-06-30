@@ -30,7 +30,7 @@ function buildNormKey(description: string, machine: string): string {
 }
 
 export const getCatalogEntries = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     try {
         const rows = db.prepare(`
             SELECT * FROM time_catalog_entries 
@@ -53,10 +53,10 @@ export const getCatalogEntries = (req: Request, res: Response) => {
 };
 
 export const syncCatalog = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     
     try {
-        const models = db.prepare('SELECT id, data FROM models WHERE user_id = ?').all(userId);
+        const models = db.prepare('SELECT id, data FROM models WHERE owner_id = ? OR (owner_id IS NULL AND user_id = ?)').all(userId, userId);
         
         // Phase 1: Collect all operations from all models
         const allOps: OperationLike[] = [];
@@ -259,7 +259,7 @@ export const syncCatalog = (req: Request, res: Response) => {
 };
 
 export const updateCatalogEntry = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
     const { avg_time, min_time, max_time, custom_notes, garment_type, operation_type } = req.body;
     
@@ -299,7 +299,7 @@ export const updateCatalogEntry = (req: Request, res: Response) => {
 };
 
 export const confirmCatalogEntry = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
     
     try {
@@ -321,7 +321,7 @@ export const confirmCatalogEntry = (req: Request, res: Response) => {
 };
 
 export const pinCatalogEntry = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
     const { pinned } = req.body;
     
@@ -344,7 +344,7 @@ export const pinCatalogEntry = (req: Request, res: Response) => {
 };
 
 export const deleteCatalogEntry = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const userId = (req as any).companyId ?? (req as any).user.id;
     const { id } = req.params;
     
     try {

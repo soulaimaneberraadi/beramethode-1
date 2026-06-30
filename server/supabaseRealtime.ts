@@ -45,14 +45,41 @@ const safeDeleteById = (table: string, id: string | number) => {
   try { db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(id); } catch (e) { /* table missing */ }
 };
 
-const applyArrayToTable = (table: string, items: any[], idField = 'id') => {
+/**
+ * Résout l'id LOCAL (SQLite users.id) du propriétaire configuré via
+ * SUPABASE_OWNER_EMAIL. Le snapshot distant est construit owner-scopé
+ * (supabaseSync.buildSnapshot), donc à la fusion on rattache chaque ligne à
+ * CE propriétaire local — jamais à un `user_id: 1` codé en dur (qui rendait
+ * les modèles fusionnés invisibles du vrai propriétaire) ni à un owner_id
+ * étranger venu d'un snapshot d'un autre tenant.
+ */
+const getLocalOwnerId = (): number | null => {
+  if (!OWNER_EMAIL) return null;
+  try {
+    const row = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(OWNER_EMAIL) as { id: number } | undefined;
+    return row ? row.id : null;
+  } catch {
+    return null;
+  }
+};
+
+const applyArrayToTable = (table: string, items: any[], ownerId: number | null, idField = 'id') => {
   if (!Array.isArray(items) || items.length === 0) return 0;
+  const enforceOwner = ownerId != null && tableHasColumn(table, 'owner_id');
   // Generic upsert: build dynamic INSERT OR REPLACE based on the row's keys.
   let n = 0;
   for (const item of items) {
     if (!item || typeof item !== 'object') continue;
+    // Garde multi-tenant : si la table possède owner_id et que la ligne
+    // entrante porte un owner_id d'un AUTRE tenant, on la rejette (jamais
+    // d'écrasement inter-sociétés). Sinon on force l'owner local.
+    if (enforceOwner) {
+      const incoming = (item as any).owner_id;
+      if (incoming != null && Number(incoming) !== ownerId) continue;
+    }
     const keys = Object.keys(item).filter(k => tableHasColumn(table, k));
     if (keys.length === 0) continue;
+    if (enforceOwner && !keys.includes('owner_id')) keys.push('owner_id');
     const cols = keys.join(', ');
     const placeholders = keys.map(k => `@${k}`).join(', ');
     try {
@@ -62,6 +89,7 @@ const applyArrayToTable = (table: string, items: any[], idField = 'id') => {
         const v = item[k];
         params[k] = typeof v === 'object' && v !== null ? JSON.stringify(v) : v;
       }
+      if (enforceOwner) params.owner_id = ownerId;
       db.prepare(sql).run(params);
       n++;
     } catch (e) {
@@ -74,12 +102,22 @@ const applyArrayToTable = (table: string, items: any[], idField = 'id') => {
 
 const mergeSnapshotIntoSqlite = (snapshot: any, userId: string) => {
   if (!snapshot || typeof snapshot !== 'object') return;
+  // Le snapshot distant est owner-scopé : on le rattache au propriétaire LOCAL
+  // (résolu par email). Sans propriétaire local résoluble, on n'écrit rien —
+  // mieux vaut ne pas fusionner que de mal attribuer des données financières.
+  const localOwnerId = getLocalOwnerId();
+  if (localOwnerId === null) {
+    console.warn('[supabaseRealtime] merge skipped: no local user matches SUPABASE_OWNER_EMAIL');
+    return;
+  }
   isApplyingRemote = true;
   const start = Date.now();
   const summary: Record<string, number> = {};
   try {
     // Models — table has (id, user_id, data); the `data` column holds the
     // full model JSON. The snapshot stores models as raw JSON objects.
+    // NB: la colonne `user_id` joue le rôle d'owner_id (cf. modelController qui
+    // lit/écrit WHERE user_id = companyId) → on y met localOwnerId, jamais 1.
     if (Array.isArray(snapshot.beramethode_library)) {
       const stmt = db.prepare(`
         INSERT INTO models (id, user_id, data, created_at, updated_at)
@@ -92,7 +130,7 @@ const mergeSnapshotIntoSqlite = (snapshot: any, userId: string) => {
         try {
           stmt.run({
             id: String(model.id),
-            user_id: 1,
+            user_id: localOwnerId,
             data: JSON.stringify(model),
             created_at: model.created_at || null,
           });
@@ -104,20 +142,20 @@ const mergeSnapshotIntoSqlite = (snapshot: any, userId: string) => {
 
     // Planning events — full row mirror, columns vary
     if (Array.isArray(snapshot.beramethode_planning)) {
-      summary.planning = applyArrayToTable('planning_events', snapshot.beramethode_planning);
+      summary.planning = applyArrayToTable('planning_events', snapshot.beramethode_planning, localOwnerId);
     }
 
     // Tables that mirror SQLite directly via __sqlite_export__
     const exp = snapshot.__sqlite_export__;
     if (exp && typeof exp === 'object') {
-      if (exp.workers) summary.workers = applyArrayToTable('workers', exp.workers);
-      if (exp.workerSkills) summary.workerSkills = applyArrayToTable('worker_skills', exp.workerSkills);
-      if (exp.posteSuivi) summary.posteSuivi = applyArrayToTable('poste_suivi', exp.posteSuivi);
-      if (exp.magasin?.products) summary.magasinProducts = applyArrayToTable('magasin_products', exp.magasin.products);
-      if (exp.magasin?.lots) summary.magasinLots = applyArrayToTable('magasin_lots', exp.magasin.lots);
-      if (exp.magasin?.mouvements) summary.magasinMouvements = applyArrayToTable('magasin_mouvements', exp.magasin.mouvements);
-      if (exp.hr?.workers) summary.hrWorkers = applyArrayToTable('hr_workers', exp.hr.workers);
-      if (exp.hr?.avances) summary.hrAvances = applyArrayToTable('hr_avances', exp.hr.avances);
+      if (exp.workers) summary.workers = applyArrayToTable('workers', exp.workers, localOwnerId);
+      if (exp.workerSkills) summary.workerSkills = applyArrayToTable('worker_skills', exp.workerSkills, localOwnerId);
+      if (exp.posteSuivi) summary.posteSuivi = applyArrayToTable('poste_suivi', exp.posteSuivi, localOwnerId);
+      if (exp.magasin?.products) summary.magasinProducts = applyArrayToTable('magasin_products', exp.magasin.products, localOwnerId);
+      if (exp.magasin?.lots) summary.magasinLots = applyArrayToTable('magasin_lots', exp.magasin.lots, localOwnerId);
+      if (exp.magasin?.mouvements) summary.magasinMouvements = applyArrayToTable('magasin_mouvements', exp.magasin.mouvements, localOwnerId);
+      if (exp.hr?.workers) summary.hrWorkers = applyArrayToTable('hr_workers', exp.hr.workers, localOwnerId);
+      if (exp.hr?.avances) summary.hrAvances = applyArrayToTable('hr_avances', exp.hr.avances, localOwnerId);
     }
 
     // Tombstones — apply hard delete on SQLite for entries past their 1h

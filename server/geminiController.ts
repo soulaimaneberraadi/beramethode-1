@@ -20,7 +20,7 @@ export const postAnalyzeTextile = async (req: Request, res: Response) => {
     res.json({ text });
   } catch (e: any) {
     console.error('postAnalyzeTextile:', e);
-    res.status(500).json({ message: e?.message || 'Erreur IA' });
+    res.status(500).json({ message: e?.message || 'AI error' });
   }
 };
 
@@ -38,7 +38,7 @@ export const postSuggestVocabulary = async (req: Request, res: Response) => {
     res.json({ words });
   } catch (e: any) {
     console.error('postSuggestVocabulary:', e);
-    res.status(500).json({ message: e?.message || 'Erreur IA' });
+    res.status(500).json({ message: e?.message || 'AI error' });
   }
 };
 
@@ -55,7 +55,7 @@ export const postGenerateOperations = async (req: Request, res: Response) => {
     res.json(data);
   } catch (e: any) {
     console.error('postGenerateOperations:', e);
-    res.status(500).json({ message: e?.message || 'Erreur IA' });
+    res.status(500).json({ message: e?.message || 'AI error' });
   }
 };
 
@@ -70,6 +70,6 @@ export const postOptimizePlanning = async (req: Request, res: Response) => {
     res.json(result);
   } catch (e: any) {
     console.error('postOptimizePlanning error:', e);
-    res.status(500).json({ message: e?.message || 'Erreur IA lors de l\'optimisation' });
+    res.status(500).json({ message: e?.message || 'AI error during optimization' });
   }
 };

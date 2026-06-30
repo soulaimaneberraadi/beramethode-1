@@ -51,7 +51,7 @@ export function ensurePersonLinkAfterWorkerUpsert(
 }
 
 export const getHRInvitations = (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+  const companyId = (req as any).companyId;
   try {
     const rows = db
       .prepare(
@@ -61,11 +61,11 @@ export const getHRInvitations = (req: Request, res: Response) => {
          WHERE i.owner_id = ?
          ORDER BY i.created_at DESC`
       )
-      .all(userId);
+      .all(companyId);
     res.json(rows);
   } catch (e) {
     console.error('getHRInvitations', e);
-    res.status(500).json({ message: 'Erreur' });
+    res.status(500).json({ message: 'Error' });
   }
 };
 
@@ -118,7 +118,7 @@ function escapeHtml(s: string) {
 }
 
 export const postHRInvitation = async (req: Request, res: Response) => {
-  const userId = (req as any).user.id;
+  const companyId = (req as any).companyId;
   const { person_id, proposed_matricule, proposed_full_name, proposed_cin, invite_email } = req.body || {};
   if (!person_id || !proposed_matricule || !proposed_full_name) {
     return res.status(400).json({
@@ -137,7 +137,7 @@ export const postHRInvitation = async (req: Request, res: Response) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')`
     ).run(
       id,
-      userId,
+      companyId,
       person_id,
       token,
       String(proposed_matricule).trim(),
@@ -172,7 +172,7 @@ export const postHRInvitation = async (req: Request, res: Response) => {
     });
   } catch (e) {
     console.error('postHRInvitation', e);
-    res.status(500).json({ message: 'Erreur' });
+    res.status(500).json({ message: 'Error' });
   }
 };
 
@@ -256,7 +256,7 @@ export const postHRInvitationRespond = (req: Request, res: Response) => {
     res.json({ ok: true, status: 'ACCEPTED', workerId });
   } catch (e) {
     console.error('postHRInvitationRespond', e);
-    res.status(500).json({ message: 'Erreur' });
+    res.status(500).json({ message: 'Error' });
   }
 };
 
@@ -275,6 +275,6 @@ export const getHRInvitationByToken = (req: Request, res: Response) => {
     }
     res.json(inv);
   } catch (e) {
-    res.status(500).json({ message: 'Erreur' });
+    res.status(500).json({ message: 'Error' });
   }
 };

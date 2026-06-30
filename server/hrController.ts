@@ -2,6 +2,8 @@ import { randomUUID } from 'crypto';
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import db from './db';
+import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from './jwtConfig';
 import { ensurePersonLinkAfterWorkerUpsert } from './hrIdentityController';
 import { calculerHeures, type HeuresResult } from '../lib/calculerHeuresPointage';
 import { getSageTimesForHeuresCalc } from '../lib/sageTimeRules';
@@ -25,12 +27,13 @@ function sanitizeHrWorkerRow(row: Record<string, unknown>): Record<string, unkno
 
 export const getHRWorkers = (req: Request, res: Response) => {
     const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
         const { search, role, chaine, active } = req.query as Record<string, string>;
-        console.log('[getHRWorkers] Called by user:', userId, 'query:', req.query);
+        console.log('[getHRWorkers] Called by user:', userId, 'company:', companyId, 'query:', req.query);
         let q =
             'SELECT w.*, l.person_id AS person_id, t.nom AS transport_ligne_nom, t.quartier AS transport_ligne_quartier FROM hr_workers w LEFT JOIN hr_worker_person l ON l.hr_worker_id = w.id LEFT JOIN hr_transport_lignes t ON t.id = w.transport_ligne_id WHERE w.owner_id = ?';
-        const params: any[] = [userId];
+        const params: any[] = [companyId];
         if (active === '1') { q += ' AND w.is_active = 1'; }
         if (role) { q += ' AND w.role = ?'; params.push(role); }
         if (chaine) { q += ' AND w.chaine_id = ?'; params.push(chaine); }
@@ -45,12 +48,12 @@ export const getHRWorkers = (req: Request, res: Response) => {
         res.json(rows.map(sanitizeHrWorkerRow));
     } catch (error) {
         console.error('[getHRWorkers] Error:', error);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
 export const getHRWorkerById = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
         const worker = db
             .prepare(
@@ -60,16 +63,44 @@ export const getHRWorkerById = (req: Request, res: Response) => {
          LEFT JOIN hr_worker_person l ON l.hr_worker_id = w.id
          WHERE w.id = ? AND w.owner_id = ?`
             )
-            .get(req.params.id, userId) as Record<string, unknown> | undefined;
+            .get(req.params.id, companyId) as Record<string, unknown> | undefined;
         res.json(worker ? sanitizeHrWorkerRow(worker) : null);
     } catch(e) {
-        res.status(500).json({message: 'Erreur'});
+        res.status(500).json({message: 'Error'});
     }
 };
 
 export const saveHRWorker = (req: Request, res: Response) => {
     const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const data = req.body;
+
+    // Seat licensing validation
+    const isEnforced = process.env.VITE_LICENSE_ENFORCE === 'true';
+    if (isEnforced) {
+        let maxWorkers = 0;
+        try {
+            const row = db.prepare("SELECT value FROM app_settings WHERE owner_id = ? AND key = 'bera_license'").get(companyId) as { value: string } | undefined;
+            if (row?.value) {
+                const license = JSON.parse(row.value);
+                maxWorkers = typeof license.max_workers === 'number' ? license.max_workers : 0;
+            }
+        } catch (e) {}
+
+        if (maxWorkers > 0) {
+            const isActivating = data.is_active !== false && data.is_active !== 0;
+            const existing = db.prepare('SELECT is_active FROM hr_workers WHERE id = ? AND owner_id = ?').get(data.id || '', companyId) as { is_active: number } | undefined;
+            const wasActive = existing ? !!existing.is_active : false;
+
+            if (isActivating && !wasActive) {
+                const activeCountRow = db.prepare('SELECT COUNT(*) as c FROM hr_workers WHERE owner_id = ? AND is_active = 1').get(companyId) as { c: number };
+                if (activeCountRow.c >= maxWorkers) {
+                    return res.status(403).json({ message: `Limite de licence atteinte : maximum ${maxWorkers} ouvriers actifs.` });
+                }
+            }
+        }
+    }
+
     try {
         const workerId = data.id || uuidv4();
         db.prepare(`
@@ -77,8 +108,9 @@ export const saveHRWorker = (req: Request, res: Response) => {
                 id, matricule, full_name, cin, cnss, phone, date_naissance, adresse, photo,
                 sexe, role, chaine_id, poste, specialite, equipe, transport_ligne_id, date_embauche, type_contrat, date_fin_contrat,
                 date_renouvellement, is_active, contact_urgence_nom, contact_urgence_tel, contact_urgence_lien,
-                salaire_base, taux_horaire, taux_piece, prime_assiduite, prime_transport, mode_paiement, owner_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                salaire_base, taux_horaire, taux_piece, prime_assiduite, prime_transport, mode_paiement, owner_id,
+                created_by, updated_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 matricule = excluded.matricule, full_name = excluded.full_name, cin = excluded.cin, cnss = excluded.cnss,
                 phone = excluded.phone, date_naissance = excluded.date_naissance, adresse = excluded.adresse, photo = excluded.photo,
@@ -89,7 +121,8 @@ export const saveHRWorker = (req: Request, res: Response) => {
                 date_renouvellement = excluded.date_renouvellement, is_active = excluded.is_active,
                 contact_urgence_nom = excluded.contact_urgence_nom, contact_urgence_tel = excluded.contact_urgence_tel, contact_urgence_lien = excluded.contact_urgence_lien,
                 salaire_base = excluded.salaire_base, taux_horaire = excluded.taux_horaire, taux_piece = excluded.taux_piece,
-                prime_assiduite = excluded.prime_assiduite, prime_transport = excluded.prime_transport, mode_paiement = excluded.mode_paiement
+                prime_assiduite = excluded.prime_assiduite, prime_transport = excluded.prime_transport, mode_paiement = excluded.mode_paiement,
+                updated_by = excluded.updated_by
         `).run(
             workerId, data.matricule, data.full_name, data.cin || null, data.cnss || null, data.phone || null,
             data.date_naissance || null, data.adresse || null, data.photo || null, data.sexe || 'M', data.role || 'OPERATOR',
@@ -97,11 +130,11 @@ export const saveHRWorker = (req: Request, res: Response) => {
             data.date_fin_contrat || null, data.date_renouvellement || null, data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1,
             data.contact_urgence_nom || null, data.contact_urgence_tel || null, data.contact_urgence_lien || null,
             data.salaire_base || 0, data.taux_horaire || 0, data.taux_piece || 0, data.prime_assiduite || 0, data.prime_transport || 0,
-            data.mode_paiement || 'VIREMENT', userId
+            data.mode_paiement || 'VIREMENT', companyId, userId, userId
         );
         let person_id: string;
         try {
-            ({ person_id } = ensurePersonLinkAfterWorkerUpsert(db, workerId, userId, data.link_person_id ?? null));
+            ({ person_id } = ensurePersonLinkAfterWorkerUpsert(db, workerId, companyId, data.link_person_id ?? null));
         } catch (e: any) {
             if (e?.message === 'INVALID_PERSON_ID') {
                 return res.status(400).json({ message: 'link_person_id inconnu (platform_person)' });
@@ -130,39 +163,41 @@ export const saveHRWorker = (req: Request, res: Response) => {
             });
         }
         console.error('saveHRWorker', e);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
 /** Définit ou remplace le PIN ouvrier (BERAOUVIER) — chiffres 4–8, hash bcrypt. */
 export const postHRWorkerPin = (req: Request, res: Response) => {
     const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const { id } = req.params;
     const pin = String((req.body as { pin?: string })?.pin ?? '').trim();
     if (!/^\d{4,8}$/.test(pin)) {
         return res.status(400).json({ message: 'PIN : 4 à 8 chiffres uniquement' });
     }
     try {
-        const ok = db.prepare('SELECT id FROM hr_workers WHERE id = ? AND owner_id = ?').get(id, userId);
+        const ok = db.prepare('SELECT id FROM hr_workers WHERE id = ? AND owner_id = ?').get(id, companyId);
         if (!ok) {
             return res.status(404).json({ message: 'Ouvrier introuvable' });
         }
         const pin_hash = bcrypt.hashSync(pin, 10);
-        db.prepare('UPDATE hr_workers SET pin_hash = ?, updated_at = datetime("now") WHERE id = ? AND owner_id = ?').run(
+        db.prepare('UPDATE hr_workers SET pin_hash = ?, updated_by = ?, updated_at = datetime("now") WHERE id = ? AND owner_id = ?').run(
             pin_hash,
+            userId,
             id,
-            userId
+            companyId
         );
         res.json({ message: 'PIN enregistré' });
     } catch (e) {
         console.error('postHRWorkerPin', e);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
-/** BERAOUVIER : vérification CIN + PIN (sans JWT). */
+/** BERAOUVIER : vérification CIN + PIN (avec production de token JWT). */
 export const postWorkerPinVerify = (req: Request, res: Response) => {
-    const cin = String(req.params.cin ?? '').trim();
+    const cin = String(req.params.cin ?? '').trim().toUpperCase();
     const pin = String((req.body as { pin?: string })?.pin ?? '').trim();
     if (!cin || !pin) {
         return res.status(400).json({ message: 'CIN et pin requis' });
@@ -171,8 +206,8 @@ export const postWorkerPinVerify = (req: Request, res: Response) => {
         const row = db
             .prepare(
                 `SELECT w.pin_hash, l.person_id FROM hr_workers w
-         LEFT JOIN hr_worker_person l ON l.hr_worker_id = w.id
-         WHERE w.cin = ? AND w.is_active = 1`
+          LEFT JOIN hr_worker_person l ON l.hr_worker_id = w.id
+          WHERE w.cin = ? AND w.is_active = 1`
             )
             .get(cin) as { pin_hash: string | null; person_id: string | null } | undefined;
         if (!row?.pin_hash) {
@@ -182,19 +217,20 @@ export const postWorkerPinVerify = (req: Request, res: Response) => {
         if (!ok) {
             return res.status(401).json({ ok: false, message: 'PIN incorrect' });
         }
-        res.json({ ok: true, person_id: row.person_id || null });
+        const token = jwt.sign({ cin, role: 'worker' }, JWT_SECRET, { expiresIn: '24h' });
+        res.json({ ok: true, token, person_id: row.person_id || null });
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
 export const deleteHRWorker = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
-        db.prepare('DELETE FROM hr_workers WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
+        db.prepare('DELETE FROM hr_workers WHERE id = ? AND owner_id = ?').run(req.params.id, companyId);
         res.json({ message: 'Supprimé' });
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -215,6 +251,7 @@ function firstLastDayOfMonth(ym: string): { from: string; to: string } | null {
  */
 export const getHRWorkerDossier = (req: Request, res: Response) => {
     const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const { id } = req.params;
     const qf = (req.query.from as string) || '';
     const qt = (req.query.to as string) || '';
@@ -243,7 +280,7 @@ export const getHRWorkerDossier = (req: Request, res: Response) => {
          LEFT JOIN hr_transport_lignes t ON t.id = w.transport_ligne_id
          WHERE w.id = ? AND w.owner_id = ?`
             )
-            .get(id, userId) as Record<string, unknown> | undefined;
+            .get(id, companyId) as Record<string, unknown> | undefined;
         if (!worker) {
             return res.status(404).json({ message: 'Ouvrier introuvable' });
         }
@@ -269,7 +306,7 @@ export const getHRWorkerDossier = (req: Request, res: Response) => {
          WHERE a.worker_id = ? AND w.owner_id = ? 
          ORDER BY a.date_demande DESC`
             )
-            .all(wid, userId);
+            .all(wid, companyId);
 
         const moisSage = (req.query.pointage_mois as string) || new Date().toISOString().slice(0, 7);
         const w = worker as {
@@ -303,7 +340,7 @@ export const getHRWorkerDossier = (req: Request, res: Response) => {
     ORDER BY date ASC, id ASC`,
                 )
                 .all(wid, bSage.from, bSage.to) as SageMoisPointageRow[];
-            const r = sagePayRowForOwnerAndPointage(userId, { id: String(wid), ...w }, ptRows);
+            const r = sagePayRowForOwnerAndPointage(companyId, { id: String(wid), ...w }, ptRows);
             sage_preview = {
                 mois: moisSage,
                 matricule: r.matricule,
@@ -328,7 +365,7 @@ export const getHRWorkerDossier = (req: Request, res: Response) => {
         const mat = String((worker as { matricule: string }).matricule || '');
         const legacy = db
             .prepare('SELECT id FROM workers WHERE owner_id = ? AND matricule = ?')
-            .get(userId, mat) as { id: string } | undefined;
+            .get(companyId, mat) as { id: string } | undefined;
         let skills: any[] = [];
         let skills_matched = false;
         if (legacy) {
@@ -336,7 +373,7 @@ export const getHRWorkerDossier = (req: Request, res: Response) => {
                 .prepare(
                     'SELECT * FROM worker_skills WHERE owner_id = ? AND worker_id = ? ORDER BY level DESC, poste_keyword ASC'
                 )
-                .all(userId, legacy.id);
+                .all(companyId, legacy.id);
             skills_matched = true;
         }
 
@@ -360,7 +397,7 @@ export const getHRWorkerDossier = (req: Request, res: Response) => {
         });
     } catch (e) {
         console.error('getHRWorkerDossier', e);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -369,15 +406,15 @@ export const getHRWorkerDossier = (req: Request, res: Response) => {
 // ==========================================
 
 export const getHRPointage = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
         const records = db.prepare(`
             SELECT p.*, w.full_name, w.matricule, w.role 
             FROM hr_pointage p JOIN hr_workers w ON p.worker_id = w.id
             WHERE w.owner_id = ? ${req.query.date ? 'AND p.date = ?' : ''}
-        `).all(req.query.date ? [userId, req.query.date] : [userId]);
+        `).all(req.query.date ? [companyId, req.query.date] : [companyId]);
         res.json(records);
-    } catch (e) { res.status(500).json({message: 'Erreur'}); }
+    } catch (e) { res.status(500).json({message: 'Error'}); }
 };
 
 export { calculerHeures };
@@ -389,11 +426,12 @@ export { calculerHeures };
  */
 export const saveHRPointage = (req: Request, res: Response) => {
     const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const records = Array.isArray(req.body) ? req.body : [req.body];
     
     let autoOvertime = true; // Actif par défaut
     try {
-        const setting = db.prepare("SELECT value FROM app_settings WHERE key = 'hr_auto_overtime' AND owner_id = ?").get(userId) as any;
+        const setting = db.prepare("SELECT value FROM app_settings WHERE key = 'hr_auto_overtime' AND owner_id = ?").get(companyId) as any;
         if (setting && setting.value === 'false') {
             autoOvertime = false;
         }
@@ -402,7 +440,7 @@ export const saveHRPointage = (req: Request, res: Response) => {
     }
 
     try {
-        const sageRules = getSageRulesForUser(userId);
+        const sageRules = getSageRulesForUser(companyId);
         const transaction = db.transaction(() => {
             const stmt = db.prepare(`
                 INSERT INTO hr_pointage (
@@ -430,7 +468,7 @@ export const saveHRPointage = (req: Request, res: Response) => {
             if (workerIds.length > 0) {
                 const placeholders = workerIds.map(() => '?').join(',');
                 const validRows = db.prepare(`SELECT id FROM hr_workers WHERE id IN (${placeholders}) AND owner_id = ?`)
-                    .all(...workerIds, userId) as { id: string }[];
+                    .all(...workerIds, companyId) as { id: string }[];
                 for (const row of validRows) validWorkerIds.add(row.id);
             }
 
@@ -496,16 +534,16 @@ export const saveHRPointage = (req: Request, res: Response) => {
         res.json({message: 'Sauvegardé'});
     } catch (e) { 
         console.error('saveHRPointage Error:', e);
-        res.status(500).json({message: 'Erreur'}); 
+        res.status(500).json({message: 'Error'}); 
     }
 };
 
 export const validateHRPointage = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
-        db.prepare(`UPDATE hr_pointage SET is_validated = 1 WHERE worker_id IN (SELECT id FROM hr_workers WHERE owner_id = ?) AND date = ?`).run(userId, req.body.date);
+        db.prepare(`UPDATE hr_pointage SET is_validated = 1 WHERE worker_id IN (SELECT id FROM hr_workers WHERE owner_id = ?) AND date = ?`).run(companyId, req.body.date);
         res.json({message: 'Validé'});
-    } catch(e) { res.status(500).json({message: 'Erreur'}); }
+    } catch(e) { res.status(500).json({message: 'Error'}); }
 };
 
 // ==========================================
@@ -513,22 +551,22 @@ export const validateHRPointage = (req: Request, res: Response) => {
 // ==========================================
 
 export const getHRProduction = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
         const date = req.query.date as string | undefined;
         if (date) {
-            res.json(db.prepare(`SELECT prod.*, w.full_name FROM hr_production prod JOIN hr_workers w ON prod.worker_id = w.id WHERE w.owner_id=? AND prod.date = ?`).all(userId, date));
+            res.json(db.prepare(`SELECT prod.*, w.full_name FROM hr_production prod JOIN hr_workers w ON prod.worker_id = w.id WHERE w.owner_id=? AND prod.date = ?`).all(companyId, date));
         } else {
-            res.json(db.prepare(`SELECT prod.*, w.full_name FROM hr_production prod JOIN hr_workers w ON prod.worker_id = w.id WHERE w.owner_id=?`).all(userId));
+            res.json(db.prepare(`SELECT prod.*, w.full_name FROM hr_production prod JOIN hr_workers w ON prod.worker_id = w.id WHERE w.owner_id=?`).all(companyId));
         }
-    } catch(e) { res.status(500).json({message:'Erreur'}); }
+    } catch(e) { res.status(500).json({message:'Error'}); }
 };
 
 export const saveHRProduction = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const p = req.body;
     try {
-        const w = db.prepare('SELECT id FROM hr_workers WHERE id = ? AND owner_id = ?').get(p.worker_id, userId);
+        const w = db.prepare('SELECT id FROM hr_workers WHERE id = ? AND owner_id = ?').get(p.worker_id, companyId);
         if(!w) return res.status(403).json({});
         db.prepare(`INSERT INTO hr_production (id, worker_id, date, pieces_produites) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET pieces_produites=excluded.pieces_produites`).run(p.id||uuidv4(), p.worker_id, p.date, p.pieces_produites);
         res.json({message: 'Saved'});
@@ -540,13 +578,14 @@ export const saveHRProduction = (req: Request, res: Response) => {
 // ==========================================
 
 export const getHRAvances = (req: Request, res: Response) => {
-    res.json(db.prepare(`SELECT a.*, w.full_name, w.salaire_base FROM hr_avances a JOIN hr_workers w ON a.worker_id = w.id WHERE w.owner_id = ?`).all((req as any).user.id));
+    const companyId = (req as any).companyId;
+    res.json(db.prepare(`SELECT a.*, w.full_name, w.salaire_base FROM hr_avances a JOIN hr_workers w ON a.worker_id = w.id WHERE w.owner_id = ?`).all(companyId));
 };
 export const saveHRAvance = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const a = req.body;
     try {
-        const worker = db.prepare('SELECT id, salaire_base FROM hr_workers WHERE id = ? AND owner_id = ?').get(a.worker_id, userId) as { id: string, salaire_base: number } | undefined;
+        const worker = db.prepare('SELECT id, salaire_base FROM hr_workers WHERE id = ? AND owner_id = ?').get(a.worker_id, companyId) as { id: string, salaire_base: number } | undefined;
         if (!worker) {
             return res.status(403).json({ message: 'Interdit' });
         }
@@ -565,23 +604,23 @@ export const saveHRAvance = (req: Request, res: Response) => {
         ).run(a.id || uuidv4(), a.worker_id, a.date_demande, a.montant, a.montant, 'DEMANDE');
         res.json({ message: 'Avance enregistrée (Soumise à validation)' });
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 export const updateHRAvanceStatut = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
         const result = db
             .prepare(
                 `UPDATE hr_avances SET statut = ? WHERE id = ? AND worker_id IN (SELECT id FROM hr_workers WHERE owner_id = ?)`
             )
-            .run(req.body.statut, req.params.id, userId);
+            .run(req.body.statut, req.params.id, companyId);
         if (result.changes === 0) {
             return res.status(404).json({ message: 'Non trouvé' });
         }
         res.json({ message: 'Updated' });
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -595,16 +634,17 @@ const LEGACY_GUEST_OWNER_ID = 1;
 /** Aperçu: ouvriers du compte courant vs fiches restées sur l’invité (id 1) */
 export const getHRClaimPreview = (req: Request, res: Response) => {
     const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
-        const my = db.prepare('SELECT COUNT(*) as c FROM hr_workers WHERE owner_id = ?').get(userId) as { c: number };
+        const my = db.prepare('SELECT COUNT(*) as c FROM hr_workers WHERE owner_id = ?').get(companyId) as { c: number };
         const guest = db
             .prepare('SELECT COUNT(*) as c FROM hr_workers WHERE owner_id = ?')
             .get(LEGACY_GUEST_OWNER_ID) as { c: number };
         const canClaim =
-            userId !== LEGACY_GUEST_OWNER_ID && my.c === 0 && guest.c > 0;
-        res.json({ myCount: my.c, guestCount: userId === LEGACY_GUEST_OWNER_ID ? 0 : guest.c, canClaim });
+            companyId !== LEGACY_GUEST_OWNER_ID && my.c === 0 && guest.c > 0;
+        res.json({ myCount: my.c, guestCount: companyId === LEGACY_GUEST_OWNER_ID ? 0 : guest.c, canClaim });
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
@@ -614,11 +654,12 @@ export const getHRClaimPreview = (req: Request, res: Response) => {
  */
 export const postHRClaimFromGuest = (req: Request, res: Response) => {
     const userId = (req as any).user.id;
-    if (userId === LEGACY_GUEST_OWNER_ID) {
+    const companyId = (req as any).companyId;
+    if (companyId === LEGACY_GUEST_OWNER_ID) {
         return res.status(400).json({ message: 'Déjà connecté en invité' });
     }
     try {
-        const my = db.prepare('SELECT COUNT(*) as c FROM hr_workers WHERE owner_id = ?').get(userId) as { c: number };
+        const my = db.prepare('SELECT COUNT(*) as c FROM hr_workers WHERE owner_id = ?').get(companyId) as { c: number };
         if (my.c > 0) {
             return res.status(400).json({ message: 'Vous avez déjà des fiches. Le rattachement n’est possible qu’avec un compte sans ouvrier.' });
         }
@@ -628,25 +669,53 @@ export const postHRClaimFromGuest = (req: Request, res: Response) => {
         if (guest.c === 0) {
             return res.status(400).json({ message: 'Aucune fiche à rattacher (compte invité vide).' });
         }
-        const r = db.prepare('UPDATE hr_workers SET owner_id = ? WHERE owner_id = ?').run(userId, LEGACY_GUEST_OWNER_ID);
+        const r = db.prepare('UPDATE hr_workers SET owner_id = ?, updated_by = ?, updated_at = datetime("now") WHERE owner_id = ?').run(companyId, userId, LEGACY_GUEST_OWNER_ID);
         res.json({ ok: true, migrated: r.changes });
     } catch (e) {
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
 export const getWorkerByCin = (req: Request, res: Response) => {
+    const cin = String(req.params.cin ?? '').trim().toUpperCase();
     try {
         const worker = db
             .prepare(
-                `SELECT w.id, w.full_name, w.role, w.chaine_id, l.person_id AS person_id,
+                `SELECT w.id, w.full_name, w.role, w.chaine_id, l.person_id AS person_id, w.pin_hash,
             CASE WHEN w.pin_hash IS NOT NULL AND length(trim(w.pin_hash)) > 0 THEN 1 ELSE 0 END AS has_pin
          FROM hr_workers w
          LEFT JOIN hr_worker_person l ON l.hr_worker_id = w.id
          WHERE w.cin = ?`
             )
-            .get(req.params.cin) as Record<string, unknown> | undefined;
-        res.json(worker || null);
+            .get(cin) as any;
+        if (!worker) {
+            return res.status(404).json(null);
+        }
+        // FAIL CLOSED : aucune fiche personnelle n'est exposée sans authentification.
+        // Si le PIN n'est pas configuré, on renvoie la même réponse 401 que pour une
+        // fiche protégée (has_pin: 1) afin de ne pas créer d'oracle révélant
+        // l'existence du CIN ou l'absence de PIN. L'enrôlement du PIN se fait côté
+        // admin (postHRWorkerPin), donc cette voie reste fonctionnelle.
+        if (!worker.pin_hash) {
+            return res.status(401).json({ message: 'Code PIN requis pour accéder à cette fiche.', has_pin: 1 });
+        }
+        {
+            const authHeader = req.headers.authorization;
+            const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.query.token as string);
+            if (!token) {
+                return res.status(401).json({ message: 'Code PIN requis pour accéder à cette fiche.', has_pin: 1 });
+            }
+            try {
+                const decoded = jwt.verify(token, JWT_SECRET) as { cin: string };
+                if (String(decoded.cin).toUpperCase() !== cin) {
+                    return res.status(403).json({ message: 'Accès interdit.' });
+                }
+            } catch (err) {
+                return res.status(401).json({ message: 'Session expirée ou invalide.' });
+            }
+        }
+        const sanitized = sanitizeHrWorkerRow(worker);
+        res.json(sanitized);
     } catch (e) {
         res.status(500).json({});
     }
@@ -656,17 +725,73 @@ export const getWorkerByCin = (req: Request, res: Response) => {
 const PUBLIC_POINTAGE_COLS = `date, statut, heure_entree, heure_sortie, heures_travaillees`;
 
 export const getWorkerPointageToday = (req: Request, res: Response) => {
-    res.json(
-        db
-            .prepare(
-                `SELECT ${PUBLIC_POINTAGE_COLS} FROM hr_pointage WHERE worker_id = (SELECT id FROM hr_workers WHERE cin = ?) AND date = date('now')`
-            )
-            .get(req.params.cin) || null
-    );
+    const cin = String(req.params.cin ?? '').trim().toUpperCase();
+    try {
+        const worker = db.prepare('SELECT pin_hash FROM hr_workers WHERE cin = ?').get(cin) as { pin_hash: string | null } | undefined;
+        if (!worker) {
+            return res.status(404).json({ message: 'Ouvrier introuvable' });
+        }
+        // FAIL CLOSED : pas de lecture de pointage sans PIN configuré + token valide.
+        if (!worker.pin_hash) {
+            return res.status(401).json({ message: 'Code PIN requis.', has_pin: 1 });
+        }
+        {
+            const authHeader = req.headers.authorization;
+            const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.query.token as string);
+            if (!token) {
+                return res.status(401).json({ message: 'Auth requis' });
+            }
+            try {
+                const decoded = jwt.verify(token, JWT_SECRET) as { cin: string };
+                if (String(decoded.cin).toUpperCase() !== cin) {
+                    return res.status(403).json({ message: 'Accès interdit' });
+                }
+            } catch (err) {
+                return res.status(401).json({ message: 'Jeton invalide' });
+            }
+        }
+        res.json(
+            db
+                .prepare(
+                    `SELECT ${PUBLIC_POINTAGE_COLS} FROM hr_pointage WHERE worker_id = (SELECT id FROM hr_workers WHERE cin = ?) AND date = date('now')`
+                )
+                .get(cin) || null
+        );
+    } catch (e) {
+        res.status(500).json({ message: 'Error' });
+    }
 };
 
 export const getWorkerProductionToday = (req: Request, res: Response) => {
-    res.json(db.prepare('SELECT sum(pieces_produites) as total FROM hr_production WHERE worker_id = (SELECT id FROM hr_workers WHERE cin = ?) AND date = date("now")').get(req.params.cin) || null);
+    const cin = String(req.params.cin ?? '').trim().toUpperCase();
+    try {
+        const worker = db.prepare('SELECT pin_hash FROM hr_workers WHERE cin = ?').get(cin) as { pin_hash: string | null } | undefined;
+        if (!worker) {
+            return res.status(404).json({ message: 'Ouvrier introuvable' });
+        }
+        // FAIL CLOSED : pas de lecture de production sans PIN configuré + token valide.
+        if (!worker.pin_hash) {
+            return res.status(401).json({ message: 'Code PIN requis.', has_pin: 1 });
+        }
+        {
+            const authHeader = req.headers.authorization;
+            const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : (req.query.token as string);
+            if (!token) {
+                return res.status(401).json({ message: 'Auth requis' });
+            }
+            try {
+                const decoded = jwt.verify(token, JWT_SECRET) as { cin: string };
+                if (String(decoded.cin).toUpperCase() !== cin) {
+                    return res.status(403).json({ message: 'Accès interdit' });
+                }
+            } catch (err) {
+                return res.status(401).json({ message: 'Jeton invalide' });
+            }
+        }
+        res.json(db.prepare('SELECT sum(pieces_produites) as total FROM hr_production WHERE worker_id = (SELECT id FROM hr_workers WHERE cin = ?) AND date = date("now")').get(cin) || null);
+    } catch (e) {
+        res.status(500).json({ message: 'Error' });
+    }
 };
 
 // ==========================================
@@ -674,18 +799,18 @@ export const getWorkerProductionToday = (req: Request, res: Response) => {
 // ==========================================
 
 export const getHRTransportLignes = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
-        const rows = db.prepare('SELECT * FROM hr_transport_lignes WHERE owner_id = ? ORDER BY nom ASC').all(userId);
+        const rows = db.prepare('SELECT * FROM hr_transport_lignes WHERE owner_id = ? ORDER BY nom ASC').all(companyId);
         res.json(rows);
     } catch (error) {
         console.error('[getHRTransportLignes] Error:', error);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
 export const saveHRTransportLigne = (req: Request, res: Response) => {
-    const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     const data = req.body;
     try {
         const id = data.id || `tr-${randomUUID()}`;
@@ -712,24 +837,25 @@ export const saveHRTransportLigne = (req: Request, res: Response) => {
             data.matricule_vehicule || null,
             data.capacite || 0,
             data.notes || null,
-            userId
+            companyId
         );
         res.json({ message: 'Enregistré', id });
     } catch (error) {
         console.error('[saveHRTransportLigne] Error:', error);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };
 
 export const deleteHRTransportLigne = (req: Request, res: Response) => {
     const userId = (req as any).user.id;
+    const companyId = (req as any).companyId;
     try {
         // Enlever la référence dans les fiches ouvriers
-        db.prepare('UPDATE hr_workers SET transport_ligne_id = NULL WHERE transport_ligne_id = ? AND owner_id = ?').run(req.params.id, userId);
-        db.prepare('DELETE FROM hr_transport_lignes WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
+        db.prepare('UPDATE hr_workers SET transport_ligne_id = NULL, updated_by = ? WHERE transport_ligne_id = ? AND owner_id = ?').run(userId, req.params.id, companyId);
+        db.prepare('DELETE FROM hr_transport_lignes WHERE id = ? AND owner_id = ?').run(req.params.id, companyId);
         res.json({ message: 'Supprimé' });
     } catch (error) {
         console.error('[deleteHRTransportLigne] Error:', error);
-        res.status(500).json({ message: 'Erreur' });
+        res.status(500).json({ message: 'Error' });
     }
 };

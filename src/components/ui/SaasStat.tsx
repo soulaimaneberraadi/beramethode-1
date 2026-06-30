@@ -25,29 +25,29 @@ const variantConfig: Record<
   { dot: string; icon: string; value: string }
 > = {
   default: {
-    dot: 'bg-slate-400',
-    icon: 'text-slate-400',
-    value: 'text-slate-900',
+    dot: 'bg-slate-400 dark:bg-dk-muted',
+    icon: 'text-slate-400 dark:text-dk-muted',
+    value: 'text-slate-900 dark:text-dk-text',
   },
   success: {
     dot: 'bg-emerald-500',
-    icon: 'text-emerald-600',
-    value: 'text-emerald-700',
+    icon: 'text-emerald-600 dark:text-emerald-400',
+    value: 'text-emerald-700 dark:text-emerald-300',
   },
   danger: {
     dot: 'bg-red-500',
-    icon: 'text-red-500',
-    value: 'text-red-600',
+    icon: 'text-red-500 dark:text-red-400',
+    value: 'text-red-600 dark:text-red-400 dark:text-red-300',
   },
   warning: {
     dot: 'bg-amber-500',
-    icon: 'text-amber-500',
-    value: 'text-amber-600',
+    icon: 'text-amber-500 dark:text-amber-400',
+    value: 'text-amber-600 dark:text-amber-400 dark:text-amber-300',
   },
   info: {
-    dot: 'bg-[#2149C1]',
-    icon: 'text-[#2149C1]',
-    value: 'text-slate-900',
+    dot: 'bg-[#2149C1] dark:bg-dk-accent',
+    icon: 'text-[#2149C1] dark:text-dk-accent',
+    value: 'text-slate-900 dark:text-dk-text',
   },
 };
 
@@ -92,11 +92,11 @@ export default function SaasStat({
         className={`flex items-center gap-2 ${className}`}
       >
         <span className={`w-1.5 h-1.5 rounded-full ${colors.dot} shrink-0`} />
-        <span className={`${sizes.label} text-slate-500`}>{label}</span>
+        <span className={`${sizes.label} text-slate-500 dark:text-dk-text-soft`}>{label}</span>
         <span className={`${sizes.value} font-semibold ${colors.value} tabular-nums`}>
           {value}
           {unit && (
-            <span className="text-[10px] font-normal text-slate-400 ml-0.5">
+            <span className="text-[10px] font-normal text-slate-400 ml-0.5 dark:text-dk-muted">
               {unit}
             </span>
           )}
@@ -104,7 +104,7 @@ export default function SaasStat({
         {trend && (
           <span
             className={`text-[10px] font-medium tabular-nums ${
-              trend.direction === 'up' ? 'text-emerald-600' : 'text-red-500'
+              trend.direction === 'up' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
             }`}
           >
             {trend.direction === 'up' ? '↑' : '↓'} {trend.value}
@@ -126,7 +126,7 @@ export default function SaasStat({
         <div
           className={`
             w-8 h-8 rounded-md flex items-center justify-center shrink-0
-            bg-slate-50 border border-slate-100
+            bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:bg-dk-bg dark:border-dk-border
           `}
         >
           <Icon className={`w-4 h-4 ${colors.icon}`} strokeWidth={1.75} />
@@ -146,19 +146,19 @@ export default function SaasStat({
             {value}
           </span>
           {unit && (
-            <span className="text-[10px] font-normal text-slate-400">{unit}</span>
+            <span className="text-[10px] font-normal text-slate-400 dark:text-dk-muted">{unit}</span>
           )}
           {trend && (
             <span
               className={`text-[10px] font-medium tabular-nums ${
-                trend.direction === 'up' ? 'text-emerald-600' : 'text-red-500'
+                trend.direction === 'up' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'
               }`}
             >
               {trend.direction === 'up' ? '↑' : '↓'} {trend.value}
             </span>
           )}
         </div>
-        <p className={`${sizes.label} text-slate-500`}>{label}</p>
+        <p className={`${sizes.label} text-slate-500 dark:text-dk-text-soft`}>{label}</p>
       </div>
     </motion.div>
   );
@@ -185,7 +185,7 @@ export function SaasStatGrid({
     <div
       className={`
         grid ${gridCols[cols]} gap-4
-        p-4 bg-slate-50/60 rounded-lg border border-slate-100
+        p-4 bg-slate-50 dark:bg-dk-bg/60 rounded-lg border border-slate-100 dark:bg-dk-bg/60 dark:border-dk-border
         ${className}
       `}
     >

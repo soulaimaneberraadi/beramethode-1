@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { X, ChevronLeft, ChevronRight, Calendar, Info, Clock, CheckCircle2, XCircle, Zap, PartyPopper, Globe } from 'lucide-react';
 import { AppSettings } from '../types';
+import { pickT, tx } from '../lib/i18n';
+import { useIsDark } from '../src/context/ThemeContext';
+import type { Lang } from '../app/constants';
 
 // ── National Holidays Database ──────────────────────────────────────────────
 // Fixed dates: MM-DD format. Islamic dates: exact YYYY-MM-DD per year.
@@ -136,9 +139,22 @@ const getHolidaysForYear = (currency: string, year: number): { date: string; nam
     return result;
 };
 
-const COUNTRY_LABEL: Record<string, string> = {
-    MAD: 'Maroc', DZD: 'Algérie', TND: 'Tunisie', EUR: 'France', TRY: 'Türkiye', SAR: 'KSA', AED: 'UAE',
-    QAR: 'Qatar', KWD: 'Kuwait', BHD: 'Bahrain', OMR: 'Oman', ZAR: 'Afr.Sud', XOF: 'UEMOA', XAF: 'CEMAC', USD: 'USA',
+const COUNTRY_LABEL: Record<string, {fr:string;ar:string;en:string;es:string;pt:string;tr:string}> = {
+    MAD: {fr:'Maroc',ar:'المغرب',en:'Morocco',es:'Marruecos',pt:'Marrocos',tr:'Fas'},
+    DZD: {fr:'Algérie',ar:'الجزائر',en:'Algeria',es:'Argelia',pt:'Argélia',tr:'Cezayir'},
+    TND: {fr:'Tunisie',ar:'تونس',en:'Tunisia',es:'Túnez',pt:'Tunísia',tr:'Tunus'},
+    EUR: {fr:'France',ar:'فرنسا',en:'France',es:'Francia',pt:'França',tr:'Fransa'},
+    TRY: {fr:'Türkiye',ar:'تركيا',en:'Turkey',es:'Turquía',pt:'Turquia',tr:'Türkiye'},
+    SAR: {fr:'KSA',ar:'المملكة العربية السعودية',en:'KSA',es:'KSA',pt:'KSA',tr:'KSA'},
+    AED: {fr:'UAE',ar:'الإمارات',en:'UAE',es:'EAU',pt:'EAU',tr:'BAE'},
+    QAR: {fr:'Qatar',ar:'قطر',en:'Qatar',es:'Catar',pt:'Catar',tr:'Katar'},
+    KWD: {fr:'Koweït',ar:'الكويت',en:'Kuwait',es:'Kuwait',pt:'Kuwait',tr:'Kuveyt'},
+    BHD: {fr:'Bahreïn',ar:'البحرين',en:'Bahrain',es:'Baréin',pt:'Bahrein',tr:'Bahreyn'},
+    OMR: {fr:'Oman',ar:'عُمان',en:'Oman',es:'Omán',pt:'Omã',tr:'Umman'},
+    ZAR: {fr:'Afr.Sud',ar:'جنوب أفريقيا',en:'South Africa',es:'Sudáfrica',pt:'África do Sul',tr:'Güney Afrika'},
+    XOF: {fr:'UEMOA',ar:'الإتحاد الاقتصادي والنقدي لغرب أفريقيا',en:'UEMOA',es:'UEMOA',pt:'UEMOA',tr:'UEMOA'},
+    XAF: {fr:'CEMAC',ar:'المجموعة الاقتصادية لدول وسط أفريقيا',en:'CEMAC',es:'CEMAC',pt:'CEMAC',tr:'CEMAC'},
+    USD: {fr:'États-Unis',ar:'الولايات المتحدة',en:'USA',es:'EE.UU.',pt:'EUA',tr:'ABD'},
 };
 
 interface AgendaModalProps {
@@ -146,7 +162,7 @@ interface AgendaModalProps {
     onClose: () => void;
     settings: AppSettings;
     setSettings: React.Dispatch<React.SetStateAction<AppSettings>>;
-    lang: 'fr' | 'ar';
+    lang: Lang;
 }
 
 const TRANSLATIONS = {
@@ -205,11 +221,124 @@ const TRANSLATIONS = {
         offDays: 'أيام الراحة',
         exceptions: 'استثناءات',
         quickToggle: 'نقرة سريعة: تبديل الحالة',
+    },
+    en: {
+        title: 'Monthly Agenda',
+        close: 'Close',
+        prev: 'Previous Month',
+        next: 'Next Month',
+        workingDay: 'Working Day',
+        holiday: 'Holiday',
+        exceptionalWork: 'Exceptional Work',
+        save: 'Save Exception',
+        remove: 'Remove',
+        notePlaceholder: 'Exception name (e.g. Aïd, Breakdown...)',
+        days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+        details: 'Day Details',
+        selectPrompt: 'Click a day to configure it.\n\nDouble-click = quick toggle.',
+        selectedDate: 'Selected Date',
+        status: 'Production Status',
+        work: 'Work',
+        off: 'Off / Rest',
+        note: 'Note / Reason',
+        reset: 'Restore Default',
+        workingHours: 'Working Hours',
+        summary: 'Month Summary',
+        workDays: 'Working Days',
+        offDays: 'Off Days',
+        exceptions: 'Exceptions',
+        quickToggle: 'Quick click: toggle status',
+    },
+    es: {
+        title: 'Agenda del Mes',
+        close: 'Cerrar',
+        prev: 'Mes Anterior',
+        next: 'Mes Siguiente',
+        workingDay: 'Día Laborable',
+        holiday: 'Día Festivo',
+        exceptionalWork: 'Trabajo Excepcional',
+        save: 'Guardar Excepción',
+        remove: 'Eliminar',
+        notePlaceholder: 'Nombre de la excepción (ej: Aïd, Avería...)',
+        days: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+        months: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
+        details: 'Detalles del día',
+        selectPrompt: 'Haga clic en un día para configurarlo.\n\nDoble clic = alternar rápido.',
+        selectedDate: 'Fecha seleccionada',
+        status: 'Estado de producción',
+        work: 'Trabajo',
+        off: 'Festivo / Descanso',
+        note: 'Nota / Motivo',
+        reset: 'Restablecer por defecto',
+        workingHours: 'Horario de trabajo',
+        summary: 'Resumen del mes',
+        workDays: 'Días laborables',
+        offDays: 'Días de descanso',
+        exceptions: 'Excepciones',
+        quickToggle: 'Clic rápido: alternar estado',
+    },
+    pt: {
+        title: 'Agenda do Mês',
+        close: 'Fechar',
+        prev: 'Mês Anterior',
+        next: 'Mês Seguinte',
+        workingDay: 'Dia Útil',
+        holiday: 'Feriado',
+        exceptionalWork: 'Trabalho Excecional',
+        save: 'Guardar Exceção',
+        remove: 'Remover',
+        notePlaceholder: 'Nome da exceção (ex: Aïd, Avaria...)',
+        days: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
+        months: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+        details: 'Detalhes do dia',
+        selectPrompt: 'Clique num dia para o configurar.\n\nDuplo clique = alternar rápido.',
+        selectedDate: 'Data selecionada',
+        status: 'Estado de produção',
+        work: 'Trabalho',
+        off: 'Feriado / Folga',
+        note: 'Nota / Motivo',
+        reset: 'Repor predefinição',
+        workingHours: 'Horário de trabalho',
+        summary: 'Resumo do mês',
+        workDays: 'Dias úteis',
+        offDays: 'Dias de folga',
+        exceptions: 'Exceções',
+        quickToggle: 'Clique rápido: alternar estado',
+    },
+    tr: {
+        title: 'Aylık Ajanda',
+        close: 'Kapat',
+        prev: 'Önceki Ay',
+        next: 'Sonraki Ay',
+        workingDay: 'Çalışma Günü',
+        holiday: 'Tatil Günü',
+        exceptionalWork: 'İstisnai Çalışma',
+        save: 'İstisnayı Kaydet',
+        remove: 'Sil',
+        notePlaceholder: 'İstisna adı (örn: Bayram, Arıza...)',
+        days: ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'],
+        months: ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'],
+        details: 'Gün Detayları',
+        selectPrompt: 'Yapılandırmak için bir güne tıklayın.\n\nÇift tıklama = hızlı değiştir.',
+        selectedDate: 'Seçilen Tarih',
+        status: 'Üretim Durumu',
+        work: 'Çalışma',
+        off: 'Tatil / Dinlenme',
+        note: 'Not / Sebep',
+        reset: 'Varsayılana Döndür',
+        workingHours: 'Çalışma Saatleri',
+        summary: 'Ay Özeti',
+        workDays: 'Çalışma Günleri',
+        offDays: 'Dinlenme Günleri',
+        exceptions: 'İstisnalar',
+        quickToggle: 'Hızlı tıklama: durumu değiştir',
     }
 };
 
 export default function AgendaModal({ isOpen, onClose, settings, setSettings, lang }: AgendaModalProps) {
-    const t = TRANSLATIONS[lang];
+    const t = pickT(TRANSLATIONS, lang);
+    const isDark = useIsDark();
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -219,7 +348,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
     if (!isOpen) return null;
 
     const currency = settings.currency || 'MAD';
-    const countryLabel = COUNTRY_LABEL[currency] || currency;
+    const countryLabel = COUNTRY_LABEL[currency] ? tx(lang, COUNTRY_LABEL[currency]) : currency;
 
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -344,7 +473,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
 
     return (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col md:flex-row overflow-hidden max-h-[90vh]" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+            <div className={`rounded-2xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg w-full max-w-5xl flex flex-col md:flex-row overflow-hidden max-h-[90vh] ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
                 {/* Calendar Column */}
                 <div className="flex-1 p-6 overflow-y-auto">
@@ -352,16 +481,16 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                     <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-2">
                             <Calendar className="w-6 h-6 text-indigo-500" />
-                            <h2 className="text-xl font-black text-slate-800">{t.title}</h2>
-                            <span className="text-xs font-black bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200">{countryLabel}</span>
+                            <h2 className={`text-xl font-black ${isDark ? 'text-dk-text' : 'text-slate-800 dark:text-dk-text'}`}>{t.title}</h2>
+                            <span className="text-xs font-black bg-indigo-100 text-indigo-700 dark:text-dk-accent-text px-2 py-0.5 rounded-full border border-indigo-200">{countryLabel}</span>
                         </div>
-                        <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5" /></button>
+                        <button onClick={onClose} className="p-2 text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5" /></button>
                     </div>
 
                     {/* Working Hours Banner */}
-                    <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2.5 mb-4">
+                    <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 rounded-xl px-4 py-2.5 mb-4">
                         <Clock className="w-4 h-4 text-indigo-500 shrink-0" />
-                        <span className="text-sm font-bold text-indigo-700">{t.workingHours}:</span>
+                        <span className="text-sm font-bold text-indigo-700 dark:text-dk-accent-text">{t.workingHours}:</span>
                         <span className="text-sm font-black text-indigo-900">{settings.workingHoursStart} → {settings.workingHoursEnd}</span>
                         <span className="ml-auto text-xs text-indigo-500 font-bold bg-indigo-100 px-2 py-0.5 rounded-full">
                             {(() => {
@@ -374,23 +503,23 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                     </div>
 
                     {/* Month Nav */}
-                    <div className="flex justify-between items-center mb-4 bg-slate-50 p-2 rounded-xl">
-                        <button onClick={handlePrevMonth} className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-                        <span className="font-bold text-slate-700">{t.months[month]} {year}</span>
-                        <button onClick={handleNextMonth} className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><ChevronRight className="w-5 h-5" /></button>
+                    <div className="flex justify-between items-center mb-4 bg-slate-50 dark:bg-dk-bg p-2 rounded-xl">
+                        <button onClick={handlePrevMonth} className="p-2 text-slate-500 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 rounded-lg transition-colors"><ChevronLeft className="w-5 h-5" /></button>
+                        <span className="font-bold text-slate-700 dark:text-dk-text-soft">{t.months[month]} {year}</span>
+                        <button onClick={handleNextMonth} className="p-2 text-slate-500 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:bg-dk-accent/20 rounded-lg transition-colors"><ChevronRight className="w-5 h-5" /></button>
                     </div>
 
                     {/* Day Headers */}
                     <div className="grid grid-cols-7 gap-1 mb-1">
                         {t.days.map((d, i) => (
-                            <div key={i} className="text-center text-xs font-bold uppercase text-slate-400 py-1">{d}</div>
+                            <div key={i} className="text-center text-xs font-bold uppercase text-slate-400 dark:text-dk-muted py-1">{d}</div>
                         ))}
                     </div>
 
                     {/* Calendar Grid */}
                     <div className="grid grid-cols-7 gap-1">
                         {days.map((day, i) => {
-                            if (!day) return <div key={i} className="h-16 rounded-xl bg-slate-50/30" />;
+                            if (!day) return <div key={i} className="h-16 rounded-xl bg-slate-50 dark:bg-dk-bg/30" />;
 
                             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                             const isSelected = selectedDate === dateStr;
@@ -405,18 +534,18 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                                 // National holiday = always amber, regardless of exceptions
                                 bgClass = hasException && settings.calendarExceptions?.[dateStr]?.isWorking
                                     ? 'bg-emerald-100 border-emerald-500 text-emerald-900 font-black' // Manually forced to work
-                                    : 'bg-amber-50 border-amber-400 text-amber-800 hover:bg-amber-100';
+                                    : 'bg-amber-50 dark:bg-amber-900/30 border-amber-400 text-amber-800 hover:bg-amber-100';
                             } else if (effectivelyWorking) {
                                 bgClass = hasException
-                                    ? 'bg-emerald-100 border-emerald-500 text-emerald-900 shadow-md shadow-emerald-100 font-black'
-                                    : 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-400';
+                                    ? 'bg-emerald-100 border-emerald-500 text-emerald-900 shadow-md dark:shadow-dk-md shadow-emerald-100 font-black'
+                                    : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-400';
                             } else {
                                 bgClass = hasException
-                                    ? 'bg-rose-100 border-rose-500 text-rose-900 shadow-md shadow-rose-100 font-black'
-                                    : 'bg-rose-50/60 border-rose-100 text-rose-400 hover:bg-rose-50 hover:border-rose-200';
+                                    ? 'bg-rose-100 border-rose-500 text-rose-900 shadow-md dark:shadow-dk-md shadow-rose-100 font-black'
+                                    : 'bg-rose-50 dark:bg-rose-900/60 border-rose-100 text-rose-400 hover:bg-rose-50 hover:border-rose-200';
                             }
 
-                            if (isSelected) bgClass += ' ring-2 ring-indigo-500 ring-offset-1 shadow-md scale-105 z-10';
+                            if (isSelected) bgClass += ' ring-2 ring-indigo-500 ring-offset-1 shadow-md dark:shadow-dk-md scale-105 z-10';
                             if (isToday) bgClass += ' ring-2 ring-amber-400 ring-offset-1';
 
                             // Shorten holiday name for cell display
@@ -436,7 +565,7 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                                     {isToday && <span className="absolute top-0.5 left-1/2 -translate-x-1/2 text-[7px] font-black text-amber-500">●</span>}
                                     {/* National holiday label */}
                                     {nationalHoliday && !hasException && (
-                                        <span className="text-[7px] font-bold text-amber-600 mt-0.5 px-0.5 text-center leading-tight w-full truncate">⭐ {shortHolidayName}</span>
+                                        <span className="text-[7px] font-bold text-amber-600 dark:text-amber-400 mt-0.5 px-0.5 text-center leading-tight w-full truncate">⭐ {shortHolidayName}</span>
                                     )}
                                     {/* Manual exception label */}
                                     {hasException && exception?.note && (
@@ -453,62 +582,62 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
 
                     {/* Month Summary */}
                     <div className="mt-4 grid grid-cols-3 gap-2">
-                        <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2 flex flex-col items-center">
+                        <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 rounded-xl px-3 py-2 flex flex-col items-center">
                             <CheckCircle2 className="w-4 h-4 text-emerald-500 mb-1" />
                             <span className="text-xl font-black text-emerald-700">{workCount}</span>
-                            <span className="text-[10px] font-bold text-emerald-600 uppercase">{t.workDays}</span>
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">{t.workDays}</span>
                         </div>
-                        <div className="bg-rose-50 border border-rose-100 rounded-xl px-3 py-2 flex flex-col items-center">
+                        <div className="bg-rose-50 dark:bg-rose-900/30 border border-rose-100 rounded-xl px-3 py-2 flex flex-col items-center">
                             <XCircle className="w-4 h-4 text-rose-500 mb-1" />
                             <span className="text-xl font-black text-rose-700">{offCount}</span>
-                            <span className="text-[10px] font-bold text-rose-600 uppercase">{t.offDays}</span>
+                            <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase">{t.offDays}</span>
                         </div>
-                        <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 flex flex-col items-center">
+                        <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-100 rounded-xl px-3 py-2 flex flex-col items-center">
                             <Zap className="w-4 h-4 text-amber-500 mb-1" />
                             <span className="text-xl font-black text-amber-700">{exceptionCount}</span>
-                            <span className="text-[10px] font-bold text-amber-600 uppercase">{t.exceptions}</span>
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">{t.exceptions}</span>
                         </div>
                     </div>
 
                     {/* Quick tip */}
-                    <p className="text-center text-[10px] text-slate-400 mt-2 font-medium">💡 Double-clic = basculer rapidement • Clic simple = détails</p>
+                    <p className={`text-center text-[10px] mt-2 font-medium ${isDark ? 'text-dk-muted' : 'text-slate-400 dark:text-dk-muted'}`}>💡 Double-clic = basculer rapidement • Clic simple = détails</p>
                 </div>
 
                 {/* Exception Details Column */}
-                <div className="w-full md:w-72 bg-slate-50 p-6 flex flex-col border-t md:border-t-0 md:border-l border-slate-100">
-                    <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <div className={`w-full md:w-72 p-6 flex flex-col border-t md:border-t-0 md:border-l ${isDark ? 'bg-dk-bg border-dk-border' : 'bg-slate-50 dark:bg-dk-bg border-slate-100 dark:border-dk-border'}`}>
+                    <h3 className={`font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-dk-text' : 'text-slate-800 dark:text-dk-text'}`}>
                         <Info className="w-5 h-5 text-indigo-500" />
                         {t.details}
                     </h3>
 
                     {!selectedDate ? (
-                        <div className="flex-1 flex flex-col items-center justify-center text-center text-slate-400 gap-3">
+                        <div className={`flex-1 flex flex-col items-center justify-center text-center gap-3 ${isDark ? 'text-dk-muted' : 'text-slate-400 dark:text-dk-muted'}`}>
                             <Calendar className="w-12 h-12 opacity-20" />
-                            <p className="text-sm font-medium text-slate-500">Cliquez sur un jour pour le configurer</p>
-                            <p className="text-xs text-slate-400">Double-clic = basculer rapidement</p>
+                            <p className={`text-sm font-medium ${isDark ? 'text-dk-muted' : 'text-slate-500 dark:text-dk-muted'}`}>Cliquez sur un jour pour le configurer</p>
+                            <p className={`text-xs ${isDark ? 'text-dk-muted' : 'text-slate-400 dark:text-dk-muted'}`}>Double-clic = basculer rapidement</p>
                         </div>
                     ) : (
                         <div className="space-y-4 flex-1 flex flex-col">
-                            <div className="bg-white p-3 rounded-xl border border-slate-200 text-center shadow-sm">
-                                <span className="block text-xs uppercase font-bold text-slate-400 mb-1">{t.selectedDate}</span>
-                                <span className="text-lg font-black text-indigo-700">{selectedDate}</span>
+                            <div className="bg-white dark:bg-dk-surface p-3 rounded-xl border border-slate-200 dark:border-dk-border text-center shadow-sm dark:shadow-dk-sm">
+                                <span className="block text-xs uppercase font-bold text-slate-400 dark:text-dk-muted mb-1">{t.selectedDate}</span>
+                                <span className="text-lg font-black text-indigo-700 dark:text-dk-accent-text">{selectedDate}</span>
                                 {selectedDate === todayStr && (
-                                    <span className="block text-xs text-amber-600 font-bold mt-1">● Aujourd'hui</span>
+                                    <span className="block text-xs text-amber-600 dark:text-amber-400 font-bold mt-1">● Aujourd'hui</span>
                                 )}
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{t.status}</label>
-                                <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
+                                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{t.status}</label>
+                                <div className="flex bg-slate-100 dark:bg-dk-elevated p-1 rounded-xl border border-slate-200 dark:border-dk-border gap-1">
                                     <button
                                         onClick={() => setIsWorking(true)}
-                                        className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${isWorking ? 'bg-emerald-500 text-white shadow-md' : 'bg-white text-slate-500 hover:text-emerald-600'}`}
+                                        className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${isWorking ? 'bg-emerald-500 text-white shadow-md dark:shadow-dk-md' : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:text-emerald-600'}`}
                                     >
                                         {t.work}
                                     </button>
                                     <button
                                         onClick={() => setIsWorking(false)}
-                                        className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${!isWorking ? 'bg-rose-500 text-white shadow-md' : 'bg-white text-slate-500 hover:text-rose-600'}`}
+                                        className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${!isWorking ? 'bg-rose-500 text-white shadow-md dark:shadow-dk-md' : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:text-rose-600'}`}
                                     >
                                         {t.off}
                                     </button>
@@ -517,9 +646,9 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
 
                             {/* Show working hours if it's a working day */}
                             {isWorking && (
-                                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 text-center">
+                                <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 rounded-xl p-3 text-center">
                                     <Clock className="w-4 h-4 text-indigo-500 mx-auto mb-1" />
-                                    <span className="text-sm font-black text-indigo-700">{settings.workingHoursStart} → {settings.workingHoursEnd}</span>
+                                    <span className="text-sm font-black text-indigo-700 dark:text-dk-accent-text">{settings.workingHoursStart} → {settings.workingHoursEnd}</span>
                                     {settings.pauses && settings.pauses.length > 0 && (
                                         <div className="mt-1 space-y-0.5">
                                             {settings.pauses.map(p => (
@@ -531,25 +660,25 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                             )}
 
                             <div className="flex-1">
-                                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{t.note}</label>
+                                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{t.note}</label>
                                 <textarea
                                     value={note}
                                     onChange={(e) => setNote(e.target.value)}
                                     placeholder={t.notePlaceholder}
-                                    className="w-full bg-white border border-slate-200 rounded-xl p-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 text-sm font-bold text-slate-700 resize-none h-20"
+                                    className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl p-3 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 text-sm font-bold text-slate-700 dark:text-dk-text-soft resize-none h-20"
                                 />
                             </div>
 
                             <div className="flex flex-col gap-2">
-                                <button onClick={handleSaveException} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors shadow-md shadow-indigo-600/20 active:scale-95 text-sm">
+                                <button onClick={handleSaveException} className="w-full bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white font-bold py-3 rounded-xl transition-colors shadow-md dark:shadow-dk-md shadow-indigo-600/20 active:scale-95 text-sm">
                                     {t.save}
                                 </button>
                                 {settings.calendarExceptions?.[selectedDate] && (
-                                    <button onClick={handleRemoveException} className="w-full bg-white border border-rose-200 hover:bg-rose-50 text-rose-600 font-bold py-3 rounded-xl transition-colors active:scale-95 text-sm">
+                                    <button onClick={handleRemoveException} className="w-full bg-white dark:bg-dk-surface border border-rose-200 hover:bg-rose-50 text-rose-600 dark:text-rose-400 font-bold py-3 rounded-xl transition-colors active:scale-95 text-sm">
                                         {t.reset}
                                     </button>
                                 )}
-                                <button onClick={() => setSelectedDate(null)} className="w-full text-slate-400 hover:text-slate-600 text-xs font-bold py-1 transition-colors">
+                                <button onClick={() => setSelectedDate(null)} className="w-full text-slate-400 dark:text-dk-muted hover:text-slate-600 text-xs font-bold py-1 transition-colors">
                                     Annuler
                                 </button>
                             </div>

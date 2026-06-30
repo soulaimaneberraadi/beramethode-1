@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { tx } from '../../../../lib/i18n';
+import { useLang } from '../../../../src/context/LanguageContext';
 
 interface Props {
     offsetPx: number;
@@ -7,6 +9,7 @@ interface Props {
 }
 
 export default function TodayLine({ offsetPx, height, pulseKey }: Props) {
+    const { lang } = useLang();
     const [pulsing, setPulsing] = useState(false);
 
     useEffect(() => {
@@ -16,10 +19,15 @@ export default function TodayLine({ offsetPx, height, pulseKey }: Props) {
         return () => clearTimeout(t);
     }, [pulseKey]);
 
+    const isRtl = lang === 'ar';
     return (
         <div
             className="absolute top-0 z-[25] pointer-events-none"
-            style={{ left: offsetPx, height }}
+            style={{ 
+                left: isRtl ? 'auto' : offsetPx, 
+                right: isRtl ? offsetPx : 'auto', 
+                height 
+            }}
         >
             {/* Main line - more visible */}
             <div className={`absolute top-0 left-0 w-0.5 h-full transition-all duration-300 ${
@@ -31,14 +39,14 @@ export default function TodayLine({ offsetPx, height, pulseKey }: Props) {
             {/* Today label at top */}
             <div className={`absolute -top-px -left-8 flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
                 pulsing
-                    ? 'bg-red-500 text-white shadow-lg'
+                    ? 'bg-red-500 text-white shadow-lg dark:shadow-dk-lg'
                     : 'bg-red-500 text-white'
             }`}>
-                Aujourd'hui
+{tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' })}
             </div>
             
             {/* Top dot */}
-            <div className={`absolute top-6 -left-[5px] w-2.5 h-2.5 rounded-full border-2 border-white ${
+            <div className={`absolute top-6 -left-[5px] w-2.5 h-2.5 rounded-full border-2 border-white dark:border-dk-surface dark:bg-dk-surface ${
                 pulsing ? 'bg-red-500 planning-today-pulse' : 'bg-red-500'
             }`} />
             

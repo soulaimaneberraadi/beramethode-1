@@ -4,6 +4,8 @@ import { fmtMonthYear } from '../shared/dateFmt';
 import { useIsMobile } from '../shared/useIsMobile';
 import type { ViewKind } from './ViewSwitcher';
 import ZoomSwitcher, { type ZoomLevel } from './ZoomSwitcher';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 interface Props {
     active: number;
@@ -40,6 +42,13 @@ const VIEW_OPTIONS: { id: ViewKind; label: string }[] = [
     { id: 'simulation', label: 'Simulateur' },
 ];
 
+const VIEW_LABELS: Record<string, {fr:string;ar:string;en:string;es:string;pt:string;tr:string}> = {
+    gantt: {fr:"Gantt",ar:"مخطط جانت",en:"Gantt",es:"Gantt",pt:"Gantt",tr:"Gantt"},
+    calendar: {fr:"Calendrier",ar:"تقويم",en:"Calendar",es:"Calendario",pt:"Calendário",tr:"Takvim"},
+    cards: {fr:"Cartes",ar:"بطاقات",en:"Cards",es:"Tarjetas",pt:"Cartões",tr:"Kartlar"},
+    simulation: {fr:"Simulateur",ar:"محاكي",en:"Simulator",es:"Simulador",pt:"Simulador",tr:"Simülatör"},
+};
+
 
 export default function PlanningHeader({
     active, blocked, late,
@@ -53,6 +62,8 @@ export default function PlanningHeader({
     canUndo, canRedo, onUndo, onRedo,
 }: Props) {
 
+    const { lang } = useLang();
+
     const shift = (delta: number) => {
         const n = new Date(currentDate);
         n.setMonth(n.getMonth() + delta);
@@ -65,10 +76,10 @@ export default function PlanningHeader({
 
     if (isMobile) {
         return (
-            <header className="shrink-0 bg-white/80 border-b border-slate-200/45 backdrop-blur-md shadow-sm">
+            <header className="shrink-0 bg-white/80 dark:bg-dk-surface/80 border-b border-slate-200/45 dark:border-dk-border backdrop-blur-md shadow-sm dark:shadow-dk-sm">
                 {/* ROW 1 — title + primary actions */}
                 <div className="px-3 h-12 flex items-center gap-2">
-                    <h1 className="text-[15px] font-bold text-slate-900 tracking-tight">Planning</h1>
+                    <h1 className="text-[15px] font-bold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang,{fr:"Planning",ar:"التخطيط",en:"Planning",es:"Planificación",pt:"Planejamento",tr:"Planlama"})}</h1>
 
                     {/* Stat dots compact */}
                     <div className="flex items-center gap-2 ml-1">
@@ -79,7 +90,7 @@ export default function PlanningHeader({
                     <div className="flex-1" />
 
                     {onUndo && (
-                        <IconButton onClick={onUndo} title="Annuler" disabled={!canUndo}>
+                        <IconButton onClick={onUndo} title={tx(lang,{fr:"Annuler",ar:"تراجع",en:"Undo",es:"Deshacer",pt:"Desfazer",tr:"Geri al"})} disabled={!canUndo}>
                             <Undo2 className="w-4 h-4" strokeWidth={2} />
                         </IconButton>
                     )}
@@ -87,7 +98,7 @@ export default function PlanningHeader({
                     <IconButton
                         active={mobileSearchOpen}
                         onClick={() => setMobileSearchOpen(v => !v)}
-                        title="Rechercher"
+                        title={tx(lang,{fr:"Rechercher",ar:"بحث",en:"Search",es:"Buscar",pt:"Buscar",tr:"Ara"})}
                     >
                         <Search className="w-4 h-4" strokeWidth={2} />
                     </IconButton>
@@ -95,25 +106,25 @@ export default function PlanningHeader({
                     <IconButton
                         active={filtersOpen || hasActiveFilters}
                         onClick={onToggleFilters}
-                        title="Filtres"
+                        title={tx(lang,{fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}
                     >
                         <SlidersHorizontal className="w-4 h-4" strokeWidth={2} />
                         {activeFilterCount > 0 && (
-                            <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 flex items-center justify-center rounded-full bg-indigo-600 text-white text-[9px] font-bold tabular-nums leading-none shadow-sm">
+                            <span className="absolute -top-1 -right-1 min-w-[15px] h-[15px] px-1 flex items-center justify-center rounded-full bg-indigo-600 dark:bg-dk-accent text-white text-[9px] font-bold tabular-nums leading-none shadow-sm dark:shadow-dk-sm">
                                 {activeFilterCount}
                             </span>
                         )}
                     </IconButton>
 
-                    <IconButton onClick={() => setMobileMenuOpen(v => !v)} title="Plus" active={mobileMenuOpen}>
+                    <IconButton onClick={() => setMobileMenuOpen(v => !v)} title={tx(lang,{fr:"Plus",ar:"المزيد",en:"More",es:"Más",pt:"Mais",tr:"Daha fazla"})} active={mobileMenuOpen}>
                         <MoreHorizontal className="w-4 h-4" strokeWidth={2} />
                     </IconButton>
 
                     <button
                         type="button"
                         onClick={onAddEvent}
-                        className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-r from-slate-900 to-indigo-950 hover:from-slate-800 hover:to-indigo-900 text-white transition-all duration-200 active:scale-95 shadow-sm"
-                        aria-label="Planifier"
+                        className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white transition-all duration-200 active:scale-95 shadow-sm dark:shadow-dk-sm"
+                        aria-label={tx(lang,{fr:"Nouvel ordre",ar:"أمر جديد",en:"New order",es:"Nuevo pedido",pt:"Novo pedido",tr:"Yeni sipariş"})}
                     >
                         <Plus className="w-4 h-4" strokeWidth={2.25} />
                     </button>
@@ -122,21 +133,22 @@ export default function PlanningHeader({
                 {/* Mobile search row */}
                 {mobileSearchOpen && (
                     <div className="px-3 pb-2 relative">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" strokeWidth={2} />
+                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" strokeWidth={2} />
                         <input
                             type="text"
                             autoFocus
+                            data-search-input
                             value={searchText}
                             onChange={(e) => onSearch(e.target.value)}
-                            placeholder="Rechercher un OF, un client…"
-                            className="w-full h-9 pl-9 pr-9 text-[13px] text-slate-700 placeholder:text-slate-450 bg-slate-100/40 focus:bg-white border border-slate-200/40 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-sm rounded-xl outline-none transition-all duration-300 backdrop-blur-sm"
+                            placeholder={tx(lang,{fr:"Rechercher un OF, un client…",ar:"البحث عن أمر تصنيع، عميل…",en:"Search for a WO, a client…",es:"Buscar OF, cliente…",pt:"Procurar OF, cliente…",tr:"İş emri, müşteri ara…"})}
+                            className="w-full h-9 pl-9 pr-9 text-[13px] text-slate-700 dark:text-slate-200 placeholder:text-slate-450 dark:placeholder:text-slate-500 bg-slate-100/40 dark:bg-slate-800/40 focus:bg-white border border-slate-200/40 dark:border-slate-700/40 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-sm rounded-xl outline-none transition-all duration-300 backdrop-blur-sm"
                         />
                         {searchText && (
                             <button
                                 type="button"
                                 onClick={() => onSearch('')}
-                                className="absolute right-5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700"
-                                aria-label="Effacer"
+                                className="absolute right-5 top-1/2 -translate-y-1/2 p-1 text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text"
+                                aria-label={tx(lang,{fr:"Effacer",ar:"مسح",en:"Clear",es:"Limpiar",pt:"Limpar",tr:"Temizle"})}
                             >
                                 <X className="w-3.5 h-3.5" />
                             </button>
@@ -147,35 +159,35 @@ export default function PlanningHeader({
                 {/* Mobile menu — secondary actions */}
                 {mobileMenuOpen && (
                     <div className="px-3 pb-2 grid grid-cols-3 gap-1.5">
-                        <MobileMenuBtn icon={Sparkles} label="Auto" onClick={() => { setMobileMenuOpen(false); onAutoSchedule(); }} />
+                        <MobileMenuBtn icon={Sparkles} label={tx(lang,{fr:"Auto",ar:"تلقائي",en:"Auto",es:"Auto",pt:"Auto",tr:"Otomatik"})} onClick={() => { setMobileMenuOpen(false); onAutoSchedule(); }} />
                         {onOptimizePlanning && (
-                            <MobileMenuBtn icon={Brain} label="IA" accent="text-purple-600" onClick={() => { setMobileMenuOpen(false); onOptimizePlanning(); }} />
+                            <MobileMenuBtn icon={Brain} label={tx(lang,{fr:"IA",ar:"ذكاء اصطناعي",en:"AI",es:"IA",pt:"IA",tr:"YZ"})} accent="text-purple-600 dark:text-purple-400" onClick={() => { setMobileMenuOpen(false); onOptimizePlanning(); }} />
                         )}
                         {onPrint && (
-                            <MobileMenuBtn icon={Printer} label="Imprimer" onClick={() => { setMobileMenuOpen(false); onPrint(); }} />
+                            <MobileMenuBtn icon={Printer} label={tx(lang,{fr:"Imprimer",ar:"طباعة",en:"Print",es:"Imprimir",pt:"Imprimir",tr:"Yazdır"})} onClick={() => { setMobileMenuOpen(false); onPrint(); }} />
                         )}
                     </div>
                 )}
 
                 {/* ROW 2 — date nav + view switcher */}
-                <div className="px-3 h-11 flex items-center gap-2 border-t border-slate-200/35 overflow-x-auto">
-                    <div className="flex items-center rounded-xl border border-slate-200/50 bg-slate-100/50 p-0.5 backdrop-blur-sm shadow-sm shrink-0">
+                <div className="px-3 h-11 flex items-center gap-2 border-t border-slate-200/35 dark:border-slate-700/50 overflow-x-auto">
+                    <div className="flex items-center rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-800/50 p-0.5 backdrop-blur-sm shadow-sm dark:shadow-dk-sm shrink-0">
                         <button
                             type="button"
                             onClick={() => shift(-1)}
-                            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                            aria-label="Mois précédent"
+                            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                            aria-label={tx(lang,{fr:"Mois précédent",ar:"الشهر السابق",en:"Previous month",es:"Mes anterior",pt:"Mês anterior",tr:"Önceki ay"})}
                         >
                             <ChevronLeft className="w-4 h-4" strokeWidth={2} />
                         </button>
-                        <span className="text-[10px] font-bold text-slate-700 px-1 capitalize tabular-nums min-w-[6.5rem] text-center">
+                        <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 px-1 capitalize tabular-nums min-w-[6.5rem] text-center">
                             {fmtMonthYear(currentDate)}
                         </span>
                         <button
                             type="button"
                             onClick={() => shift(1)}
-                            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                            aria-label="Mois suivant"
+                            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                            aria-label={tx(lang,{fr:"Mois suivant",ar:"الشهر التالي",en:"Next month",es:"Mes siguiente",pt:"Próximo mês",tr:"Sonraki ay"})}
                         >
                             <ChevronRight className="w-4 h-4" strokeWidth={2} />
                         </button>
@@ -183,15 +195,15 @@ export default function PlanningHeader({
                         <button
                             type="button"
                             onClick={onToday}
-                            className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-655 hover:bg-white hover:text-indigo-700 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-655 dark:text-indigo-300 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-700 dark:text-dk-accent-text dark:hover:text-indigo-200 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                         >
-                            Auj.
+                            {tx(lang,{fr:"Auj.",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"})}
                         </button>
                     </div>
 
                     <div className="w-px h-4 bg-slate-200/60 shrink-0" />
 
-                    <Segmented options={VIEW_OPTIONS} value={view} onChange={onView} />
+                    <Segmented options={VIEW_OPTIONS.map(o => ({ ...o, label: tx(lang, VIEW_LABELS[o.id]) }))} value={view} onChange={onView} />
 
                     {view === 'gantt' && (
                         <>
@@ -205,32 +217,33 @@ export default function PlanningHeader({
     }
 
     return (
-        <header className="shrink-0 bg-white/70 border-b border-slate-200/45 backdrop-blur-md sticky top-0 z-40 shadow-sm">
+        <header className="shrink-0 bg-white/70 dark:bg-dk-surface/70 border-b border-slate-200/45 dark:border-dk-border backdrop-blur-md sticky top-0 z-40 shadow-sm dark:shadow-dk-sm">
             {/* ROW 1 — Brand + actions */}
             <div className="px-6 h-14 flex items-center gap-4">
 
                 {/* Title */}
                 <div className="flex items-baseline gap-2 shrink-0">
-                    <h1 className="text-[15px] font-bold text-slate-900 tracking-tight">Planning</h1>
-                    <span className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Production</span>
+                    <h1 className="text-[15px] font-bold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang,{fr:"Planning",ar:"التخطيط",en:"Planning",es:"Planificación",pt:"Planejamento",tr:"Planlama"})}</h1>
+                    <span className="text-[11px] text-slate-400 dark:text-dk-muted font-bold uppercase tracking-wider">{tx(lang,{fr:"Production",ar:"الإنتاج",en:"Production",es:"Producción",pt:"Produção",tr:"Üretim"})}</span>
                 </div>
 
                 {/* Inline stats — minimaliste */}
                 <div className="hidden md:flex items-center gap-1.5 ml-2">
-                    <Stat label="Actifs" value={active} color="bg-slate-400" />
-                    <Stat label="Bloqués" value={blocked} color="bg-red-500" emphasize={blocked > 0} />
-                    <Stat label="Retards" value={late} color="bg-amber-500" emphasize={late > 0} />
+                    <Stat label={tx(lang,{fr:"Actifs",ar:"نشط",en:"Active",es:"Activos",pt:"Ativos",tr:"Aktif"})} value={active} color="bg-slate-400" />
+                    <Stat label={tx(lang,{fr:"Bloqués",ar:"محظور",en:"Blocked",es:"Bloqueados",pt:"Bloqueados",tr:"Engellendi"})} value={blocked} color="bg-red-500" emphasize={blocked > 0} />
+                    <Stat label={tx(lang,{fr:"Retards",ar:"متأخر",en:"Late",es:"Retrasos",pt:"Atrasados",tr:"Gecikmiş"})} value={late} color="bg-amber-500" emphasize={late > 0} />
                 </div>
 
                 {/* Search — flex-grow */}
                 <div className="flex-1 max-w-md mx-auto relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" strokeWidth={2} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" strokeWidth={2} />
                     <input
                         type="text"
+                        data-search-input
                         value={searchText}
                         onChange={(e) => onSearch(e.target.value)}
-                        placeholder="Rechercher un OF, un client…"
-                        className="w-full h-8 pl-9 pr-3 text-[12px] text-slate-700 placeholder:text-slate-450 bg-slate-100/40 hover:bg-slate-100/70 focus:bg-white/85 border border-slate-200/40 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-md rounded-xl outline-none transition-all duration-300 backdrop-blur-sm"
+                        placeholder={tx(lang,{fr:"Rechercher un OF, un client…",ar:"البحث عن أمر تصنيع، عميل…",en:"Search for a WO, a client…",es:"Buscar OF, cliente…",pt:"Procurar OF, cliente…",tr:"İş emri, müşteri ara…"})}
+                        className="w-full h-8 pl-9 pr-3 text-[12px] text-slate-700 dark:text-slate-200 placeholder:text-slate-450 dark:placeholder:text-slate-500 bg-slate-100/40 dark:bg-slate-800/40 hover:bg-slate-100/70 focus:bg-white border border-slate-200/40 dark:border-slate-700/40 focus:border-indigo-500/50 focus:ring-4 focus:ring-indigo-500/10 focus:shadow-md rounded-xl outline-none transition-all duration-300 backdrop-blur-sm"
                     />
                 </div>
 
@@ -239,7 +252,7 @@ export default function PlanningHeader({
                     {onUndo && (
                         <IconButton
                             onClick={onUndo}
-                            title="Annuler (Ctrl+Z)"
+                            title={tx(lang,{fr:"Annuler (Ctrl+Z)",ar:"تراجع (Ctrl+Z)",en:"Undo (Ctrl+Z)",es:"Deshacer (Ctrl+Z)",pt:"Desfazer (Ctrl+Z)",tr:"Geri al (Ctrl+Z)"})}
                             disabled={!canUndo}
                         >
                             <Undo2 className="w-3.5 h-3.5" strokeWidth={2} />
@@ -248,7 +261,7 @@ export default function PlanningHeader({
                     {onRedo && (
                         <IconButton
                             onClick={onRedo}
-                            title="Rétablir (Ctrl+Y)"
+                            title={tx(lang,{fr:"Rétablir (Ctrl+Y)",ar:"إعادة (Ctrl+Y)",en:"Redo (Ctrl+Y)",es:"Rehacer (Ctrl+Y)",pt:"Refazer (Ctrl+Y)",tr:"Yinele (Ctrl+Y)"})}
                             disabled={!canRedo}
                         >
                             <Redo2 className="w-3.5 h-3.5" strokeWidth={2} />
@@ -259,24 +272,24 @@ export default function PlanningHeader({
                     <button
                         type="button"
                         onClick={onToggleFilters}
-                        title="Filtres"
+                        title={tx(lang,{fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}
                         className={`relative inline-flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-[12px] font-bold transition-all duration-200 active:scale-95 border ${
                             filtersOpen || hasActiveFilters
-                                ? 'bg-white text-indigo-650 border-slate-200/50 shadow-sm'
-                                : 'text-slate-500 border-transparent hover:text-slate-850 hover:bg-white/75 hover:border-slate-200/40 hover:shadow-sm'
+                                ? 'bg-white dark:bg-dk-surface text-indigo-650 dark:text-dk-accent-text dark:text-indigo-300 border-slate-200/50 dark:border-dk-border/50 shadow-sm dark:shadow-dk-sm'
+                                : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-850 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700/60 hover:border-slate-200 dark:hover:border-slate-600/40 hover:shadow-sm'
                         }`}
                     >
                         <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={2} />
-                        <span className="hidden lg:inline">Filtres</span>
+                        <span className="hidden lg:inline">{tx(lang,{fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}</span>
                         {activeFilterCount > 0 && (
-                            <span className="min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-indigo-600 text-white text-[9px] font-bold tabular-nums leading-none">
+                            <span className="min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-indigo-600 dark:bg-dk-accent text-white text-[9px] font-bold tabular-nums leading-none">
                                 {activeFilterCount}
                             </span>
                         )}
                     </button>
 
                     {onPrint && (
-                        <IconButton onClick={onPrint} title="Imprimer (Ctrl+P)">
+                        <IconButton onClick={onPrint} title={tx(lang,{fr:"Imprimer (Ctrl+P)",ar:"طباعة (Ctrl+P)",en:"Print (Ctrl+P)",es:"Imprimir (Ctrl+P)",pt:"Imprimir (Ctrl+P)",tr:"Yazdır (Ctrl+P)"})}>
                             <Printer className="w-3.5 h-3.5" strokeWidth={2} />
                         </IconButton>
                     )}
@@ -286,35 +299,35 @@ export default function PlanningHeader({
                     <button
                         type="button"
                         onClick={onAddEvent}
-                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-gradient-to-r from-slate-900 to-indigo-950 hover:from-slate-800 hover:to-indigo-900 text-white text-[12px] font-bold transition-all duration-200 shadow-sm hover:shadow-md active:scale-95"
+                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white text-[12px] font-bold transition-all duration-200 shadow-sm dark:shadow-dk-sm hover:shadow-md active:scale-95"
                     >
                         <Plus className="w-3.5 h-3.5" strokeWidth={2.25} />
-                        Planifier
+                        {tx(lang,{fr:"Nouvel ordre",ar:"أمر جديد",en:"New order",es:"Nuevo pedido",pt:"Novo pedido",tr:"Yeni sipariş"})}
                     </button>
                 </div>
             </div>
 
             {/* ROW 2 — date nav + view switcher */}
-            <div className="px-6 h-10.5 flex items-center gap-3 border-t border-slate-200/35">
+            <div className="px-6 h-10.5 flex items-center gap-3 border-t border-slate-200/35 dark:border-slate-700/50">
 
                 {/* Date navigation */}
-                <div className="flex items-center rounded-xl border border-slate-200/50 bg-slate-100/50 p-0.5 backdrop-blur-sm shadow-sm shrink-0">
+                <div className="flex items-center rounded-xl border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-800/50 p-0.5 backdrop-blur-sm shadow-sm dark:shadow-dk-sm shrink-0">
                     <button
                         type="button"
                         onClick={() => shift(-1)}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                        aria-label="Mois précédent"
+                        className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                        aria-label={tx(lang,{fr:"Mois précédent",ar:"الشهر السابق",en:"Previous month",es:"Mes anterior",pt:"Mês anterior",tr:"Önceki ay"})}
                     >
                         <ChevronLeft className="w-3.5 h-3.5" strokeWidth={2} />
                     </button>
-                    <span className="text-[10px] font-bold text-slate-700 px-2 min-w-[7rem] text-center capitalize tabular-nums">
+                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200 px-2 min-w-[7rem] text-center capitalize tabular-nums">
                         {fmtMonthYear(currentDate)}
                     </span>
                     <button
                         type="button"
                         onClick={() => shift(1)}
-                        className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
-                        aria-label="Mois suivant"
+                        className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-slate-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                        aria-label={tx(lang,{fr:"Mois suivant",ar:"الشهر التالي",en:"Next month",es:"Mes siguiente",pt:"Próximo mês",tr:"Sonraki ay"})}
                     >
                         <ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />
                     </button>
@@ -322,16 +335,16 @@ export default function PlanningHeader({
                     <button
                         type="button"
                         onClick={onToday}
-                        className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-650 hover:bg-white hover:text-indigo-700 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                        className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-650 dark:text-dk-accent-text dark:text-indigo-300 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-700 dark:text-dk-accent-text dark:hover:text-indigo-200 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                     >
-                        Aujourd'hui
+                        {tx(lang,{fr:"Aujourd'hui",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"})}
                     </button>
                 </div>
 
                 <div className="w-px h-4 bg-slate-200/60" />
 
                 {/* View switcher — segmented */}
-                <Segmented options={VIEW_OPTIONS} value={view} onChange={onView} />
+                <Segmented options={VIEW_OPTIONS.map(o => ({ ...o, label: tx(lang, VIEW_LABELS[o.id]) }))} value={view} onChange={onView} />
 
                 {view === 'gantt' && (
                     <>
@@ -348,7 +361,7 @@ function StatDotInline({ value, color }: { value: number; color: string }) {
     return (
         <span className="inline-flex items-center gap-1">
             <span className={`w-1.5 h-1.5 rounded-full ${color} animate-pulse`} />
-            <span className="text-[11px] font-bold tabular-nums text-slate-750">{value}</span>
+            <span className="text-[11px] font-bold tabular-nums text-slate-750 dark:text-dk-text-soft">{value}</span>
         </span>
     );
 }
@@ -360,7 +373,7 @@ function MobileMenuBtn({
         <button
             type="button"
             onClick={onClick}
-            className="inline-flex flex-col items-center justify-center gap-1 h-14 rounded-xl bg-slate-100/50 hover:bg-white text-slate-700 border border-slate-200/40 shadow-sm transition-all duration-200 active:scale-95"
+            className="inline-flex flex-col items-center justify-center gap-1 h-14 rounded-xl bg-slate-100/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/40 dark:border-slate-700/40 shadow-sm dark:shadow-dk-sm transition-all duration-200 active:scale-95"
         >
             <Icon className={`w-4 h-4 ${accent || ''}`} strokeWidth={2} />
             <span className="text-[10px] font-bold">{label}</span>
@@ -372,10 +385,10 @@ function MobileMenuBtn({
 
 function Stat({ label, value, color, emphasize }: { label: string; value: number; color: string; emphasize?: boolean }) {
     return (
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100/50 border border-slate-200/10 backdrop-blur-sm shadow-[0_1px_2px_rgba(0,0,0,0.01)] text-[11px] font-medium text-slate-650">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100/50 dark:bg-dk-elevated/50 border border-slate-200/10 dark:border-dk-border/30 backdrop-blur-sm shadow-[0_1px_2px_rgba(0,0,0,0.01)] text-[11px] font-medium text-slate-650 dark:text-dk-text-soft">
             <span className={`w-1.5 h-1.5 rounded-full ${color} ${emphasize && value > 0 ? 'animate-pulse' : ''}`} />
-            <span className="text-[11px] text-slate-500 font-bold">{label}</span>
-            <span className={`text-[11px] font-extrabold tabular-nums ${emphasize && value > 0 ? 'text-slate-900' : 'text-slate-700'}`}>
+            <span className="text-[11px] text-slate-500 dark:text-dk-muted font-bold">{label}</span>
+            <span className={`text-[11px] font-extrabold tabular-nums ${emphasize && value > 0 ? 'text-slate-900 dark:text-dk-text' : 'text-slate-700 dark:text-dk-muted'}`}>
                 {value}
             </span>
         </div>
@@ -393,10 +406,10 @@ function IconButton({
             disabled={disabled}
             className={`relative w-8 h-8 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-95 border border-transparent ${
                 disabled
-                    ? 'text-slate-300 cursor-not-allowed opacity-50'
+                    ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-50'
                     : active
-                        ? 'bg-white text-indigo-650 border-slate-200/50 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-850 hover:bg-white/75 hover:border-slate-200/40 hover:shadow-sm'
+                        ? 'bg-white dark:bg-dk-surface text-indigo-650 dark:text-dk-accent-text dark:text-indigo-300 border-slate-200/50 dark:border-dk-border/50 shadow-sm dark:shadow-dk-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-850 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700/60 hover:border-slate-200 dark:hover:border-slate-600/40 hover:shadow-sm'
             }`}
         >
             {children}
@@ -408,7 +421,7 @@ function Segmented<T extends string>({
     options, value, onChange,
 }: { options: { id: T; label: string }[]; value: T; onChange: (v: T) => void }) {
     return (
-        <div className="inline-flex p-0.5 bg-slate-100/50 border border-slate-200/50 rounded-xl backdrop-blur-sm shadow-sm">
+        <div className="inline-flex p-0.5 bg-slate-100/50 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50 rounded-xl backdrop-blur-sm shadow-sm dark:shadow-dk-sm">
             {options.map(({ id, label }) => (
                 <button
                     key={id}
@@ -416,8 +429,8 @@ function Segmented<T extends string>({
                     onClick={() => onChange(id)}
                     className={`px-3 h-6 text-[10px] font-bold rounded-lg transition-all duration-205 active:scale-95 ${
                         value === id
-                            ? 'bg-white text-indigo-650 shadow-[0_2px_6px_rgba(99,102,241,0.12)] ring-1 ring-slate-200/30'
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-white/40'
+                            ? 'bg-white dark:bg-dk-surface text-indigo-650 dark:text-dk-accent-text dark:text-indigo-300 shadow-[0_2px_6px_rgba(99,102,241,0.12)] dark:shadow-dk-sm ring-1 ring-slate-200/30 dark:ring-dk-border/40'
+                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white dark:hover:bg-slate-700/40'
                     }`}
                 >
                     {label}

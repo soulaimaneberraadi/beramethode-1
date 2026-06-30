@@ -31,34 +31,43 @@ db.exec(`
   )
 `);
 
-// Default guest (password: guest2024) — not admin; promote admins via DB or a seeded account.
-const GUEST_PASSWORD_HASH =
-  '$2b$10$GcezDlouVCyPOWHj3UHnf.tNKX8HjlcUA7yO33Tb1aAvkmMUwzGna';
 try {
+  db.exec("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'");
+} catch (e) {
+  // column already exists
+}
+
+// Impersonation / BERA MASTER audit table (security & compliance).
+// IMPORTANT : table SÉPARÉE de `system_audit_logs` (défini plus bas, schéma
+// "AI-ready" : table_name/record_id/old_data...). Les deux portaient le même
+// nom → sur une DB NEUVE, ce CREATE gagnait puis l'index `idx_audit_table` sur
+// `table_name` (colonne absente de ce schéma) plantait l'init → Setup wizard
+// cassé. Renommé en `impersonation_audit_logs` pour lever la collision.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS impersonation_audit_logs (
+    id TEXT PRIMARY KEY,
+    actor TEXT NOT NULL,
+    target_user_id INTEGER,
+    action TEXT NOT NULL,
+    details TEXT,
+    via_impersonation INTEGER DEFAULT 0,
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// Default guest account — created only if it doesn't exist.
+// ⚠️ SECURITY: Password is NOT forced/reset on startup to prevent overriding admin changes.
+try {
+  const GUEST_PASSWORD_HASH =
+    '$2b$10$GcezDlouVCyPOWHj3UHnf.tNKX8HjlcUA7yO33Tb1aAvkmMUwzGna';
   db.prepare(
     `INSERT OR IGNORE INTO users (id, email, password, name, role) VALUES (1, 'guest@local', ?, 'Guest', 'user')`
   ).run(GUEST_PASSWORD_HASH);
-  db.prepare(`UPDATE users SET role = 'user' WHERE email = 'guest@local'`).run();
-  // Legacy DBs had a wrong bcrypt for guest2024; align password without touching custom guests.
-  const legacyBrokenGuest =
-    '$2b$10$Hy3NBUoxXyUym1dtrms.sus.Lb5CnxM6kOXJzn17qawn.5oCixj2K';
-  db.prepare(
-    `UPDATE users SET password = ? WHERE email = 'guest@local' AND password = ?`
-  ).run(GUEST_PASSWORD_HASH, legacyBrokenGuest);
+  // Ensure guest is never admin (safety net)
+  db.prepare(`UPDATE users SET role = 'user' WHERE email = 'guest@local' AND role = 'admin'`).run();
 } catch (e) {}
-
-// Any DB where guest@local exists but password ≠ guest2024 (manual edits, old seeds, wrong cwd DB)
-try {
-  const row = db
-    .prepare(`SELECT password FROM users WHERE LOWER(TRIM(email)) = 'guest@local'`)
-    .get() as { password: string } | undefined;
-  if (row?.password && !bcrypt.compareSync('guest2024', row.password)) {
-    db.prepare(`UPDATE users SET password = ? WHERE LOWER(TRIM(email)) = 'guest@local'`).run(GUEST_PASSWORD_HASH);
-    console.warn('[beramethode db] guest@local password was not guest2024; synchronized on startup.');
-  }
-} catch (e) {
-  /* ignore */
-}
 
 // Create models table
 db.exec(`
@@ -797,26 +806,9 @@ db.exec(`
   )
 `);
 
-// Insert default lines if empty
-try {
-  const lineCount = db.prepare('SELECT COUNT(*) as count FROM production_lines').get() as { count: number };
-  if (lineCount.count === 0) {
-    db.prepare("INSERT INTO production_lines (name, status, progress, efficiency, model, operator, alert, alertMsg) VALUES ('CHAINE A', 'prod', 78, 94, 'POLO M/C', 12, 0, '')").run();
-    db.prepare("INSERT INTO production_lines (name, status, progress, efficiency, model, operator, alert, alertMsg) VALUES ('CHAINE B', 'prod', 45, 88, 'VESTE SLIM', 18, 1, 'Rupture Fil')").run();
-    db.prepare("INSERT INTO production_lines (name, status, progress, efficiency, model, operator, alert, alertMsg) VALUES ('CHAINE C', 'prod', 92, 97, 'CHEMISE CL', 10, 0, '')").run();
-    db.prepare("INSERT INTO production_lines (name, status, progress, efficiency, model, operator, alert, alertMsg) VALUES ('CHAINE D', 'stop', 0, 0, '---', 0, 0, '')").run();
-    db.prepare("INSERT INTO production_lines (name, status, progress, efficiency, model, operator, alert, alertMsg) VALUES ('CHAINE E', 'setup', 15, 55, 'JUPE MIDI', 8, 0, '')").run();
-    db.prepare("INSERT INTO production_lines (name, status, progress, efficiency, model, operator, alert, alertMsg) VALUES ('CHAINE F', 'prod', 62, 91, 'VESTE JEAN', 15, 0, '')").run();
-    
-    // Seed some daily data
-    db.prepare("INSERT INTO production_daily (date, name, output, target, efficiency) VALUES ('2026-04-06', 'Lun', 400, 500, 80)").run();
-    db.prepare("INSERT INTO production_daily (date, name, output, target, efficiency) VALUES ('2026-04-07', 'Mar', 520, 500, 104)").run();
-    db.prepare("INSERT INTO production_daily (date, name, output, target, efficiency) VALUES ('2026-04-08', 'Mer', 480, 500, 96)").run();
-    db.prepare("INSERT INTO production_daily (date, name, output, target, efficiency) VALUES ('2026-04-09', 'Jeu', 610, 500, 122)").run();
-    db.prepare("INSERT INTO production_daily (date, name, output, target, efficiency) VALUES ('2026-04-10', 'Ven', 550, 500, 110)").run();
-    db.prepare("INSERT INTO production_daily (date, name, output, target, efficiency) VALUES ('2026-04-11', 'Sam', 300, 400, 75)").run();
-  }
-} catch(e) {}
+// NB : les lignes/journalières de démo SuiviLive sont désormais amorcées PAR
+// WORKSPACE à la demande (productionController.seedDemoLines / getProductionDaily),
+// et non plus en global ici — sinon elles seraient partagées entre tous les workspaces.
 
 // CREATE SUBCONTRACT ORDERS TABLE
 db.exec(`
@@ -847,6 +839,18 @@ db.exec(`
     defectRateAccepted REAL DEFAULT 1.5,
     stitchingDetails TEXT,
     specifications_json TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subcontractor_groups (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    group_name TEXT NOT NULL,
+    subcontractor_names TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
@@ -1046,6 +1050,12 @@ db.exec(`
   END;
 `);
 
+// Colonnes pour l'audit applicatif (authController, middleware, etc.)
+// Ajoutées via ALTER pour compatibilité avec la base existante.
+try { db.exec("ALTER TABLE system_audit_logs ADD COLUMN user_id INTEGER REFERENCES users(id)"); } catch { /* colonne déjà présente */ }
+try { db.exec("ALTER TABLE system_audit_logs ADD COLUMN detail TEXT"); } catch { /* colonne déjà présente */ }
+try { db.exec("ALTER TABLE system_audit_logs ADD COLUMN ip TEXT"); } catch { /* colonne déjà présente */ }
+
 // ============================================================================
 // PHASE: FACTURATION (Achat, Vente, Devis, BL)
 // ============================================================================
@@ -1118,6 +1128,59 @@ db.exec(`
   
   CREATE INDEX IF NOT EXISTS idx_factures_owner ON factures(owner_id);
   CREATE INDEX IF NOT EXISTS idx_factures_type ON factures(type);
+`);
+
+// ============================================================================
+// NEW INVOICE SYSTEM (modular, module-source-aware)
+// ============================================================================
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS invoices (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    numero TEXT NOT NULL UNIQUE,
+    type TEXT NOT NULL,                  -- VENTE | ACHAT | PRODUCTION | TRANSFERT
+    source_module TEXT NOT NULL,          -- MODE | ATEL | MAGA | COUP | STRA | MODEL
+    source_id TEXT,                       -- optional FK to the source record
+
+    tiers_nom TEXT,
+    tiers_ice TEXT,
+    tiers_adresse TEXT,
+    tiers_tel TEXT,
+    tiers_email TEXT,
+
+    date_invoice TEXT NOT NULL,
+    date_echeance TEXT,
+
+    total_ht REAL NOT NULL DEFAULT 0,
+    taux_tva REAL DEFAULT 0,
+    total_tva REAL DEFAULT 0,
+    total_ttc REAL NOT NULL DEFAULT 0,
+
+    statut TEXT DEFAULT 'BROUILLON',     -- BROUILLON | VALIDEE | ANNULEE
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS invoice_lines (
+    id TEXT PRIMARY KEY,
+    invoice_id TEXT NOT NULL,
+    product_id TEXT,
+    designation TEXT NOT NULL,
+    quantite REAL NOT NULL DEFAULT 1,
+    prix_unitaire REAL NOT NULL DEFAULT 0,
+    total REAL NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_invoices_owner ON invoices(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_invoices_type ON invoices(type);
+  CREATE INDEX IF NOT EXISTS idx_invoices_source ON invoices(source_module);
+  CREATE INDEX IF NOT EXISTS idx_invoice_lines_invoice ON invoice_lines(invoice_id);
+  CREATE INDEX IF NOT EXISTS idx_invoice_lines_product ON invoice_lines(product_id);
 `);
 
 // ============================================================================
@@ -1529,6 +1592,130 @@ for (const tbl of auditScopedTables) {
   }
 }
 
+// ════════════════════════════════════════════════════════════════════════════════
+// DESKTOP FOUNDATION — Paramètres société + Rapports de crash (Phase 1)
+// ════════════════════════════════════════════════════════════════════════════════
+
+// Paramètres de la société (singleton id=1, créé lors du Setup)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS company_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    name TEXT,
+    logo TEXT,
+    specialty TEXT,
+    setup_complete INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// Migrations company_settings : type de compte choisi à l'onboarding + méta JSON
+// (région client, spécialisation personnel). DEFAULT 'societe' => compat ascendante.
+try { db.exec("ALTER TABLE company_settings ADD COLUMN account_type TEXT DEFAULT 'societe'"); } catch { /* colonne déjà présente */ }
+try { db.exec('ALTER TABLE company_settings ADD COLUMN profile_meta TEXT'); } catch { /* colonne déjà présente */ }
+
+// ════════════════════════════════════════════════════════════════════════════════
+// MULTI-WORKSPACE — un même compte (humain) peut gérer plusieurs sociétés isolées.
+// owner_id reste l'UNIQUE clé de cloisonnement des données (déjà appliquée par tous
+// les controllers + verify-tenancy). Un « workspace » = un owner_id. Chaque workspace
+// est ancré par une ligne `users` non-connectable (mot de passe verrouillé), et le
+// compte humain y adhère via `company_members` (qui autorise déjà N owner_id par user).
+// active_owner_id sur `users` = workspace actif choisi par le compte humain.
+// ════════════════════════════════════════════════════════════════════════════════
+db.exec(`
+  CREATE TABLE IF NOT EXISTS workspaces (
+    owner_id INTEGER PRIMARY KEY,        -- = clé de cloisonnement (id de l'ancre)
+    account_user_id INTEGER NOT NULL,    -- compte humain qui gère ce workspace
+    name TEXT NOT NULL,
+    logo TEXT,
+    specialty TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (account_user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_workspaces_account ON workspaces(account_user_id);
+`);
+// account_type par workspace (société/client/personnel) → gating des modules par
+// workspace actif, au lieu du singleton company_settings(id=1) global.
+try { db.exec("ALTER TABLE workspaces ADD COLUMN account_type TEXT DEFAULT 'societe'"); } catch { /* colonne déjà présente */ }
+// Workspace actif par compte (NULL => fallback historique : 1ʳᵉ adhésion = comportement inchangé).
+try { db.exec('ALTER TABLE users ADD COLUMN active_owner_id INTEGER'); } catch { /* colonne déjà présente */ }
+// Ancre non-connectable : marque les lignes `users` créées comme support d'un workspace.
+try { db.exec('ALTER TABLE users ADD COLUMN is_workspace_anchor INTEGER DEFAULT 0'); } catch { /* colonne déjà présente */ }
+
+// Backfill idempotent : chaque société existante (patron = membre de sa propre
+// société, owner_id === user_id) devient un workspace nommé d'après company_settings.
+try {
+  const primaryRow = db.prepare('SELECT name, account_type FROM company_settings WHERE id = 1').get() as { name?: string; account_type?: string } | undefined;
+  const primaryName = primaryRow?.name || 'Workspace 1';
+  const primaryAccountType = primaryRow?.account_type || 'societe';
+  const patrons = db
+    .prepare(`SELECT owner_id, user_id FROM company_members WHERE owner_id = user_id AND status = 'active'`)
+    .all() as { owner_id: number; user_id: number }[];
+  const insWs = db.prepare(
+    `INSERT OR IGNORE INTO workspaces (owner_id, account_user_id, name, account_type) VALUES (?, ?, ?, ?)`
+  );
+  const setActive = db.prepare('UPDATE users SET active_owner_id = ? WHERE id = ? AND active_owner_id IS NULL');
+  // Aligne l'account_type du workspace primaire sur le singleton (idempotent).
+  const syncType = db.prepare("UPDATE workspaces SET account_type = ? WHERE owner_id = ? AND (account_type IS NULL OR account_type = 'societe')");
+  for (const p of patrons) {
+    insWs.run(p.owner_id, p.user_id, primaryName, primaryAccountType);
+    setActive.run(p.owner_id, p.user_id);
+    syncType.run(primaryAccountType, p.owner_id);
+  }
+} catch (e) { console.error('[db] workspaces backfill error:', e); }
+
+// Cloisonnement des modèles par workspace : la table `models` n'avait que
+// `user_id` (le compte humain) => les modèles étaient partagés entre TOUS les
+// workspaces du même compte. On ajoute `owner_id` (= workspace) et on rétro-remplit
+// owner_id = user_id (le workspace primaire a owner_id === user_id), ce qui rattache
+// proprement les modèles existants au workspace d'origine.
+try { db.exec('ALTER TABLE models ADD COLUMN owner_id INTEGER'); } catch { /* colonne déjà présente */ }
+try { db.exec('UPDATE models SET owner_id = user_id WHERE owner_id IS NULL'); } catch (e) { console.error('[db] models owner_id backfill error:', e); }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_models_owner ON models(owner_id)'); } catch { /* ignore */ }
+
+// Cloisonnement par workspace des données SuiviLive (démo) : production_lines /
+// production_daily étaient globales (partagées entre tous les workspaces). On ajoute
+// owner_id ; les lignes existantes (seed démo) sont rattachées au workspace primaire
+// (plus petit owner_id). Le controller réamorce des lignes démo par workspace au besoin.
+try { db.exec('ALTER TABLE production_lines ADD COLUMN owner_id INTEGER'); } catch { /* déjà présente */ }
+try { db.exec('ALTER TABLE production_daily ADD COLUMN owner_id INTEGER'); } catch { /* déjà présente */ }
+try {
+  const primaryOwner = (db.prepare('SELECT MIN(owner_id) AS o FROM workspaces').get() as { o?: number } | undefined)?.o;
+  if (primaryOwner) {
+    db.prepare('UPDATE production_lines SET owner_id = ? WHERE owner_id IS NULL').run(primaryOwner);
+    db.prepare('UPDATE production_daily SET owner_id = ? WHERE owner_id IS NULL').run(primaryOwner);
+  }
+} catch (e) { console.error('[db] production_* owner_id backfill error:', e); }
+
+// Rapports de crash envoyés par le frontend (Error Boundary ou window.onerror)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS crash_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message TEXT,
+    stack TEXT,
+    component_stack TEXT,
+    url TEXT,
+    user_agent TEXT,
+    user_id INTEGER,
+    resolved INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// Table sync_outbox pour la synchronisation locale-first
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sync_outbox (
+    id TEXT PRIMARY KEY,
+    table_name TEXT NOT NULL,
+    record_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    payload TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status TEXT DEFAULT 'pending'
+  )
+`);
+
 export default db;
+
 
 

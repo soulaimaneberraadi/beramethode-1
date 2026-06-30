@@ -1,6 +1,8 @@
 import React from 'react';
 import { Lock } from 'lucide-react';
 import { usePermissions } from '../../src/context/PermissionsContext';
+import { tx } from '../../lib/i18n';
+import { useLang } from '../../src/context/LanguageContext';
 
 /**
  * Masque intelligent d'un champ sensible (Epic 2 — gating champ).
@@ -19,10 +21,11 @@ export default function SensitiveValue({
   children: React.ReactNode;
   placeholder?: React.ReactNode;
 }) {
+  const { lang } = useLang();
   const { canField } = usePermissions();
   if (canField(field, 'view')) return <>{children}</>;
   return (
-    <span className="inline-flex items-center gap-1 text-slate-400" title="Information masquée selon vos permissions">
+    <span className="inline-flex items-center gap-1 text-slate-400 dark:text-dk-muted" title={tx(lang, { fr: 'Information masquée selon vos permissions', ar: 'معلومات مخفية حسب صلاحياتك' })}>
       <Lock size={12} strokeWidth={1.75} />
       {placeholder ?? '•••'}
     </span>

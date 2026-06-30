@@ -17,7 +17,11 @@ export function getJwtSecret(): string {
 export const SECRET_KEY = getJwtSecret();
 export const JWT_SECRET = SECRET_KEY;
 
-/** Secure cookies when explicitly requested or in production. */
+/**
+ * Secure cookies when explicitly requested or in production.
+ * Production fallback ensures cookies are never sent over plain HTTP,
+ * preventing session hijacking via network sniffing.
+ */
 export function isCookieSecure(): boolean {
   if (process.env.COOKIE_SECURE === 'true') return true;
   if (process.env.COOKIE_SECURE === 'false') return false;

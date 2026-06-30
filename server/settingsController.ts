@@ -4,7 +4,8 @@ import db from './db';
 // Get all settings or specific groups (scoped to authenticated owner)
 export const getSettings = (req: Request, res: Response) => {
     try {
-        const ownerId = (req as any).user?.id;
+        // Cloisonnement par workspace : société active (companyId), repli user.id.
+        const ownerId = (req as any).companyId ?? (req as any).user?.id;
         if (ownerId == null) {
             return res.status(401).json({ message: 'Authentication required' });
         }
@@ -29,7 +30,7 @@ export const getSettings = (req: Request, res: Response) => {
 // Save multiple settings at once
 export const saveSettings = (req: Request, res: Response) => {
     const payload = req.body; // Expects { key: value, ... }
-    const owner_id = (req as any).user?.id;
+    const owner_id = (req as any).companyId ?? (req as any).user?.id;
     if (owner_id == null) {
         return res.status(401).json({ message: 'Authentication required' });
     }

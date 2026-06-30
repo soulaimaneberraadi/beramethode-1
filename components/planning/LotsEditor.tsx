@@ -2,6 +2,8 @@ import React, { useMemo, useState, useEffect } from 'react';
 import type { Lot, ModelData, AppSettings } from '../../types';
 import DateTimePicker from '../ui/DateTimePicker';
 import { newLotId, splitLotsFromModelGrid, totalLotsQty } from '../../utils/lots';
+import { tx } from '../../lib/i18n';
+import { useLang } from '../../src/context/LanguageContext';
 
 export interface LotsEditorProps {
     lots: Lot[];
@@ -13,6 +15,7 @@ export interface LotsEditorProps {
 }
 
 export default function LotsEditor({ lots, onChange, settings, defaultDeadline, model, orderQty }: LotsEditorProps) {
+    const { lang } = useLang();
     const [local, setLocal] = useState<Lot[]>(() => (lots.length ? lots.map(l => ({ ...l })) : []));
 
     useEffect(() => {
@@ -47,34 +50,34 @@ export default function LotsEditor({ lots, onChange, settings, defaultDeadline, 
     return (
         <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                <span className="font-bold text-slate-600">
+                <span className="font-bold text-slate-600 dark:text-dk-text-soft">
                     Σ lots : <span className="text-[#2149C1]">{sum}</span> / objectif {orderQty}
                 </span>
                 <div className="flex gap-2">
-                    <button type="button" onClick={proposeFromGrid} className="rounded-lg border border-slate-200 px-2 py-1 font-bold text-slate-700 hover:bg-slate-50">
+                    <button type="button" onClick={proposeFromGrid} className="rounded-lg border border-slate-200 dark:border-dk-border px-2 py-1 font-bold text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60">
                         Grille modèle
                     </button>
-                    <button type="button" onClick={addRow} className="rounded-lg bg-slate-100 px-2 py-1 font-bold text-slate-800 hover:bg-slate-200">
+                    <button type="button" onClick={addRow} className="rounded-lg bg-slate-100 dark:bg-dk-elevated px-2 py-1 font-bold text-slate-800 dark:text-dk-text hover:bg-slate-200">
                         + Lot
                     </button>
                 </div>
             </div>
-            <div className="max-h-52 overflow-y-auto space-y-2 rounded-xl border border-slate-200 p-2">
+            <div className="max-h-52 overflow-y-auto space-y-2 rounded-xl border border-slate-200 dark:border-dk-border p-2">
                 {local.length === 0 ? (
-                    <p className="text-center text-xs text-slate-500 py-4">Aucun lot — utilisez « Grille modèle » ou « + Lot ».</p>
+                    <p className="text-center text-xs text-slate-500 dark:text-dk-muted py-4">Aucun lot — utilisez « Grille modèle » ou « + Lot ».</p>
                 ) : (
                     local.map(l => (
                         <div key={l.id} className="grid grid-cols-[1fr_1fr_72px_auto] gap-2 items-end text-[11px]">
                             <div>
-                                <label className="text-[9px] font-black uppercase text-slate-400">Taille</label>
-                                <input className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 font-semibold" value={l.taille} onChange={e => update(l.id, { taille: e.target.value })} />
+                                <label className="text-[9px] font-black uppercase text-slate-400 dark:text-dk-muted">{tx(lang, {fr: 'Taille', ar: 'القياس', en: 'Size', es: 'Talla', pt: 'Tamanho', tr: 'Beden'})}</label>
+                                <input className="mt-0.5 w-full rounded-lg border border-slate-200 dark:border-dk-border px-2 py-1 font-semibold" value={l.taille} onChange={e => update(l.id, { taille: e.target.value })} />
                             </div>
                             <div>
-                                <label className="text-[9px] font-black uppercase text-slate-400">Qté</label>
+                                <label className="text-[9px] font-black uppercase text-slate-400 dark:text-dk-muted">{tx(lang, {fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Miktar'})}</label>
                                 <input
                                     type="number"
                                     min={0}
-                                    className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 font-semibold"
+                                    className="mt-0.5 w-full rounded-lg border border-slate-200 dark:border-dk-border px-2 py-1 font-semibold"
                                     value={l.quantite}
                                     onChange={e => update(l.id, { quantite: parseInt(e.target.value, 10) || 0 })}
                                 />
@@ -86,10 +89,10 @@ export default function LotsEditor({ lots, onChange, settings, defaultDeadline, 
                                     mode="date"
                                     settings={settings}
                                     label="DDS lot"
-                                    inputClassName="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-left text-[11px] font-semibold"
+                                    inputClassName="mt-0.5 w-full rounded-lg border border-slate-200 dark:border-dk-border px-2 py-1 text-left text-[11px] font-semibold"
                                 />
                             </div>
-                            <button type="button" onClick={() => remove(l.id)} className="rounded-lg border border-red-100 px-2 py-1 text-red-500 hover:bg-red-50">
+                            <button type="button" onClick={() => remove(l.id)} className="rounded-lg border border-red-100 dark:border-red-800/30 px-2 py-1 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30">
                                 ×
                             </button>
                         </div>

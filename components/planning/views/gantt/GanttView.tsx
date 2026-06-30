@@ -12,6 +12,8 @@ import { evQty, evStartYmd, evEndYmd } from '../../shared/eventAccessors';
 import EmptyState from '../../shared/EmptyState';
 import { useIsMobile } from '../../shared/useIsMobile';
 import { Layers, SearchX } from 'lucide-react';
+import { tx } from '../../../../lib/i18n';
+import { useLang } from '../../../../src/context/LanguageContext';
 
 import { ZOOM_MIN, ZOOM_MAX } from '../../header/ZoomSwitcher';
 
@@ -57,6 +59,7 @@ export default function GanttView({
     machines = [],
 }: Props) {
     const isMobile = useIsMobile();
+    const { lang } = useLang();
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const rowHeight = isMobile ? (density === 'compact' ? 44 : 64) : (density === 'compact' ? 48 : 80);
     const SIDEBAR_W_FULL = isMobile ? SIDEBAR_W_MOBILE : SIDEBAR_W_DESKTOP;
@@ -171,6 +174,15 @@ export default function GanttView({
         return diff * dayWidth + SIDEBAR_W + dayWidth / 2;
     }, [dates, dayWidth]);
 
+    const currentDateOffset = useMemo(() => {
+        const first = dates[0];
+        if (!first) return 0;
+        const origin = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 12, 0, 0, 0);
+        const target = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1, 12, 0, 0, 0);
+        const diff = (target.getTime() - origin.getTime()) / 86400000;
+        return diff * dayWidth + SIDEBAR_W;
+    }, [dates, dayWidth, currentDate]);
+
     // Sync todayOffset into ref for the scroll handler
     useEffect(() => {
         todayOffsetRef.current = todayOffset;
@@ -238,6 +250,27 @@ export default function GanttView({
         el.scrollTo({ left: Math.max(0, todayOffset - el.clientWidth / 3), behavior: 'smooth' });
     }, [pulseToday, todayOffset]);
 
+    const isMountedRef = useRef(false);
+    const prevMonthYearRef = useRef('');
+
+    // Scroll to selected month when currentDate changes
+    useEffect(() => {
+        const currentKey = `${currentDate.getFullYear()}-${currentDate.getMonth()}`;
+        if (prevMonthYearRef.current === currentKey) {
+            return;
+        }
+        prevMonthYearRef.current = currentKey;
+
+        if (!isMountedRef.current) {
+            isMountedRef.current = true;
+            return;
+        }
+
+        const el = scrollRef.current;
+        if (!el) return;
+        el.scrollTo({ left: Math.max(0, currentDateOffset), behavior: 'smooth' });
+    }, [currentDate, currentDateOffset]);
+
     const handleDrop = useCallback((chaineId: string, dateKey: string) => {
         if (!dragging) return;
         onMoveEvent(dragging, chaineId, dateKey);
@@ -303,41 +336,41 @@ export default function GanttView({
             return (
                 <EmptyState
                     icon={Layers}
-                    title="Aucun ordre planifié"
-                    description="Commencez par planifier votre premier ordre de fabrication ou utilisez la planification automatique."
-                    action={onAddEvent ? { label: 'Planifier un ordre', onClick: onAddEvent } : undefined}
+                    title={tx(lang, {fr: 'Aucun ordre planifié', ar: 'لا يوجد أمر مخطط', en: 'No planned orders', es: 'Sin órdenes planificadas', pt: 'Nenhuma ordem planejada', tr: 'Planlanmış sipariş yok'})}
+                    description={tx(lang, {fr: 'Commencez par planifier votre premier ordre de fabrication ou utilisez la planification automatique.', ar: 'ابدأ بتخطيط أول أمر تصنيع خاص بك أو استخدم التخطيط التلقائي.', en: 'Start by planning your first manufacturing order or use automatic planning.', es: 'Comience planificando su primera orden de fabricación o use la planificación automática.', pt: 'Comece planejando sua primeira ordem de fabricação ou use o planejamento automático.', tr: 'İlk üretim siparişinizi planlayarak başlayın veya otomatik planlamayı kullanın.'})}
+                    action={onAddEvent ? { label: tx(lang, {fr: 'Planifier un ordre', ar: 'تخطيط أمر', en: 'Plan an order', es: 'Planificar una orden', pt: 'Planejar uma ordem', tr: 'Sipariş planla'}), onClick: onAddEvent } : undefined}
                 />
             );
         }
         return (
             <EmptyState
                 icon={SearchX}
-                title="Aucun résultat"
-                description="Aucun OF ne correspond aux filtres actuels. Essayez d'élargir vos critères."
-                action={onResetFilters ? { label: 'Effacer les filtres', onClick: onResetFilters } : undefined}
+                title={tx(lang, {fr: 'Aucun résultat', ar: 'لا توجد نتائج', en: 'No results', es: 'Sin resultados', pt: 'Nenhum resultado', tr: 'Sonuç yok'})}
+                description={tx(lang, {fr: "Aucun OF ne correspond aux filtres actuels. Essayez d'élargir vos critères.", ar: 'لا يتوافق أي أمر تصنيع مع عوامل التصفية الحالية. حاول توسيع معاييرك.', en: 'No MO matches the current filters. Try widening your criteria.', es: 'Ninguna OF coincide con los filtros actuales. Intente ampliar sus criterios.', pt: 'Nenhuma OF corresponde aos filtros atuais. Tente ampliar seus critérios.', tr: 'Hiçbir ÜS mevcut filtrelerle eşleşmiyor. Kriterlerinizi genişletmeyi deneyin.'})}
+                action={onResetFilters ? { label: tx(lang, {fr: 'Effacer les filtres', ar: 'مسح المرشحات', en: 'Clear filters', es: 'Borrar filtros', pt: 'Limpar filtros', tr: 'Filtreleri temizle'}), onClick: onResetFilters } : undefined}
             />
         );
     }
 
     return (
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <div ref={scrollRef} className="flex-1 overflow-auto bg-white relative">
+        <div ref={scrollRef} className="flex-1 overflow-auto bg-white dark:bg-dk-bg relative">
             <div style={{ minWidth: SIDEBAR_W + dates.length * dayWidth }}>
                 {/* Header timeline */}
                 <div className="flex">
-                    <div className="shrink-0 sticky left-0 z-[31] bg-white border-r border-slate-100 relative" style={{ width: SIDEBAR_W }}>
-                        <div className="h-[64px] flex items-center justify-between border-b border-slate-100 overflow-hidden">
+                    <div className="shrink-0 sticky left-0 z-[31] bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border relative" style={{ width: SIDEBAR_W }}>
+                        <div className="h-[64px] flex items-center justify-between border-b border-slate-100 dark:border-dk-border overflow-hidden">
                             {!sidebarCollapsed && (
-                                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider px-3 whitespace-nowrap">
-                                    Chaînes · {chains.length}
+                                <span className="text-[10px] font-medium text-slate-400 dark:text-dk-muted uppercase tracking-wider px-3 whitespace-nowrap">
+                                    {tx(lang, {fr: 'Chaînes · ', ar: 'السلاسل · ', en: 'Chains · ', es: 'Cadenas · ', pt: 'Cadeias · ', tr: 'Zincirler · '})}{chains.length}
                                 </span>
                             )}
                             {/* Toggle button - integrated in header */}
                             <button
                                 type="button"
                                 onClick={() => setSidebarCollapsed(v => !v)}
-                                title={sidebarCollapsed ? 'Afficher les chaînes' : 'Réduire la colonne'}
-                                className={`w-5 h-5 ${sidebarCollapsed ? 'mx-auto' : 'mr-1.5'} text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded transition-all flex items-center justify-center text-[12px] font-bold`}
+                                title={sidebarCollapsed ? tx(lang, {fr: 'Afficher les chaînes', ar: 'إظهار السلاسل', en: 'Show chains', es: 'Mostrar cadenas', pt: 'Mostrar cadeias', tr: 'Zincirleri göster'}) : tx(lang, {fr: 'Réduire la colonne', ar: 'طي العمود', en: 'Collapse column', es: 'Colapsar columna', pt: 'Recolher coluna', tr: 'Sütunu daralt'})}
+                                className={`w-5 h-5 ${sidebarCollapsed ? 'mx-auto' : 'mr-1.5'} text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-dk-elevated/60 rounded transition-all flex items-center justify-center text-[12px] font-bold`}
                             >
                                 {sidebarCollapsed ? '›' : '‹'}
                             </button>
@@ -408,8 +441,8 @@ export default function GanttView({
                 if (el) el.scrollTo({ left: Math.max(0, todayOffset - el.clientWidth / 3), behavior: 'smooth' });
             }}
             style={{ opacity: 0, transition: 'opacity 0.15s' }}
-            className="absolute top-1/2 -translate-y-1/2 left-2 z-[35] flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg hover:bg-red-600 cursor-pointer"
-            aria-label="Aujourd'hui est à gauche"
+            className="absolute top-1/2 -translate-y-1/2 left-2 z-[35] flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 dark:bg-red-700 text-white dark:text-dk-text text-[10px] font-bold uppercase tracking-wider shadow-lg hover:bg-red-600 dark:hover:bg-red-600 cursor-pointer"
+            aria-label={tx(lang, {fr: "Aujourd'hui est à gauche", ar: 'اليوم على اليسار', en: 'Today is to the left', es: 'Hoy está a la izquierda', pt: 'Hoje está à esquerda', tr: 'Bugün solda'})}
         >
             <span className="text-[14px] rotate-180">›</span>
         </button>
@@ -421,8 +454,8 @@ export default function GanttView({
                 if (el) el.scrollTo({ left: Math.max(0, todayOffset - el.clientWidth / 3), behavior: 'smooth' });
             }}
             style={{ opacity: 0, transition: 'opacity 0.15s' }}
-            className="absolute top-1/2 -translate-y-1/2 right-2 z-[35] flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg hover:bg-red-600 cursor-pointer"
-            aria-label="Aujourd'hui est à droite"
+            className="absolute top-1/2 -translate-y-1/2 right-2 z-[35] flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 dark:bg-red-700 text-white dark:text-dk-text text-[10px] font-bold uppercase tracking-wider shadow-lg hover:bg-red-600 dark:hover:bg-red-600 cursor-pointer"
+            aria-label={tx(lang, {fr: "Aujourd'hui est à droite", ar: 'اليوم على اليمين', en: 'Today is to the right', es: 'Hoy está a la derecha', pt: 'Hoje está à direita', tr: 'Bugün sağda'})}
         >
             <span className="text-[14px]">›</span>
         </button>

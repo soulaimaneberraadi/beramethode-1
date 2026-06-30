@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import type { ModelData, PlanningEvent, AppSettings } from '../../../types';
 import { getClientColor } from '../shared/clientColors';
 import { ChevronDown, Package, Zap, CheckCircle2, AlertCircle, AlertTriangle, Clock, Calendar, Search, X, ExternalLink } from 'lucide-react';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 import { addWorkingDaysFromLaunchIso, planningLocalDateKey } from '../../../utils/planning';
 
 function getModelThumb(m: ModelData): string | null {
@@ -152,12 +154,13 @@ function formatTime(seconds: number): string {
 }
 
 export default function ModelSelector({
-    models, value, onChange, label = 'Modèle',
+    models, value, onChange, label = '',
     planningEvents = [], chainEfficiency = 0.85,
     quantity = 0, strictDeadline, startDate,
     workingHoursPerDay = 8, onOpenInIngenierie,
     settings, chainId,
 }: Props) {
+    const { lang } = useLang();
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [sortBy, setSortBy] = useState<'default' | 'name-asc' | 'name-desc' | 'sam-asc' | 'sam-desc' | 'client' | 'pcs-desc'>('default');
@@ -263,57 +266,57 @@ export default function ModelSelector({
 
     return (
         <div ref={containerRef} className="relative">
-            <label className="block text-[11px] font-medium text-slate-600 mb-1.5">{label}</label>
+            <label className="block text-[11px] font-medium text-slate-600 dark:text-dk-muted mb-1.5">{label || tx(lang, {fr:'Modèle',ar:'نموذج',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}</label>
 
             {/* Trigger */}
             <button
                 type="button"
                 onClick={() => setOpen(v => !v)}
-                className="w-full h-11 px-3 flex items-center gap-3 bg-white border border-slate-200 rounded-lg hover:border-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-left"
+                className="w-full h-11 px-3 flex items-center gap-3 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg hover:border-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-left"
             >
                 {selected ? (
                     <>
                         {selectedThumb ? (
-                            <img src={selectedThumb} alt="" className="w-8 h-8 rounded-md object-cover border border-slate-200 shrink-0" />
+                            <img src={selectedThumb} alt="" className="w-8 h-8 rounded-md object-cover border border-slate-200 dark:border-dk-border shrink-0" />
                         ) : (
                             <div className="w-8 h-8 rounded-md flex items-center justify-center text-[11px] font-bold text-white shrink-0" style={{ background: selectedColor }}>
                                 {(selected.ficheData?.client || '?')[0].toUpperCase()}
                             </div>
                         )}
                         <div className="flex-1 min-w-0">
-                            <div className="text-[13px] font-medium text-slate-900 truncate leading-tight">
+                            <div className="text-[13px] font-medium text-slate-900 dark:text-dk-text truncate leading-tight">
                                 {selected.meta_data?.nom_modele || selected.id}
                             </div>
-                            <div className="text-[10px] text-slate-500 truncate">
+                            <div className="text-[10px] text-slate-500 dark:text-dk-muted truncate">
                                 {selected.ficheData?.client || '—'}
                             </div>
                         </div>
                     </>
                 ) : (
-                    <span className="text-[13px] text-slate-400 flex-1">— Choisir un modèle —</span>
+                    <span className="text-[13px] text-slate-400 dark:text-dk-muted flex-1">— Choisir un modèle —</span>
                 )}
-                <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
             </button>
 
             {/* Dropdown */}
             {open && (
-                <div className="absolute z-50 mt-1.5 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
-                    <div className="p-2 border-b border-slate-100 bg-slate-50/60 flex items-center gap-2">
+                <div className="absolute z-50 mt-1.5 w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg overflow-hidden">
+                    <div className="p-2 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 flex items-center gap-2">
                         <div className="flex-1 relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />
                             <input
                                 type="text"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Rechercher…"
-                                className="w-full h-8 pl-8 pr-7 text-[12px] bg-white border border-slate-200 rounded-md outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+                                className="w-full h-8 pl-8 pr-7 text-[12px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
                                 autoFocus
                             />
                             {search && (
                                 <button
                                     type="button"
                                     onClick={() => setSearch('')}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 dark:text-dk-muted hover:text-slate-700"
                                     aria-label="Effacer"
                                 >
                                     <X className="w-3.5 h-3.5" />
@@ -324,8 +327,8 @@ export default function ModelSelector({
                             <button
                                 type="button"
                                 onClick={() => setShowSortMenu(v => !v)}
-                                className="px-2.5 py-1.5 h-8 flex items-center gap-1.5 bg-white border border-slate-200 rounded-md hover:border-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-[11px] font-medium text-slate-600 whitespace-nowrap shrink-0"
-                                title="Trier les modèles"
+                                className="px-2.5 py-1.5 h-8 flex items-center gap-1.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md hover:border-slate-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none transition-all text-[11px] font-medium text-slate-600 dark:text-dk-muted whitespace-nowrap shrink-0"
+                                title={tx(lang, {fr:'Trier les modèles',ar:'ترتيب النماذج',en:'Sort models',es:'Ordenar modelos',pt:'Ordenar modelos',tr:'Modelleri sırala'})}
                             >
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -333,12 +336,12 @@ export default function ModelSelector({
                                 Trier
                             </button>
                             {showSortMenu && (
-                                <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-md overflow-hidden z-50 w-48">
+                                <div className="absolute top-full right-0 mt-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg shadow-md overflow-hidden z-50 w-48">
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('default'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
-                                            sortBy === 'default' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'default' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'default' && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -347,8 +350,8 @@ export default function ModelSelector({
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('name-asc'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
-                                            sortBy === 'name-asc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'name-asc' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'name-asc' && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -357,19 +360,19 @@ export default function ModelSelector({
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('name-desc'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
-                                            sortBy === 'name-desc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'name-desc' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'name-desc' && <CheckCircle2 className="w-3.5 h-3.5" />}
                                         Nom (Z-A)
                                     </button>
-                                    <div className="border-t border-slate-100" />
+                                    <div className="border-t border-slate-100 dark:border-dk-border" />
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('sam-asc'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
-                                            sortBy === 'sam-asc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'sam-asc' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'sam-asc' && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -378,8 +381,8 @@ export default function ModelSelector({
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('sam-desc'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
-                                            sortBy === 'sam-desc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'sam-desc' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'sam-desc' && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -388,19 +391,19 @@ export default function ModelSelector({
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('pcs-desc'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
-                                            sortBy === 'pcs-desc' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'pcs-desc' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'pcs-desc' && <CheckCircle2 className="w-3.5 h-3.5" />}
                                         Productivité (↓)
                                     </button>
-                                    <div className="border-t border-slate-100" />
+                                    <div className="border-t border-slate-100 dark:border-dk-border" />
                                     <button
                                         type="button"
                                         onClick={() => { setSortBy('client'); setShowSortMenu(false); }}
-                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 transition-colors flex items-center gap-2 ${
-                                            sortBy === 'client' ? 'bg-indigo-50 text-indigo-700 font-medium' : ''
+                                        className={`w-full px-3 py-2 text-left text-[12px] hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center gap-2 ${
+                                            sortBy === 'client' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text font-medium' : ''
                                         }`}
                                     >
                                         {sortBy === 'client' && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -413,7 +416,7 @@ export default function ModelSelector({
 
                     <div className="overflow-y-auto" style={{ maxHeight: 320 }}>
                         {filtered.length === 0 ? (
-                            <div className="px-4 py-10 text-center text-[12px] text-slate-400">
+                            <div className="px-4 py-10 text-center text-[12px] text-slate-400 dark:text-dk-muted">
                                 <Package className="w-7 h-7 mx-auto mb-2 opacity-30" />
                                 Aucun modèle trouvé
                             </div>
@@ -427,22 +430,22 @@ export default function ModelSelector({
                                         key={m.id}
                                         type="button"
                                         onClick={() => handleSelect(m.id)}
-                                        className={`w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-slate-50 transition-colors ${
-                                            isSelected ? 'bg-indigo-50/70' : ''
+                                        className={`w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${
+                                            isSelected ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/70' : ''
                                         }`}
                                     >
                                         {mThumb ? (
-                                            <img src={mThumb} alt="" className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0" />
+                                            <img src={mThumb} alt="" className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-dk-border shrink-0" />
                                         ) : (
                                             <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: mColor }}>
                                                 {(m.ficheData?.client || '?')[0].toUpperCase()}
                                             </div>
                                         )}
                                         <div className="flex-1 min-w-0">
-                                            <div className="text-[12px] font-medium text-slate-900 truncate">
+                                            <div className="text-[12px] font-medium text-slate-900 dark:text-dk-text truncate">
                                                 {m.meta_data?.nom_modele || m.id}
                                             </div>
-                                            <div className="text-[10px] text-slate-500 truncate">
+                                            <div className="text-[10px] text-slate-500 dark:text-dk-muted truncate">
                                                 {m.ficheData?.client || '—'}
                                                 {m.meta_data?.reference && ` · ${m.meta_data.reference}`}
                                             </div>
@@ -455,9 +458,9 @@ export default function ModelSelector({
                                         {onOpenInIngenierie && (
                                             <div
                                                 role="button"
-                                                title="Ouvrir dans Ingénierie"
+                                                title={tx(lang, {fr:'Ouvrir dans Ingénierie',ar:'فتح في الهندسة',en:'Open in Engineering',es:'Abrir en Ingeniería',pt:'Abrir na Engenharia',tr:'Mühendislikte aç'})}
                                                 onClick={(e) => { e.stopPropagation(); onOpenInIngenierie(m.id); }}
-                                                className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors shrink-0"
+                                                className="w-6 h-6 flex items-center justify-center rounded text-slate-400 dark:text-dk-muted hover:text-emerald-600 hover:bg-emerald-50 transition-colors shrink-0"
                                             >
                                                 <ExternalLink className="w-3.5 h-3.5" />
                                             </div>
@@ -472,9 +475,9 @@ export default function ModelSelector({
 
             {/* Inline detail panel — appears only when a model is selected */}
             {selected && metrics && (
-                <div className="mt-3 rounded-xl border border-slate-200 bg-white overflow-hidden">
+                <div className="mt-3 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface overflow-hidden">
                     {/* Production stat bar (FicheTechnique style) */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-slate-100">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-slate-100 dark:bg-dk-elevated">
                         <StatCell label="BF (s)" value={metrics.bfSeconds.toFixed(1)} accent="emerald" hint="Bottleneck" />
                         <StatCell label="Min Tot." value={String(metrics.minTotal)} accent="emerald" hint={`${workingHoursPerDay}h/j`} />
                         <StatCell label="P/H" value={String(metrics.pcsPerHourEff)} accent="indigo" hint={`100% : ${metrics.pcsPerHour}`} />
@@ -483,15 +486,15 @@ export default function ModelSelector({
 
                     {/* Temps breakdown + SAM */}
                     {metrics.samSeconds > 0 && (
-                        <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-4 text-[11px]">
-                            <div className="flex items-center gap-1.5 text-slate-500">
+                        <div className="px-4 py-3 border-t border-slate-100 dark:border-dk-border flex items-center justify-between gap-4 text-[11px]">
+                            <div className="flex items-center gap-1.5 text-slate-500 dark:text-dk-muted">
                                 <Clock className="w-3.5 h-3.5" />
-                                <span className="uppercase tracking-wider font-medium">Temps</span>
+                                <span className="uppercase tracking-wider font-medium">{tx(lang, {fr: 'Temps', ar: 'الوقت', en: 'Time', es: 'Tiempo', pt: 'Tempo', tr: 'Süre'})}</span>
                             </div>
                             <div className="flex items-center gap-4 tabular-nums">
-                                <span className="text-slate-600">Assemblage <span className="font-semibold text-slate-900">{formatTime(metrics.assemblageSec)}</span></span>
-                                <span className="text-slate-600">Finition <span className="font-semibold text-slate-900">{formatTime(metrics.finitionSec)}</span></span>
-                                <span className="text-slate-700 font-medium">SAM <span className="font-bold text-slate-900">{metrics.samFormatted}</span></span>
+                                <span className="text-slate-600 dark:text-dk-muted">{tx(lang, {fr: 'Assemblage', ar: 'التجميع', en: 'Assembly', es: 'Ensamblaje', pt: 'Montagem', tr: 'Montaj'})} <span className="font-semibold text-slate-900 dark:text-dk-text">{formatTime(metrics.assemblageSec)}</span></span>
+                                <span className="text-slate-600 dark:text-dk-muted">{tx(lang, {fr: 'Finition', ar: 'التشطيب', en: 'Finishing', es: 'Acabado', pt: 'Acabamento', tr: 'Bitirme'})} <span className="font-semibold text-slate-900 dark:text-dk-text">{formatTime(metrics.finitionSec)}</span></span>
+                                <span className="text-slate-700 dark:text-dk-text-soft font-medium">SAM <span className="font-bold text-slate-900 dark:text-dk-text">{metrics.samFormatted}</span></span>
                             </div>
                         </div>
                     )}
@@ -501,7 +504,7 @@ export default function ModelSelector({
                         <PredictionRow prediction={prediction} quantity={quantity} pcsPerDay={metrics.pcsPerDay} />
                     )}
                     {!prediction && quantity > 0 && metrics.samSeconds <= 0 && (
-                        <div className="px-4 py-3 border-t border-slate-100 text-[11px] text-amber-700 bg-amber-50/40 flex items-center gap-2">
+                        <div className="px-4 py-3 border-t border-slate-100 dark:border-dk-border text-[11px] text-amber-700 bg-amber-50 dark:bg-amber-900/40 flex items-center gap-2">
                             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                             SAM non défini sur ce modèle — impossible de calculer la date de fin.
                         </div>
@@ -516,9 +519,9 @@ function StatCell({
     label, value, accent, hint,
 }: { label: string; value: string; accent: 'indigo' | 'emerald'; hint?: string }) {
     const cls = accent === 'indigo'
-        ? 'bg-indigo-50/40 text-indigo-700'
-        : 'bg-emerald-50/40 text-emerald-700';
-    const hintCls = accent === 'indigo' ? 'text-indigo-500/80' : 'text-emerald-600/80';
+        ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/40 text-indigo-700 dark:text-dk-accent-text'
+        : 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700';
+    const hintCls = accent === 'indigo' ? 'text-indigo-500/80' : 'text-emerald-600 dark:text-emerald-400/80';
     return (
         <div className={`px-3 py-2.5 ${cls}`}>
             <div className={`text-[9px] font-bold uppercase tracking-wider ${hintCls}`}>{label}</div>
@@ -531,16 +534,17 @@ function StatCell({
 function PredictionRow({
     prediction, quantity, pcsPerDay,
 }: { prediction: Prediction; quantity: number; pcsPerDay: number }) {
+    const { lang } = useLang();
     const { daysNeeded, finishDate, status, diffDays } = prediction;
     const config = {
-        on_time: { cls: 'bg-emerald-50/60 text-emerald-700 border-emerald-200', icon: CheckCircle2, label: 'Dans les délais' },
-        at_risk: { cls: 'bg-amber-50/60 text-amber-700 border-amber-200', icon: AlertCircle, label: 'Risque de retard' },
-        late: { cls: 'bg-red-50/60 text-red-700 border-red-200', icon: AlertTriangle, label: 'En retard' },
-        unknown: { cls: 'bg-slate-50 text-slate-700 border-slate-200', icon: Calendar, label: 'Prévision' },
+        on_time: { cls: 'bg-emerald-50 dark:bg-emerald-900/60 text-emerald-700 border-emerald-200', icon: CheckCircle2, label: tx(lang, {fr:'Dans les délais',ar:'في الموعد',en:'On time',es:'A tiempo',pt:'No prazo',tr:'Zamanında'}) },
+        at_risk: { cls: 'bg-amber-50 dark:bg-amber-900/60 text-amber-700 border-amber-200', icon: AlertCircle, label: 'Risque de retard' },
+        late: { cls: 'bg-red-50 dark:bg-red-900/60 text-red-700 border-red-200', icon: AlertTriangle, label: 'En retard' },
+        unknown: { cls: 'bg-slate-50 dark:bg-dk-bg text-slate-700 dark:text-dk-text-soft border-slate-200 dark:border-dk-border', icon: Calendar, label: tx(lang, {fr:'Prévision',ar:'توقع',en:'Forecast',es:'Previsión',pt:'Previsão',tr:'Tahmin'}) },
     }[status];
     const Icon = config.icon;
     return (
-        <div className={`px-4 py-3 border-t border-slate-100 ${config.cls}`}>
+        <div className={`px-4 py-3 border-t border-slate-100 dark:border-dk-border ${config.cls}`}>
             <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider">
                     <Icon className="w-3.5 h-3.5" />

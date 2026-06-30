@@ -20,6 +20,10 @@ const LEVEL_STYLE: Record<string, string> = {
   maintenance: 'bg-rose-600',
 };
 
+// جدول announcements قد لا يكون موجوداً على مشروع Supabase الحالي (الجسر المؤقّت).
+// نتجنّب الطلب — وبالتالي أخطاء 404 في الـ console — إلا إذا فُعّل صراحةً.
+const ANNOUNCEMENTS_ENABLED = import.meta.env.VITE_ANNOUNCEMENTS_ENABLED === 'true';
+
 const AnnouncementBar: React.FC = () => {
   const [items, setItems] = useState<Announcement[]>([]);
   const [dismissed, setDismissed] = useState<Set<string>>(() => {
@@ -28,6 +32,7 @@ const AnnouncementBar: React.FC = () => {
   });
 
   useEffect(() => {
+    if (!ANNOUNCEMENTS_ENABLED) return;
     let mounted = true;
     const load = async () => {
       try {
@@ -57,7 +62,7 @@ const AnnouncementBar: React.FC = () => {
   return (
     <div className="w-full">
       {visible.map((a) => (
-        <div key={a.id} className={`${LEVEL_STYLE[a.level] || 'bg-slate-700'} text-white text-sm px-4 py-2 flex items-center justify-between gap-3`}>
+        <div key={a.id} className={`${LEVEL_STYLE[a.level] || 'bg-slate-700 dark:bg-slate-800'} text-white text-sm px-4 py-2 flex items-center justify-between gap-3`}>
           <span className="flex-1">{a.message}</span>
           <button onClick={() => dismiss(a.id)} className="opacity-80 hover:opacity-100 text-xs px-2">✕</button>
         </div>

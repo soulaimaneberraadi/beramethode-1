@@ -4,6 +4,8 @@ import App from './App';
 import { AuthProvider } from './src/context/AuthContext';
 import { LicenseProvider } from './src/context/LicenseContext';
 import { PermissionsProvider } from './src/context/PermissionsContext';
+import { ThemeProvider } from './src/context/ThemeContext';
+import { LanguageProvider } from './src/context/LanguageContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ClickToComponent } from 'click-to-react-component';
 import { installApiShim } from './src/lib/apiShim';
@@ -21,6 +23,15 @@ if (import.meta.env.VITE_STATIC_MODE === 'true') {
   console.log(`%cBERAMETHODE ${APP_VERSION} (static + Supabase sync)`, 'color:#10b981;font-weight:bold');
 }
 
+// Register service worker for offline support (production only)
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Service worker registration failed — app works anyway
+    });
+  });
+}
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");
@@ -32,8 +43,12 @@ root.render(
     <AuthProvider>
       <LicenseProvider>
         <PermissionsProvider>
-          <App />
-          <ClickToComponent />
+          <ThemeProvider>
+            <LanguageProvider>
+              <App />
+              <ClickToComponent />
+            </LanguageProvider>
+          </ThemeProvider>
         </PermissionsProvider>
       </LicenseProvider>
     </AuthProvider>

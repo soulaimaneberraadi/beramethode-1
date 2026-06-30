@@ -6,6 +6,7 @@ import {
     MACHINE_FLEET_HISTORY_KEY,
     MANUAL_LINKS_BY_MODEL_KEY,
 } from './constants';
+import { lsGet, lsSet, lsRemove } from '../lib/storageKeys';
 
 const LEGACY_BUNDLED_MACHINE_ROW: Record<string, { name: string; classe: string }> = {
     '1': { name: 'Surjeteuse 5 Fils', classe: '516' },
@@ -58,7 +59,7 @@ export function mergeServerFleetWithPendingLocal(server: Machine[], local: Machi
 
 export const loadMachinesFromStorage = (): Machine[] => {
     try {
-        const raw = localStorage.getItem(MACHINES_STORAGE_KEY);
+        const raw = lsGet(MACHINES_STORAGE_KEY) ?? localStorage.getItem(MACHINES_STORAGE_KEY);
         if (!raw) return DEFAULT_MACHINES;
         const parsed = JSON.parse(raw) as Machine[];
         if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_MACHINES;
@@ -67,10 +68,10 @@ export const loadMachinesFromStorage = (): Machine[] => {
             const kept = parsed.filter(m => !isDemoMachineName(m.name));
             try {
                 if (kept.length === 0) {
-                    localStorage.removeItem(MACHINES_STORAGE_KEY);
-                    localStorage.removeItem(MACHINE_INSTANCES_KEY);
+                    lsRemove(MACHINES_STORAGE_KEY);
+                    lsRemove(MACHINE_INSTANCES_KEY);
                 } else {
-                    localStorage.setItem(MACHINES_STORAGE_KEY, JSON.stringify(kept));
+                    lsSet(MACHINES_STORAGE_KEY, JSON.stringify(kept));
                 }
             } catch {
                 /* ignore */
@@ -85,7 +86,7 @@ export const loadMachinesFromStorage = (): Machine[] => {
 
 export const loadMachineFleetHistoryFromStorage = (): MachineFleetHistoryEntry[] => {
     try {
-        const raw = localStorage.getItem(MACHINE_FLEET_HISTORY_KEY);
+        const raw = lsGet(MACHINE_FLEET_HISTORY_KEY) ?? localStorage.getItem(MACHINE_FLEET_HISTORY_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw) as MachineFleetHistoryEntry[];
         return Array.isArray(parsed) ? parsed : [];

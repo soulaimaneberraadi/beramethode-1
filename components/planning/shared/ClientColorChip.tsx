@@ -12,7 +12,7 @@ export default function ClientColorChip({ client, size = 'sm', showName = true }
     const dim = size === 'xs' ? 6 : size === 'sm' ? 8 : 10;
     const font = size === 'xs' ? 'text-[9px]' : size === 'sm' ? 'text-[10px]' : 'text-xs';
     return (
-        <span className={`inline-flex items-center gap-1.5 ${font} font-medium text-slate-700`}>
+        <span className={`inline-flex items-center gap-1.5 ${font} font-medium text-slate-700 dark:text-dk-text-soft`}>
             <span
                 className="rounded-full shrink-0"
                 style={{ width: dim, height: dim, background: color }}

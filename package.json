@@ -2,7 +2,7 @@
   "name": "dashboard-proto",
   "version": "1.0.0",
   "description": "Minimal Node.js dashboard prototype",
-  "main": "server.js",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "dev:app": "tsx server.ts",
@@ -10,7 +10,10 @@
     "build:static": "vite build --mode static",
     "preview": "vite preview",
     "start": "npx tsx server.ts",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "electron:dev": "concurrently --kill-others-on-fail --names \"SERVER,ELECTRON\" \"npm run dev:app\" \"electron .\"",
+    "electron:build:win": "node scripts/native-electron.mjs && tsup && vite build --mode electron && electron-builder --win",
+    "electron:rebuild": "electron-rebuild -f -w better-sqlite3"
   },
   "dependencies": {
     "@google/genai": "^1.52.0",
@@ -39,9 +42,49 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "tsup": "^8.3.5",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-updater": "^6.3.9",
+    "@electron/rebuild": "^3.7.1",
+    "concurrently": "^9.1.2"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "build": {
+    "appId": "com.beramethode.app",
+    "productName": "BERAMETHODE",
+    "npmRebuild": false,
+    "asar": true,
+    "asarUnpack": [
+      "**/better-sqlite3/**",
+      "**/node_modules/better-sqlite3/**"
+    ],
+    "files": [
+      "dist/**",
+      "dist-server/**",
+      "electron/**"
+    ],
+    "directories": {
+      "output": "C:/Users/HP/3D Objects/beramethode exe"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BERAMETHODE"
+    }
   }
 }

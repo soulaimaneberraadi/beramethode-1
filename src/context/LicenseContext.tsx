@@ -19,6 +19,8 @@ interface LicenseCtx {
   /** سقف عدد العمال (0 = غير محدّد). */
   maxWorkers: number;
   refresh: () => Promise<void>;
+  /** تفعيل الترخيص بمفتاح BERA-XXXX-XXXX-XXXX. يُرجع الحالة الناتجة. */
+  activate: (keyCode: string) => Promise<LicenseState>;
 }
 
 const Ctx = createContext<LicenseCtx | undefined>(undefined);
@@ -27,7 +29,7 @@ const Ctx = createContext<LicenseCtx | undefined>(undefined);
 const ALL_MODULES = [
   'dashboard', 'ingenierie', 'atelierProd', 'library', 'coupe',
   'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement', 'magasin', 'export',
-  'facturation', 'config', 'pageMachine', 'machin', 'objectifs', 'sousTraitance',
+  'facturation', 'config', 'pageMachine', 'machin', 'catalogTemps', 'objectifs', 'sousTraitance',
   'admin', 'profil', 'atelier',
 ];
 
@@ -39,7 +41,28 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!user?.email) return;
     const state = await verifyLicense({ email: user.email });
     setLicense(state);
+    if (state.ok) {
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bera_license: state }),
+      }).catch(err => console.error('Failed to sync license settings to backend:', err));
+    }
   }, [user?.email]);
+
+  // تفعيل صريح بمفتاح الترخيص (من شاشة الإعدادات). يحفظ الحالة ويزامنها للخادم.
+  const activate = useCallback(async (keyCode: string): Promise<LicenseState> => {
+    const state = await verifyLicense({ keyCode });
+    setLicense(state);
+    if (state.ok) {
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bera_license: state }),
+      }).catch(err => console.error('Failed to sync license settings to backend:', err));
+    }
+    return state;
+  }, []);
 
   useEffect(() => {
     // تحقق عند الدخول وعند عودة الاتصال.
@@ -58,7 +81,7 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const maxWorkers = enforced ? license.max_workers : 0;
 
   return (
-    <Ctx.Provider value={{ license, enforced, readOnly, hiddenModules, maxWorkers, refresh }}>
+    <Ctx.Provider value={{ license, enforced, readOnly, hiddenModules, maxWorkers, refresh, activate }}>
       {children}
     </Ctx.Provider>
   );
@@ -72,6 +95,7 @@ export const useLicense = (): LicenseCtx => {
       license: getCachedLicense(),
       enforced: false, readOnly: false, hiddenModules: [], maxWorkers: 0,
       refresh: async () => {},
+      activate: async (keyCode: string) => verifyLicense({ keyCode }),
     };
   }
   return ctx;

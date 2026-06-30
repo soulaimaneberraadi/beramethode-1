@@ -62,6 +62,14 @@ function withinOfflineGrace(verifiedAt: string | null): boolean {
  * المرتبط بالمفتاح) أو رمز المفتاح مباشرة عند التفعيل اليدوي.
  */
 export async function verifyLicense(opts: { email?: string; keyCode?: string }): Promise<LicenseState> {
+  // إذا كان الإنفاذ مُطفأ ولا يوجد تفعيل صريح بمفتاح، نتجنّب استدعاء الـ Edge
+  // Function (قد تكون غير منشورة على مشروع Supabase الحالي) → لا أخطاء 404/CORS
+  // في الـ console. التفعيل اليدوي بمفتاح (keyCode) يبقى يستدعيها دائماً.
+  if (!LICENSE_ENFORCED && !opts.keyCode) {
+    const cached = readCache();
+    if (cached && withinOfflineGrace(cached.verified_at)) return { ...cached, source: 'cache' };
+    return EMPTY;
+  }
   try {
     const { data, error } = await supabase.functions.invoke('verify-license', {
       body: opts.keyCode ? { key_code: opts.keyCode } : { email: opts.email },

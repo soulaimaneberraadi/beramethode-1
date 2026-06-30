@@ -10,26 +10,28 @@ import { getClientColor } from '../shared/clientColors';
 import { getModelColor } from '../shared/modelColors';
 import { useIsMobile } from '../shared/useIsMobile';
 import { calculateRollingEndDate } from '../../../utils/planning';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
-const getExtendedStatusMeta = (status: string | undefined) => {
+const getExtendedStatusMeta = (status: string | undefined, lang: string) => {
     if (status === 'EXTERNAL_PROCESS') {
         return {
             label: 'Proc. Externe',
             dot: 'bg-amber-500',
             text: 'text-amber-700',
-            bg: 'bg-amber-50',
+            bg: 'bg-amber-50 dark:bg-amber-900/30',
             border: 'border-amber-200/50',
-            softBg: 'bg-amber-50/60',
+            softBg: 'bg-amber-50 dark:bg-amber-900/60',
         };
     }
     if (status === 'BLOCKED_STOCK') {
         return {
-            label: 'Bloqué stock',
+            label: tx(lang, {fr:'Bloqué stock',ar:'مخزون محجوب',en:'Blocked stock',es:'Stock bloqueado',pt:'Stock bloqueado',tr:'Bloke stok'}),
             dot: 'bg-red-500',
             text: 'text-red-700',
-            bg: 'bg-red-50',
+            bg: 'bg-red-50 dark:bg-red-900/30',
             border: 'border-red-200',
-            softBg: 'bg-red-50/60',
+            softBg: 'bg-red-50 dark:bg-red-900/60',
         };
     }
     const ws = toWorkStatus(status);
@@ -78,6 +80,7 @@ export default function EventDetailPanel({
     settings, stockProducts, stockLots, onReloadStock, onApplyWorstSupplierDate, onAppendDraftPurchaseOrders,
     onUpdateEvent,
 }: Props) {
+    const { lang } = useLang();
     const [tab, setTab] = React.useState<'details' | 'activity' | 'notes' | 'materials'>('details');
     const [quickAddOpen, setQuickAddOpen] = React.useState(false);
     const [quickAddVal, setQuickAddVal] = React.useState<number>(0);
@@ -135,16 +138,16 @@ export default function EventDetailPanel({
         rollingEndYmd = calculateRollingEndDate(event, sam, eff, settings).split('T')[0];
     }
     const ddsYmd = evDeadlineYmd(event);
-    const wsMeta = getExtendedStatusMeta(event.status);
+    const wsMeta = getExtendedStatusMeta(event.status, lang);
     const delay = delayOf(event);
     const delayMeta = DELAY_META[delay];
     const daysToDDS = ddsYmd ? daysBetween(todayYmd(), ddsYmd) : null;
     const isMobile = useIsMobile();
     const containerCls = isMobile
-        ? `fixed inset-x-0 bottom-0 z-40 bg-white/80 border-t border-white/20 backdrop-blur-md shadow-[0_-12px_40px_rgba(15,23,42,0.18)] flex flex-col ${
+        ? `fixed inset-x-0 bottom-0 z-40 bg-white/80 dark:bg-dk-surface/80 border-t border-white/20 backdrop-blur-md shadow-[0_-12px_40px_rgba(15,23,42,0.18)] flex flex-col ${
             isExpanded ? 'top-0 rounded-none' : 'top-12 rounded-t-3xl animate-[planning-slide-in-up_220ms_ease-out]'
           }`
-        : 'relative shrink-0 bg-white/70 border-l border-white/20 backdrop-blur-md flex flex-col animate-[planning-slide-in-right_180ms_ease-out] shadow-[-10px_0_40px_rgba(0,0,0,0.04)] z-20';
+        : 'relative shrink-0 bg-white/70 dark:bg-dk-surface/70 border-l border-white/20 backdrop-blur-md flex flex-col animate-[planning-slide-in-right_180ms_ease-out] shadow-[-10px_0_40px_rgba(0,0,0,0.04)] z-20';
     const containerStyle = isMobile
         ? { transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined, transition: dragging ? 'none' : SHEET_EASE }
         : { width };
@@ -167,9 +170,9 @@ export default function EventDetailPanel({
             items.push({
                 date: startYmd,
                 icon: Calendar,
-                label: "Création de l'OF",
+                label: tx(lang, { fr: 'Création de l\'OF', ar: 'إنشاء أمر التصنيع', en: 'Creation of WO', es: 'Creación de la OF', pt: 'Criação da OF', tr: 'İş emri oluşturma' }),
                 time: fmtLong(startYmd),
-                description: `${qty} pcs sur ${chainName || event.chaineId}`,
+                description: `${qty} pcs ${tx(lang, { fr: 'sur', ar: 'على', en: 'on', es: 'en', pt: 'em', tr: 'üzerinde' })} ${chainName || event.chaineId}`,
             });
         }
 
@@ -179,7 +182,7 @@ export default function EventDetailPanel({
             items.push({
                 date: fYmd,
                 icon: Truck,
-                label: "Réception matières prévue",
+                label: tx(lang, { fr: 'Réception matières prévue', ar: 'استلام المواد المتوقع', en: 'Expected material receipt', es: 'Recepción de materiales prevista', pt: 'Receção de materiais prevista', tr: 'Beklenen malzeme teslimi' }),
                 time: fmtLong(fYmd),
             });
         }
@@ -189,7 +192,7 @@ export default function EventDetailPanel({
             items.push({
                 date: ddsYmd,
                 icon: AlertTriangle,
-                label: "DDS (deadline client)",
+                label: tx(lang, { fr: 'DDS (deadline client)', ar: 'DDS (الموعد النهائي للعميل)', en: 'DDS (client deadline)', es: 'DDS (fecha límite cliente)', pt: 'DDS (prazo do cliente)', tr: 'DDS (müşteri teslim tarihi)' }),
                 time: fmtLong(ddsYmd),
                 accent: delay === 'LATE' ? 'text-red-650 font-bold' : '',
             });
@@ -200,9 +203,9 @@ export default function EventDetailPanel({
             items.push({
                 date: todayYmd(),
                 icon: Clock,
-                label: `${produced} pcs produites`,
-                description: `${progress}% complété`,
-                time: "Aujourd'hui",
+                label: `${produced} ${tx(lang, { fr: 'pcs produites', ar: 'قطعة منتجة', en: 'pcs produced', es: 'uds producidas', pt: 'peças produzidas', tr: 'adet üretildi' })}`,
+                description: `${progress}% ${tx(lang, { fr: 'complété', ar: 'مكتمل', en: 'completed', es: 'completado', pt: 'concluído', tr: 'tamamlandı' })}`,
+                time: tx(lang, { fr: 'Aujourd\'hui', ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' }),
             });
         }
 
@@ -211,14 +214,14 @@ export default function EventDetailPanel({
             items.push({
                 date: rollingEndYmd,
                 icon: Clock,
-                label: "Fin estimée",
+                label: tx(lang, { fr: 'Fin estimée', ar: 'النهاية المتوقعة', en: 'Estimated end', es: 'Fin estimado', pt: 'Fim estimado', tr: 'Tahmini bitiş' }),
                 time: fmtLong(rollingEndYmd),
             });
         }
 
         const getPriority = (label: string) => {
-            if (label.startsWith("Création")) return 1;
-            if (label.startsWith("Réception")) return 2;
+            if (label.startsWith(tx(lang, {fr:'Création',ar:'إنشاء',en:'Creation',es:'Creación',pt:'Criação',tr:'Oluşturma'}))) return 1;
+            if (label.startsWith(tx(lang, {fr:'Réception',ar:'استلام',en:'Reception',es:'Recepción',pt:'Receção',tr:'Teslim'}))) return 2;
             if (label.includes("produites")) return 3;
             if (label.startsWith("Fin")) return 4;
             if (label.startsWith("DDS")) return 5;
@@ -230,13 +233,13 @@ export default function EventDetailPanel({
             if (cmp !== 0) return cmp;
             return getPriority(a.label) - getPriority(b.label);
         });
-    }, [startYmd, qty, chainName, event.chaineId, event.fournisseurDate, ddsYmd, delay, produced, progress, rollingEndYmd]);
+    }, [startYmd, qty, chainName, event.chaineId, event.fournisseurDate, ddsYmd, delay, produced, progress, rollingEndYmd, lang]);
 
     return (
         <>
         {isMobile && (
             <div
-                className="fixed inset-0 z-30 bg-slate-950/30 backdrop-blur-[2px] animate-[planning-fade-in_180ms_ease-out]"
+                className="fixed inset-0 z-30 bg-slate-950/30 dark:bg-dk-bg/50 backdrop-blur-[2px] animate-[planning-fade-in_180ms_ease-out]"
                 onClick={onClose}
                 aria-hidden
             />
@@ -247,7 +250,7 @@ export default function EventDetailPanel({
                     className="pt-2.5 pb-1.5 flex items-center justify-center shrink-0 cursor-grab touch-none active:cursor-grabbing"
                     {...dragHandlers}
                 >
-                    <span className="w-10 h-1.5 rounded-full bg-slate-300" />
+                    <span className="w-10 h-1.5 rounded-full bg-slate-300 dark:bg-dk-muted" />
                 </div>
             )}
             {/* Drag handle (desktop only) */}
@@ -255,21 +258,21 @@ export default function EventDetailPanel({
                 <div
                     onMouseDown={onResizeStart}
                     className="absolute -left-1 top-0 bottom-0 w-2 cursor-col-resize z-30 group/handle"
-                    title="Glissez pour redimensionner"
+                    title={tx(lang, { fr: 'Glissez pour redimensionner', ar: 'اسحب لتغيير الحجم', en: 'Drag to resize', es: 'Arrastre para redimensionar', pt: 'Arraste para redimensionar', tr: 'Yeniden boyutlandırmak için sürükleyin' })}
                 >
                     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-0.5 h-12 rounded-full bg-transparent group-hover/handle:bg-slate-300 transition-colors" />
                 </div>
             )}
 
             {/* Hero */}
-            <header className="relative px-6 pt-5 pb-4 border-b border-slate-200/40">
+            <header className="relative px-6 pt-5 pb-4 border-b border-slate-200/40 dark:border-dk-border/40">
                 <div className="absolute top-4 right-4 flex items-center gap-1">
                     {isMobile && (
                         <button
                             type="button"
                             onClick={() => setIsExpanded(e => !e)}
-                            className="p-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100/70 border border-transparent hover:border-slate-200/30 transition-all duration-200 active:scale-95 shadow-sm"
-                            aria-label={isExpanded ? 'Réduire' : 'Agrandir'}
+                            className="p-1 rounded-xl text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100/70 dark:hover:bg-dk-elevated/60 border border-transparent hover:border-slate-200 dark:hover:border-dk-border/30 transition-all duration-200 active:scale-95 shadow-sm dark:shadow-dk-sm"
+                            aria-label={isExpanded ? tx(lang, { fr: 'Réduire', ar: 'تصغير', en: 'Minimize', es: 'Reducir', pt: 'Reduzir', tr: 'Küçült' }) : tx(lang, { fr: 'Agrandir', ar: 'تكبير', en: 'Maximize', es: 'Ampliar', pt: 'Ampliar', tr: 'Büyüt' })}
                         >
                             {isExpanded ? <Minimize2 className="w-4 h-4" strokeWidth={2} /> : <Maximize2 className="w-4 h-4" strokeWidth={2} />}
                         </button>
@@ -277,23 +280,23 @@ export default function EventDetailPanel({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-1 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100/70 border border-transparent hover:border-slate-200/30 transition-all duration-200 active:scale-95 shadow-sm"
-                        aria-label="Fermer"
+                        className="p-1 rounded-xl text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100/70 dark:hover:bg-dk-elevated/60 border border-transparent hover:border-slate-200 dark:hover:border-dk-border/30 transition-all duration-200 active:scale-95 shadow-sm dark:shadow-dk-sm"
+                        aria-label={tx(lang, { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}
                     >
                         <X className="w-4 h-4" strokeWidth={2} />
                     </button>
                 </div>
 
                 <div className="flex items-start gap-3 pr-8">
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-black text-white shrink-0 shadow-sm" style={{ background: getClientColor(client) }}>
+                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-black text-white shrink-0 shadow-sm dark:shadow-dk-sm" style={{ background: getClientColor(client) }}>
                         {(client || '?')[0].toUpperCase()}
                     </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: getClientColor(client) }} title={`Client: ${client}`} />
-                            <span className="text-[11px] font-bold text-slate-500 truncate">{client}</span>
+                            <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted truncate">{client}</span>
                         </div>
-                        <h3 className="text-[15px] font-extrabold text-slate-900 tracking-tight leading-tight">
+                        <h3 className="text-[15px] font-extrabold text-slate-900 dark:text-dk-text tracking-tight leading-tight">
                             {modelName}
                         </h3>
                     </div>
@@ -305,7 +308,7 @@ export default function EventDetailPanel({
                         <span className={`w-1.5 h-1.5 rounded-full ${wsMeta.dot}`} />
                         {wsMeta.label}
                     </span>
-                    <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-xl text-[11px] font-bold bg-slate-100/60 text-slate-650 border border-slate-200/30">
+                    <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-xl text-[11px] font-bold bg-slate-100/60 text-slate-650 border border-slate-200 dark:border-dk-border/30">
                         <span className={`w-1.5 h-1.5 rounded-full ${delayMeta.dot}`} />
                         {delayMeta.label}
                     </span>
@@ -314,30 +317,30 @@ export default function EventDetailPanel({
                         onClick={() => onChangeStatus(event.status === 'BLOCKED_STOCK' ? 'READY' : 'BLOCKED_STOCK')}
                         className={`inline-flex items-center gap-1 h-6 px-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
                             event.status === 'BLOCKED_STOCK'
-                                ? 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200 shadow-sm active:scale-95'
-                                : 'bg-white text-slate-650 border-slate-200/60 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 shadow-sm active:scale-95'
+                                ? 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200 shadow-sm dark:shadow-dk-sm active:scale-95'
+                                : 'bg-white dark:bg-dk-surface text-slate-650 border-slate-200 dark:border-dk-border/60 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 shadow-sm dark:shadow-dk-sm active:scale-95'
                         }`}
                     >
-                        {event.status === 'BLOCKED_STOCK' ? '▶ Reprendre' : '⏸ En Pause'}
+                        {event.status === 'BLOCKED_STOCK' ? tx(lang, { fr: '▶ Reprendre', ar: '▶ استئناف', en: '▶ Resume', es: '▶ Reanudar', pt: '▶ Retomar', tr: '▶ Devam' }) : tx(lang, { fr: '⏸ En Pause', ar: '⏸ إيقاف مؤقت', en: '⏸ Pause', es: '⏸ Pausa', pt: '⏸ Pausa', tr: '⏸ Duraklat' })}
                     </button>
                 </div>
             </header>
 
             {/* Tabs */}
-            <div className="px-4 py-2 border-b border-slate-200/40 bg-white/30 backdrop-blur-sm shrink-0">
-                <div className="flex bg-white/40 p-0.5 rounded-xl gap-1 border border-white/20 backdrop-blur-sm">
+            <div className="px-4 py-2 border-b border-slate-200/40 dark:border-dk-border/40 bg-white/30 dark:bg-dk-bg/30 backdrop-blur-sm shrink-0">
+                <div className="flex bg-white/40 dark:bg-dk-bg/40 p-0.5 rounded-xl gap-1 border border-white/20 dark:border-dk-border/20 backdrop-blur-sm">
                     {(['details', 'activity', 'notes', 'materials'] as const).map(t => (
                         <button
                             key={t}
                             type="button"
                             onClick={() => setTab(t)}
                             className={`flex-1 h-7 text-[11px] font-bold rounded-lg transition-all duration-200 active:scale-95 ${
-                                tab === t
-                                    ? 'bg-white/80 text-indigo-650 shadow-[0_2px_6px_rgba(99,102,241,0.08)]'
-                                    : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
+                                    tab === t
+                                        ? 'bg-white/80 dark:bg-dk-elevated/80 text-indigo-650 dark:text-dk-accent-text dark:text-indigo-400 shadow-[0_2px_6px_rgba(99,102,241,0.08)]'
+                                        : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 dark:hover:text-dk-text hover:bg-white dark:hover:bg-dk-elevated/40'
                             }`}
                         >
-                            {t === 'details' ? 'Détails' : t === 'activity' ? 'Activité' : t === 'notes' ? 'Notes' : 'Matières'}
+                            {t === 'details' ? tx(lang, { fr: 'Détails', ar: 'تفاصيل', en: 'Details', es: 'Detalles', pt: 'Detalhes', tr: 'Detaylar' }) : t === 'activity' ? tx(lang, { fr: 'Activité', ar: 'النشاط', en: 'Activity', es: 'Actividad', pt: 'Atividade', tr: 'Aktivite' }) : t === 'notes' ? tx(lang, { fr: 'Notes', ar: 'ملاحظات', en: 'Notes', es: 'Notas', pt: 'Notas', tr: 'Notlar' }) : tx(lang, { fr: 'Matières', ar: 'المواد', en: 'Materials', es: 'Materiales', pt: 'Materiais', tr: 'Malzemeler' })}
                         </button>
                     ))}
                 </div>
@@ -347,18 +350,29 @@ export default function EventDetailPanel({
             <div className="flex-1 overflow-y-auto">
 
                 {tab === 'details' && (<>
+                {!model && (
+                    <div className="mx-6 mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-slate-700 dark:text-dk-text-soft space-y-2">
+                        <div className="flex items-center gap-2 text-[12px] font-bold text-amber-800 dark:text-amber-400">
+                            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                            {tx(lang, { fr: 'Modèle introuvable dans la bibliothèque', ar: 'النموذج غير موجود في المكتبة', en: 'Model not found in library', es: 'Modelo no encontrado en la biblioteca', pt: 'Modelo não encontrado na biblioteca', tr: 'Model kütüphanede bulunamadı' })}
+                        </div>
+                        <p className="text-[11px] leading-normal text-amber-700 dark:text-amber-300 font-medium">
+                            {tx(lang, { fr: 'Ce modèle a été supprimé ou n\'existe pas. Certaines informations de production ne peuvent pas être calculées ou affichées.', ar: 'تم حذف هذا النموذج أو أنه غير موجود. لا يمكن حساب أو عرض بعض معلومات الإنتاج.', en: 'This model has been deleted or does not exist. Some production information cannot be calculated or displayed.', es: 'Este modelo ha sido eliminado o no existe. No se puede calcular o mostrar alguna información de producción.', pt: 'Este modelo foi eliminado ou não existe. Algumas informações de produção não podem ser calculadas ou exibidas.', tr: 'Bu model silinmiş veya mevcut değil. Bazı üretim bilgileri hesaplanamaz veya görüntülenemez.' })}
+                        </p>
+                    </div>
+                )}
 
                 {/* Progress block */}
-                <section className="px-6 py-5 border-b border-slate-200/30">
+                <section className="px-6 py-5 border-b border-slate-200/30 dark:border-dk-border/30">
                     <div className="flex items-baseline justify-between mb-2">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Progression</span>
-                        <span className="text-[18px] font-extrabold text-slate-900 tabular-nums tracking-tight">{progress}<span className="text-[12px] text-slate-400 ml-0.5">%</span></span>
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">{tx(lang, { fr: 'Progression', ar: 'التقدم', en: 'Progress', es: 'Progreso', pt: 'Progresso', tr: 'İlerleme' })}</span>
+                        <span className="text-[18px] font-extrabold text-slate-900 dark:text-dk-text tabular-nums tracking-tight">{progress}<span className="text-[12px] text-slate-400 dark:text-dk-muted ml-0.5">%</span></span>
                     </div>
-                    <div className="h-1.5 bg-white/40 rounded-full overflow-hidden mb-2 border border-white/20 shadow-inner">
+                    <div className="h-1.5 bg-white dark:bg-dk-surface/40 rounded-full overflow-hidden mb-2 border border-white/20 shadow-inner">
                         <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${progress}%`, background: accent }} />
                     </div>
                     <div className="text-[12px] text-slate-550 tabular-nums mb-3 font-medium">
-                        <span className="font-extrabold text-slate-900">{produced}</span> sur {qty} pcs
+                        <span className="font-extrabold text-slate-900 dark:text-dk-text">{produced}</span> {tx(lang, { fr: 'sur', ar: 'من', en: 'of', es: 'de', pt: 'de', tr: '/' })} {qty} {tx(lang, { fr: 'pcs', ar: 'قطعة', en: 'pcs', es: 'uds', pt: 'peças', tr: 'adet' })}
                     </div>
 
                     {/* Quick add produced */}
@@ -369,8 +383,8 @@ export default function EventDetailPanel({
                                     type="number"
                                     value={quickAddVal || ''}
                                     onChange={(e) => setQuickAddVal(Number(e.target.value) || 0)}
-                                    placeholder="+ pcs"
-                                    className="flex-1 h-7.5 px-2.5 text-[12px] font-bold tabular-nums bg-white border border-slate-200 rounded-lg focus:border-indigo-500/40 focus:ring-4 focus:ring-indigo-500/10 outline-none shadow-sm transition-all duration-200"
+                                    placeholder={tx(lang, { fr: '+ pcs', ar: '+ قطعة', en: '+ pcs', es: '+ uds', pt: '+ peças', tr: '+ adet' })}
+                                    className="flex-1 h-7.5 px-2.5 text-[12px] font-bold tabular-nums bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg focus:border-indigo-500/40 focus:ring-4 focus:ring-indigo-500/10 outline-none shadow-sm dark:shadow-dk-sm transition-all duration-200"
                                     autoFocus
                                 />
                                 <button
@@ -380,39 +394,39 @@ export default function EventDetailPanel({
                                         setQuickAddOpen(false);
                                         setQuickAddVal(0);
                                     }}
-                                    className="h-7.5 px-3 text-[11px] font-bold bg-slate-900 text-white hover:bg-slate-800 rounded-lg shadow-sm transition-all duration-200 active:scale-95"
+                                    className="h-7.5 px-3 text-[11px] font-bold bg-slate-900 text-white hover:bg-slate-800 rounded-lg shadow-sm dark:shadow-dk-sm transition-all duration-200 active:scale-95"
                                 >
-                                    OK
+                                    {tx(lang, { fr: 'OK', ar: 'موافق', en: 'OK', es: 'OK', pt: 'OK', tr: 'Tamam' })}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={() => { setQuickAddOpen(false); setQuickAddVal(0); }}
-                                    className="h-7.5 px-3 text-[11px] font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition-all duration-200 active:scale-95"
+                                    className="h-7.5 px-3 text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 rounded-lg transition-all duration-200 active:scale-95"
                                 >
-                                    Annuler
+                                    {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
                                 </button>
                             </div>
                         ) : (
                             <button
                                 type="button"
                                 onClick={() => setQuickAddOpen(true)}
-                                className="h-7.5 px-3 text-[11px] font-bold text-slate-650 hover:text-slate-900 hover:bg-white/80 border border-slate-200/50 hover:border-slate-300 rounded-lg shadow-sm transition-all duration-200 active:scale-95 inline-flex items-center gap-1.5"
+                                className="h-7.5 px-3 text-[11px] font-bold text-slate-650 hover:text-slate-900 hover:bg-white border border-slate-200 dark:border-dk-border/50 hover:border-slate-300 rounded-lg shadow-sm dark:shadow-dk-sm transition-all duration-200 active:scale-95 inline-flex items-center gap-1.5"
                             >
-                                <Plus className="w-3.5 h-3.5 text-slate-500" strokeWidth={2.25} />
-                                Ajouter une production
+                                <Plus className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted" strokeWidth={2.25} />
+                                {tx(lang, { fr: 'Ajouter une production', ar: 'إضافة إنتاج', en: 'Add production', es: 'Añadir producción', pt: 'Adicionar produção', tr: 'Üretim ekle' })}
                             </button>
                         )
                     )}
                 </section>
 
                 {/* Properties */}
-                <section className="px-6 py-4 space-y-3 border-b border-slate-200/30">
-                    <PropertyRow icon={Calendar} label="Début" value={fmtLong(startYmd)} />
-                    <PropertyRow icon={Clock} label="Fin estimée" value={fmtLong(rollingEndYmd)} />
+                    <section className="px-6 py-4 space-y-3 border-b border-slate-200/30 dark:border-dk-border/30">
+                    <PropertyRow icon={Calendar} label={tx(lang, { fr: 'Début', ar: 'البداية', en: 'Start', es: 'Inicio', pt: 'Início', tr: 'Başlangıç' })} value={fmtLong(startYmd)} />
+                    <PropertyRow icon={Clock} label={tx(lang, { fr: 'Fin estimée', ar: 'النهاية المتوقعة', en: 'Estimated end', es: 'Fin estimado', pt: 'Fim estimado', tr: 'Tahmini bitiş' })} value={fmtLong(rollingEndYmd)} />
                     {ddsYmd && (
                         <PropertyRow
                             icon={AlertTriangle}
-                            label="DDS"
+                            label={tx(lang, { fr: 'DDS', ar: 'DDS', en: 'DDS', es: 'DDS', pt: 'DDS', tr: 'DDS' })}
                             value={
                                 <span className={delay === 'LATE' ? 'text-red-650 font-bold' : ''}>
                                     {fmtLong(ddsYmd)}
@@ -426,18 +440,18 @@ export default function EventDetailPanel({
                         />
                     )}
                     {event.fournisseurDate && (
-                        <PropertyRow icon={Truck} label="Matières" value={fmtLong(event.fournisseurDate)} />
+                        <PropertyRow icon={Truck} label={tx(lang, { fr: 'Matières', ar: 'المواد', en: 'Materials', es: 'Materiales', pt: 'Materiais', tr: 'Malzemeler' })} value={fmtLong(event.fournisseurDate)} />
                     )}
                 </section>
 
                 {/* Chain block */}
                 {chainName && (
-                    <section className="px-6 py-4 border-b border-slate-200/30">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Chaîne</div>
+                    <section className="px-6 py-4 border-b border-slate-200/30 dark:border-dk-border/30">
+                        <div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-2">{tx(lang, { fr: 'Chaîne', ar: 'الخط', en: 'Line', es: 'Línea', pt: 'Linha', tr: 'Hat' })}</div>
                         <div className="flex items-baseline justify-between">
-                            <span className="text-[14px] font-extrabold text-slate-900">{chainName}</span>
-                            <div className="flex items-center gap-3 text-[11px] text-slate-500 font-bold tabular-nums">
-                                {chainCapacity != null && <span>{chainCapacity} pcs/j</span>}
+                            <span className="text-[14px] font-extrabold text-slate-900 dark:text-dk-text">{chainName}</span>
+                            <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-dk-muted font-bold tabular-nums">
+                                {chainCapacity != null && <span>{chainCapacity} {tx(lang, { fr: 'pcs/j', ar: 'قطعة/يوم', en: 'pcs/d', es: 'uds/d', pt: 'peças/d', tr: 'adet/gün' })}</span>}
                                 {chainEfficiency != null && <span>η {Math.round(chainEfficiency * 100)}%</span>}
                             </div>
                         </div>
@@ -446,62 +460,62 @@ export default function EventDetailPanel({
 
                 {/* Subcontracting details block */}
                 {event.isSubcontracted && (
-                    <section className="px-6 py-4 border-b border-white/20 bg-indigo-500/5 border-t border-white/20 backdrop-blur-xs">
-                        <div className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-widest mb-3">Sous-traitance</div>
+                    <section className="px-6 py-4 border-b border-white/20 bg-indigo-500/5 dark:bg-indigo-900/10 border-t border-white/20 backdrop-blur-xs">
+                        <div className="text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400 uppercase tracking-widest mb-3">{tx(lang, { fr: 'Sous-traitance', ar: 'مقاولة من الباطن', en: 'Subcontracting', es: 'Subcontratación', pt: 'Subcontratação', tr: 'Taşeron' })}</div>
                         <div className="space-y-2.5">
                             <div className="flex items-center justify-between text-[12px]">
-                                <span className="text-slate-500 font-medium">Sous-traitant :</span>
-                                <span className="font-bold text-slate-900">{event.subcontractorName || 'Non spécifié'}</span>
+                                <span className="text-slate-500 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Sous-traitant :', ar: 'المقاول من الباطن:', en: 'Subcontractor:', es: 'Subcontratista:', pt: 'Subcontratado:', tr: 'Taşeron:' })}</span>
+                                <span className="font-bold text-slate-900 dark:text-dk-text">{event.subcontractorName || tx(lang, { fr: 'Non spécifié', ar: 'غير محدد', en: 'Not specified', es: 'No especificado', pt: 'Não especificado', tr: 'Belirtilmemiş' })}</span>
                             </div>
                             {event.subcontractorPhone && (
                                 <div className="flex items-center justify-between text-[12px]">
-                                    <span className="text-slate-500 font-medium">Téléphone :</span>
-                                    <a href={`tel:${event.subcontractorPhone}`} className="font-bold text-indigo-650 hover:underline">{event.subcontractorPhone}</a>
+                                    <span className="text-slate-500 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Téléphone :', ar: 'الهاتف:', en: 'Phone:', es: 'Teléfono:', pt: 'Telefone:', tr: 'Telefon:' })}</span>
+                                    <a href={`tel:${event.subcontractorPhone}`} className="font-bold text-indigo-650 dark:text-dk-accent-text dark:text-indigo-400 hover:underline">{event.subcontractorPhone}</a>
                                 </div>
                             )}
                             {event.subcontractorRating !== undefined && (
                                 <div className="flex items-center justify-between text-[12px]">
-                                    <span className="text-slate-500 font-medium">Évaluation :</span>
+                                    <span className="text-slate-500 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Évaluation :', ar: 'التقييم:', en: 'Rating:', es: 'Valoración:', pt: 'Avaliação:', tr: 'Değerlendirme:' })}</span>
                                     <span className="font-bold text-amber-500">
                                         {'★'.repeat(Math.max(0, Math.min(5, Math.round(event.subcontractorRating)))) + '☆'.repeat(Math.max(0, 5 - Math.max(0, Math.min(5, Math.round(event.subcontractorRating)))))}
-                                        <span className="text-slate-400 text-[11px] ml-1">({event.subcontractorRating}/5)</span>
+                                        <span className="text-slate-400 dark:text-dk-muted text-[11px] ml-1">({event.subcontractorRating}/5)</span>
                                     </span>
                                 </div>
                             )}
                             {event.subcontractorAvailabilityDate && (
                                 <div className="flex items-center justify-between text-[12px]">
-                                    <span className="text-slate-500 font-medium">Disponibilité :</span>
-                                    <span className="font-bold text-slate-900">{fmtLong(event.subcontractorAvailabilityDate.split('T')[0])}</span>
+                                    <span className="text-slate-500 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Disponibilité :', ar: 'التوفر:', en: 'Availability:', es: 'Disponibilidad:', pt: 'Disponibilidade:', tr: 'Müsaitlik:' })}</span>
+                                    <span className="font-bold text-slate-900 dark:text-dk-text">{fmtLong(event.subcontractorAvailabilityDate.split('T')[0])}</span>
                                 </div>
                             )}
                             {event.strictDeadline_DDS && (
                                 <div className="flex items-center justify-between text-[12px]">
-                                    <span className="text-slate-500 font-medium">Livraison prévue :</span>
-                                    <span className="font-bold text-slate-900">{fmtLong(event.strictDeadline_DDS.split('T')[0])}</span>
+                                    <span className="text-slate-500 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Livraison prévue :', ar: 'التسليم المتوقع:', en: 'Expected delivery:', es: 'Entrega prevista:', pt: 'Entrega prevista:', tr: 'Teslim tarihi:' })}</span>
+                                    <span className="font-bold text-slate-900 dark:text-dk-text">{fmtLong(event.strictDeadline_DDS.split('T')[0])}</span>
                                 </div>
                             )}
                             {event.subcontractPricePerPiece !== undefined && event.subcontractPricePerPiece > 0 && (
                                 <>
                                     <div className="flex items-center justify-between text-[12px]">
-                                        <span className="text-slate-500 font-medium">Prix par pièce :</span>
-                                        <span className="font-bold text-slate-900">{event.subcontractPricePerPiece.toFixed(2)} DH</span>
+                                        <span className="text-slate-500 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Prix par pièce :', ar: 'سعر القطعة:', en: 'Price per piece:', es: 'Precio por pieza:', pt: 'Preço por peça:', tr: 'Birim fiyat:' })}</span>
+                                        <span className="font-bold text-slate-900 dark:text-dk-text">{event.subcontractPricePerPiece.toFixed(2)} DH</span>
                                     </div>
-                                    <div className="flex items-center justify-between text-[12px] pt-1 border-t border-slate-200/40">
-                                        <span className="font-bold text-slate-700">Coût total :</span>
-                                        <span className="font-extrabold text-indigo-700 font-mono">{(evQty(event) * event.subcontractPricePerPiece).toFixed(2)} DH</span>
+                                    <div className="flex items-center justify-between text-[12px] pt-1 border-t border-slate-200/40 dark:border-dk-border/40">
+                                        <span className="font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang, { fr: 'Coût total :', ar: 'التكلفة الإجمالية:', en: 'Total cost:', es: 'Coste total:', pt: 'Custo total:', tr: 'Toplam maliyet:' })}</span>
+                                        <span className="font-extrabold text-indigo-700 dark:text-dk-accent-text dark:text-indigo-400 font-mono">{(evQty(event) * event.subcontractPricePerPiece).toFixed(2)} DH</span>
                                     </div>
                                 </>
                             )}
-                            <div className="flex items-center justify-between text-[12px] pt-2 border-t border-slate-200/40">
-                                <span className="text-slate-500 font-medium">Statut :</span>
+                            <div className="flex items-center justify-between text-[12px] pt-2 border-t border-slate-200/40 dark:border-dk-border/40">
+                                <span className="text-slate-500 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Statut :', ar: 'الحالة:', en: 'Status:', es: 'Estado:', pt: 'Estado:', tr: 'Durum:' })}</span>
                                 <select
                                     value={event.subcontractStatus || 'PENDING'}
                                     onChange={(e) => onUpdateEvent?.({ subcontractStatus: e.target.value as any })}
-                                    className="h-7 px-2 text-[11px] font-bold bg-white border border-slate-200/60 rounded-lg focus:border-indigo-500/40 outline-none text-slate-800 shadow-sm cursor-pointer"
+                                    className="h-7 px-2 text-[11px] font-bold bg-white dark:bg-dk-surface border border-slate-200/60 dark:border-dk-border rounded-lg focus:border-indigo-500/40 outline-none text-slate-800 dark:text-dk-text shadow-sm dark:shadow-dk-sm cursor-pointer"
                                 >
-                                    <option value="PENDING">En attente</option>
-                                    <option value="SENT">Envoyé</option>
-                                    <option value="COMPLETED">Complété</option>
+                                    <option value="PENDING">{tx(lang, { fr: 'En attente', ar: 'قيد الانتظار', en: 'Pending', es: 'Pendiente', pt: 'Pendente', tr: 'Beklemede' })}</option>
+                                    <option value="SENT">{tx(lang, { fr: 'Envoyé', ar: 'أُرسل', en: 'Sent', es: 'Enviado', pt: 'Enviado', tr: 'Gönderildi' })}</option>
+                                    <option value="COMPLETED">{tx(lang, { fr: 'Complété', ar: 'مكتمل', en: 'Completed', es: 'Completado', pt: 'Concluído', tr: 'Tamamlandı' })}</option>
                                 </select>
                             </div>
                         </div>
@@ -510,23 +524,23 @@ export default function EventDetailPanel({
 
                 {/* Blocage */}
                 {event.blockedReason && (
-                    <section className="mx-6 my-4 p-3 rounded-xl bg-red-500/5 border border-red-500/10">
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-700 uppercase tracking-widest mb-1">
+                    <section className="mx-6 my-4 p-3 rounded-xl bg-red-500/5 dark:bg-red-900/10 border border-red-500/10 dark:border-red-800/20">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-widest mb-1">
                             <AlertTriangle className="w-3 h-3 text-red-500" strokeWidth={2.25} />
-                            Blocage
+                            {tx(lang, { fr: 'Blocage', ar: 'حظر', en: 'Blockage', es: 'Bloqueo', pt: 'Bloqueio', tr: 'Engelleme' })}
                         </div>
-                        <p className="text-[12px] text-red-900 leading-snug font-medium">{event.blockedReason}</p>
+                        <p className="text-[12px] text-red-900 dark:text-red-300 leading-snug font-medium">{event.blockedReason}</p>
                     </section>
                 )}
 
                 {/* Matières manquantes */}
                 {event.materialShortages?.length ? (
-                    <section className="px-6 py-4 border-b border-slate-200/30">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Matières manquantes</div>
+                    <section className="px-6 py-4 border-b border-slate-200/30 dark:border-dk-border/30">
+                        <div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-2">{tx(lang, { fr: 'Matières manquantes', ar: 'المواد الناقصة', en: 'Missing materials', es: 'Materiales faltantes', pt: 'Materiais em falta', tr: 'Eksik malzemeler' })}</div>
                         <ul className="space-y-1.5">
                             {event.materialShortages.map((s, i) => (
                                 <li key={i} className="flex items-center justify-between gap-3 text-[12px]">
-                                    <span className="text-slate-700 font-medium truncate">{s.name}</span>
+                                    <span className="text-slate-700 dark:text-dk-text-soft font-medium truncate">{s.name}</span>
                                     <span className="font-extrabold tabular-nums text-amber-700 shrink-0">
                                         −{s.missing}{s.unit || ''}
                                     </span>
@@ -538,11 +552,11 @@ export default function EventDetailPanel({
 
                 {/* Status switcher */}
                 <section className="px-6 py-4">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Changer le statut</div>
+                    <div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-2">{tx(lang, { fr: 'Changer le statut', ar: 'تغيير الحالة', en: 'Change status', es: 'Cambiar estado', pt: 'Alterar estado', tr: 'Durumu değiştir' })}</div>
                     <div className="grid grid-cols-2 gap-1.5">
                         {(['READY', 'IN_PROGRESS', 'BLOCKED_STOCK', 'EXTERNAL_PROCESS', 'DONE'] as const).map(s => {
                             const isActive = event.status === s;
-                            const meta = getExtendedStatusMeta(s);
+                            const meta = getExtendedStatusMeta(s, lang);
                             return (
                                 <button
                                     key={s}
@@ -550,11 +564,11 @@ export default function EventDetailPanel({
                                     onClick={() => onChangeStatus(s)}
                                     className={`h-8 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 flex items-center gap-1.5 ${
                                         isActive
-                                            ? 'bg-slate-900 text-white shadow-md'
-                                            : 'bg-slate-100/50 text-slate-700 hover:bg-white border border-transparent hover:border-slate-200/30'
+                                            ? 'bg-slate-900 dark:bg-dk-accent text-white dark:text-dk-accent-text shadow-md dark:shadow-dk-md'
+                                            : 'bg-slate-100/50 dark:bg-dk-elevated/30 text-slate-700 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface border border-transparent hover:border-slate-200 dark:hover:border-dk-border/30'
                                     }`}
                                 >
-                                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white/80' : meta.dot}`} />
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white dark:bg-dk-surface/80' : meta.dot}`} />
                                     {meta.label}
                                 </button>
                             );
@@ -566,10 +580,10 @@ export default function EventDetailPanel({
                 {/* ──────────────── Activité ──────────────── */}
                 {tab === 'activity' && (
                     <div className="px-6 py-5">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                            Chronologie
+                        <div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-3">
+                            {tx(lang, { fr: 'Chronologie', ar: 'الجدول الزمني', en: 'Timeline', es: 'Cronología', pt: 'Cronologia', tr: 'Zaman çizelgesi' })}
                         </div>
-                        <ol className="relative border-l border-slate-200 ml-1.5 space-y-4">
+                        <ol className="relative border-l border-slate-200 dark:border-dk-border ml-1.5 space-y-4">
                             {chronoItems.map((item, idx) => (
                                 <ActivityItem
                                     key={idx}
@@ -587,17 +601,17 @@ export default function EventDetailPanel({
                 {/* ──────────────── Notes ──────────────── */}
                 {tab === 'notes' && (
                     <div className="px-6 py-5">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                            Notes internes
+                        <div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-2">
+                            {tx(lang, { fr: 'Notes internes', ar: 'ملاحظات داخلية', en: 'Internal notes', es: 'Notas internas', pt: 'Notas internas', tr: 'Dahili notlar' })}
                         </div>
                         <textarea
                             value={notes || ''}
                             onChange={(e) => onNotesChange?.(e.target.value)}
-                            placeholder="Ajoutez des notes pour cet ordre… (visible uniquement par vous)"
-                            className="w-full min-h-[180px] p-3 text-[13px] text-slate-800 placeholder:text-slate-450 bg-white/30 border border-white/20 focus:bg-white/85 focus:border-indigo-500/25 focus:ring-4 focus:ring-indigo-500/10 rounded-xl outline-none resize-y transition-all duration-200 backdrop-blur-sm"
+                            placeholder={tx(lang, { fr: 'Ajoutez des notes pour cet ordre… (visible uniquement par vous)', ar: 'أضف ملاحظات لهذا الأمر… (مرئي لك فقط)', en: 'Add notes for this order… (visible only to you)', es: 'Añada notas para esta orden… (visible solo para usted)', pt: 'Adicione notas para esta ordem… (visível apenas para si)', tr: 'Bu sipariş için not ekleyin… (yalnızca size görünür)' })}
+                            className="w-full min-h-[180px] p-3 text-[13px] text-slate-800 dark:text-dk-text placeholder:text-slate-450 dark:placeholder:text-dk-muted bg-white/30 dark:bg-dk-surface/30 border border-white/20 dark:border-dk-border/20 focus:bg-white dark:focus:bg-dk-surface/85 focus:border-indigo-500/25 focus:ring-4 focus:ring-indigo-500/10 rounded-xl outline-none resize-y transition-all duration-200 backdrop-blur-sm"
                         />
-                        <p className="text-[10px] text-slate-400 font-bold mt-2">
-                            Enregistré automatiquement en local
+                        <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold mt-2">
+                            {tx(lang, { fr: 'Enregistré automatiquement en local', ar: 'يُحفظ تلقائياً محلياً', en: 'Auto-saved locally', es: 'Guardado automáticamente en local', pt: 'Guardado automaticamente localmente', tr: 'Otomatik olarak yerel olarak kaydedildi' })}
                         </p>
                     </div>
                 )}
@@ -621,10 +635,10 @@ export default function EventDetailPanel({
             </div>
 
             {/* Footer actions */}
-            <footer className="px-4 py-3 border-t border-white/20 bg-white/50 backdrop-blur-md flex items-center justify-between shrink-0">
+            <footer className="px-4 py-3 border-t border-white/20 dark:border-dk-border/20 bg-white/50 dark:bg-dk-surface/50 backdrop-blur-md flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-1">
-                    <ActionBtn onClick={onEdit} icon={Edit2}>Modifier</ActionBtn>
-                    <ActionBtn onClick={onSplit} icon={Split}>Diviser</ActionBtn>
+                    <ActionBtn onClick={onEdit} icon={Edit2}>{tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })}</ActionBtn>
+                    <ActionBtn onClick={onSplit} icon={Split}>{tx(lang, { fr: 'Diviser', ar: 'تقسيم', en: 'Split', es: 'Dividir', pt: 'Dividir', tr: 'Böl' })}</ActionBtn>
                     <ActionBtn onClick={onDuplicate} icon={Copy} />
                 </div>
                 <div className="flex items-center gap-1">
@@ -632,10 +646,10 @@ export default function EventDetailPanel({
                         <button
                             type="button"
                             onClick={() => onChangeStatus('DONE')}
-                            className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm active:scale-95"
+                            className="inline-flex items-center gap-1.5 h-7.5 px-3 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm dark:shadow-dk-sm active:scale-95"
                         >
                             <CheckCircle2 className="w-3 h-3" />
-                            Modèle fini
+                            {tx(lang, { fr: 'Modèle fini', ar: 'نموذج منتهٍ', en: 'Model completed', es: 'Modelo terminado', pt: 'Modelo concluído', tr: 'Model tamamlandı' })}
                         </button>
                     )}
                     <ActionBtn onClick={onDelete} icon={Trash2} danger />
@@ -651,11 +665,11 @@ function PropertyRow({
 }: { icon: React.ComponentType<{ className?: string; strokeWidth?: number }>; label: string; value: React.ReactNode }) {
     return (
         <div className="flex items-baseline gap-3">
-            <div className="w-20 shrink-0 flex items-center gap-1.5 text-[11px] text-slate-500 font-bold">
-                <Icon className="w-3 h-3 text-slate-400" strokeWidth={2} />
+            <div className="w-20 shrink-0 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-dk-muted font-bold">
+                <Icon className="w-3 h-3 text-slate-400 dark:text-dk-muted" strokeWidth={2} />
                 {label}
             </div>
-            <div className="flex-1 text-[12px] text-slate-900 font-medium truncate">{value}</div>
+            <div className="flex-1 text-[12px] text-slate-900 dark:text-dk-text font-medium truncate">{value}</div>
         </div>
     );
 }
@@ -665,10 +679,10 @@ function ActivityItem({
 }: { icon: React.ComponentType<{ className?: string; strokeWidth?: number }>; label: string; time?: string; description?: string; accent?: string }) {
     return (
         <li className="relative pl-5">
-            <span className="absolute left-[-5px] top-0.5 w-2.5 h-2.5 rounded-full bg-white border-2 border-slate-350" />
-            <div className={`text-[12px] font-bold text-slate-900 ${accent || ''}`}>{label}</div>
-            {time && <div className="text-[11px] text-slate-500 mt-0.5 font-medium">{time}</div>}
-            {description && <div className="text-[11px] text-slate-550 mt-0.5 font-medium">{description}</div>}
+            <span className="absolute left-[-5px] top-0.5 w-2.5 h-2.5 rounded-full bg-white dark:bg-dk-surface border-2 border-slate-350 dark:border-dk-border" />
+            <div className={`text-[12px] font-bold text-slate-900 dark:text-dk-text ${accent || ''}`}>{label}</div>
+            {time && <div className="text-[11px] text-slate-500 dark:text-dk-muted mt-0.5 font-medium">{time}</div>}
+            {description && <div className="text-[11px] text-slate-550 dark:text-dk-muted mt-0.5 font-medium">{description}</div>}
         </li>
     );
 }
@@ -682,8 +696,8 @@ function ActionBtn({
             onClick={onClick}
             className={`inline-flex items-center gap-1.5 h-7.5 px-2.5 rounded-lg text-[11px] font-bold transition-all duration-200 active:scale-95 border ${
                 danger
-                    ? 'text-red-650 bg-red-500/5 hover:bg-red-500/10 hover:text-red-700 border-red-200/20 hover:border-red-200/40'
-                    : 'text-slate-650 bg-slate-100/50 hover:bg-white hover:text-slate-900 border-slate-200/30 hover:border-slate-250/50 shadow-sm'
+                    ? 'text-red-650 bg-red-500/5 hover:bg-red-500/10 hover:text-red-700 border-red-200/20 hover:border-red-200/40 dark:text-red-400 dark:hover:text-red-300 dark:border-red-800/20 dark:hover:border-red-800/40'
+                    : 'text-slate-650 bg-slate-100/50 hover:bg-white hover:text-slate-900 border-slate-200/30 hover:border-slate-250/50 shadow-sm dark:shadow-dk-sm dark:bg-dk-elevated/30 dark:hover:bg-dk-surface dark:hover:text-dk-text dark:border-dk-border/30 dark:hover:border-dk-border/50'
             }`}
         >
             <Icon className="w-3.5 h-3.5" strokeWidth={2.25} />

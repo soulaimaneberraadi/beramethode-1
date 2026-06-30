@@ -2,6 +2,9 @@ import React from 'react';
 import { Palette, Layers } from 'lucide-react';
 import { FicheData, AppSettings } from '../types';
 import { fmt } from '../constants';
+import SensitiveValue from './ui/SensitiveValue';
+import { useLang } from '../src/context/LanguageContext';
+import { tx } from '../lib/i18n';
 
 interface OrderTablesPanelProps {
     ficheData: FicheData;
@@ -31,6 +34,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
     laborCost, costPrice, sellPriceHT, sellPriceTTC, boutiquePrice,
     totalPurchasingMatCost, colorCosts, isExport = false,
 }) => {
+    const { lang } = useLang();
     const orderQty = ficheData.quantity > 0 ? ficheData.quantity : 1;
     const totalProjectCost = isExport ? (laborCost * orderQty) : totalPurchasingMatCost + (laborCost * orderQty);
     const costPerPiece = orderQty > 0 ? totalProjectCost / orderQty : 0;
@@ -79,49 +83,49 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
     };
 
     // Un zéro « vide » ne s'affiche pas en chiffre : on met un tiret discret.
-    const dash = <span className="text-slate-300">—</span>;
+    const dash = <span className="text-slate-300 dark:text-dk-muted">—</span>;
 
     return (
         <div className="space-y-6">
 
             {/* ── Répartition et coût des tailles ── */}
             {colors.length > 0 && (
-                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                    <div className="px-3 sm:px-5 h-auto sm:h-12 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 py-2 sm:py-0">
-                        <Palette className="w-4 h-4 text-slate-400 shrink-0" strokeWidth={1.75} />
+                <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden">
+                    <div className="px-3 sm:px-5 h-auto sm:h-12 border-b border-slate-100 dark:border-dk-border flex flex-col sm:flex-row items-start sm:items-center gap-1 sm:gap-2 py-2 sm:py-0">
+                        <Palette className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" strokeWidth={1.75} />
                         <div>
-                            <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">Répartition et coût des tailles</h3>
-                            <p className="text-[11px] text-slate-400">Répartition des quantités et des coûts (synchronisé avec la fiche technique)</p>
+                            <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, {fr:"Répartition et coût des tailles",ar:"توزيع وتكلفة المقاسات",en:"Size distribution & cost",es:"Distribución y costo de tallas",pt:"Distribuição e custo dos tamanhos",tr:"Beden dağılımı ve maliyeti"})}</h3>
+                            <p className="text-[11px] text-slate-400 dark:text-dk-muted">Répartition des quantités et des coûts (synchronisé avec la fiche technique)</p>
                         </div>
                     </div>
 
                     <div className="p-3 sm:p-4 overflow-x-auto">
                         <table className="w-full border-collapse">
                             <thead>
-                                <tr className="bg-slate-50/60 text-slate-500 text-[10px] uppercase tracking-wider border-b border-slate-200">
-                                    <th className="py-2.5 px-3 text-left font-semibold border-r border-slate-100 min-w-[140px]">Couleur \ Taille</th>
+                                <tr className="bg-slate-50 dark:bg-dk-bg/60 text-slate-500 dark:text-dk-muted text-[10px] uppercase tracking-wider border-b border-slate-200 dark:border-dk-border">
+                                    <th className="py-2.5 px-3 text-left font-semibold border-r border-slate-100 dark:border-dk-border min-w-[140px]">Couleur \ Taille</th>
                                     {sizes.length === 0 && (
-                                        <th className="py-2.5 px-3 text-center font-normal italic text-slate-400 border-r border-slate-100">
+                                        <th className="py-2.5 px-3 text-center font-normal italic text-slate-400 dark:text-dk-muted border-r border-slate-100 dark:border-dk-border">
                                             Aucune taille définie
                                         </th>
                                     )}
                                     {sizes.map((s, i) => (
-                                        <th key={i} className="py-2.5 px-3 text-center font-semibold border-r border-slate-100 text-slate-700 min-w-[80px]">
+                                        <th key={i} className="py-2.5 px-3 text-center font-semibold border-r border-slate-100 dark:border-dk-border text-slate-700 dark:text-dk-text-soft min-w-[80px]">
                                             {s}
                                         </th>
                                     ))}
-                                    <th className="py-2.5 px-3 text-center font-semibold text-slate-700 bg-slate-100/60 w-24">Total</th>
+                                    <th className="py-2.5 px-3 text-center font-semibold text-slate-700 dark:text-dk-text-soft bg-slate-100/60 w-24">{tx(lang, {fr:"Total",ar:"المجموع",en:"Total",es:"Total",pt:"Total",tr:"Toplam"})}</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                 {colors.map((c, cIdx) => {
                                     const rowTotal = matrixStats.rowTotals[c.id] || 0;
                                     const rowTotalCost = rowTotal * prFor(c.id);
                                     const cHex = c.id && c.id.startsWith('#') ? c.id : null;
                                     const dot = DOT_COLORS[cIdx % DOT_COLORS.length];
                                     return (
-                                        <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50/50 group">
-                                            <td className="py-2.5 px-3 border-r border-slate-100 font-medium text-slate-700 text-[12px]">
+                                        <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 group">
+                                            <td className="py-2.5 px-3 border-r border-slate-100 dark:border-dk-border font-medium text-slate-700 dark:text-dk-text-soft text-[12px]">
                                                 <div className="flex items-center gap-2">
                                                     <div
                                                         className={`w-2.5 h-2.5 rounded-full ${cHex ? '' : dot}`}
@@ -131,7 +135,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                                 </div>
                                             </td>
                                             {sizes.length === 0 && (
-                                                <td className="py-2.5 px-3 border-r border-slate-100 bg-slate-50/40 text-center text-slate-300">—</td>
+                                                <td className="py-2.5 px-3 border-r border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/40 text-center text-slate-300 dark:text-dk-muted">—</td>
                                             )}
                                             {sizes.map((_, sIdx) => {
                                                 const key = `${c.id}_${sIdx}`;
@@ -139,17 +143,17 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                                 const qty = Number(val) || 0;
                                                 const cost = qty * prFor(c.id);
                                                 return (
-                                                    <td key={sIdx} className="p-0 border-r border-slate-100 hover:bg-slate-50 transition-colors relative">
+                                                    <td key={sIdx} className="p-0 border-r border-slate-100 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors relative">
                                                         <input
                                                             type="number" min="0"
-                                                            className="w-full text-center py-2.5 bg-transparent outline-none focus:text-[#2149C1] font-semibold text-[13px] text-slate-700 placeholder:text-slate-300 tabular-nums"
+                                                            className="w-full text-center py-2.5 bg-transparent outline-none focus:text-[#2149C1] font-semibold text-[13px] text-slate-700 dark:text-dk-text-soft placeholder:text-slate-300 tabular-nums"
                                                             placeholder="—"
                                                             value={val}
                                                             onChange={(e) => updateQuantity(c.id, sIdx, e.target.value)}
                                                         />
                                                         {qty > 0 && (
                                                             <div className="absolute bottom-0.5 left-0 right-0 text-center pointer-events-none">
-                                                                <span className="text-[9px] font-medium text-slate-400 tabular-nums">
+                                                                <span className="text-[9px] font-medium text-slate-400 dark:text-dk-muted tabular-nums">
                                                                     {fmt(cost)}
                                                                 </span>
                                                             </div>
@@ -157,10 +161,10 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                                     </td>
                                                 );
                                             })}
-                                            <td className="py-2.5 px-3 text-center border-r border-slate-100 bg-slate-50/60 group-hover:bg-slate-100/60 transition-colors">
-                                                <div className="font-semibold text-slate-800 text-[14px] tabular-nums">{rowTotal > 0 ? rowTotal : dash}</div>
+                                            <td className="py-2.5 px-3 text-center border-r border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 group-hover:bg-slate-100/60 transition-colors">
+                                                <div className="font-semibold text-slate-800 dark:text-dk-text text-[14px] tabular-nums">{rowTotal > 0 ? rowTotal : dash}</div>
                                                 {rowTotal > 0 && (
-                                                    <div className="text-[10px] font-medium text-slate-400 mt-0.5 tabular-nums">
+                                                    <div className="text-[10px] font-medium text-slate-400 dark:text-dk-muted mt-0.5 tabular-nums">
                                                         {fmt(rowTotalCost)} {currency}
                                                     </div>
                                                 )}
@@ -169,13 +173,13 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                     );
                                 })}
                             </tbody>
-                            <tfoot className="border-t border-slate-200 bg-slate-50/60">
+                            <tfoot className="border-t border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60">
                                 <tr>
-                                    <td className="py-2.5 px-3 text-left font-semibold text-slate-500 text-[11px] uppercase tracking-wider border-r border-slate-100">
-                                        Total général
+                                    <td className="py-2.5 px-3 text-left font-semibold text-slate-500 dark:text-dk-muted text-[11px] uppercase tracking-wider border-r border-slate-100 dark:border-dk-border">
+                                        {tx(lang, {fr:"Total général",ar:"المجموع الكلي",en:"Grand total",es:"Total general",pt:"Total geral",tr:"Genel toplam"})}
                                     </td>
                                     {sizes.length === 0 && (
-                                        <td className="py-2.5 px-3 text-center text-slate-300 border-r border-slate-100">—</td>
+                                        <td className="py-2.5 px-3 text-center text-slate-300 dark:text-dk-muted border-r border-slate-100 dark:border-dk-border">—</td>
                                     )}
                                     {sizes.map((_, sIdx) => {
                                         const colTotal = matrixStats.colTotals[sIdx] || 0;
@@ -187,17 +191,17 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                             return s + q * prFor(col.id);
                                         }, 0);
                                         return (
-                                            <td key={sIdx} className="py-2.5 px-3 text-center border-r border-slate-100">
-                                                <div className="font-semibold text-slate-700 text-[13px] tabular-nums">{colTotal > 0 ? colTotal : dash}</div>
+                                            <td key={sIdx} className="py-2.5 px-3 text-center border-r border-slate-100 dark:border-dk-border">
+                                                <div className="font-semibold text-slate-700 dark:text-dk-text-soft text-[13px] tabular-nums">{colTotal > 0 ? colTotal : dash}</div>
                                                 {colTotal > 0 && (
-                                                    <div className="text-[9px] font-medium text-slate-400 tabular-nums">{fmt(colCost)}</div>
+                                                    <div className="text-[9px] font-medium text-slate-400 dark:text-dk-muted tabular-nums">{fmt(colCost)}</div>
                                                 )}
                                             </td>
                                         );
                                     })}
                                     <td className="py-2.5 px-3 text-center bg-slate-900">
                                         <div className="font-semibold text-white text-[15px] tabular-nums">{matrixStats.grandTotal > 0 ? matrixStats.grandTotal : '—'}</div>
-                                        <div className="text-[9px] text-slate-400 font-medium tracking-wider uppercase mt-0.5">pièces</div>
+                                        <div className="text-[9px] text-slate-400 dark:text-dk-muted font-medium tracking-wider uppercase mt-0.5">{tx(lang, {fr:"pièces",ar:"قطعة",en:"pcs",es:"piezas",pt:"peças",tr:"adet"})}</div>
                                     </td>
                                 </tr>
                             </tfoot>
@@ -207,26 +211,26 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
             )}
 
             {/* ── Grille tarifaire ── */}
-            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                <div className="px-3 sm:px-5 h-12 border-b border-slate-100 flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
-                    <h3 className="text-[13px] font-semibold text-slate-900 tracking-tight">Grille tarifaire</h3>
+            <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden">
+                <div className="px-3 sm:px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
+                    <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, {fr:"Grille tarifaire",ar:"جدول الأسعار",en:"Price grid",es:"Cuadro de precios",pt:"Grade de preços",tr:"Fiyat tablosu"})}</h3>
                 </div>
                 <div className="p-3 sm:p-5">
                     {colors.length > 0 && hasColorCosts ? (
                         <div className="overflow-x-auto">
                             <table className="w-full border-collapse">
                                 <thead>
-                                    <tr className="text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
-                                        <th className="py-2 px-3 text-left font-semibold">Couleur</th>
-                                        <th className="py-2 px-3 text-center font-semibold">PR</th>
+                                    <tr className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-dk-muted border-b border-slate-200 dark:border-dk-border">
+                                        <th className="py-2 px-3 text-left font-semibold">{tx(lang, {fr:"Couleur",ar:"اللون",en:"Color",es:"Color",pt:"Cor",tr:"Renk"})}</th>
+                                        <th className="py-2 px-3 text-center font-semibold">{tx(lang, {fr:"PR",ar:"PR",en:"CP",es:"PR",pt:"PR",tr:"BM"})}</th>
                                         <th className="py-2 px-3 text-center font-semibold text-[#2149C1]">HT +{settings.marginAtelier}%</th>
-                                        <th className="py-2 px-3 text-center font-semibold text-indigo-600">TTC +{settings.tva}%</th>
+                                        <th className="py-2 px-3 text-center font-semibold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">TTC +{settings.tva}%</th>
                                         <th className="py-2 px-3 text-center font-semibold text-violet-600">Boutique +{settings.marginBoutique}%</th>
-                                        <th className="py-2 px-3 text-center font-semibold text-emerald-600">Marge/pièce</th>
+                                        <th className="py-2 px-3 text-center font-semibold text-emerald-600 dark:text-emerald-400">{tx(lang, {fr:"Marge/pièce",ar:"الهامش/قطعة",en:"Margin/pc",es:"Margen/pieza",pt:"Margem/peça",tr:"Kar marjı/adet"})}</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-slate-100">
+                                <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                     {(() => {
                                         const seenL = new Set<string>();
                                         return colors.filter(c => { if (seenL.has(c.id)) return false; seenL.add(c.id); return true; }).map((c, cIdx) => {
@@ -234,38 +238,44 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                             const cHex = c.id && c.id.startsWith('#') ? c.id : null;
                                             const dot = DOT_COLORS[cIdx % DOT_COLORS.length];
                                             return (
-                                                <tr key={c.id} className="hover:bg-slate-50/50">
-                                                    <td className="py-2.5 px-3 font-medium text-slate-700 text-[12px]">
+                                                <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60">
+                                                    <td className="py-2.5 px-3 font-medium text-slate-700 dark:text-dk-text-soft text-[12px]">
                                                         <div className="flex items-center gap-2">
                                                             <div className={`w-2.5 h-2.5 rounded-full ${cHex ? '' : dot}`} style={cHex ? { backgroundColor: cHex } : undefined} />
                                                             <span className="truncate max-w-[120px]">{c.name}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="py-2.5 px-3 text-center font-semibold text-slate-800 tabular-nums">{fmt(cc.pr)}</td>
+                                                    <td className="py-2.5 px-3 text-center font-semibold text-slate-800 dark:text-dk-text tabular-nums">{fmt(cc.pr)}</td>
                                                     <td className="py-2.5 px-3 text-center font-medium text-[#2149C1] tabular-nums">{fmt(cc.ht)}</td>
-                                                    <td className="py-2.5 px-3 text-center font-medium text-indigo-600 tabular-nums">{fmt(cc.ttc)}</td>
+                                                    <td className="py-2.5 px-3 text-center font-medium text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text tabular-nums">{fmt(cc.ttc)}</td>
                                                     <td className="py-2.5 px-3 text-center font-medium text-violet-600 tabular-nums">{fmt(cc.boutique)}</td>
-                                                    <td className="py-2.5 px-3 text-center font-semibold text-emerald-600 tabular-nums">{fmt(cc.ht - cc.pr)}</td>
+                                                    <td className="py-2.5 px-3 text-center font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{fmt(cc.ht - cc.pr)}</td>
                                                 </tr>
                                             );
                                         });
                                     })()}
                                 </tbody>
                             </table>
-                            <p className="text-[10px] text-slate-400 mt-2.5">Prix en {currency}. Chaque couleur reflète ses matières affectées (ex: dentelle).</p>
+                            <p className="text-[10px] text-slate-400 dark:text-dk-muted mt-2.5">Prix en {currency}. Chaque couleur reflète ses matières affectées (ex: dentelle).</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                             {[
-                                { label: 'Prix de revient (PR)', value: costPrice, color: 'text-slate-800' },
-                                { label: `Prix de vente HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-[#2149C1]' },
-                                { label: `Prix de vente TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-600' },
-                                { label: `Prix boutique (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-600' },
-                                { label: 'Marge usine / pièce', value: sellPriceHT - costPrice, color: 'text-emerald-600' },
+                                { label: 'Prix de revient (PR)', value: costPrice, color: 'text-slate-800 dark:text-dk-text', field: 'model.prix_revient' },
+                                { label: `Prix de vente HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-[#2149C1]', field: null },
+                                { label: `Prix de vente TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text', field: null },
+                                { label: `Prix boutique (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-600', field: null },
+                                { label: 'Marge usine / pièce', value: sellPriceHT - costPrice, color: 'text-emerald-600 dark:text-emerald-400', field: null },
                             ].map((item, i) => (
-                                <div key={i} className="text-center p-3 rounded-md bg-slate-50/60 border border-slate-200 hover:bg-white hover:border-slate-300 transition-all">
-                                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">{item.label}</p>
-                                    <p className={`text-[16px] font-semibold ${item.color} tabular-nums`}>{fmt(item.value)} <span className="text-[10px] text-slate-400">{currency}</span></p>
+                                <div key={i} className="text-center p-3 rounded-md bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border hover:bg-white hover:border-slate-300 transition-all">
+                                    <p className="text-[10px] font-medium text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1.5">{item.label}</p>
+                                    <p className={`text-[16px] font-semibold ${item.color} tabular-nums`}>
+                                      {item.field ? (
+                                        <SensitiveValue field={item.field}>{fmt(item.value)} <span className="text-[10px] text-slate-400 dark:text-dk-muted">{currency}</span></SensitiveValue>
+                                      ) : (
+                                        <>{fmt(item.value)} <span className="text-[10px] text-slate-400 dark:text-dk-muted">{currency}</span></>
+                                      )}
+                                    </p>
                                 </div>
                             ))}
                         </div>

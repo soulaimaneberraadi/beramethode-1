@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Plus, Sparkles, Calendar, LayoutGrid, Rows, Eye, Printer, Filter, X } from 'lucide-react';
+import { tx } from '../../../lib/i18n';
+import { useLang } from '../../../src/context/LanguageContext';
 
 export interface CommandAction {
     id: string;
@@ -20,6 +22,7 @@ interface Props {
 }
 
 export default function CommandPalette({ open, onClose, actions }: Props) {
+    const { lang } = useLang();
     const [query, setQuery] = useState('');
     const [activeIdx, setActiveIdx] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -87,28 +90,28 @@ export default function CommandPalette({ open, onClose, actions }: Props) {
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[70] flex items-start justify-center pt-[12vh] px-4 bg-slate-950/30 backdrop-blur-[3px] animate-[planning-fade-in_140ms_ease-out]"
+            className="fixed inset-0 z-[70] flex items-start justify-center pt-[12vh] px-4 bg-slate-950/30 dark:bg-dk-bg/50 backdrop-blur-[3px] animate-[planning-fade-in_140ms_ease-out]"
             onClick={onClose}
         >
             <div
-                className="w-full max-w-xl bg-white rounded-xl shadow-[0_24px_64px_rgba(15,23,42,0.18)] ring-1 ring-slate-200/60 overflow-hidden"
+                className="w-full max-w-xl bg-white dark:bg-dk-surface rounded-xl shadow-[0_24px_64px_rgba(15,23,42,0.18)] ring-1 ring-slate-200/60 dark:ring-dk-border overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Search */}
-                <div className="flex items-center gap-2 px-4 h-12 border-b border-slate-100">
-                    <Search className="w-4 h-4 text-slate-400 shrink-0" strokeWidth={1.75} />
+                <div className="flex items-center gap-2 px-4 h-12 border-b border-slate-100 dark:border-dk-border">
+                    <Search className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" strokeWidth={1.75} />
                     <input
                         ref={inputRef}
                         type="text"
                         value={query}
                         onChange={(e) => { setQuery(e.target.value); setActiveIdx(0); }}
-                        placeholder="Tapez une commande ou recherchez…"
-                        className="flex-1 text-[14px] text-slate-900 placeholder:text-slate-400 outline-none bg-transparent"
+                        placeholder={tx(lang,{fr:'Tapez une commande ou recherchez…',ar:'اكتب أمراً أو ابحث…',en:'Type a command or search…',es:'Escriba un comando o busque…',pt:'Digite um comando ou pesquise…',tr:'Bir komut yazın veya arayın…'})}
+                        className="flex-1 text-[14px] text-slate-900 dark:text-dk-text placeholder:text-slate-400 dark:placeholder:text-dk-muted outline-none bg-transparent"
                     />
                     <button
                         type="button"
                         onClick={onClose}
-                        className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                        className="p-1 rounded text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated/60"
                     >
                         <X className="w-3.5 h-3.5" />
                     </button>
@@ -117,13 +120,13 @@ export default function CommandPalette({ open, onClose, actions }: Props) {
                 {/* List */}
                 <div ref={listRef} className="max-h-[50vh] overflow-y-auto py-1">
                     {filtered.length === 0 && (
-                        <div className="px-4 py-8 text-center text-[12px] text-slate-400">
-                            Aucune commande
+                        <div className="px-4 py-8 text-center text-[12px] text-slate-400 dark:text-dk-muted">
+                            {tx(lang,{fr:'Aucune commande',ar:'لا توجد أوامر',en:'No commands',es:'Ningún comando',pt:'Nenhum comando',tr:'Komut yok'})}
                         </div>
                     )}
                     {groups.map(([group, items]) => (
                         <div key={group} className="py-1">
-                            <div className="px-4 py-1 text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                            <div className="px-4 py-1 text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-dk-muted">
                                 {group}
                             </div>
                             {items.map(a => {
@@ -138,14 +141,14 @@ export default function CommandPalette({ open, onClose, actions }: Props) {
                                         onMouseEnter={() => setActiveIdx(idx)}
                                         onClick={() => { a.onRun(); onClose(); }}
                                         className={`group w-full px-4 h-9 flex items-center gap-3 text-left transition-colors ${
-                                            isActive ? 'bg-slate-100' : 'hover:bg-slate-50'
+                                            isActive ? 'bg-slate-100 dark:bg-dk-elevated/60' : 'hover:bg-slate-50 dark:hover:bg-dk-elevated/30'
                                         }`}
                                     >
-                                        <a.icon className="w-3.5 h-3.5 text-slate-500 shrink-0" strokeWidth={1.75} />
-                                        <span className="text-[13px] text-slate-800 flex-1 truncate">{a.label}</span>
-                                        {a.hint && <span className="text-[11px] text-slate-400 shrink-0">{a.hint}</span>}
+                                        <a.icon className="w-3.5 h-3.5 text-slate-500 dark:text-dk-muted shrink-0" strokeWidth={1.75} />
+                                        <span className="text-[13px] text-slate-800 dark:text-dk-text flex-1 truncate">{a.label}</span>
+                                        {a.hint && <span className="text-[11px] text-slate-400 dark:text-dk-muted shrink-0">{a.hint}</span>}
                                         {a.shortcut && (
-                                            <kbd className="text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded shrink-0">
+                                            <kbd className="text-[10px] font-medium text-slate-500 dark:text-dk-muted bg-slate-100 dark:bg-dk-bg border border-slate-200 dark:border-dk-border px-1.5 py-0.5 rounded shrink-0">
                                                 {a.shortcut}
                                             </kbd>
                                         )}
@@ -157,11 +160,11 @@ export default function CommandPalette({ open, onClose, actions }: Props) {
                 </div>
 
                 {/* Footer hints */}
-                <div className="flex items-center justify-between px-4 h-8 border-t border-slate-100 bg-slate-50/40 text-[10px] text-slate-400">
+                <div className="flex items-center justify-between px-4 h-8 border-t border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/40 dark:bg-dk-bg text-[10px] text-slate-400 dark:text-dk-muted">
                     <div className="flex items-center gap-3">
-                        <span>↑↓ Naviguer</span>
-                        <span>↵ Sélectionner</span>
-                        <span>Esc Fermer</span>
+                        <span>{tx(lang,{fr:'↑↓ Naviguer',ar:'↑↓ تنقل',en:'↑↓ Navigate',es:'↑↓ Navegar',pt:'↑↓ Navegar',tr:'↑↓ Gezin'})}</span>
+                        <span>{tx(lang,{fr:'↵ Sélectionner',ar:'↵ اختر',en:'↵ Select',es:'↵ Seleccionar',pt:'↵ Selecionar',tr:'↵ Seç'})}</span>
+                        <span>{tx(lang,{fr:'Esc Fermer',ar:'Esc إغلاق',en:'Esc Close',es:'Esc Cerrar',pt:'Esc Fechar',tr:'Esc Kapat'})}</span>
                     </div>
                     <span>⌘K</span>
                 </div>

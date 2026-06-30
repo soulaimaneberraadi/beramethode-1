@@ -21,14 +21,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     bgCard, bgCardHeader, textPrimary, textSecondary, inputBg
 }) => {
     return (
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div className={`${bgCard} rounded-lg border overflow-hidden`}>
             {/* Header - Planning Style */}
-            <div className="px-5 h-12 border-b border-slate-100 flex items-center justify-between">
+            <div className={`px-5 h-12 border-b flex items-center justify-between ${bgCardHeader}`}>
                 <div className="flex items-center gap-2">
-                    <Settings className="w-4 h-4 text-slate-400" strokeWidth={1.75} />
+                    <Settings className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
                     <div>
-                        <h2 className="text-[13px] font-semibold text-slate-900 tracking-tight">{t.settings}</h2>
-                        <p className="text-[11px] text-slate-400">Marges &amp; taxes</p>
+                        <h2 className={`text-[13px] font-semibold tracking-tight ${textPrimary}`}>{t.settings}</h2>
+                        <p className={`text-[11px] ${textSecondary}`}>Marges &amp; taxes</p>
                     </div>
                 </div>
             </div>
@@ -38,10 +38,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 {/* Margin Atelier */}
                 <div className="group">
                     <label className="flex items-center gap-1.5 mb-2">
-                        <span className="text-[11px] font-medium text-slate-500">
+                        <span className={`text-[11px] font-medium ${textSecondary}`}>
                             {t.margeAtelier}
                         </span>
-                        <Info className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <Info className="w-3 h-3 text-slate-400 dark:text-dk-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                     </label>
                     <div className="relative">
                         <NumberInput
@@ -49,10 +49,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             min={0}
                             value={settings.marginAtelier}
                             onChange={handleChange}
-                            className="w-full h-9 pl-3 pr-10 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
+                            className={`w-full h-9 pl-3 pr-10 ${inputBg} focus:bg-white dark:focus:bg-dk-surface rounded-md text-[13px] font-semibold focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border outline-none transition-all tabular-nums ${textPrimary}`}
                         />
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                            <Percent className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
+                            <Percent className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
                         </div>
                     </div>
                 </div>
@@ -60,10 +60,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 {/* TVA */}
                 <div className="group">
                     <label className="flex items-center gap-1.5 mb-2">
-                        <span className="text-[11px] font-medium text-slate-500">
+                        <span className={`text-[11px] font-medium ${textSecondary}`}>
                             {t.tva}
                         </span>
-                        <Info className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <Info className="w-3 h-3 text-slate-400 dark:text-dk-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                     </label>
                     <div className="relative">
                         <NumberInput
@@ -71,10 +71,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             min={0}
                             value={settings.tva}
                             onChange={handleChange}
-                            className="w-full h-9 pl-3 pr-10 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
+                            className={`w-full h-9 pl-3 pr-10 ${inputBg} focus:bg-white dark:focus:bg-dk-surface rounded-md text-[13px] font-semibold focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border outline-none transition-all tabular-nums ${textPrimary}`}
                         />
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                            <Percent className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
+                            <Percent className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
                         </div>
                     </div>
                 </div>
@@ -82,10 +82,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 {/* Margin Boutique */}
                 <div className="group">
                     <label className="flex items-center gap-1.5 mb-2">
-                        <span className="text-[11px] font-medium text-slate-500">
+                        <span className={`text-[11px] font-medium ${textSecondary}`}>
                             {t.margeBoutique}
                         </span>
-                        <Info className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <Info className="w-3 h-3 text-slate-400 dark:text-dk-muted opacity-0 group-hover:opacity-100 transition-opacity" />
                     </label>
                     <div className="relative">
                         <NumberInput
@@ -93,22 +93,22 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             min={0}
                             value={settings.marginBoutique}
                             onChange={handleChange}
-                            className="w-full h-9 pl-3 pr-10 bg-slate-50/60 hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
+                            className={`w-full h-9 pl-3 pr-10 ${inputBg} focus:bg-white dark:focus:bg-dk-surface rounded-md text-[13px] font-semibold focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border outline-none transition-all tabular-nums ${textPrimary}`}
                         />
                         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                            <Percent className="w-3.5 h-3.5 text-slate-400" strokeWidth={1.75} />
+                            <Percent className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
                         </div>
                     </div>
                 </div>
 
                 {/* Visual Summary */}
-                <div className="pt-4 border-t border-slate-100">
+                <div className="pt-4 border-t border-slate-200 dark:border-dk-border">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#2149C1]" />
-                            <span className="text-[12px] text-slate-500">Marge Totale</span>
+                            <span className={`text-[12px] ${textSecondary}`}>Marge Totale</span>
                         </div>
-                        <span className="text-[13px] font-semibold text-slate-900 tabular-nums">{settings.marginAtelier + settings.tva + settings.marginBoutique}%</span>
+                        <span className={`text-[13px] font-semibold tabular-nums ${textPrimary}`}>{settings.marginAtelier + settings.tva + settings.marginBoutique}%</span>
                     </div>
                 </div>
             </div>

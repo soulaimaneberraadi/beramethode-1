@@ -1,4 +1,7 @@
 import React from 'react';
+import { tx } from '../../../../lib/i18n';
+import { useLang } from '../../../../src/context/LanguageContext';
+import { useIsDark } from '../../../../src/context/ThemeContext';
 import type { AppSettings, Machine, ModelData, PlanningEvent } from '../../../../types';
 import type { PlanningChain } from '../../hooks/usePlanningChains';
 import EventBar from './EventBar';
@@ -47,6 +50,8 @@ function GanttRow({
     onChainContextMenu, sidebarCollapsed = false, sidebarW,
     machines = [],
 }: Props) {
+    const { lang } = useLang();
+    const isDark = useIsDark();
     const isSolo = soloChainId === chain.id;
     const cap = chain.capacityPerDay;
     const effPct = Math.round(chain.efficiency * 100);
@@ -61,16 +66,24 @@ function GanttRow({
     // Gradient et ombre selon l'efficacité
     const sidebarBg = React.useMemo(() => {
         if (isSolo) {
-            return 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)';
+            return isDark
+                ? 'linear-gradient(135deg,#1D2E28 0%,#14211C 60%,#14211C 100%)'
+                : 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)';
         }
         if (chain.efficiency >= 0.85) {
-            return 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 60%, #ECFDF5 100%)';
+            return isDark
+                ? 'linear-gradient(135deg,#1D2E28 0%,#14211C 60%,#14211C 100%)'
+                : 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 60%, #ECFDF5 100%)';
         }
         if (chain.efficiency >= 0.7) {
-            return 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 60%, #FFFBEB 100%)';
+            return isDark
+                ? 'linear-gradient(135deg,#1D2E28 0%,#14211C 60%,#14211C 100%)'
+                : 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 60%, #FFFBEB 100%)';
         }
-        return 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 60%, #FEF2F2 100%)';
-    }, [isSolo, chain.efficiency]);
+        return isDark
+            ? 'linear-gradient(135deg,#1D2E28 0%,#14211C 60%,#14211C 100%)'
+            : 'linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 60%, #FEF2F2 100%)';
+    }, [isSolo, chain.efficiency, isDark]);
 
     const first = timelineDates[0];
     const origin = first ? new Date(first.getFullYear(), first.getMonth(), first.getDate(), 12, 0, 0, 0) : new Date();
@@ -154,8 +167,12 @@ function GanttRow({
         const barHeight = compact ? 32 : 56;
         const topOffset = lane * rowHeight + (rowHeight - barHeight) / 2;
 
+        const isRtl = lang === 'ar';
+        const offsetPx = Math.max(0, offsetDays * dayWidth) + 4;
+
         return {
-            left: `${Math.max(0, offsetDays * dayWidth) + 4}px`,
+            left: isRtl ? 'auto' : `${offsetPx}px`,
+            right: isRtl ? `${offsetPx}px` : 'auto',
             width: `${durationDays * dayWidth - 8}px`,
             top: `${topOffset}px`,
             transform: 'none',
@@ -197,7 +214,7 @@ function GanttRow({
 
     return (
         <div
-            className="planning-row flex border-b border-slate-50 group/row hover:bg-slate-50/30 transition-colors"
+            className="planning-row flex border-b border-slate-50 dark:border-dk-border group/row hover:bg-slate-50/30 dark:hover:bg-dk-elevated/60 transition-colors"
             style={{ animationDelay: `${Math.min(index * 30, 240)}ms` }}
         >
 
@@ -206,8 +223,8 @@ function GanttRow({
                 type="button"
                 onClick={() => onToggleSolo(chain.id)}
                 onContextMenu={onChainContextMenu ? (e) => { e.preventDefault(); onChainContextMenu(e, chain.id); } : undefined}
-                title={isSolo ? 'Désisoler · Clic droit: options' : 'Isoler · Clic droit: options'}
-                className={`shrink-0 border-r border-slate-100 sticky left-0 z-[28] flex flex-col justify-center gap-1 text-left overflow-hidden hover:brightness-[1.02] ${
+                title={isSolo ? tx(lang, { fr: 'Désisoler · Clic droit: options', ar: 'إلغاء العزل · النقر الأيمن: خيارات', en: 'Unsolo · Right-click: options', es: 'Desaislar · Clic derecho: opciones', pt: 'Desisolar · Clique direito: opções', tr: 'Ayrımı kaldır · Sağ tık: seçenekler' }) : tx(lang, { fr: 'Isoler · Clic droit: options', ar: 'عزل · النقر الأيمن: خيارات', en: 'Isolate · Right-click: options', es: 'Aislar · Clic derecho: opciones', pt: 'Isolar · Clique direito: opções', tr: 'Ayır · Sağ tık: seçenekler' })}
+                className={`shrink-0 border-r border-slate-100 dark:border-dk-border sticky left-0 z-[28] flex flex-col justify-center gap-1 text-left overflow-hidden hover:brightness-[1.02] ${
                     sidebarCollapsed ? 'items-center justify-center' : 'px-2 sm:px-4'
                 }`}
                 style={{
@@ -225,7 +242,7 @@ function GanttRow({
                     <div className="flex flex-col items-center justify-center gap-1">
                         <span className={`w-2 h-2 rounded-full ${loadColor}`} />
                         <span className={`text-[12px] font-black tabular-nums leading-none ${
-                            isSolo ? 'text-indigo-600' : 'text-slate-700'
+                            isSolo ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-400' : 'text-slate-700 dark:text-dk-text-soft'
                         }`}>
                             {chainShort}
                         </span>
@@ -234,32 +251,32 @@ function GanttRow({
                     <>
                         <div className="flex items-center gap-2">
                             <span className={`w-1.5 h-1.5 rounded-full ${loadColor}`} />
-                            <span className="text-[12px] font-medium truncate text-slate-900">{chain.name}</span>
-                            {isSolo && <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-slate-500">Solo</span>}
+                            <span className="text-[12px] font-medium truncate text-slate-900 dark:text-dk-text">{chain.name}</span>
+                            {isSolo && <span className="ml-auto text-[9px] font-semibold uppercase tracking-wider text-slate-500 dark:text-dk-muted">{tx(lang, {fr: 'Solo', ar: 'منفرد', en: 'Solo', es: 'Solo', pt: 'Solo', tr: 'Solo'})}</span>}
                         </div>
                         {rowHeight >= 60 && (
-                            <div className="flex flex-col ml-3.5 text-[10px] text-slate-400 leading-normal max-w-[170px] min-w-0">
+                            <div className="flex flex-col ml-3.5 text-[10px] text-slate-400 dark:text-dk-muted leading-normal max-w-[170px] min-w-0">
                                 {activeEventToday ? (
                                     <>
-                                        <span className="font-semibold text-slate-700 truncate flex items-center gap-1" title={evModelName(activeEventToday, models)}>
+                                        <span className="font-semibold text-slate-700 dark:text-dk-text-soft truncate flex items-center gap-1" title={evModelName(activeEventToday, models)}>
                                             <span 
                                                 className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" 
                                                 style={{ background: getModelColor(activeEventToday.modelId || evModelName(activeEventToday, models)) }}
                                             />
                                             {evModelName(activeEventToday, models)}
                                         </span>
-                                        <span className="tabular-nums text-slate-500 font-medium pl-2.5">
-                                            Reste {100 - evProgressPct(activeEventToday)}%
+                                        <span className="tabular-nums text-slate-500 dark:text-dk-muted font-medium pl-2.5">
+                                            {tx(lang, { fr: 'Reste', ar: 'المتبقي', en: 'Left', es: 'Restante', pt: 'Restante', tr: 'Kalan' })} {100 - evProgressPct(activeEventToday)}%
                                         </span>
                                     </>
                                 ) : (
                                     <>
-                                        <span className="font-medium text-slate-400 truncate flex items-center gap-1">
+                                        <span className="font-medium text-slate-400 dark:text-dk-muted truncate flex items-center gap-1">
                                             <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-transparent" />
                                             {chain.capacityPerDay} pcs/j
                                         </span>
-                                        <span className="tabular-nums text-slate-400 font-medium pl-2.5">
-                                            Rendement {effPct}%
+                                        <span className="tabular-nums text-slate-400 dark:text-dk-muted font-medium pl-2.5">
+                                            {tx(lang, { fr: 'Rendement', ar: 'الإنتاجية', en: 'Yield', es: 'Rendimiento', pt: 'Rendimento', tr: 'Verim' })} {effPct}%
                                         </span>
                                     </>
                                 )}
@@ -298,7 +315,7 @@ function GanttRow({
                         }
                         const downMachine = downtimeInfo.find(m => key >= m.downtimeStartYmd! && key <= m.downtimeEndYmd!);
                         const tooltip = downMachine
-                            ? `${downMachine.status === 'PANNE' ? 'Panne' : 'Maintenance'}: ${downMachine.name || 'Machine'} (${downMachine.matricule || 'Sans matricule'}) du ${downMachine.downtimeStartYmd} au ${downMachine.downtimeEndYmd}`
+                            ? `${downMachine.status === 'PANNE' ? tx(lang, { fr: 'Panne', ar: 'عطل', en: 'Breakdown', es: 'Avería', pt: 'Avaria', tr: 'Arıza' }) : tx(lang, { fr: 'Maintenance', ar: 'صيانة', en: 'Maintenance', es: 'Mantenimiento', pt: 'Manutenção', tr: 'Bakım' })}: ${downMachine.name || tx(lang, { fr: 'Machine', ar: 'آلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' })} (${downMachine.matricule || tx(lang, { fr: 'Sans matricule', ar: 'بدون رقم تسجيل', en: 'No registration number', es: 'Sin matrícula', pt: 'Sem matrícula', tr: 'Kayıt numarası yok' })}) ${tx(lang, { fr: 'du', ar: 'من', en: 'from', es: 'del', pt: 'de', tr: '-' })} ${downMachine.downtimeStartYmd} ${tx(lang, { fr: 'au', ar: 'إلى', en: 'to', es: 'al', pt: 'até', tr: '-' })} ${downMachine.downtimeEndYmd}`
                             : undefined;
                         let cellStyle: React.CSSProperties = { width: dayWidth, minWidth: dayWidth, ...heatStyle };
                         if (downMachine) {
@@ -324,9 +341,9 @@ function GanttRow({
                                     onDragEnd();
                                 }}
                                 title={tooltip}
-                                className={`border-r border-slate-50 last:border-r-0 transition-colors ${
-                                    isWeekend ? 'bg-slate-50/40' : ''
-                                } ${isDragOver ? '!bg-slate-100' : ''}`}
+                                className={`border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 transition-colors ${
+                                    isWeekend ? 'bg-slate-50 dark:bg-dk-bg/40 dark:bg-dk-bg/60' : ''
+                                } ${isDragOver ? '!bg-slate-100 dark:bg-dk-elevated dark:!bg-dk-elevated' : ''}`}
                                 style={cellStyle}
                             />
                         );

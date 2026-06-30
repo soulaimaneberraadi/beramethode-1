@@ -2,6 +2,7 @@ import React from 'react';
 import { AppSettings, Material } from '../types';
 import { fmt } from '../constants';
 import { Scissors, Package, Tag, ArrowDown } from 'lucide-react';
+import SensitiveValue from './ui/SensitiveValue';
 
 interface TicketViewProps {
     t: any;
@@ -82,8 +83,8 @@ const TicketView: React.FC<TicketViewProps> = ({
                 )}
 
                 {/* LABOR */}
-                <div className={`rounded p-2 border ${darkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-slate-50 border-slate-200'}`}>
-                    <h3 className={`text-[8px] font-bold uppercase tracking-wider border-b pb-1 mb-1.5 flex items-center gap-1 ${darkMode ? 'border-gray-700 text-blue-400' : 'border-slate-200 text-blue-600'}`}>
+                <div className={`rounded p-2 border ${darkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-slate-50 dark:bg-dk-bg border-slate-200'}`}>
+                    <h3 className={`text-[8px] font-bold uppercase tracking-wider border-b pb-1 mb-1.5 flex items-center gap-1 ${darkMode ? 'border-gray-700 text-blue-400' : 'border-slate-200 text-blue-600 dark:text-blue-400'}`}>
                         <Scissors className="w-2 h-2" /> PRIX FAÇON
                     </h3>
                     {soustraitanceActive ? (
@@ -115,7 +116,7 @@ const TicketView: React.FC<TicketViewProps> = ({
                     )}
                     <div className={`mt-1 pt-1 border-t flex justify-between items-end ${darkMode ? 'border-blue-900' : 'border-blue-100'}`}>
                         <span className={`text-[8px] font-bold ${textSecondary}`}>{t.labor}</span>
-                        <span className={`font-bold text-xs ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>{fmt(laborCost)} <span className="text-[7px] font-normal opacity-50">{currency}</span></span>
+                        <span className={`font-bold text-xs ${darkMode ? 'text-blue-400' : 'text-blue-600 dark:text-blue-400'}`}>{fmt(laborCost)} <span className="text-[7px] font-normal opacity-50">{currency}</span></span>
                     </div>
                 </div>
 
@@ -126,13 +127,13 @@ const TicketView: React.FC<TicketViewProps> = ({
                     </h3>
 
                     {/* P.R */}
-                    <div className={`relative p-2 rounded border-l-2 flex justify-between items-center ${darkMode ? 'bg-gray-700 border-l-slate-400' : 'bg-slate-50 border-l-slate-500'}`}>
+                    <div className={`relative p-2 rounded border-l-2 flex justify-between items-center ${darkMode ? 'bg-gray-700 border-l-slate-400' : 'bg-slate-50 dark:bg-dk-bg border-l-slate-500'}`}>
                         <div>
                             <span className={`text-[8px] font-bold uppercase tracking-wider opacity-70 ${textPrimary}`}>P.R</span>
                             <div className="text-[7px] text-slate-400">{materialsHidden ? 'Façon (tout compris)' : 'Matière + Façon'}</div>
                         </div>
                         <div className={`text-base font-black ${textPrimary}`}>
-                            {fmt(costPrice)} <span className="text-[7px] font-normal opacity-50">{currency}</span>
+                            <SensitiveValue field="model.prix_revient">{fmt(costPrice)} <span className="text-[7px] font-normal opacity-50">{currency}</span></SensitiveValue>
                         </div>
                     </div>
 
@@ -153,7 +154,7 @@ const TicketView: React.FC<TicketViewProps> = ({
                             <div className={`w-px ${darkMode ? 'bg-gray-600' : 'bg-slate-200'}`}></div>
                             <div className="flex-1 text-right">
                                 <span className="block text-[7px] uppercase font-bold text-slate-400 mb-0.5">TTC (+{settings.tva}%)</span>
-                                <div className={`text-xs font-bold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>{fmt(sellPriceTTC)} <span className="text-[7px] font-normal opacity-50">{currency}</span></div>
+                                <div className={`text-xs font-bold ${darkMode ? 'text-green-400' : 'text-green-600 dark:text-green-400'}`}>{fmt(sellPriceTTC)} <span className="text-[7px] font-normal opacity-50">{currency}</span></div>
                             </div>
                         </div>
 
@@ -161,7 +162,7 @@ const TicketView: React.FC<TicketViewProps> = ({
                         <div className={`rounded p-2 flex justify-between items-center ${darkMode ? 'bg-emerald-900/40 border border-emerald-800' : 'bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100'}`}>
                             <div>
                                 <span className={`text-[8px] font-bold uppercase tracking-wider ${darkMode ? 'text-emerald-300' : 'text-emerald-800'}`}>{t.shopPrice}</span>
-                                <span className={`text-[7px] font-medium ${darkMode ? 'text-emerald-500' : 'text-emerald-600'}`}>+{settings.marginBoutique}%</span>
+                                <span className={`text-[7px] font-medium ${darkMode ? 'text-emerald-500' : 'text-emerald-600 dark:text-emerald-400'}`}>+{settings.marginBoutique}%</span>
                             </div>
                             <div className={`text-lg font-black ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>
                                 {fmt(boutiquePrice)} <span className="text-[7px] font-normal opacity-60">{currency}</span>

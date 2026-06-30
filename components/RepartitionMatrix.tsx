@@ -3,11 +3,13 @@ import { Grid3X3, Plus, X, Trash2, Palette } from 'lucide-react';
 import { FicheData } from '../types';
 import { TEXTILE_COLORS } from '../data/textileData';
 import ExcelInput from './ExcelInput';
+import { tx, pickT } from '../lib/i18n';
+import type { Lang } from '../app/constants';
 
 interface RepartitionMatrixProps {
     data: FicheData;
     setData: React.Dispatch<React.SetStateAction<FicheData>>;
-    lang?: 'fr' | 'ar';
+    lang?: Lang;
     /** Quand true, met à jour data.quantity avec le total de la grille (Pedido le gère déjà de son côté). */
     syncQuantity?: boolean;
 }
@@ -186,33 +188,33 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
     };
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-150 flex flex-wrap items-end justify-between gap-3">
-                <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+        <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden">
+            <div className="bg-slate-50 dark:bg-dk-bg/50 px-6 py-4 border-b border-slate-150 flex flex-wrap items-end justify-between gap-3">
+                <label className="text-xs font-bold text-slate-500 dark:text-dk-muted uppercase flex items-center gap-2">
                     <Grid3X3 className="w-3.5 h-3.5 text-indigo-500" />
-                    {lang === 'ar' ? 'توزيع المقاسات والألوان' : 'Répartition (Tailles / Couleurs)'}
+                    {tx(lang, { fr: 'Répartition (Tailles / Couleurs)', ar: 'توزيع المقاسات والألوان', en: 'Distribution (Sizes / Colors)', es: 'Distribución (Tallas / Colores)', pt: 'Distribuição (Tamanhos / Cores)', tr: 'Dağılım (Bedenler / Renkler)' })}
                 </label>
 
                 {/* ADD SIZE INPUT */}
-                <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200 font-sans">
+                <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-lg p-1 border border-slate-200 dark:border-dk-border font-sans">
                     <input
                         type="text"
-                        placeholder={lang === 'ar' ? 'أضف مقاسات (مثال: 36 38)' : 'Ajouter Tailles (ex: 36 38 40)'}
-                        className="bg-transparent text-xs px-2 outline-none w-48 text-slate-700 placeholder:text-slate-400 font-semibold"
+                        placeholder={tx(lang, { fr: 'Ajouter Tailles (ex: 36 38 40)', ar: 'أضف مقاسات (مثال: 36 38)', en: 'Add Sizes (e.g. 36 38 40)', es: 'Añadir Tallas (ej: 36 38 40)', pt: 'Adicionar Tamanhos (ex: 36 38 40)', tr: 'Beden Ekle (örn: 36 38 40)' })}
+                        className="bg-transparent text-xs px-2 outline-none w-48 text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 font-semibold"
                         value={newSizeInput}
                         onChange={(e) => setNewSizeInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && addSize()}
                     />
-                    <button onClick={addSize} className="bg-white rounded p-1 shadow-sm hover:text-indigo-600 transition-colors">
+                    <button onClick={addSize} className="bg-white dark:bg-dk-surface rounded p-1 shadow-sm dark:shadow-dk-sm hover:text-indigo-600 dark:text-dk-accent-text transition-colors">
                         <Plus className="w-3 h-3" />
                     </button>
                 </div>
             </div>
 
             <div className="p-6 space-y-4">
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
                     {/* ADD COLOR INPUT */}
-                    <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex flex-wrap gap-2 items-center font-sans">
+                    <div className="bg-slate-50 dark:bg-dk-bg p-2.5 border-b border-slate-200 dark:border-dk-border flex flex-wrap gap-2 items-center font-sans">
                         <label className="relative flex items-center justify-center cursor-pointer shrink-0 animate-in fade-in" title="Choisir une couleur">
                             <input
                                 type="color"
@@ -220,17 +222,17 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                                 onChange={(e) => setPickedHexColor(e.target.value)}
                                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
                             />
-                            <div className="w-6 h-6 rounded-md border-2 border-slate-300 shadow-sm cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: pickedHexColor }}></div>
+                            <div className="w-6 h-6 rounded-md border-2 border-slate-300 shadow-sm dark:shadow-dk-sm cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: pickedHexColor }}></div>
                         </label>
-                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[11px] font-black rounded-md whitespace-nowrap">
+                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 dark:text-dk-accent-text text-[11px] font-black rounded-md whitespace-nowrap">
                             {hexToColorName(pickedHexColor)}
                         </span>
-                        <div className="relative flex-1 min-w-[120px] flex items-center bg-white border border-slate-200 rounded-lg focus-within:border-indigo-400 px-3 h-7">
-                            <Palette className="w-3 h-3 text-slate-400 mr-2 z-20 relative shrink-0" />
+                        <div className="relative flex-1 min-w-[120px] flex items-center bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg focus-within:border-indigo-400 px-3 h-7">
+                            <Palette className="w-3 h-3 text-slate-400 dark:text-dk-muted mr-2 z-20 relative shrink-0" />
                             <ExcelInput
                                 suggestions={TEXTILE_COLORS.map(c => c.value)}
                                 placeholder="Nom couleur (ou laisser auto)..."
-                                className="text-xs font-bold text-slate-700 outline-none w-full pl-6 pr-2"
+                                className="text-xs font-bold text-slate-700 dark:text-dk-text-soft outline-none w-full pl-6 pr-2"
                                 containerClassName="absolute inset-0 flex items-center"
                                 value={newColorInput}
                                 onChange={(val) => setNewColorInput(val)}
@@ -247,9 +249,9 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                                 if (newColorInput.trim()) addColor();
                                 else addVisualColor(pickedHexColor);
                             }}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors z-20 h-7"
+                            className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors z-20 h-7"
                         >
-                            <Plus className="w-3 h-3" /> {lang === 'ar' ? 'إضافة' : 'Ajouter'}
+                            <Plus className="w-3 h-3" /> {tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
                         </button>
                     </div>
 
@@ -257,56 +259,58 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                     <div className="overflow-x-auto">
                         <table className="w-full text-xs border-collapse">
                             <thead>
-                                <tr className="bg-slate-100 text-slate-600 border-b border-slate-200 font-sans">
-                                    <th className="py-3 px-3 text-left font-bold border-r border-slate-200 min-w-[120px]">Couleur \ Taille</th>
+                                <tr className="bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border font-sans">
+                                    <th className="py-3 px-3 text-left font-bold border-r border-slate-200 dark:border-dk-border min-w-[120px]">Couleur \ Taille</th>
                                     {sizes.length === 0 && (
-                                        <th className="py-2 px-4 text-center font-normal italic text-slate-400 border-r border-slate-200 min-w-[100px]">
+                                        <th className="py-2 px-4 text-center font-normal italic text-slate-400 dark:text-dk-muted border-r border-slate-200 dark:border-dk-border min-w-[100px]">
                                             (Ajouter tailles)
                                         </th>
                                     )}
                                     {sizes.map((s, i) => (
-                                        <th key={i} className="py-2 px-2 text-center font-bold border-r border-slate-200 min-w-[50px] relative group">
+                                        <th key={i} className="py-2 px-2 text-center font-bold border-r border-slate-200 dark:border-dk-border min-w-[50px] relative group">
                                             {s}
                                             <button
                                                 onClick={() => removeSize(i)}
-                                                className="absolute top-0 right-0 p-0.5 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="absolute top-0 right-0 p-0.5 text-slate-300 dark:text-dk-muted hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                                 title="Supprimer Taille"
                                             >
                                                 <X className="w-2.5 h-2.5" />
                                             </button>
                                         </th>
                                     ))}
-                                    <th className="py-2 px-3 text-center font-black bg-slate-200 text-slate-800 w-20">TOTAL</th>
+                                    <th className="py-2 px-3 text-center font-black bg-slate-200 dark:bg-dk-elevated text-slate-800 dark:text-dk-text w-20">TOTAL</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
+                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                 {colors.length === 0 && (
                                     <tr>
-                                        <td colSpan={sizes.length + (sizes.length === 0 ? 3 : 2)} className="py-8 text-center text-slate-400 italic font-sans">
-                                            {lang === 'ar' ? 'أضف ألوانًا للبدء في تقسيم الكميات.' : 'Ajoutez des couleurs pour commencer la répartition.'}
+                                        <td colSpan={sizes.length + (sizes.length === 0 ? 3 : 2)} className="py-8 text-center text-slate-400 dark:text-dk-muted italic font-sans">
+                                            {tx(lang, { fr: 'Ajoutez des couleurs pour commencer la répartition.', ar: 'أضف ألوانًا للبدء في تقسيم الكميات.', en: 'Add colors to start the distribution.', es: 'Añada colores para comenzar la distribución.', pt: 'Adicione cores para iniciar a distribuição.', tr: 'Dağılıma başlamak için renk ekleyin.' })}
                                         </td>
                                     </tr>
                                 )}
                                 {colors.map((c, cIdx) => (
-                                    <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50 group">
-                                        <td className="py-2 px-3 border-r border-slate-200 font-bold text-slate-700 flex justify-between items-center font-sans">
-                                            <div className="flex items-center gap-2">
-                                                <div
-                                                    className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}
-                                                    style={c.id && c.id.startsWith('#') ? { backgroundColor: c.id } : undefined}
-                                                />
-                                                <span className="truncate max-w-[150px]" title={c.name}>
-                                                    {c.id && c.id.startsWith('#') && (c.name.includes('personnalisé') || c.name.startsWith('#') || c.name.includes('rgb(') || c.name.includes('Couleur P'))
-                                                        ? hexToColorName(c.id)
-                                                        : c.name}
-                                                </span>
+                                    <tr key={`${c.id}-${cIdx}`} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 group">
+                                        <td className="py-2 px-3 border-r border-slate-200 dark:border-dk-border font-bold text-slate-700 dark:text-dk-text-soft font-sans">
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className={`w-3 h-3 rounded-full flex-shrink-0 shadow-sm dark:shadow-dk-sm ${c.id && c.id.startsWith('#') ? '' : 'bg-slate-300'}`}
+                                                        style={c.id && c.id.startsWith('#') ? { backgroundColor: c.id } : undefined}
+                                                    />
+                                                    <span className="truncate max-w-[150px]" title={c.name}>
+                                                        {c.id && c.id.startsWith('#') && (c.name.includes('personnalisé') || c.name.startsWith('#') || c.name.includes('rgb(') || c.name.includes('Couleur P'))
+                                                            ? hexToColorName(c.id)
+                                                            : c.name}
+                                                    </span>
+                                                </div>
+                                                <button onClick={() => removeColor(c.id)} className="text-slate-300 dark:text-dk-muted hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
                                             </div>
-                                            <button onClick={() => removeColor(c.id)} className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
                                         </td>
                                         {sizes.length === 0 && (
-                                            <td className="p-2 border-r border-slate-100 bg-slate-50/30 text-center text-slate-300 text-[10px] italic">
+                                            <td className="p-2 border-r border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/30 text-center text-slate-300 dark:text-dk-muted text-[10px] italic">
                                                 -
                                             </td>
                                         )}
@@ -314,11 +318,11 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                                             const key = `${c.id}_${sIdx}`;
                                             const val = gridQuantities[key] || '';
                                             return (
-                                                <td key={sIdx} className="p-0 border-r border-slate-100 bg-white">
+                                                <td key={sIdx} className="p-0 border-r border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface">
                                                     <input
                                                         type="number"
                                                         min="0"
-                                                        className="w-full h-full text-center py-2.5 bg-transparent outline-none focus:bg-indigo-50 focus:text-indigo-700 transition-colors font-mono font-semibold placeholder:text-slate-200"
+                                                        className="w-full h-full text-center py-2.5 bg-transparent outline-none focus:bg-indigo-50 dark:bg-dk-accent/20 focus:text-indigo-700 dark:text-dk-accent-text transition-colors font-mono font-semibold placeholder:text-slate-200"
                                                         placeholder="0"
                                                         value={val}
                                                         onChange={(e) => updateQuantity(c.id, sIdx, e.target.value)}
@@ -326,25 +330,25 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
                                                 </td>
                                             );
                                         })}
-                                        <td className="py-2 px-3 text-center font-bold text-slate-700 bg-slate-50 border-l border-slate-200 font-mono">
+                                        <td className="py-2 px-3 text-center font-bold text-slate-700 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg border-l border-slate-200 dark:border-dk-border font-mono">
                                             {matrixStats.rowTotals[c.id]}
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                             {colors.length > 0 && (
-                                <tfoot className="border-t-2 border-slate-200 font-bold bg-slate-50 font-sans">
+                                <tfoot className="border-t-2 border-slate-200 dark:border-dk-border font-bold bg-slate-50 dark:bg-dk-bg font-sans">
                                     <tr>
-                                        <td className="py-2 px-3 text-right uppercase text-[10px] tracking-wider text-slate-500 border-r border-slate-200">Total</td>
+                                        <td className="py-2 px-3 text-right uppercase text-[10px] tracking-wider text-slate-500 dark:text-dk-muted border-r border-slate-200 dark:border-dk-border">{tx(lang, {fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam'})}</td>
                                         {sizes.length === 0 && (
-                                            <td className="py-2 px-2 text-center text-slate-700 border-r border-slate-200">-</td>
+                                            <td className="py-2 px-2 text-center text-slate-700 dark:text-dk-text-soft border-r border-slate-200 dark:border-dk-border">-</td>
                                         )}
                                         {sizes.map((_, sIdx) => (
-                                            <td key={sIdx} className="py-2 px-2 text-center text-slate-700 border-r border-slate-200 font-mono">
+                                            <td key={sIdx} className="py-2 px-2 text-center text-slate-700 dark:text-dk-text-soft border-r border-slate-200 dark:border-dk-border font-mono">
                                                 {matrixStats.colTotals[sIdx] || 0}
                                             </td>
                                         ))}
-                                        <td className="py-2 px-3 text-center bg-indigo-600 text-white font-black text-sm font-mono">
+                                        <td className="py-2 px-3 text-center bg-indigo-600 dark:bg-dk-accent text-white font-black text-sm font-mono">
                                             {matrixStats.grandTotal}
                                         </td>
                                     </tr>

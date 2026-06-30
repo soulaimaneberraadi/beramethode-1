@@ -8,7 +8,7 @@ export const PROTECTED_PAGES = [
   'vuegenerale', 'dashboard', 'ingenierie', 'atelier', 'atelierProd', 'library',
   'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement',
   'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin',
-  'objectifs', 'sousTraitance',
+  'objectifs', 'sousTraitance', 'catalogueTemps',
 ] as const;
 
 /** Champs sensibles protégeables (resource_key = 'domaine.champ'). */

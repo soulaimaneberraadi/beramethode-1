@@ -7,6 +7,8 @@
  *    si HMR/abort se déclenche pendant l’attente).
  */
 
+import { tx } from './i18n';
+
 export type BootStepId =
   | 'auth'
   | 'data'
@@ -57,16 +59,16 @@ const named =
  * Poids : 15 % session, 85 % chargement parallèle (l’utilisateur garde un pourcentage cohérent).
  * Les étiquettes d’API (settings, workers, …) restent dans le cache — pas d’`id: 'data'` clé côté consommateurs.
  */
-export const BOOT_STEPS: BootStep[] = [
+export const BOOT_STEPS: (lang: string) => BootStep[] = (lang) => [
   {
     id: 'auth',
-    label: 'Vérification de la session...',
+    label: tx(lang, { fr: 'Vérification de la session...', ar: 'التحقق من الجلسة...', en: 'Checking session...' }),
     weight: 15,
     run: (signal) => fetchJSON('/api/auth/me', signal),
   },
   {
     id: 'data',
-    label: 'Chargement des données (parallèle)...',
+    label: tx(lang, { fr: 'Chargement des données (parallèle)...', ar: 'تحميل البيانات (بالتوازي)...', en: 'Loading data (parallel)...' }),
     weight: 85,
     run: async (signal) => {
       const s = (label: string, p: Promise<unknown>) => named(label)(p);
@@ -100,18 +102,21 @@ const applyDataBundle = (b: { settings: unknown; workers: unknown; magasin: unkn
 };
 
 export const runBootSequence = async (
+  lang: string,
   onProgress: (p: BootProgress) => void,
   signal: AbortSignal,
 ): Promise<BootResult> => {
   const startedAt = performance.now();
-  const [authStep, dataStep] = BOOT_STEPS;
+  const [authStep, dataStep] = BOOT_STEPS(lang);
 
   const allDone: BootStepId[] = ['auth', ...cacheKeysToFillFromData];
 
   onProgress({ progress: 0, currentLabel: authStep.label, completedSteps: [] });
 
+  const cancelledLabel = tx(lang, { fr: 'Annulé', ar: 'ملغي', en: 'Cancelled' });
+
   if (signal.aborted) {
-    return { ok: false, error: { stepId: 'auth', message: 'Annulé' }, cache: bootCache, durationMs: performance.now() - startedAt };
+    return { ok: false, error: { stepId: 'auth', message: cancelledLabel }, cache: bootCache, durationMs: performance.now() - startedAt };
   }
 
   try {
@@ -120,14 +125,14 @@ export const runBootSequence = async (
     onProgress({ progress: 15, currentLabel: authStep.label, completedSteps: ['auth'] });
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError' && signal.aborted) {
-      return { ok: false, error: { stepId: 'auth', message: 'Annulé' }, cache: bootCache, durationMs: performance.now() - startedAt };
+      return { ok: false, error: { stepId: 'auth', message: cancelledLabel }, cache: bootCache, durationMs: performance.now() - startedAt };
     }
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: { stepId: 'auth', message }, cache: bootCache, durationMs: performance.now() - startedAt };
   }
 
   if (signal.aborted) {
-    return { ok: false, error: { stepId: 'data', message: 'Annulé' }, cache: bootCache, durationMs: performance.now() - startedAt };
+    return { ok: false, error: { stepId: 'data', message: cancelledLabel }, cache: bootCache, durationMs: performance.now() - startedAt };
   }
 
   onProgress({ progress: 15, currentLabel: dataStep.label, completedSteps: ['auth'] });
@@ -140,11 +145,11 @@ export const runBootSequence = async (
       dashboard: unknown;
     };
     applyDataBundle(bundle);
-    onProgress({ progress: 100, currentLabel: 'Prêt.', completedSteps: [...allDone] });
+    onProgress({ progress: 100, currentLabel: tx(lang, { fr: 'Prêt.', ar: 'جاهز.', en: 'Ready.' }), completedSteps: [...allDone] });
     return { ok: true, cache: bootCache, durationMs: performance.now() - startedAt };
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError' && signal.aborted) {
-      return { ok: false, error: { stepId: 'data', message: 'Annulé' }, cache: bootCache, durationMs: performance.now() - startedAt };
+      return { ok: false, error: { stepId: 'data', message: cancelledLabel }, cache: bootCache, durationMs: performance.now() - startedAt };
     }
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: { stepId: 'data', message }, cache: bootCache, durationMs: performance.now() - startedAt };
