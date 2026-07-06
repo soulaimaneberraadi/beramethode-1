@@ -494,17 +494,17 @@ export default function Setup({ onComplete, onBackToLogin }: Props) {
         // Persiste le type de compte + nom pour que PermissionsContext masque les
         // modules selon le choix (en static il lit beramethode_company, pas le serveur).
         // ⚠️ cloudSync scope les clés par ID utilisateur (beramethode_last_sync_user
-        // = userId, pas l'e-mail). On écrit donc sous la clé scopée par ID (que
-        // PermissionsContext relira) + la clé de base en secours (si le contexte
-        // utilisateur n'est pas encore prêt au premier rendu).
+        // = userId). On écrit UNIQUEMENT sous la clé scopée par ID — surtout PAS
+        // sous la clé de base non suffixée, qui n'est pas purgée par compte et
+        // ferait fuiter le nom/type de société vers le compte suivant sur le même
+        // appareil. ensureLocalDataOwner pose LAST_SYNC_USER_KEY avant setUser, donc
+        // PermissionsContext lira bien la clé scopée.
         const persistTypeCompany = (uid?: string | number) => {
-          const merge = (key: string) => {
+          if (uid == null || uid === '') return;
+          try {
+            const key = pkey('beramethode_company', String(uid));
             const prev = JSON.parse(localStorage.getItem(key) || '{}');
             localStorage.setItem(key, JSON.stringify({ ...prev, accountType: payload.accountType, name: payload.companyName }));
-          };
-          try {
-            if (uid != null && uid !== '') merge(pkey('beramethode_company', String(uid)));
-            merge('beramethode_company'); // secours (clé de base non suffixée)
           } catch { /* non bloquant */ }
         };
 
