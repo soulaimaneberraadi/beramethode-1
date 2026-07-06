@@ -49,6 +49,8 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
       if (signup) {
         const result = await signup(email, password, name);
         if (!result.ok) throw new Error(result.message || tx(lang, {fr:'Échec inscription.',ar:'فشل التسجيل.',en:'Signup failed.',es:'Error al registrarse.',pt:'Falha no cadastro.',tr:'Kayıt başarısız.'}));
+        // Nouveau compte → l'écran de bienvenue doit s'afficher au premier accès.
+        try { localStorage.setItem('bera_welcome_pending', '1'); } catch { /* ignore */ }
         if (result.requiresConfirmation) {
           setConfirmationSent(true);
           return;
@@ -70,6 +72,8 @@ export default function Signup({ onSwitch, onGuest }: { onSwitch: () => void; on
         throw new Error(data.message || tx(lang, {fr:'Échec inscription.',ar:'فشل التسجيل.',en:'Registration failed.',es:'Error al registrarse.',pt:'Falha no registro.',tr:'Kayıt başarısız.'}));
       }
 
+      // Nouveau compte → l'écran de bienvenue doit s'afficher au premier accès.
+      try { localStorage.setItem('bera_welcome_pending', '1'); } catch { /* ignore */ }
       notifyServerSessionEstablished(data.user?.id ?? 0);
       login(data.user);
     } catch (err: any) {

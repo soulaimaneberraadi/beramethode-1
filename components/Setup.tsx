@@ -7,6 +7,10 @@ import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
 import { lsGet, lsSet } from '../lib/storageKeys';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { useAuth } from '../src/context/AuthContext';
+import { registerTenantInMaster } from '../src/lib/masterRegistration';
+
+const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
 type PrefLang = 'fr' | 'ar' | 'en' | 'es' | 'pt' | 'tr';
 
@@ -34,6 +38,8 @@ interface SetupUser {
 interface Props {
   /** Appelé quand le setup réussit — transmet l'utilisateur admin créé. */
   onComplete: (user: SetupUser) => void;
+  /** Optionnel : retour à l'écran de connexion (affiché comme lien discret). */
+  onBackToLogin?: () => void;
 }
 
 type Step = 1 | 2 | 3 | 4;
@@ -279,10 +285,13 @@ const CGU_SECTIONS: { title: string; body: string }[] = [
   { title: '14. Contact', body: "Pour toute question relative aux présentes conditions : contactberamethode@gmail.com." },
 ];
 
-export default function Setup({ onComplete }: Props) {
+export default function Setup({ onComplete, onBackToLogin }: Props) {
   const { lang } = useLang();
   const isDark = useIsDark();
+  const { signup } = useAuth();
   const [step, setStep] = useState<Step>(1);
+  // Static (Vercel/Supabase) : inscription pouvant exiger une confirmation e-mail.
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   // ── Traînée de fumée pilotée par la souris ─────────────────────────────────
   // pointerX/Y = position brute du curseur ; chaque segment (SmokeDot) la suit
@@ -466,7 +475,35 @@ export default function Setup({ onComplete }: Props) {
             specialty: specialty.trim(),
             profileMeta: hasPhones ? phoneMeta : null,
           };
+    // Données poussées vers BERA MASTER (identiques quel que soit le mode).
+    const masterInput = {
+      company: payload.companyName,
+      email: adminEmail.trim().toLowerCase(),
+      accountType: payload.accountType,
+      location: accountType === 'client' ? region.trim() || undefined : undefined,
+      adminName: adminName.trim() || undefined,
+    };
+
     try {
+      // ── Mode static (Vercel/Supabase) : pas d'API Express /api/setup/init ──
+      if (IS_STATIC) {
+        if (!signup) {
+          setError(tx(lang,{fr:'Inscription indisponible dans ce mode.',ar:'التسجيل غير متاح في هذا الوضع.',en:'Signup unavailable in this mode.',es:'Registro no disponible en este modo.',pt:'Cadastro indisponível neste modo.',tr:'Bu modda kayıt kullanılamıyor.'}));
+          return;
+        }
+        const result = await signup(masterInput.email, adminPassword, adminName.trim());
+        if (!result.ok) {
+          setError(result.message || tx(lang,{fr:'Échec de l\'inscription.',ar:'فشل التسجيل.',en:'Signup failed.',es:'Error al registrarse.',pt:'Falha no cadastro.',tr:'Kayıt başarısız.'}));
+          return;
+        }
+        try { localStorage.setItem('bera_welcome_pending', '1'); } catch { /* ignore */ }
+        await registerTenantInMaster(masterInput); // best-effort
+        if (result.requiresConfirmation) { setConfirmationSent(true); return; }
+        if (result.user) onComplete(result.user as SetupUser);
+        return;
+      }
+
+      // ── Mode Express (EXE local) : /api/setup/init ──
       const res = await fetch('/api/setup/init', {
         method: 'POST',
         credentials: 'include',
@@ -489,6 +526,9 @@ export default function Setup({ onComplete }: Props) {
         setError(tx(lang,{fr:'Réponse serveur inattendue. Veuillez réessayer.',ar:'\u0627\u0633\u062a\u062c\u0627\u0628\u0629 \u063a\u064a\u0631 \u0645\u062a\u0648\u0642\u0639\u0629 \u0645\u0646 \u0627\u0644\u062e\u0627\u062f\u0645. \u064a\u0631\u062c\u0649 \u0625\u0639\u0627\u062f\u0629 \u0627\u0644\u0645\u062d\u0627\u0648\u0644\u0629.',en:'Unexpected server response. Please try again.',es:'Respuesta del servidor inesperada. Por favor, int\u00e9ntelo de nuevo.',pt:'Resposta inesperada do servidor. Por favor, tente novamente.',tr:'Beklenmeyen sunucu yan\u0131t\u0131. L\u00fctfen tekrar deneyin.'}));
         return;
       }
+      // Nouveau compte → écran de bienvenue au premier accès.
+      try { localStorage.setItem('bera_welcome_pending', '1'); } catch { /* ignore */ }
+      await registerTenantInMaster(masterInput); // best-effort
       onComplete(data.user as SetupUser);
     } catch {
       setError(tx(lang,{fr:'Impossible de joindre le serveur. Vérifiez que l\'application est bien démarrée.',ar:'تعذر الاتصال بالخادم. تأكد من أن التطبيق قيد التشغيل.',en:'Could not reach the server. Make sure the application is running.',es:'No se pudo conectar con el servidor. Asegúrese de que la aplicación esté funcionando.',pt:'Não foi possível contactar o servidor. Certifique-se de que a aplicação está em execução.',tr:'Sunucuya ulaşılamadı. Uygulamanın çalıştığından emin olun.'}));
@@ -497,11 +537,43 @@ export default function Setup({ onComplete }: Props) {
     }
   };
 
+  // Écran « vérifiez votre e-mail » (mode static, si confirmation requise).
+  if (confirmationSent) {
+    return (
+      <div className={`relative min-h-screen overflow-hidden flex items-center justify-center p-4 ${isDark ? 'bg-dk-bg' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>
+        <div className="relative z-10 w-full max-w-md text-center rounded-3xl p-8 sm:p-10 border shadow-xl dark:bg-dk-surface dark:border-dk-border bg-white border-slate-200">
+          <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 flex items-center justify-center dark:bg-emerald-900/40 mb-5">
+            <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-dk-text">
+            {tx(lang,{fr:'Vérifiez votre boîte mail',ar:'تحقق من بريدك الإلكتروني',en:'Check your inbox',es:'Revisa tu bandeja de entrada',pt:'Verifique sua caixa de entrada',tr:'E-posta kutunuzu kontrol edin'})}
+          </h2>
+          <p className="mt-3 text-sm text-slate-600 dark:text-dk-text-soft">
+            {tx(lang,{fr:'Un lien de confirmation a été envoyé à ',ar:'تم إرسال رابط التأكيد إلى ',en:'A confirmation link has been sent to ',es:'Se ha enviado un enlace de confirmación a ',pt:'Um link de confirmação foi enviado para ',tr:'Onay bağlantısı gönderildi: '})}
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400" dir="ltr">{adminEmail.trim().toLowerCase()}</span>.
+            <br />
+            {tx(lang,{fr:'Cliquez sur ce lien puis revenez vous connecter.',ar:'انقر على الرابط ثم عد لتسجيل الدخول.',en:'Click the link, then come back to sign in.',es:'Haz clic en el enlace y vuelve para iniciar sesión.',pt:'Clique no link e volte para fazer login.',tr:'Bağlantıya tıklayın ve giriş yapmak için geri dönün.'})}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       onMouseMove={handlePointerMove}
       className={`relative min-h-screen overflow-hidden flex items-center justify-center p-4 ${isDark ? 'bg-dk-bg' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}
     >
+      {onBackToLogin && (
+        <button
+          type="button"
+          onClick={onBackToLogin}
+          className="absolute top-4 inline-flex items-center gap-1 z-20 text-xs font-medium text-slate-500 hover:text-emerald-600 dark:text-dk-muted dark:hover:text-emerald-400 transition-colors ltr:left-4 rtl:right-4"
+        >
+          <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
+          {tx(lang,{fr:'Déjà un compte ? Se connecter',ar:'لديك حساب؟ تسجيل الدخول',en:'Already have an account? Sign in',es:'¿Ya tienes cuenta? Iniciar sesión',pt:'Já tem conta? Entrar',tr:'Hesabınız var mı? Giriş yapın'})}
+        </button>
+      )}
       {/* Traînée de fumée émeraude — de la queue (rendue d'abord, dessous) vers
           la tête (rendue en dernier, au-dessus du curseur). */}
       {[...SMOKE_TRAIL].reverse().map((cfg, i) => {

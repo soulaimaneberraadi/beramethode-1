@@ -44,8 +44,8 @@ import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
 import { navigate, getCurrentRoute, parseHash, onRouteChange } from './lib/router';
 
 const Login = lazy(() => import('./src/components/Login'));
-const Signup = lazy(() => import('./src/components/Signup'));
 const Setup = lazy(() => import('./components/Setup'));
+const Welcome = lazy(() => import('./components/Welcome'));
 const AdminDashboard = lazy(() => import('./src/components/AdminDashboard'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const Planning = lazy(() => import('./components/Planning'));
@@ -106,6 +106,10 @@ export default function App() {
     const { hiddenPages: permHiddenPages, accountType } = usePermissions();
     const [authView, setAuthView] = useState<'login' | 'signup'>('login');
     const [isGuest, setIsGuest] = useState(false);
+    // Écran de bienvenue : affiché UNE SEULE FOIS après la création d'un compte.
+    // Déclenché par `bera_welcome_pending` (posé au signup) et persisté par compte
+    // via `bera_welcome_seen__<email>` pour ne jamais réapparaître ensuite.
+    const [showWelcome, setShowWelcome] = useState(false);
 
     // Vérification first-boot (Express uniquement).
     // setupNeeded = null → en cours de vérification, false → déjà initialisé, true → setup requis.
@@ -125,6 +129,28 @@ export default function App() {
             });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Déclenche l'écran de bienvenue au premier accès après création de compte.
+    // `bera_welcome_pending` est posé au moment du signup (Signup.tsx / wizard Setup).
+    // On vérifie qu'il n'a pas déjà été vu pour CE compte (clé liée à l'email/id).
+    useEffect(() => {
+        if (!user || isGuest) return;
+        try {
+            const pending = localStorage.getItem('bera_welcome_pending') === '1';
+            const seenKey = `bera_welcome_seen__${user.email || user.id}`;
+            const seen = localStorage.getItem(seenKey) === '1';
+            if (pending && !seen) setShowWelcome(true);
+        } catch { /* localStorage indisponible → on n'affiche rien */ }
+    }, [user, isGuest]);
+
+    const dismissWelcome = () => {
+        try {
+            if (user) localStorage.setItem(`bera_welcome_seen__${user.email || user.id}`, '1');
+            localStorage.removeItem('bera_welcome_pending');
+        } catch { /* non bloquant */ }
+        setShowWelcome(false);
+    };
+
     const { lang, setLang } = useLang();
     const t = TRANSLATIONS[lang];
 
@@ -1215,6 +1241,14 @@ export default function App() {
             </Suspense>
         );
     }
+    // Aperçu isolé de l'écran de bienvenue : http://localhost:5173/?preview=welcome
+    if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === 'welcome') {
+        return (
+            <Suspense fallback={<GlobalLoader isActive={true} progress={30} text="BERAMETHODE" subText="Preview…" />}>
+                <Welcome userName={user?.name || 'Soulaimane'} onStart={() => { /* preview: no-op */ }} />
+            </Suspense>
+        );
+    }
 
     // ── First-boot setup (Express / EXE local uniquement) ──────────────────
     // setupNeeded = null → vérification en cours → on attend avec le loader.
@@ -1237,6 +1271,8 @@ export default function App() {
                         onComplete={(newUser) => {
                             // Le serveur a créé le compte et retourné l'utilisateur.
                             // On l'injecte via login() (même chemin que la connexion normale).
+                            // Nouveau compte → écran de bienvenue au premier accès.
+                            try { localStorage.setItem('bera_welcome_pending', '1'); } catch { /* ignore */ }
                             login(newUser);
                             setSetupNeeded(false);
                             // Reprendre les préférences écrites par le wizard (langue, devise, TVA)
@@ -1259,7 +1295,29 @@ export default function App() {
             <Suspense fallback={<GlobalLoader isActive={true} progress={50} text="BERAMETHODE" subText="Chargement..." />}>
                 {authView === 'login'
                     ? <Login onSwitch={() => setAuthView('signup')} onGuest={handleGuestLogin} />
-                    : <Signup onSwitch={() => setAuthView('login')} onGuest={handleGuestLogin} />}
+                    : <Setup
+                        onBackToLogin={() => setAuthView('login')}
+                        onComplete={(newUser) => {
+                            // Nouveau compte via le wizard → connexion + écran de bienvenue.
+                            try { localStorage.setItem('bera_welcome_pending', '1'); } catch { /* ignore */ }
+                            login(newUser as any);
+                            try {
+                                const savedLang = localStorage.getItem('bera_lang');
+                                if (savedLang && ['fr', 'ar', 'en', 'es', 'pt', 'tr'].includes(savedLang)) setLang(savedLang as Lang);
+                                const savedSettings = lsGetMig('beramethode_settings');
+                                if (savedSettings) setGlobalSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) });
+                            } catch { /* non bloquant */ }
+                        }}
+                    />}
+            </Suspense>
+        );
+    }
+
+    // Écran de bienvenue (une seule fois, juste après la création du compte).
+    if (showWelcome) {
+        return (
+            <Suspense fallback={<GlobalLoader isActive={true} progress={70} text="BERAMETHODE" subText="Bienvenue…" />}>
+                <Welcome userName={user.name} onStart={dismissWelcome} />
             </Suspense>
         );
     }
