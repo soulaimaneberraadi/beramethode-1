@@ -4,7 +4,7 @@ import { Building2, User, Users, StopCircle, ChevronRight, ChevronLeft, CheckCir
 import { AccountType } from '../app/accountTypes';
 import { useTheme, useIsDark } from '../src/context/ThemeContext';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
-import { lsGet, lsSet } from '../lib/storageKeys';
+import { lsGet, lsSet, pkey } from '../lib/storageKeys';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useAuth } from '../src/context/AuthContext';
@@ -497,6 +497,13 @@ export default function Setup({ onComplete, onBackToLogin }: Props) {
           return;
         }
         try { localStorage.setItem('bera_welcome_pending', '1'); } catch { /* ignore */ }
+        // Persiste le type de compte + nom pour que PermissionsContext masque les
+        // modules selon le choix (en static il lit beramethode_company, pas le serveur).
+        try {
+          const key = pkey('beramethode_company', masterInput.email);
+          const prev = JSON.parse(localStorage.getItem(key) || '{}');
+          localStorage.setItem(key, JSON.stringify({ ...prev, accountType: payload.accountType, name: payload.companyName }));
+        } catch { /* non bloquant */ }
         await registerTenantInMaster(masterInput); // best-effort
         if (result.requiresConfirmation) { setConfirmationSent(true); return; }
         if (result.user) onComplete(result.user as SetupUser);
