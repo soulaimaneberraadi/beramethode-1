@@ -25,7 +25,14 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
 const OWNER_EMAIL = (process.env.SUPABASE_OWNER_EMAIL || '').trim().toLowerCase();
 const OWNER_PASSWORD = process.env.SUPABASE_OWNER_PASSWORD || '';
-const enabled = Boolean(OWNER_EMAIL && OWNER_PASSWORD);
+// ⚠️ La sync serveur (snapshot SQLite → user_data) est faite pour le mode EXE/
+// Express où SQLite est la source de vérité. En mode static (Vercel/navigateur),
+// c'est le NAVIGATEUR qui possède les données et les synchronise ; si le serveur
+// pousse AUSSI son snapshot SQLite (vide des données navigateur), il ÉCRASE les
+// données cloud du navigateur → le modèle enregistré côté web n'apparaît plus sur
+// les autres appareils. Mettre SUPABASE_SERVER_SYNC=false en dev static.
+const SERVER_SYNC_ENABLED = process.env.SUPABASE_SERVER_SYNC !== 'false';
+const enabled = Boolean(OWNER_EMAIL && OWNER_PASSWORD) && SERVER_SYNC_ENABLED;
 
 if (enabled && (!SUPABASE_URL || !SUPABASE_ANON_KEY)) {
   throw new Error('[supabaseSync] CRITICAL: SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env when backup/sync is enabled.');
