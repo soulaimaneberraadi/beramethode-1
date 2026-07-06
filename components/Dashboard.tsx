@@ -215,7 +215,24 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
   useEffect(() => {
     if (IS_STATIC) {
       setKpiLoading(false);
-      return;
+      // En static, il n'y a pas de flux SSE Express → sinon le badge reste bloqué
+      // sur « Hors ligne ». On reflète le VRAI état : connectivité réseau réelle,
+      // confirmée « en direct » dès qu'une synchro cloud a lieu (start/end/applied).
+      const updateOnline = () => setLiveConnected(typeof navigator === 'undefined' ? true : navigator.onLine);
+      const onSynced = () => setLiveConnected(true);
+      updateOnline();
+      window.addEventListener('online', updateOnline);
+      window.addEventListener('offline', updateOnline);
+      window.addEventListener('beramethode:cloud-sync-start', onSynced);
+      window.addEventListener('beramethode:cloud-sync-end', onSynced);
+      window.addEventListener('beramethode:cloud-sync-applied', onSynced);
+      return () => {
+        window.removeEventListener('online', updateOnline);
+        window.removeEventListener('offline', updateOnline);
+        window.removeEventListener('beramethode:cloud-sync-start', onSynced);
+        window.removeEventListener('beramethode:cloud-sync-end', onSynced);
+        window.removeEventListener('beramethode:cloud-sync-applied', onSynced);
+      };
     }
 
     let es: EventSource | null = null;
