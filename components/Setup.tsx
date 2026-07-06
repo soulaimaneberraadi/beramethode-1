@@ -288,7 +288,7 @@ const CGU_SECTIONS: { title: string; body: string }[] = [
 export default function Setup({ onComplete, onBackToLogin }: Props) {
   const { lang } = useLang();
   const isDark = useIsDark();
-  const { signup } = useAuth();
+  const { signup, staticLogin } = useAuth();
   const [step, setStep] = useState<Step>(1);
   // Static (Vercel/Supabase) : inscription pouvant exiger une confirmation e-mail.
   const [confirmationSent, setConfirmationSent] = useState(false);
@@ -491,19 +491,46 @@ export default function Setup({ onComplete, onBackToLogin }: Props) {
           setError(tx(lang,{fr:'Inscription indisponible dans ce mode.',ar:'التسجيل غير متاح في هذا الوضع.',en:'Signup unavailable in this mode.',es:'Registro no disponible en este modo.',pt:'Cadastro indisponível neste modo.',tr:'Bu modda kayıt kullanılamıyor.'}));
           return;
         }
+        // Persiste le type de compte + nom pour que PermissionsContext masque les
+        // modules selon le choix (en static il lit beramethode_company, pas le serveur).
+        const persistTypeCompany = () => {
+          try {
+            const key = pkey('beramethode_company', masterInput.email);
+            const prev = JSON.parse(localStorage.getItem(key) || '{}');
+            localStorage.setItem(key, JSON.stringify({ ...prev, accountType: payload.accountType, name: payload.companyName }));
+          } catch { /* non bloquant */ }
+        };
+
         const result = await signup(masterInput.email, adminPassword, adminName.trim());
+
+        // L'e-mail a déjà un compte Supabase → on tente une connexion avec le mot
+        // de passe fourni : un utilisateur qui reprend son onboarding ne doit pas
+        // rester bloqué sur « User already registered ».
+        if (!result.ok && /already registered|already been registered|already exists|déjà enregistr|déjà utilis/i.test(result.message || '')) {
+          if (!staticLogin) {
+            setError(tx(lang,{fr:'Cet e-mail a déjà un compte. Utilisez « Déjà un compte ? Se connecter ».',ar:'هذا البريد له حساب بالفعل. استعمل «لديك حساب؟ تسجيل الدخول».',en:'This email already has an account. Use “Already have an account? Sign in”.',es:'Este correo ya tiene una cuenta. Usa «¿Ya tienes cuenta? Iniciar sesión».',pt:'Este email já tem uma conta. Use «Já tem conta? Entrar».',tr:'Bu e-postanın zaten bir hesabı var. «Hesabınız var mı? Giriş yapın» kullanın.'}));
+            return;
+          }
+          const li = await staticLogin(masterInput.email, adminPassword);
+          if (!li.ok) {
+            setError(tx(lang,{fr:'Cet e-mail a déjà un compte. Connectez-vous avec votre mot de passe (bouton « Déjà un compte ? Se connecter »).',ar:'هذا البريد له حساب بالفعل. سجّل الدخول بكلمة السر ديالك (زر «لديك حساب؟ تسجيل الدخول»).',en:'This email already has an account. Sign in with your password (“Already have an account? Sign in”).',es:'Este correo ya tiene una cuenta. Inicia sesión con tu contraseña («¿Ya tienes cuenta? Iniciar sesión»).',pt:'Este email já tem uma conta. Entre com a sua palavra-passe («Já tem conta? Entrar»).',tr:'Bu e-postanın zaten bir hesabı var. Şifrenizle giriş yapın («Hesabınız var mı? Giriş yapın»).'}));
+            return;
+          }
+          // Connexion réussie : compte existant qui termine son onboarding.
+          persistTypeCompany();
+          await registerTenantInMaster(masterInput); // best-effort (idempotent côté MASTER)
+          if (li.user) onComplete(li.user as SetupUser);
+          return;
+        }
+
         if (!result.ok) {
           setError(result.message || tx(lang,{fr:'Échec de l\'inscription.',ar:'فشل التسجيل.',en:'Signup failed.',es:'Error al registrarse.',pt:'Falha no cadastro.',tr:'Kayıt başarısız.'}));
           return;
         }
+
+        // Nouveau compte.
         try { localStorage.setItem('bera_welcome_pending', '1'); } catch { /* ignore */ }
-        // Persiste le type de compte + nom pour que PermissionsContext masque les
-        // modules selon le choix (en static il lit beramethode_company, pas le serveur).
-        try {
-          const key = pkey('beramethode_company', masterInput.email);
-          const prev = JSON.parse(localStorage.getItem(key) || '{}');
-          localStorage.setItem(key, JSON.stringify({ ...prev, accountType: payload.accountType, name: payload.companyName }));
-        } catch { /* non bloquant */ }
+        persistTypeCompany();
         await registerTenantInMaster(masterInput); // best-effort
         if (result.requiresConfirmation) { setConfirmationSent(true); return; }
         if (result.user) onComplete(result.user as SetupUser);
