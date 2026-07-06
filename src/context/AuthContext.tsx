@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { startCloudSync, stopCloudSync, pullSnapshotFromCloud, pushSnapshotToCloud } from '../lib/cloudSync';
+import { startCloudSync, stopCloudSync, pullSnapshotFromCloud, pushSnapshotToCloud, ensureLocalDataOwner, clearLocalAppData } from '../lib/cloudSync';
 
 interface User {
   id: number | string;
@@ -58,9 +58,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Legacy backend auth
       const checkAuth = async () => {
         try {
-          const res = await fetch('/api/auth/me', { credentials: 'include' });
-          if (res.ok) {
+          let res = await fetch('/api/auth/me', { credentials: 'include' });
+
+          // Auto-login LOCAL uniquement (confort dev). Piloté par .env.local, qui est
+          // gitignoré et N'EST JAMAIS présent dans le build Vercel → la page de login
+          // y reste intacte. Ne s'active que sur localhost ET si le flag est posé.
+          // Si l'utilisateur vient de se déconnecter (flag dans localStorage), on n'auto-login pas.
+          const env = import.meta.env as any;
+          const justLoggedOut = typeof window !== 'undefined' && sessionStorage.getItem('bera_just_logged_out') === '1';
+          if (justLoggedOut) {
+            try { sessionStorage.removeItem('bera_just_logged_out'); } catch {}
+          }
+          if (!res.ok
+              && !justLoggedOut
+              && env.VITE_DEV_AUTOLOGIN === '1'
+              && env.VITE_DEV_AUTOLOGIN_EMAIL
+              && env.VITE_DEV_AUTOLOGIN_PASSWORD
+              && typeof window !== 'undefined'
+              && window.location.hostname === 'localhost') {
+            try {
+              const loginRes = await fetch('/api/auth/login', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: env.VITE_DEV_AUTOLOGIN_EMAIL,
+                  password: env.VITE_DEV_AUTOLOGIN_PASSWORD,
+                }),
+              });
+              if (loginRes.ok) {
+                res = await fetch('/api/auth/me', { credentials: 'include' });
+              }
+            } catch { /* auto-login best-effort : on retombe sur l'écran de connexion */ }
+          }
+
+          // Après une déconnexion volontaire, ne JAMAIS restaurer la session même
+          // si le cookie a survécu (logout serveur en timeout) : sinon le bouton
+          // « déconnexion » paraît cassé car le compte se rouvre au reload.
+          if (res.ok && !justLoggedOut) {
             const data = await res.json();
+            if (data.user?.id != null) ensureLocalDataOwner(String(data.user.id));
             setUser(data.user);
           }
         } catch (error) {
@@ -73,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Supabase auth (static mode) — never block loading on cloud sync
+    // Supabase auth (static mode)  never block loading on cloud sync
     let mounted = true;
 
     // Garde-fou : si Supabase est injoignable (ex. 522 Cloudflare), getSession()
@@ -89,10 +126,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     const sessionTimeout = setTimeout(finishLoading, 8000);
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return;
+      let sessionUser = data.session?.user;
+
+      // Auto-login LOCAL uniquement (confort dev) en mode statique. Piloté par
+      // .env.local : gitignoré et ABSENT du build Vercel → la page de login reste
+      // intacte en production. Ne s'active que sur localhost ET si le flag est posé.
+      const env = import.meta.env as any;
+      // Pas d'auto-login juste après une déconnexion volontaire (même garde
+      // que le mode legacy) : l'utilisateur doit retrouver l'écran de connexion.
+      const justLoggedOutStatic = typeof window !== 'undefined' && sessionStorage.getItem('bera_just_logged_out') === '1';
+      if (justLoggedOutStatic) {
+        try { sessionStorage.removeItem('bera_just_logged_out'); } catch {}
+        // Une session a survécu au signOut (hors-ligne / token resté en cache) :
+        // on la purge ici pour que la déconnexion soit DÉFINITIVE après le reload,
+        // au lieu de rouvrir l'ancien compte.
+        if (sessionUser) {
+          try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
+          try { localStorage.removeItem('beramethode_supabase_session'); } catch { /* ignore */ }
+          sessionUser = undefined;
+        }
+      }
+      if (!sessionUser
+          && !justLoggedOutStatic
+          && env.VITE_DEV_AUTOLOGIN === '1'
+          && env.VITE_DEV_AUTOLOGIN_EMAIL
+          && env.VITE_DEV_AUTOLOGIN_PASSWORD
+          && typeof window !== 'undefined'
+          && window.location.hostname === 'localhost') {
+        try {
+          const { data: signIn } = await supabase.auth.signInWithPassword({
+            email: env.VITE_DEV_AUTOLOGIN_EMAIL,
+            password: env.VITE_DEV_AUTOLOGIN_PASSWORD,
+          });
+          if (signIn?.session?.user) sessionUser = signIn.session.user;
+        } catch { /* best effort : on retombe sur l'écran de connexion */ }
+      }
+
       clearTimeout(sessionTimeout);
-      const u = mapSupabaseUser(data.session?.user as never);
+      const u = mapSupabaseUser(sessionUser as never);
+      // ⚠️ ensureLocalDataOwner AVANT setUser : pose la clé d'isolation (pkey) du
+      // bon compte avant tout rendu. Sinon les composants lisent les clés scopées
+      // de l'ANCIEN compte (fuite de données entre comptes sur le même appareil).
+      if (u) ensureLocalDataOwner(String(u.id));
       setUser(u);
       finishLoading();
       if (u) {
@@ -109,6 +186,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = mapSupabaseUser(session?.user as never);
+      // ensureLocalDataOwner AVANT setUser (cf. ci-dessus : évite la fuite inter-comptes).
+      if (u) ensureLocalDataOwner(String(u.id));
       setUser(u);
       if (u) {
         pullSnapshotFromCloud(String(u.id))
@@ -128,19 +207,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = (userData: User) => {
+    // Purge les données locales si ce compte diffère du précédent sur ce
+    // navigateur (même garde anti-fuite qu'en mode statique). Les invités
+    // sont étiquetés 'guest' : un invité après un vrai compte ne doit pas
+    // voir les données de ce compte (et inversement).
+    if (userData?.id != null) {
+      const isGuest = userData.id === 0 || userData.id === '0';
+      ensureLocalDataOwner(isGuest ? 'guest' : String(userData.id));
+    }
     setUser(userData);
   };
 
   const logout = async () => {
     if (IS_STATIC) {
+      // Push final AVANT la purge : les éditions des 8 dernières secondes
+      // (debounce) ne doivent pas être perdues. Borné à 10 s : si Supabase
+      // est injoignable, le bouton ne doit pas rester figé.
+      let pushed = false;
+      if (user && user.id !== 0 && user.id !== '0') {
+        try { pushed = await withTimeout(pushSnapshotToCloud(String(user.id)), 10000); } catch { pushed = false; }
+      }
       stopCloudSync();
-      await supabase.auth.signOut();
+      // signOut() peut pendre indéfiniment hors-ligne  borné à 5 s. scope 'local'
+      // ferme la session côté client sans aller-retour serveur (fiable même si
+      // Supabase est injoignable / 522).
+      try { await withTimeout(supabase.auth.signOut({ scope: 'local' }), 5000); } catch { /* purge dure ci-dessous */ }
+      // Garantie dure : retire le token même si signOut a échoué/timeout, sinon
+      // getSession() le rechargerait après le reload → reconnexion fantôme et le
+      // bouton « déconnexion » paraît cassé.
+      try { localStorage.removeItem('beramethode_supabase_session'); } catch { /* ignore */ }
+      // Purge UNIQUEMENT si le push final a réussi : hors-ligne, on garde les
+      // données locales (le marqueur last_sync_user protège quand même le
+      // prochain compte  purge au login d'un utilisateur différent).
+      if (pushed) clearLocalAppData();
       setUser(null);
+      try { sessionStorage.setItem('bera_just_logged_out', '1'); } catch {}
+      // Reload complet : l'état React (modèles, planning) survit au logout
+      // sinon  un effet de persistance pourrait réécrire les données purgées,
+      // et le compte suivant verrait l'ancien état en mémoire.
+      window.location.reload();
       return;
     }
     try {
-      await fetch('/api/auth/logout', { credentials: 'include', method: 'POST' });
+      try { await withTimeout(fetch('/api/auth/logout', { credentials: 'include', method: 'POST' }), 5000); } catch { /* le reload ramène à l'écran de connexion */ }
+      clearLocalAppData();
       setUser(null);
+      try { sessionStorage.setItem('bera_just_logged_out', '1'); } catch {}
+      window.location.reload();
     } catch (error) {
       console.error('Logout failed', error);
     }
@@ -150,7 +263,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Un échec réseau / service Supabase injoignable (ex. 522 Cloudflare) peut
     // se présenter sous deux formes : soit signInWithPassword() lève une
     // exception, soit il renvoie un `error` au message inexploitable ("{}",
-    // "[object Object]", page HTML…). Dans ces cas on affiche un message clair
+    // "[object Object]", page HTML). Dans ces cas on affiche un message clair
     // au lieu de « E-mail ou mot de passe incorrect » qui induit en erreur.
     const SERVICE_UNREACHABLE =
       'Impossible de joindre le serveur d\'authentification. Vérifiez votre connexion Internet et réessayez dans quelques instants.';
@@ -191,7 +304,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: signupData, error: signupError } = await supabase.auth.signUp({
           email: 'soulaimaneberraadi@gmail.com',
           password: 'Admin123!',
-          options: { data: { name: 'Soulaimane Berraadi', role: 'admin' } },
+          options: { 
+            data: { name: 'Soulaimane Berraadi', role: 'admin' },
+            emailRedirectTo: window.location.origin,
+          },
         });
         if (signupError || !signupData.user) {
           return { ok: false, message: signupError?.message || 'Échec inscription.' };
@@ -235,7 +351,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data, error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
-      options: { data: { name: name || email.split('@')[0] } },
+      options: { 
+        data: { name: name || email.split('@')[0] },
+        emailRedirectTo: window.location.origin,
+      },
     });
     if (error || !data.user) {
       return { ok: false, message: error?.message || 'Échec inscription.' };
