@@ -130,6 +130,11 @@ const IMG_MAX_DIM = 600;
 const IMG_QUALITY = 0.5;
 // ~450KB in base64 (133 chars ≈ 100 bytes); images above this are stripped
 const IMG_MAX_INLINE_B64 = 600_000;
+// Le bucket Storage `bera-assets` s'est révélé peu fiable (upload « réussi » mais
+// URL publique inaccessible → « Aucun aperçu »). On garde donc les images
+// COMPRESSÉES INLINE (data-URL auto-contenue qui s'affiche partout, sans dépendre
+// du bucket). Repasser à true une fois le bucket + ses policies vérifiés.
+const USE_STORAGE_BUCKET = false;
 
 /**
  * Compress a base64 image using Canvas.
@@ -172,8 +177,8 @@ const compressImage = (dataUrl: string): Promise<string | null> =>
 const processImage = async (dataUrl: string): Promise<string | null> => {
   if (!dataUrl.startsWith('data:')) return dataUrl; // already a URL
 
-  // ── 1. Try Supabase Storage ───────────────────────────────────────────────
-  try {
+  // ── 1. Try Supabase Storage (désactivé : bucket bera-assets peu fiable) ────
+  if (USE_STORAGE_BUCKET) try {
     const m = dataUrl.match(/^data:(image\/([^;]+));base64,(.+)$/s);
     if (m) {
       const [, contentType, rawExt, b64data] = m;
@@ -283,12 +288,19 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
                 const localModels = JSON.parse(localRaw);
                 const cloudModels = snapshot[k] as any[];
                 if (Array.isArray(cloudModels) && Array.isArray(localModels)) {
+                  const isDataImg = (v: any) => typeof v === 'string' && v.startsWith('data:');
+                  // « faible » = absente OU une URL (bucket possiblement cassé) → on
+                  // préfère l'image locale si elle est un data-URL auto-contenu.
+                  const cloudImgWeak = (v: any) => !v || (typeof v === 'string' && !v.startsWith('data:'));
                   const merged = cloudModels.map((cm: any) => {
-                    if (cm && !cm.image && !cm.images) {
-                      const lm = localModels.find((m: any) => m.id === cm.id);
-                      if (lm && (lm.image || lm.images)) {
-                        return { ...cm, image: lm.image || null, images: lm.images || null };
-                      }
+                    if (!cm) return cm;
+                    const lm = localModels.find((m: any) => m.id === cm.id);
+                    if (!lm) return cm;
+                    if (isDataImg(lm.image) && cloudImgWeak(cm.image)) {
+                      return { ...cm, image: lm.image, images: lm.images || cm.images || null };
+                    }
+                    if (!cm.image && !cm.images && (lm.image || lm.images)) {
+                      return { ...cm, image: lm.image || null, images: lm.images || null };
                     }
                     return cm;
                   });
