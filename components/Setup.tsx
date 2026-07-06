@@ -493,11 +493,18 @@ export default function Setup({ onComplete, onBackToLogin }: Props) {
         }
         // Persiste le type de compte + nom pour que PermissionsContext masque les
         // modules selon le choix (en static il lit beramethode_company, pas le serveur).
-        const persistTypeCompany = () => {
-          try {
-            const key = pkey('beramethode_company', masterInput.email);
+        // ⚠️ cloudSync scope les clés par ID utilisateur (beramethode_last_sync_user
+        // = userId, pas l'e-mail). On écrit donc sous la clé scopée par ID (que
+        // PermissionsContext relira) + la clé de base en secours (si le contexte
+        // utilisateur n'est pas encore prêt au premier rendu).
+        const persistTypeCompany = (uid?: string | number) => {
+          const merge = (key: string) => {
             const prev = JSON.parse(localStorage.getItem(key) || '{}');
             localStorage.setItem(key, JSON.stringify({ ...prev, accountType: payload.accountType, name: payload.companyName }));
+          };
+          try {
+            if (uid != null && uid !== '') merge(pkey('beramethode_company', String(uid)));
+            merge('beramethode_company'); // secours (clé de base non suffixée)
           } catch { /* non bloquant */ }
         };
 
@@ -517,7 +524,7 @@ export default function Setup({ onComplete, onBackToLogin }: Props) {
             return;
           }
           // Connexion réussie : compte existant qui termine son onboarding.
-          persistTypeCompany();
+          persistTypeCompany(li.user?.id);
           await registerTenantInMaster(masterInput); // best-effort (idempotent côté MASTER)
           if (li.user) onComplete(li.user as SetupUser);
           return;
@@ -530,7 +537,7 @@ export default function Setup({ onComplete, onBackToLogin }: Props) {
 
         // Nouveau compte.
         try { localStorage.setItem('bera_welcome_pending', '1'); } catch { /* ignore */ }
-        persistTypeCompany();
+        persistTypeCompany(result.user?.id);
         await registerTenantInMaster(masterInput); // best-effort
         if (result.requiresConfirmation) { setConfirmationSent(true); return; }
         if (result.user) onComplete(result.user as SetupUser);
