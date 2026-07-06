@@ -54,6 +54,8 @@ interface AppHeaderProps {
     handleNavigation: (view: ViewType) => void;
     user: any;
     logout: () => void;
+    companyLogo?: string | null;
+    companyName?: string;
 }
 
 export type ViewLabelFn = (lang: Lang) => string;
@@ -170,6 +172,8 @@ export default function AppHeader({
     handleNavigation,
     user,
     logout,
+    companyLogo = null,
+    companyName = '',
 }: AppHeaderProps) {
     const t = TRANSLATIONS[lang];
     const navRef = useRef<HTMLElement>(null);
@@ -203,11 +207,22 @@ export default function AppHeader({
                         onClick={() => handleNavigation('dashboard')}
                         className="group relative inline-flex items-center justify-center px-1 py-0.5 rounded-sm border-none transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
                     >
-                        <span
-                            className={`relative font-extrabold text-base sm:text-lg tracking-tight transition-all duration-200 [text-shadow:none] group-hover:[text-shadow:0_1px_3px_rgba(16,185,129,0.4),0_2px_8px_rgba(16,185,129,0.22)] ${currentView === 'dashboard' ? 'text-gray-900 dark:text-dk-text' : 'text-gray-800 dark:text-dk-text group-hover:text-emerald-700 dark:group-hover:text-emerald-400'}`}
-                        >
-                            BERA<span className="text-emerald-600 dark:text-emerald-400">METHODE</span>
-                        </span>
+                        {companyLogo ? (
+                            <div className="flex items-center gap-1.5 sm:gap-2">
+                                <img src={companyLogo} alt="logo" className="h-6 sm:h-7 max-w-[120px] object-contain rounded-md" />
+                                {companyName && (
+                                    <span className="font-extrabold text-xs sm:text-sm tracking-tight text-gray-900 dark:text-dk-text hidden md:inline-block">
+                                        {companyName}
+                                    </span>
+                                )}
+                            </div>
+                        ) : (
+                            <span
+                                className={`relative font-extrabold text-base sm:text-lg tracking-tight transition-all duration-200 [text-shadow:none] group-hover:[text-shadow:0_1px_3px_rgba(16,185,129,0.4),0_2px_8px_rgba(16,185,129,0.22)] ${currentView === 'dashboard' ? 'text-gray-900 dark:text-dk-text' : 'text-gray-800 dark:text-dk-text group-hover:text-emerald-700 dark:group-hover:text-emerald-400'}`}
+                            >
+                                BERA<span className="text-emerald-600 dark:text-emerald-400">METHODE</span>
+                            </span>
+                        )}
                     </button>
 
                     {/* WORKSPACE SWITCHER — bascule entre sociétés isolées du même compte */}

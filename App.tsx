@@ -143,6 +143,29 @@ export default function App() {
         } catch { /* localStorage indisponible → on n'affiche rien */ }
     }, [user, isGuest]);
 
+    useEffect(() => {
+        if (!user) {
+            setCompanyLogo(null);
+            setCompanyName('');
+            return;
+        }
+        const fetchCompany = async () => {
+            try {
+                const res = await fetch('/api/permissions/company', { credentials: 'include' });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.ok) {
+                        setCompanyLogo(data.logo || null);
+                        setCompanyName(data.name || '');
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to fetch company info', e);
+            }
+        };
+        fetchCompany();
+    }, [user]);
+
     const dismissWelcome = () => {
         try {
             if (user) localStorage.setItem(`bera_welcome_seen__${user.email || user.id}`, '1');
@@ -256,6 +279,8 @@ export default function App() {
     };
 
     const [currentView, setCurrentView] = useState<'vuegenerale' | 'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps'>('dashboard');
+    const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+    const [companyName, setCompanyName] = useState<string>('');
     const [directSuiviModelId, setDirectSuiviModelId] = useState<string | null>(null);
     const [globalChaineId, setGlobalChaineId] = useState<string>('CHAINE 2');
     const [globalDate, setGlobalDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -1406,6 +1431,8 @@ export default function App() {
                     handleNavigation={handleNavigation}
                     user={user}
                     logout={logout}
+                    companyLogo={companyLogo}
+                    companyName={companyName}
                 />
 
                 {/* MOBILE NAV OVERLAY — toujours dispo (la nav desktop est cachée sur mobile) */}

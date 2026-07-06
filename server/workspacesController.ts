@@ -31,9 +31,17 @@ function ensurePrimaryWorkspace(userId: number): void {
   const existing = db.prepare('SELECT owner_id FROM workspaces WHERE owner_id = ?').get(userId);
   if (existing) return;
 
-  const primaryName =
-    (db.prepare('SELECT name FROM company_settings WHERE id = 1').get() as { name?: string } | undefined)?.name ||
-    'Workspace 1';
+  const company = db.prepare('SELECT name, logo, specialty, account_type FROM company_settings WHERE id = 1').get() as {
+    name?: string;
+    logo?: string | null;
+    specialty?: string | null;
+    account_type?: string;
+  } | undefined;
+
+  const primaryName = company?.name || 'Workspace 1';
+  const primaryLogo = company?.logo || null;
+  const primarySpecialty = company?.specialty || null;
+  const primaryAccountType = company?.account_type || 'societe';
 
   db.transaction(() => {
     const patronRoleId = `role-patron-${userId}`;
@@ -46,8 +54,8 @@ function ensurePrimaryWorkspace(userId: number): void {
        VALUES (?, ?, ?, ?, 'active')`
     ).run(`member-${userId}`, userId, userId, patronRoleId);
     db.prepare(
-      `INSERT OR IGNORE INTO workspaces (owner_id, account_user_id, name) VALUES (?, ?, ?)`
-    ).run(userId, userId, primaryName);
+      `INSERT OR IGNORE INTO workspaces (owner_id, account_user_id, name, logo, specialty, account_type) VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(userId, userId, primaryName, primaryLogo, primarySpecialty, primaryAccountType);
   })();
 }
 

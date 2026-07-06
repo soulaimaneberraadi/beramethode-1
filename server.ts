@@ -919,7 +919,19 @@ async function startServer() {
       }
       next();
     });
-    app.use(express.static(distPath, { index: false, dotfiles: 'deny' }));
+    app.use(express.static(distPath, {
+      index: false,
+      dotfiles: 'deny',
+      setHeaders: (res, filePath) => {
+        const ext = path.extname(filePath).toLowerCase();
+        if (['.js', '.css', '.html', '.json'].includes(ext)) {
+          const type = res.getHeader('Content-Type');
+          if (type && typeof type === 'string' && !type.includes('charset')) {
+            res.setHeader('Content-Type', `${type}; charset=utf-8`);
+          }
+        }
+      }
+    }));
     app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
