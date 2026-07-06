@@ -32,7 +32,7 @@ import {
 import { useAuth } from './src/context/AuthContext';
 import { useLicense } from './src/context/LicenseContext';
 import { usePermissions } from './src/context/PermissionsContext';
-import { ACCOUNT_TYPE_HIDDEN } from './app/accountTypes';
+import { resolveHiddenPages } from './app/accessControl';
 import { DataOwnerProvider } from './src/context/DataOwnerContext';
 import { notifyServerSessionEstablished } from './lib/dataIdentity';
 import { Machine, MachineInstance, MachineFleetHistoryEntry, Operation, FicheData, Poste, SpeedFactor, ComplexityFactor, StandardTime, Guide, ModelData, AppSettings, ManualLink } from './types';
@@ -344,9 +344,10 @@ export default function App() {
     });
     const saveNavConfig = (cfg: typeof navConfig) => { setNavConfig(cfg); lsSet('bera_nav_config', JSON.stringify(cfg)); };
     const navOrder = navConfig.order.length ? navConfig.order : defaultNavOrder;
-    // Config de nav effective : fusionne les modules masqués par la licence,
-    // les permissions, et le type de compte (société = rien masqué).
-    const extraHidden = [...licenseHiddenModules, ...permHiddenPages, ...(ACCOUNT_TYPE_HIDDEN[accountType] || [])];
+    // Config de nav effective : moteur d'accès unifié (accessControl) qui fusionne
+    // le plafond MASTER (licence), le type de compte et les permissions de rôle.
+    // Le choix local de l'admin (navConfig.hidden) reste une couche additionnelle.
+    const extraHidden = resolveHiddenPages(accountType, licenseHiddenModules, permHiddenPages);
     const effectiveNavConfig = extraHidden.length
         ? { ...navConfig, hidden: [...new Set([...navConfig.hidden, ...extraHidden])] }
         : navConfig;
