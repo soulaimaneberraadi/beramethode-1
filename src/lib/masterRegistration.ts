@@ -4,12 +4,22 @@
 // نوع الحساب) إلى منصّة BERA MASTER كـ tenant بحالة "pending" (بلا مفتاح بعد).
 // يظهر عندها المالك في قسم Users → يُصدر له مفتاح الترخيص.
 //
-// الدفع يمرّ عبر Edge Function "register-tenant" (service_role) لأنّ RLS يمنع
-// الكتابة المباشرة في جدول tenants بمفتاح anon. العملية best-effort: أي فشل
-// لا يمنع إتمام التسجيل (الزبون يقدر يخدم، والمالك يقدر يضيفه يدوياً لاحقاً).
+// ⚠️ مشروع Supabase مختلف: BERAMETHODE يشتغل على مشروع الجسر
+// (utrojjhscyatppgcszrt) بينما جداول BERA MASTER (tenants…) على المشروع الأصلي
+// (jiscgwioxwsulaopsivc). لذلك ننادي Edge Function "register-tenant" مباشرةً على
+// مشروع BERA MASTER عبر fetch (وليس عبر الـ client المشترك). المفتاح anon عمومي
+// (آمن في المتصفّح) ويمكن تجاوزه بمتغيّرات البيئة.
+//
+// العملية best-effort: أي فشل لا يمنع إتمام التسجيل.
 // ════════════════════════════════════════════════════════════════════════════
 
-import { supabase } from './supabaseClient';
+const MASTER_URL =
+  (import.meta.env.VITE_MASTER_SUPABASE_URL as string) ||
+  'https://jiscgwioxwsulaopsivc.supabase.co';
+
+const MASTER_ANON =
+  (import.meta.env.VITE_MASTER_SUPABASE_ANON_KEY as string) ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imppc2Nnd2lveHdzdWxhb3BzaXZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5OTcwNTgsImV4cCI6MjA5MTU3MzA1OH0.-jRI1RlbjxecLyN2b83xmjuJCKhs7ti_7_-RWXNCNgk';
 
 export interface MasterRegistrationInput {
   /** اسم الشركة / الزبون / المستقل (= tenants.name) */
@@ -47,18 +57,27 @@ export async function registerTenantInMaster(
   if (!company || !email) return { ok: false, message: 'missing_company_or_email' };
 
   try {
-    const { data, error } = await supabase.functions.invoke('register-tenant', {
-      body: {
+    const res = await fetch(`${MASTER_URL}/functions/v1/register-tenant`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: MASTER_ANON,
+        Authorization: `Bearer ${MASTER_ANON}`,
+      },
+      body: JSON.stringify({
         name: company,
         contact_email: email,
         account_type: input.accountType || null,
         location: input.location || null,
         commercial_reg: input.commercialReg || null,
         admin_name: input.adminName || null,
-      },
+      }),
     });
-    if (error) return { ok: false, message: error.message };
-    if (!data?.ok) return { ok: false, message: data?.error || 'register_failed' };
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      return { ok: false, message: data?.error || `http_${res.status}` };
+    }
     return {
       ok: true,
       tenantId: data.tenant_id,
