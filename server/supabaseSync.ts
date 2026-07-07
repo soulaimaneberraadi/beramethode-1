@@ -107,7 +107,7 @@ const ensureBucket = async (accessToken: string): Promise<boolean> => {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ id: STORAGE_BUCKET, name: STORAGE_BUCKET, public: false }),
+      body: JSON.stringify({ id: STORAGE_BUCKET, name: STORAGE_BUCKET, public: true }),
     });
     bucketReady = createRes.ok;
     if (!bucketReady) {

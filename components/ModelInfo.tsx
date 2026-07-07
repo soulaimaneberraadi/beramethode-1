@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Shirt, Clock, Coins, Scissors, Package, CheckSquare, ImageIcon, X, Upload, Trash2, Camera, Check, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Shirt, Clock, Coins, Scissors, Package, CheckSquare, ImageIcon, X, Upload, Trash2, Camera, Check, TrendingUp, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { AppSettings } from '../types';
 import { fmt } from '../constants';
 import SensitiveValue from './ui/SensitiveValue';
 import NumberInput from './ui/NumberInput';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
+import { uploadImageToStorage } from '../utils';
 
 interface ModelInfoProps {
     t: any;
@@ -46,15 +47,19 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
 }) => {
     const { lang } = useLang();
     const [isImageHovered, setIsImageHovered] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setProductImage(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+        if (!file) return;
+        setIsUploading(true);
+        try {
+            const url = await uploadImageToStorage(file);
+            setProductImage(url);
+        } catch (err) {
+            console.warn('Image upload failed:', err);
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -281,11 +286,11 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                         onMouseLeave={() => setIsImageHovered(false)}
                     >
                         {productImage ? (
-                            <div className="relative w-full h-full">
+                            <div className="relative w-full h-full group">
                                 <img 
                                     src={productImage} 
                                     alt="Product" 
-                                    className="w-full h-full object-cover transition-transform duration-700 hover:scale-110" 
+                                    className="w-full h-full object-cover transition-transform duration-700 md:group-hover:scale-110" 
                                 />
                                 <div className={`absolute inset-0 bg-black/40 transition-opacity duration-300 flex items-center justify-center ${isImageHovered ? 'opacity-100' : 'opacity-0'}`}>
                                     <button
@@ -296,6 +301,13 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                                         <span className="text-[9px] sm:text-[10px] font-bold">{tx(lang, {fr:"Supprimer",ar:"حذف",en:"Delete",es:"Eliminar",pt:"Excluir",tr:"Sil"})}</span>
                                     </button>
                                 </div>
+                            </div>
+                        ) : isUploading ? (
+                            <div className="text-center">
+                                <Loader2 className="w-6 h-6 text-slate-400 animate-spin mx-auto mb-2" />
+                                <span className="text-[11px] sm:text-[12px] font-medium text-slate-500 dark:text-dk-muted">
+                                    {tx(lang, {fr:"Chargement...",ar:"جاري التحميل...",en:"Loading...",es:"Cargando...",pt:"Carregando...",tr:"Yükleniyor..."})}
+                                </span>
                             </div>
                         ) : (
                             <div className="text-center">

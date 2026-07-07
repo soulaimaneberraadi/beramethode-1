@@ -24,9 +24,14 @@ on conflict (id) do update set public = true;
 drop policy if exists "bera_assets_public_read"  on storage.objects;
 drop policy if exists "bera_assets_auth_insert"  on storage.objects;
 drop policy if exists "bera_assets_auth_update"  on storage.objects;
+drop policy if exists "bera_assets_anon_insert"  on storage.objects;
 
 create policy "bera_assets_auth_insert" on storage.objects
   for insert to authenticated
+  with check (bucket_id = 'bera-assets');
+
+create policy "bera_assets_anon_insert" on storage.objects
+  for insert to anon
   with check (bucket_id = 'bera-assets');
 
 -- UPDATE = nécessaire pour l'upsert (x-upsert: true) lors des ré-uploads.

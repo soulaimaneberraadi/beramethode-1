@@ -11,6 +11,7 @@ import ProductDetailPanel from './ProductDetailPanel';
 import { tx, pickT } from '../lib/i18n';
 import type { Lang } from '../app/constants';
 import { useLang } from '../src/context/LanguageContext';
+import { uploadImageToStorage } from '../utils';
 
 export interface MagasinProps {
     models?: ModelData[];
@@ -172,9 +173,9 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
                         <div onClick={() => fileRef.current?.click()} className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-200 dark:border-dk-border hover:border-indigo-400 bg-slate-50 dark:bg-dk-bg flex items-center justify-center cursor-pointer overflow-hidden shrink-0">
                             {f.photo ? <img src={f.photo} className="w-full h-full object-cover" alt="" /> : <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Photo',ar:'الصورة',en:'Photo',es:'Foto',pt:'Foto',tr:'Fotoğraf'})}</span>}
                         </div>
-                        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => {
+                        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={async e => {
                             const file = e.target.files?.[0]; if (!file) return;
-                            const r = new FileReader(); r.onload = ev => set('photo', ev.target?.result as string); r.readAsDataURL(file);
+                            const url = await uploadImageToStorage(file); set('photo', url);
                         }} />
                         <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div><Lbl t={tx(lang,{fr:'Référence (Code-barres)',ar:'المرجع (الباركود)',en:'Reference (Barcode)',es:'Referencia (Código de barras)',pt:'Referência (Código de barras)',tr:'Referans (Barkod)'})} /><input className={inp} value={f.reference} onChange={e => set('reference', e.target.value)} /></div>
@@ -236,7 +237,7 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
                                     <div><Lbl t={tx(lang,{fr:'MOQ (min. commande)',ar:'الحد الأدنى للطلب',en:'MOQ (min. order)',es:'MOQ (pedido mín.)',pt:'MOQ (pedido mín.)',tr:'MOQ (min. sipariş)'})} /><input className={inp} type="number" min="0" step="0.01" placeholder="—" value={f.fournisseurMoq ?? ''} onChange={e => set('fournisseurMoq', e.target.value === '' ? undefined : +e.target.value)} /></div>
                                 </div>
                                 <div><Lbl t={tx(lang,{fr:'Notes fournisseur',ar:'ملاحظات المورد',en:'Supplier Notes',es:'Notas del proveedor',pt:'Notas do fornecedor',tr:'Tedarikçi Notları'})} /><textarea className={`${inp} min-h-[72px] resize-y`} placeholder={tx(lang,{fr:'Qualité, horaires, remarques...',ar:'الجودة، المواعيد، ملاحظات...',en:'Quality, schedules, remarks...',es:'Calidad, horarios, observaciones...',pt:'Qualidade, horários, observações...',tr:'Kalite, program, notlar...'})} value={f.fournisseurNotes || ''} onChange={e => set('fournisseurNotes', e.target.value)} /></div>
-                                <div><Lbl t={tx(lang,{fr:'Logo fournisseur',ar:'شعار المورد',en:'Supplier Logo',es:'Logotipo del proveedor',pt:'Logotipo do fornecedor',tr:'Tedarikçi Logosu'})} /><div onClick={() => { const el = document.createElement('input'); el.type = 'file'; el.accept = 'image/*'; el.onchange = (e: any) => { const file = e.target.files?.[0]; if (file) { const r = new FileReader(); r.onload = ev => set('fournisseurLogo', ev.target?.result as string); r.readAsDataURL(file); } }; el.click(); }} className="w-full border-2 border-dashed border-slate-200 dark:border-dk-border hover:border-indigo-400 bg-slate-50 dark:bg-dk-bg rounded-2xl p-4 cursor-pointer flex items-center justify-center">{f.fournisseurLogo ? <img src={f.fournisseurLogo} alt="Logo" className="w-24 h-24 object-contain" /> : <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Cliquez pour ajouter logo',ar:'انقر لإضافة شعار',en:'Click to add logo',es:'Haga clic para agregar logotipo',pt:'Clique para adicionar logotipo',tr:'Logo eklemek için tıklayın'})}</span>}</div></div>
+                                <div><Lbl t={tx(lang,{fr:'Logo fournisseur',ar:'شعار المورد',en:'Supplier Logo',es:'Logotipo del proveedor',pt:'Logotipo do fornecedor',tr:'Tedarikçi Logosu'})} /><div onClick={() => { const el = document.createElement('input'); el.type = 'file'; el.accept = 'image/*'; el.onchange = async (e: any) => { const file = e.target.files?.[0]; if (file) { const url = await uploadImageToStorage(file); set('fournisseurLogo', url); } }; el.click(); }} className="w-full border-2 border-dashed border-slate-200 dark:border-dk-border hover:border-indigo-400 bg-slate-50 dark:bg-dk-bg rounded-2xl p-4 cursor-pointer flex items-center justify-center">{f.fournisseurLogo ? <img src={f.fournisseurLogo} alt="Logo" className="w-24 h-24 object-contain" /> : <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Cliquez pour ajouter logo',ar:'انقر لإضافة شعار',en:'Click to add logo',es:'Haga clic para agregar logotipo',pt:'Clique para adicionar logotipo',tr:'Logo eklemek için tıklayın'})}</span>}</div></div>
                             </div>
                         )}
                     </div>
@@ -440,9 +441,9 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
     const handleClose = () => { setIsClosing(true); setTimeout(onClose, 250); };
     const handleSave = () => { setSaveFlash(true); setTimeout(() => { onSave(s); setSaveFlash(false); }, 400); };
 
-    const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) { const r = new FileReader(); r.onload = () => setS(prev => ({ ...prev, logo: r.result as string })); r.readAsDataURL(file); }
+        if (file) { const url = await uploadImageToStorage(file); setS(prev => ({ ...prev, logo: url })); }
     };
 
     const invInp = 'w-full bg-white dark:bg-dk-surface/90 border border-slate-200 dark:border-dk-border/80 rounded-xl px-4 py-2.5 mt-1.5 text-sm font-medium text-slate-700 dark:text-dk-text placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all duration-200 hover:border-slate-300 dark:border-dk-border';

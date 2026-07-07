@@ -26,6 +26,7 @@ import {
 import { tx, type TxMap } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
+import { uploadImageToStorage } from '../utils';
 
 /** Hauteur 1re ligne d'en-tête (px) — offset sticky pour la ligne des libellés de tranches */
 const POINTAGE_THEAD_R1_H = 36;
@@ -226,12 +227,15 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
 
   const set = (k: keyof HRWorker, v: any) => setForm(f => ({ ...f, [k]: v }));
 
-  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => set('photo', ev.target?.result as string);
-    reader.readAsDataURL(file);
+    try {
+      const url = await uploadImageToStorage(file);
+      set('photo', url);
+    } catch (err) {
+      console.warn('Worker photo upload failed:', err);
+    }
   };
 
   const handleSave = async () => {

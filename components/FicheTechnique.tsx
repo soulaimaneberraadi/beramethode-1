@@ -28,7 +28,7 @@ import { FicheData, AppSettings, PlanningEvent, PlanningStatus } from '../types'
 import { TEXTILE_FABRICS } from '../data/textileData';
 import ExcelInput from './ExcelInput';
 import RepartitionMatrix from './RepartitionMatrix';
-import { compressImage } from '../utils';
+import { compressImage, uploadImageToStorage } from '../utils';
 import DateTimePicker from './ui/DateTimePicker';
 import { pickT, Lang, tx } from '../lib/i18n';
 
@@ -343,10 +343,10 @@ export default function FicheTechnique({
         if (file) {
             setIsProcessingImg(type);
             try {
-                const compressedBase64 = await compressImage(file);
-                setImages(prev => ({ ...prev, [type]: compressedBase64 }));
+                const url = await uploadImageToStorage(file);
+                setImages(prev => ({ ...prev, [type]: url }));
             } catch (error) {
-                console.error("Image compression failed", error);
+                console.error("Image upload failed", error);
                 alert(tx(lang, {
                     fr: "Erreur lors du traitement de l'image.",
                     ar: "خطأ أثناء معالجة الصورة.",
