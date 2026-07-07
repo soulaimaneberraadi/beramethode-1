@@ -12,34 +12,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#14211C" media="(prefers-color-scheme: dark)">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Cairo', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
-            },
-            colors: {
-              dk: {
-                bg:            '#14211C',
-                surface:       '#1D2E28',
-                elevated:      '#26392F',
-                border:        '#2E463C',
-                'border-soft': '#243A31',
-                text:          '#EAF1ED',
-                'text-soft':   '#C2D2CA',
-                muted:         '#9DB5AB',
-                accent:        '#2F9E64',
-                'accent-hover':'#37B473',
-                'accent-text': '#6EE7B7',
-              },
-            },
-          }
-        }
-      }
-    </script>
+    <!-- Tailwind : build local via PostCSS (voir tailwind.config.js + src/index.css).
+         Fini le CDN runtime — meilleur Performance + Best Practices. -->
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Anti-FOUC: يطبق الثيم قبل أول رسم -->
     <script>
