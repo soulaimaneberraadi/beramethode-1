@@ -4,7 +4,6 @@ import { useAuth } from '../src/context/AuthContext';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 import { lsGet, lsSet, lsGetMig } from '../lib/storageKeys';
-import { pushSnapshotToCloud } from '../src/lib/cloudSync';
 import { Search, FolderOpen, MoreVertical, FileJson, Clock, Users, Calendar, Download, Copy, Trash2, Edit2, SortAsc, Scissors, Filter, Upload, AlertTriangle, Plus, Share2, LayoutGrid, ZoomIn, ZoomOut, List as ListIcon, Database, UploadCloud, DownloadCloud, CheckCircle2, Loader2, FileText, X } from 'lucide-react';
 import InlineInvoiceList from './InlineInvoiceList';
 import { ModelData } from '../types';
@@ -68,17 +67,9 @@ export default function Library({
     const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null);
     const [dbStatus, setDbStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
     const [invoiceModalModelId, setInvoiceModalModelId] = useState<string | null>(null);
-    const [syncPhotoStatus, setSyncPhotoStatus] = useState<'idle' | 'syncing' | 'done' | 'error'>('idle');
     const { user } = useAuth();
     const { lang } = useLang();
     const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true' || !window.location.hostname.includes('localhost');
-
-    const handleSyncPhotos = async () => {
-        if (!user || syncPhotoStatus === 'syncing') return;
-        setSyncPhotoStatus('syncing');
-        try { await pushSnapshotToCloud(String(user.id)); setSyncPhotoStatus('done'); } catch { setSyncPhotoStatus('error'); }
-        finally { setTimeout(() => setSyncPhotoStatus('idle'), 3000); }
-    };
 
     useEffect(() => {
         const handleClick = () => setContextMenu(null);
@@ -212,20 +203,6 @@ export default function Library({
                             <Plus className="w-4 h-4" />
                             <span>{tx(lang, { fr: "Nouveau Modèle", ar: "نموذج جديد", en: "New Model", es: "Nuevo Modelo", pt: "Novo Modelo", tr: "Yeni Model" })}</span>
                         </button>
-                        <div className="h-6 w-px bg-slate-200 dark:bg-dk-border mx-1 hidden xl:block"></div>
-                        {IS_STATIC && user && (
-                            <button
-                                onClick={handleSyncPhotos}
-                                disabled={syncPhotoStatus === 'syncing'}
-                                title={tx(lang, { fr: "Resynchroniser les photos des modèles vers le cloud", ar: "إعادة مزامنة صور النماذج مع السحابة", en: "Resync model photos to the cloud", es: "Resincronizar las fotos de los modelos con la nube", pt: "Ressincronizar as fotos dos modelos com a nuvem", tr: "Model fotoğraflarını buluta yeniden senkronize et" })}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all active:scale-95 ${syncPhotoStatus === 'done' ? 'bg-emerald-500 text-white border-emerald-500' : syncPhotoStatus === 'error' ? 'bg-red-500 text-white border-red-500' : 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated text-indigo-700 dark:text-dk-accent-text dark:text-dk-accent border-indigo-200 dark:border-dk-border hover:bg-indigo-100 dark:hover:bg-dk-elevated'}`}
-                            >
-                                {syncPhotoStatus === 'syncing' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : syncPhotoStatus === 'done' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <UploadCloud className="w-3.5 h-3.5" />}
-                                <span className="hidden sm:inline">
-                                    {syncPhotoStatus === 'syncing' ? tx(lang, { fr: 'Sync...', ar: 'مزامنة...', en: 'Sync...', es: 'Sync...', pt: 'Sync...', tr: 'Sync...' }) : syncPhotoStatus === 'done' ? tx(lang, { fr: 'Synced ✓', ar: 'تمت المزامنة ✓', en: 'Synced ✓', es: 'Synced ✓', pt: 'Synced ✓', tr: 'Synced ✓' }) : syncPhotoStatus === 'error' ? tx(lang, { fr: 'Erreur', ar: 'خطأ', en: 'Error', es: 'Error', pt: 'Erro', tr: 'Hata' }) : tx(lang, { fr: 'Sync Photos', ar: 'مزامنة الصور', en: 'Sync Photos', es: 'Sync Photos', pt: 'Sync Photos', tr: 'Sync Photos' })}
-                                </span>
-                            </button>
-                        )}
                         <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-lg p-0.5 border border-slate-200 dark:border-dk-border">
                             <button
                                 onClick={handleBackupDatabase}

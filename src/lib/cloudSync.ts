@@ -146,10 +146,11 @@ const IMG_QUALITY = 0.88;
 // Plafond inline élevé (les images sont conservées même au-dessus : jamais
 // supprimées pour cause de taille).
 const IMG_MAX_INLINE_B64 = 3_000_000;
-// Le bucket Storage `bera-assets` s'est révélé peu fiable (upload « réussi » mais
-// URL publique inaccessible → « Aucun aperçu »). On garde donc les images
-// COMPRESSÉES INLINE (data-URL auto-contenue qui s'affiche partout, sans dépendre
-// du bucket). Repasser à true une fois le bucket + ses policies vérifiés.
+// Bucket `bera-assets` privé (public:false) → getPublicUrl renvoie une URL cassée :
+// les photos synchronisées « disparaissent » à l'affichage. On garde donc les images
+// en data-URL compressée inline (fiable, s'affiche toujours). La compression
+// (IMG_MAX_DIM / IMG_QUALITY) borne la taille pour ménager la synchro Supabase.
+// Repasser à true UNIQUEMENT si le bucket est rendu public + policies OK.
 const USE_STORAGE_BUCKET = false;
 
 /**
@@ -248,13 +249,16 @@ const replaceImages = async (o: any): Promise<any> => {
   const out: any = {};
   for (const k of Object.keys(o)) {
     const v = o[k];
-    if (IMAGE_FIELDS.has(k)) {
-      if (typeof v === 'string' && v.startsWith('data:')) {
-        const result = await processImage(v);
-        if (result) out[k] = result;
-      } else if (v) {
-        out[k] = v;
-      }
+    // Process ANY base64 data-URL regardless of field name.
+    // This handles: `image`, `photo`, `fournisseurLogo`, AND nested fields
+    // inside the `images` object like `front` / `back` that are NOT in
+    // IMAGE_FIELDS. Without this, those data-URLs stay inline, bloating the
+    // snapshot to >2 MB and causing UPSERT timeout (522) on free tier.
+    if (typeof v === 'string' && v.startsWith('data:')) {
+      const result = await processImage(v);
+      if (result) out[k] = result;
+    } else if (IMAGE_FIELDS.has(k)) {
+      if (v) out[k] = v;
     } else if (IMAGE_ARRAY_FIELDS.has(k) && Array.isArray(v)) {
       const results = await Promise.all(v.map(async (item: any) => {
         if (typeof item === 'string' && item.startsWith('data:')) return processImage(item);
