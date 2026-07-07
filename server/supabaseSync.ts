@@ -43,7 +43,7 @@ const STORAGE_BUCKET = 'bera-assets';
 // image inline in user_data instead of stripping it — as long as it stays
 // under this base64 size. Larger images are still stripped to avoid bloating
 // the UPSERT payload. Override with SUPABASE_INLINE_IMAGE_MAX (bytes).
-const INLINE_IMAGE_MAX = Number(process.env.SUPABASE_INLINE_IMAGE_MAX || 700_000);
+const INLINE_IMAGE_MAX = Number(process.env.SUPABASE_INLINE_IMAGE_MAX || 5_000_000);
 
 type Session = { userId: string; accessToken: string; expiresAt: number };
 let session: Session | null = null;
