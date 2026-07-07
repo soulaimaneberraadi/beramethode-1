@@ -14,7 +14,7 @@
 import { createHash, randomUUID } from 'crypto';
 import db from './db';
 import { Request, Response, NextFunction } from 'express';
-import { markLocalPushing, isApplyingRemoteSnapshot } from './supabaseRealtime';
+import { markLocalPushing, isApplyingRemoteSnapshot, broadcastUpdate } from './supabaseRealtime';
 import path from 'path';
 import fs from 'fs';
 
@@ -421,6 +421,7 @@ const pushNow = async () => {
     } else {
       const c = (snapshot as any).__sqlite_export__?.counts || {};
       console.log(`[supabaseSync] ✅ pushed — models=${c.models||0} planning=${c.planningEvents||0} workers=${c.workers||0} hrWorkers=${c.hrWorkers||0} (images→Storage)`);
+      void broadcastUpdate();
       
       // Clear outbox
       try {

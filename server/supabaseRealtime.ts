@@ -300,3 +300,14 @@ export const stopSupabaseRealtime = () => {
     channel = null;
   }
 };
+
+export const broadcastUpdate = async () => {
+  if (channel) {
+    try {
+      await channel.send({ type: 'broadcast', event: 'updated', payload: {} });
+      console.log('[supabaseRealtime] 📢 Broadcasted updated signal to other devices');
+    } catch (e) {
+      console.warn('[supabaseRealtime] Failed to send broadcast:', e);
+    }
+  }
+};
