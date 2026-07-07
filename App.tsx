@@ -1171,10 +1171,26 @@ export default function App() {
 
     // 2. Persist Library on Change (Server or Local)
     // Static (Vercel) writes to localStorage; cloudSync upstreams to Supabase.
+    // On horodate chaque modèle (updatedAt) quand SON contenu change, pour que la
+    // fusion cloud résolve les conflits par « dernière édition gagne » (deux
+    // appareils qui changent la même photo convergent au lieu de faire du ping-pong).
+    const modelStampRef = useRef<Record<string, { sig: string; updatedAt: string }>>({});
     useEffect(() => {
         if ((!user || IS_STATIC) && models.length > 0) {
             try {
-                lsSet(LIBRARY_KEY, JSON.stringify(models));
+                const now = new Date().toISOString();
+                const stamped = (models as any[]).map((m: any) => {
+                    const { updatedAt: _omit, ...rest } = m;
+                    const sig = JSON.stringify(rest);
+                    const prev = modelStampRef.current[m.id];
+                    let ua: string;
+                    if (!prev) ua = m.updatedAt || now;      // 1er passage : garde l'existant
+                    else if (prev.sig !== sig) ua = now;      // contenu changé → nouvel horodatage
+                    else ua = prev.updatedAt;                 // inchangé → garde l'horodatage
+                    modelStampRef.current[m.id] = { sig, updatedAt: ua };
+                    return { ...m, updatedAt: ua };
+                });
+                lsSet(LIBRARY_KEY, JSON.stringify(stamped));
             } catch (e) {
                 console.error("Failed to save Library (Quota?)", e);
             }

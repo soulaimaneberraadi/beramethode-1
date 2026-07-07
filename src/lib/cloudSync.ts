@@ -306,21 +306,25 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
                 const localModels = JSON.parse(localRaw);
                 const cloudModels = snapshot[k] as any[];
                 if (Array.isArray(cloudModels) && Array.isArray(localModels)) {
-                  const isDataImg = (v: any) => typeof v === 'string' && v.startsWith('data:');
-                  // « faible » = absente OU une URL (bucket possiblement cassé) → on
-                  // préfère l'image locale si elle est un data-URL auto-contenu.
-                  const cloudImgWeak = (v: any) => !v || (typeof v === 'string' && !v.startsWith('data:'));
+                  // Résolution de conflit DÉTERMINISTE par horodatage (updatedAt) :
+                  // quand un modèle existe des deux côtés avec un contenu différent
+                  // (ex. deux appareils ont changé la photo), on garde la version la
+                  // PLUS RÉCENTE. Les deux appareils convergent vers la dernière
+                  // édition → plus de « ping-pong » entre les deux photos. À défaut
+                  // d'horodatage, on préfère le cloud (déterministe).
                   const merged = cloudModels.map((cm: any) => {
                     if (!cm) return cm;
                     const lm = localModels.find((m: any) => m.id === cm.id);
                     if (!lm) return cm;
-                    if (isDataImg(lm.image) && cloudImgWeak(cm.image)) {
-                      return { ...cm, image: lm.image, images: lm.images || cm.images || null };
+                    const localNewer = String(lm.updatedAt || '') > String(cm.updatedAt || '');
+                    const winner = localNewer ? lm : cm;
+                    const other = localNewer ? cm : lm;
+                    // Si le gagnant n'a pas d'image mais l'autre oui (image pas encore
+                    // re-poussée), on emprunte celle de l'autre → évite « Aucun aperçu ».
+                    if (!winner.image && !winner.images && (other.image || other.images)) {
+                      return { ...winner, image: other.image || null, images: other.images || null };
                     }
-                    if (!cm.image && !cm.images && (lm.image || lm.images)) {
-                      return { ...cm, image: lm.image || null, images: lm.images || null };
-                    }
-                    return cm;
+                    return winner;
                   });
                   // UNION : conserver les modèles LOCAUX absents du cloud, sinon un
                   // pull d'un cloud vide (ex. après un push vide accidentel) ferait
