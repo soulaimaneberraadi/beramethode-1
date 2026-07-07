@@ -342,12 +342,25 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
                     const tsRaw = lsGet('beramethode_tombstones');
                     const ts = tsRaw ? JSON.parse(tsRaw) : [];
                     const now = Date.now();
-                    const dead = new Set(
-                      (Array.isArray(ts) ? ts : [])
-                        .filter((t: any) => t && t.type === 'models' && (now - new Date(t.deleted_at).getTime()) < 3_600_000)
-                        .map((t: any) => String(t.id)),
-                    );
-                    if (dead.size) finalModels = merged.filter((m: any) => m && !dead.has(String(m.id)));
+                    // id → date de suppression la plus récente (dans la fenêtre 1h).
+                    const deletedAt = new Map<string, number>();
+                    for (const t of (Array.isArray(ts) ? ts : [])) {
+                      if (!t || t.type !== 'models') continue;
+                      const d = new Date(t.deleted_at).getTime();
+                      if (now - d >= 3_600_000) continue;
+                      const id = String(t.id);
+                      if (!deletedAt.has(id) || d > (deletedAt.get(id) as number)) deletedAt.set(id, d);
+                    }
+                    if (deletedAt.size) {
+                      finalModels = merged.filter((m: any) => {
+                        if (!m) return false;
+                        const del = deletedAt.get(String(m.id));
+                        if (del == null) return true;        // pas supprimé
+                        if (!m.updatedAt) return true;       // pas d'horodatage → on GARDE (sécurité données)
+                        const edited = new Date(m.updatedAt).getTime();
+                        return edited > del;                 // gardé si ré-édité APRÈS la suppression
+                      });
+                    }
                   } catch { /* ignore */ }
                   lsSet(k, JSON.stringify(finalModels));
                   continue;
