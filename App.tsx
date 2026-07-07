@@ -1454,8 +1454,8 @@ export default function App() {
                         <nav className="relative w-72 max-w-[85vw] bg-white dark:bg-dk-surface shadow-2xl h-full overflow-y-auto flex flex-col animate-in slide-in-from-left duration-200">
                             {/* Header */}
                             <div className="px-4 py-4 border-b border-gray-100 dark:border-dk-border flex items-center justify-between shrink-0">
-                                <span className="font-extrabold text-lg text-gray-900 dark:text-dk-text">BERA<span className="text-emerald-600">METHODE</span></span>
-                                <button onClick={() => setMobileMenuOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dk-elevated/60 text-gray-400 dark:text-dk-muted">
+                                <span className="font-extrabold text-lg text-gray-900 dark:text-dk-text">BERA<span className="text-emerald-700">METHODE</span></span>
+                                <button aria-label={tx(lang, {fr:'Fermer le menu',ar:'إغلاق القائمة',en:'Close menu',es:'Cerrar menú',pt:'Fechar menu',tr:'Menüyü kapat'})} onClick={() => setMobileMenuOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dk-elevated/60 text-gray-500 dark:text-dk-muted">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
@@ -1503,7 +1503,7 @@ export default function App() {
                                         .filter(section => section.items.length > 0)
                                         .flatMap((section, si) => [
                                             <div key={`sep-${si}`} className="pt-4 pb-1.5 px-3">
-                                                <span className="text-[10px] font-bold text-gray-400 dark:text-dk-muted uppercase tracking-widest">{section.title}</span>
+                                                <span className="text-[10px] font-bold text-gray-600 dark:text-dk-muted uppercase tracking-widest">{section.title}</span>
                                             </div>,
                                             ...section.items.map(view => {
                                                 const item = allItems[view];
@@ -1529,7 +1529,7 @@ export default function App() {
                                     {tx(lang, {fr:'Profil',ar:'الملف الشخصي',en:'Profile',es:'Perfil',pt:'Perfil',tr:'Profil'})}
                                 </button>
                                 <button onClick={() => { logout(); setMobileMenuOpen(false); }}
-                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all mt-0.5">
+                                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all mt-0.5">
                                     <LogOut className="w-4 h-4" />
                                     {tx(lang, {fr:'Déconnexion',ar:'تسجيل الخروج',en:'Logout',es:'Cerrar sesión',pt:'Sair',tr:'Çıkış'})}
                                 </button>

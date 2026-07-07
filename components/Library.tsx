@@ -246,9 +246,9 @@ export default function Library({
                                 <UploadCloud className="w-3.5 h-3.5" />
                                 <span className="hidden sm:inline">{tx(lang, { fr: "Restaurer", ar: "استعادة", en: "Restore", es: "Restaurar", pt: "Restaurar", tr: "Geri Yükle" })}</span>
                             </button>
-                            <input type="file" accept=".json" ref={dbInputRef} className="hidden" onChange={handleRestoreDatabase} />
+                            <input type="file" accept=".json" ref={dbInputRef} className="hidden" onChange={handleRestoreDatabase} aria-label={tx(lang, { fr: "Restaurer une base de données", ar: "استعادة قاعدة بيانات", en: "Restore a database", es: "Restaurar una base de datos", pt: "Restaurar um banco de dados", tr: "Bir veritabanını geri yükle" })} />
                         </div>
-                        <input type="file" accept=".json" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+                        <input type="file" accept=".json" ref={fileInputRef} className="hidden" onChange={handleFileChange} aria-label={tx(lang, { fr: "Importer un modèle", ar: "استيراد نموذج", en: "Import a model", es: "Importar un modelo", pt: "Importar um modelo", tr: "Bir model içe aktar" })} />
                         <button
                             onClick={triggerFileInput}
                             className="p-2 bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-500 dark:text-dk-text-soft rounded-xl border border-slate-200 dark:border-dk-border transition-colors"
