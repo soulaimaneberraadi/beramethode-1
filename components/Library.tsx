@@ -208,7 +208,7 @@ export default function Library({
                         <p className="text-slate-500 dark:text-dk-text-soft text-xs mt-0.5">{tx(lang, { fr: "Gérez vos modèles de production sauvegardés", ar: "أدِر نماذج الإنتاج المحفوظة", en: "Manage your saved production models", es: "Gestione sus modelos de producción guardados", pt: "Gerencie seus modelos de produção salvos", tr: "Kayıtlı üretim modellerinizi yönetin" })}</p>
                     </div>
                     <div className="flex flex-wrap gap-2 w-full xl:w-auto items-center">
-                        <button onClick={onCreateNewProject} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md dark:shadow-dk-md shadow-emerald-200 dark:shadow-dk-elevated transition-all active:scale-95">
+                        <button onClick={onCreateNewProject} className="flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md dark:shadow-dk-md shadow-emerald-200 dark:shadow-dk-elevated transition-all active:scale-95">
                             <Plus className="w-4 h-4" />
                             <span>{tx(lang, { fr: "Nouveau Modèle", ar: "نموذج جديد", en: "New Model", es: "Nuevo Modelo", pt: "Novo Modelo", tr: "Yeni Model" })}</span>
                         </button>
@@ -289,6 +289,7 @@ export default function Library({
                             </div>
                             <select
                                 value={sortBy}
+                                aria-label={tx(lang, { fr: "Trier par", ar: "الترتيب حسب", en: "Sort by", es: "Ordenar por", pt: "Ordenar por", tr: "Sırala" })}
                                 onChange={(e) => setSortBy(e.target.value as any)}
                                 className="pl-8 pr-7 py-1.5 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl text-xs font-bold text-slate-600 dark:text-dk-text-soft outline-none focus:border-indigo-500 dark:focus:border-dk-accent cursor-pointer appearance-none"
                             >
@@ -323,12 +324,13 @@ export default function Library({
                                                     <div className="w-12 h-12 bg-slate-100 dark:bg-dk-elevated rounded-full flex items-center justify-center">
                                                         <FileJson className="w-6 h-6 text-slate-300 dark:text-dk-muted group-hover:text-indigo-400 dark:group-hover:text-dk-accent transition-colors" />
                                                     </div>
-                                                    <span className="text-xs text-slate-400 dark:text-dk-muted font-medium">{tx(lang, { fr: "Aucun aperçu", ar: "لا توجد معاينة", en: "No preview", es: "Sin vista previa", pt: "Sem pré-visualização", tr: "Önizleme yok" })}</span>
+                                                    <span className="text-xs text-slate-600 dark:text-dk-muted font-medium">{tx(lang, { fr: "Aucun aperçu", ar: "لا توجد معاينة", en: "No preview", es: "Sin vista previa", pt: "Sem pré-visualização", tr: "Önizleme yok" })}</span>
                                                 </div>
                                             )}
                                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-2">
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); setContextMenu({ x: e.pageX, y: e.pageY, modelId: model.id }); }}
+                                                    aria-label={tx(lang, { fr: "Options du modèle", ar: "خيارات النموذج", en: "Model options", es: "Opciones del modelo", pt: "Opções do modelo", tr: "Model seçenekleri" })}
                                                     className="p-1.5 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm rounded-full shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-dk-accent hover:bg-white dark:hover:bg-dk-surface"
                                                 >
                                                     <MoreVertical className="w-4 h-4" />
@@ -355,9 +357,9 @@ export default function Library({
                                                     />
                                                 ) : (
                                                     <div className="flex items-center gap-1.5">
-                                                        <h3 className="font-bold text-slate-800 dark:text-dk-text text-sm truncate flex-1" title={model.meta_data.nom_modele}>
+                                                        <h2 className="font-bold text-slate-800 dark:text-dk-text text-sm truncate flex-1" title={model.meta_data.nom_modele}>
                                                             {model.meta_data.nom_modele}
-                                                        </h3>
+                                                        </h2>
                                                         <span className="shrink-0 text-[9px] font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated border border-indigo-100 dark:border-dk-border px-1.5 py-0.5 rounded-md tracking-wide">
                                                             {getModelAbbrev(model)}
                                                         </span>
@@ -453,7 +455,7 @@ export default function Library({
                         <h3 className="font-bold text-slate-600 dark:text-dk-text mb-1">{tx(lang, { fr: "Aucun modèle trouvé", ar: "لم يتم العثور على أي نموذج", en: "No model found", es: "No se encontró ningún modelo", pt: "Nenhum modelo encontrado", tr: "Model bulunamadı" })}</h3>
                         <p className="text-sm mb-4">{tx(lang, { fr: "La bibliothèque est vide ou ne correspond pas à votre recherche.", ar: "المكتبة فارغة أو لا تطابق بحثك.", en: "The library is empty or doesn't match your search.", es: "La biblioteca está vacía o no coincide con su búsqueda.", pt: "A biblioteca está vazia ou não corresponde à sua pesquisa.", tr: "Kütüphane boş veya aramanızla eşleşmiyor." })}</p>
                         <div className="flex gap-3">
-                            <button onClick={onCreateNewProject} className="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg text-sm font-bold shadow-md dark:shadow-dk-md dark:shadow-dk-elevated transition-colors flex items-center gap-2">
+                            <button onClick={onCreateNewProject} className="px-4 py-2 bg-emerald-700 text-white hover:bg-emerald-800 rounded-lg text-sm font-bold shadow-md dark:shadow-dk-md dark:shadow-dk-elevated transition-colors flex items-center gap-2">
                                 <Plus className="w-4 h-4" /> {tx(lang, { fr: "Nouveau Modèle", ar: "نموذج جديد", en: "New Model", es: "Nuevo Modelo", pt: "Novo Modelo", tr: "Yeni Model" })}
                             </button>
                             <button onClick={triggerFileInput} className="px-4 py-2 bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 rounded-lg text-sm font-bold border border-slate-200 dark:border-dk-border transition-colors">

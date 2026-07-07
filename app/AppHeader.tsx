@@ -203,7 +203,7 @@ export default function AppHeader({
                     {/* Logo */}
                     <button
                         type="button"
-                        aria-label={tx(lang, {fr:"Retour au tableau de bord",ar:"العودة إلى لوحة القيادة",en:"Back to dashboard",es:"Volver al panel",pt:"Voltar ao painel",tr:"Gösterge paneline dön"})}
+                        aria-label={`BERAMETHODE — ${tx(lang, {fr:"Retour au tableau de bord",ar:"العودة إلى لوحة القيادة",en:"Back to dashboard",es:"Volver al panel",pt:"Voltar ao painel",tr:"Gösterge paneline dön"})}`}
                         onClick={() => handleNavigation('dashboard')}
                         className="group relative inline-flex items-center justify-center px-1 py-0.5 rounded-sm border-none transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
                     >
@@ -220,7 +220,7 @@ export default function AppHeader({
                             <span
                                 className={`relative font-extrabold text-base sm:text-lg tracking-tight transition-all duration-200 [text-shadow:none] group-hover:[text-shadow:0_1px_3px_rgba(16,185,129,0.4),0_2px_8px_rgba(16,185,129,0.22)] ${currentView === 'dashboard' ? 'text-gray-900 dark:text-dk-text' : 'text-gray-800 dark:text-dk-text group-hover:text-emerald-700 dark:group-hover:text-emerald-400'}`}
                             >
-                                BERA<span className="text-emerald-600 dark:text-emerald-400">METHODE</span>
+                                BERA<span className="text-emerald-700 dark:text-emerald-400">METHODE</span>
                             </span>
                         )}
                     </button>
