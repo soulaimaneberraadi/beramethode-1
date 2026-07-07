@@ -59,7 +59,7 @@ export function lsRemove(key: string): void {
 }
 
 export function isSyncKey(key: string, syncBases: readonly string[]): boolean {
-  return syncBases.some(base => key === base || key.startsWith(base + SEP));
+  return syncBases.some(base => key === base || key.startsWith(base + SEP)) || getBaseKey(key, syncBases) !== null;
 }
 
 export function getBaseKey(prefixedKey: string, syncBases: readonly string[]): string | null {
