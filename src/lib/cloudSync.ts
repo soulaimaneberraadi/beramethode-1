@@ -334,7 +334,22 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
                   for (const lm of localModels) {
                     if (lm && !cloudIds.has(lm.id)) merged.push(lm);
                   }
-                  lsSet(k, JSON.stringify(merged));
+                  // Exclure les modèles supprimés EXPLICITEMENT par l'utilisateur
+                  // (tombstones) : une suppression volontaire ne doit pas être annulée
+                  // par la fusion union (sinon le modèle « ressuscite »).
+                  let finalModels: any[] = merged;
+                  try {
+                    const tsRaw = lsGet('beramethode_tombstones');
+                    const ts = tsRaw ? JSON.parse(tsRaw) : [];
+                    const now = Date.now();
+                    const dead = new Set(
+                      (Array.isArray(ts) ? ts : [])
+                        .filter((t: any) => t && t.type === 'models' && (now - new Date(t.deleted_at).getTime()) < 3_600_000)
+                        .map((t: any) => String(t.id)),
+                    );
+                    if (dead.size) finalModels = merged.filter((m: any) => m && !dead.has(String(m.id)));
+                  } catch { /* ignore */ }
+                  lsSet(k, JSON.stringify(finalModels));
                   continue;
                 }
               } catch { /* fall through */ }

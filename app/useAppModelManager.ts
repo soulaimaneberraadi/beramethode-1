@@ -8,6 +8,7 @@ const launchDateTimeIso = (date: string, launchTime?: string) => {
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 import { AUTO_SAVE_KEY } from './constants';
 import { lsRemove } from '../lib/storageKeys';
+import { addTombstone } from '../src/lib/apiShim';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 
@@ -250,6 +251,11 @@ export function useAppModelManager({
             setModels(prev => prev.filter(m => m.id !== id));
             deleteManualLinksByModel(id);
             if (currentModelId === id) setCurrentModelId(null);
+            // Suppression EXPLICITE de l'utilisateur → shahid (tombstone) pour que
+            // la synchro la propage aux autres appareils, sans que le modèle ne
+            // « ressuscite » via la fusion union. (La synchro elle-même ne supprime
+            // jamais ; seul ce tombstone, issu d'une action utilisateur, le fait.)
+            try { addTombstone('models', id); } catch { /* non bloquant */ }
         };
         if (user && !IS_STATIC) {
             fetch(`/api/models/${id}`, { credentials: 'include', method: 'DELETE' })

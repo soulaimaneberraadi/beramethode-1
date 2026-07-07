@@ -94,7 +94,7 @@ type Tombstone = { type: string; id: string; deleted_at: string };
 const readTombstones = (): Tombstone[] => readJson(TOMBSTONES_KEY) || [];
 const writeTombstones = (ts: Tombstone[]) => writeJson(TOMBSTONES_KEY, ts);
 
-const tombstonedIds = (type: string): Set<string> => {
+export const tombstonedIds = (type: string): Set<string> => {
   const now = Date.now();
   const ts = readTombstones().filter(t => {
     if (t.type !== type) return false;
@@ -104,7 +104,7 @@ const tombstonedIds = (type: string): Set<string> => {
   return new Set(ts.map(t => String(t.id)));
 };
 
-const addTombstone = (type: string, id: string) => {
+export const addTombstone = (type: string, id: string) => {
   const ts = readTombstones().filter(t => !(t.type === type && String(t.id) === String(id)));
   ts.push({ type, id: String(id), deleted_at: new Date().toISOString() });
   writeTombstones(ts);
