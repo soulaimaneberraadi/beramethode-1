@@ -71,18 +71,29 @@ export const ensureLocalDataOwner = (userId: string) => {
   if (!userId) return;
   try {
     const prev = localStorage.getItem(LAST_SYNC_USER_KEY);
-    // Toutes les données métier sont désormais stockées PAR COMPTE via pkey()
-    // (App.tsx + apiShim + cloudSync utilisent tous les clés préfixées). Changer
-    // de compte = changer le suffixe pk() ; aucune copie préfixée↔non-préfixée
-    // n'est nécessaire — et surtout, l'ancien savePrefixedBackup() écrasait les
-    // données préfixées du compte précédent avec les clés non-préfixées (vides),
-    // d'où une perte de données. On se contente donc de purger les anciennes
-    // clés non-préfixées (legacy) et le marqueur de pull, pour forcer un pull
-    // frais du nouveau compte.
-    if (prev && prev !== userId) {
-      clearLocalAppData();
-    }
+    // On pose le scope AVANT toute lecture/écriture scopée ci-dessous.
     localStorage.setItem(LAST_SYNC_USER_KEY, userId);
+
+    if (prev && prev !== userId) {
+      // Changement de compte → purge des clés de base (anti-fuite inter-comptes).
+      clearLocalAppData();
+    } else {
+      // Premier compte / même compte : MIGRER les données héritées des clés de
+      // BASE (non-scopées, d'avant l'isolation par compte) vers les clés scopées
+      // de CE compte, PUIS nettoyer la base. Récupère les données pré-isolation
+      // sans les perdre (sinon un modèle enregistré sous la clé de base devient
+      // invisible), et évite qu'elles fuitent vers un futur autre compte.
+      // Fait AVANT le pull cloud → le merge (union) préservera ces modèles.
+      for (const k of SYNC_KEYS) {
+        try {
+          if (lsGet(k) != null) continue;            // clé scopée déjà remplie
+          const base = localStorage.getItem(k);
+          if (base == null) continue;
+          lsSet(k, base);                            // → clé scopée du compte courant
+          localStorage.removeItem(k);                // nettoie la base
+        } catch { /* ignore */ }
+      }
+    }
   } catch { /* ignore */ }
 };
 
@@ -304,6 +315,14 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
                     }
                     return cm;
                   });
+                  // UNION : conserver les modèles LOCAUX absents du cloud, sinon un
+                  // pull d'un cloud vide (ex. après un push vide accidentel) ferait
+                  // DISPARAÎTRE un modèle enregistré localement / récupéré des clés
+                  // de base héritées. On ne perd jamais un modèle local.
+                  const cloudIds = new Set(cloudModels.map((cm: any) => cm && cm.id));
+                  for (const lm of localModels) {
+                    if (lm && !cloudIds.has(lm.id)) merged.push(lm);
+                  }
                   lsSet(k, JSON.stringify(merged));
                   continue;
                 }

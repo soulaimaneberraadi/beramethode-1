@@ -16,18 +16,32 @@ export function lsGet(key: string): string | null {
 }
 
 /**
- * Lecture avec repli de migration : clé scopée d'abord, puis clé de base
- * UNIQUEMENT si aucun compte n'est actif (migration d'anciennes données
- * mono-compte). Si un compte est actif, on NE lit JAMAIS la clé de base : elle
- * peut contenir des données partagées héritées d'une ancienne version → fuite
- * inter-comptes sur le même appareil.
+ * Lecture avec MIGRATION des anciennes données non-scopées.
+ *
+ * - Clé scopée présente → on la retourne.
+ * - Sinon, s'il existe une donnée sur la clé de BASE (héritée d'avant
+ *   l'isolation par compte) :
+ *     • si un compte est actif → on MIGRE cette donnée vers la clé scopée du
+ *       compte courant PUIS on efface la clé de base. Ainsi on ne PERD PAS les
+ *       données pré-isolation (récupération), et comme la base est effacée juste
+ *       après, elle ne peut plus fuiter vers un autre compte ensuite.
+ *     • si aucun compte actif → on retourne simplement la base (lecture legacy).
+ *
+ * La migration est idempotente : une fois faite, `lsGet` renvoie la clé scopée
+ * et on ne repasse plus par la base.
  */
 export function lsGetMig(key: string): string | null {
   const scoped = lsGet(key);
   if (scoped != null) return scoped;
   try {
-    if (getCurrentEmail()) return null;
-    return localStorage.getItem(key);
+    const base = localStorage.getItem(key);
+    if (base == null) return null;
+    if (getCurrentEmail()) {
+      // Compte actif : migrer base → scopé, puis nettoyer la base.
+      lsSet(key, base);
+      try { localStorage.removeItem(key); } catch { /* ignore */ }
+    }
+    return base;
   } catch {
     return null;
   }
