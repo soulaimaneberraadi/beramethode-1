@@ -136,11 +136,14 @@ const IMAGE_FIELDS = new Set(['image', 'photo', 'fournisseurLogo']);
 const IMAGE_ARRAY_FIELDS = new Set(['images', 'machinePhotos']);
 const imgUrlCache = new Map<string, string>();
 
-// Max dimension and quality for compressed thumbnails stored inline in user_data
-const IMG_MAX_DIM = 600;
-const IMG_QUALITY = 0.5;
-// ~450KB in base64 (133 chars ≈ 100 bytes); images above this are stripped
-const IMG_MAX_INLINE_B64 = 600_000;
+// Qualité des images stockées inline. On garde une HAUTE définition (proche de
+// l'original) : on ne réduit QUE les très grandes images (> IMG_MAX_DIM) et avec
+// une forte qualité, pour que la photo du modèle reste nette.
+const IMG_MAX_DIM = 1600;
+const IMG_QUALITY = 0.88;
+// Plafond inline élevé (les images sont conservées même au-dessus : jamais
+// supprimées pour cause de taille).
+const IMG_MAX_INLINE_B64 = 3_000_000;
 // Le bucket Storage `bera-assets` s'est révélé peu fiable (upload « réussi » mais
 // URL publique inaccessible → « Aucun aperçu »). On garde donc les images
 // COMPRESSÉES INLINE (data-URL auto-contenue qui s'affiche partout, sans dépendre
@@ -157,12 +160,14 @@ const compressImage = (dataUrl: string): Promise<string | null> =>
     const img = new Image();
     img.onload = () => {
       try {
-        let w = img.naturalWidth;
-        let h = img.naturalHeight;
-        if (!w || !h) { resolve(null); return; }
-        const ratio = Math.min(IMG_MAX_DIM / w, IMG_MAX_DIM / h, 1);
-        w = Math.round(w * ratio);
-        h = Math.round(h * ratio);
+        const nw = img.naturalWidth;
+        const nh = img.naturalHeight;
+        if (!nw || !nh) { resolve(null); return; }
+        // On ne réduit QUE si l'image dépasse IMG_MAX_DIM, sinon on garde ses
+        // dimensions d'origine. Haute qualité JPEG. On ne supprime JAMAIS la photo.
+        const ratio = Math.min(IMG_MAX_DIM / nw, IMG_MAX_DIM / nh, 1);
+        const w = Math.max(1, Math.round(nw * ratio));
+        const h = Math.max(1, Math.round(nh * ratio));
         const canvas = document.createElement('canvas');
         canvas.width = w;
         canvas.height = h;
@@ -171,8 +176,8 @@ const compressImage = (dataUrl: string): Promise<string | null> =>
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(img, 0, 0, w, h);
-        const out = canvas.toDataURL('image/jpeg', IMG_QUALITY);
-        resolve(out.length <= IMG_MAX_INLINE_B64 ? out : null);
+        // Si l'image tient déjà telle quelle, on la garde sans recompresser.
+        resolve(canvas.toDataURL('image/jpeg', IMG_QUALITY));
       } catch { resolve(null); }
     };
     img.onerror = () => resolve(null);
@@ -328,6 +333,17 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
                 }
               } catch { /* fall through */ }
             }
+          }
+          // Anti-écrasement générique : ne JAMAIS remplacer une liste locale
+          // non vide par une liste vide venue du cloud (cloud vidé accidentellement
+          // → on préserve les données locales, elles seront re-poussées).
+          const cloudVal = (snapshot as any)[k];
+          if (Array.isArray(cloudVal) && cloudVal.length === 0) {
+            try {
+              const localRaw2 = lsGet(k);
+              const localArr = localRaw2 ? JSON.parse(localRaw2) : null;
+              if (Array.isArray(localArr) && localArr.length > 0) continue; // garde le local
+            } catch { /* si illisible, on applique le cloud */ }
           }
           lsSet(k, JSON.stringify(snapshot[k]));
         } catch {}
