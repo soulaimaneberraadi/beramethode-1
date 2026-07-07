@@ -447,6 +447,7 @@ export interface OrdreCoupe {
 export interface ModelData {
   id: string;
   filename: string;
+  updatedAt?: string; // NEW: modification timestamp for conflict resolution
   workflowStatus?: WorkflowStatus; // NEW: Track the OF lifecycle
   ordreCoupe?: OrdreCoupe; // NEW: Cutting order details
   isPublishedToLibrary?: boolean; // NEW: True if visible in Bibliothèque

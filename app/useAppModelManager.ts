@@ -88,6 +88,7 @@ export function useAppModelManager({
             filename: `${articleName || 'Sans_Nom'}.json`,
             image: ficheImages.front, // Thumbnail
             images: ficheImages,      // FULL IMAGES
+            updatedAt: new Date().toISOString(),
             ficheData: {
                 ...ficheData,
                 targetEfficiency: efficiency // Sync current efficiency state here
