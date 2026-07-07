@@ -340,17 +340,32 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
               } catch { /* fall through */ }
             }
           }
-          // Anti-écrasement générique : ne JAMAIS remplacer une liste locale
-          // non vide par une liste vide venue du cloud (cloud vidé accidentellement
-          // → on préserve les données locales, elles seront re-poussées).
+          // ── RÈGLE D'OR : la synchro ne SUPPRIME JAMAIS de données. ────────────
+          // Pour toute liste d'éléments identifiés par `id`, on FUSIONNE (union par
+          // id) au lieu de remplacer : on garde les éléments des DEUX côtés. Un
+          // élément présent localement mais absent du cloud n'est jamais retiré par
+          // un pull. Les suppressions ne se font que par action explicite de
+          // l'utilisateur (bouton supprimer). En cas de conflit (même id), on garde
+          // la version cloud (dernière poussée).
           const cloudVal = (snapshot as any)[k];
-          if (Array.isArray(cloudVal) && cloudVal.length === 0) {
-            try {
-              const localRaw2 = lsGet(k);
-              const localArr = localRaw2 ? JSON.parse(localRaw2) : null;
-              if (Array.isArray(localArr) && localArr.length > 0) continue; // garde le local
-            } catch { /* si illisible, on applique le cloud */ }
-          }
+          try {
+            const localRaw2 = lsGet(k);
+            const localArr = localRaw2 ? JSON.parse(localRaw2) : null;
+            const idOf = (x: any) => (x && typeof x === 'object' ? x.id : undefined);
+            const bothArrays = Array.isArray(cloudVal) && Array.isArray(localArr);
+            const haveIds = bothArrays && [...cloudVal, ...localArr].every((x: any) => idOf(x) != null);
+            if (haveIds) {
+              const byId = new Map<any, any>();
+              for (const it of localArr) byId.set(idOf(it), it);      // base = local
+              for (const it of cloudVal) byId.set(idOf(it), it);      // cloud gagne les conflits
+              lsSet(k, JSON.stringify([...byId.values()]));
+              continue;
+            }
+            // Listes sans id : au moins, ne pas écraser du non-vide par du vide.
+            if (Array.isArray(cloudVal) && cloudVal.length === 0 && Array.isArray(localArr) && localArr.length > 0) {
+              continue; // garde le local
+            }
+          } catch { /* si illisible, on applique le cloud tel quel */ }
           lsSet(k, JSON.stringify(snapshot[k]));
         } catch {}
       }
