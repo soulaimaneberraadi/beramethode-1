@@ -36,10 +36,13 @@ export function lsGetMig(key: string): string | null {
   try {
     const base = localStorage.getItem(key);
     if (base == null) return null;
+    // Compte actif : recopier base → scopé (pour que cloudSync le pousse), MAIS
+    // GARDER la clé de base comme filet de sécurité. Ne jamais l'effacer ici :
+    // si la clé scopée est vidée par une course de synchro, la base permet de
+    // récupérer les données. La base est purgée uniquement au changement de
+    // compte (clearLocalAppData), ce qui évite la fuite inter-comptes.
     if (getCurrentEmail()) {
-      // Compte actif : migrer base → scopé, puis nettoyer la base.
-      lsSet(key, base);
-      try { localStorage.removeItem(key); } catch { /* ignore */ }
+      try { lsSet(key, base); } catch { /* ignore */ }
     }
     return base;
   } catch {

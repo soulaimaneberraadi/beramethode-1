@@ -90,7 +90,9 @@ export const ensureLocalDataOwner = (userId: string) => {
           const base = localStorage.getItem(k);
           if (base == null) continue;
           lsSet(k, base);                            // → clé scopée du compte courant
-          localStorage.removeItem(k);                // nettoie la base
+          // On GARDE la clé de base comme filet de sécurité (pas de removeItem) :
+          // si le scopé est vidé par une course de synchro, la base récupère les
+          // données. Purge de la base uniquement au changement de compte.
         } catch { /* ignore */ }
       }
     }
