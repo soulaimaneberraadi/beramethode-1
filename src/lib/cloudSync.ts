@@ -386,6 +386,30 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
   const sig = quickSig(JSON.stringify(snapshot));
   if (sig === lastSyncedSig) return true;
 
+  // Fusion anti-destruction : si une clé est VIDE localement (risque d'écraser des
+  // données non vides d'un autre appareil), on lit l'état cloud et on préserve ses
+  // valeurs non vides. Pour la bibliothèque : union par id (on ne perd aucun modèle
+  // des deux côtés). Lecture faite UNIQUEMENT en cas de risque (limite l'egress).
+  const isEmptyVal = (v: any) => v == null || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && v.constructor === Object && !Object.keys(v).length);
+  const hasEmptyKey = SYNC_KEYS.some(k => isEmptyVal((snapshot as any)[k]));
+  if (hasEmptyKey) {
+    try {
+      const { data: existing } = await supabase.from(TABLE).select('data').eq('user_id', userId).maybeSingle();
+      const cloudData: Record<string, any> = ((existing as any)?.data as any) || {};
+      for (const k of SYNC_KEYS) {
+        const localV = (snapshot as any)[k];
+        const cloudV = cloudData[k];
+        if (k === 'beramethode_library' && Array.isArray(localV) && Array.isArray(cloudV)) {
+          const ids = new Set(localV.map((m: any) => m && m.id));
+          const extra = cloudV.filter((m: any) => m && !ids.has(m.id));
+          if (extra.length) (snapshot as any)[k] = [...localV, ...extra];
+        } else if (isEmptyVal(localV) && !isEmptyVal(cloudV)) {
+          (snapshot as any)[k] = cloudV; // préserve le cloud non vide
+        }
+      }
+    } catch { /* lecture cloud impossible → on pousse le local tel quel */ }
+  }
+
   // Replace base64 images with Storage URLs (or compressed inline data-URLs)
   try {
     snapshot = await replaceImages(snapshot) as Record<string, unknown>;
