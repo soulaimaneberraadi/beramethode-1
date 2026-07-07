@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { preloadAllChunks } from './lib/preloader';
-import { lsGet, lsSet } from './lib/storageKeys';
+import { lsGet, lsSet, lsGetMig } from './lib/storageKeys';
 import './src/context/ThemeContext';
 import GlobalLoader from './components/GlobalLoader';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -92,11 +92,7 @@ const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 // convention que cloudSync + apiShim). Repli sur l'ancienne clé non-préfixée
 // pour migrer en douceur les anciennes données locales (une seule fois : le
 // prochain lsSet réécrit en version préfixée).
-const lsGetMig = (key: string): string | null => {
-    const scoped = lsGet(key);
-    if (scoped != null) return scoped;
-    try { return localStorage.getItem(key); } catch { return null; }
-};
+// lsGetMig (lecture scopée + repli migration sûr) est fourni par storageKeys.
 
 export default function App() {
     const { user, loading: authLoading, logout: authLogout, login } = useAuth();

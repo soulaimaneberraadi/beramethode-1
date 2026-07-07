@@ -4,7 +4,7 @@ import { Building2, User, Users, StopCircle, ChevronRight, ChevronLeft, CheckCir
 import { AccountType } from '../app/accountTypes';
 import { useTheme, useIsDark } from '../src/context/ThemeContext';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
-import { lsGet, lsSet, pkey } from '../lib/storageKeys';
+import { lsGet, lsSet, pkey, lsGetMig } from '../lib/storageKeys';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useAuth } from '../src/context/AuthContext';
@@ -426,7 +426,7 @@ export default function Setup({ onComplete, onBackToLogin }: Props) {
   const persistPreferences = () => {
     try {
       localStorage.setItem('bera_lang', prefLang);
-      const raw = lsGet('beramethode_settings') ?? localStorage.getItem('beramethode_settings');
+      const raw = lsGetMig('beramethode_settings');
       const base = raw ? JSON.parse(raw) : DEFAULT_CALENDAR_APP_SETTINGS;
       const next = { ...DEFAULT_CALENDAR_APP_SETTINGS, ...base, currency: prefCurrency };
       lsSet('beramethode_settings', JSON.stringify(next));

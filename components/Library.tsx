@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../src/context/AuthContext';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
-import { lsGet, lsSet } from '../lib/storageKeys';
+import { lsGet, lsSet, lsGetMig } from '../lib/storageKeys';
 import { pushSnapshotToCloud } from '../src/lib/cloudSync';
 import { Search, FolderOpen, MoreVertical, FileJson, Clock, Users, Calendar, Download, Copy, Trash2, Edit2, SortAsc, Scissors, Filter, Upload, AlertTriangle, Plus, Share2, LayoutGrid, ZoomIn, ZoomOut, List as ListIcon, Database, UploadCloud, DownloadCloud, CheckCircle2, Loader2, FileText, X } from 'lucide-react';
 import InlineInvoiceList from './InlineInvoiceList';
@@ -98,8 +98,8 @@ export default function Library({
     const handleBackupDatabase = () => {
         setDbStatus('processing');
         try {
-            const library = lsGet('beramethode_library') ?? localStorage.getItem('beramethode_library');
-            const autosave = lsGet('beramethode_autosave_v1') ?? localStorage.getItem('beramethode_autosave_v1');
+            const library = lsGetMig('beramethode_library');
+            const autosave = lsGetMig('beramethode_autosave_v1');
             const layouts = localStorage.getItem('beramethode_layouts');
             const backupData = { type: 'BERAMETHODE_FULL_BACKUP', date: new Date().toISOString(), version: 1, data: { library: library ? JSON.parse(library) : [], autosave: autosave ? JSON.parse(autosave) : null, layouts: layouts ? JSON.parse(layouts) : [] } };
             const jsonString = JSON.stringify(backupData, null, 2);
