@@ -9,7 +9,9 @@
     <meta name="description" content="BERAMETHODE — ERP pour l'industrie textile : coûts de revient, planification, magasin, RH, facturation et suivi de production." />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Non-blocking Google Fonts: لا يمنع First Paint -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;700;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;700;900&display=swap" /></noscript>
     <meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#14211C" media="(prefers-color-scheme: dark)">
     <!-- Tailwind : build local via PostCSS (voir tailwind.config.js + src/index.css).
@@ -23,211 +25,17 @@
     </script>
 
     <style>
-      /* Premium subtle scrollbars */
-      ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: rgba(0, 0, 0, 0.1);
-        border-radius: 10px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: rgba(0, 0, 0, 0.2);
-      }
-      * {
-        scrollbar-width: thin;
-        scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
-      }
-      .hide-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-      .hide-scrollbar {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
-
-      /* Garde-fou mobile : empêche tout débordement horizontal qui ferait
-         dézoomer / rogner la page sur un vrai téléphone. Le shell de l'app est
-         en h-screen overflow-hidden (scroll interne), donc ceci ne casse pas le
-         position: sticky des en-têtes de tableaux. */
-      html, body, #root {
-        max-width: 100%;
-        overflow-x: hidden;
-      }
-
-
-      /* Premium UI Animations */
-      @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.5; transform: scale(0.85); }
-      }
-      @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(8px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
-      @keyframes shimmer {
-        0%   { background-position: -200% 0; }
-        100% { background-position:  200% 0; }
-      }
-      @keyframes float {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-10px); }
-      }
-      @keyframes rotate-glow {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-
-      .premium-glow {
-        position: relative;
-        overflow: hidden;
-      }
-      .premium-glow::before {
-        content: "";
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
-        animation: rotate-glow 20s linear infinite;
-        pointer-events: none;
-        z-index: 0;
-      }
-
-      .glass-card {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-      }
-
-      .glass-card-dark {
-        background: rgba(15, 23, 42, 0.8);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-      }
-
-      .status-glow-ok {
-        box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
-        animation: pulse 2s infinite;
-      }
-      .status-glow-warn {
-        box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
-        animation: pulse 2s infinite;
-      }
-      .status-glow-error {
-        box-shadow: 0 0 12px rgba(244, 63, 94, 0.5);
-        animation: pulse 2s infinite;
-      }
-
-      .hover-lift {
-        transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
-      }
-      .hover-lift:hover {
-        transform: translateY(-5px) scale(1.02);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-      }
-
-      /* Pointage table row hover */
-      .ptg-row:hover {
-        background: #f8fafc !important;
-      }
-      .ptg-row:hover td:first-child {
-        background: #f8fafc !important;
-      }
-
-      /* Smooth tranche button transitions */
-      .tranche-btn {
-        transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
-      }
-      .tranche-btn:hover:not(:disabled) {
-        transform: scale(1.1);
-      }
-      .tranche-btn:active:not(:disabled) {
-        transform: scale(0.95);
-      }
-
-      /* KPI card gradient shimmer on hover */
-      .kpi-card:hover {
-        filter: brightness(1.03);
-        transition: filter 0.2s ease;
-      }
-
-      /* Pointage — mobile : pas de largeur forcée, grille 2×2 sous ~560px */
-      .pointage-kpi-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 4px;
-        width: 100%;
-        min-width: 0;
-      }
-      @media (max-width: 560px) {
-        .pointage-kpi-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-      }
-
-      .gestion-rh-tabs-scroll {
-        display: flex;
-        gap: 4px;
-        overflow-x: auto;
-        overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 2px;
-        margin-bottom: -2px;
-      }
-      .gestion-rh-tabs-scroll button {
-        flex-shrink: 0;
-      }
-
-      @media (max-width: 560px) {
-        .gestion-rh-head-compact {
-          padding: 10px 12px !important;
-        }
-      }
-
-      /* ===== DARK MODE — Forest Green #1D2E28 ===== */
+      /* الحرج فقط لـ First Paint */
+      html, body, #root { max-width: 100%; overflow-x: hidden; }
       :root { color-scheme: light; }
       .dark { color-scheme: dark; }
-
-      .dark .glass-surface,
-      .dark .glass-surface-interactive {
-        background: rgba(29,46,40,0.72);
-        border-color: rgba(157,181,171,0.12);
-      }
-      .dark .glass-surface-elevated {
-        background: rgba(38,57,47,0.85);
-        border-color: rgba(157,181,171,0.18);
-      }
-      .dark .glass-surface-interactive:hover {
-        background: rgba(38,57,47,0.88);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.35);
-      }
-      .dark .glass-card {
-        background: rgba(20,33,28,0.72) !important;
-        border-color: rgba(157,181,171,0.10) !important;
-      }
-
-      .dark .ptg-row:hover { background: rgba(38,57,47,0.6) !important; }
-      .dark .ptg-row:hover td:first-child { background: rgba(38,57,47,0.6) !important; }
-
-      .dark ::-webkit-scrollbar-thumb {
-        background: rgba(194,210,202,0.18) !important;
-      }
-      .dark ::-webkit-scrollbar-thumb:hover {
-        background: rgba(194,210,202,0.3) !important;
-      }
-
-      @media print {
-        :root, .dark { color-scheme: light; }
-        .dark * { background: #fff !important; color: #000 !important; }
-      }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+      * { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.1) transparent; }
+      .dark ::-webkit-scrollbar-thumb { background: rgba(194,210,202,0.18); }
+      .dark .glass-card { background: rgba(20,33,28,0.72); border-color: rgba(157,181,171,0.10); }
+      .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.3); }
+      @media print { :root,.dark { color-scheme: light; } .dark * { background:#fff!important;color:#000!important; } }
     </style>
   </head>
   <body>

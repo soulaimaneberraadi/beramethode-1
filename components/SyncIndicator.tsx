@@ -62,7 +62,7 @@ const SyncIndicator: React.FC = () => {
         <button
             onClick={handleSyncClick}
             disabled={syncing}
-            className={`hidden md:flex items-center justify-center w-8 h-8 rounded-full border transition-all outline-none ${
+            className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all outline-none ${
                 syncing
                     ? 'bg-white dark:bg-dk-surface border-gray-100 dark:border-dk-border text-emerald-500 cursor-wait'
                     : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 cursor-pointer hover:bg-emerald-100/80 dark:hover:bg-emerald-900/50'

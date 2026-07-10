@@ -15,6 +15,7 @@ const OWNER_EMAIL = (process.env.SUPABASE_OWNER_EMAIL || '').trim().toLowerCase(
 const OWNER_PASSWORD = process.env.SUPABASE_OWNER_PASSWORD || '';
 const SERVER_SYNC_ENABLED = process.env.SUPABASE_SERVER_SYNC !== 'false';
 const enabled = Boolean(OWNER_EMAIL && OWNER_PASSWORD) && SERVER_SYNC_ENABLED;
+const canSync = Boolean(OWNER_EMAIL && OWNER_PASSWORD && SUPABASE_URL && SUPABASE_ANON_KEY);
 
 if (enabled && (!SUPABASE_URL || !SUPABASE_ANON_KEY)) {
   throw new Error('[supabaseSync] CRITICAL: SUPABASE_URL and SUPABASE_ANON_KEY must be set in .env when backup/sync is enabled.');
@@ -474,10 +475,12 @@ export const initUserSync = async (localUserId: number, supabaseUserId: string, 
             initialSyncStarted = true;
             void (async () => {
               const safeToPush = await pullAndMergeForUser(state);
-              if (safeToPush) {
+              if (safeToPush && SERVER_SYNC_ENABLED) {
                 schedulePush(localUserId);
+              } else if (!SERVER_SYNC_ENABLED) {
+                console.log(`[supabaseSync] Server push disabled, listening only for ${email}.`);
               } else {
-                console.warn(`[supabaseSync] Initial push skipped for ${email}: cloud pull did not complete safely.`);
+                console.warn(`[supabaseSync] Initial pull failed for ${email}: cloud pull did not complete safely.`);
               }
             })();
           }
@@ -672,9 +675,9 @@ export const supabaseSyncMiddleware = (req: Request, res: Response, next: NextFu
           }
         }
 
-        // Schedule push for this specific user
+        // Schedule push for this specific user (only when server sync is enabled)
         const localUserId = (req as any).user?.id;
-        if (localUserId) {
+        if (localUserId && SERVER_SYNC_ENABLED) {
           schedulePush(localUserId);
         }
       } catch (err) {
@@ -764,10 +767,14 @@ export const backupDatabaseToSupabase = async () => {
 
 export const startSupabaseSync = async () => {
   // 1. Initialize default owner if credentials exist in .env
-  if (enabled) {
+  // Toujours initialiser (même avec SUPABASE_SERVER_SYNC=false) pour
+  // écouter les broadcasts Realtime et fusionner les données entrantes
+  // dans SQLite (pull uniquement). Le push est contrôlé par SERVER_SYNC_ENABLED.
+  if (canSync) {
     const ownerRow = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(OWNER_EMAIL) as { id: number } | undefined;
     if (ownerRow) {
-      console.log(`[supabaseSync] Initializing default owner sync for ${OWNER_EMAIL}`);
+      const mode = SERVER_SYNC_ENABLED ? 'push+receive' : 'receive-only';
+      console.log(`[supabaseSync] Initializing default owner sync for ${OWNER_EMAIL} (${mode})`);
       void initUserSync(ownerRow.id, '', OWNER_EMAIL, null);
     } else {
       console.warn(`[supabaseSync] Default owner email ${OWNER_EMAIL} not found in local SQLite users table.`);
@@ -786,7 +793,7 @@ export const startSupabaseSync = async () => {
 
     for (const sess of sessions) {
       // Avoid re-initializing if it is the owner and already initialized
-      const ownerRow = enabled ? db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(OWNER_EMAIL) as { id: number } | undefined : null;
+      const ownerRow = canSync ? db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(OWNER_EMAIL) as { id: number } | undefined : null;
       if (ownerRow && ownerRow.id === sess.user_id) continue;
 
       console.log(`[supabaseSync] Restoring saved sync session for ${sess.email}`);

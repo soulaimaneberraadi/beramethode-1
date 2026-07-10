@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient';
 import { SCHEMA_VERSION, migrateSnapshot } from './dataVersion';
 import { pkey, lsGet, lsSet, isSyncKey, getCurrentEmail } from '../../lib/storageKeys';
 
@@ -114,13 +114,14 @@ const ORIGINAL_SET_ITEM = Storage.prototype.setItem;
 // donc aucune charge DB. Sert à notifier les autres appareils qu'un pull est
 // nécessaire (le snapshot lui-même transite via un SELECT, pas via le canal).
 let syncChannel: ReturnType<typeof supabase.channel> | null = null;
+let beforeUnloadHandler: (() => void) | null = null;
 
 // Délai de regroupement des écritures avant un push cloud. Une valeur trop
 // basse (ex. 1,5 s) provoque une rafale d'UPSERT du blob `user_data` (~2 Mo)
 // qui sature la base free-tier (→ 522). 15 s regroupe davantage d'éditions
 // successives en un seul UPSERT. Le push final au logout protège les dernières
 // secondes non encore poussées.
-const PUSH_DEBOUNCE_MS = 15000;
+const PUSH_DEBOUNCE_MS = 5000;
 
 // Signature du dernier snapshot RÉELLEMENT poussé (ou tiré) au cloud. Sert à
 // sauter un UPSERT quand le contenu local n'a pas changé : sans ça, chaque
@@ -607,6 +608,26 @@ export const startCloudSync = (userId: string) => {
     }
   };
 
+  // Push final avant fermeture/refresh : les dernières secondes de debounce
+  // ne doivent pas être perdues si l'utilisateur ferme l'onglet.
+  beforeUnloadHandler = () => {
+    if (syncTimer) clearTimeout(syncTimer);
+    const snapshot = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
+    try {
+      fetch(`${SUPABASE_URL}/rest/v1/user_data?on_conflict=user_id`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          Prefer: 'resolution=merge-duplicates',
+        },
+        body: JSON.stringify({ user_id: userId, data: snapshot, updated_at: new Date().toISOString() }),
+        keepalive: true,
+      });
+    } catch {}
+  };
+  window.addEventListener('beforeunload', beforeUnloadHandler);
+
   // Synchro inter-appareils en temps réel via Broadcast (zéro charge DB).
   // À la réception d'un signal « updated », l'appareil pull le dernier snapshot.
   // IMPORTANT: on n'utilise PAS postgres_changes (décodage WAL du blob ~2 Mo)
@@ -623,6 +644,10 @@ export const startCloudSync = (userId: string) => {
 export const stopCloudSync = () => {
   if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
   if (syncChannel) { syncChannel.unsubscribe(); syncChannel = null; }
+  if (beforeUnloadHandler) {
+    window.removeEventListener('beforeunload', beforeUnloadHandler);
+    beforeUnloadHandler = null;
+  }
   // Restore original setItem so no further writes trigger push
   Storage.prototype.setItem = ORIGINAL_SET_ITEM;
 };

@@ -82,12 +82,23 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 600,
       sourcemap: false,
       minify: 'esbuild',
+      target: 'es2020',
+      cssMinify: 'esbuild',
       rollupOptions: {
         output: {
           manualChunks(id) {
             if (id.includes('/context/') || id.includes('\\context\\')) return 'context';
+            if (id.includes('node_modules/react-dom') || id.includes('node_modules/react')) return 'vendor-react';
+            if (id.includes('node_modules/framer-motion')) return 'vendor-animation';
+            if (id.includes('node_modules/recharts')) return 'vendor-charts';
+            if (id.includes('node_modules/lucide-react')) return 'vendor-icons';
+            if (id.includes('node_modules/xlsx')) return 'vendor-xlsx';
+            if (id.includes('/node_modules/')) return 'vendor';
           },
         },
+      },
+      modulePreload: {
+        polyfill: false,
       },
     }
   };

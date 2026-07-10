@@ -169,33 +169,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ⚠️ ensureLocalDataOwner AVANT setUser : pose la clé d'isolation (pkey) du
       // bon compte avant tout rendu. Sinon les composants lisent les clés scopées
       // de l'ANCIEN compte (fuite de données entre comptes sur le même appareil).
+      // ⚠️ ensureLocalDataOwner AVANT le pull : pose la clé d'isolation (pkey) du
+      // bon compte pour que pullSnapshotFromCloud lise/écrive les bonnes clés scopées.
       if (u) ensureLocalDataOwner(String(u.id));
+      if (u && IS_STATIC) {
+        // IMPORTANT: pull doit terminer AVANT setUser ET finishLoading, sinon :
+        // 1. Le localStorage vide est pushé et écrase la donnée distante
+        // 2. Les composants rendent sans données (localStorage pas encore rempli)
+        await pullSnapshotFromCloud(String(u.id)).catch(() => {});
+        startCloudSync(String(u.id));
+      }
       setUser(u);
       finishLoading();
-      if (u && IS_STATIC) {
-        // IMPORTANT: pull doit terminer AVANT de démarrer le sync, sinon
-        // le localStorage vide est pushé et écrase la donnée distante.
-        pullSnapshotFromCloud(String(u.id))
-          .catch(() => {})
-          .finally(() => startCloudSync(String(u.id)));
-      }
     }).catch(() => {
       clearTimeout(sessionTimeout);
       finishLoading();
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const u = mapSupabaseUser(session?.user as never);
       // ensureLocalDataOwner AVANT setUser (cf. ci-dessus : évite la fuite inter-comptes).
       if (u) ensureLocalDataOwner(String(u.id));
-      setUser(u);
       if (u && IS_STATIC) {
-        pullSnapshotFromCloud(String(u.id))
-          .catch(() => {})
-          .finally(() => startCloudSync(String(u.id)));
+        await pullSnapshotFromCloud(String(u.id)).catch(() => {});
+        startCloudSync(String(u.id));
       } else {
         stopCloudSync();
       }
+      setUser(u);
     });
 
     return () => {

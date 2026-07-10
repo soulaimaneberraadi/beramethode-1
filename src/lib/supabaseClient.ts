@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://utrojjhscyatppgcszrt.supabase.co';
 const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_KEY as string) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk';
 
+export { SUPABASE_URL, SUPABASE_KEY as SUPABASE_ANON_KEY };
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     persistSession: true,
