@@ -1,20 +1,8 @@
-/**
- * Auto-sync the local SQLite snapshot to Supabase `user_data` so the same
- * account can read the data on the Vercel static deployment (mobile / web).
- *
- * Images (base64) are uploaded to Supabase Storage (bucket `bera-assets`)
- * and replaced with public URLs so they display on Vercel without bloating
- * the user_data UPSERT payload.
- *
- * Disabled unless SUPABASE_OWNER_EMAIL + SUPABASE_OWNER_PASSWORD are set in
- * the environment. Push is debounced (PUSH_DELAY_MS) and triggered from a
- * middleware that watches successful API writes.
- */
-
 import { createHash, randomUUID } from 'crypto';
 import db from './db';
 import { Request, Response, NextFunction } from 'express';
-import { markLocalPushing, isApplyingRemoteSnapshot, broadcastUpdate } from './supabaseRealtime';
+import { createClient } from '@supabase/supabase-js';
+import { mergeSnapshotIntoSqlite } from './supabaseRealtime';
 import path from 'path';
 import fs from 'fs';
 
@@ -25,12 +13,6 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
 const OWNER_EMAIL = (process.env.SUPABASE_OWNER_EMAIL || '').trim().toLowerCase();
 const OWNER_PASSWORD = process.env.SUPABASE_OWNER_PASSWORD || '';
-// ⚠️ La sync serveur (snapshot SQLite → user_data) est faite pour le mode EXE/
-// Express où SQLite est la source de vérité. En mode static (Vercel/navigateur),
-// c'est le NAVIGATEUR qui possède les données et les synchronise ; si le serveur
-// pousse AUSSI son snapshot SQLite (vide des données navigateur), il ÉCRASE les
-// données cloud du navigateur → le modèle enregistré côté web n'apparaît plus sur
-// les autres appareils. Mettre SUPABASE_SERVER_SYNC=false en dev static.
 const SERVER_SYNC_ENABLED = process.env.SUPABASE_SERVER_SYNC !== 'false';
 const enabled = Boolean(OWNER_EMAIL && OWNER_PASSWORD) && SERVER_SYNC_ENABLED;
 
@@ -39,67 +21,81 @@ if (enabled && (!SUPABASE_URL || !SUPABASE_ANON_KEY)) {
 }
 const PUSH_DELAY_MS = Number(process.env.SUPABASE_SYNC_DEBOUNCE_MS || 2000);
 const STORAGE_BUCKET = 'bera-assets';
-// When Storage upload fails (e.g. bucket missing / no service_role), keep the
-// image inline in user_data instead of stripping it — as long as it stays
-// under this base64 size. Larger images are still stripped to avoid bloating
-// the UPSERT payload. Override with SUPABASE_INLINE_IMAGE_MAX (bytes).
+const BACKUP_BUCKET = 'bera-backups';
 const INLINE_IMAGE_MAX = Number(process.env.SUPABASE_INLINE_IMAGE_MAX || 5_000_000);
+const SAFETY_PULL_MS = 5 * 60 * 1000;
 
-type Session = { userId: string; accessToken: string; expiresAt: number };
-let session: Session | null = null;
-let pushTimer: NodeJS.Timeout | null = null;
-let pushInFlight = false;
-let pendingAfterFlight = false;
+interface UserSyncState {
+  localUserId: number;
+  supabaseUserId: string;
+  email: string;
+  accessToken: string;
+  refreshToken: string | null; // Null if using hardcoded owner password login
+  expiresAt: number;
+  pushTimer: NodeJS.Timeout | null;
+  pushInFlight: boolean;
+  pendingAfterFlight: boolean;
+  supabaseClient: any;
+  realtimeChannel: any;
+  safetyTimer: NodeJS.Timeout | null;
+  lastAppliedAt?: number;
+  skipUntilTs?: number;
+}
 
-// In-memory cache: MD5 filename → public URL (avoids re-uploading same image)
+const syncStates = new Map<number, UserSyncState>();
+
+// In-memory cache: filename → public URL
 const imageUrlCache = new Map<string, string>();
-// Track whether the bucket has been confirmed to exist this session
-let bucketReady: boolean | null = null;
+let bucketReady = false;
+let backupBucketReady = false;
+let backupBucketWarningShown = false;
 
-// ─── DB helpers ───────────────────────────────────────────────────────────────
+// Helper to check if any user's pull/merge is active
+let isApplyingRemote = false;
+export const isApplyingRemoteSnapshot = () => isApplyingRemote;
 
-const safe = <T = any>(sql: string, params: any[] = []): T[] => {
-  try { return db.prepare(sql).all(...params) as T[]; } catch { return []; }
+// Helper to run query safely
+const safe = (sql: string, params: any[] = []): any[] => {
+  try { return db.prepare(sql).all(...params); } catch { return []; }
+};
+
+const tableHasColumn = (table: string, col: string): boolean => {
+  try {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    return cols.some(c => c.name === col);
+  } catch { return false; }
 };
 
 const parseJsonFields = (row: any) => {
-  if (!row || typeof row !== 'object') return row;
-  const out: any = { ...row };
-  for (const k of Object.keys(out)) {
-    const v = out[k];
+  if (!row) return row;
+  const out = { ...row };
+  for (const [k, v] of Object.entries(out)) {
     if (typeof v === 'string' && (v.startsWith('{') || v.startsWith('['))) {
-      try { out[k] = JSON.parse(v); } catch { /* keep raw */ }
+      try { out[k] = JSON.parse(v); } catch { /* ignore */ }
     }
   }
   return out;
 };
 
-// planning_events and suivi_data store the full object in `raw_data TEXT`.
-// The Express API returns JSON.parse(r.raw_data), so the snapshot must do
-// the same — otherwise Vercel reads rows with raw_data nested one level
-// deeper than expected (suivi.raw_data.sorties instead of suivi.sorties).
-const extractRawData = (rows: any[]): any[] =>
-  rows.map((row: any) => {
-    if (!row) return row;
-    const raw = row.raw_data;
-    if (typeof raw === 'string' && raw.length > 0) {
-      try { return JSON.parse(raw); } catch { /* fall through */ }
+const extractRawData = (rows: any[]) => {
+  return rows.map((r) => {
+    if (typeof r.raw_data === 'string' && r.raw_data.length > 0) {
+      try { return JSON.parse(r.raw_data); } catch { /* fallback */ }
     }
-    return parseJsonFields(row);
+    return parseJsonFields(r);
   });
+};
 
 // ─── Supabase Storage helpers ─────────────────────────────────────────────────
 
 const ensureBucket = async (accessToken: string): Promise<boolean> => {
   if (bucketReady === true) return true;
   try {
-    // Check if bucket exists
     const res = await fetch(`${SUPABASE_URL}/storage/v1/bucket/${STORAGE_BUCKET}`, {
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` },
     });
     if (res.ok) { bucketReady = true; return true; }
 
-    // Try to create it (public so images are accessible without auth on Vercel)
     const createRes = await fetch(`${SUPABASE_URL}/storage/v1/bucket`, {
       method: 'POST',
       headers: {
@@ -109,129 +105,158 @@ const ensureBucket = async (accessToken: string): Promise<boolean> => {
       },
       body: JSON.stringify({ id: STORAGE_BUCKET, name: STORAGE_BUCKET, public: true }),
     });
-    bucketReady = createRes.ok;
-    if (!bucketReady) {
+
+    bucketReady = true;
+    if (!createRes.ok) {
       const body = await createRes.text().catch(() => '');
-      console.warn(`[supabaseSync] could not create bucket (${createRes.status}): ${body.slice(0, 120)}`);
+      console.warn(`[supabaseSync] bucket check/create status: ${createRes.status} (${body.slice(0, 80)}) — will attempt uploads anyway`);
     }
-    return bucketReady;
+    return true;
   } catch (e) {
     console.warn('[supabaseSync] ensureBucket error:', e);
-    bucketReady = false;
+    bucketReady = true;
+    return true;
+  }
+};
+
+const ensureBackupBucketConfigured = async (accessToken: string): Promise<boolean> => {
+  if (backupBucketReady) return true;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/bucket/${BACKUP_BUCKET}`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${accessToken}` },
+    });
+    if (res.ok) { backupBucketReady = true; return true; }
+
+    const createRes = await fetch(`${SUPABASE_URL}/storage/v1/bucket`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ id: BACKUP_BUCKET, name: BACKUP_BUCKET, public: false }),
+    });
+
+    if (createRes.ok) {
+      backupBucketReady = true;
+      return true;
+    }
+    if (!backupBucketWarningShown) {
+      backupBucketWarningShown = true;
+      const body = await createRes.text().catch(() => '');
+      console.warn(`[supabaseSync] Warning: could not create backups bucket (${createRes.status}). Ensure it is created manually in Supabase Storage with name "${BACKUP_BUCKET}". Details: ${body.slice(0, 120)}`);
+    }
+    return false;
+  } catch (e) {
+    if (!backupBucketWarningShown) {
+      backupBucketWarningShown = true;
+      console.warn('[supabaseSync] ensureBackupBucketConfigured error:', e);
+    }
     return false;
   }
 };
 
-/**
- * Upload a base64 data-URL to Supabase Storage.
- * Uses MD5 of the raw bytes as filename → deterministic, dedup-safe.
- * Returns the public URL, or null on failure.
- */
-const uploadBase64 = async (dataUrl: string, accessToken: string): Promise<string | null> => {
-  // Bucket déjà confirmé absent (ensureBucket) → ne pas réessayer chaque image :
-  // ça échouerait pareil et inonderait les logs de « Bucket not found ».
-  if (bucketReady === false) return null;
+const uploadBase64 = async (b64data: string, contentType: string, accessToken: string, userId: string): Promise<string | null> => {
   try {
-    const m = dataUrl.match(/^data:(image\/([^;]+));base64,(.+)$/s);
-    if (!m) return null;
-    const [, contentType, rawExt, b64data] = m;
-    const ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
-
-    const hash = createHash('md5').update(b64data).digest('hex');
-    const filename = `${hash}.${ext}`;
+    const hash = createHash('sha256').update(b64data, 'base64').digest('hex').slice(0, 32);
+    const ext = contentType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+    const filename = `${userId}/${hash}.${ext}`;
 
     if (imageUrlCache.has(filename)) return imageUrlCache.get(filename)!;
 
-    // Check if already uploaded (server restart case)
-    const headRes = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/info/public/${STORAGE_BUCKET}/${filename}`,
-      { headers: { apikey: SUPABASE_ANON_KEY } },
-    );
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${filename}`;
+
+    const headRes = await fetch(publicUrl, { method: 'HEAD' });
     if (headRes.ok) {
-      const url = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${filename}`;
-      imageUrlCache.set(filename, url);
-      return url;
+      imageUrlCache.set(filename, publicUrl);
+      return publicUrl;
     }
 
-    const buffer = Buffer.from(b64data, 'base64');
-    const uploadRes = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${filename}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': contentType,
-          Authorization: `Bearer ${accessToken}`,
-          apikey: SUPABASE_ANON_KEY,
-          'x-upsert': 'true',
-        },
-        body: buffer,
+    const binaryString = atob(b64data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${filename}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': contentType,
+        Authorization: `Bearer ${accessToken}`,
+        apikey: SUPABASE_ANON_KEY,
+        'x-upsert': 'true',
       },
-    );
+      body: bytes.buffer,
+    });
 
     if (!uploadRes.ok) {
       const body = await uploadRes.text().catch(() => '');
-      console.warn(`[supabaseSync] image upload failed (${uploadRes.status}): ${body.slice(0, 100)}`);
+      console.warn(`[supabaseSync] image upload failed (${uploadRes.status}): ${body.slice(0, 150)}`);
+      if (b64data.length * 0.75 < INLINE_IMAGE_MAX) {
+        return `data:${contentType};base64,${b64data}`;
+      }
       return null;
     }
 
-    const url = `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${filename}`;
-    imageUrlCache.set(filename, url);
-    return url;
-  } catch (e) {
-    console.warn('[supabaseSync] uploadBase64 error:', e);
+    imageUrlCache.set(filename, publicUrl);
+    return publicUrl;
+  } catch (err) {
+    console.warn('[supabaseSync] uploadBase64 error:', err);
     return null;
   }
 };
 
-/**
- * Walk an object tree and:
- * - if a field is a base64 image → upload to Storage → replace with URL
- * - if upload fails → strip the field (keep snapshot small)
- * - if field is already a URL → keep as-is
- */
-const IMAGE_FIELDS = new Set(['image', 'photo', 'fournisseurLogo']);
-const IMAGE_ARRAY_FIELDS = new Set(['images', 'machinePhotos']);
-
-const replaceImages = async (o: any, accessToken: string): Promise<any> => {
-  if (!o || typeof o !== 'object') return o;
-  if (Array.isArray(o)) {
-    return Promise.all(o.map(item => replaceImages(item, accessToken)));
+const replaceImages = async (v: any, accessToken: string, userId: string): Promise<any> => {
+  if (!v || typeof v !== 'object') return v;
+  if (Array.isArray(v)) {
+    return Promise.all(v.map((item) => replaceImages(item, accessToken, userId)));
   }
 
-  const out: any = {};
-  for (const k of Object.keys(o)) {
-    const v = o[k];
-
-    if (IMAGE_FIELDS.has(k)) {
-      if (typeof v === 'string' && v.startsWith('data:')) {
-        const url = await uploadBase64(v, accessToken);
+  const out = { ...v };
+  for (const [k, val] of Object.entries(out)) {
+    if (typeof val === 'string' && val.startsWith('data:image/')) {
+      const parts = val.split(';base64,');
+      if (parts[0] && parts[1]) {
+        const ct = parts[0].replace('data:', '');
+        const url = await uploadBase64(parts[1], ct, accessToken, userId);
         if (url) out[k] = url;
-        // Fallback: upload failed (bucket missing / no service_role) → keep
-        // the image inline if small enough, so it still displays on Vercel.
-        else if (v.length <= INLINE_IMAGE_MAX) out[k] = v;
-        // else: field omitted (stripped) — keeps the UPSERT payload small
-      } else if (v) {
-        out[k] = v; // already a URL or empty string
       }
-
-    } else if (IMAGE_ARRAY_FIELDS.has(k) && Array.isArray(v)) {
-      const urls = await Promise.all(v.map(async (item: any) => {
-        if (typeof item === 'string' && item.startsWith('data:')) {
-          const url = await uploadBase64(item, accessToken);
-          // Fallback to inline if upload failed and image is small enough
-          return url || (item.length <= INLINE_IMAGE_MAX ? item : null);
+    } else if (k === 'images' && val && typeof val === 'object') {
+      const urls: any = {};
+      for (const [side, pathStr] of Object.entries(val)) {
+        if (typeof pathStr === 'string' && pathStr.startsWith('data:image/')) {
+          const parts = pathStr.split(';base64,');
+          if (parts[0] && parts[1]) {
+            const ct = parts[0].replace('data:', '');
+            const url = await uploadBase64(parts[1], ct, accessToken, userId);
+            if (url) urls[side] = url;
+          }
+        } else {
+          urls[side] = pathStr;
         }
-        return item; // already a URL
-      }));
+      }
+      out[k] = urls;
+    } else if (k === 'sizes' && Array.isArray(val)) {
+      const urls = await Promise.all(
+        val.map(async (item: any) => {
+          if (typeof item === 'string' && item.startsWith('data:image/')) {
+            const parts = item.split(';base64,');
+            if (parts[0] && parts[1]) {
+              const ct = parts[0].replace('data:', '');
+              return uploadBase64(parts[1], ct, accessToken, userId);
+            }
+          }
+          return item;
+        }),
+      );
       const valid = urls.filter(Boolean);
       if (valid.length > 0) out[k] = valid;
-
-    } else if (Array.isArray(v)) {
-      out[k] = await replaceImages(v, accessToken);
-    } else if (v && typeof v === 'object') {
-      out[k] = await replaceImages(v, accessToken);
+    } else if (Array.isArray(val)) {
+      out[k] = await replaceImages(val, accessToken, userId);
+    } else if (val && typeof val === 'object') {
+      out[k] = await replaceImages(val, accessToken, userId);
     } else {
-      out[k] = v;
+      out[k] = val;
     }
   }
   return out;
@@ -239,61 +264,28 @@ const replaceImages = async (o: any, accessToken: string): Promise<any> => {
 
 // ─── Snapshot builder ─────────────────────────────────────────────────────────
 
-const getLocalOwnerId = (): number | null => {
-  if (!OWNER_EMAIL) return null;
-  try {
-    const row = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(OWNER_EMAIL) as { id: number } | undefined;
-    return row ? row.id : null;
-  } catch {
-    return null;
-  }
-};
+const buildSnapshot = async (localUserId: number, accessToken: string, userId: string) => {
+  const models = safe('SELECT * FROM models WHERE user_id = ?', [localUserId]);
+  const planningEvents = safe('SELECT * FROM planning_events WHERE owner_id = ?', [localUserId]);
+  const suiviData = safe('SELECT * FROM suivi_data WHERE owner_id = ?', [localUserId]);
+  const posteSuivi = safe('SELECT * FROM poste_suivi WHERE owner_id = ?', [localUserId]);
+  const workers = safe('SELECT * FROM workers WHERE owner_id = ?', [localUserId]);
+  const workerSkills = safe('SELECT * FROM worker_skills WHERE owner_id = ?', [localUserId]);
+  const workerPointage = safe('SELECT * FROM worker_pointage WHERE owner_id = ?', [localUserId]);
+  const magasinProducts = safe('SELECT * FROM magasin_products WHERE owner_id = ?', [localUserId]);
+  const magasinLots = safe('SELECT * FROM magasin_lots WHERE owner_id = ?', [localUserId]);
+  const magasinMouvements = safe('SELECT * FROM magasin_mouvements WHERE owner_id = ?', [localUserId]);
+  const magasinCommandes = safe('SELECT * FROM magasin_commandes WHERE owner_id = ?', [localUserId]);
+  const magasinDemandes = safe('SELECT * FROM magasin_demandes WHERE owner_id = ?', [localUserId]);
+  const demandesAppro = safe('SELECT * FROM demandes_appro WHERE owner_id = ?', [localUserId]);
+  const appSettings = safe('SELECT * FROM app_settings WHERE owner_id = ?', [localUserId]);
+  const hrWorkers = safe('SELECT * FROM hr_workers WHERE owner_id = ?', [localUserId]);
+  const hrPointage = safe('SELECT * FROM hr_pointage WHERE owner_id = ?', [localUserId]);
+  const hrProduction = safe('SELECT * FROM hr_production WHERE owner_id = ?', [localUserId]);
+  const hrAvances = safe('SELECT * FROM hr_avances WHERE owner_id = ?', [localUserId]);
+  const subcontractOrders = safe('SELECT * FROM subcontract_orders WHERE owner_id = ?', [localUserId]);
+  const subcontractorGroups = safe('SELECT * FROM subcontractor_groups WHERE owner_id = ?', [localUserId]);
 
-const buildSnapshot = async (accessToken: string) => {
-  const ownerId = getLocalOwnerId();
-  if (ownerId === null) {
-    console.warn('[supabaseSync] getLocalOwnerId found no local user matching OWNER_EMAIL:', OWNER_EMAIL);
-    return {
-      beramethode_library: [],
-      beramethode_planning: [],
-      beramethode_suivis: [],
-      beramethode_demandesAppro: [],
-      beramethode_settings: [],
-      beramethode_subcontract_orders: [],
-      beramethode_subcontract_groups: [],
-      __sqlite_export__: {
-        exported_at: new Date().toISOString(),
-        counts: { models: 0, planningEvents: 0, suiviData: 0, workers: 0, magasinProducts: 0, hrWorkers: 0 },
-        workers: [], workerSkills: [], workerPointage: [], posteSuivi: [],
-        magasin: { products: [], lots: [], mouvements: [], commandes: [], demandes: [] },
-        hr: { workers: [], pointage: [], production: [], avances: [] }
-      }
-    };
-  }
-
-  const models = safe('SELECT * FROM models WHERE owner_id = ?', [ownerId]);
-  const planningEvents = safe('SELECT * FROM planning_events WHERE owner_id = ?', [ownerId]);
-  const suiviData = safe('SELECT * FROM suivi_data WHERE owner_id = ?', [ownerId]);
-  const posteSuivi = safe('SELECT * FROM poste_suivi WHERE owner_id = ?', [ownerId]);
-  const workers = safe('SELECT * FROM workers WHERE owner_id = ?', [ownerId]);
-  const workerSkills = safe('SELECT * FROM worker_skills WHERE owner_id = ?', [ownerId]);
-  const workerPointage = safe('SELECT * FROM worker_pointage WHERE owner_id = ?', [ownerId]);
-  const magasinProducts = safe('SELECT * FROM magasin_products WHERE owner_id = ?', [ownerId]);
-  const magasinLots = safe('SELECT * FROM magasin_lots WHERE owner_id = ?', [ownerId]);
-  const magasinMouvements = safe('SELECT * FROM magasin_mouvements WHERE owner_id = ?', [ownerId]);
-  const magasinCommandes = safe('SELECT * FROM magasin_commandes WHERE owner_id = ?', [ownerId]);
-  const magasinDemandes = safe('SELECT * FROM magasin_demandes WHERE owner_id = ?', [ownerId]);
-  const demandesAppro = safe('SELECT * FROM demandes_appro WHERE owner_id = ?', [ownerId]);
-  const appSettings = safe('SELECT * FROM app_settings WHERE owner_id = ?', [ownerId]);
-  const hrWorkers = safe('SELECT * FROM hr_workers WHERE owner_id = ?', [ownerId]);
-  const hrPointage = safe('SELECT * FROM hr_pointage WHERE owner_id = ?', [ownerId]);
-  const hrProduction = safe('SELECT * FROM hr_production WHERE owner_id = ?', [ownerId]);
-  const hrAvances = safe('SELECT * FROM hr_avances WHERE owner_id = ?', [ownerId]);
-  const subcontractOrders = safe('SELECT * FROM subcontract_orders WHERE owner_id = ?', [ownerId]);
-  const subcontractorGroups = safe('SELECT * FROM subcontractor_groups WHERE owner_id = ?', [ownerId]);
-
-  // Upload images to Storage and replace base64 with public URLs.
-  // This runs in parallel per-model for speed.
   const libraryModels = await Promise.all(
     models.map(async (row: any) => {
       let m: any;
@@ -302,20 +294,20 @@ const buildSnapshot = async (accessToken: string) => {
       } else {
         m = parseJsonFields(row);
       }
-      return replaceImages(m, accessToken);
+      return replaceImages(m, accessToken, userId);
     }),
   );
 
   const slimProducts = await Promise.all(
-    magasinProducts.map(async (row: any) => replaceImages(parseJsonFields(row), accessToken)),
+    magasinProducts.map(async (row: any) => replaceImages(parseJsonFields(row), accessToken, userId)),
   );
 
   const slimWorkers = await Promise.all(
-    workers.map(async (row: any) => replaceImages(parseJsonFields(row), accessToken)),
+    workers.map(async (row: any) => replaceImages(parseJsonFields(row), accessToken, userId)),
   );
 
   const slimHrWorkers = await Promise.all(
-    hrWorkers.map(async (row: any) => replaceImages(parseJsonFields(row), accessToken)),
+    hrWorkers.map(async (row: any) => replaceImages(parseJsonFields(row), accessToken, userId)),
   );
 
   return {
@@ -357,72 +349,200 @@ const buildSnapshot = async (accessToken: string) => {
   };
 };
 
-// ─── Auth ─────────────────────────────────────────────────────────────────────
+// ─── Multi-user Session management ──────────────────────────────────────────
 
-const ensureSession = async (): Promise<Session | null> => {
-  if (session && session.expiresAt - Date.now() > 60_000) return session;
+const ensureUserSession = async (state: UserSyncState): Promise<boolean> => {
+  if (state.expiresAt - Date.now() > 60_000) return true;
   try {
-    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email: OWNER_EMAIL, password: OWNER_PASSWORD }),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      console.warn(`[supabaseSync] login failed (${res.status}): ${body.slice(0, 200)}`);
-      return null;
+    let res: Response;
+    if (state.refreshToken) {
+      // Refresh token
+      res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({ refresh_token: state.refreshToken }),
+      }) as never;
+    } else {
+      // Fallback for owner email login
+      res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+        body: JSON.stringify({ email: OWNER_EMAIL, password: OWNER_PASSWORD }),
+      }) as never;
     }
-    const data = await res.json() as { access_token: string; expires_in: number; user: { id: string } };
-    session = {
-      userId: data.user.id,
-      accessToken: data.access_token,
-      expiresAt: Date.now() + (data.expires_in || 3600) * 1000,
-    };
-    return session;
+
+    if (!res.ok) {
+      console.warn(`[supabaseSync] Token refresh failed for ${state.email}: ${res.status}`);
+      return false;
+    }
+
+    const data = await res.json() as { access_token: string; refresh_token?: string; expires_in: number };
+    state.accessToken = data.access_token;
+    state.expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+    if (data.refresh_token) {
+      state.refreshToken = data.refresh_token;
+      db.prepare(`
+        UPDATE supabase_sessions
+        SET refresh_token = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?
+      `).run(data.refresh_token, state.localUserId);
+    }
+    return true;
   } catch (err) {
-    console.warn('[supabaseSync] login error:', err);
-    return null;
+    console.warn(`[supabaseSync] Token refresh error for ${state.email}:`, err);
+    return false;
   }
 };
 
-// ─── Push ─────────────────────────────────────────────────────────────────────
+export const initUserSync = async (localUserId: number, supabaseUserId: string, email: string, refreshToken: string | null) => {
+  if (syncStates.has(localUserId)) {
+    const existing = syncStates.get(localUserId)!;
+    if (existing.refreshToken === refreshToken && refreshToken !== null) return;
+    cleanupUserSync(localUserId);
+  }
 
-const pushNow = async () => {
-  if (!enabled) return;
-  if (pushInFlight) { pendingAfterFlight = true; return; }
-  if (isApplyingRemoteSnapshot()) return;
-  pushInFlight = true;
-  markLocalPushing();
   try {
-    const sess = await ensureSession();
-    if (!sess) return;
+    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      realtime: {
+        reconnectAfterMs: (tries: number) => Math.min(1000 * 2 ** tries, 5 * 60 * 1000),
+      },
+    });
 
-    // Ensure the storage bucket exists before uploading images
-    await ensureBucket(sess.accessToken);
+    let currentRefreshToken = refreshToken;
+    let accessToken = '';
+    let expiresAt = 0;
+    let sbUserId = supabaseUserId;
 
-    const snapshot = await buildSnapshot(sess.accessToken);
-    const bodyStr = JSON.stringify({ user_id: sess.userId, data: snapshot, updated_at: new Date().toISOString() });
+    if (refreshToken) {
+      const { data, error } = await client.auth.refreshSession({ refresh_token: refreshToken });
+      if (error || !data.session) {
+        console.warn(`[supabaseSync] Failed to init sync with refresh_token for ${email}:`, error?.message);
+        return;
+      }
+      currentRefreshToken = data.session.refresh_token;
+      accessToken = data.session.access_token;
+      expiresAt = Date.now() + (data.session.expires_in || 3600) * 1000;
+      sbUserId = data.session.user.id;
+
+      if (currentRefreshToken !== refreshToken) {
+        db.prepare(`
+          UPDATE supabase_sessions
+          SET refresh_token = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE user_id = ?
+        `).run(currentRefreshToken, localUserId);
+      }
+    } else {
+      // Owner login fallback
+      const { data, error } = await client.auth.signInWithPassword({ email: OWNER_EMAIL, password: OWNER_PASSWORD });
+      if (error || !data.session) {
+        console.warn(`[supabaseSync] Failed to init sync via password for owner ${email}:`, error?.message);
+        return;
+      }
+      accessToken = data.session.access_token;
+      expiresAt = Date.now() + (data.session.expires_in || 3600) * 1000;
+      sbUserId = data.session.user.id;
+    }
+
+    console.log(`[supabaseSync] 🔌 Subscribed to Supabase Realtime broadcast for user ${email} (${sbUserId.slice(0, 8)})`);
+    const channel = client.channel(`bera_sync_${sbUserId}`, { config: { broadcast: { self: false } } });
+
+    const state: UserSyncState = {
+      localUserId,
+      supabaseUserId: sbUserId,
+      email,
+      accessToken,
+      refreshToken: currentRefreshToken,
+      expiresAt,
+      pushTimer: null,
+      pushInFlight: false,
+      pendingAfterFlight: false,
+      supabaseClient: client,
+      realtimeChannel: channel,
+      safetyTimer: null,
+    };
+
+    let initialSyncStarted = false;
+    syncStates.set(localUserId, state);
+
+    channel
+      .on('broadcast', { event: 'updated' }, () => { void pullAndMergeForUser(state); })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[supabaseSync] ✅ Realtime channel SUBSCRIBED for ${email}`);
+          if (!initialSyncStarted) {
+            initialSyncStarted = true;
+            void (async () => {
+              const safeToPush = await pullAndMergeForUser(state);
+              if (safeToPush) {
+                schedulePush(localUserId);
+              } else {
+                console.warn(`[supabaseSync] Initial push skipped for ${email}: cloud pull did not complete safely.`);
+              }
+            })();
+          }
+        }
+      });
+
+    state.safetyTimer = setInterval(() => { void pullAndMergeForUser(state); }, SAFETY_PULL_MS);
+  } catch (err) {
+    console.warn(`[supabaseSync] initUserSync error for user ${email}:`, err);
+  }
+};
+
+const cleanupUserSync = (localUserId: number) => {
+  const state = syncStates.get(localUserId);
+  if (!state) return;
+  if (state.pushTimer) clearTimeout(state.pushTimer);
+  if (state.safetyTimer) clearInterval(state.safetyTimer);
+  if (state.realtimeChannel) state.realtimeChannel.unsubscribe();
+  syncStates.delete(localUserId);
+};
+
+// ─── Push & Pull ──────────────────────────────────────────────────────────────
+
+const pushNowForUser = async (state: UserSyncState) => {
+  if (state.pushInFlight) { state.pendingAfterFlight = true; return; }
+  if (isApplyingRemote) return;
+  state.pushInFlight = true;
+  state.skipUntilTs = Date.now() + 3000; // prevent echo loop
+
+  try {
+    const active = await ensureUserSession(state);
+    if (!active) return;
+
+    await ensureBucket(state.accessToken);
+
+    const snapshot = await buildSnapshot(state.localUserId, state.accessToken, state.supabaseUserId);
+    const bodyStr = JSON.stringify({ user_id: state.supabaseUserId, data: snapshot, updated_at: new Date().toISOString() });
     const sizeKb = (bodyStr.length / 1024).toFixed(1);
-    console.log(`[supabaseSync] 📤 pushing ${sizeKb} KB...`);
+    
+    console.log(`[supabaseSync] 📤 pushing ${sizeKb} KB for ${state.email}...`);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/user_data?on_conflict=user_id`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${sess.accessToken}`,
+        Authorization: `Bearer ${state.accessToken}`,
         Prefer: 'resolution=merge-duplicates',
       },
       body: bodyStr,
     });
+
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      console.warn(`[supabaseSync] upsert failed (${res.status}): ${body.slice(0, 200)}`);
-      if (res.status === 401 || res.status === 403) session = null;
+      console.warn(`[supabaseSync] Push failed for ${state.email} (${res.status}): ${body.slice(0, 200)}`);
     } else {
       const c = (snapshot as any).__sqlite_export__?.counts || {};
-      console.log(`[supabaseSync] ✅ pushed — models=${c.models||0} planning=${c.planningEvents||0} workers=${c.workers||0} hrWorkers=${c.hrWorkers||0} (images→Storage)`);
-      void broadcastUpdate();
+      console.log(`[supabaseSync] ✅ pushed successfully for ${state.email} — models=${c.models||0} planning=${c.planningEvents||0} workers=${c.workers||0} hrWorkers=${c.hrWorkers||0}`);
       
+      // Broadcast signal
+      try {
+        await state.realtimeChannel.send({ type: 'broadcast', event: 'updated', payload: {} });
+      } catch (err) {
+        console.warn(`[supabaseSync] Failed to send broadcast for ${state.email}:`, err);
+      }
+
       // Clear outbox
       try {
         db.prepare("UPDATE sync_outbox SET status = 'synced' WHERE status = 'pending'").run();
@@ -431,31 +551,81 @@ const pushNow = async () => {
       }
     }
   } catch (err) {
-    console.warn('[supabaseSync] push error:', err);
+    console.warn(`[supabaseSync] pushNow error for ${state.email}:`, err);
   } finally {
-    pushInFlight = false;
-    if (pendingAfterFlight) {
-      pendingAfterFlight = false;
-      schedulePush();
+    state.pushInFlight = false;
+    if (state.pendingAfterFlight) {
+      state.pendingAfterFlight = false;
+      schedulePush(state.localUserId);
     }
   }
 };
 
-export const schedulePush = () => {
-  if (!enabled) return;
-  if (pushTimer) clearTimeout(pushTimer);
-  pushTimer = setTimeout(() => { pushTimer = null; void pushNow(); }, PUSH_DELAY_MS);
+const pullAndMergeForUser = async (state: UserSyncState): Promise<boolean> => {
+  if (state.pushInFlight) return true;
+  if (isApplyingRemote) return true;
+  if (state.skipUntilTs && Date.now() < state.skipUntilTs) return true;
+
+  try {
+    const active = await ensureUserSession(state);
+    if (!active) return false;
+
+    const { data: meta, error: metaErr } = await state.supabaseClient
+      .from('user_data')
+      .select('updated_at')
+      .eq('user_id', state.supabaseUserId)
+      .maybeSingle();
+    if (metaErr) return false;
+    if (!meta) return true;
+
+    const ts = (meta as { updated_at?: string }).updated_at
+      ? new Date((meta as { updated_at: string }).updated_at).getTime()
+      : 0;
+
+    if (state.lastAppliedAt && ts <= state.lastAppliedAt) return true; // already synced
+
+    const { data: row, error } = await state.supabaseClient
+      .from('user_data')
+      .select('data, updated_at')
+      .eq('user_id', state.supabaseUserId)
+      .maybeSingle();
+
+    if (error) return false;
+    if (!row?.data) return true;
+
+    state.lastAppliedAt = row.updated_at ? new Date(row.updated_at).getTime() : ts;
+    
+    isApplyingRemote = true;
+    try {
+      mergeSnapshotIntoSqlite((row as { data: any }).data, state.localUserId);
+    } finally {
+      isApplyingRemote = false;
+    }
+    return true;
+  } catch (e) {
+    console.warn(`[supabaseSync] Pull error for ${state.email}:`, (e as Error).message);
+    return false;
+  }
 };
 
-/**
- * Express middleware: after a successful write to /api/*, log to outbox and schedule a push.
- */
+export const schedulePush = (localUserId: number) => {
+  const state = syncStates.get(localUserId);
+  if (!state) return;
+  if (state.pushTimer) clearTimeout(state.pushTimer);
+  state.pushTimer = setTimeout(() => {
+    state.pushTimer = null;
+    void pushNowForUser(state);
+  }, PUSH_DELAY_MS);
+};
+
+// ─── Middleware ──────────────────────────────────────────────────────────────
+
 export const supabaseSyncMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  if (!enabled) return next();
   if (!req.path.startsWith('/api/')) return next();
   const method = req.method.toUpperCase();
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
   if (req.path.startsWith('/api/auth/')) return next();
+
   res.on('finish', () => {
     if (res.statusCode >= 200 && res.statusCode < 300) {
       try {
@@ -501,34 +671,57 @@ export const supabaseSyncMiddleware = (req: Request, res: Response, next: NextFu
             console.error('[Impersonation Audit] Failed to log write:', auditErr);
           }
         }
+
+        // Schedule push for this specific user
+        const localUserId = (req as any).user?.id;
+        if (localUserId) {
+          schedulePush(localUserId);
+        }
       } catch (err) {
         console.error('[supabaseSyncMiddleware] outbox log error:', err);
       }
-      schedulePush();
     }
   });
   next();
 };
 
-export const supabaseSyncEnabled = () => enabled;
+// ─── Startup and Backups ─────────────────────────────────────────────────────
 
-export const logSupabaseSyncStatus = () => {
-  if (enabled) {
-    console.log(`[supabaseSync] enabled → ${OWNER_EMAIL} @ ${SUPABASE_URL}`);
-  } else {
-    console.log('[supabaseSync] disabled (set SUPABASE_OWNER_EMAIL + SUPABASE_OWNER_PASSWORD in .env to enable)');
+const getOwnerSession = async (): Promise<{ userId: string; accessToken: string } | null> => {
+  const ownerRow = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(OWNER_EMAIL) as { id: number } | undefined;
+  if (ownerRow) {
+    const state = syncStates.get(ownerRow.id);
+    if (state) {
+      const ok = await ensureUserSession(state);
+      if (ok) return { userId: state.supabaseUserId, accessToken: state.accessToken };
+    }
   }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email: OWNER_EMAIL, password: OWNER_PASSWORD }),
+    });
+    if (res.ok) {
+      const data = await res.json() as { access_token: string; user: { id: string } };
+      return { userId: data.user.id, accessToken: data.access_token };
+    }
+  } catch {}
+  return null;
 };
 
 export const backupDatabaseToSupabase = async () => {
-  if (!enabled) return;
+  let tempBackupPath: string | null = null;
   try {
-    const sess = await ensureSession();
+    const sess = await getOwnerSession();
     if (!sess) return;
+
+    const backupBucketConfigured = await ensureBackupBucketConfigured(sess.accessToken);
+    if (!backupBucketConfigured) return;
 
     const companyId = sess.userId;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const tempBackupPath = path.join(dbDir, `temp_backup_${timestamp}.sqlite`);
+    tempBackupPath = path.join(dbDir, `temp_backup_${timestamp}.sqlite`);
 
     console.log(`[supabaseSync] 🗄️ Starting SQLite database backup via VACUUM INTO...`);
     db.prepare(`VACUUM INTO ?`).run(tempBackupPath);
@@ -539,31 +732,8 @@ export const backupDatabaseToSupabase = async () => {
 
     const buffer = fs.readFileSync(tempBackupPath);
     const filename = `backups/${companyId}/backup_${timestamp}.sqlite`;
-    const backupBucket = 'bera-backups';
 
-    // Ensure bucket exists
-    const bucketRes = await fetch(`${SUPABASE_URL}/storage/v1/bucket/${backupBucket}`, {
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${sess.accessToken}` },
-    });
-
-    if (!bucketRes.ok) {
-      // Create private bucket
-      const createRes = await fetch(`${SUPABASE_URL}/storage/v1/bucket`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${sess.accessToken}`,
-        },
-        body: JSON.stringify({ id: backupBucket, name: backupBucket, public: false }),
-      });
-      if (!createRes.ok) {
-        throw new Error(`Could not create backup bucket: ${await createRes.text()}`);
-      }
-    }
-
-    // Upload file
-    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${backupBucket}/${filename}`, {
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BACKUP_BUCKET}/${filename}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-sqlite3',
@@ -579,20 +749,60 @@ export const backupDatabaseToSupabase = async () => {
     }
 
     console.log(`[supabaseSync] ✅ SQLite backup uploaded successfully: ${filename}`);
-
-    // Delete temp file
-    fs.unlinkSync(tempBackupPath);
   } catch (err) {
     console.error('[supabaseSync] SQLite database backup failed:', err);
+  } finally {
+    if (tempBackupPath && fs.existsSync(tempBackupPath)) {
+      try {
+        fs.unlinkSync(tempBackupPath);
+      } catch (cleanupErr) {
+        console.warn('[supabaseSync] failed to delete temp SQLite backup:', cleanupErr);
+      }
+    }
   }
 };
 
-// Push once on boot so a fresh container/PC immediately reflects the
-// current SQLite state, even without subsequent writes.
-if (enabled) {
-  setTimeout(() => { schedulePush(); }, 3000);
-  
-  // Schedule SQLite backup: run 15s after startup, then every 12 hours
+export const startSupabaseSync = async () => {
+  // 1. Initialize default owner if credentials exist in .env
+  if (enabled) {
+    const ownerRow = db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(OWNER_EMAIL) as { id: number } | undefined;
+    if (ownerRow) {
+      console.log(`[supabaseSync] Initializing default owner sync for ${OWNER_EMAIL}`);
+      void initUserSync(ownerRow.id, '', OWNER_EMAIL, null);
+    } else {
+      console.warn(`[supabaseSync] Default owner email ${OWNER_EMAIL} not found in local SQLite users table.`);
+    }
+  } else {
+    console.log('[supabaseSync] Default owner credentials not set. Dynamic sync only.');
+  }
+
+  // 2. Load all saved multi-user sessions
+  try {
+    const sessions = db.prepare(`
+      SELECT s.user_id, s.supabase_user_id, s.refresh_token, u.email
+      FROM supabase_sessions s
+      JOIN users u ON s.user_id = u.id
+    `).all() as Array<{ user_id: number; supabase_user_id: string; refresh_token: string; email: string }>;
+
+    for (const sess of sessions) {
+      // Avoid re-initializing if it is the owner and already initialized
+      const ownerRow = enabled ? db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(OWNER_EMAIL) as { id: number } | undefined : null;
+      if (ownerRow && ownerRow.id === sess.user_id) continue;
+
+      console.log(`[supabaseSync] Restoring saved sync session for ${sess.email}`);
+      void initUserSync(sess.user_id, sess.supabase_user_id, sess.email, sess.refresh_token);
+    }
+  } catch (err) {
+    console.warn('[supabaseSync] Failed to restore sessions from database:', err);
+  }
+
+  // Schedule SQLite backup for the owner (runs 15s after startup, then every 12 hours)
   setTimeout(() => { void backupDatabaseToSupabase(); }, 15000);
   setInterval(() => { void backupDatabaseToSupabase(); }, 12 * 60 * 60 * 1000);
-}
+};
+
+export const supabaseSyncEnabled = () => syncStates.size > 0 || enabled;
+
+export const logSupabaseSyncStatus = () => {
+  console.log(`[supabaseSync] Running in multi-user mode. Active sync sessions: ${syncStates.size}`);
+};

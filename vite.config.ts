@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => {
         include: ['src/**/*.ts', 'src/**/*.tsx', 'components/**/*.ts', 'components/**/*.tsx', 'App.tsx'],
         exclude: [/node_modules/],
         apply: 'build',
-        debugger: true,
+        debugger: false,
         options: {
           compact: true,
           controlFlowFlattening: true,

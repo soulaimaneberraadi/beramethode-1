@@ -172,7 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (u) ensureLocalDataOwner(String(u.id));
       setUser(u);
       finishLoading();
-      if (u) {
+      if (u && IS_STATIC) {
         // IMPORTANT: pull doit terminer AVANT de démarrer le sync, sinon
         // le localStorage vide est pushé et écrase la donnée distante.
         pullSnapshotFromCloud(String(u.id))
@@ -189,7 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ensureLocalDataOwner AVANT setUser (cf. ci-dessus : évite la fuite inter-comptes).
       if (u) ensureLocalDataOwner(String(u.id));
       setUser(u);
-      if (u) {
+      if (u && IS_STATIC) {
         pullSnapshotFromCloud(String(u.id))
           .catch(() => {})
           .finally(() => startCloudSync(String(u.id)));

@@ -23,7 +23,7 @@ import MaterialDetailModal from './MaterialDetailModal';
 import { resolveStock } from '../lib/magasinMatch';
 import { confirmReceptionLocal } from '../lib/confirmReception';
 import FactureUploader from './FactureUploader';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import { getMaterialAvailability } from './planning/hooks/usePlanningValidation';
 import { tx, pickT } from '../lib/i18n';
 import type { Lang } from '../app/constants';

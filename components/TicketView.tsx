@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppSettings, Material } from '../types';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import { Scissors, Package, Tag, ArrowDown } from 'lucide-react';
 import SensitiveValue from './ui/SensitiveValue';
 

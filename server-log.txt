@@ -1,0 +1,18 @@
+[beramethode db] platform_person backfill: 200 lien(s) RH créé(s).
+[2m09:19:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m Re-optimizing dependencies because vite config has changed
+
+  🟢 BERAMETHODE Server running
+  ├─ Local:   http://localhost:7000
+  ├─ Network: http://192.168.100.33:7000
+  └─ Mode:    development
+  └─ CWD:    C:\Users\HP\3D Objects\BERAMETHODE 1 (database.sqlite doit être ici)
+
+[supabaseSync] enabled → soulaimaneberraadi@gmail.com @ https://utrojjhscyatppgcszrt.supabase.co
+[2m09:19:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] scanning dependencies...
+[supabaseRealtime] 🔌 subscribing (broadcast) for user ce45a28a…
+[supabaseRealtime] ✅ subscribed (broadcast) to user_data signals
+[supabaseSync] 📤 pushing 408.7 KB...
+[supabaseSync] 🗄️ Starting SQLite database backup via VACUUM INTO...
+[2m09:19:18[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [optimizer] bundling dependencies...
+[supabaseSync] ✅ pushed — models=28 planning=3 workers=0 hrWorkers=200 (images→Storage)
+[supabaseRealtime] ⬇️  merged from cloud in 2984ms — models=28 magasinProducts=25 hrWorkers=200

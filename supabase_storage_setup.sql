@@ -1,46 +1,104 @@
--- BERAMETHODE — Storage setup (Phase 1 « WhatsApp-style » : médias séparés du blob)
--- À exécuter dans le SQL Editor du projet Supabase (ou via MCP apply_migration).
+-- BERAMETHODE - Supabase Storage setup
+-- Run this once in the Supabase SQL Editor as a project owner/admin.
 --
--- Pourquoi : les images (photos de modèles, logos) sont aujourd'hui stockées en
--- base64 INLINE dans user_data.data → le blob atteint ~2,2 Mo et est retéléchargé
--- à chaque sync. Le code (src/lib/cloudSync.ts + server/supabaseSync.ts) tente
--- DÉJÀ d'uploader vers le bucket `bera-assets` puis de ne garder qu'une URL ;
--- il échoue uniquement parce que le bucket n'existe pas. Ce script le crée.
+-- Buckets:
+--   - bera-assets: public image/media bucket used by app snapshots.
+--   - bera-backups: private SQLite backup bucket used by server/supabaseSync.ts.
 --
--- Résultat attendu (au prochain push, service rétabli) : images → Storage (CDN),
--- blob ~2,2 Mo ⟶ ~0,3 Mo, egress par utilisateur −85 %.
+-- Important:
+--   - Public buckets can serve files by public URL without a SELECT policy.
+--   - Upload/upsert still needs storage.objects RLS policies.
+--   - Supabase Storage upsert needs INSERT + SELECT + UPDATE policies.
 
--- 1) Bucket public (lecture des images sans auth, pour l'affichage sur Vercel)
+-- 1) Public assets bucket.
 insert into storage.buckets (id, name, public)
 values ('bera-assets', 'bera-assets', true)
 on conflict (id) do update set public = true;
 
--- 2) Policies sur storage.objects, limitées à ce bucket.
---    NB: un bucket PUBLIC sert déjà les objets via leur URL publique SANS policy
---    SELECT. Ajouter une policy SELECT large permet en plus de *lister* tous les
---    fichiers (advisor: public_bucket_allows_listing) — inutile et trop exposé.
---    On ne crée donc QUE insert + update (pour l'upsert). Le téléchargement par
---    URL publique continue de marcher grâce au flag public=true du bucket.
-drop policy if exists "bera_assets_public_read"  on storage.objects;
-drop policy if exists "bera_assets_auth_insert"  on storage.objects;
-drop policy if exists "bera_assets_auth_update"  on storage.objects;
-drop policy if exists "bera_assets_anon_insert"  on storage.objects;
+drop policy if exists "bera_assets_public_read" on storage.objects;
+drop policy if exists "bera_assets_auth_select" on storage.objects;
+drop policy if exists "bera_assets_auth_insert" on storage.objects;
+drop policy if exists "bera_assets_auth_update" on storage.objects;
+drop policy if exists "bera_assets_anon_insert" on storage.objects;
+
+-- Authenticated users can upsert only inside their own user-id folder:
+--   bera-assets/{auth.uid()}/file.ext
+create policy "bera_assets_auth_select" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'bera-assets'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
 
 create policy "bera_assets_auth_insert" on storage.objects
   for insert to authenticated
-  with check (bucket_id = 'bera-assets');
+  with check (
+    bucket_id = 'bera-assets'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
 
+create policy "bera_assets_auth_update" on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'bera-assets'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  )
+  with check (
+    bucket_id = 'bera-assets'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+-- Keep anonymous upload-only support for legacy/static flows if they ever run
+-- without a signed-in session. Anonymous users cannot upsert existing files
+-- because they do not get SELECT/UPDATE.
 create policy "bera_assets_anon_insert" on storage.objects
   for insert to anon
   with check (bucket_id = 'bera-assets');
 
--- UPDATE = nécessaire pour l'upsert (x-upsert: true) lors des ré-uploads.
-create policy "bera_assets_auth_update" on storage.objects
-  for update to authenticated
-  using (bucket_id = 'bera-assets')
-  with check (bucket_id = 'bera-assets');
+-- 2) Private backup bucket.
+insert into storage.buckets (id, name, public)
+values ('bera-backups', 'bera-backups', false)
+on conflict (id) do update set public = false;
 
--- VÉRIFICATION :
---   select id, public from storage.buckets where id = 'bera-assets';   -> public = true
---   select polname from pg_policies where tablename = 'objects'
---     and polname like 'bera_assets%';                                 -> 3 policies
+drop policy if exists "bera_backups_auth_select" on storage.objects;
+drop policy if exists "bera_backups_auth_insert" on storage.objects;
+drop policy if exists "bera_backups_auth_update" on storage.objects;
+
+-- Backup files are written as:
+--   bera-backups/backups/{auth.uid()}/backup_TIMESTAMP.sqlite
+create policy "bera_backups_auth_select" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'bera-backups'
+    and (storage.foldername(name))[1] = 'backups'
+    and (storage.foldername(name))[2] = (select auth.uid())::text
+  );
+
+create policy "bera_backups_auth_insert" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'bera-backups'
+    and (storage.foldername(name))[1] = 'backups'
+    and (storage.foldername(name))[2] = (select auth.uid())::text
+  );
+
+create policy "bera_backups_auth_update" on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'bera-backups'
+    and (storage.foldername(name))[1] = 'backups'
+    and (storage.foldername(name))[2] = (select auth.uid())::text
+  )
+  with check (
+    bucket_id = 'bera-backups'
+    and (storage.foldername(name))[1] = 'backups'
+    and (storage.foldername(name))[2] = (select auth.uid())::text
+  );
+
+-- Verification:
+--   select id, public from storage.buckets where id in ('bera-assets', 'bera-backups');
+--   select policyname, cmd from pg_policies
+--     where schemaname = 'storage'
+--       and tablename = 'objects'
+--       and policyname like 'bera_%'
+--     order by policyname;

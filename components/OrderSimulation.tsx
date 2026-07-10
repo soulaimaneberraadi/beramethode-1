@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ShoppingCart, Percent, Banknote, Clock, Package, TrendingUp, Info, AlertTriangle, Truck, Plus, PlusCircle, Search, X, ChevronDown, ChevronRight, Palette, CheckCircle } from 'lucide-react';
 import { PurchasingData, Material, FicheData } from '../types';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import MaterialDetailModal from './MaterialDetailModal';
 import NumberInput from './ui/NumberInput';
 import { findMagasinItem, resolveStock } from '../lib/magasinMatch';

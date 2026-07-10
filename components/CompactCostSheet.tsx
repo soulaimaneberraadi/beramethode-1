@@ -1,7 +1,7 @@
 import React, { forwardRef } from 'react';
 import { Building2, Package, Scissors, Tag, ArrowDown, FileText } from 'lucide-react';
 import { Material, PurchasingData, AppSettings } from '../types';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import SensitiveValue from './ui/SensitiveValue';
 import { tx, type TxMap } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';

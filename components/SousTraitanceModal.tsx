@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Factory, Scissors, Package, Coins, Check } from 'lucide-react';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 

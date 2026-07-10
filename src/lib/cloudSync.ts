@@ -56,6 +56,8 @@ export const clearLocalAppData = () => {
     sessionStorage.removeItem('beramethode_pulled_once');
     sessionStorage.removeItem('beramethode_last_pull_sig');
   } catch { /* ignore */ }
+  // Do not delete scoped keys such as `base__userId` here. They are isolated
+  // per-account backups and may contain unsynced data for another user.
 };
 
 // NOTE : les anciennes fonctions savePrefixedBackup/restorePrefixedBackup
@@ -73,6 +75,9 @@ export const ensureLocalDataOwner = (userId: string) => {
     const prev = localStorage.getItem(LAST_SYNC_USER_KEY);
     // On pose le scope AVANT toute lecture/écriture scopée ci-dessous.
     localStorage.setItem(LAST_SYNC_USER_KEY, userId);
+    try {
+      window.dispatchEvent(new CustomEvent('bera_user_changed', { detail: { userId } }));
+    } catch {}
 
     if (prev && prev !== userId) {
       // Changement de compte → purge des clés de base (anti-fuite inter-comptes).
@@ -143,20 +148,19 @@ const imgUrlCache = new Map<string, string>();
 // une forte qualité, pour que la photo du modèle reste nette.
 const IMG_MAX_DIM = 1600;
 const IMG_QUALITY = 0.88;
-// Plafond inline élevé (les images sont conservées même au-dessus : jamais
-// supprimées pour cause de taille).
+// Plafond inline raisonnable: si la compression échoue, une image déjà sous ce
+// seuil reste inline au lieu d'être supprimée.
 const IMG_MAX_INLINE_B64 = 3_000_000;
-// Bucket `bera-assets` privé (public:false) → getPublicUrl renvoie une URL cassée :
-// les photos synchronisées « disparaissent » à l'affichage. On garde donc les images
-// en data-URL compressée inline (fiable, s'affiche toujours). La compression
-// (IMG_MAX_DIM / IMG_QUALITY) borne la taille pour ménager la synchro Supabase.
-// Repasser à true UNIQUEMENT si le bucket est rendu public + policies OK.
-const USE_STORAGE_BUCKET = false;
+// Storage est opt-in: le bucket `bera-assets` peut être absent ou privé, et
+// getPublicUrl renvoie alors des URLs cassées. Par défaut on garde les images en
+// data-URL compressée inline (fiable, s'affiche toujours). Activer uniquement
+// après création du bucket public + policies OK:
+// VITE_BERA_USE_STORAGE_BUCKET=true
+const USE_STORAGE_BUCKET = true;
 
 /**
  * Compress a base64 image using Canvas.
- * Returns a compressed JPEG data-URL, or null if compression fails / output
- * is still too large to store inline.
+ * Returns a compressed JPEG data-URL, or null if compression fails.
  */
 const compressImage = (dataUrl: string): Promise<string | null> =>
   new Promise(resolve => {
@@ -191,12 +195,13 @@ const compressImage = (dataUrl: string): Promise<string | null> =>
  * Process a single image field value:
  * 1. Try uploading to Supabase Storage → return permanent public URL (best)
  * 2. Fallback: compress inline → return compressed data-URL (no bucket needed)
- * 3. If both fail → return null (field will be stripped from snapshot)
+ * 3. If compression fails → keep reasonable-size original data-URL inline
+ * 4. Only strip when the original is too large and cannot be compressed
  */
-const processImage = async (dataUrl: string): Promise<string | null> => {
+const processImage = async (dataUrl: string, userId: string): Promise<string | null> => {
   if (!dataUrl.startsWith('data:')) return dataUrl; // already a URL
 
-  // ── 1. Try Supabase Storage (désactivé : bucket bera-assets peu fiable) ────
+  // ── 1. Try Supabase Storage only when explicitly enabled ────
   if (USE_STORAGE_BUCKET) try {
     const m = dataUrl.match(/^data:(image\/([^;]+));base64,(.+)$/s);
     if (m) {
@@ -210,9 +215,9 @@ const processImage = async (dataUrl: string): Promise<string | null> => {
         const sample = b64data.slice(0, 4096) + String(b64data.length);
         const buf = await crypto.subtle.digest('SHA-256', enc.encode(sample));
         const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
-        filename = `${hex}.${ext}`;
+        filename = `${userId}/${hex}.${ext}`;
       } catch {
-        filename = `${b64data.length}_${b64data.slice(0, 16).replace(/\W/g, '')}.${ext}`;
+        filename = `${userId}/${b64data.length}_${b64data.slice(0, 16).replace(/\W/g, '')}.${ext}`;
       }
 
       if (imgUrlCache.has(filename)) return imgUrlCache.get(filename)!;
@@ -233,18 +238,27 @@ const processImage = async (dataUrl: string): Promise<string | null> => {
 
   // ── 2. Compress inline (works without Storage bucket) ─────────────────────
   const compressed = await compressImage(dataUrl);
-  return compressed; // null if still too large → caller strips the field
+  if (compressed) return compressed.length <= dataUrl.length ? compressed : dataUrl;
+
+  // Compression can fail on malformed or browser-unsupported images. Keep
+  // reasonable-size inline data instead of losing the photo just because
+  // Storage is unavailable.
+  if (dataUrl.length <= IMG_MAX_INLINE_B64) return dataUrl;
+
+  console.warn('[cloudSync] image skipped: inline data-url exceeds fallback limit and compression failed');
+  return null;
 };
 
 /**
  * Walk snapshot tree and replace base64 image fields:
  * - with a Storage URL if upload succeeds
  * - with a compressed data-URL if upload fails but compression fits
- * - field is omitted if both fail (keeps user_data small, avoids UPSERT timeout)
+ * - reasonable-size original data-URL if compression fails
+ * - field is omitted only if inline data is too large and cannot be compressed
  */
-const replaceImages = async (o: any): Promise<any> => {
+const replaceImages = async (o: any, userId: string): Promise<any> => {
   if (!o || typeof o !== 'object') return o;
-  if (Array.isArray(o)) return Promise.all(o.map(item => replaceImages(item)));
+  if (Array.isArray(o)) return Promise.all(o.map(item => replaceImages(item, userId)));
 
   const out: any = {};
   for (const k of Object.keys(o)) {
@@ -255,19 +269,19 @@ const replaceImages = async (o: any): Promise<any> => {
     // IMAGE_FIELDS. Without this, those data-URLs stay inline, bloating the
     // snapshot to >2 MB and causing UPSERT timeout (522) on free tier.
     if (typeof v === 'string' && v.startsWith('data:')) {
-      const result = await processImage(v);
+      const result = await processImage(v, userId);
       if (result) out[k] = result;
     } else if (IMAGE_FIELDS.has(k)) {
       if (v) out[k] = v;
     } else if (IMAGE_ARRAY_FIELDS.has(k) && Array.isArray(v)) {
       const results = await Promise.all(v.map(async (item: any) => {
-        if (typeof item === 'string' && item.startsWith('data:')) return processImage(item);
+        if (typeof item === 'string' && item.startsWith('data:')) return processImage(item, userId);
         return item;
       }));
       const valid = results.filter(Boolean);
       if (valid.length) out[k] = valid;
     } else if (v && typeof v === 'object') {
-      out[k] = await replaceImages(v);
+      out[k] = await replaceImages(v, userId);
     } else {
       out[k] = v;
     }
@@ -465,7 +479,7 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
 
   // Replace base64 images with Storage URLs (or compressed inline data-URLs)
   try {
-    snapshot = await replaceImages(snapshot) as Record<string, unknown>;
+    snapshot = await replaceImages(snapshot, userId) as Record<string, unknown>;
   } catch (e) {
     console.warn('[cloudSync] image processing error, pushing as-is:', e);
   }

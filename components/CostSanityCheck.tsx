@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ShieldCheck, ShieldAlert, ChevronDown, ChevronUp, Check, AlertTriangle, Info } from 'lucide-react';
 import { Material, PurchasingData, FicheData, AppSettings } from '../types';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
 import { tx } from '../lib/i18n';

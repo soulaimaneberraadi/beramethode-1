@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Truck, CheckCircle, Clock, AlertTriangle, Package, MapPin, Calendar } from 'lucide-react';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import { resolveStock } from '../lib/magasinMatch';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';

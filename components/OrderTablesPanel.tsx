@@ -1,7 +1,7 @@
 import React from 'react';
 import { Palette, Layers } from 'lucide-react';
 import { FicheData, AppSettings } from '../types';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import SensitiveValue from './ui/SensitiveValue';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';

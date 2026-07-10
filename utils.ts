@@ -45,11 +45,12 @@ export const compressImage = async (file: File, maxWidth = 600, quality = 0.5): 
 
 const STORAGE_BUCKET = 'bera-assets';
 
-// Le bucket `bera-assets` est privé (public:false côté serveur) → getPublicUrl
-// renvoie une URL cassée et la photo « disparaît » à l'affichage. On garde donc
-// le stockage local (data-URL). Repasser à true seulement si le bucket est rendu
-// public + policies OK dans Supabase.
-const USE_STORAGE_BUCKET = false;
+// Storage est opt-in: le bucket `bera-assets` peut être absent ou privé, et
+// getPublicUrl renvoie alors des URLs cassées. Par défaut on garde les images en
+// data-URL compressée inline (fiable, s'affiche toujours). Activer uniquement
+// après création du bucket public + policies OK:
+// VITE_BERA_USE_STORAGE_BUCKET=true
+const USE_STORAGE_BUCKET = true;
 
 const imgUrlCache = new Map<string, string>();
 
@@ -63,8 +64,8 @@ export const uploadImageToStorage = async (
   maxWidth = 1600,
   quality = 0.88
 ): Promise<string> => {
-  // Bucket désactivé : on stocke la photo en data-URL compressée (fiable, s'affiche
-  // toujours). Taille bornée (≤1200px / q0.82) pour ne pas gonfler la synchro cloud.
+  // Storage désactivé : on stocke la photo en data-URL compressée (fiable,
+  // s'affiche toujours). Taille bornée pour ne pas gonfler la synchro cloud.
   if (!USE_STORAGE_BUCKET) {
     return compressImage(file, Math.min(maxWidth, 1200), Math.min(quality, 0.82));
   }
@@ -73,6 +74,14 @@ export const uploadImageToStorage = async (
 
   // Generate deterministic filename via SHA-256
   let filename: string;
+  let userId = 'public';
+  try {
+    // Dynamic import to get the user ID
+    const { supabase } = await import('./src/lib/supabaseClient');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.id) userId = user.id;
+  } catch { /* ignore */ }
+
   try {
     const arrayBuffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
@@ -81,10 +90,10 @@ export const uploadImageToStorage = async (
       .join('')
       .slice(0, 32);
     const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
-    filename = `${hex}.${ext}`;
+    filename = `${userId}/${hex}.${ext}`;
   } catch {
     const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
-    filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    filename = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
   }
 
   // Check cache

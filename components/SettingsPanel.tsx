@@ -1,7 +1,7 @@
 import React from 'react';
 import { Settings, Percent, Info, TrendingUp, Receipt, PercentIcon } from 'lucide-react';
 import { AppSettings } from '../types';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import NumberInput from './ui/NumberInput';
 
 interface SettingsPanelProps {

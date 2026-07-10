@@ -42,8 +42,14 @@ const tableHasColumn = (table: string, col: string): boolean => {
   } catch { return false; }
 };
 
-const safeDeleteById = (table: string, id: string | number) => {
-  try { db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(id); } catch (e) { /* table missing */ }
+const safeDeleteById = (table: string, id: string | number, ownerId: number | null) => {
+  try {
+    if (ownerId != null && tableHasColumn(table, 'owner_id')) {
+      db.prepare(`DELETE FROM ${table} WHERE id = ? AND owner_id = ?`).run(id, ownerId);
+      return;
+    }
+    db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(id);
+  } catch (e) { /* table missing */ }
 };
 
 /**
@@ -67,7 +73,8 @@ const getLocalOwnerId = (): number | null => {
 const applyArrayToTable = (table: string, items: any[], ownerId: number | null, idField = 'id') => {
   if (!Array.isArray(items) || items.length === 0) return 0;
   const enforceOwner = ownerId != null && tableHasColumn(table, 'owner_id');
-  // Generic upsert: build dynamic INSERT OR REPLACE based on the row's keys.
+  // Generic upsert without REPLACE: REPLACE deletes the old row first, which can
+  // break child rows and triggers. Update the existing row in place instead.
   let n = 0;
   for (const item of items) {
     if (!item || typeof item !== 'object') continue;
@@ -79,15 +86,25 @@ const applyArrayToTable = (table: string, items: any[], ownerId: number | null, 
       if (incoming != null && Number(incoming) !== ownerId) continue;
     }
     const keys = Object.keys(item).filter(k => tableHasColumn(table, k));
+    if (tableHasColumn(table, 'raw_data') && !keys.includes('raw_data')) {
+      keys.push('raw_data');
+    }
     if (keys.length === 0) continue;
     if (enforceOwner && !keys.includes('owner_id')) keys.push('owner_id');
+    const hasConflictKey = keys.includes(idField) && tableHasColumn(table, idField);
     const cols = keys.join(', ');
     const placeholders = keys.map(k => `@${k}`).join(', ');
+    const updateKeys = keys.filter(k => k !== idField);
+    const updateSql = updateKeys.length > 0
+      ? `DO UPDATE SET ${updateKeys.map(k => `${k} = excluded.${k}`).join(', ')}`
+      : 'DO NOTHING';
     try {
-      const sql = `INSERT OR REPLACE INTO ${table} (${cols}) VALUES (${placeholders})`;
+      const sql = hasConflictKey
+        ? `INSERT INTO ${table} (${cols}) VALUES (${placeholders}) ON CONFLICT(${idField}) ${updateSql}`
+        : `INSERT INTO ${table} (${cols}) VALUES (${placeholders})`;
       const params: any = {};
       for (const k of keys) {
-        const v = item[k];
+        const v = k === 'raw_data' && item[k] == null ? item : item[k];
         params[k] = typeof v === 'object' && v !== null ? JSON.stringify(v) : v;
       }
       if (enforceOwner) params.owner_id = ownerId;
@@ -101,16 +118,8 @@ const applyArrayToTable = (table: string, items: any[], ownerId: number | null, 
   return n;
 };
 
-const mergeSnapshotIntoSqlite = (snapshot: any, userId: string) => {
+export const mergeSnapshotIntoSqlite = (snapshot: any, localOwnerId: number) => {
   if (!snapshot || typeof snapshot !== 'object') return;
-  // Le snapshot distant est owner-scopé : on le rattache au propriétaire LOCAL
-  // (résolu par email). Sans propriétaire local résoluble, on n'écrit rien —
-  // mieux vaut ne pas fusionner que de mal attribuer des données financières.
-  const localOwnerId = getLocalOwnerId();
-  if (localOwnerId === null) {
-    console.warn('[supabaseRealtime] merge skipped: no local user matches SUPABASE_OWNER_EMAIL');
-    return;
-  }
   isApplyingRemote = true;
   const start = Date.now();
   const summary: Record<string, number> = {};
@@ -144,6 +153,10 @@ const mergeSnapshotIntoSqlite = (snapshot: any, userId: string) => {
     // Planning events — full row mirror, columns vary
     if (Array.isArray(snapshot.beramethode_planning)) {
       summary.planning = applyArrayToTable('planning_events', snapshot.beramethode_planning, localOwnerId);
+    }
+
+    if (Array.isArray(snapshot.beramethode_suivis)) {
+      summary.suivis = applyArrayToTable('suivi_data', snapshot.beramethode_suivis, localOwnerId);
     }
 
     // Tables that mirror SQLite directly via __sqlite_export__
@@ -191,7 +204,7 @@ const mergeSnapshotIntoSqlite = (snapshot: any, userId: string) => {
         const deletedAt = t.deleted_at ? new Date(t.deleted_at).getTime() : 0;
         if (!deletedAt || now - deletedAt < ONE_HOUR) continue;
         const table = TYPE_TO_TABLE[t.type];
-        if (table) { safeDeleteById(table, t.id); purged++; }
+        if (table) { safeDeleteById(table, t.id, localOwnerId); purged++; }
       }
       if (purged > 0) summary.tombstonesPurged = purged;
     }
@@ -205,109 +218,4 @@ const mergeSnapshotIntoSqlite = (snapshot: any, userId: string) => {
   }
 };
 
-/**
- * Pull conditionnel : on lit d'abord uniquement `updated_at` (~30 octets). Si
- * rien de nouveau, on NE télécharge PAS le blob ~2 Mo. C'est le remplacement de
- * `postgres_changes`, qui renvoyait la ligne ENTIÈRE (~2 Mo) sur CHAQUE écriture
- * user_data — y compris nos propres push — saturant l'egress free-tier.
- */
-const pullAndMerge = async (client: SupabaseClient, userId: string) => {
-  if (isApplyingRemote) return;
-  if (Date.now() < skipUntilTs) return; // notre propre push vient de partir
-  try {
-    const { data: meta, error: metaErr } = await client
-      .from('user_data')
-      .select('updated_at')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (metaErr || !meta) return;
-    const ts = (meta as { updated_at?: string }).updated_at
-      ? new Date((meta as { updated_at: string }).updated_at).getTime()
-      : 0;
-    if (!ts || ts <= lastAppliedAt) return; // rien de neuf → aucun blob téléchargé
 
-    const { data: row, error } = await client
-      .from('user_data')
-      .select('data, updated_at')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error || !row?.data) return;
-    const ts2 = (row as { updated_at?: string }).updated_at
-      ? new Date((row as { updated_at: string }).updated_at).getTime()
-      : ts;
-    lastAppliedAt = ts2;
-    mergeSnapshotIntoSqlite((row as { data: any }).data, userId);
-  } catch (e) {
-    console.warn('[supabaseRealtime] pull error:', (e as Error).message);
-  }
-};
-
-// Intervalle de sécurité : un pull conditionnel périodique rattrape un signal
-// broadcast manqué (déconnexion brève). Coût ~30 octets par tick → négligeable.
-let safetyTimer: ReturnType<typeof setInterval> | null = null;
-const SAFETY_PULL_MS = 5 * 60 * 1000;
-
-export const startSupabaseRealtime = async () => {
-  if (!enabled) return;
-  try {
-    const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: true },
-      realtime: {
-        // Même backoff que le client navigateur : éviter le martèlement toutes
-        // les ~5-10 s lors d'une panne prolongée (visible dans les api logs).
-        reconnectAfterMs: (tries: number) => Math.min(1000 * 2 ** tries, 5 * 60 * 1000),
-      },
-    });
-    const { data: auth, error: authErr } = await client.auth.signInWithPassword({
-      email: OWNER_EMAIL,
-      password: OWNER_PASSWORD,
-    });
-    if (authErr || !auth?.user) {
-      console.warn('[supabaseRealtime] auth failed:', authErr?.message);
-      return;
-    }
-    const userId = auth.user.id;
-    console.log(`[supabaseRealtime] 🔌 subscribing (broadcast) for user ${userId.slice(0, 8)}…`);
-
-    // Canal *Broadcast* (zéro charge DB, zéro WAL) — identique à cloudSync.ts
-    // côté navigateur. À la réception du signal léger « updated », on déclenche
-    // un pull conditionnel : le blob n'est téléchargé que s'il a réellement
-    // changé. Remplace postgres_changes qui renvoyait ~2 Mo à chaque écriture.
-    channel = client
-      .channel(`bera_sync_${userId}`, { config: { broadcast: { self: false } } })
-      .on('broadcast', { event: 'updated' }, () => { void pullAndMerge(client, userId); })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[supabaseRealtime] ✅ subscribed (broadcast) to user_data signals');
-          // Premier pull au démarrage pour aligner SQLite sur l'état cloud.
-          void pullAndMerge(client, userId);
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          console.warn(`[supabaseRealtime] channel ${status}`);
-        }
-      });
-
-    if (safetyTimer) clearInterval(safetyTimer);
-    safetyTimer = setInterval(() => { void pullAndMerge(client, userId); }, SAFETY_PULL_MS);
-  } catch (err) {
-    console.warn('[supabaseRealtime] startup error:', err);
-  }
-};
-
-export const stopSupabaseRealtime = () => {
-  if (safetyTimer) { clearInterval(safetyTimer); safetyTimer = null; }
-  if (channel) {
-    channel.unsubscribe();
-    channel = null;
-  }
-};
-
-export const broadcastUpdate = async () => {
-  if (channel) {
-    try {
-      await channel.send({ type: 'broadcast', event: 'updated', payload: {} });
-      console.log('[supabaseRealtime] 📢 Broadcasted updated signal to other devices');
-    } catch (e) {
-      console.warn('[supabaseRealtime] Failed to send broadcast:', e);
-    }
-  }
-};

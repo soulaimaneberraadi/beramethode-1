@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Search, RotateCcw, Package, Palette, Ruler, Layers, Check } from 'lucide-react';
 import { Material, FicheData } from '../types';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 

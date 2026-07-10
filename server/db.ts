@@ -1715,6 +1715,16 @@ db.exec(`
   )
 `);
 
+// Table supabase_sessions pour stocker les jetons de synchronisation Supabase par utilisateur
+db.exec(`
+  CREATE TABLE IF NOT EXISTS supabase_sessions (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    supabase_user_id TEXT NOT NULL,
+    refresh_token TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 export default db;
 
 

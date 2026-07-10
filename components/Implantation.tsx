@@ -995,6 +995,17 @@ export default function Implantation({
         setShowExportOptions(false);
 
         try {
+            // Load html2pdf dynamically if not present
+            if (!(window as any).html2pdf) {
+                await new Promise<void>((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+                    script.onload = () => resolve();
+                    script.onerror = () => reject(new Error('Failed to load html2pdf script'));
+                    document.head.appendChild(script);
+                });
+            }
+
             const element = contentRef.current;
             const clone = element.cloneNode(true) as HTMLElement;
 

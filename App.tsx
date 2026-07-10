@@ -480,10 +480,9 @@ export default function App() {
         }
     }, [user]);
 
-    // Preload all lazy component chunks in background after initial render.
-    // On attend un temps d'INACTIVITÉ du navigateur (requestIdleCallback) plutôt
-    // qu'un délai fixe : sinon la vague de compilation des ~24 chunks engorge le
-    // main thread pendant le rendu initial et retarde le LCP.
+    // Preload chunks on-demand instead of startup-wide to avoid congestion.
+    // Chunks will be loaded dynamically on user navigation.
+    /*
     useEffect(() => {
         if (!user) return;
         const ric = (window as any).requestIdleCallback as
@@ -496,6 +495,7 @@ export default function App() {
         const timer = setTimeout(() => { preloadAllChunks(); }, 4000);
         return () => clearTimeout(timer);
     }, [user]);
+    */
 
     useEffect(() => {
         if (!user || IS_STATIC) {

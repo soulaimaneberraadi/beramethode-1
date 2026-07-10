@@ -3,7 +3,7 @@ import { Package, Plus, Trash2, Info, Building2, Search, Palette, Ruler, Check, 
 import { Material, FicheData } from '../types';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 
 interface MaterialsListProps {
     t: any;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Shirt, Clock, Coins, Scissors, Package, CheckSquare, ImageIcon, X, Upload, Trash2, Camera, Check, TrendingUp, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { AppSettings } from '../types';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import SensitiveValue from './ui/SensitiveValue';
 import NumberInput from './ui/NumberInput';
 import { useLang } from '../src/context/LanguageContext';

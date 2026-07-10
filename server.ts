@@ -113,9 +113,8 @@ import * as invoiceController from './server/invoiceController';
 import { getDashboardKPIs, streamDashboardKPIs } from './server/dashboardController';
 import { authenticateToken, requirePermission, clearAuthCookie } from './server/middleware';
 import { postAnalyzeTextile, postSuggestVocabulary, postGenerateOperations, postOptimizePlanning } from './server/geminiController';
-import { supabaseSyncMiddleware, logSupabaseSyncStatus } from './server/supabaseSync';
+import { supabaseSyncMiddleware, logSupabaseSyncStatus, startSupabaseSync } from './server/supabaseSync';
 import { dataChangeNotifier } from './server/eventBus';
-import { startSupabaseRealtime } from './server/supabaseRealtime';
 import {
   getActivityRates, saveActivityRate,
   getLearningCurves, saveLearningCurve, deleteLearningCurve,
@@ -974,7 +973,7 @@ async function startServer() {
         console.log(`  └─ CWD:    ${process.cwd()} (database.sqlite doit être ici)\n`);
         logSupabaseSyncStatus();
         // Start realtime listener (Vercel/phone → PC) — fire and forget
-        void startSupabaseRealtime();
+        void startSupabaseSync();
         resolve();
       });
     };

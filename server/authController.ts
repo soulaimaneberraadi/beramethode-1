@@ -6,6 +6,7 @@ import { JWT_SECRET, isCookieSecure } from './jwtConfig';
 import db from './db';
 import nodemailer from 'nodemailer';
 import { logAudit } from './auditLogger';
+import { initUserSync } from './supabaseSync';
 
 /** Avoid login/register failures from autofill spaces or Gmail-style case differences. */
 function normalizeEmail(raw: string): string {
@@ -48,6 +49,42 @@ export const register = async (req: Request, res: Response) => {
       maxAge: 24 * 60 * 60 * 1000, // 24 hour expiry
     });
 
+    // Mettre en place le compte Supabase lors de l'enregistrement local
+    const SUPABASE_URL = process.env.SUPABASE_URL || '';
+    const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      try {
+        const sbRes = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            options: { data: { name: name || '' } }
+          }),
+        });
+        if (sbRes.ok) {
+          const sbData = await sbRes.json() as { refresh_token?: string; user?: { id: string } };
+          if (sbData.refresh_token && sbData.user) {
+            db.prepare(`
+              INSERT INTO supabase_sessions (user_id, supabase_user_id, refresh_token)
+              VALUES (?, ?, ?)
+              ON CONFLICT(user_id) DO UPDATE SET
+                supabase_user_id = excluded.supabase_user_id,
+                refresh_token = excluded.refresh_token,
+                updated_at = CURRENT_TIMESTAMP
+            `).run(info.lastInsertRowid, sbData.user.id, sbData.refresh_token);
+            void initUserSync(Number(info.lastInsertRowid), sbData.user.id, email, sbData.refresh_token);
+          }
+        }
+      } catch (err) {
+        console.warn(`[authController] Could not register Supabase account for user ${email}:`, err);
+      }
+    }
+
     res.status(201).json({ user: { id: info.lastInsertRowid, email, name, role } });
   } catch (error: any) {
     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -84,6 +121,37 @@ export const login = async (req: Request, res: Response) => {
       sameSite: 'strict',           // CSRF protection
       maxAge: 24 * 60 * 60 * 1000, // 24 hour expiry
     });
+
+    // Mettre en place la session Supabase si les identifiants correspondent
+    const SUPABASE_URL = process.env.SUPABASE_URL || '';
+    const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      try {
+        const sbRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ email: user.email, password }),
+        });
+        if (sbRes.ok) {
+          const sbData = await sbRes.json() as { refresh_token: string; user: { id: string } };
+          db.prepare(`
+            INSERT INTO supabase_sessions (user_id, supabase_user_id, refresh_token)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+              supabase_user_id = excluded.supabase_user_id,
+              refresh_token = excluded.refresh_token,
+              updated_at = CURRENT_TIMESTAMP
+          `).run(user.id, sbData.user.id, sbData.refresh_token);
+          // Initialise la synchronisation pour cet utilisateur
+          void initUserSync(user.id, sbData.user.id, user.email, sbData.refresh_token);
+        }
+      } catch (err) {
+        console.warn(`[authController] Could not sync Supabase login for user ${user.email}:`, err);
+      }
+    }
 
     res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
   } catch (error) {

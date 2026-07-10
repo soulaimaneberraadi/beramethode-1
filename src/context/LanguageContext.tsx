@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { Lang } from '../../app/constants';
+import { pkey } from '../../lib/storageKeys';
 
 const SUPPORTED: Lang[] = ['fr', 'ar', 'en', 'es', 'pt', 'tr'];
 
@@ -12,19 +13,33 @@ export const LanguageContext = createContext<LanguageContextType>({ lang: 'fr', 
 
 /**
  * Fournit la langue active à toute l'application (sans prop-drilling).
- * Persistée dans localStorage `bera_lang`. Applique `dir=rtl` pour l'arabe.
+ * Persistée dans localStorage `bera_lang` scopée par utilisateur via pkey(). Applique `dir=rtl` pour l'arabe.
  */
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
     try {
-      const saved = localStorage.getItem('bera_lang');
+      const saved = localStorage.getItem(pkey('bera_lang')) || localStorage.getItem('bera_lang');
       return saved && (SUPPORTED as string[]).includes(saved) ? (saved as Lang) : 'fr';
     } catch { return 'fr'; }
   });
 
   const setLang = useCallback((l: Lang) => {
     setLangState(l);
-    try { localStorage.setItem('bera_lang', l); } catch {}
+    try { localStorage.setItem(pkey('bera_lang'), l); } catch {}
+  }, []);
+
+  // Sync language when the user switches account
+  useEffect(() => {
+    const handleUserChanged = () => {
+      try {
+        const saved = localStorage.getItem(pkey('bera_lang')) || localStorage.getItem('bera_lang');
+        if (saved && (SUPPORTED as string[]).includes(saved)) {
+          setLangState(saved as Lang);
+        }
+      } catch {}
+    };
+    window.addEventListener('bera_user_changed', handleUserChanged);
+    return () => window.removeEventListener('bera_user_changed', handleUserChanged);
   }, []);
 
   // RTL uniquement pour l'arabe ; les 5 autres langues sont LTR.

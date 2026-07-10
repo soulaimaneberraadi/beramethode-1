@@ -2,7 +2,7 @@
 import React from 'react';
 import { Package, Plus, Trash2, Info, TrendingUp, Percent, ShoppingCart, Banknote, Clock, Settings, Coins } from 'lucide-react';
 import { Material, AppSettings, PurchasingData } from '../types';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Banknote, Receipt, LayoutTemplate, FileDown, Clock, FileText, SlidersHorizontal, Scissors, Trash2, Check, AlertTriangle, Factory, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Material, AppSettings, PdfSettings, FicheData, PurchasingData } from '../types';
-import { translations, fmt } from '../constants';
+import { translations, fmt } from '../app/constants';
 import { findMagasinItem } from '../lib/magasinMatch';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
@@ -121,19 +121,18 @@ export default function CostCalculator({
     }, [lang, t.docTitle, docTitle]);
 
     useEffect(() => {
-        // Need to handle html2pdf using standard browser global
+        if (!showPdfModal) return;
         if ((window as any).html2pdf) {
             setIsLibLoaded(true);
-        } else {
-            const interval = setInterval(() => {
-                if ((window as any).html2pdf) {
-                    setIsLibLoaded(true);
-                    clearInterval(interval);
-                }
-            }, 500);
-            return () => clearInterval(interval);
+            return;
         }
-    }, []);
+        // Load dynamically
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        script.onload = () => setIsLibLoaded(true);
+        script.onerror = () => console.error('Failed to load html2pdf script');
+        document.head.appendChild(script);
+    }, [showPdfModal]);
 
     // --- State: Global Settings ---
     const [settings, setSettings] = useState<AppSettings>({

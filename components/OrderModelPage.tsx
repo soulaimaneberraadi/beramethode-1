@@ -5,7 +5,7 @@ import {
     X, Percent, BoxSelect, Layers, Tag, Truck
 } from 'lucide-react';
 import { Material, PurchasingData, AppSettings, FicheData } from '../types';
-import { fmt } from '../constants';
+import { fmt } from '../app/constants';
 import SensitiveValue from './ui/SensitiveValue';
 
 // ─── Toast Notification ──────────────────────────────────────────────────────
