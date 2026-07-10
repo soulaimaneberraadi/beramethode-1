@@ -20,39 +20,13 @@ drop policy if exists "bera_assets_auth_select" on storage.objects;
 drop policy if exists "bera_assets_auth_insert" on storage.objects;
 drop policy if exists "bera_assets_auth_update" on storage.objects;
 drop policy if exists "bera_assets_anon_insert" on storage.objects;
+drop policy if exists "bera_assets_all_access" on storage.objects;
 
--- Authenticated users can upsert only inside their own user-id folder:
---   bera-assets/{auth.uid()}/file.ext
-create policy "bera_assets_auth_select" on storage.objects
-  for select to authenticated
-  using (
-    bucket_id = 'bera-assets'
-    and (storage.foldername(name))[1] = (select auth.uid())::text
-  );
-
-create policy "bera_assets_auth_insert" on storage.objects
-  for insert to authenticated
-  with check (
-    bucket_id = 'bera-assets'
-    and (storage.foldername(name))[1] = (select auth.uid())::text
-  );
-
-create policy "bera_assets_auth_update" on storage.objects
-  for update to authenticated
-  using (
-    bucket_id = 'bera-assets'
-    and (storage.foldername(name))[1] = (select auth.uid())::text
-  )
-  with check (
-    bucket_id = 'bera-assets'
-    and (storage.foldername(name))[1] = (select auth.uid())::text
-  );
-
--- Keep anonymous upload-only support for legacy/static flows if they ever run
--- without a signed-in session. Anonymous users cannot upsert existing files
--- because they do not get SELECT/UPDATE.
-create policy "bera_assets_anon_insert" on storage.objects
-  for insert to anon
+-- Allow all users (authenticated and anonymous) full access to 'bera-assets'
+-- to support local SQLite sessions and public image sharing.
+create policy "bera_assets_all_access" on storage.objects
+  for all to public
+  using (bucket_id = 'bera-assets')
   with check (bucket_id = 'bera-assets');
 
 -- 2) Private backup bucket.
