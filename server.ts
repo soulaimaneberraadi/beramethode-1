@@ -8,7 +8,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
-import { register, login, logout, me, requestPasswordReset, verifyResetCode, resetPassword } from './server/authController';
+import { register, login, logout, me, requestPasswordReset, verifyResetCode, resetPassword, supabaseSessionLogin } from './server/authController';
 import { logAudit } from './server/auditLogger';
 import { getSetupStatus, initSetup } from './server/setupController';
 import { listWorkspaces, createWorkspace, switchWorkspace } from './server/workspacesController';
@@ -204,6 +204,11 @@ async function startServer() {
 
   // Rate limiting is ON by default — only disabled in explicit development mode
   const isDev = process.env.NODE_ENV === 'development';
+  const isLoopbackRequest = (req: express.Request): boolean => {
+    const ip = req.ip || req.socket.remoteAddress || '';
+    const host = (req.hostname || req.headers.host || '').split(':')[0];
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+  };
 
   // En dev : pas de plafond global (HMR, proxy Vite, React StrictMode, rafraîchissements → faux positifs 429).
   // En prod : plafond large pour une appli riche (plusieurs modules + boot) sans ouvrir l’abus.
@@ -226,7 +231,7 @@ async function startServer() {
     limit: 10,
     standardHeaders: true,
     legacyHeaders: false,
-    skip: () => isDev,
+    skip: (req) => isDev || isLoopbackRequest(req),
     handler: (req, res) => {
       trackViolation(req.ip ?? req.socket.remoteAddress ?? 'unknown');
       res.status(429).json({ message: 'Trop de tentatives de connexion. Attendez 15 minutes.' });
@@ -489,6 +494,7 @@ async function startServer() {
 
   app.post('/api/auth/register', register);
   app.post('/api/auth/login', login);
+  app.post('/api/auth/supabase-session', supabaseSessionLogin);
   app.post('/api/auth/logout', logout);
   app.get('/api/auth/me', me);
 
@@ -628,7 +634,7 @@ async function startServer() {
 
   // ── Multi-workspace : plusieurs sociétés isolées par compte ──
   app.get('/api/workspaces', authenticateToken, listWorkspaces);
-  app.post('/api/workspaces', authenticateToken, createWorkspace);
+  app.post('/api/workspaces', authenticateToken, isAdmin, createWorkspace);
   app.post('/api/workspaces/switch', authenticateToken, switchWorkspace);
 
   app.get('/api/planning', authenticateToken, requirePermission('page', 'planning', 'view'), getPlanningEvents);
@@ -923,6 +929,11 @@ async function startServer() {
       dotfiles: 'deny',
       setHeaders: (res, filePath) => {
         const ext = path.extname(filePath).toLowerCase();
+        if (ext === '.html') {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        }
         if (['.js', '.css', '.html', '.json'].includes(ext)) {
           const type = res.getHeader('Content-Type');
           if (type && typeof type === 'string' && !type.includes('charset')) {

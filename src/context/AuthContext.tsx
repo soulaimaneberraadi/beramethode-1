@@ -49,6 +49,31 @@ const mapSupabaseUser = (su: { id: string; email?: string | null; user_metadata?
   return { id: su.id, email: su.email, name, role };
 };
 
+const oauthRedirectUrl = (): string =>
+  typeof window === 'undefined'
+    ? ''
+    : `${window.location.origin}${window.location.pathname}`;
+
+const loginLocalServerWithSupabaseSession = async (): Promise<User | null> => {
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+  if (!session?.access_token) return null;
+
+  const res = await fetch('/api/auth/supabase-session', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      accessToken: session.access_token,
+      refreshToken: session.refresh_token,
+    }),
+  });
+
+  if (!res.ok) return null;
+  const payload = await res.json().catch(() => null) as { user?: User } | null;
+  return payload?.user || null;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,6 +124,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const data = await res.json();
             if (data.user?.id != null) ensureLocalDataOwner(String(data.user.id));
             setUser(data.user);
+          } else if (!justLoggedOut) {
+            const bridgedUser = await withTimeout(loginLocalServerWithSupabaseSession(), 10000).catch(() => null);
+            if (bridgedUser?.id != null) {
+              ensureLocalDataOwner(String(bridgedUser.id));
+              setUser(bridgedUser);
+            }
           }
         } catch (error) {
           console.error('Auth check failed', error);
@@ -325,6 +356,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { ok: false, message: errMsg || 'E-mail ou mot de passe incorrect.' };
     }
     const u = mapSupabaseUser(data.user as never);
+    if (u) {
+      ensureLocalDataOwner(String(u.id));
+      await pullSnapshotFromCloud(String(u.id)).catch(() => {});
+      startCloudSync(String(u.id));
+    }
     return { ok: true, user: u || undefined };
   };
 
@@ -335,7 +371,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Retour vers l'application après l'authentification Google.
         // detectSessionInUrl (activé par défaut) capte la session, puis
         // onAuthStateChange déclenche le mapping utilisateur + cloud sync.
-        redirectTo: window.location.origin,
+        redirectTo: oauthRedirectUrl(),
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
@@ -365,6 +401,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { ok: true, requiresConfirmation: true };
     }
     const u = mapSupabaseUser(data.user as never);
+    if (u) {
+      ensureLocalDataOwner(String(u.id));
+      await pullSnapshotFromCloud(String(u.id)).catch(() => {});
+      startCloudSync(String(u.id));
+    }
     return { ok: true, user: u || undefined };
   };
 
@@ -377,7 +418,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loading,
         staticLogin: IS_STATIC ? staticLogin : undefined,
         signup: IS_STATIC ? signup : undefined,
-        signInWithGoogle: IS_STATIC ? signInWithGoogle : undefined,
+        signInWithGoogle,
       }}
     >
       {children}

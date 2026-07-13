@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { hasLocalDraftMarker, markPendingDraftAttachToEmail, notifyServerSessionEstablished } from '../../lib/dataIdentity';
-import { Lock, Mail, ArrowRight, User } from 'lucide-react';
+import { Lock, Mail, ArrowRight, User, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../context/LanguageContext';
@@ -34,6 +34,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onGuest?: () => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login, staticLogin, signInWithGoogle } = useAuth();
@@ -46,6 +47,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
   const [resetEmail, setResetEmail] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [timer, setTimer] = useState(60);
@@ -191,6 +193,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       if (staticLogin) {
         const result = await withTimeout(staticLogin(email, password), LOGIN_TIMEOUT_MS);
         if (!result.ok) throw new Error(result.message || 'E-mail ou mot de passe incorrect.');
+        if (result.user) login(result.user);
         return;
       }
 
@@ -509,13 +512,22 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                     <Lock className="h-5 w-5 transition-colors duration-300 text-slate-400 group-focus-within:text-emerald-600 dark:text-dk-muted" />
                   </div>
                   <input
-                    type="password"
+                    type={showNewPassword ? 'text' : 'password'}
                     required
-                    className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
+                    className="w-full pl-11 pr-12 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
                     placeholder={tx(lang, {fr:'Nouveau mot de passe',ar:'كلمة سر جديدة',en:'New Password',es:'Nueva contraseña',pt:'Nova palavra-passe',tr:'Yeni Şifre'})}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(v => !v)}
+                    aria-label={showNewPassword ? tx(lang, {fr:'Masquer le mot de passe',ar:'إخفاء كلمة السر',en:'Hide password',es:'Ocultar contraseña',pt:'Ocultar palavra-passe',tr:'Şifreyi gizle'}) : tx(lang, {fr:'Afficher le mot de passe',ar:'إظهار كلمة السر',en:'Show password',es:'Mostrar contraseña',pt:'Mostrar palavra-passe',tr:'Şifreyi göster'})}
+                    title={showNewPassword ? tx(lang, {fr:'Masquer le mot de passe',ar:'إخفاء كلمة السر',en:'Hide password',es:'Ocultar contraseña',pt:'Ocultar palavra-passe',tr:'Şifreyi gizle'}) : tx(lang, {fr:'Afficher le mot de passe',ar:'إظهار كلمة السر',en:'Show password',es:'Mostrar contraseña',pt:'Mostrar palavra-passe',tr:'Şifreyi göster'})}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-emerald-600 focus:outline-none focus:text-emerald-600 dark:text-dk-muted dark:hover:text-emerald-400 dark:focus:text-emerald-400"
+                  >
+                    {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
                 
                 {/* Password Strength Indicator */}
@@ -600,13 +612,22 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   <Lock className="h-5 w-5 transition-colors duration-300 text-slate-400 dark:text-dk-muted group-focus-within:text-emerald-600" />
                 </div>
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
-                  className="w-full pl-11 pr-4 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:shadow-dk-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
+                  className="w-full pl-11 pr-12 py-4 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-slate-50 dark:bg-dk-bg/50 focus:bg-white placeholder-slate-400 sm:text-sm transition-all duration-200 shadow-sm dark:shadow-dk-sm dark:border-dk-border dark:text-dk-text dark:bg-dk-bg/60 dark:focus:bg-dk-surface dark:placeholder:text-dk-muted"
                   placeholder={tx(lang, {fr:'Mot de passe',ar:'كلمة السر',en:'Password',es:'Contraseña',pt:'Palavra-passe',tr:'Şifre'})}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  aria-label={showPassword ? tx(lang, {fr:'Masquer le mot de passe',ar:'إخفاء كلمة السر',en:'Hide password',es:'Ocultar contraseña',pt:'Ocultar palavra-passe',tr:'Şifreyi gizle'}) : tx(lang, {fr:'Afficher le mot de passe',ar:'إظهار كلمة السر',en:'Show password',es:'Mostrar contraseña',pt:'Mostrar palavra-passe',tr:'Şifreyi göster'})}
+                  title={showPassword ? tx(lang, {fr:'Masquer le mot de passe',ar:'إخفاء كلمة السر',en:'Hide password',es:'Ocultar contraseña',pt:'Ocultar palavra-passe',tr:'Şifreyi gizle'}) : tx(lang, {fr:'Afficher le mot de passe',ar:'إظهار كلمة السر',en:'Show password',es:'Mostrar contraseña',pt:'Mostrar palavra-passe',tr:'Şifreyi göster'})}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-emerald-600 focus:outline-none focus:text-emerald-600 dark:text-dk-muted dark:hover:text-emerald-400 dark:focus:text-emerald-400"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
               </div>
               <div className="flex justify-end">
                 <button

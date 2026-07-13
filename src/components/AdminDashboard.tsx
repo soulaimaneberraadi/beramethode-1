@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   Trash2, Shield, User, Search, AlertCircle, Download, GitMerge, Database,
-  Building2, Users, ImageUp, Check, ChevronRight, KeyRound, SlidersHorizontal,
+  Building2, Factory, Users, ImageUp, Check, ChevronRight, KeyRound, SlidersHorizontal,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { tx } from '../../lib/i18n';
@@ -11,6 +11,7 @@ import { usePermissions } from '../context/PermissionsContext';
 import PermissionsManager from '../../components/PermissionsManager';
 import LicenseActivation from '../../components/LicenseActivation';
 import { CompanyParamsSection, StructureSection } from '../../components/admin/AdminConfigSections';
+import { clearLocalAppData } from '../lib/cloudSync';
 import type { AppSettings, Machine } from '../../types';
 
 interface UserData {
@@ -68,6 +69,10 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
   const [savingCompany, setSavingCompany] = useState(false);
   const [companyMsg, setCompanyMsg] = useState<string | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
+  const [showNewWorkspace, setShowNewWorkspace] = useState(false);
+  const [newWorkspaceName, setNewWorkspaceName] = useState('');
+  const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const [workspaceMsg, setWorkspaceMsg] = useState<string | null>(null);
 
   const loadCompany = useCallback(async () => {
     try {
@@ -79,6 +84,22 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
     } catch { /* réseau : laissé null → message d'erreur via UI */ }
   }, []);
   useEffect(() => { void loadCompany(); }, [loadCompany]);
+
+  const createWorkspace = async () => {
+    const name = newWorkspaceName.trim();
+    if (!name || creatingWorkspace) return;
+    setCreatingWorkspace(true);
+    setWorkspaceMsg(null);
+    try {
+      const d = await api('/api/workspaces', { method: 'POST', body: JSON.stringify({ name }) });
+      if (!d?.ok) throw new Error(d?.error || 'create failed');
+      clearLocalAppData();
+      window.location.reload();
+    } catch {
+      setWorkspaceMsg(tx(lang, { fr: 'Échec de la création.', ar: 'فشل إنشاء الشركة.', en: 'Creation failed.', es: 'Error de creación.', pt: 'Falha na criação.', tr: 'Oluşturma başarısız.' }));
+      setCreatingWorkspace(false);
+    }
+  };
 
   const setMeta = (key: string, val: string) =>
     setCompany(c => c ? { ...c, profileMeta: { ...(c.profileMeta || {}), [key]: val } } : c);
@@ -227,10 +248,24 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
     <div className="flex-1 bg-slate-50 dark:bg-dk-bg p-6 sm:p-8 overflow-y-auto">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Administration', ar: 'الإدارة', en: 'Administration', es: 'Administración', pt: 'Administração', tr: 'Yönetim' })}</h1>
-          <p className="text-sm text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang, { fr: 'Entreprise, équipe, comptes et données.', ar: 'الشركة، الفريق، الحسابات والبيانات.', en: 'Company, team, accounts and data.', es: 'Empresa, equipo, cuentas y datos.', pt: 'Empresa, equipa, contas e dados.', tr: 'Şirket, ekip, hesaplar ve veri.' })}</p>
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Administration', ar: 'الإدارة', en: 'Administration', es: 'Administración', pt: 'Administração', tr: 'Yönetim' })}</h1>
+            <p className="text-sm text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang, { fr: 'Entreprise, équipe, comptes et données.', ar: 'الشركة، الفريق، الحسابات والبيانات.', en: 'Company, team, accounts and data.', es: 'Empresa, equipo, cuentas y datos.', pt: 'Empresa, equipa, contas e dados.', tr: 'Şirket, ekip, hesaplar ve veri.' })}</p>
+          </div>
+          <button type="button" onClick={() => setShowNewWorkspace(v => !v)} className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors shadow-sm">
+            <Factory className="w-4 h-4" />
+            {tx(lang, { fr: 'Nouvelle société', ar: 'شركة جديدة', en: 'New company', es: 'Nueva empresa', pt: 'Nova empresa', tr: 'Yeni şirket' })}
+          </button>
         </div>
+
+        {showNewWorkspace && (
+          <div className="mb-6 flex flex-wrap items-center gap-2 p-4 bg-white dark:bg-dk-surface rounded-2xl border border-emerald-200 dark:border-emerald-800 shadow-sm">
+            <input autoFocus value={newWorkspaceName} onChange={e => setNewWorkspaceName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void createWorkspace(); }} placeholder={tx(lang, { fr: 'Nom de la société', ar: 'اسم الشركة', en: 'Company name', es: 'Nombre de la empresa', pt: 'Nome da empresa', tr: 'Şirket adı' })} className="flex-1 min-w-[220px] px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-slate-700 dark:text-dk-text outline-none focus:border-emerald-500" />
+            <button type="button" onClick={() => void createWorkspace()} disabled={creatingWorkspace || !newWorkspaceName.trim()} className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50">{tx(lang, { fr: 'Créer', ar: 'إنشاء', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Oluştur' })}</button>
+            {workspaceMsg && <span className="w-full text-sm text-red-600 dark:text-red-400">{workspaceMsg}</span>}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex flex-wrap gap-1.5 mb-6 border-b border-slate-200 dark:border-dk-border">

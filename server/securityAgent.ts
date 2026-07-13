@@ -19,7 +19,9 @@ import rateLimit from 'express-rate-limit';
 // ═══════════════════════════════════════════════════════════════
 // الوكيل 1: Rate Limiter — تحديد معدل الطلبات ومنع التخمين
 // ═══════════════════════════════════════════════════════════════
-const isDev = () => process.env.NODE_ENV === 'development';
+const isDev = () =>
+  process.env.NODE_ENV === 'development' ||
+  process.env.RATE_LIMIT_DEV === 'false';
 
 /** سجل عنوان IP المخالف (بروتوكول حظر مؤقت) */
 const ipViolations = new Map<string, { count: number; until: number }>();

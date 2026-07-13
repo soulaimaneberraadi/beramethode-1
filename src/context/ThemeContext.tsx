@@ -12,7 +12,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem('bera_theme') as ThemeMode;
-    return saved || 'system';
+    return saved || 'dark';
   });
 
   const setTheme = (mode: ThemeMode) => {

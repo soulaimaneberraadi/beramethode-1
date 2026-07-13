@@ -20,9 +20,9 @@ export function logAudit(params: {
       `INSERT INTO system_audit_logs (user_id, table_name, action, record_id, detail, ip) VALUES (?, ?, ?, ?, ?, ?)`
     ).run(
       params.userId ?? null,
-      params.resource ?? null,
+      params.resource ?? 'system',
       params.action,
-      params.resourceId ? String(params.resourceId) : null,
+      params.resourceId ? String(params.resourceId) : '0',
       params.detail ?? null,
       params.ip ?? null
     );

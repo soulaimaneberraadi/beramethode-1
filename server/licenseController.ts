@@ -34,6 +34,8 @@ export const verifyLicenseProxy = async (req: Request, res: Response) => {
     const edgeUrl = `${SUPABASE_URL.replace(/\/+$/, '')}/functions/v1/verify-license`;
     const payload = key_code ? { key_code } : { email };
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
     const response = await fetch(edgeUrl, {
       method: 'POST',
       headers: {
@@ -42,7 +44,9 @@ export const verifyLicenseProxy = async (req: Request, res: Response) => {
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     // Relaie le JSON de l'Edge Function tel quel (même contrat).
     let data: unknown;

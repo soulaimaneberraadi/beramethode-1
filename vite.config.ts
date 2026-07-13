@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   // base './' uniquement pour le build Electron (fichiers chargés via file://)
   // En mode web (dev Vite + Vercel), on garde '/' pour que le routing absolu fonctionne.
   const isElectronBuild = process.env.ELECTRON_BUILD === 'true';
+  const shouldObfuscate = process.env.VITE_OBFUSCATE === 'true';
 
   return {
     base: isElectronBuild ? './' : '/',
@@ -17,7 +18,7 @@ export default defineConfig(({ mode }) => {
       strictPort: false,
       host: '0.0.0.0',
       proxy: {
-        '/api': { target: 'http://127.0.0.1:7000', changeOrigin: true },
+        '/api': { target: 'http://127.0.0.1:7001', changeOrigin: true },
       },
       watch: {
         // Évite rebuild/HMR en boucle si la DB ou des fichiers temporaires changent souvent
@@ -44,7 +45,7 @@ export default defineConfig(({ mode }) => {
       // Pas d'obfuscation en mode 'static' (Vercel) NI 'electron' (EXE) :
       // l'obfuscation (controlFlowFlattening + deadCodeInjection) casse les
       // imports dynamiques (React.lazy) → "Failed to fetch dynamically imported".
-      ...(mode !== 'static' && mode !== 'electron' ? [obfuscator({
+      ...(shouldObfuscate && mode !== 'static' && mode !== 'electron' ? [obfuscator({
         include: ['src/**/*.ts', 'src/**/*.tsx', 'components/**/*.ts', 'components/**/*.tsx', 'App.tsx'],
         exclude: [/node_modules/],
         apply: 'build',

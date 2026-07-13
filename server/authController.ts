@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { randomInt } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
 import { JWT_SECRET, isCookieSecure } from './jwtConfig';
 import db from './db';
 import nodemailer from 'nodemailer';
@@ -11,6 +11,28 @@ import { initUserSync } from './supabaseSync';
 /** Avoid login/register failures from autofill spaces or Gmail-style case differences. */
 function normalizeEmail(raw: string): string {
   return String(raw ?? '').trim().toLowerCase();
+}
+
+const SUPABASE_URL =
+  process.env.SUPABASE_URL || 'https://utrojjhscyatppgcszrt.supabase.co';
+const SUPABASE_ANON_KEY =
+  process.env.SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk';
+
+function setAuthCookie(res: Response, user: { id: number; email: string; role: string }): void {
+  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: isCookieSecure(),
+    sameSite: 'strict',
+    maxAge: 24 * 60 * 60 * 1000,
+  });
+}
+
+function localRoleForNewUser(email: string): 'user' | 'admin' {
+  if (email === 'soulaimaneberraadi@gmail.com') return 'admin';
+  const userCount = (db.prepare('SELECT COUNT(*) as cnt FROM users WHERE email != ?').get('guest@local') as { cnt: number }).cnt;
+  return userCount === 0 ? 'admin' : 'user';
 }
 
 // Configure Nodemailer Transporter
@@ -40,20 +62,15 @@ export const register = async (req: Request, res: Response) => {
     const stmt = db.prepare('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)');
     const info = stmt.run(email, hashedPassword, name || '', role);
 
-    const token = jwt.sign({ id: info.lastInsertRowid, email, role }, JWT_SECRET, { expiresIn: '24h' });
-
-    res.cookie('token', token, {
-      httpOnly: true,               // not accessible via JS (XSS protection)
-      secure: isCookieSecure(),     // HTTPS only in production
-      sameSite: 'strict',           // CSRF protection
-      maxAge: 24 * 60 * 60 * 1000, // 24 hour expiry
-    });
+    setAuthCookie(res, { id: Number(info.lastInsertRowid), email, role });
 
     // Mettre en place le compte Supabase lors de l'enregistrement local
     const SUPABASE_URL = process.env.SUPABASE_URL || '';
     const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
         const sbRes = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
           method: 'POST',
           headers: {
@@ -65,7 +82,9 @@ export const register = async (req: Request, res: Response) => {
             password,
             options: { data: { name: name || '' } }
           }),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
         if (sbRes.ok) {
           const sbData = await sbRes.json() as { refresh_token?: string; user?: { id: string } };
           if (sbData.refresh_token && sbData.user) {
@@ -113,20 +132,15 @@ export const login = async (req: Request, res: Response) => {
     }
 
     logAudit({ userId: user.id, action: 'LOGIN', ip: req.ip });
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-
-    res.cookie('token', token, {
-      httpOnly: true,               // not accessible via JS (XSS protection)
-      secure: isCookieSecure(),     // HTTPS only in production
-      sameSite: 'strict',           // CSRF protection
-      maxAge: 24 * 60 * 60 * 1000, // 24 hour expiry
-    });
+    setAuthCookie(res, { id: user.id, email: user.email, role: user.role });
 
     // Mettre en place la session Supabase si les identifiants correspondent
     const SUPABASE_URL = process.env.SUPABASE_URL || '';
     const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
         const sbRes = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
           method: 'POST',
           headers: {
@@ -134,7 +148,9 @@ export const login = async (req: Request, res: Response) => {
             apikey: SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({ email: user.email, password }),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
         if (sbRes.ok) {
           const sbData = await sbRes.json() as { refresh_token: string; user: { id: string } };
           db.prepare(`
@@ -157,6 +173,82 @@ export const login = async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+export const supabaseSessionLogin = async (req: Request, res: Response) => {
+  const accessToken = typeof req.body?.accessToken === 'string' ? req.body.accessToken : '';
+  const refreshToken = typeof req.body?.refreshToken === 'string' ? req.body.refreshToken : '';
+
+  if (!accessToken) {
+    return res.status(400).json({ message: 'Supabase access token required' });
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const sbRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${accessToken}`,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!sbRes.ok) {
+      logAudit({ action: 'LOGIN_FAILED', detail: 'supabase_oauth_invalid_token', ip: req.ip });
+      return res.status(401).json({ message: 'Session Google invalide ou expirée.' });
+    }
+
+    const sbUser = await sbRes.json() as {
+      id?: string;
+      email?: string;
+      user_metadata?: Record<string, unknown>;
+    };
+    const email = normalizeEmail(sbUser.email || '');
+    if (!sbUser.id || !email) {
+      return res.status(401).json({ message: 'Session Google sans e-mail vérifié.' });
+    }
+
+    const meta = sbUser.user_metadata || {};
+    const name =
+      typeof meta.name === 'string' ? meta.name :
+      typeof meta.full_name === 'string' ? meta.full_name :
+      email.split('@')[0];
+
+    let user = db.prepare('SELECT id, email, name, role FROM users WHERE LOWER(TRIM(email)) = ?').get(email) as
+      | { id: number; email: string; name: string; role: 'user' | 'admin' }
+      | undefined;
+
+    if (!user) {
+      const role = localRoleForNewUser(email);
+      const lockedPassword = await bcrypt.hash(randomBytes(32).toString('hex'), 10);
+      const info = db.prepare('INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)').run(email, lockedPassword, name, role);
+      user = { id: Number(info.lastInsertRowid), email, name, role };
+    } else if (!user.name && name) {
+      db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name, user.id);
+      user = { ...user, name };
+    }
+
+    if (refreshToken) {
+      db.prepare(`
+        INSERT INTO supabase_sessions (user_id, supabase_user_id, refresh_token)
+        VALUES (?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          supabase_user_id = excluded.supabase_user_id,
+          refresh_token = excluded.refresh_token,
+          updated_at = CURRENT_TIMESTAMP
+      `).run(user.id, sbUser.id, refreshToken);
+      void initUserSync(user.id, sbUser.id, user.email, refreshToken);
+    }
+
+    logAudit({ userId: user.id, action: 'LOGIN', detail: 'supabase_oauth', ip: req.ip });
+    setAuthCookie(res, user);
+    return res.json({ user });
+  } catch (error) {
+    console.error('Supabase OAuth login error:', error);
+    return res.status(500).json({ message: 'Connexion Google indisponible pour le moment.' });
   }
 };
 

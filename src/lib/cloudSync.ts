@@ -26,6 +26,10 @@ const SYNC_KEYS = [
 
 const TABLE = 'user_data';
 const STORAGE_BUCKET = 'bera-assets';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export const isCloudSyncUserId = (userId: unknown): userId is string =>
+  typeof userId === 'string' && UUID_RE.test(userId);
 
 /** Dernier compte ayant synchronisé sur ce navigateur — détecte les changements d'utilisateur. */
 const LAST_SYNC_USER_KEY = 'beramethode_last_sync_user';
@@ -430,7 +434,7 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
 
 /** @returns true si le snapshot est bien arrivé au cloud (ou s'il n'y avait rien à pousser). */
 export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
-  if (!userId || isApplyingRemote) return false;
+  if (!isCloudSyncUserId(userId) || isApplyingRemote) return false;
   let snapshot: Record<string, unknown> = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
 
   // Garde-fou: ne jamais écraser avec un snapshot vide
@@ -517,37 +521,38 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
 const RELOAD_FLAG = 'beramethode_pulled_once';
 
 export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> => {
-  if (!userId) return false;
-  // Signale au header qu'une synchronisation est en cours (indicateur discret).
+  if (!isCloudSyncUserId(userId)) return false;
   window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-start'));
   try {
-    // ── Pull conditionnel : on lit d'abord uniquement `updated_at` (~30 octets)
-    // pour savoir si le snapshot distant a changé depuis notre dernier
-    // téléchargement. Si identique, on NE télécharge PAS le blob ~2 Mo. C'est
-    // la correction majeure de l'egress : sans ça, chaque boot/reload + chaque
-    // notification Realtime re-téléchargeait 2 Mo même quand rien n'avait changé.
     const { data: meta, error: metaErr } = await supabase
       .from(TABLE)
       .select('updated_at')
       .eq('user_id', userId)
       .maybeSingle();
-    if (metaErr || !meta) return false;
+    if (metaErr || !meta) { window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end')); return false; }
     const remoteAt = (meta as { updated_at?: string }).updated_at || '';
     const localAt = (() => { try { return localStorage.getItem(LAST_PULLED_AT_KEY); } catch { return null; } })();
-    // Rien de nouveau côté cloud → on s'arrête ici (aucun blob téléchargé).
-    if (remoteAt && remoteAt === localAt) return true;
+    if (remoteAt && remoteAt === localAt) { window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end')); return true; }
 
-    // Le snapshot a changé : on télécharge maintenant le blob complet.
     const { data, error } = await supabase
       .from(TABLE)
       .select('data')
       .eq('user_id', userId)
       .maybeSingle();
-    if (error || !data?.data) return false;
+    if (error || !data?.data) { window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end')); return false; }
     let snap = data.data as Record<string, unknown>;
     const v = typeof snap.__schema_version === 'number' ? (snap.__schema_version as number) : 0;
     if (v < SCHEMA_VERSION) snap = migrateSnapshot(snap, v);
 
+    applySnapshotToLocal(snap);
+
+    try { if (remoteAt) localStorage.setItem(LAST_PULLED_AT_KEY, remoteAt); } catch { /* ignore */ }
+
+    try {
+      lastSyncedSig = quickSig(JSON.stringify({ ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION }));
+    } catch { /* signature best-effort */ }
+
+    const wasEmpty = !sessionStorage.getItem(RELOAD_FLAG);
     const sig = (() => {
       try {
         const lib = (snap as any).beramethode_library;
@@ -560,42 +565,25 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
       } catch { return ''; }
     })();
     const lastSig = sessionStorage.getItem('beramethode_last_pull_sig');
-
-    applySnapshotToLocal(snap);
-
-    // On vient de télécharger `remoteAt` : on le mémorise pour que le prochain
-    // pull conditionnel saute le re-téléchargement tant que le cloud ne change pas.
-    try { if (remoteAt) localStorage.setItem(LAST_PULLED_AT_KEY, remoteAt); } catch { /* ignore */ }
-
-    // Après le pull, local == distant : on aligne la signature pour éviter un
-    // push redondant du blob ~2 Mo juste après chaque synchronisation entrante.
-    try {
-      lastSyncedSig = quickSig(JSON.stringify({ ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION }));
-    } catch { /* signature best-effort : au pire un push de plus */ }
-
-    // Plus de window.location.reload() : les composants se ré-hydratent en
-    // direct via l'événement 'beramethode:cloud-sync-applied' émis par
-    // applySnapshotToLocal(). Évite la réapparition de l'écran de chargement
-    // plein écran et la perte du brouillon autosave à chaque synchronisation.
-    const wasEmpty = !sessionStorage.getItem(RELOAD_FLAG);
     const sigChanged = sig && sig !== lastSig;
     if (wasEmpty || sigChanged) {
       sessionStorage.setItem(RELOAD_FLAG, '1');
       if (sig) sessionStorage.setItem('beramethode_last_pull_sig', sig);
     }
+
+    window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end'));
     return true;
   } catch (err) {
     console.warn('Cloud pull failed:', err);
+    window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end', { detail: { error: String(err) } }));
     return false;
-  } finally {
-    window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end'));
   }
 };
 
 // ─── Sync ───────────────────────────────────────────────────────────────────
 
 export const startCloudSync = (userId: string) => {
-  if (!userId) return;
+  if (!isCloudSyncUserId(userId)) return;
 
   // Push à chaque écriture d'une clé synchronisée, regroupé via PUSH_DEBOUNCE_MS.
   // Restore original first to prevent stacking layers of monkey-patches on repeated calls.

@@ -3,6 +3,9 @@ import { RefreshCw, Check } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useAuth } from '../src/context/AuthContext';
+import { isCloudSyncUserId } from '../src/lib/cloudSync';
+
+const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
 /**
  * Indicateur de synchronisation cloud discret pour le header.
@@ -37,12 +40,14 @@ const SyncIndicator: React.FC = () => {
     }, []);
 
     // Cacher l'indicateur si aucun utilisateur n'est connecté
-    if (!user) return null;
+    const canCloudSync = Boolean(user && IS_STATIC && isCloudSyncUserId(String(user.id)));
+
+    if (!canCloudSync) return null;
 
     const syncing = state === 'syncing';
 
     const handleSyncClick = async () => {
-        if (!user || syncing) return;
+        if (!user || syncing || !canCloudSync) return;
         setState('syncing');
         try {
             const { pullSnapshotFromCloud } = await import('../src/lib/cloudSync');

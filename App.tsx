@@ -1,5 +1,6 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense } from 'react';
 import { preloadAllChunks } from './lib/preloader';
+import { lazyWithRetry } from './lib/lazyWithRetry';
 import { lsGet, lsSet, lsGetMig } from './lib/storageKeys';
 import './src/context/ThemeContext';
 import GlobalLoader from './components/GlobalLoader';
@@ -7,6 +8,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { createTicketFromReport } from './src/lib/support';
 import AnnouncementBar from './components/AnnouncementBar';
 import LicenseBanner from './components/LicenseBanner';
+import SyncToast from './components/SyncToast';
 import { runBootSequence } from './lib/bootSequence';
 import {
     LogOut,
@@ -43,30 +45,30 @@ import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
 import { navigate, getCurrentRoute, parseHash, onRouteChange } from './lib/router';
 
-const Login = lazy(() => import('./src/components/Login'));
-const Setup = lazy(() => import('./components/Setup'));
-const Welcome = lazy(() => import('./components/Welcome'));
-const AdminDashboard = lazy(() => import('./src/components/AdminDashboard'));
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const Planning = lazy(() => import('./components/Planning'));
-const Magasin = lazy(() => import('./components/Magasin'));
-const GestionRH = lazy(() => import('./components/GESTION-RH'));
-const Facturation = lazy(() => import('./components/Facturation'));
-const Configuration = lazy(() => import('./components/Configuration'));
-const ModelWorkflow = lazy(() => import('./components/ModelWorkflow'));
-const Library = lazy(() => import('./components/Library'));
-const LaCoupe = lazy(() => import('./components/LaCoupe'));
-const Effectifs = lazy(() => import('./components/Effectifs'));
-const Profil = lazy(() => import('./components/Profil'));
-const SuiviProduction = lazy(() => import('./components/SuiviProduction'));
-const RendementBoard = lazy(() => import('./components/RendementBoard'));
-const StockExport = lazy(() => import('./components/StockExport'));
-const Machin = lazy(() => import('./components/Machin'));
-const PageMachine = lazy(() => import('./components/PageMachine'));
-const Atelier = lazy(() => import('./components/Atelier'));
-const SousTraitance = lazy(() => import('./components/SousTraitance'));
-const CatalogueTemps = lazy(() => import('./components/CatalogueTemps'));
-const VueGenerale = lazy(() => import('./components/VueGenerale'));
+const Login = lazyWithRetry('Login', () => import('./src/components/Login'));
+const Setup = lazyWithRetry('Setup', () => import('./components/Setup'));
+const Welcome = lazyWithRetry('Welcome', () => import('./components/Welcome'));
+const AdminDashboard = lazyWithRetry('AdminDashboard', () => import('./src/components/AdminDashboard'));
+const Dashboard = lazyWithRetry('Dashboard', () => import('./components/Dashboard'));
+const Planning = lazyWithRetry('Planning', () => import('./components/Planning'));
+const Magasin = lazyWithRetry('Magasin', () => import('./components/Magasin'));
+const GestionRH = lazyWithRetry('GestionRH', () => import('./components/GESTION-RH'));
+const Facturation = lazyWithRetry('Facturation', () => import('./components/Facturation'));
+const Configuration = lazyWithRetry('Configuration', () => import('./components/Configuration'));
+const ModelWorkflow = lazyWithRetry('ModelWorkflow', () => import('./components/ModelWorkflow'));
+const Library = lazyWithRetry('Library', () => import('./components/Library'));
+const LaCoupe = lazyWithRetry('LaCoupe', () => import('./components/LaCoupe'));
+const Effectifs = lazyWithRetry('Effectifs', () => import('./components/Effectifs'));
+const Profil = lazyWithRetry('Profil', () => import('./components/Profil'));
+const SuiviProduction = lazyWithRetry('SuiviProduction', () => import('./components/SuiviProduction'));
+const RendementBoard = lazyWithRetry('RendementBoard', () => import('./components/RendementBoard'));
+const StockExport = lazyWithRetry('StockExport', () => import('./components/StockExport'));
+const Machin = lazyWithRetry('Machin', () => import('./components/Machin'));
+const PageMachine = lazyWithRetry('PageMachine', () => import('./components/PageMachine'));
+const Atelier = lazyWithRetry('Atelier', () => import('./components/Atelier'));
+const SousTraitance = lazyWithRetry('SousTraitance', () => import('./components/SousTraitance'));
+const CatalogueTemps = lazyWithRetry('CatalogueTemps', () => import('./components/CatalogueTemps'));
+const VueGenerale = lazyWithRetry('VueGenerale', () => import('./components/VueGenerale'));
 
 // ── Extracted modules ──
 import { tx } from './lib/i18n';
@@ -618,7 +620,10 @@ export default function App() {
     useEffect(() => {
         if (!user || !serverSettingsHydrated || IS_STATIC) return;
         const timer = setTimeout(() => {
-            fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ global_settings: globalSettings }) }).catch(() => { });
+            window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-start'));
+            fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ global_settings: globalSettings }) })
+                .finally(() => window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end')))
+                .catch(() => { });
         }, 1500);
         return () => clearTimeout(timer);
     }, [globalSettings, user, serverSettingsHydrated]);
@@ -709,11 +714,14 @@ export default function App() {
     useEffect(() => {
         if (!user || !serverSettingsHydrated || IS_STATIC) return;
         const timer = setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-start'));
             fetch('/api/settings', {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ machines_fleet: machines }),
+            }).finally(() => {
+                window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end'));
             }).catch(() => { });
         }, 1500);
         return () => clearTimeout(timer);
@@ -723,11 +731,14 @@ export default function App() {
     useEffect(() => {
         if (!user || !serverSettingsHydrated || IS_STATIC) return;
         const timer = setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-start'));
             fetch('/api/settings', {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ machines_fleet_history: machineFleetHistory }),
+            }).finally(() => {
+                window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end'));
             }).catch(() => { });
         }, 1600);
         return () => clearTimeout(timer);
@@ -1044,7 +1055,10 @@ export default function App() {
         lsSet('beramethode_manual_links', JSON.stringify(manualLinks));
         if (!user || IS_STATIC) return;
         const timer = setTimeout(() => {
-            fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ manual_links: manualLinks }) }).catch(() => { });
+            window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-start'));
+            fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ manual_links: manualLinks }) })
+                .finally(() => window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end')))
+                .catch(() => { });
         }, 1500);
         return () => clearTimeout(timer);
     }, [manualLinks, user]);
@@ -1160,12 +1174,10 @@ export default function App() {
 
             fetchModels();
 
-            // Synchronisation en temps réel (Polling + Focus)
-            const interval = setInterval(fetchModels, 10000);
+            // Synchronisation au focus uniquement (pas de polling pour éviter la boucle infinie)
             window.addEventListener('focus', fetchModels);
 
             return () => {
-                clearInterval(interval);
                 window.removeEventListener('focus', fetchModels);
             };
         }
@@ -1253,7 +1265,10 @@ export default function App() {
                 setSaveStatus('unsaved');
             }
             if (user && !IS_STATIC) {
-                fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autosave_workspace: dataToSave }) }).catch(() => { });
+                window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-start'));
+                fetch('/api/settings', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autosave_workspace: dataToSave }) })
+                    .finally(() => window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end')))
+                    .catch(() => { });
             }
             if (currentModelId) {
                 saveCurrentModel(false, true); // silent auto-save to library DB
@@ -1995,6 +2010,9 @@ export default function App() {
                     user={user}
                     onConfirm={handleModalConfirm}
                 />
+
+                {/* SYNC TOAST — barre de synchronisation background bien visible */}
+                <SyncToast />
 
                 {/* TOAST NOTIFICATION */}
                 {toastMessage && (

@@ -200,51 +200,40 @@ export default function AppHeader({
                         {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
                     </button>
 
-                    {/* Logo */}
+                    {/* Logo — toujours BERAMETHODE */}
                     <button
                         type="button"
                         aria-label={`BERAMETHODE — ${tx(lang, {fr:"Retour au tableau de bord",ar:"العودة إلى لوحة القيادة",en:"Back to dashboard",es:"Volver al panel",pt:"Voltar ao painel",tr:"Gösterge paneline dön"})}`}
                         onClick={() => handleNavigation('dashboard')}
                         className="group relative inline-flex items-center justify-center px-1 py-0.5 rounded-sm border-none transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
                     >
-                        {companyLogo ? (
-                            <div className="flex items-center gap-1.5 sm:gap-2">
-                                <img src={companyLogo} alt="logo" className="h-6 sm:h-7 max-w-[120px] object-contain rounded-md" />
-                                {companyName && (
-                                    <span className="font-extrabold text-xs sm:text-sm tracking-tight text-gray-900 dark:text-dk-text hidden md:inline-block">
-                                        {companyName}
-                                    </span>
-                                )}
-                            </div>
-                        ) : (
-                            <span
-                                className={`relative font-extrabold text-base sm:text-lg tracking-tight transition-all duration-200 [text-shadow:none] group-hover:[text-shadow:0_1px_3px_rgba(16,185,129,0.4),0_2px_8px_rgba(16,185,129,0.22)] ${currentView === 'dashboard' ? 'text-gray-900 dark:text-dk-text' : 'text-gray-800 dark:text-dk-text group-hover:text-emerald-700 dark:group-hover:text-emerald-400'}`}
-                            >
-                                BERA<span className="text-emerald-700 dark:text-emerald-400">METHODE</span>
-                            </span>
-                        )}
+                        <span
+                            className={`relative font-extrabold text-base sm:text-lg tracking-tight transition-all duration-200 [text-shadow:none] group-hover:[text-shadow:0_1px_3px_rgba(16,185,129,0.4),0_2px_8px_rgba(16,185,129,0.22)] ${currentView === 'dashboard' ? 'text-gray-900 dark:text-dk-text' : 'text-gray-800 dark:text-dk-text group-hover:text-emerald-700 dark:group-hover:text-emerald-400'}`}
+                        >
+                            BERA<span className="text-emerald-700 dark:text-emerald-400">METHODE</span>
+                        </span>
                     </button>
 
                     {/* WORKSPACE SWITCHER — bascule entre sociétés isolées du même compte */}
-                    <WorkspaceSwitcher lang={lang} />
+                    <WorkspaceSwitcher lang={lang} companyLogo={companyLogo} companyName={companyName} />
 
                     {/* AUTO-SAVE INDICATOR */}
                     {currentView === 'ingenierie' && (
-                        <div className="ml-2 sm:ml-4 flex items-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface rounded-full border border-slate-100 dark:border-dk-border">
+                        <div className="ml-2 sm:ml-4 w-[132px] shrink-0 flex items-center justify-center gap-1.5 px-2 py-1 bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface rounded-full border border-slate-100 dark:border-dk-border">
                             {saveStatus === 'saved' ? (
                                 <>
                                     <CheckCircle2 className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
-                                    <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted hidden md:inline">{t.saved}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted hidden md:inline truncate">{t.saved}</span>
                                 </>
                             ) : saveStatus === 'saving' ? (
                                 <>
                                     <div className="w-3 h-3 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>
-                                    <span className="text-[10px] font-bold text-indigo-400 dark:text-indigo-300 hidden md:inline">{t.saving}</span>
+                                    <span className="text-[10px] font-bold text-indigo-400 dark:text-indigo-300 hidden md:inline truncate">{t.saving}</span>
                                 </>
                             ) : (
                                 <>
                                     <CloudOff className="w-3 h-3 text-amber-500 dark:text-amber-400" />
-                                    <span className="text-[10px] font-bold text-amber-500 dark:text-amber-400 hidden md:inline">{t.unsaved}</span>
+                                    <span className="text-[10px] font-bold text-amber-500 dark:text-amber-400 hidden md:inline truncate">{t.unsaved}</span>
                                 </>
                             )}
                         </div>
@@ -360,7 +349,7 @@ export default function AppHeader({
                 {/* Right Side Tools */}
                 <div className="flex items-center gap-2">
                     {/* DB Backup Download (Admin only) */}
-                    {user?.role === 'admin' && (
+                    {false && user?.role === 'admin' && (
                         <button
                             onClick={() => {
                                 const a = document.createElement('a');
@@ -407,12 +396,10 @@ export default function AppHeader({
 
 /** Sélecteur de workspace (société) — liste, bascule, création. Visible en mode serveur. */
 interface WorkspaceItem { ownerId: number; name: string; isActive: boolean; }
-function WorkspaceSwitcher({ lang }: { lang: Lang }) {
+function WorkspaceSwitcher({ lang, companyLogo, companyName }: { lang: Lang; companyLogo?: string | null; companyName?: string }) {
     const [open, setOpen] = useState(false);
     const [list, setList] = useState<WorkspaceItem[]>([]);
     const [busy, setBusy] = useState(false);
-    const [adding, setAdding] = useState(false);
-    const [newName, setNewName] = useState('');
     const btnRef = useRef<HTMLButtonElement>(null);
     const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
@@ -441,8 +428,6 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
         const r = btnRef.current?.getBoundingClientRect();
         if (r) setPos({ top: r.bottom + 6, left: r.left });
         load();
-        setAdding(false);
-        setNewName('');
         setOpen(o => !o);
     };
 
@@ -465,25 +450,6 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
             .catch(() => setBusy(false));
     };
 
-    const create = () => {
-        const name = newName.trim();
-        if (!name || busy) return;
-        setBusy(true);
-        fetch('/api/workspaces', {
-            method: 'POST', credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name }),
-        })
-            .then(r => { if (!r.ok) throw new Error('create failed'); return r.json(); })
-            .then(() => {
-                // Nouveau workspace = données vierges : on purge le local pour ne pas
-                // hériter de l'ancien (le serveur est déjà cloisonné par companyId).
-                clearLocalAppData();
-                window.location.reload();
-            })
-            .catch(() => setBusy(false));
-    };
-
     // Rien à afficher tant que la liste n'est pas chargée (ou mode statique).
     if (list.length === 0) return null;
 
@@ -494,10 +460,14 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
                 onClick={openMenu}
                 disabled={busy}
                 title={tx(lang, { fr: 'Changer de société', ar: 'تبديل الشركة', en: 'Switch workspace', es: 'Cambiar empresa', pt: 'Trocar empresa', tr: 'Çalışma alanını değiştir' })}
-                className="hidden sm:flex items-center gap-1.5 max-w-[180px] pl-2 pr-1.5 py-1 rounded-lg border border-gray-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-gray-50 dark:hover:bg-dk-elevated/60 text-gray-700 dark:text-dk-text transition-colors disabled:opacity-50"
+                className="hidden sm:flex items-center gap-1.5 max-w-[200px] pl-2 pr-1.5 py-1 rounded-lg border border-gray-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-gray-50 dark:hover:bg-dk-elevated/60 text-gray-700 dark:text-dk-text transition-colors disabled:opacity-50"
             >
-                <Factory className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
-                <span className="text-[11px] font-bold truncate">{active?.name || '—'}</span>
+                {companyLogo ? (
+                    <img src={companyLogo} alt="" className="w-4 h-4 sm:w-5 sm:h-5 rounded object-contain shrink-0" />
+                ) : (
+                    <Factory className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
+                )}
+                <span className="text-[11px] font-bold truncate">{companyName || active?.name || '—'}</span>
                 <ChevronDown className={`w-3 h-3 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
 
@@ -519,41 +489,16 @@ function WorkspaceSwitcher({ lang }: { lang: Lang }) {
                                     w.isActive ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'text-gray-600 dark:text-dk-text-soft hover:bg-gray-50 dark:hover:bg-dk-elevated/60'
                                 }`}
                             >
-                                <Factory className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                                {w.isActive && companyLogo ? (
+                                    <img src={companyLogo} alt="" className="w-4 h-4 rounded object-contain shrink-0" />
+                                ) : (
+                                    <Factory className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                                )}
                                 <span className="truncate flex-1">{w.name}</span>
                                 {w.isActive && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />}
                             </button>
                         ))}
 
-                        <div className="h-px bg-gray-100 dark:bg-dk-border my-1" />
-
-                        {adding ? (
-                            <div className="flex items-center gap-1 px-1.5 py-1">
-                                <input
-                                    autoFocus
-                                    value={newName}
-                                    onChange={e => setNewName(e.target.value)}
-                                    onKeyDown={e => { if (e.key === 'Enter') create(); if (e.key === 'Escape') setAdding(false); }}
-                                    placeholder={tx(lang, { fr: 'Nom de la société', ar: 'اسم الشركة', en: 'Workspace name', es: 'Nombre', pt: 'Nome', tr: 'Ad' })}
-                                    className="flex-1 min-w-0 px-2 py-1.5 text-[12px] rounded-lg border border-gray-200 dark:border-dk-border dark:bg-dk-bg dark:text-dk-text focus:border-indigo-300 dark:focus:border-indigo-500 focus:outline-none"
-                                />
-                                <button
-                                    onClick={create}
-                                    disabled={busy || !newName.trim()}
-                                    className="px-2.5 py-1.5 text-[11px] font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
-                                >
-                                    {tx(lang, { fr: 'Créer', ar: 'إنشاء', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Oluştur' })}
-                                </button>
-                            </div>
-                        ) : (
-                            <button
-                                onClick={() => setAdding(true)}
-                                className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-[12px] font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-start"
-                            >
-                                <span className="w-3.5 h-3.5 flex items-center justify-center text-base leading-none">+</span>
-                                {tx(lang, { fr: 'Nouvelle société', ar: 'شركة جديدة', en: 'New workspace', es: 'Nueva empresa', pt: 'Nova empresa', tr: 'Yeni çalışma alanı' })}
-                            </button>
-                        )}
                     </div>
                 </>,
                 document.body
