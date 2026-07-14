@@ -161,7 +161,7 @@ const IMG_MAX_INLINE_B64 = 3_000_000;
 // data-URL compressée inline (fiable, s'affiche toujours). Activer uniquement
 // après création du bucket public + policies OK:
 // VITE_BERA_USE_STORAGE_BUCKET=true
-const USE_STORAGE_BUCKET = true;
+const USE_STORAGE_BUCKET = import.meta.env.VITE_BERA_USE_STORAGE_BUCKET === 'true';
 
 /**
  * Compress a base64 image using Canvas.
@@ -275,12 +275,12 @@ const replaceImages = async (o: any, userId: string): Promise<any> => {
     // snapshot to >2 MB and causing UPSERT timeout (522) on free tier.
     if (typeof v === 'string' && v.startsWith('data:')) {
       const result = await processImage(v, userId);
-      if (result) out[k] = result;
+      out[k] = result || v;
     } else if (IMAGE_FIELDS.has(k)) {
       if (v) out[k] = v;
     } else if (IMAGE_ARRAY_FIELDS.has(k) && Array.isArray(v)) {
       const results = await Promise.all(v.map(async (item: any) => {
-        if (typeof item === 'string' && item.startsWith('data:')) return processImage(item, userId);
+        if (typeof item === 'string' && item.startsWith('data:')) return (await processImage(item, userId)) || item;
         return item;
       }));
       const valid = results.filter(Boolean);
@@ -295,6 +295,29 @@ const replaceImages = async (o: any, userId: string): Promise<any> => {
 };
 
 // ─── Local snapshot ───────────────────────────────────────────────────────────
+
+const modelPreview = (m: any): string | null =>
+  (typeof m?.images?.front === 'string' && m.images.front) ||
+  (typeof m?.image === 'string' && m.image) ||
+  (typeof m?.meta_data?.photo_url === 'string' && m.meta_data.photo_url) ||
+  (typeof m?.images?.back === 'string' && m.images.back) ||
+  null;
+
+const withPreservedPreview = (winner: any, other: any): any => {
+  if (modelPreview(winner) || !modelPreview(other)) return winner;
+  return {
+    ...winner,
+    image: winner?.image || other?.image || other?.images?.front || other?.meta_data?.photo_url || null,
+    images: {
+      front: winner?.images?.front || other?.images?.front || other?.image || other?.meta_data?.photo_url || null,
+      back: winner?.images?.back || other?.images?.back || null,
+    },
+    meta_data: {
+      ...(winner?.meta_data || {}),
+      photo_url: winner?.meta_data?.photo_url || other?.meta_data?.photo_url,
+    },
+  };
+};
 
 const collectLocalSnapshot = (): Record<string, unknown> => {
   const out: Record<string, unknown> = {};
@@ -344,10 +367,7 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
                     const other = localNewer ? cm : lm;
                     // Si le gagnant n'a pas d'image mais l'autre oui (image pas encore
                     // re-poussée), on emprunte celle de l'autre → évite « Aucun aperçu ».
-                    if (!winner.image && !winner.images && (other.image || other.images)) {
-                      return { ...winner, image: other.image || null, images: other.images || null };
-                    }
-                    return winner;
+                    return withPreservedPreview(winner, other);
                   });
                   // UNION : conserver les modèles LOCAUX absents du cloud, sinon un
                   // pull d'un cloud vide (ex. après un push vide accidentel) ferait

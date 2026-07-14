@@ -24,6 +24,7 @@ const PUSH_DELAY_MS = Number(process.env.SUPABASE_SYNC_DEBOUNCE_MS || 2000);
 const STORAGE_BUCKET = 'bera-assets';
 const BACKUP_BUCKET = 'bera-backups';
 const INLINE_IMAGE_MAX = Number(process.env.SUPABASE_INLINE_IMAGE_MAX || 5_000_000);
+const USE_STORAGE_BUCKET = process.env.SUPABASE_USE_STORAGE_BUCKET === 'true';
 const SAFETY_PULL_MS = 5 * 60 * 1000;
 
 interface UserSyncState {
@@ -159,6 +160,10 @@ const ensureBackupBucketConfigured = async (accessToken: string): Promise<boolea
 
 const uploadBase64 = async (b64data: string, contentType: string, accessToken: string, userId: string): Promise<string | null> => {
   try {
+    if (!USE_STORAGE_BUCKET) {
+      return `data:${contentType};base64,${b64data}`;
+    }
+
     const hash = createHash('sha256').update(b64data, 'base64').digest('hex').slice(0, 32);
     const ext = contentType.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
     const filename = `${userId}/${hash}.${ext}`;
@@ -230,7 +235,7 @@ const replaceImages = async (v: any, accessToken: string, userId: string): Promi
           if (parts[0] && parts[1]) {
             const ct = parts[0].replace('data:', '');
             const url = await uploadBase64(parts[1], ct, accessToken, userId);
-            if (url) urls[side] = url;
+            urls[side] = url || pathStr;
           }
         } else {
           urls[side] = pathStr;
@@ -244,7 +249,7 @@ const replaceImages = async (v: any, accessToken: string, userId: string): Promi
             const parts = item.split(';base64,');
             if (parts[0] && parts[1]) {
               const ct = parts[0].replace('data:', '');
-              return uploadBase64(parts[1], ct, accessToken, userId);
+              return (await uploadBase64(parts[1], ct, accessToken, userId)) || item;
             }
           }
           return item;
@@ -266,7 +271,7 @@ const replaceImages = async (v: any, accessToken: string, userId: string): Promi
 // ─── Snapshot builder ─────────────────────────────────────────────────────────
 
 const buildSnapshot = async (localUserId: number, accessToken: string, userId: string) => {
-  const models = safe('SELECT * FROM models WHERE user_id = ?', [localUserId]);
+  const models = safe('SELECT * FROM models WHERE owner_id = ? OR (owner_id IS NULL AND user_id = ?)', [localUserId, localUserId]);
   const planningEvents = safe('SELECT * FROM planning_events WHERE owner_id = ?', [localUserId]);
   const suiviData = safe('SELECT * FROM suivi_data WHERE owner_id = ?', [localUserId]);
   const posteSuivi = safe('SELECT * FROM poste_suivi WHERE owner_id = ?', [localUserId]);

@@ -83,11 +83,17 @@ export function useAppModelManager({
 
         const persistedActiveLayout: any = activeLayout === 'double-zigzag' ? 'zigzag' : activeLayout;
 
+        const existingModel = currentModelId ? models.find(m => m.id === currentModelId) : undefined;
+        const resolvedImages = {
+            front: ficheImages.front || existingModel?.images?.front || existingModel?.image || null,
+            back: ficheImages.back || existingModel?.images?.back || null,
+        };
+
         const modelToSave: ModelData = {
             id: currentModelId || Date.now().toString(),
             filename: `${articleName || 'Sans_Nom'}.json`,
-            image: ficheImages.front, // Thumbnail
-            images: ficheImages,      // FULL IMAGES
+            image: resolvedImages.front, // Thumbnail
+            images: resolvedImages,      // FULL IMAGES
             updatedAt: new Date().toISOString(),
             ficheData: {
                 ...ficheData,

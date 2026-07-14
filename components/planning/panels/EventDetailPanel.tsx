@@ -70,6 +70,7 @@ interface Props {
     onApplyWorstSupplierDate?: (ymd: string) => void;
     onAppendDraftPurchaseOrders?: (drafts: any[]) => void;
     onUpdateEvent?: (patch: Partial<PlanningEvent>) => void;
+    onOpenPedido?: () => void;
 }
 
 export default function EventDetailPanel({
@@ -78,7 +79,7 @@ export default function EventDetailPanel({
     onClose, onEdit, onSplit, onDuplicate, onDelete, onChangeStatus,
     onSetProduced, notes, onNotesChange,
     settings, stockProducts, stockLots, onReloadStock, onApplyWorstSupplierDate, onAppendDraftPurchaseOrders,
-    onUpdateEvent,
+    onUpdateEvent, onOpenPedido,
 }: Props) {
     const { lang } = useLang();
     const [tab, setTab] = React.useState<'details' | 'activity' | 'notes' | 'materials'>('details');
@@ -324,6 +325,16 @@ export default function EventDetailPanel({
                         {event.status === 'BLOCKED_STOCK' ? tx(lang, { fr: '▶ Reprendre', ar: '▶ استئناف', en: '▶ Resume', es: '▶ Reanudar', pt: '▶ Retomar', tr: '▶ Devam' }) : tx(lang, { fr: '⏸ En Pause', ar: '⏸ إيقاف مؤقت', en: '⏸ Pause', es: '⏸ Pausa', pt: '⏸ Pausa', tr: '⏸ Duraklat' })}
                     </button>
                 </div>
+                {model && onOpenPedido && (
+                    <button
+                        type="button"
+                        onClick={onOpenPedido}
+                        className="mt-3 inline-flex h-8 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 text-[11px] font-extrabold text-indigo-700 shadow-sm transition-all hover:bg-indigo-100 active:scale-[0.99] dark:border-dk-accent/40 dark:bg-dk-accent/15 dark:text-dk-accent-text"
+                    >
+                        <Package className="h-3.5 w-3.5" />
+                        {tx(lang, { fr: 'Ouvrir dans Pedido', ar: 'ÙØªØ­ ÙÙŠ Pedido', en: 'Open in Pedido', es: 'Abrir en Pedido', pt: 'Abrir em Pedido', tr: 'Pedido icinde ac' })}
+                    </button>
+                )}
             </header>
 
             {/* Tabs */}

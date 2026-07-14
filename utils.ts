@@ -50,7 +50,7 @@ const STORAGE_BUCKET = 'bera-assets';
 // data-URL compressée inline (fiable, s'affiche toujours). Activer uniquement
 // après création du bucket public + policies OK:
 // VITE_BERA_USE_STORAGE_BUCKET=true
-const USE_STORAGE_BUCKET = true;
+const USE_STORAGE_BUCKET = import.meta.env.VITE_BERA_USE_STORAGE_BUCKET === 'true';
 
 const imgUrlCache = new Map<string, string>();
 

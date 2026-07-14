@@ -188,7 +188,7 @@ export default function App() {
         // reste actif le temps de runBootSequence (premier boot réel).
         isActive: !IS_STATIC,
         progress: 0,
-        text: 'BERAMETHODE V2',
+        text: 'BERAMETHODE',
         subText: tx(lang, {fr:'Initialisation des modules...',ar:'جاري تهيئة الوحدات...',en:'Initializing modules...',es:'Inicializando módulos...',pt:'A inicializar módulos...',tr:'Modüller başlatılıyor...'}),
         error: null,
     }));
@@ -201,7 +201,7 @@ export default function App() {
             return;
         }
         if (authLoading) {
-            setAppLoading({ isActive: true, progress: 5, text: 'BERAMETHODE V2', subText: tx(lang, {fr:'Vérification de la session...',ar:'التحقق من الجلسة...',en:'Checking session...',es:'Verificando sesión...',pt:'A verificar sessão...',tr:'Oturum kontrol ediliyor...'}), error: null });
+            setAppLoading({ isActive: true, progress: 5, text: 'BERAMETHODE', subText: tx(lang, {fr:'Vérification de la session...',ar:'التحقق من الجلسة...',en:'Checking session...',es:'Verificando sesión...',pt:'A verificar sessão...',tr:'Oturum kontrol ediliyor...'}), error: null });
             return;
         }
         if (!user) {
@@ -216,7 +216,7 @@ export default function App() {
         const myRun = ++bootRunIdRef.current;
         const controller = new AbortController();
         let isCancelled = false;
-        setAppLoading(prev => ({ ...prev, isActive: true, progress: Math.max(prev.progress, 5), text: 'BERAMETHODE V2', subText: tx(lang, {fr:'Initialisation des modules...',ar:'جاري تهيئة الوحدات...',en:'Initializing modules...',es:'Inicializando módulos...',pt:'A inicializar módulos...',tr:'Modüller başlatılıyor...'}), error: null }));
+        setAppLoading(prev => ({ ...prev, isActive: true, progress: Math.max(prev.progress, 5), text: 'BERAMETHODE', subText: tx(lang, {fr:'Initialisation des modules...',ar:'جاري تهيئة الوحدات...',en:'Initializing modules...',es:'Inicializando módulos...',pt:'A inicializar módulos...',tr:'Modüller başlatılıyor...'}), error: null }));
         runBootSequence(lang, (p) => {
             if (isCancelled) return;
             if (myRun !== bootRunIdRef.current) return;
@@ -876,6 +876,7 @@ export default function App() {
     const [userVocabulary, setUserVocabulary] = useState<string[]>([]);
 
     const [currentModelId, setCurrentModelId] = useState<string | null>(null);
+    const [workflowInitialStep, setWorkflowInitialStep] = useState<'fiche' | 'gamme' | 'chrono' | 'analyse' | 'equilibrage' | 'implantation' | 'couts' | 'pedido' | null>(null);
     const [articleName, setArticleName] = useState('');
     const [efficiency, setEfficiency] = useState(85);
     const [numWorkers, setNumWorkers] = useState(1);
@@ -1192,13 +1193,15 @@ export default function App() {
     }, [user]);
 
     // 2. Persist Library on Change (Server or Local)
-    // Static (Vercel) writes to localStorage; cloudSync upstreams to Supabase.
+    // localStorage is also the bridge used by cloudSync, including localhost with
+    // a Supabase-backed account. The server/SQLite copy remains canonical locally,
+    // while this snapshot lets Vercel receive the same account data.
     // On horodate chaque modèle (updatedAt) quand SON contenu change, pour que la
     // fusion cloud résolve les conflits par « dernière édition gagne » (deux
     // appareils qui changent la même photo convergent au lieu de faire du ping-pong).
     const modelStampRef = useRef<Record<string, { sig: string; updatedAt: string }>>({});
     useEffect(() => {
-        if ((!user || IS_STATIC) && models.length > 0) {
+        if (models.length > 0) {
             try {
                 const now = new Date().toISOString();
                 const stamped = (models as any[]).map((m: any) => {
@@ -1252,6 +1255,19 @@ export default function App() {
         setHistory, setHistoryIndex, chronoData, setChronoData,
         chronoCustomStations, setChronoCustomStations, chronoLayoutSide, setChronoLayoutSide
     });
+
+    const lastFlushedImageSigRef = useRef('');
+    useEffect(() => {
+        if (!currentModelId) return;
+        if (!ficheImages.front && !ficheImages.back) return;
+        const sig = JSON.stringify(ficheImages);
+        if (sig === lastFlushedImageSigRef.current) return;
+        lastFlushedImageSigRef.current = sig;
+        const timer = setTimeout(() => {
+            saveCurrentModel(false, true);
+        }, 150);
+        return () => clearTimeout(timer);
+    }, [currentModelId, ficheImages.front, ficheImages.back, saveCurrentModel]);
 
     useEffect(() => {
         setSaveStatus('saving');
@@ -1681,6 +1697,8 @@ export default function App() {
                             onRedo={handleRedo}
                             canUndo={historyIndex > 0}
                             canRedo={historyIndex < history.length - 1}
+                            initialStep={workflowInitialStep}
+                            onInitialStepConsumed={() => setWorkflowInitialStep(null)}
                             lang={lang as 'fr' | 'ar'}
                         />
                     )}
@@ -1796,6 +1814,17 @@ export default function App() {
                             onOpenInIngenierie={(modelId) => {
                                 const m = models.find(x => x.id === modelId);
                                 if (m) { loadModel(m, 'planning'); setCurrentView('ingenierie'); navigate('ingenierie'); }
+                            }}
+                            onOpenPedido={(event) => {
+                                const m = models.find(x => x.id === event.modelId);
+                                if (!m) {
+                                    showToast('Modele introuvable dans la bibliotheque.', 'error');
+                                    return;
+                                }
+                                setWorkflowInitialStep('pedido');
+                                loadModel(m, 'planning');
+                                setCurrentView('ingenierie');
+                                navigate('ingenierie');
                             }}
                             onOpenSuivi={(planningEventId) => {
                                 const ev = planningEvents.find(e => e.id === planningEventId);

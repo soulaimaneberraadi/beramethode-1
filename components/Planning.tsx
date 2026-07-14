@@ -58,12 +58,13 @@ interface PlanningProps {
     machines: Machine[];
     onOpenSuivi?: (planningEventId: string) => void;
     onOpenInIngenierie?: (modelId: string) => void;
+    onOpenPedido?: (event: PlanningEvent) => void;
 }
 
 export default function Planning({
     models, planningEvents, suivis,
     setPlanningEvents, settings, machines,
-    onOpenSuivi, onOpenInIngenierie,
+    onOpenSuivi, onOpenInIngenierie, onOpenPedido,
 }: PlanningProps) {
 
     const { lang } = useLang();
@@ -1104,6 +1105,7 @@ export default function Planning({
                     onUpdateEvent={(patch) => {
                         eventsApi.updateEvent(selectedEvent.id, patch);
                     }}
+                    onOpenPedido={onOpenPedido ? () => onOpenPedido(selectedEvent) : undefined}
                 />
               )}
             </div>

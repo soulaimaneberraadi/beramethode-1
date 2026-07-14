@@ -35,6 +35,8 @@ import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste, Fiche
 import { tx, pickT } from '../lib/i18n';
 import type { Lang } from '../app/constants';
 
+type WorkflowStep = 'fiche' | 'gamme' | 'chrono' | 'analyse' | 'equilibrage' | 'implantation' | 'couts' | 'pedido';
+
 interface ModelWorkflowProps {
     // Shared Data Props
     machines: Machine[];
@@ -111,6 +113,8 @@ interface ModelWorkflowProps {
     currentModelId: string | null;
     planningEvents: PlanningEvent[];
     setPlanningEvents: React.Dispatch<React.SetStateAction<PlanningEvent[]>>;
+    initialStep?: WorkflowStep | null;
+    onInitialStepConsumed?: () => void;
 }
 
 // Stepper label translations
@@ -234,13 +238,20 @@ export default function ModelWorkflow({
     onUndo, onRedo, canUndo, canRedo,
     lang = 'fr',
     settings, setSettings,
-    currentModelId, planningEvents, setPlanningEvents
+    currentModelId, planningEvents, setPlanningEvents,
+    initialStep, onInitialStepConsumed
 }: ModelWorkflowProps) {
     const st = pickT(STEP_LABELS as any, lang);
 
     // Current Step State
-    const [currentStep, setCurrentStep] = useState<'fiche' | 'gamme' | 'chrono' | 'analyse' | 'equilibrage' | 'implantation' | 'couts' | 'pedido'>('fiche');
+    const [currentStep, setCurrentStep] = useState<WorkflowStep>(initialStep || 'fiche');
     const [validationError, setValidationError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!initialStep) return;
+        setCurrentStep(initialStep);
+        onInitialStepConsumed?.();
+    }, [initialStep, onInitialStepConsumed]);
 
     const showValidationError = (msg: string) => {
         setValidationError(msg);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabaseClient';
 import { hasLocalDraftMarker, markPendingDraftAttachToEmail, notifyServerSessionEstablished } from '../../lib/dataIdentity';
 import { Lock, Mail, ArrowRight, User, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
@@ -216,6 +217,16 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
         }
 
         notifyServerSessionEstablished(data.user?.id ?? 0);
+        if (data.user?.cloudUserId) {
+          try {
+            await withTimeout(
+              supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password }),
+              12000,
+            );
+          } catch {
+            // Local login remains valid; server-side sync can still bridge later.
+          }
+        }
         login(data.user);
       } finally {
         clearTimeout(timeoutId);
@@ -526,7 +537,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                     title={showNewPassword ? tx(lang, {fr:'Masquer le mot de passe',ar:'إخفاء كلمة السر',en:'Hide password',es:'Ocultar contraseña',pt:'Ocultar palavra-passe',tr:'Şifreyi gizle'}) : tx(lang, {fr:'Afficher le mot de passe',ar:'إظهار كلمة السر',en:'Show password',es:'Mostrar contraseña',pt:'Mostrar palavra-passe',tr:'Şifreyi göster'})}
                     className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-emerald-600 focus:outline-none focus:text-emerald-600 dark:text-dk-muted dark:hover:text-emerald-400 dark:focus:text-emerald-400"
                   >
-                    {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    {showNewPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
                   </button>
                 </div>
                 
@@ -626,7 +637,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   title={showPassword ? tx(lang, {fr:'Masquer le mot de passe',ar:'إخفاء كلمة السر',en:'Hide password',es:'Ocultar contraseña',pt:'Ocultar palavra-passe',tr:'Şifreyi gizle'}) : tx(lang, {fr:'Afficher le mot de passe',ar:'إظهار كلمة السر',en:'Show password',es:'Mostrar contraseña',pt:'Mostrar palavra-passe',tr:'Şifreyi göster'})}
                   className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-emerald-600 focus:outline-none focus:text-emerald-600 dark:text-dk-muted dark:hover:text-emerald-400 dark:focus:text-emerald-400"
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
                 </button>
               </div>
               <div className="flex justify-end">

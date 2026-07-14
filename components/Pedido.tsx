@@ -17,7 +17,7 @@ import {
     Scissors
 } from 'lucide-react';
 import { FicheData, AppSettings, PlanningEvent } from '../types';
-import DateTimePicker from './ui/DateTimePicker';
+import DateTimePicker, { type DatePickerAgendaItem } from './ui/DateTimePicker';
 import RepartitionMatrix from './RepartitionMatrix';
 import MaterialDetailModal from './MaterialDetailModal';
 import { resolveStock } from '../lib/magasinMatch';
@@ -268,6 +268,7 @@ export default function Pedido({
     // -- INLINE CLIENT SPLITS EDITOR STATES & HANDLERS --
     const [editingEventId, setEditingEventId] = useState<string | 'new' | null>(null);
     const [editDraft, setEditDraft] = useState<Partial<PlanningEvent> | null>(null);
+    const [newLotAutoPlanningEnabled, setNewLotAutoPlanningEnabled] = useState(false);
 
     const startEditNew = () => {
         const initialDist: Record<string, Record<string, number>> = {};
@@ -299,11 +300,13 @@ export default function Pedido({
             modelName: `${articleName || ''} — ${nextLotCode}`
         });
         setEditingEventId('new');
+        setNewLotAutoPlanningEnabled(false);
     };
 
     const startEditExisting = (evt: PlanningEvent) => {
         setEditDraft({ ...evt });
         setEditingEventId(evt.id);
+        setNewLotAutoPlanningEnabled(true);
     };
 
     const deleteEvent = (eventId: string) => {
@@ -326,6 +329,10 @@ export default function Pedido({
 
     const handleSaveEdit = () => {
         if (!editDraft || !setPlanningEvents) return;
+
+        if (editingEventId === 'new' && !newLotAutoPlanningEnabled) {
+            return;
+        }
         
         const fullName = editDraft.modelName || '';
         const parts = fullName.split(' — ');
@@ -375,11 +382,13 @@ export default function Pedido({
 
         setEditingEventId(null);
         setEditDraft(null);
+        setNewLotAutoPlanningEnabled(false);
     };
 
     const handleCancelEdit = () => {
         setEditingEventId(null);
         setEditDraft(null);
+        setNewLotAutoPlanningEnabled(false);
     };
 
     // -- MATRIX STATE (lecture seule ici ; l'édition se fait via <RepartitionMatrix />) --
@@ -548,6 +557,77 @@ export default function Pedido({
         setData(prev => ({ ...prev, [field]: value }));
     };
 
+    const dateKey = (value?: string | null) => (value || '').split('T')[0];
+
+    const lotSuffixOf = (evt: Partial<PlanningEvent>, fallback = '') => {
+        const name = evt.modelName || '';
+        if (name.includes(' â€” ')) return name.split(' â€” ').slice(1).join(' â€” ').trim() || fallback;
+        return fallback || name || tx(lang, { fr: 'Lot', ar: 'دفعة', en: 'Lot', es: 'Lote', pt: 'Lote', tr: 'Parti' });
+    };
+
+    const agendaForLot = (evt: Partial<PlanningEvent>, fallbackSuffix = ''): DatePickerAgendaItem[] => {
+        const suffix = lotSuffixOf(evt, fallbackSuffix);
+        const qty = evt.qteTotal || evt.totalQuantity;
+        const client = evt.clientName || data.client || '';
+        const detail = [client, qty ? `${qty} pcs` : '', evt.chaineId || ''].filter(Boolean).join(' • ');
+        const items: DatePickerAgendaItem[] = [];
+        const launch = dateKey(evt.startDate || evt.dateLancement);
+        const mat = dateKey(evt.fournisseurDate);
+        const dds = dateKey(evt.strictDeadline_DDS || evt.dateExport);
+        const end = dateKey(evt.estimatedEndDate || evt.montageEnd || evt.dateFin);
+
+        if (launch) {
+            items.push({
+                date: launch,
+                time: data.launchTime || '08:00',
+                label: `${tx(lang, { fr: 'Lancement', ar: 'الإطلاق', en: 'Launch', es: 'Lanzamiento', pt: 'Lançamento', tr: 'Başlatma' })} ${suffix}`,
+                detail,
+                tone: 'indigo',
+            });
+        }
+        if (mat) {
+            items.push({
+                date: mat,
+                label: `${tx(lang, { fr: 'Arrivée matières', ar: 'وصول المواد', en: 'Materials', es: 'Materias', pt: 'Materiais', tr: 'Malzeme' })} ${suffix}`,
+                detail,
+                tone: 'amber',
+            });
+        }
+        if (dds) {
+            items.push({
+                date: dds,
+                label: `${tx(lang, { fr: 'Livraison / DDS', ar: 'التسليم / DDS', en: 'Delivery / DDS', es: 'Entrega / DDS', pt: 'Entrega / DDS', tr: 'Teslim / DDS' })} ${suffix}`,
+                detail,
+                tone: 'emerald',
+            });
+        }
+        if (end && end !== dds) {
+            items.push({
+                date: end,
+                label: `${tx(lang, { fr: 'Fin estimée', ar: 'النهاية المتوقعة', en: 'Estimated end', es: 'Fin estimado', pt: 'Fim estimado', tr: 'Tahmini bitiş' })} ${suffix}`,
+                detail,
+                tone: 'blue',
+            });
+        }
+        return items;
+    };
+
+    const mainAgendaItems = useMemo<DatePickerAgendaItem[]>(() => {
+        const items: DatePickerAgendaItem[] = [];
+        const launch = dateKey(data.date);
+        if (launch) {
+            items.push({
+                date: launch,
+                time: data.launchTime || '08:00',
+                label: tx(lang, { fr: 'Lancement commande', ar: 'إطلاق الطلب', en: 'Order launch', es: 'Lanzamiento pedido', pt: 'Lançamento pedido', tr: 'Sipariş başlangıcı' }),
+                detail: [articleName, data.client].filter(Boolean).join(' • '),
+                tone: 'indigo',
+            });
+        }
+        modelEvents.forEach(evt => items.push(...agendaForLot(evt)));
+        return items;
+    }, [articleName, data.client, data.date, data.launchTime, lang, modelEvents]);
+
     const launchHM = useMemo(() => {
         const raw = (data.launchTime ?? '08:00').trim();
         const m = /^(\d{1,2}):(\d{2})$/.exec(raw);
@@ -611,6 +691,7 @@ export default function Pedido({
         const parts = fullName.split(' — ');
         const suffix = parts.length > 1 ? parts.slice(1).join(' — ') : '';
         
+        const editAgendaItems = agendaForLot(editDraft, suffix || nextLotCode);
         const filteredSizes = (sizes || []).filter(s => s.toLowerCase() !== 'total');
         const filteredColors = (colors || []).filter(c => c.name.toLowerCase() !== 'total' && c.id.toLowerCase() !== 'total');
         const hasGrid = filteredSizes.length > 0 && filteredColors.length > 0;
@@ -674,6 +755,7 @@ export default function Pedido({
                                 } : prev)}
                                 mode="date"
                                 settings={settings}
+                                agendaItems={editAgendaItems}
                                 inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-bold text-slate-700 dark:text-dk-text-soft outline-none focus:ring-0 py-0 px-0 tabular-nums"
                                 showIcon={false}
                             />
@@ -716,6 +798,7 @@ export default function Pedido({
                                 } : prev)}
                                 mode="date"
                                 settings={settings}
+                                agendaItems={editAgendaItems}
                                 inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-bold text-slate-700 dark:text-dk-text-soft outline-none focus:ring-0 py-0 px-0 tabular-nums"
                                 showIcon={false}
                             />
@@ -737,6 +820,7 @@ export default function Pedido({
                                 } : prev)}
                                 mode="date"
                                 settings={settings}
+                                agendaItems={editAgendaItems}
                                 inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-bold text-slate-700 dark:text-dk-text-soft outline-none focus:ring-0 py-0 px-0 tabular-nums"
                                 showIcon={false}
                             />
@@ -851,6 +935,31 @@ export default function Pedido({
                     </div>
                 )}
 
+                {editingEventId === 'new' && (
+                    <div className="rounded-xl border border-slate-200 dark:border-dk-border bg-white/80 dark:bg-dk-surface/70 p-3">
+                        <button
+                            type="button"
+                            onClick={() => setNewLotAutoPlanningEnabled(v => !v)}
+                            aria-pressed={newLotAutoPlanningEnabled}
+                            className="flex w-full items-center justify-between gap-3 text-left"
+                        >
+                            <span className="min-w-0">
+                                <span className="block text-[12px] font-extrabold text-slate-800 dark:text-dk-text">
+                                    {tx(lang, { fr: 'Ajouter au planning automatique', ar: 'Ø¥Ø¶Ø§ÙØ© Ø¥Ù„Ù‰ Ø§Ù„ØªØ®Ø·ÙŠØ· Ø§Ù„ØªÙ„Ù‚Ø§Ø¦ÙŠ', en: 'Add to automatic planning', es: 'AÃ±adir a planificaciÃ³n automÃ¡tica', pt: 'Adicionar ao planeamento automÃ¡tico', tr: 'Otomatik planlamaya ekle' })}
+                                </span>
+                                <span className="mt-0.5 block text-[11px] font-semibold text-slate-500 dark:text-dk-muted">
+                                    {newLotAutoPlanningEnabled
+                                        ? tx(lang, { fr: 'Actif : ce lot sera ajoute au planning.', ar: 'Ù…ÙØ¹Ù„: Ø³ØªØªÙ… Ø¥Ø¶Ø§ÙØ© Ù‡Ø°Ù‡ Ø§Ù„Ø¯ÙØ¹Ø© Ø¥Ù„Ù‰ Ø§Ù„ØªØ®Ø·ÙŠØ·.', en: 'On: this lot will be added to planning.', es: 'Activo: este lote se aÃ±adirÃ¡ al planning.', pt: 'Ativo: este lote sera adicionado ao planeamento.', tr: 'AÃ§Ä±k: bu parti planlamaya eklenecek.' })
+                                        : tx(lang, { fr: 'Eteint par defaut : rien ne sera ajoute tant que tu ne l actives pas.', ar: 'Ù…Ø·ÙØ£ Ø§ÙØªØ±Ø§Ø¶ÙŠØ§: Ù„Ù† ÙŠØªÙ…Øª Ø£ÙŠ Ø¥Ø¶Ø§ÙØ© Ø­ØªÙ‰ ØªÙØ¹Ù„Ù‡.', en: 'Off by default: nothing is added until you turn it on.', es: 'Apagado por defecto: no se aÃ±ade nada hasta activarlo.', pt: 'Desligado por defeito: nada e adicionado ate ativar.', tr: 'VarsayÄ±lan kapalÄ±: aÃ§ana kadar hiÃ§bir ÅŸey eklenmez.' })}
+                                </span>
+                            </span>
+                            <span className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${newLotAutoPlanningEnabled ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300 bg-slate-200 dark:border-dk-border dark:bg-dk-elevated'}`}>
+                                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${newLotAutoPlanningEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                            </span>
+                        </button>
+                    </div>
+                )}
+
                 {/* Form Buttons */}
                 <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-dk-border">
                     <div className="text-xs text-slate-400 dark:text-dk-muted font-bold">
@@ -886,7 +995,8 @@ export default function Pedido({
                         <button
                             type="button"
                             onClick={handleSaveEdit}
-                            className="inline-flex items-center gap-1.5 h-8 px-4 text-xs font-bold text-white bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover rounded-lg transition-colors shadow-sm dark:shadow-dk-sm"
+                            disabled={editingEventId === 'new' && !newLotAutoPlanningEnabled}
+                            className="inline-flex items-center gap-1.5 h-8 px-4 text-xs font-bold text-white bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover rounded-lg transition-colors shadow-sm dark:shadow-dk-sm disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none dark:disabled:bg-dk-elevated dark:disabled:text-dk-muted"
                         >
                             {tx(lang, { fr: 'Enregistrer', ar: 'حفظ الدفعة', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}
                         </button>
@@ -1023,6 +1133,7 @@ export default function Pedido({
                                             onChange={(iso) => handleChange('date', iso.split('T')[0])}
                                             mode="date"
                                             settings={settings}
+                                            agendaItems={mainAgendaItems}
                                             inputClassName="w-full min-w-0 border-0 bg-transparent shadow-none text-sm font-semibold text-slate-700 dark:text-dk-text-soft outline-none focus:ring-0 py-0 px-0 tabular-nums"
                                             showIcon={false}
                                         />

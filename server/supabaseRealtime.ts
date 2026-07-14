@@ -35,6 +35,29 @@ let skipUntilTs = 0;
 export const markLocalPushing = () => { skipUntilTs = Date.now() + 3000; };
 export const isApplyingRemoteSnapshot = () => isApplyingRemote;
 
+const modelPreview = (m: any): string | null =>
+  (typeof m?.images?.front === 'string' && m.images.front) ||
+  (typeof m?.image === 'string' && m.image) ||
+  (typeof m?.meta_data?.photo_url === 'string' && m.meta_data.photo_url) ||
+  (typeof m?.images?.back === 'string' && m.images.back) ||
+  null;
+
+const withPreservedPreview = (incoming: any, existing: any): any => {
+  if (modelPreview(incoming) || !modelPreview(existing)) return incoming;
+  return {
+    ...incoming,
+    image: incoming?.image || existing?.image || existing?.images?.front || existing?.meta_data?.photo_url || null,
+    images: {
+      front: incoming?.images?.front || existing?.images?.front || existing?.image || existing?.meta_data?.photo_url || null,
+      back: incoming?.images?.back || existing?.images?.back || null,
+    },
+    meta_data: {
+      ...(incoming?.meta_data || {}),
+      photo_url: incoming?.meta_data?.photo_url || existing?.meta_data?.photo_url,
+    },
+  };
+};
+
 const tableHasColumn = (table: string, col: string): boolean => {
   try {
     const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
@@ -130,18 +153,30 @@ export const mergeSnapshotIntoSqlite = (snapshot: any, localOwnerId: number) => 
     // lit/écrit WHERE user_id = companyId) → on y met localOwnerId, jamais 1.
     if (Array.isArray(snapshot.beramethode_library)) {
       const stmt = db.prepare(`
-        INSERT INTO models (id, user_id, data, created_at, updated_at)
-        VALUES (@id, @user_id, @data, COALESCE(@created_at, datetime('now')), datetime('now'))
-        ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
+        INSERT INTO models (id, user_id, owner_id, data, created_at, updated_at)
+        VALUES (@id, @user_id, @owner_id, @data, COALESCE(@created_at, datetime('now')), datetime('now'))
+        ON CONFLICT(id) DO UPDATE SET
+          data = excluded.data,
+          owner_id = excluded.owner_id,
+          updated_at = excluded.updated_at
       `);
+      const existingStmt = db.prepare('SELECT data FROM models WHERE id = ? AND owner_id = ?');
       let n = 0;
       for (const model of snapshot.beramethode_library) {
         if (!model?.id) continue;
         try {
+          let modelToStore = model;
+          const existingRow = existingStmt.get(String(model.id), localOwnerId) as { data?: string } | undefined;
+          if (existingRow?.data) {
+            try {
+              modelToStore = withPreservedPreview(model, JSON.parse(existingRow.data));
+            } catch { /* keep incoming */ }
+          }
           stmt.run({
             id: String(model.id),
             user_id: localOwnerId,
-            data: JSON.stringify(model),
+            owner_id: localOwnerId,
+            data: JSON.stringify(modelToStore),
             created_at: model.created_at || null,
           });
           n++;

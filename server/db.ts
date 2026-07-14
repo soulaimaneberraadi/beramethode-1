@@ -552,6 +552,8 @@ CREATE TABLE IF NOT EXISTS suivi_sections (
 
 // Extend suivi_data with scrap / downtime / comments / metadata (idempotent)
 const suiviExtraCols: Array<[string, string]> = [
+  ['entrer', 'INTEGER DEFAULT 0'],
+  ['totalHeure', 'INTEGER DEFAULT 0'],
   ['scrap_details', 'TEXT'],
   ['downtime_events', 'TEXT'],
   ['comments', 'TEXT'],

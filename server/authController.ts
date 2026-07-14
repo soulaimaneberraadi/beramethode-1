@@ -56,6 +56,7 @@ export const register = async (req: Request, res: Response) => {
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
+    let cloudUserId: string | undefined;
     // Premier utilisateur (hors guest@local) → rôle admin automatique
     const userCount = (db.prepare('SELECT COUNT(*) as cnt FROM users WHERE email != ?').get('guest@local') as { cnt: number }).cnt;
     const role = userCount === 0 ? 'admin' : 'user';
@@ -96,6 +97,7 @@ export const register = async (req: Request, res: Response) => {
                 refresh_token = excluded.refresh_token,
                 updated_at = CURRENT_TIMESTAMP
             `).run(info.lastInsertRowid, sbData.user.id, sbData.refresh_token);
+            cloudUserId = sbData.user.id;
             void initUserSync(Number(info.lastInsertRowid), sbData.user.id, email, sbData.refresh_token);
           }
         }
@@ -104,7 +106,7 @@ export const register = async (req: Request, res: Response) => {
       }
     }
 
-    res.status(201).json({ user: { id: info.lastInsertRowid, email, name, role } });
+    res.status(201).json({ user: { id: info.lastInsertRowid, email, name, role, cloudUserId } });
   } catch (error: any) {
     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(409).json({ message: 'Email already exists' });
@@ -135,6 +137,7 @@ export const login = async (req: Request, res: Response) => {
     setAuthCookie(res, { id: user.id, email: user.email, role: user.role });
 
     // Mettre en place la session Supabase si les identifiants correspondent
+    let cloudUserId: string | undefined;
     const SUPABASE_URL = process.env.SUPABASE_URL || '';
     const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
@@ -161,6 +164,7 @@ export const login = async (req: Request, res: Response) => {
               refresh_token = excluded.refresh_token,
               updated_at = CURRENT_TIMESTAMP
           `).run(user.id, sbData.user.id, sbData.refresh_token);
+          cloudUserId = sbData.user.id;
           // Initialise la synchronisation pour cet utilisateur
           void initUserSync(user.id, sbData.user.id, user.email, sbData.refresh_token);
         }
@@ -169,7 +173,7 @@ export const login = async (req: Request, res: Response) => {
       }
     }
 
-    res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
+    res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role, cloudUserId } });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -245,7 +249,7 @@ export const supabaseSessionLogin = async (req: Request, res: Response) => {
 
     logAudit({ userId: user.id, action: 'LOGIN', detail: 'supabase_oauth', ip: req.ip });
     setAuthCookie(res, user);
-    return res.json({ user });
+    return res.json({ user: { ...user, cloudUserId: sbUser.id } });
   } catch (error) {
     console.error('Supabase OAuth login error:', error);
     return res.status(500).json({ message: 'Connexion Google indisponible pour le moment.' });
@@ -272,7 +276,12 @@ export const me = (req: Request, res: Response) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    const stmt = db.prepare('SELECT id, email, name, role FROM users WHERE id = ?');
+    const stmt = db.prepare(`
+      SELECT u.id, u.email, u.name, u.role, s.supabase_user_id AS cloudUserId
+      FROM users u
+      LEFT JOIN supabase_sessions s ON s.user_id = u.id
+      WHERE u.id = ?
+    `);
     const user = stmt.get(decoded.id);
 
     if (!user) {

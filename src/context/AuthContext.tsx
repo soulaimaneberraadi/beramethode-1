@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { startCloudSync, stopCloudSync, pullSnapshotFromCloud, pushSnapshotToCloud, ensureLocalDataOwner, clearLocalAppData } from '../lib/cloudSync';
+import { startCloudSync, stopCloudSync, pullSnapshotFromCloud, pushSnapshotToCloud, ensureLocalDataOwner, clearLocalAppData, isCloudSyncUserId } from '../lib/cloudSync';
 
 interface User {
   id: number | string;
+  cloudUserId?: string | null;
   email: string;
   name: string;
   role: 'user' | 'admin';
@@ -74,6 +75,26 @@ const loginLocalServerWithSupabaseSession = async (): Promise<User | null> => {
   return payload?.user || null;
 };
 
+const getSupabaseCloudUserId = async (): Promise<string | null> => {
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id || null;
+};
+
+const cloudOwnerFor = async (userData: Pick<User, 'id' | 'cloudUserId'>): Promise<string> => {
+  if (userData.cloudUserId && isCloudSyncUserId(userData.cloudUserId)) return userData.cloudUserId;
+  const cloudId = await getSupabaseCloudUserId().catch(() => null);
+  return cloudId || String(userData.id);
+};
+
+const activateLocalDataOwner = async (userData: Pick<User, 'id' | 'cloudUserId'>): Promise<void> => {
+  const ownerId = await cloudOwnerFor(userData);
+  ensureLocalDataOwner(ownerId);
+  if (isCloudSyncUserId(ownerId)) {
+    await pullSnapshotFromCloud(ownerId).catch(() => {});
+    startCloudSync(ownerId);
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -122,12 +143,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // « déconnexion » paraît cassé car le compte se rouvre au reload.
           if (res.ok && !justLoggedOut) {
             const data = await res.json();
-            if (data.user?.id != null) ensureLocalDataOwner(String(data.user.id));
+            if (data.user?.id != null) await activateLocalDataOwner(data.user);
             setUser(data.user);
           } else if (!justLoggedOut) {
             const bridgedUser = await withTimeout(loginLocalServerWithSupabaseSession(), 10000).catch(() => null);
             if (bridgedUser?.id != null) {
-              ensureLocalDataOwner(String(bridgedUser.id));
+              await activateLocalDataOwner(bridgedUser);
               setUser(bridgedUser);
             }
           }
@@ -245,7 +266,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // voir les données de ce compte (et inversement).
     if (userData?.id != null) {
       const isGuest = userData.id === 0 || userData.id === '0';
-      ensureLocalDataOwner(isGuest ? 'guest' : String(userData.id));
+      const ownerId = isGuest ? 'guest' : (userData.cloudUserId && isCloudSyncUserId(userData.cloudUserId) ? userData.cloudUserId : String(userData.id));
+      ensureLocalDataOwner(ownerId);
+      if (!isGuest && isCloudSyncUserId(ownerId)) {
+        void pullSnapshotFromCloud(ownerId).catch(() => {}).finally(() => startCloudSync(ownerId));
+      }
     }
     setUser(userData);
   };
@@ -282,6 +307,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     try {
       try { await withTimeout(fetch('/api/auth/logout', { credentials: 'include', method: 'POST' }), 5000); } catch { /* le reload ramène à l'écran de connexion */ }
+      const ownerId = user?.cloudUserId && isCloudSyncUserId(user.cloudUserId) ? user.cloudUserId : null;
+      if (ownerId) {
+        try { await withTimeout(pushSnapshotToCloud(ownerId), 10000); } catch { /* keep logout responsive */ }
+      }
+      stopCloudSync();
       clearLocalAppData();
       setUser(null);
       try { sessionStorage.setItem('bera_just_logged_out', '1'); } catch {}

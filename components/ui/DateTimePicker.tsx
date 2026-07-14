@@ -7,6 +7,14 @@ import { planningLocalDateKey } from '../../utils/planning';
 import { useLang } from '../../src/context/LanguageContext';
 import { tx } from '../../lib/i18n';
 
+export type DatePickerAgendaItem = {
+    date: string;
+    label: string;
+    detail?: string;
+    time?: string;
+    tone?: 'indigo' | 'emerald' | 'amber' | 'blue' | 'slate';
+};
+
 export interface DateTimePickerProps {
     value: string;
     onChange: (iso: string) => void;
@@ -21,6 +29,7 @@ export interface DateTimePickerProps {
     inputClassName?: string;
     showIcon?: boolean;
     displayValue?: React.ReactNode;
+    agendaItems?: DatePickerAgendaItem[];
 }
 
 function pad(n: number) {
@@ -58,6 +67,7 @@ export default function DateTimePicker({
     inputClassName,
     showIcon = true,
     displayValue,
+    agendaItems = [],
 }: DateTimePickerProps) {
     const { lang } = useLang();
     const uid = useId();
@@ -96,6 +106,17 @@ export default function DateTimePicker({
 
     const fmt = settings.timeFormat || '24h';
     const slots = useMemo(() => timeSlots(), []);
+    const cleanAgendaItems = useMemo(() => (
+        agendaItems
+            .map(item => ({ ...item, date: (item.date || '').split('T')[0] }))
+            .filter(item => item.date)
+    ), [agendaItems]);
+    const markersByDate = useMemo(() => (
+        cleanAgendaItems.reduce<Record<string, DatePickerAgendaItem[]>>((acc, item) => {
+            (acc[item.date] ||= []).push(item);
+            return acc;
+        }, {})
+    ), [cleanAgendaItems]);
 
     const displayLabel = useMemo(() => {
         if (!datePart) return '—';
@@ -120,23 +141,32 @@ export default function DateTimePicker({
         onChange(`${ymd}T${pad(h)}:${pad(m)}:00`);
     };
 
+    const isCompactViewport = typeof window !== 'undefined' && window.innerWidth < 640;
+    const anchorRect = anchorRef.current?.getBoundingClientRect();
+    const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    const viewportH = typeof window !== 'undefined' ? window.innerHeight : 768;
+    const desktopW = Math.min(420, viewportW - 24);
+    const desktopTop = Math.max(12, Math.min((anchorRect?.bottom ?? 0) + 8, viewportH - 560));
+    const desktopLeft = Math.max(12, Math.min((anchorRect?.left ?? 12) - 8, viewportW - desktopW - 12));
+
     const pop = open && (
         <div
             ref={popRef}
-            className="fixed z-[300] w-[min(100vw-24px,520px)] rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-4 shadow-2xl"
-            style={{
-                top: Math.min(
-                    (anchorRef.current?.getBoundingClientRect().bottom ?? 0) + 8,
-                    typeof window !== 'undefined' ? window.innerHeight - 420 : 0,
-                ),
-                left: Math.max(
-                    12,
-                    Math.min(
-                        (anchorRef.current?.getBoundingClientRect().left ?? 12) - 8,
-                        typeof window !== 'undefined' ? window.innerWidth - 540 : 12,
-                    ),
-                ),
-            }}
+            className="fixed z-[300] overflow-y-auto rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-3 shadow-2xl sm:p-4"
+            style={isCompactViewport
+                ? {
+                    left: 8,
+                    right: 8,
+                    bottom: 8,
+                    maxHeight: 'min(82dvh, 620px)',
+                    width: 'auto',
+                  }
+                : {
+                    top: desktopTop,
+                    left: desktopLeft,
+                    width: desktopW,
+                    maxHeight: 'min(78vh, 620px)',
+                  }}
         >
             <div className="mb-3 flex items-center justify-between border-b border-slate-100 dark:border-dk-border pb-2">
                 <div className="flex items-center gap-2 text-sm font-black text-slate-800 dark:text-dk-text">
@@ -157,6 +187,7 @@ export default function DateTimePicker({
                         minDate={minDate}
                         maxDate={maxDate}
                         extraDisabled={disabledDays}
+                        markersByDate={markersByDate}
                         onPrevMonth={() => setMonthAnchor(d => new Date(d.getFullYear(), d.getMonth() - 1, 1, 12, 0, 0, 0))}
                         onNextMonth={() => setMonthAnchor(d => new Date(d.getFullYear(), d.getMonth() + 1, 1, 12, 0, 0, 0))}
                     />
@@ -184,6 +215,49 @@ export default function DateTimePicker({
                     </div>
                 )}
             </div>
+            {cleanAgendaItems.length > 0 && (
+                <div className="mt-4 rounded-xl border border-slate-100 dark:border-dk-border bg-slate-50/80 dark:bg-dk-elevated/40 p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">
+                            {tx(lang, {fr:'Agenda du pedido',ar:'جدول الطلب',en:'Order agenda',es:'Agenda del pedido',pt:'Agenda do pedido',tr:'Sipariş ajandası'})}
+                        </p>
+                        <p className="text-[10px] font-semibold text-slate-400 dark:text-dk-muted tabular-nums">
+                            {cleanAgendaItems.length}
+                        </p>
+                    </div>
+                    <div className="grid max-h-36 gap-1.5 overflow-y-auto pr-1 [scrollbar-width:thin] sm:max-h-44">
+                        {cleanAgendaItems.map((item, idx) => {
+                            const active = item.date === datePart;
+                            const dot =
+                                item.tone === 'emerald' ? 'bg-emerald-500' :
+                                item.tone === 'amber' ? 'bg-amber-500' :
+                                item.tone === 'blue' ? 'bg-blue-500' :
+                                item.tone === 'slate' ? 'bg-slate-400' :
+                                'bg-indigo-500';
+                            return (
+                                <div
+                                    key={`${item.date}-${item.label}-${idx}`}
+                                    className={`flex items-start gap-2 rounded-lg border px-2.5 py-2 text-xs ${
+                                        active
+                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-700/60 dark:bg-emerald-900/20 dark:text-emerald-100'
+                                            : 'border-white/80 bg-white text-slate-700 dark:border-dk-border dark:bg-dk-surface dark:text-dk-text-soft'
+                                    }`}
+                                >
+                                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${active ? 'bg-emerald-600' : dot}`} />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                            <span className="font-black">{item.label}</span>
+                                            <span className="font-mono text-[11px] font-bold tabular-nums opacity-80">{item.date}</span>
+                                            {item.time && <span className="font-mono text-[11px] font-bold tabular-nums opacity-80">{item.time}</span>}
+                                        </div>
+                                        {item.detail && <p className="mt-0.5 truncate text-[11px] font-medium opacity-75">{item.detail}</p>}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
             <div className="mt-4 flex justify-end gap-2 border-t border-slate-100 dark:border-dk-border pt-3">
                 <button type="button" className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated" onClick={() => setOpen(false)}>
                     {tx(lang, {fr:"Fermer",ar:"إغلاق",en:"Close",es:"Cerrar",pt:"Fechar",tr:"Kapat"})}

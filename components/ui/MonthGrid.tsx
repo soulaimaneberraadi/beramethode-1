@@ -14,6 +14,7 @@ export interface MonthGridProps {
     maxDate?: string;
     /** S’ajoute aux jours non ouvrés (ex. lot deadline). */
     extraDisabled?: (d: Date) => boolean;
+    markersByDate?: Record<string, { tone?: 'indigo' | 'emerald' | 'amber' | 'blue' | 'slate'; label: string }[]>;
     onPrevMonth: () => void;
     onNextMonth: () => void;
 }
@@ -56,6 +57,7 @@ export default function MonthGrid({
     minDate,
     maxDate,
     extraDisabled,
+    markersByDate,
     onPrevMonth,
     onNextMonth,
 }: MonthGridProps) {
@@ -118,25 +120,40 @@ export default function MonthGrid({
             </div>
             <div className="grid grid-cols-7 gap-1">
                 {cells.map((d, idx) => {
-                    if (!d) return <div key={`e-${idx}`} className="h-9" />;
+                    if (!d) return <div key={`e-${idx}`} className="h-8 sm:h-9" />;
                     const key = planningLocalDateKey(d);
                     const selected = key === selKey;
                     const isToday = key === todayKey;
                     const dis = isDisabled(d);
+                    const markers = markersByDate?.[key] || [];
                     return (
                         <button
                             key={key}
                             type="button"
                             disabled={dis}
                             onClick={() => !dis && onSelectDate(key)}
+                            title={markers.map(m => m.label).join(' | ') || undefined}
                             className={[
-                                'h-9 rounded-lg text-xs font-bold transition-colors',
+                                'relative h-8 rounded-lg text-xs font-bold transition-colors sm:h-9',
                                 dis ? 'cursor-not-allowed bg-slate-100 dark:bg-dk-elevated text-slate-300 dark:text-dk-muted' : 'text-slate-800 dark:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated/60',
                                 selected && !dis ? 'bg-emerald-700 text-white hover:bg-emerald-800' : '',
                                 !selected && !dis && isToday ? 'ring-2 ring-emerald-700 ring-offset-1' : '',
                             ].filter(Boolean).join(' ')}
                         >
-                            {d.getDate()}
+                            <span className="relative z-10">{d.getDate()}</span>
+                            {markers.length > 0 && (
+                                <span className="absolute inset-x-1 bottom-1 flex items-center justify-center gap-0.5">
+                                    {markers.slice(0, 4).map((m, i) => {
+                                        const tone =
+                                            m.tone === 'emerald' ? 'bg-emerald-500' :
+                                            m.tone === 'amber' ? 'bg-amber-500' :
+                                            m.tone === 'blue' ? 'bg-blue-500' :
+                                            m.tone === 'slate' ? 'bg-slate-400' :
+                                            'bg-indigo-500';
+                                        return <span key={`${key}-${i}`} className={`h-1 w-1 rounded-full ${selected && !dis ? 'bg-white' : tone}`} />;
+                                    })}
+                                </span>
+                            )}
                         </button>
                     );
                 })}

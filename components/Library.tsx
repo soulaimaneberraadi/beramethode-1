@@ -14,6 +14,10 @@ function getModelAbbrev(model: ModelData): string {
     return name.split(/[\s\-_]+/).filter(Boolean).map(w => w[0]?.toUpperCase() || '').join('').slice(0, 5) || '?';
 }
 
+function getModelPreview(model: ModelData): string | null {
+    return model.images?.front || model.image || model.meta_data?.photo_url || model.images?.back || null;
+}
+
 function buildLibrarySearchHaystack(m: ModelData): string {
     const parts: string[] = [];
     const meta = m?.meta_data;
@@ -294,8 +298,8 @@ export default function Library({
                                         className="group bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated hover:shadow-md dark:hover:shadow-dk-elevated hover:border-indigo-300 dark:hover:border-dk-accent hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col h-full"
                                     >
                                         <div className="aspect-[4/3] bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border flex items-center justify-center group-hover:bg-indigo-50 dark:bg-dk-accent/20 dark:group-hover:bg-dk-elevated/20 transition-colors relative overflow-hidden">
-                                            {model.image ? (
-                                                <img src={model.image} alt={model.meta_data.nom_modele} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                            {getModelPreview(model) ? (
+                                                <img src={getModelPreview(model)!} alt={model.meta_data.nom_modele} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                             ) : (
                                                 <div className="flex flex-col items-center gap-2 transform scale-75 origin-center">
                                                     <div className="w-12 h-12 bg-slate-100 dark:bg-dk-elevated rounded-full flex items-center justify-center">
@@ -373,8 +377,8 @@ export default function Library({
                                         className="group bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated hover:shadow-md dark:hover:shadow-dk-elevated hover:border-indigo-300 dark:hover:border-dk-accent flex items-center p-2 gap-4 cursor-pointer transition-all duration-200"
                                     >
                                         <div className="w-16 h-16 shrink-0 bg-slate-50 dark:bg-dk-bg rounded-lg overflow-hidden border border-slate-100 dark:border-dk-border flex items-center justify-center relative">
-                                            {model.image ? (
-                                                <img src={model.image} alt={model.meta_data.nom_modele} className="w-full h-full object-cover" />
+                                            {getModelPreview(model) ? (
+                                                <img src={getModelPreview(model)!} alt={model.meta_data.nom_modele} className="w-full h-full object-cover" />
                                             ) : (
                                                 <FileJson className="w-6 h-6 text-slate-300 dark:text-dk-muted" />
                                             )}
