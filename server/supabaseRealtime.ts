@@ -128,7 +128,7 @@ const applyArrayToTable = (table: string, items: any[], ownerId: number | null, 
       const params: any = {};
       for (const k of keys) {
         const v = k === 'raw_data' && item[k] == null ? item : item[k];
-        params[k] = typeof v === 'object' && v !== null ? JSON.stringify(v) : v;
+        params[k] = v === undefined ? null : (typeof v === 'object' && v !== null ? JSON.stringify(v) : v);
       }
       if (enforceOwner) params.owner_id = ownerId;
       db.prepare(sql).run(params);

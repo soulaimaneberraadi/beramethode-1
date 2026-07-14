@@ -113,7 +113,7 @@ import * as invoiceController from './server/invoiceController';
 import { getDashboardKPIs, streamDashboardKPIs } from './server/dashboardController';
 import { authenticateToken, requirePermission, clearAuthCookie } from './server/middleware';
 import { postAnalyzeTextile, postSuggestVocabulary, postGenerateOperations, postOptimizePlanning } from './server/geminiController';
-import { supabaseSyncMiddleware, logSupabaseSyncStatus, startSupabaseSync } from './server/supabaseSync';
+import { forcePushNow, supabaseSyncMiddleware, logSupabaseSyncStatus, startSupabaseSync } from './server/supabaseSync';
 import { dataChangeNotifier } from './server/eventBus';
 import {
   getActivityRates, saveActivityRate,
@@ -553,6 +553,16 @@ async function startServer() {
   // ── Licence (proxy vers l'Edge Function Supabase verify-license) ──
   // Public : appelé durant le boot, avant l'authentification.
   app.post('/api/license/verify', verifyLicenseProxy);
+
+  app.post('/api/sync/push-now', authenticateToken, async (req, res) => {
+    const localUserId = Number((req as any).user?.id);
+    if (!localUserId) {
+      return res.status(401).json({ ok: false, message: 'Session utilisateur introuvable.' });
+    }
+
+    const result = await forcePushNow(localUserId);
+    return res.status(result.ok ? 200 : 409).json(result);
+  });
 
   // ── Master / Admin Central (Bera Master Integration) ──
   app.post('/api/master/impersonate/:userId', requireLocalhost, masterLimiter, impersonateUser);

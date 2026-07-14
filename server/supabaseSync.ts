@@ -626,6 +626,33 @@ export const schedulePush = (localUserId: number) => {
   }, PUSH_DELAY_MS);
 };
 
+const ensureSyncStateForUser = async (localUserId: number): Promise<UserSyncState | null> => {
+  const existing = syncStates.get(localUserId);
+  if (existing) return existing;
+
+  const sess = db.prepare(`
+    SELECT s.user_id, s.supabase_user_id, s.refresh_token, u.email
+    FROM supabase_sessions s
+    JOIN users u ON s.user_id = u.id
+    WHERE s.user_id = ?
+  `).get(localUserId) as { user_id: number; supabase_user_id: string; refresh_token: string; email: string } | undefined;
+
+  if (!sess) return null;
+
+  await initUserSync(sess.user_id, sess.supabase_user_id, sess.email, sess.refresh_token);
+  return syncStates.get(localUserId) || null;
+};
+
+export const forcePushNow = async (localUserId: number): Promise<{ ok: boolean; message?: string }> => {
+  const state = await ensureSyncStateForUser(localUserId);
+  if (!state) {
+    return { ok: false, message: 'Aucune session Supabase active pour cet utilisateur.' };
+  }
+
+  await pushNowForUser(state);
+  return { ok: true };
+};
+
 // ─── Middleware ──────────────────────────────────────────────────────────────
 
 export const supabaseSyncMiddleware = (req: Request, res: Response, next: NextFunction) => {
@@ -797,9 +824,7 @@ export const startSupabaseSync = async () => {
     `).all() as Array<{ user_id: number; supabase_user_id: string; refresh_token: string; email: string }>;
 
     for (const sess of sessions) {
-      // Avoid re-initializing if it is the owner and already initialized
-      const ownerRow = canSync ? db.prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?').get(OWNER_EMAIL) as { id: number } | undefined : null;
-      if (ownerRow && ownerRow.id === sess.user_id) continue;
+      if (syncStates.has(sess.user_id)) continue;
 
       console.log(`[supabaseSync] Restoring saved sync session for ${sess.email}`);
       void initUserSync(sess.user_id, sess.supabase_user_id, sess.email, sess.refresh_token);
