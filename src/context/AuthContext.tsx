@@ -372,6 +372,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           },
         });
         if (signupError || !signupData.user) {
+          if (signupError?.message?.toLowerCase().includes('already registered')) {
+            return { ok: false, message: 'E-mail ou mot de passe incorrect. Si vous avez créé ce compte avec Google, cliquez sur « Continuer avec Google ».' };
+          }
           return { ok: false, message: signupError?.message || 'Échec inscription.' };
         }
         if (!signupData.session) {
