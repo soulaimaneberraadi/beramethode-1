@@ -640,6 +640,24 @@ export interface SubcontractOrder {
   updated_at?: string;
 }
 
+export interface SubcontractorProfile {
+  id: string;
+  name: string;
+  contactName?: string;
+  phone?: string;
+  cin?: string;
+  address?: string;
+  ice?: string;
+  rc?: string;
+  rating?: number;
+  notes?: string;
+  photo?: string;
+  cinRectoPhoto?: string;
+  cinVersoPhoto?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Lot {
   id: string;
   taille: string;

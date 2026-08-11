@@ -859,6 +859,32 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subcontractor_profiles (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    contactName TEXT,
+    phone TEXT,
+    cin TEXT,
+    address TEXT,
+    ice TEXT,
+    rc TEXT,
+    rating REAL DEFAULT 5,
+    notes TEXT,
+    photo TEXT,
+    cinRectoPhoto TEXT,
+    cinVersoPhoto TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+try { db.exec("ALTER TABLE subcontractor_profiles ADD COLUMN contactName TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE subcontractor_profiles ADD COLUMN photo TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE subcontractor_profiles ADD COLUMN cinRectoPhoto TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE subcontractor_profiles ADD COLUMN cinVersoPhoto TEXT"); } catch { /* already exists */ }
+
 // 🚀 CRÉATION DES INDEX POUR OPTIMISER LES PERFORMANCES (Lectures / Jointures)
 db.exec(`
   -- Index généraux

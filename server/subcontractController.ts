@@ -273,3 +273,70 @@ export const deleteSubcontractorGroup = (req: Request, res: Response) => {
         res.status(500).json({ message: 'Error deleting subcontractor group' });
     }
 };
+
+// Get all subcontractor profiles
+export const getSubcontractorProfiles = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    try {
+        const stmt = db.prepare('SELECT * FROM subcontractor_profiles WHERE owner_id = ? ORDER BY name ASC');
+        const rows = stmt.all(companyId) as any[];
+        res.json(rows);
+    } catch (error) {
+        console.error('Get subcontractor profiles error:', error);
+        res.status(500).json({ message: 'Error fetching subcontractor profiles' });
+    }
+};
+
+// Create or update a subcontractor profile
+export const saveSubcontractorProfile = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id, name, contactName, phone, cin, address, ice, rc, rating, notes, photo, cinRectoPhoto, cinVersoPhoto } = req.body;
+
+    if (!name || !name.trim()) {
+        return res.status(400).json({ message: 'Subcontractor name is required' });
+    }
+
+    try {
+        const profileId = id || randomUUID();
+        const stmt = db.prepare(`
+            INSERT INTO subcontractor_profiles (id, owner_id, name, contactName, phone, cin, address, ice, rc, rating, notes, photo, cinRectoPhoto, cinVersoPhoto)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                contactName = excluded.contactName,
+                phone = excluded.phone,
+                cin = excluded.cin,
+                address = excluded.address,
+                ice = excluded.ice,
+                rc = excluded.rc,
+                rating = excluded.rating,
+                notes = excluded.notes,
+                photo = excluded.photo,
+                cinRectoPhoto = excluded.cinRectoPhoto,
+                cinVersoPhoto = excluded.cinVersoPhoto,
+                updated_at = CURRENT_TIMESTAMP
+        `);
+        stmt.run(profileId, companyId, name.trim(), contactName || null, phone || null, cin || null, address || null, ice || null, rc || null, rating ?? 5, notes || null, photo || null, cinRectoPhoto || null, cinVersoPhoto || null);
+        res.json({ message: 'Subcontractor profile saved successfully', id: profileId });
+    } catch (error) {
+        console.error('Save subcontractor profile error:', error);
+        res.status(500).json({ message: 'Error saving subcontractor profile' });
+    }
+};
+
+// Delete a subcontractor profile
+export const deleteSubcontractorProfile = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+
+    try {
+        const result = db.prepare('DELETE FROM subcontractor_profiles WHERE id = ? AND owner_id = ?').run(id, companyId);
+        if (result.changes === 0) {
+            return res.status(404).json({ message: 'Subcontractor profile not found or unauthorized' });
+        }
+        res.json({ message: 'Subcontractor profile deleted successfully' });
+    } catch (error) {
+        console.error('Delete subcontractor profile error:', error);
+        res.status(500).json({ message: 'Error deleting subcontractor profile' });
+    }
+};
