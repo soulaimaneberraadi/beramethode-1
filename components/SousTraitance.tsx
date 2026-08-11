@@ -9,7 +9,8 @@ import {
   AlertCircle, Calendar, DollarSign, Package, 
   ChevronDown, ChevronUp, Loader2, Info, Eye, Layers, Palette,
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins,
-  Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight
+  Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
+  AlertTriangle
 } from 'lucide-react';
 
 interface SousTraitanceProps {
@@ -144,6 +145,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [batches, setBatches] = useState<BatchInput[]>([{ quantity: 0, deliveryDate: '', notes: '', grid: {} }]);
   const [newColorInput, setNewColorInput] = useState('');
   const [modelMaxGrid, setModelMaxGrid] = useState<Record<string, Record<string, number>>>({});
+  /** Vrai quand la grille affichée a été déduite de totaux marginaux (commande
+   *  antérieure à `grid_json`) : la répartition par couleur n'est pas fiable. */
+  const [gridEstimated, setGridEstimated] = useState(false);
 
   // Tab 3 (Stock & Invoice Sale) States
   const [selectedModelForSale, setSelectedModelForSale] = useState<ModelData | null>(null);
@@ -364,6 +368,80 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     }
   };
 
+  /** Sérialise la grille couleur × taille pour l'API.
+   *  `grid_json` porte la matrice 2D complète (source de vérité) ; `sizes_json` et
+   *  `colors_json` restent les totaux marginaux, conservés pour les écrans qui les
+   *  lisent encore. Les cellules à 0 sont omises des marges, pas de la grille. */
+  const serializeGrid = (grid: Record<string, Record<string, number>>) => {
+    const sizesSum: Record<string, number> = {};
+    const colorsSum: Record<string, number> = {};
+
+    Object.entries(grid).forEach(([color, sizesObj]) => {
+      const colorTotal = Object.values(sizesObj).reduce((a, b) => a + b, 0);
+      if (colorTotal > 0) colorsSum[color] = colorTotal;
+      Object.entries(sizesObj).forEach(([sz, qty]) => {
+        if (qty > 0) sizesSum[sz] = (sizesSum[sz] || 0) + qty;
+      });
+    });
+
+    return {
+      sizes_json: Object.keys(sizesSum).length > 0 ? JSON.stringify(sizesSum) : null,
+      colors_json: Object.keys(colorsSum).length > 0 ? JSON.stringify(colorsSum) : null,
+      grid_json: Object.keys(grid).length > 0 ? JSON.stringify(grid) : null,
+    };
+  };
+
+  /** Reconstruit la grille d'une commande.
+   *  `grid_json` est exact. Sans lui (commandes antérieures), on ne peut PAS
+   *  reconstituer la matrice : `sizes_json` est un total toutes couleurs confondues.
+   *  On répartit alors la quantité sur une seule ligne et on signale l'estimation
+   *  via `estimated`, plutôt que de recopier le total dans chaque couleur — ce que
+   *  faisait l'ancien code, et qui multipliait les quantités à chaque ré-enregistrement. */
+  const restoreGrid = (
+    order: SubcontractOrder,
+    modelSizes: string[]
+  ): { grid: Record<string, Record<string, number>>; estimated: boolean } => {
+    const parsedGrid = parseJsonSafe(order.grid_json, null as any);
+    if (parsedGrid && typeof parsedGrid === 'object' && Object.keys(parsedGrid).length > 0) {
+      return { grid: parsedGrid, estimated: false };
+    }
+
+    const parsedSizes: Record<string, number> = parseJsonSafe(order.sizes_json);
+    const parsedColors: Record<string, number> = parseJsonSafe(order.colors_json);
+    const sizes = modelSizes.length > 0
+      ? modelSizes
+      : (Object.keys(parsedSizes).length > 0 ? Object.keys(parsedSizes) : COMMON_SIZES);
+    const colors = Object.keys(parsedColors);
+    const grid: Record<string, Record<string, number>> = {};
+
+    if (colors.length === 0) {
+      grid['Standard'] = {};
+      sizes.forEach(sz => { grid['Standard'][sz] = parsedSizes[sz] || 0; });
+      return { grid, estimated: Object.keys(parsedSizes).length > 0 };
+    }
+
+    // Les totaux par taille ne concernent qu'une seule ligne : les affecter à la
+    // première couleur et laisser les autres à 0 garde le total global exact.
+    colors.forEach((color, idx) => {
+      grid[color] = {};
+      sizes.forEach(sz => {
+        grid[color][sz] = idx === 0 ? (parsedSizes[sz] || 0) : 0;
+      });
+    });
+    return { grid, estimated: colors.length > 1 };
+  };
+
+  /** Colonnes de la grille en édition : les tailles réellement présentes dans la
+   *  commande, pas une liste figée — sinon toute taille hors standard disparaît
+   *  de l'écran tout en restant enregistrée. */
+  const editGridSizes = useMemo(() => {
+    const seen: string[] = [];
+    Object.values(batches[0]?.grid || {}).forEach(sizesObj => {
+      Object.keys(sizesObj).forEach(sz => { if (!seen.includes(sz)) seen.push(sz); });
+    });
+    return seen.length > 0 ? seen : COMMON_SIZES;
+  }, [batches]);
+
   // Find subcontractors belonging to a selected group filter
   const groupSubcontractors = useMemo(() => {
     if (groupFilter === 'ALL') return [];
@@ -569,6 +647,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       grid: {}
     }]);
     setModelMaxGrid({});
+    setGridEstimated(false);
     setNewColorInput('');
     setError(null);
     setIsAddModalOpen(true);
@@ -715,22 +794,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const selectedModel = models.find(m => m.id === formModelId);
     const modelName = formModelId === 'MANUAL' ? 'Commande Directe' : (selectedModel?.meta_data?.nom_modele || 'Inconnu');
 
-    // Build colors and sizes summary json from grid
-    const sizesSum: Record<string, number> = {};
-    const colorsSum: Record<string, number> = {};
-    const grid = batches[0].grid;
-
-    Object.entries(grid).forEach(([color, sizesObj]) => {
-      const colorTotal = Object.values(sizesObj).reduce((a, b) => a + b, 0);
-      if (colorTotal > 0) {
-        colorsSum[color] = colorTotal;
-      }
-      Object.entries(sizesObj).forEach(([sz, qty]) => {
-        if (qty > 0) {
-          sizesSum[sz] = (sizesSum[sz] || 0) + qty;
-        }
-      });
-    });
+    const gridJson = serializeGrid(batches[0].grid);
 
     const body = {
       modelId: formModelId,
@@ -741,8 +805,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       pricePerPiece: formPricePerPiece,
       deliveryDate: batches[0].deliveryDate || new Date().toISOString().split('T')[0],
       status: 'PENDING',
-      sizes_json: Object.keys(sizesSum).length > 0 ? JSON.stringify(sizesSum) : null,
-      colors_json: Object.keys(colorsSum).length > 0 ? JSON.stringify(colorsSum) : null,
+      ...gridJson,
       notes: formNotes || null,
       tissuStatus: formTissuStatus,
       fournituresStatus: formFournituresStatus,
@@ -869,24 +932,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     
     setModalFormTab('general');
 
-    // Restore matrix from json
-    const parsedSizes = parseJsonSafe(order.sizes_json);
-    const parsedColors = parseJsonSafe(order.colors_json);
-    const grid: Record<string, Record<string, number>> = {};
-
-    if (Object.keys(parsedColors).length > 0) {
-      Object.keys(parsedColors).forEach(color => {
-        grid[color] = {};
-        COMMON_SIZES.forEach(sz => {
-          grid[color][sz] = parsedSizes[sz] || 0;
-        });
-      });
-    } else {
-      grid['Standard'] = {};
-      COMMON_SIZES.forEach(sz => {
-        grid['Standard'][sz] = parsedSizes[sz] || 0;
-      });
-    }
+    // Restore matrix : grid_json fait foi, sinon reconstruction estimée signalée.
+    const editedModel = models.find(m => m.id === order.modelId);
+    const modelSizes = editedModel?.ficheData?.sizes || editedModel?.meta_data?.sizes || [];
+    const { grid, estimated } = restoreGrid(order, modelSizes);
+    setGridEstimated(estimated);
 
     setBatches([{
       quantity: order.totalQuantity,
@@ -907,22 +957,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setActionLoading(true);
     setError(null);
 
-    // Build colors and sizes summary json from grid
-    const sizesSum: Record<string, number> = {};
-    const colorsSum: Record<string, number> = {};
-    const grid = batches[0].grid;
-
-    Object.entries(grid).forEach(([color, sizesObj]) => {
-      const colorTotal = Object.values(sizesObj).reduce((a, b) => a + b, 0);
-      if (colorTotal > 0) {
-        colorsSum[color] = colorTotal;
-      }
-      Object.entries(sizesObj).forEach(([sz, qty]) => {
-        if (qty > 0) {
-          sizesSum[sz] = (sizesSum[sz] || 0) + qty;
-        }
-      });
-    });
+    const gridJson = serializeGrid(batches[0].grid);
 
     const selectedModel = models.find(m => m.id === formModelId);
     const modelName = formModelId === 'MANUAL' ? 'Commande Directe' : (selectedModel?.meta_data?.nom_modele || 'Inconnu');
@@ -935,8 +970,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       subcontractorName: formSubcontractorName,
       pricePerPiece: formPricePerPiece,
       deliveryDate: batches[0].deliveryDate || selectedOrder.deliveryDate,
-      sizes_json: Object.keys(sizesSum).length > 0 ? JSON.stringify(sizesSum) : null,
-      colors_json: Object.keys(colorsSum).length > 0 ? JSON.stringify(colorsSum) : null,
+      ...gridJson,
       notes: formNotes || null,
       tissuStatus: formTissuStatus,
       fournituresStatus: formFournituresStatus,
@@ -2145,7 +2179,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* ======================================= */}
           {isAddModalOpen && (
         <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
+          <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
                 <Truck className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent" />
@@ -2257,6 +2291,21 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       <span className="font-bold text-indigo-600 dark:text-dk-accent-text">{formTotalQuantity.toLocaleString()} pcs</span>
                     </div>
                   </div>
+                  {gridEstimated && (
+                    <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/25 border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span className="text-[10px] font-semibold leading-relaxed">
+                        {tx(lang,{
+                          fr:"Grille estimée : cette commande a été créée avant l'enregistrement du détail couleur × taille. Le total est exact, mais la répartition par couleur est à vérifier avant d'enregistrer.",
+                          ar:'شبكة تقديرية: هذا الأمر أُنشئ قبل تسجيل تفصيل اللون × المقاس. المجموع صحيح، لكن التوزيع حسب اللون يحتاج تحقّقاً قبل الحفظ.',
+                          en:'Estimated grid: this order predates color × size detail storage. The total is exact, but the per-color split must be checked before saving.',
+                          es:'Cuadrícula estimada: este pedido es anterior al guardado del detalle color × talla. El total es exacto, pero revise el reparto por color antes de guardar.',
+                          pt:'Grelha estimada: esta encomenda é anterior ao registo do detalhe cor × tamanho. O total está correto, mas verifique a repartição por cor antes de guardar.',
+                          tr:'Tahmini tablo: bu sipariş, renk × beden detayının kaydedilmesinden önce oluşturuldu. Toplam doğru, ancak renk dağılımını kaydetmeden önce kontrol edin.'
+                        })}
+                      </span>
+                    </div>
+                  )}
                   <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-dk-border">
                     <table className="w-full text-left border-collapse">
                       <thead>
@@ -2492,7 +2541,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* ======================================= */}
       {isEditModalOpen && selectedOrder && (
         <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
+          <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent" />
@@ -2655,6 +2704,21 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </div>
                     </div>
 
+                    {gridEstimated && (
+                      <div className="flex items-start gap-2 px-3 py-2 mb-2 rounded-xl bg-amber-50 dark:bg-amber-900/25 border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span className="text-[10px] font-semibold leading-relaxed">
+                          {tx(lang,{
+                            fr:"Grille estimée : cette commande a été créée avant l'enregistrement du détail couleur × taille. Le total est exact, mais la répartition par couleur est à vérifier avant d'enregistrer.",
+                            ar:'شبكة تقديرية: هذا الأمر أُنشئ قبل تسجيل تفصيل اللون × المقاس. المجموع صحيح، لكن التوزيع حسب اللون يحتاج تحقّقاً قبل الحفظ.',
+                            en:'Estimated grid: this order predates color × size detail storage. The total is exact, but the per-color split must be checked before saving.',
+                            es:'Cuadrícula estimada: este pedido es anterior al guardado del detalle color × talla. El total es exacto, pero revise el reparto por color antes de guardar.',
+                            pt:'Grelha estimada: esta encomenda é anterior ao registo do detalhe cor × tamanho. O total está correto, mas verifique a repartição por cor antes de guardar.',
+                            tr:'Tahmini tablo: bu sipariş, renk × beden detayının kaydedilmesinden önce oluşturuldu. Toplam doğru, ancak renk dağılımını kaydetmeden önce kontrol edin.'
+                          })}
+                        </span>
+                      </div>
+                    )}
                     {Object.keys(batches[0].grid).length === 0 ? (
                       <p className="text-[11px] text-slate-500 dark:text-dk-muted italic">{tx(lang,{fr:'Aucune couleur configurée. Le lot sera traité de manière globale.',ar:'لم يتم تكوين أي لون. سيتم معالجة الدفعة بشكل إجمالي.',en:'No color configured. The batch will be processed globally.',es:'Ningún color configurado. El lote se procesará de forma global.',pt:'Nenhuma cor configurada. O lote será processado globalmente.',tr:'Hiçbir renk yapılandırılmadı. Parti genel olarak işlenecek.'})}</p>
                     ) : (
@@ -2663,7 +2727,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           <thead>
                             <tr className="border-b border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted font-bold">
                               <th className="py-2 pr-4">{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
-                              {COMMON_SIZES.map(sz => <th key={sz} className="py-2 px-1 text-center">{sz}</th>)}
+                              {editGridSizes.map(sz => <th key={sz} className="py-2 px-1 text-center">{sz}</th>)}
                               <th className="py-2 text-right">{tx(lang,{fr:'Action',ar:'إجراء',en:'Action',es:'Acción',pt:'Ação',tr:'İşlem'})}</th>
                             </tr>
                           </thead>
@@ -2671,7 +2735,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             {Object.entries(batches[0].grid).map(([color, sizesObj]) => (
                               <tr key={color}>
                                 <td className="py-2 pr-4 font-semibold text-slate-700 dark:text-dk-text-soft">{color}</td>
-                                {COMMON_SIZES.map(sz => (
+                                {editGridSizes.map(sz => (
                                   <td key={sz} className="py-1 px-1">
                                     <input 
                                       type="number"
@@ -2899,8 +2963,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* DETAILED VIEW MODAL */}
       {/* ======================================= */}
       {isDetailModalOpen && detailOrder && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] text-slate-750 dark:text-dk-text">
+        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] text-slate-750 dark:text-dk-text">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/55 dark:bg-dk-surface/55">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base">{tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}</h2>
               <button onClick={() => setIsDetailModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
@@ -3034,8 +3098,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* SALE INVOICE MODAL (TAB 3 ACTION) */}
       {/* ======================================= */}
       {isSaleModalOpen && selectedModelForSale && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] text-slate-850 dark:text-dk-text">
+        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] text-slate-850 dark:text-dk-text">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/55 dark:bg-dk-surface/55">
               <h2 className="font-bold text-slate-850 dark:text-dk-text text-base flex items-center gap-2">
                 <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent" />
@@ -3275,7 +3339,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* ======================================= */}
       {isProfileModalOpen && (
         <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[210] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
+          <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
                 <Users className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text" />

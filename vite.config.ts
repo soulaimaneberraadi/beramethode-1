@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
       strictPort: false,
       host: '0.0.0.0',
       proxy: {
-        '/api': { target: 'http://127.0.0.1:7001', changeOrigin: true },
+        '/api': { target: 'http://127.0.0.1:7000', changeOrigin: true },
       },
       watch: {
         // Évite rebuild/HMR en boucle si la DB ou des fichiers temporaires changent souvent

@@ -885,6 +885,10 @@ try { db.exec("ALTER TABLE subcontractor_profiles ADD COLUMN photo TEXT"); } cat
 try { db.exec("ALTER TABLE subcontractor_profiles ADD COLUMN cinRectoPhoto TEXT"); } catch { /* already exists */ }
 try { db.exec("ALTER TABLE subcontractor_profiles ADD COLUMN cinVersoPhoto TEXT"); } catch { /* already exists */ }
 
+// Matrice couleur × taille complète. sizes_json / colors_json ne stockent que les
+// totaux marginaux : la grille 2D n'en est pas reconstructible sans la corrompre.
+try { db.exec("ALTER TABLE subcontract_orders ADD COLUMN grid_json TEXT"); } catch { /* already exists */ }
+
 // 🚀 CRÉATION DES INDEX POUR OPTIMISER LES PERFORMANCES (Lectures / Jointures)
 db.exec(`
   -- Index généraux

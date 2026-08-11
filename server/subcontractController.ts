@@ -21,7 +21,7 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
     const {
         modelId, modelName, clientName, totalQuantity,
         subcontractorName, pricePerPiece, deliveryDate,
-        status, sizes_json, colors_json, notes,
+        status, sizes_json, colors_json, grid_json, notes,
         tissuStatus, fournituresStatus, ficheTechniqueSent,
         qtyAccepted, qtyToRepair, qtyRejected,
         subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
@@ -40,14 +40,14 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
             INSERT INTO subcontract_orders (
                 id, owner_id, modelId, modelName, clientName, totalQuantity,
                 subcontractorName, pricePerPiece, deliveryDate, status,
-                sizes_json, colors_json, notes,
+                sizes_json, colors_json, grid_json, notes,
                 tissuStatus, fournituresStatus, ficheTechniqueSent,
                 qtyAccepted, qtyToRepair, qtyRejected,
                 subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
                 prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
                 protoRequired, protoStatus, paymentTerms, defectRateAccepted,
                 stitchingDetails, specifications_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         stmt.run(
@@ -63,6 +63,7 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
             status || 'PENDING',
             sizes_json || null,
             colors_json || null,
+            grid_json || null,
             notes || null,
             tissuStatus || 'PENDING',
             fournituresStatus || 'PENDING',
@@ -99,7 +100,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
     const {
         modelId, modelName, clientName, totalQuantity,
         subcontractorName, pricePerPiece, deliveryDate,
-        status, sizes_json, colors_json, notes,
+        status, sizes_json, colors_json, grid_json, notes,
         tissuStatus, fournituresStatus, ficheTechniqueSent,
         qtyAccepted, qtyToRepair, qtyRejected,
         subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
@@ -122,6 +123,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
                 status = COALESCE(?, status),
                 sizes_json = COALESCE(?, sizes_json),
                 colors_json = COALESCE(?, colors_json),
+                grid_json = COALESCE(?, grid_json),
                 notes = COALESCE(?, notes),
                 tissuStatus = COALESCE(?, tissuStatus),
                 fournituresStatus = COALESCE(?, fournituresStatus),
@@ -157,6 +159,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
             status || null,
             sizes_json || null,
             colors_json || null,
+            grid_json || null,
             notes || null,
             tissuStatus || null,
             fournituresStatus || null,
