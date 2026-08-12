@@ -214,6 +214,210 @@ export const deleteSubcontractOrder = (req: Request, res: Response) => {
     }
 };
 
+// --- Journal des entrées/sorties (carte de commande) ---
+// Endpoints à plat (/api/subcontract/entries) pour rester compatibles avec
+// l'apiShim du mode statique (Vercel), qui résout un store par nom de chemin
+// (2 segments max) sans routage imbriqué. Le filtrage par commande se fait
+// via ?orderId= côté serveur, et côté client pour le mode statique.
+
+// Get entries — optionally filtered by ?orderId=
+export const getSubcontractEntries = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { orderId } = req.query as { orderId?: string };
+    try {
+        if (orderId) {
+            const owned = db.prepare('SELECT id FROM subcontract_orders WHERE id = ? AND owner_id = ?').get(orderId, companyId);
+            if (!owned) return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+            const stmt = db.prepare('SELECT * FROM subcontract_entries WHERE order_id = ? ORDER BY entry_date ASC, created_at ASC');
+            return res.json(stmt.all(orderId));
+        }
+        const stmt = db.prepare(`
+            SELECT e.* FROM subcontract_entries e
+            JOIN subcontract_orders o ON o.id = e.order_id
+            WHERE o.owner_id = ?
+            ORDER BY e.entry_date ASC, e.created_at ASC
+        `);
+        res.json(stmt.all(companyId));
+    } catch (error) {
+        console.error('Get subcontract entries error:', error);
+        res.status(500).json({ message: 'Error fetching subcontract entries' });
+    }
+};
+
+// Create an entry (order id passed as order_id in the body)
+export const createSubcontractEntry = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { order_id, direction, couleur, taille, quantite, entry_date, notes } = req.body;
+
+    if (!order_id || !direction || !entry_date || quantite === undefined || quantite === null) {
+        return res.status(400).json({ message: 'Required fields are missing' });
+    }
+
+    try {
+        const owned = db.prepare('SELECT id FROM subcontract_orders WHERE id = ? AND owner_id = ?').get(order_id, companyId);
+        if (!owned) return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+
+        const id = randomUUID();
+        db.prepare(`
+            INSERT INTO subcontract_entries (id, order_id, direction, couleur, taille, quantite, entry_date, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id, order_id, direction, couleur || null, taille || null, Number(quantite) || 0, entry_date, notes || null);
+
+        res.status(201).json({ message: 'Entry created successfully', id });
+    } catch (error) {
+        console.error('Create subcontract entry error:', error);
+        res.status(500).json({ message: 'Error creating subcontract entry' });
+    }
+};
+
+// Update an entry
+export const updateSubcontractEntry = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+    const { direction, couleur, taille, quantite, entry_date, notes } = req.body;
+
+    try {
+        const owned = db.prepare(`
+            SELECT e.id FROM subcontract_entries e
+            JOIN subcontract_orders o ON o.id = e.order_id
+            WHERE e.id = ? AND o.owner_id = ?
+        `).get(id, companyId);
+        if (!owned) return res.status(404).json({ message: 'Entry not found or unauthorized' });
+
+        db.prepare(`
+            UPDATE subcontract_entries
+            SET direction = COALESCE(?, direction),
+                couleur = COALESCE(?, couleur),
+                taille = COALESCE(?, taille),
+                quantite = COALESCE(?, quantite),
+                entry_date = COALESCE(?, entry_date),
+                notes = COALESCE(?, notes),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `).run(direction || null, couleur || null, taille || null, quantite !== undefined ? Number(quantite) : null, entry_date || null, notes || null, id);
+
+        res.json({ message: 'Entry updated successfully' });
+    } catch (error) {
+        console.error('Update subcontract entry error:', error);
+        res.status(500).json({ message: 'Error updating subcontract entry' });
+    }
+};
+
+// Delete an entry
+export const deleteSubcontractEntry = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+
+    try {
+        const result = db.prepare(`
+            DELETE FROM subcontract_entries
+            WHERE id = ? AND order_id IN (SELECT id FROM subcontract_orders WHERE owner_id = ?)
+        `).run(id, companyId);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ message: 'Entry not found or unauthorized' });
+        }
+        res.json({ message: 'Entry deleted successfully' });
+    } catch (error) {
+        console.error('Delete subcontract entry error:', error);
+        res.status(500).json({ message: 'Error deleting subcontract entry' });
+    }
+};
+
+// --- Frais additionnels de la commande ---
+
+export const getSubcontractExpenses = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { orderId } = req.query as { orderId?: string };
+    try {
+        if (orderId) {
+            const owned = db.prepare('SELECT id FROM subcontract_orders WHERE id = ? AND owner_id = ?').get(orderId, companyId);
+            if (!owned) return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+            const stmt = db.prepare('SELECT * FROM subcontract_expenses WHERE order_id = ? ORDER BY created_at ASC');
+            return res.json(stmt.all(orderId));
+        }
+        const stmt = db.prepare(`
+            SELECT ex.* FROM subcontract_expenses ex
+            JOIN subcontract_orders o ON o.id = ex.order_id
+            WHERE o.owner_id = ?
+            ORDER BY ex.created_at ASC
+        `);
+        res.json(stmt.all(companyId));
+    } catch (error) {
+        console.error('Get subcontract expenses error:', error);
+        res.status(500).json({ message: 'Error fetching subcontract expenses' });
+    }
+};
+
+export const createSubcontractExpense = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { order_id, label, amount } = req.body;
+
+    if (!order_id || !label || !label.trim() || amount === undefined || amount === null) {
+        return res.status(400).json({ message: 'Required fields are missing' });
+    }
+
+    try {
+        const owned = db.prepare('SELECT id FROM subcontract_orders WHERE id = ? AND owner_id = ?').get(order_id, companyId);
+        if (!owned) return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+
+        const id = randomUUID();
+        db.prepare(`INSERT INTO subcontract_expenses (id, order_id, label, amount) VALUES (?, ?, ?, ?)`)
+          .run(id, order_id, label.trim(), Number(amount) || 0);
+
+        res.status(201).json({ message: 'Expense created successfully', id });
+    } catch (error) {
+        console.error('Create subcontract expense error:', error);
+        res.status(500).json({ message: 'Error creating subcontract expense' });
+    }
+};
+
+export const updateSubcontractExpense = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+    const { label, amount } = req.body;
+
+    try {
+        const owned = db.prepare(`
+            SELECT ex.id FROM subcontract_expenses ex
+            JOIN subcontract_orders o ON o.id = ex.order_id
+            WHERE ex.id = ? AND o.owner_id = ?
+        `).get(id, companyId);
+        if (!owned) return res.status(404).json({ message: 'Expense not found or unauthorized' });
+
+        db.prepare(`
+            UPDATE subcontract_expenses
+            SET label = COALESCE(?, label), amount = COALESCE(?, amount), updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `).run(label || null, amount !== undefined ? Number(amount) : null, id);
+
+        res.json({ message: 'Expense updated successfully' });
+    } catch (error) {
+        console.error('Update subcontract expense error:', error);
+        res.status(500).json({ message: 'Error updating subcontract expense' });
+    }
+};
+
+export const deleteSubcontractExpense = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+
+    try {
+        const result = db.prepare(`
+            DELETE FROM subcontract_expenses
+            WHERE id = ? AND order_id IN (SELECT id FROM subcontract_orders WHERE owner_id = ?)
+        `).run(id, companyId);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ message: 'Expense not found or unauthorized' });
+        }
+        res.json({ message: 'Expense deleted successfully' });
+    } catch (error) {
+        console.error('Delete subcontract expense error:', error);
+        res.status(500).json({ message: 'Error deleting subcontract expense' });
+    }
+};
+
 // Get all subcontractor groups
 export const getSubcontractorGroups = (req: Request, res: Response) => {
     const companyId = (req as any).companyId;

@@ -38,6 +38,39 @@ interface BatchInput {
 
 const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
 
+/** Pastille d'un jalon logistique (tissu, fournitures, fiche technique, proto).
+ *  Ces quatre états n'ont plus d'onglet dans le formulaire : la pastille est le
+ *  seul contrôle, sur la carte comme dans la fiche. `size` distingue la version
+ *  compacte de la liste de celle, plus grande, de la fiche détaillée. */
+const MILESTONE_TONES = {
+  emerald: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50',
+  blue: 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/50',
+  purple: 'bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800/50',
+} as const;
+
+const MilestoneChip: React.FC<{
+  label: string;
+  title: string;
+  icon: React.ReactNode;
+  on: boolean;
+  tone: keyof typeof MILESTONE_TONES;
+  size?: 'sm' | 'md';
+  onToggle: () => void;
+}> = ({ label, title, icon, on, tone, size = 'sm', onToggle }) => (
+  <button
+    type="button"
+    aria-pressed={on}
+    title={title}
+    onClick={(e) => { e.stopPropagation(); onToggle(); }}
+    className={`font-bold rounded border flex items-center gap-1 transition-colors cursor-pointer hover:brightness-95 dark:hover:brightness-125 ${
+      size === 'sm' ? 'text-[8px] px-1.5 py-1' : 'text-[10px] px-2.5 py-1.5'
+    } ${on ? MILESTONE_TONES[tone] : 'bg-slate-50 dark:bg-dk-bg text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border'}`}
+  >
+    {icon}
+    {label}
+  </button>
+);
+
 const KNOWN_COLOR_KEYWORDS: Record<string, string> = {
   'blanc': '#ffffff', 'white': '#ffffff', 'noir': '#1e1e1e', 'black': '#1e1e1e',
   'rouge': '#dc2626', 'red': '#dc2626', 'bleu': '#2563eb', 'blue': '#2563eb',
@@ -141,7 +174,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [formDefectRateAccepted, setFormDefectRateAccepted] = useState<number>(1.5);
   const [formStitchingDetails, setFormStitchingDetails] = useState<string>('');
   
-  const [modalFormTab, setModalFormTab] = useState<'general' | 'logistics' | 'technical'>('general');
   const [batches, setBatches] = useState<BatchInput[]>([{ quantity: 0, deliveryDate: '', notes: '', grid: {} }]);
   const [newColorInput, setNewColorInput] = useState('');
   const [modelMaxGrid, setModelMaxGrid] = useState<Record<string, Record<string, number>>>({});
@@ -638,8 +670,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setFormPaymentTerms('AVANCE_RECEPTION');
     setFormDefectRateAccepted(1.5);
     setFormStitchingDetails('');
-    setModalFormTab('general');
-    
+
     setBatches([{
       quantity: firstModel?.meta_data.quantity || 0,
       deliveryDate: '',
@@ -929,8 +960,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setFormPaymentTerms(order.paymentTerms || 'AVANCE_RECEPTION');
     setFormDefectRateAccepted(order.defectRateAccepted !== undefined ? order.defectRateAccepted : 1.5);
     setFormStitchingDetails(order.stitchingDetails || '');
-    
-    setModalFormTab('general');
 
     // Restore matrix : grid_json fait foi, sinon reconstruction estimée signalée.
     const editedModel = models.find(m => m.id === order.modelId);
@@ -1030,6 +1059,98 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       alert(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
     }
   };
+
+  /** Bascule un des quatre jalons logistiques directement depuis la pastille.
+   *  Ces champs n'ont plus d'onglet dédié dans le formulaire : la pastille EST
+   *  le contrôle. Mise à jour optimiste pour que le clic réponde tout de suite,
+   *  avec retour à l'état précédent si le serveur refuse. */
+  const handleToggleMilestone = async (
+    order: SubcontractOrder,
+    field: 'tissuStatus' | 'fournituresStatus' | 'ficheTechniqueSent' | 'protoStatus'
+  ) => {
+    let patch: Partial<SubcontractOrder>;
+    switch (field) {
+      case 'tissuStatus':
+        patch = { tissuStatus: order.tissuStatus === 'SENT' ? 'PENDING' : 'SENT' };
+        break;
+      case 'fournituresStatus':
+        patch = { fournituresStatus: order.fournituresStatus === 'DELIVERED' ? 'PENDING' : 'DELIVERED' };
+        break;
+      case 'ficheTechniqueSent':
+        patch = { ficheTechniqueSent: order.ficheTechniqueSent === 1 ? 0 : 1 };
+        break;
+      case 'protoStatus':
+        patch = { protoStatus: order.protoStatus === 'APPROVED' ? 'PENDING' : 'APPROVED' };
+        break;
+    }
+
+    setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, ...patch } : o)));
+    setDetailOrder(prev => (prev && prev.id === order.id ? { ...prev, ...patch } : prev));
+
+    try {
+      const res = await fetch(`/api/subcontract/${order.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(patch)
+      });
+      if (!res.ok) throw new Error(tx(lang,{fr:'Echec de la mise à jour',ar:'فشل التحديث',en:'Update failed',es:'Error al actualizar',pt:'Falha na atualização',tr:'Güncelleme başarısız'}));
+    } catch (err: any) {
+      // Le serveur n'a pas pris la modification : ne pas laisser l'écran mentir.
+      setOrders(prev => prev.map(o => (o.id === order.id ? order : o)));
+      setDetailOrder(prev => (prev && prev.id === order.id ? order : prev));
+      alert(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
+    }
+  };
+
+  /** Décrit les quatre pastilles d'une commande — même définition sur la carte
+   *  et dans la fiche, pour qu'elles ne puissent pas diverger. */
+  const milestoneChips = (order: SubcontractOrder, size: 'sm' | 'md' = 'sm') => ([
+    {
+      field: 'tissuStatus' as const,
+      on: order.tissuStatus === 'SENT',
+      tone: 'emerald' as const,
+      icon: <Layers className={size === 'sm' ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} />,
+      label: tx(lang,{fr:'Tissu',ar:'قماش',en:'Fabric',es:'Tejido',pt:'Tecido',tr:'Kumaş'}),
+      title: order.tissuStatus === 'SENT'
+        ? tx(lang,{fr:'Tissu expédié — cliquer pour repasser en attente',ar:'القماش مُرسَل — انقر للإرجاع إلى الانتظار',en:'Fabric shipped — click to set back to pending',es:'Tejido enviado — clic para volver a pendiente',pt:'Tecido expedido — clique para voltar a pendente',tr:'Kumaş sevk edildi — beklemeye almak için tıklayın'})
+        : tx(lang,{fr:'Tissu en attente — cliquer pour marquer expédié',ar:'القماش في الانتظار — انقر لتسجيله مُرسَلاً',en:'Fabric pending — click to mark shipped',es:'Tejido pendiente — clic para marcar enviado',pt:'Tecido pendente — clique para marcar expedido',tr:'Kumaş beklemede — sevk edildi olarak işaretlemek için tıklayın'}),
+      size,
+    },
+    {
+      field: 'fournituresStatus' as const,
+      on: order.fournituresStatus === 'DELIVERED',
+      tone: 'emerald' as const,
+      icon: <Settings className={size === 'sm' ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} />,
+      label: tx(lang,{fr:'Fournitures',ar:'لوازم',en:'Supplies',es:'Fornituras',pt:'Acessórios',tr:'Malzemeler'}),
+      title: order.fournituresStatus === 'DELIVERED'
+        ? tx(lang,{fr:'Fournitures livrées — cliquer pour repasser en attente',ar:'اللوازم مُسلَّمة — انقر للإرجاع إلى الانتظار',en:'Supplies delivered — click to set back to pending',es:'Fornituras entregadas — clic para volver a pendiente',pt:'Acessórios entregues — clique para voltar a pendente',tr:'Malzemeler teslim edildi — beklemeye almak için tıklayın'})
+        : tx(lang,{fr:'Fournitures en attente — cliquer pour marquer livrées',ar:'اللوازم في الانتظار — انقر لتسجيلها مُسلَّمة',en:'Supplies pending — click to mark delivered',es:'Fornituras pendientes — clic para marcar entregadas',pt:'Acessórios pendentes — clique para marcar entregues',tr:'Malzemeler beklemede — teslim edildi olarak işaretlemek için tıklayın'}),
+      size,
+    },
+    {
+      field: 'ficheTechniqueSent' as const,
+      on: order.ficheTechniqueSent === 1,
+      tone: 'blue' as const,
+      icon: <FileText className={size === 'sm' ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} />,
+      label: tx(lang,{fr:'FT',ar:'بطاقة فنية',en:'TS',es:'FT',pt:'FT',tr:'FT'}),
+      title: order.ficheTechniqueSent === 1
+        ? tx(lang,{fr:'Fiche technique envoyée — cliquer pour annuler',ar:'البطاقة الفنية مُرسَلة — انقر للإلغاء',en:'Tech sheet sent — click to undo',es:'Ficha técnica enviada — clic para anular',pt:'Ficha técnica enviada — clique para anular',tr:'Teknik föy gönderildi — geri almak için tıklayın'})
+        : tx(lang,{fr:'Fiche technique non envoyée — cliquer pour marquer envoyée',ar:'البطاقة الفنية غير مُرسَلة — انقر لتسجيلها مُرسَلة',en:'Tech sheet not sent — click to mark sent',es:'Ficha técnica no enviada — clic para marcar enviada',pt:'Ficha técnica não enviada — clique para marcar enviada',tr:'Teknik föy gönderilmedi — gönderildi olarak işaretlemek için tıklayın'}),
+      size,
+    },
+    {
+      field: 'protoStatus' as const,
+      on: order.protoStatus === 'APPROVED',
+      tone: 'purple' as const,
+      icon: <ShieldCheck className={size === 'sm' ? 'w-2.5 h-2.5' : 'w-3.5 h-3.5'} />,
+      label: tx(lang,{fr:'Proto',ar:'عينة',en:'Proto',es:'Proto',pt:'Proto',tr:'Proto'}),
+      title: order.protoStatus === 'APPROVED'
+        ? tx(lang,{fr:'Prototype validé — cliquer pour repasser en attente',ar:'النموذج الأولي معتمد — انقر للإرجاع إلى الانتظار',en:'Prototype approved — click to set back to pending',es:'Prototipo validado — clic para volver a pendiente',pt:'Protótipo validado — clique para voltar a pendente',tr:'Prototip onaylandı — beklemeye almak için tıklayın'})
+        : tx(lang,{fr:'Prototype en attente — cliquer pour valider',ar:'النموذج الأولي في الانتظار — انقر للاعتماد',en:'Prototype pending — click to approve',es:'Prototipo pendiente — clic para validar',pt:'Protótipo pendente — clique para validar',tr:'Prototip beklemede — onaylamak için tıklayın'}),
+      size,
+    },
+  ]);
 
   // Delete subcontract order
   const handleDeleteOrder = async (orderId: string) => {
@@ -1648,32 +1769,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             </div>
                           </div>
 
-                          {/* Logistics Status Tags */}
+                          {/* Jalons logistiques — cliquables, ils remplacent l'ancien onglet « Logistique » */}
                           <div className="flex flex-wrap gap-1 pt-1.5 border-t border-slate-100 dark:border-dk-border">
-                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-0.5 ${
-                              order.tissuStatus === 'SENT' ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-150 dark:border-emerald-800/50' : 'bg-slate-50 dark:bg-dk-bg text-slate-400 dark:text-dk-muted border-slate-150 dark:border-dk-border'
-                            }`}>
-                              <Layers className="w-2.5 h-2.5" />
-                              {tx(lang,{fr:'Tissu',ar:'قماش',en:'Fabric',es:'Tejido',pt:'Tecido',tr:'Kumaş'})}
-                            </span>
-                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-0.5 ${
-                              order.fournituresStatus === 'DELIVERED' ? 'bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-150 dark:border-emerald-800/50' : 'bg-slate-50 dark:bg-dk-bg text-slate-400 dark:text-dk-muted border-slate-150 dark:border-dk-border'
-                            }`}>
-                              <Settings className="w-2.5 h-2.5" />
-                              {tx(lang,{fr:'Fournitures',ar:'لوازم',en:'Supplies',es:'Fornituras',pt:'Acessórios',tr:'Malzemeler'})}
-                            </span>
-                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-0.5 ${
-                              order.ficheTechniqueSent === 1 ? 'bg-blue-50 dark:bg-blue-900/30 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border-blue-150 dark:border-blue-800/50' : 'bg-slate-50 dark:bg-dk-bg text-slate-400 dark:text-dk-muted border-slate-150 dark:border-dk-border'
-                            }`}>
-                              <FileText className="w-2.5 h-2.5" />
-                              {tx(lang,{fr:'FT',ar:'بطاقة فنية',en:'TS',es:'FT',pt:'FT',tr:'FT'})}
-                            </span>
-                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-0.5 ${
-                              order.protoStatus === 'APPROVED' ? 'bg-purple-50 dark:bg-purple-900/30 dark:bg-purple-950/30 text-purple-700 dark:text-purple-400 border-purple-150 dark:border-purple-800/50' : 'bg-slate-50 dark:bg-dk-bg text-slate-400 dark:text-dk-muted border-slate-150 dark:border-dk-border'
-                            }`}>
-                              <ShieldCheck className="w-2.5 h-2.5" />
-                              {tx(lang,{fr:'Proto',ar:'عينة',en:'Proto',es:'Proto',pt:'Proto',tr:'Proto'})}
-                            </span>
+                            {milestoneChips(order).map(chip => (
+                              <MilestoneChip key={chip.field} {...chip} onToggle={() => handleToggleMilestone(order, chip.field)} />
+                            ))}
                           </div>
                         </div>
 
@@ -2552,33 +2652,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </button>
             </div>
 
-            {/* Modal Internal Form Navigation */}
-            <div className="flex border-b border-slate-150 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-6 gap-4 shrink-0 text-xs font-bold">
-              <button 
-                type="button"
-                onClick={() => setModalFormTab('general')}
-                className={`py-3 border-b-2 ${modalFormTab === 'general' ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent border-indigo-600 dark:border-dk-accent' : 'text-slate-500 dark:text-dk-muted border-transparent'}`}
-              >
-                {tx(lang,{fr:'Général & Quantités',ar:'عام والكميات',en:'General & Quantities',es:'General y Cantidades',pt:'Geral e Quantidades',tr:'Genel ve Miktarlar'})}
-              </button>
-              <button 
-                type="button"
-                onClick={() => setModalFormTab('logistics')}
-                className={`py-3 border-b-2 ${modalFormTab === 'logistics' ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent border-indigo-600 dark:border-dk-accent' : 'text-slate-500 dark:text-dk-muted border-transparent'}`}
-              >
-                {tx(lang,{fr:'Logistique & Suivi',ar:'اللوجستيك والمتابعة',en:'Logistics & Tracking',es:'Logística y Seguimiento',pt:'Logística e Acompanhamento',tr:'Lojistik ve Takip'})}
-              </button>
-              <button 
-                type="button"
-                onClick={() => setModalFormTab('technical')}
-                className={`py-3 border-b-2 ${modalFormTab === 'technical' ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent border-indigo-600 dark:border-dk-accent' : 'text-slate-500 dark:text-dk-muted border-transparent'}`}
-              >
-                {tx(lang,{fr:'Spécifications Techniques',ar:'المواصفات التقنية',en:'Technical Specifications',es:'Especificaciones Técnicas',pt:'Especificações Técnicas',tr:'Teknik Şartname'})}
-              </button>
-            </div>
-
             <form onSubmit={handleEditOrder} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs text-slate-600 dark:text-dk-text-soft">
-              {modalFormTab === 'general' && (
+              {(
                 <div className="space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
@@ -2760,174 +2835,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               )}
 
-              {modalFormTab === 'logistics' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-dk-text border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Expédition des Matières Premières',ar:'شحن المواد الأولية',en:'Raw Materials Shipment',es:'Expedición de Materias Primas',pt:'Expedição de Matérias-Primas',tr:'Hammadde Sevkiyatı'})}</h4>
-                    
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut Tissu',ar:'حالة القماش',en:'Fabric Status',es:'Estado de la Tela',pt:'Estado do Tecido',tr:'Kumaş Durumu'})}</label>
-                      <select 
-                        value={formTissuStatus} 
-                        onChange={(e: any) => setFormTissuStatus(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="PENDING">{tx(lang,{fr:'En attente d\'expédition',ar:'قيد انتظار الشحن',en:'Awaiting shipment',es:'Pendiente de envío',pt:'A aguardar expedição',tr:'Sevkiyat bekleniyor'})}</option>
-                        <option value="SENT">{tx(lang,{fr:'Tissu envoyé',ar:'تم إرسال القماش',en:'Fabric sent',es:'Tela enviada',pt:'Tecido enviado',tr:'Kumaş gönderildi'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut Fournitures / Accessoires',ar:'حالة اللوازم / الإكسسوارات',en:'Supplies / Accessories Status',es:'Estado de Suministros / Accesorios',pt:'Estado dos Fornecimentos / Acessórios',tr:'Malzeme / Aksesuar Durumu'})}</label>
-                      <select 
-                        value={formFournituresStatus} 
-                        onChange={(e: any) => setFormFournituresStatus(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="PENDING">{tx(lang,{fr:'En attente de livraison',ar:'قيد انتظار التسليم',en:'Awaiting delivery',es:'Pendiente de entrega',pt:'A aguardar entrega',tr:'Teslimat bekleniyor'})}</option>
-                        <option value="DELIVERED">{tx(lang,{fr:'Livrées au sous-traitant',ar:'تم التسليم للمقاول من الباطن',en:'Delivered to subcontractor',es:'Entregado al subcontratista',pt:'Entregue ao subcontratado',tr:'Taşerona teslim edildi'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-dk-bg p-3 rounded-xl border border-slate-200 dark:border-dk-border">
-                      <input 
-                        type="checkbox" 
-                        checked={formFicheTechniqueSent}
-                        onChange={(e) => setFormFicheTechniqueSent(e.target.checked)}
-                        className="rounded bg-white dark:bg-dk-surface text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent w-4 h-4 border-slate-300 dark:border-dk-border"
-                        id="checkFT"
-                      />
-                      <label htmlFor="checkFT" className="font-semibold text-slate-700 dark:text-dk-text-soft cursor-pointer">{tx(lang,{fr:'Fiche Technique validée et envoyée',ar:'الورقة التقنية معتمدة ومرسلة',en:'Technical sheet validated and sent',es:'Ficha técnica validada y enviada',pt:'Ficha técnica validada e enviada',tr:'Teknik fiş onaylandı ve gönderildi'})}</label>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-dk-text border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Profil Sous-traitant',ar:'ملف المقاول من الباطن',en:'Subcontractor Profile',es:'Perfil del Subcontratista',pt:'Perfil do Subcontratado',tr:'Taşeron Profili'})}</h4>
-                    
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Disponibilité de l\'atelier',ar:'توفر الورشة',en:'Workshop availability',es:'Disponibilidad del taller',pt:'Disponibilidade da oficina',tr:'Atölye müsaitliği'})}</label>
-                      <input 
-                        type="date"
-                        value={formSubcontractorAvailabilityDate}
-                        onChange={(e) => setFormSubcontractorAvailabilityDate(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Évaluation (Note sur 5)',ar:'التقييم (درجة من 5)',en:'Rating (Score out of 5)',es:'Evaluación (Puntuación sobre 5)',pt:'Avaliação (Nota de 0 a 5)',tr:'Değerlendirme (5 üzerinden puan)'})}</label>
-                      <select 
-                        value={formSubcontractorRating} 
-                        onChange={(e) => setFormSubcontractorRating(parseFloat(e.target.value))}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="5">{tx(lang,{fr:'★★★★★ - Excellent',ar:'★★★★★ - ممتاز',en:'★★★★★ - Excellent',es:'★★★★★ - Excelente',pt:'★★★★★ - Excelente',tr:'★★★★★ - Mükemmel'})}</option>
-                        <option value="4">{tx(lang,{fr:'★★★★☆ - Très Bon',ar:'★★★★☆ - جيد جداً',en:'★★★★☆ - Very Good',es:'★★★★☆ - Muy Bueno',pt:'★★★★☆ - Muito Bom',tr:'★★★★☆ - Çok İyi'})}</option>
-                        <option value="3">{tx(lang,{fr:'★★★☆☆ - Moyen',ar:'★★★☆☆ - متوسط',en:'★★★☆☆ - Average',es:'★★★☆☆ - Regular',pt:'★★★☆☆ - Médio',tr:'★★★☆☆ - Orta'})}</option>
-                        <option value="2">{tx(lang,{fr:'★★☆☆☆ - Faible',ar:'★★☆☆☆ - ضعيف',en:'★★☆☆☆ - Weak',es:'★★☆☆☆ - Bajo',pt:'★★☆☆☆ - Fraco',tr:'★★☆☆☆ - Zayıf'})}</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {modalFormTab === 'technical' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-dk-text border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Cahier des charges',ar:'دفتر الشروط',en:'Specifications',es:'Pliego de condiciones',pt:'Caderno de encargos',tr:'Şartname'})}</h4>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Type de prestation',ar:'نوع الخدمة',en:'Service Type',es:'Tipo de Prestación',pt:'Tipo de Prestação',tr:'Hizmet Türü'})}</label>
-                      <select 
-                        value={formPrestationType} 
-                        onChange={(e: any) => setFormPrestationType(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="CMT">CMT ({tx(lang,{fr:'Coupe, Couture, Finition',ar:'قص، خياطة، تشطيب',en:'Cutting, Sewing, Finishing',es:'Corte, Costura, Acabado',pt:'Corte, Costura, Acabamento',tr:'Kesim, Dikiş, Bitim'})})</option>
-                        <option value="FACON_PURE">{tx(lang,{fr:'Façon Pure (Couture seule)',ar:'تصنيع خالص (خياطة فقط)',en:'Pure Manufacturing (Sewing only)',es:'Fabricación Pura (Solo costura)',pt:'Confecção Pura (Apenas costura)',tr:'Saf İmalat (Sadece dikiş)'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Provenance du Tissu',ar:'مصدر القماش',en:'Fabric Origin',es:'Procedencia de la Tela',pt:'Proveniência do Tecido',tr:'Kumaşın Menşei'})}</label>
-                      <select 
-                        value={formTissuFournisseur} 
-                        onChange={(e: any) => setFormTissuFournisseur(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="CLIENT">{tx(lang,{fr:'Fourni par le donneur d\'ordre (Client)',ar:'مقدم من صاحب الطلب (العميل)',en:'Provided by the client',es:'Proporcionado por el cliente',pt:'Fornecido pelo cliente',tr:'Müşteri tarafından sağlanır'})}</option>
-                        <option value="SUBCONTRACTOR">{tx(lang,{fr:'Fourni par le sous-traitant',ar:'مقدم من المقاول من الباطن',en:'Provided by the subcontractor',es:'Proporcionado por el subcontratista',pt:'Fornecido pelo subcontratado',tr:'Taşeron tarafından sağlanır'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Provenance des Fournitures',ar:'مصدر اللوازم',en:'Supplies Origin',es:'Procedencia de los Suministros',pt:'Proveniência dos Fornecimentos',tr:'Malzeme Menşei'})}</label>
-                      <select 
-                        value={formFournituresFournisseur} 
-                        onChange={(e: any) => setFormFournituresFournisseur(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="CLIENT">{tx(lang,{fr:'Fourni par le donneur d\'ordre (Client)',ar:'مقدم من صاحب الطلب (العميل)',en:'Provided by the client',es:'Proporcionado por el cliente',pt:'Fornecido pelo cliente',tr:'Müşteri tarafından sağlanır'})}</option>
-                        <option value="SUBCONTRACTOR">{tx(lang,{fr:'Acheté par le sous-traitant',ar:'يشتريه المقاول من الباطن',en:'Purchased by the subcontractor',es:'Comprado por el subcontratista',pt:'Comprado pelo subcontratado',tr:'Taşeron tarafından satın alınır'})}</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-dk-text border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Contrôle qualité & Administratif',ar:'مراقبة الجودة والإداري',en:'Quality Control & Administrative',es:'Control de Calidad y Administrativo',pt:'Controlo de Qualidade e Administrativo',tr:'Kalite Kontrol ve İdari'})}</h4>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Prototype Requis',ar:'النموذج الأولي مطلوب',en:'Prototype Required',es:'Prototipo Requerido',pt:'Protótipo Necessário',tr:'Prototip Gerekli'})}</label>
-                      <select 
-                        value={formProtoRequired} 
-                        onChange={(e) => setFormProtoRequired(parseInt(e.target.value))}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="1">{tx(lang,{fr:'Oui, obligatoire',ar:'نعم، إلزامي',en:'Yes, mandatory',es:'Sí, obligatorio',pt:'Sim, obrigatório',tr:'Evet, zorunlu'})}</option>
-                        <option value="0">{tx(lang,{fr:'Non requis',ar:'غير مطلوب',en:'Not required',es:'No requerido',pt:'Não necessário',tr:'Gerekli değil'})}</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut du Prototype',ar:'حالة النموذج الأولي',en:'Prototype Status',es:'Estado del Prototipo',pt:'Estado do Protótipo',tr:'Prototip Durumu'})}</label>
-                      <select 
-                        value={formProtoStatus} 
-                        onChange={(e: any) => setFormProtoStatus(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="PENDING">{tx(lang,{fr:'En attente d\'approbation',ar:'قيد انتظار الموافقة',en:'Awaiting approval',es:'Pendiente de aprobación',pt:'A aguardar aprovação',tr:'Onay bekleniyor'})}</option>
-                        <option value="APPROVED">{tx(lang,{fr:'Validé / BPA signé',ar:'معتمد / تم توقيع BPA',en:'Approved / BPA signed',es:'Validado / BPA firmado',pt:'Validado / BPA assinado',tr:'Onaylandı / BPA imzalandı'})}</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Conditions de règlement',ar:'شروط الدفع',en:'Payment Terms',es:'Condiciones de Pago',pt:'Condições de Pagamento',tr:'Ödeme Koşulları'})}</label>
-                      <select 
-                        value={formPaymentTerms} 
-                        onChange={(e: any) => setFormPaymentTerms(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="AVANCE_RECEPTION">{tx(lang,{fr:'Acompte à la commande + solde à la livraison',ar:'دفعة مقدمة عند الطلب + الباقي عند التسليم',en:'Deposit on order + balance on delivery',es:'Anticipo al pedido + saldo a la entrega',pt:'Sinal na encomenda + saldo na entrega',tr:'Siparişte avans + teslimatta bakiye'})}</option>
-                        <option value="APRES_LIVRAISON">{tx(lang,{fr:'Paiement après réception de facture',ar:'الدفع بعد استلام الفاتورة',en:'Payment after receipt of invoice',es:'Pago después de recibir la factura',pt:'Pagamento após receção da fatura',tr:'Fatura alındıktan sonra ödeme'})}</option>
-                        <option value="ECHEANCES">{tx(lang,{fr:'Paiement échelonné',ar:'دفع مقسط',en:'Installment payment',es:'Pago fraccionado',pt:'Pagamento parcelado',tr:'Taksitli ödeme'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Consignes de Couture',ar:'تعليمات الخياطة',en:'Sewing Instructions',es:'Instrucciones de Costura',pt:'Instruções de Costura',tr:'Dikiş Talimatları'})}</label>
-                      <textarea 
-                        value={formStitchingDetails}
-                        onChange={(e) => setFormStitchingDetails(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none h-16 text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
-                        placeholder={tx(lang,{fr:'Instructions spécifiques d\'assemblage...',ar:'تعليمات تجميع محددة...',en:'Specific assembly instructions...',es:'Instrucciones específicas de ensamblaje...',pt:'Instruções específicas de montagem...',tr:'Özel montaj talimatları...'})}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
               <div className="flex gap-3 justify-between items-center border-t border-slate-150 dark:border-dk-border pt-4 mt-6">
                 <button
                   type="button"
@@ -3016,25 +2923,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
 
-              {/* Status details */}
-              <div className="bg-slate-50 dark:bg-dk-bg/75 dark:bg-dk-surface/75 border border-slate-150 dark:border-dk-border rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Matière (Tissu)',ar:'المادة (القماش)',en:'Material (Fabric)',es:'Material (Tela)',pt:'Material (Tecido)',tr:'Malzeme (Kumaş)'})}</span>
-                  <span className={`font-bold text-xs ${detailOrder.tissuStatus === 'SENT' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                    {detailOrder.tissuStatus === 'SENT' ? tx(lang,{fr:'Expédié',ar:'تم الشحن',en:'Shipped',es:'Enviado',pt:'Expedido',tr:'Sevk Edildi'}) : tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Fournitures',ar:'اللوازم',en:'Supplies',es:'Suministros',pt:'Fornecimentos',tr:'Malzemeler'})}</span>
-                  <span className={`font-bold text-xs ${detailOrder.fournituresStatus === 'DELIVERED' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                    {detailOrder.fournituresStatus === 'DELIVERED' ? tx(lang,{fr:'Livrées',ar:'تم التسليم',en:'Delivered',es:'Entregado',pt:'Entregue',tr:'Teslim Edildi'}) : tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Statut Prototype',ar:'حالة النموذج الأولي',en:'Prototype Status',es:'Estado del Prototipo',pt:'Estado do Protótipo',tr:'Prototip Durumu'})}</span>
-                  <span className={`font-bold text-xs ${detailOrder.protoStatus === 'APPROVED' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                    {detailOrder.protoStatus === 'APPROVED' ? tx(lang,{fr:'Validé',ar:'معتمد',en:'Approved',es:'Validado',pt:'Validado',tr:'Onaylandı'}) : tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}
-                  </span>
+              {/* Jalons — mêmes contrôles que sur la carte, en plus grand */}
+              <div className="bg-slate-50 dark:bg-dk-bg/75 border border-slate-150 dark:border-dk-border rounded-xl p-4 space-y-2.5">
+                <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px] tracking-wide">
+                  {tx(lang,{fr:'Jalons — cliquer pour basculer',ar:'المراحل — انقر للتبديل',en:'Milestones — click to toggle',es:'Hitos — clic para alternar',pt:'Marcos — clique para alternar',tr:'Kilometre taşları — değiştirmek için tıklayın'})}
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {milestoneChips(detailOrder, 'md').map(chip => (
+                    <MilestoneChip key={chip.field} {...chip} onToggle={() => handleToggleMilestone(detailOrder, chip.field)} />
+                  ))}
                 </div>
               </div>
 
