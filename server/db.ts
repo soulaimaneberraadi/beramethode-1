@@ -859,6 +859,27 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subcontractor_profiles (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    phone TEXT,
+    address TEXT,
+    serviceType TEXT,
+    photo TEXT,
+    ifNumber TEXT,
+    rcNumber TEXT,
+    iceNumber TEXT,
+    rating REAL DEFAULT 5,
+    availabilityDate TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+
 // 🚀 CRÉATION DES INDEX POUR OPTIMISER LES PERFORMANCES (Lectures / Jointures)
 db.exec(`
   -- Index généraux

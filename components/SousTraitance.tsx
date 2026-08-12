@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ModelData, SubcontractOrder, PlanningEvent } from '../types';
+import { createPortal } from 'react-dom';
+import { ModelData, SubcontractOrder, PlanningEvent, SubcontractorProfile } from '../types';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import InlineInvoiceList from './InlineInvoiceList';
@@ -7,7 +8,7 @@ import {
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
   ChevronDown, ChevronUp, Loader2, Info, Eye, Layers, Palette,
-  Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins,
+  Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Send, Copy, Coins,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight
 } from 'lucide-react';
 
@@ -15,6 +16,7 @@ interface SousTraitanceProps {
   models: ModelData[];
   settings?: any;
   onNavigate?: (view: string) => void;
+  onCreateNewProject?: () => void;
   planningEvents?: PlanningEvent[];
   setPlanningEvents?: React.Dispatch<React.SetStateAction<PlanningEvent[]>>;
   onLoadModel?: (model: ModelData) => void;
@@ -35,13 +37,14 @@ interface BatchInput {
 
 const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
 
-export default function SousTraitance({ models, settings, onLoadModel }: SousTraitanceProps) {
+export default function SousTraitance({ models, settings, onLoadModel, onNavigate, onCreateNewProject }: SousTraitanceProps) {
   // Navigation Tabs
-  const [activeTab, setActiveTab] = useState<'orders' | 'subcontractors' | 'stock' | 'groups'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'stock' | 'profiles'>('orders');
 
   // Core Data States
   const [orders, setOrders] = useState<SubcontractOrder[]>([]);
   const [groups, setGroups] = useState<SubcontractorGroup[]>([]);
+  const [profiles, setProfiles] = useState<SubcontractorProfile[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -54,15 +57,25 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
   const [groupFilter, setGroupFilter] = useState<string>('ALL');
     const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
     const [showMobileFilters, setShowMobileFilters] = useState(false);
+    const [expandedSub, setExpandedSub] = useState<string | null>(null);
 
   // Modal States
+  const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<SubcontractOrder | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailOrder, setDetailOrder] = useState<SubcontractOrder | null>(null);
-
-  // Form States (Orders)
+  const [selectedSubcontractorForDetail, setSelectedSubcontractorForDetail] = useState<string | null>(null);
+  const [isNewSubModalOpen, setIsNewSubModalOpen] = useState(false);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [formSubcontractorAddress, setFormSubcontractorAddress] = useState('');
+  const [formSubcontractorServiceType, setFormSubcontractorServiceType] = useState<'COUPE' | 'COUTURE' | 'FINITION' | 'CMT' | 'AUTRE'>('CMT');
+  const [formSubcontractorPhoto, setFormSubcontractorPhoto] = useState<string>('');
+  const [formSubcontractorIf, setFormSubcontractorIf] = useState('');
+  const [formSubcontractorRc, setFormSubcontractorRc] = useState('');
+  const [formSubcontractorIce, setFormSubcontractorIce] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
   const [formModelId, setFormModelId] = useState('');
   const [formClientName, setFormClientName] = useState('');
   const [formSubcontractorName, setFormSubcontractorName] = useState('');
@@ -135,6 +148,12 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       const groupsData = await resGroups.json();
       setGroups(groupsData);
 
+      // Fetch Subcontractor Profiles
+      const resProfiles = await fetch('/api/subcontract/profiles', { credentials: 'include' });
+      if (resProfiles.ok) {
+        setProfiles(await resProfiles.json());
+      }
+
       // Fetch Sales Invoices
       const resInvoices = await fetch('/api/facturation/factures?type=VENTE', { credentials: 'include' });
       if (!resInvoices.ok) throw new Error(tx(lang,{fr:'Echec du chargement des factures',ar:'فشل تحميل الفواتير',en:'Failed to load invoices',es:'Error al cargar facturas',pt:'Falha ao carregar faturas',tr:'Faturalar yüklenemedi'}));
@@ -168,8 +187,14 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
     orders.forEach(o => {
       if (o.subcontractorName) list.add(o.subcontractorName);
     });
+    profiles.forEach(p => {
+      if (p.name) list.add(p.name);
+    });
     return Array.from(list);
-  }, [orders]);
+  }, [orders, profiles]);
+
+  const findProfileByName = (name: string | null | undefined): SubcontractorProfile | undefined =>
+    name ? profiles.find(p => p.name === name) : undefined;
 
   // Find subcontractors belonging to a selected group filter
   const groupSubcontractors = useMemo(() => {
@@ -200,7 +225,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
         if (o.fournituresStatus === 'PENDING') pendingSuppliesCount++;
       });
 
-      const remainingQty = Math.max(0, totalQty - totalDelivered);
+      const remainingQty = Math.max(0, totalQty - totalDelivered - totalToRepair - totalRejected);
       const totalQualityCount = totalDelivered + totalToRepair + totalRejected;
       const avgQualityRate = totalQualityCount > 0 
         ? Math.round((totalDelivered / totalQualityCount) * 100)
@@ -241,14 +266,21 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
 
   // Tab 2: Group orders by subcontractor and calculate stats
   const subcontractorStats = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
     const map: Record<string, {
       name: string;
       phone: string;
       orderCount: number;
       totalQty: number;
       deliveredQty: number;
+      toRepairQty: number;
+      rejectedQty: number;
       remainingQty: number;
       models: Set<string>;
+      ratings: number[];
+      availabilityDate: string;
+      totalValue: number;
+      overdueOrders: number;
     }> = {};
 
     orders.forEach(o => {
@@ -260,26 +292,88 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
           orderCount: 0,
           totalQty: 0,
           deliveredQty: 0,
+          toRepairQty: 0,
+          rejectedQty: 0,
           remainingQty: 0,
-          models: new Set<string>()
+          models: new Set<string>(),
+          ratings: [],
+          availabilityDate: '',
+          totalValue: 0,
+          overdueOrders: 0
         };
       }
-      map[sub].orderCount++;
-      map[sub].totalQty += o.totalQuantity;
-      map[sub].deliveredQty += o.qtyAccepted || 0;
-      map[sub].remainingQty += Math.max(0, o.totalQuantity - (o.qtyAccepted || 0));
-      if (o.modelName) map[sub].models.add(o.modelName);
+      const s = map[sub];
+      s.orderCount++;
+      s.totalQty += o.totalQuantity;
+      s.deliveredQty += o.qtyAccepted || 0;
+      s.toRepairQty += o.qtyToRepair || 0;
+      s.rejectedQty += o.qtyRejected || 0;
+      s.remainingQty += Math.max(0, o.totalQuantity - (o.qtyAccepted || 0) - (o.qtyToRepair || 0) - (o.qtyRejected || 0));
+      if (o.modelName) s.models.add(o.modelName);
+      if (o.subcontractorRating) s.ratings.push(o.subcontractorRating);
+      if (o.subcontractorAvailabilityDate) s.availabilityDate = o.subcontractorAvailabilityDate;
+      s.totalValue += (o.pricePerPiece || 0) * o.totalQuantity;
+      if (o.status !== 'COMPLETED' && o.deliveryDate && o.deliveryDate < todayStr) s.overdueOrders++;
     });
 
-    let list = Object.values(map);
+    let list = Object.values(map).map(item => ({
+      ...item,
+      modelsArr: Array.from(item.models),
+      avgRating: item.ratings.length > 0
+        ? Math.round((item.ratings.reduce((a, b) => a + b, 0) / item.ratings.length) * 10) / 10
+        : 0,
+      hasOverdue: item.overdueOrders > 0
+    }));
 
     // Apply group filter if active
     if (groupFilter !== 'ALL') {
       list = list.filter(item => groupSubcontractors.includes(item.name));
     }
 
+    // Sort: overdue first, then by order count desc
+    list.sort((a, b) => (b.hasOverdue ? 1 : 0) - (a.hasOverdue ? 1 : 0) || b.orderCount - a.orderCount);
+
     return list;
   }, [orders, groupFilter, groupSubcontractors]);
+
+  // Tab 2: KPI summary for supplier tracking
+  const subcontractorKpis = useMemo(() => {
+    const totalOrders = subcontractorStats.reduce((a, s) => a + s.orderCount, 0);
+    const delivered = subcontractorStats.reduce((a, s) => a + s.deliveredQty, 0);
+    const remaining = subcontractorStats.reduce((a, s) => a + s.remainingQty, 0);
+    const overdueCount = subcontractorStats.filter(s => s.hasOverdue).length;
+    const rated = subcontractorStats.filter(s => s.avgRating > 0);
+    const avgRating = rated.length > 0 ? (rated.reduce((a, s) => a + s.avgRating, 0) / rated.length) : 0;
+    return {
+      totalSubs: subcontractorStats.length,
+      totalOrders,
+      delivered,
+      remaining,
+      overdueCount,
+      avgRating
+    };
+  }, [subcontractorStats]);
+
+  // Helper: get all orders belonging to one subcontractor (for detail panel)
+  const getSubOrders = (name: string) =>
+    orders.filter(o => o.subcontractorName === name);
+
+  const orderStatusBadge = (status: string) => {
+    switch (status) {
+      case 'COMPLETED':
+        return tx(lang,{fr:'Livrée',ar:'مُسلَّم',en:'Delivered',es:'Entregado',pt:'Entregue',tr:'Teslim Edildi'});
+      case 'LIVRE_PARTIEL':
+        return tx(lang,{fr:'Livraison partielle',ar:'تسليم جزئي',en:'Partial delivery',es:'Entrega parcial',pt:'Entrega parcial',tr:'Kısmi teslimat'});
+      case 'IN_COUTURE':
+        return tx(lang,{fr:'En couture',ar:'في الخياطة',en:'In sewing',es:'En costura',pt:'Em costura',tr:'Dikişte'});
+      case 'IN_FINITION':
+        return tx(lang,{fr:'En finition',ar:'في التشطيب',en:'In finishing',es:'En acabado',pt:'Em acabamento',tr:'Finişte'});
+      case 'IN_COUPE':
+        return tx(lang,{fr:'En coupe',ar:'في القص',en:'In cutting',es:'En corte',pt:'Em corte',tr:'Kesimde'});
+      default:
+        return tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Bekliyor'});
+    }
+  };
 
   // Tab 3: Calculate finished goods stock and sold quantities for each model
   const modelStockStats = useMemo(() => {
@@ -298,6 +392,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       let produced = 0;
       let oldestDate = '';
       let activeStatus = 'INACTIVE';
+      const orderPrices: number[] = [];
 
       orders.forEach(o => {
         if (o.modelId === model.id) {
@@ -309,6 +404,9 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
             activeStatus = 'IN_PRODUCTION';
           } else if (activeStatus !== 'IN_PRODUCTION') {
             activeStatus = 'FINISHED';
+          }
+          if (o.pricePerPiece && o.pricePerPiece > 0) {
+            orderPrices.push(o.pricePerPiece);
           }
         }
       });
@@ -328,16 +426,23 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       });
 
       const remaining = Math.max(0, produced - sold);
-      
-      // Look up default unit price if any
-      const price = model.meta_data.total_temps * 1.5; // simple dynamic estimate based on times
+
+      // Estimate unit price by priority:
+      // 1) Subcontract price configured on the model (soustraitance)
+      // 2) Average pricePerPiece from the model's subcontract orders
+      // 3) Fallback: estimate based on production times
+      const subConfigPrice = model.ficheData?.soustraitance?.active ? model.ficheData.soustraitance.prix : 0;
+      const avgOrderPrice = orderPrices.length > 0
+        ? orderPrices.reduce((a, b) => a + b, 0) / orderPrices.length
+        : 0;
+      const price = subConfigPrice > 0 ? subConfigPrice : (avgOrderPrice > 0 ? avgOrderPrice : model.meta_data.total_temps * 1.5);
 
       list.push({
         model,
         producedQty: produced,
         soldQty: sold,
         remainingStock: remaining,
-        price: Math.round(price) || 100,
+        price: Math.round(price * 100) / 100 || 100,
         startDate: oldestDate ? new Date(oldestDate).toLocaleDateString('fr-FR') : tx(lang,{fr:'Non commencée',ar:'لم تبدأ',en:'Not started',es:'No iniciado',pt:'Não iniciado',tr:'Başlamadı'}),
         status: activeStatus
       });
@@ -346,14 +451,49 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
     return list;
   }, [models, orders, invoices]);
 
-  // Initialize form for adding order
+  // Helper to calculate raw material costs vs stitching cost for a model
+  const getModelPricing = (model?: ModelData | null) => {
+    if (!model) return { baseModelPrice: 0, stitchingPrice: 0 };
+    
+    // Stitching price from sous-traitance section, or costMinute * total_temps
+    const stitchingPrice = model.ficheData?.soustraitance?.prix 
+      || (model.meta_data?.total_temps ? Math.round(model.meta_data.total_temps * (settings?.costMinute || 1.5) * 100) / 100 : 0)
+      || (model.ficheData?.unitCost ? model.ficheData.unitCost : 0)
+      || 0;
+      
+    // Base material cost: sum qty * unitPrice from materials list
+    let baseModelPrice = 0;
+    if (model.ficheData?.materials && model.ficheData.materials.length > 0) {
+      baseModelPrice = model.ficheData.materials.reduce((acc, mat) => acc + (mat.qty || 0) * (mat.unitPrice || 0), 0);
+    }
+    
+    return {
+      baseModelPrice: Math.round(baseModelPrice * 100) / 100,
+      stitchingPrice: Math.round(stitchingPrice * 100) / 100
+    };
+  };
+
+  const selectedModelInForm = useMemo(() => models.find(m => m.id === formModelId), [models, formModelId]);
+  const selectedModelPricing = useMemo(() => getModelPricing(selectedModelInForm), [selectedModelInForm, settings]);
+
+  // Open Step 1 Choice Modal when clicking "Nouvelle Commande"
   const openAddModal = () => {
-    const firstModel = models[0];
-    setFormModelId(firstModel?.id || 'MANUAL');
-    setFormClientName(firstModel?.ficheData?.client || '');
-    setFormSubcontractorName('');
-    setFormPricePerPiece(0);
-    setFormTotalQuantity(firstModel?.meta_data.quantity || 0);
+    setIsChoiceModalOpen(true);
+  };
+
+  // Open Step 2 Order Form Modal directly
+  const openOrderFormModal = (prefilledSub?: string) => {
+    const targetModelId = 'MANUAL';
+    setFormModelId(targetModelId);
+    
+    const selModel = models.find(m => m.id === targetModelId);
+    setFormClientName(selModel?.ficheData?.client || '');
+    setFormSubcontractorName(prefilledSub || '');
+    
+    const pricing = getModelPricing(selModel);
+    setFormPricePerPiece(pricing.stitchingPrice);
+    
+    setFormTotalQuantity(selModel?.meta_data.quantity || 0);
     setFormNotes('');
     setFormTissuStatus('PENDING');
     setFormFournituresStatus('PENDING');
@@ -374,7 +514,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
     setModalFormTab('general');
     
     setBatches([{
-      quantity: firstModel?.meta_data.quantity || 0,
+      quantity: selModel?.meta_data.quantity || 0,
       deliveryDate: '',
       notes: '',
       grid: {}
@@ -384,16 +524,19 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
     setIsAddModalOpen(true);
   };
 
-  // Sync client name when model changes in order form
+  // Sync client name and stitching pricing when model changes in order form
   const handleModelChange = (modelId: string) => {
     setFormModelId(modelId);
     if (modelId === 'MANUAL') {
       setFormClientName('');
+      setFormPricePerPiece(0);
       return;
     }
     const selected = models.find(m => m.id === modelId);
     if (selected) {
       setFormClientName(selected.ficheData?.client || '');
+      const pricing = getModelPricing(selected);
+      setFormPricePerPiece(pricing.stitchingPrice);
       if (selected.meta_data.quantity) {
         setFormTotalQuantity(selected.meta_data.quantity);
         setBatches(prev => {
@@ -423,33 +566,34 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
   };
 
   const handleRemoveColor = (color: string) => {
-    setBatches(prev => {
-      const updated = [...prev];
-      delete updated[0].grid[color];
-      // Re-sum total quantity
-      updated[0].quantity = Object.values(updated[0].grid).reduce((sum, sizes) => {
+    const updated = batches.map((batch, i) => {
+      if (i !== 0) return batch;
+      const grid = { ...batch.grid };
+      delete grid[color];
+      const quantity = Object.values(grid).reduce((sum, sizes) => {
         return sum + Object.values(sizes).reduce((a, b) => a + b, 0);
       }, 0);
-      setFormTotalQuantity(updated[0].quantity);
-      return updated;
+      return { ...batch, grid, quantity };
     });
+    setBatches(updated);
+    setFormTotalQuantity(updated[0].quantity);
   };
 
   const handleUpdateGridQty = (color: string, size: string, qty: number) => {
     const cleanQty = Math.max(0, qty || 0);
-    setBatches(prev => {
-      const updated = [...prev];
-      const batch = updated[0];
-      if (batch.grid[color]) {
-        batch.grid[color][size] = cleanQty;
+    const updated = batches.map((batch, i) => {
+      if (i !== 0) return batch;
+      const grid = { ...batch.grid };
+      if (grid[color]) {
+        grid[color] = { ...grid[color], [size]: cleanQty };
       }
-      // Re-sum
-      batch.quantity = Object.values(batch.grid).reduce((sum, sizes) => {
+      const quantity = Object.values(grid).reduce((sum, sizes) => {
         return sum + Object.values(sizes).reduce((a, b) => a + b, 0);
       }, 0);
-      setFormTotalQuantity(batch.quantity);
-      return updated;
+      return { ...batch, grid, quantity };
     });
+    setBatches(updated);
+    setFormTotalQuantity(updated[0].quantity);
   };
 
   // Submit new subcontract order
@@ -1081,7 +1225,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 </tr>
               `).join('') : `
                 <tr>
-                  <td style="font-weight: 800; color: #1e1b4b;">{tx(lang, {fr: 'Standard', ar: 'قياسي', en: 'Standard', es: 'Estándar', pt: 'Padrão', tr: 'Standart'})}</td>
+                  <td style="font-weight: 800; color: #1e1b4b;">${tx(lang, {fr: 'Standard', ar: 'قياسي', en: 'Standard', es: 'Estándar', pt: 'Padrão', tr: 'Standart'})}</td>
                   <td style="font-weight: 600;">
                     ${Object.entries(sizes).map(([sz, q]) => `[${sz}]: ${q} pcs`).join(' | ')}
                   </td>
@@ -1122,7 +1266,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
           <div className="space-y-0.5">
             <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent uppercase tracking-widest block">{tx(lang,{fr:'Plateforme Industrielle',ar:'المنصة الصناعية',en:'Industrial Platform',es:'Plataforma Industrial',pt:'Plataforma Industrial',tr:'Endüstriyel Platform'})}</span>
             <h1 className="text-lg lg:text-xl font-black tracking-tight text-slate-900 dark:text-dk-text">
-              {tx(lang,{fr:'Sous-traitance & Monawla',ar:'المقاولة من الباطن ومناولة',en:'Subcontracting & Monawla',es:'Subcontratación & Monawla',pt:'Subcontratação & Monawla',tr:'Taşeronluk & Monawla'})}
+              {tx(lang,{fr:'Sous-traitance',ar:'المقاولة من الباطن',en:'Subcontracting',es:'Subcontratación',pt:'Subcontratação',tr:'Taşeronluk'})}
             </h1>
           </div>
           {activeTab === 'orders' && (
@@ -1147,25 +1291,11 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
           <span>{tx(lang,{fr:'Commandes',ar:'الطلبيات',en:'Orders',es:'Pedidos',pt:'Encomendas',tr:'Siparişler'})}</span>
         </button>
         <button
-          onClick={() => setActiveTab('subcontractors')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'subcontractors' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated'}`}
-        >
-          <Users className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
-          <span>{tx(lang,{fr:'Suivi Fournisseurs',ar:'متابعة الموردين',en:'Supplier Tracking',es:'Seguimiento de Proveedores',pt:'Acompanhamento de Fornecedores',tr:'Tedarikçi Takibi'})}</span>
-        </button>
-        <button
           onClick={() => setActiveTab('stock')}
           className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'stock' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated'}`}
         >
           <Coins className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Stock & Ventes',ar:'المخزون والمبيعات',en:'Stock & Sales',es:'Stock & Ventas',pt:'Stock & Vendas',tr:'Stok & Satışlar'})}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('groups')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'groups' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated'}`}
-        >
-          <Layers className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
-          <span>{tx(lang,{fr:'Groupements',ar:'المجموعات',en:'Groups',es:'Grupos',pt:'Grupos',tr:'Gruplar'})}</span>
         </button>
       </div>
 
@@ -1365,7 +1495,17 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                               )}
                             </div>
                             <div className="space-y-0.5 text-[11px] flex-1">
-                              <p className="font-bold text-slate-800 dark:text-dk-text leading-none">{tx(lang,{fr:'Atelier:',ar:'الورشة:',en:'Workshop:',es:'Taller:',pt:'Oficina:',tr:'Atölye:'})} {order.subcontractorName}</p>
+                              <p 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedSubcontractorForDetail(order.subcontractorName);
+                                }}
+                                className="font-bold text-indigo-600 dark:text-dk-accent hover:underline cursor-pointer flex items-center gap-1 leading-none"
+                                title={tx(lang,{fr:'Voir la fiche du sous-traitant',ar:'عرض صفحة الورشة',en:'View subcontractor sheet'})}
+                              >
+                                <span>{tx(lang,{fr:'Atelier:',ar:'الورشة:',en:'Workshop:',es:'Taller:',pt:'Oficina:',tr:'Atölye:'})} {order.subcontractorName}</span>
+                                <Eye className="w-3 h-3 text-indigo-500 shrink-0" />
+                              </p>
                               {/* Rating display */}
                               <div className="flex items-center gap-1 mt-0.5">
                                 <div className="flex text-amber-400 dark:text-amber-300 text-[10px]">
@@ -1539,91 +1679,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                           </div>
                         )}
 
-                        {/* ======================================= */}
-                        {/* TAB 2: SUIVI FOURNISSEURS (TRACKING) */}
-          {/* ======================================= */}
-          {activeTab === 'subcontractors' && (
-            <div className="space-y-6">
-              {/* Group filter selection */}
-              <div className="bg-white dark:bg-dk-surface rounded-3xl p-4 border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none flex flex-col md:flex-row gap-4 items-center justify-between">
-                <p className="text-xs font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">{tx(lang,{fr:'Filtrer par groupement d\'entreprises :',ar:'تصفية حسب مجموعة الشركات:',en:'Filter by company group:',es:'Filtrar por grupo de empresas:',pt:'Filtrar por grupo de empresas:',tr:'Şirket grubuna göre filtrele:'})}</p>
-                <select
-                  value={groupFilter}
-                  onChange={(e) => setGroupFilter(e.target.value)}
-                  className="text-xs font-bold text-slate-700 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-2.5 w-full md:w-64 outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated"
-                >
-                  <option value="ALL">{tx(lang,{fr:'Tous les groupements',ar:'جميع المجموعات',en:'All Groups',es:'Todos los Grupos',pt:'Todos os Grupos',tr:'Tüm Gruplar'})}</option>
-                  {groups.map(g => (
-                    <option key={g.id} value={g.id}>{g.group_name}</option>
-                  ))}
-                </select>
-              </div>
 
-              {subcontractorStats.length === 0 ? (
-                <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 p-16 text-center text-slate-400 dark:text-dk-muted shadow-sm dark:shadow-dk-sm dark:shadow-none">
-                  <Users className="w-12 h-12 mx-auto mb-3 opacity-25 text-slate-350 dark:text-dk-muted" />
-                  <p className="text-xs font-semibold">{tx(lang,{fr:'Aucun sous-traitant actif trouvé',ar:'لم يتم العثور على أي مقاول من الباطن نشط',en:'No active subcontractor found',es:'No se encontró ningún subcontratista activo',pt:'Nenhum subcontratado ativo encontrado',tr:'Aktif taşeron bulunamadı'})}</p>
-                </div>
-              ) : (
-                <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                      <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-semibold text-xs uppercase">
-                        <tr>
-                          <th className="px-6 py-4">{tx(lang,{fr:"Nom de l'Atelier / Tél",ar:'اسم الورشة / الهاتف',en:'Workshop Name / Phone',es:'Nombre del Taller / Teléfono',pt:'Nome da Oficina / Telefone',tr:'Atölye Adı / Telefon'})}</th>
-                          <th className="px-6 py-4">{tx(lang,{fr:'Commandes',ar:'الطلبيات',en:'Orders',es:'Pedidos',pt:'Encomendas',tr:'Siparişler'})}</th>
-                          <th className="px-6 py-4">{tx(lang,{fr:'Modèles Actifs',ar:'الموديلات النشطة',en:'Active Models',es:'Modelos Activos',pt:'Modelos Ativos',tr:'Aktif Modeller'})}</th>
-                          <th className="px-6 py-4">{tx(lang,{fr:'Quantité Commandée',ar:'الكمية المطلوبة',en:'Ordered Quantity',es:'Cantidad Pedida',pt:'Quantidade Encomendada',tr:'Sipariş Edilen Miktar'})}</th>
-                          <th className="px-6 py-4">{tx(lang,{fr:'Livrée (fourni)',ar:'المسلَّم',en:'Delivered',es:'Entregado',pt:'Entregue',tr:'Teslim Edilen'})}</th>
-                          <th className="px-6 py-4">{tx(lang,{fr:'Restante (reste)',ar:'المتبقي',en:'Remaining',es:'Restante',pt:'Restante',tr:'Kalan'})}</th>
-                          <th className="px-6 py-4">{tx(lang,{fr:'Progression',ar:'التقدم',en:'Progress',es:'Progreso',pt:'Progresso',tr:'İlerleme'})}</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface">
-                        {subcontractorStats.map(stat => {
-                          const percent = stat.totalQty > 0 
-                            ? Math.min(100, Math.round((stat.deliveredQty / stat.totalQty) * 100))
-                            : 0;
-
-                          return (
-                            <tr key={stat.name} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated/50 transition-colors">
-                              <td className="px-6 py-4">
-                                <span className="font-semibold block text-slate-800 dark:text-dk-text">{stat.name}</span>
-                                <span className="text-xs text-slate-500 dark:text-dk-muted">{stat.phone}</span>
-                              </td>
-                              <td className="px-6 py-4 font-bold text-slate-800 dark:text-dk-text">
-                                {stat.orderCount}
-                              </td>
-                              <td className="px-6 py-4 max-w-xs truncate text-xs text-slate-500 dark:text-dk-muted">
-                                {Array.from(stat.models).join(', ') || 'N/A'}
-                              </td>
-                              <td className="px-6 py-4 font-medium text-slate-800 dark:text-dk-text">
-                                {stat.totalQty.toLocaleString()} pcs
-                              </td>
-                              <td className="px-6 py-4 font-semibold text-emerald-600 dark:text-emerald-400">
-                                {stat.deliveredQty.toLocaleString()} pcs
-                              </td>
-                              <td className="px-6 py-4 font-semibold text-amber-600 dark:text-amber-400">
-                                {stat.remainingQty.toLocaleString()} pcs
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-24 bg-slate-100 dark:bg-dk-elevated h-2 rounded-full overflow-hidden shrink-0">
-                                    <div className="bg-indigo-600 dark:bg-dk-accent h-full" style={{ width: `${percent}%` }}></div>
-                                  </div>
-                                  <span className="font-bold text-xs text-slate-755 dark:text-dk-text">{percent}%</span>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* ======================================= */}
           {/* TAB 3: STOCK & VENTES (STOCK & SALES) */}
@@ -1711,263 +1767,232 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
             </div>
           )}
 
-          {/* ======================================= */}
-          {/* TAB 4: GROUPEMENTS (GROUPS) */}
-          {/* ======================================= */}
-          {activeTab === 'groups' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Groups List */}
-              <div className="lg:col-span-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm dark:shadow-dk-sm dark:shadow-none space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-bold text-slate-800 dark:text-dk-text text-xs md:text-sm uppercase tracking-wider">{tx(lang,{fr:'Groupements enregistrés',ar:'المجموعات المسجلة',en:'Registered Groups',es:'Grupos Registrados',pt:'Grupos Registados',tr:'Kayıtlı Gruplar'})}</h3>
-                  <button 
-                    onClick={handleAddNewGroupMode}
-                    className="p-1.5 text-indigo-650 dark:text-dk-accent-text dark:text-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated hover:text-indigo-700 dark:text-dk-accent-text dark:hover:text-dk-accent/90 rounded-lg transition-colors text-xs font-bold flex items-center gap-1 border border-indigo-200 dark:border-dk-accent/40 bg-white dark:bg-dk-surface"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{tx(lang,{fr:'Nouveau',ar:'جديد',en:'New',es:'Nuevo',pt:'Novo',tr:'Yeni'})}</span>
-                  </button>
-                </div>
-                
-                {groups.length === 0 ? (
-                  <p className="text-xs text-slate-400 dark:text-dk-muted text-center py-6">{tx(lang,{fr:'Aucun groupement de sociétés défini',ar:'لم يتم تعريف أي مجموعة شركات',en:'No company group defined',es:'Ningún grupo de empresas definido',pt:'Nenhum grupo de empresas definido',tr:'Hiçbir şirket grubu tanımlanmamış'})}</p>
-                ) : (
-                  <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-                    {groups.map(grp => (
-                      <div 
-                        key={grp.id}
-                        onClick={() => handleSelectGroup(grp)}
-                        className={`p-3 rounded-xl border cursor-pointer transition-all flex justify-between items-center ${
-                          selectedGroup?.id === grp.id 
-                            ? 'border-indigo-500 dark:border-dk-accent bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated text-indigo-900 dark:text-dk-accent' 
-                            : 'border-slate-105 hover:border-slate-200 bg-white dark:bg-dk-surface'
-                        }`}
-                      >
-                        <div>
-                          <p className={`font-semibold text-xs ${selectedGroup?.id === grp.id ? 'text-indigo-900 dark:text-dk-accent font-bold' : 'text-slate-800 dark:text-dk-text'}`}>{grp.group_name}</p>
-                          <p className="text-[10px] text-slate-400 dark:text-dk-muted mt-1">{grp.subcontractor_names?.length || 0} {tx(lang,{fr:'sous-traitants liés',ar:'مقاولي باطن مرتبطين',en:'linked subcontractors',es:'subcontratistas vinculados',pt:'subcontratados vinculados',tr:'bağlı taşeron'})}</p>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
 
-              {/* Group Edit Pane */}
-              <div className="lg:col-span-2">
-                {isEditingGroup ? (
-                  <form onSubmit={handleSaveGroup} className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl p-5 shadow-sm dark:shadow-dk-sm dark:shadow-none space-y-6">
-                    <div className="flex justify-between items-center border-b border-slate-100 dark:border-dk-border pb-3">
-                      <h3 className="font-bold text-slate-800 dark:text-dk-text text-xs md:text-sm uppercase tracking-wider">
-                        {selectedGroup ? tx(lang,{fr:'Modifier le groupement',ar:'تعديل المجموعة',en:'Edit Group',es:'Editar Grupo',pt:'Editar Grupo',tr:'Grubu Düzenle'}) : tx(lang,{fr:'Créer un nouveau groupement',ar:'إنشاء مجموعة جديدة',en:'Create New Group',es:'Crear Nuevo Grupo',pt:'Criar Novo Grupo',tr:'Yeni Grup Oluştur'})}
-                      </h3>
-                      <button 
-                        type="button" 
-                        onClick={() => setIsEditingGroup(false)} 
-                        className="text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">{tx(lang,{fr:'Nom du Groupement *',ar:'اسم المجموعة *',en:'Group Name *',es:'Nombre del Grupo *',pt:'Nome do Grupo *',tr:'Grup Adı *'})}</label>
-                      <input 
-                        type="text"
-                        placeholder={tx(lang,{fr:'Ex: Groupement Maille, Confection Sud...',ar:'مثال: مجموعة التريكو، الخياطة الجنوبية...',en:'E.g.: Knit Group, Southern Confection...',es:'Ej: Grupo de Punto, Confección Sur...',pt:'Ex: Grupo Malha, Confecção Sul...',tr:'Örn: Örme Grubu, Güney Konfeksiyon...'})}
-                        value={groupFormName}
-                        onChange={(e) => setGroupFormName(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 text-xs outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent text-slate-800 dark:text-dk-text focus:bg-white"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-3">
-                      <label className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">
-                        {tx(lang,{fr:'Sous-traitants associés',ar:'المقاولون من الباطن المرتبطون',en:'Associated Subcontractors',es:'Subcontratistas Asociados',pt:'Subcontratados Associados',tr:'İlişkili Taşeronlar'})} ({groupFormSubs.length})
-                      </label>
-                      {subcontractorNames.length === 0 ? (
-                        <p className="text-xs text-slate-400 dark:text-dk-muted italic">{tx(lang,{fr:'Aucun sous-traitant disponible dans le système (créez d\'abord des commandes)',ar:'لا يوجد مقاول من الباطن متاح في النظام (أنشئ طلبيات أولاً)',en:'No subcontractor available in the system (create orders first)',es:'Ningún subcontratista disponible en el sistema (cree pedidos primero)',pt:'Nenhum subcontratado disponível no sistema (crie encomendas primeiro)',tr:'Sistemde taşeron yok (önce sipariş oluşturun)'})}</p>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-1 border border-slate-100 dark:border-dk-border rounded-xl bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50">
-                          {subcontractorNames.map(subName => {
-                            const isChecked = groupFormSubs.includes(subName);
-                            return (
-                              <div 
-                                key={subName}
-                                onClick={() => handleToggleSubInGroup(subName)}
-                                className={`p-2.5 rounded-lg border cursor-pointer transition-all flex items-center gap-3 text-xs ${
-                                  isChecked 
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated border-indigo-200 dark:border-dk-accent/40 text-indigo-900 dark:text-dk-accent font-semibold' 
-                                    : 'bg-white dark:bg-dk-surface border-slate-100 dark:border-dk-border hover:border-slate-200 dark:hover:border-dk-border text-slate-600 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm dark:shadow-none'
-                                }`}
-                              >
-                                <input 
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  readOnly
-                                  className="rounded bg-white dark:bg-dk-surface text-indigo-650 dark:text-dk-accent-text dark:text-dk-accent focus:ring-indigo-500 border-slate-300 dark:border-dk-border"
-                                />
-                                <span>{subName}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex justify-between items-center border-t border-slate-100 dark:border-dk-border pt-4">
-                      {selectedGroup && (
-                        <button 
-                          type="button"
-                          onClick={() => handleDeleteGroup(selectedGroup.id)}
-                          className="px-4 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:bg-rose-950/30 rounded-xl text-xs font-bold transition-all border border-transparent hover:border-rose-200 dark:border-rose-800/50"
-                        >
-                          {tx(lang,{fr:'Supprimer le groupe',ar:'حذف المجموعة',en:'Delete Group',es:'Eliminar Grupo',pt:'Eliminar Grupo',tr:'Grubu Sil'})}
-                        </button>
-                      )}
-                      <div className="flex gap-3 ml-auto">
-                        <button 
-                          type="button" 
-                          onClick={() => setIsEditingGroup(false)}
-                          className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl text-xs font-bold transition-all"
-                        >
-                          {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
-                        </button>
-                        <button 
-                          type="submit"
-                          disabled={actionLoading}
-                          className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
-                        >
-                          {actionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                          <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl p-16 text-center text-slate-400 dark:text-dk-muted h-full flex flex-col justify-center items-center shadow-sm dark:shadow-dk-sm dark:shadow-none">
-                    <Layers className="w-12 h-12 mb-3 opacity-20 text-slate-400 dark:text-dk-muted" />
-                    <p className="text-xs font-semibold">{tx(lang,{fr:'Sélectionnez un groupe pour le modifier ou créez-en un nouveau.',ar:'اختر مجموعة لتعديلها أو أنشئ مجموعة جديدة.',en:'Select a group to edit or create a new one.',es:'Seleccione un grupo para editarlo o cree uno nuevo.',pt:'Selecione um grupo para editar ou crie um novo.',tr:'Düzenlemek için bir grup seçin veya yeni bir tane oluşturun.'})}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </>
       )}
 
       {/* ======================================= */}
-          {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/55 dark:bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                <Truck className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent" />
-                <span>{tx(lang,{fr:'Nouvelle Commande de Sous-traitance',ar:'أمر مقاولة من الباطن جديد',en:'New Subcontract Order',es:'Nuevo Pedido de Subcontratación',pt:'Nova Encomenda de Subcontratação',tr:'Yeni Taşeron Siparişi'})}</span>
-              </h2>
-              <button onClick={() => setIsAddModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-650 dark:hover:text-dk-text-soft">
+      {/* ======================================= */}
+      {/* STEP 1: CHOICE MODAL (NEW ORDER CHOICE) */}
+      {/* ======================================= */}
+      {typeof document !== 'undefined' && isChoiceModalOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-slate-900/70 dark:bg-black/70 backdrop-blur-md" onClick={() => setIsChoiceModalOpen(false)} />
+          {/* Modal */}
+          <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-xl overflow-hidden flex flex-col border border-slate-200 dark:border-dk-border">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-2xl">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 dark:text-dk-text text-sm sm:text-base">
+                    {tx(lang, { fr: "Créer une Commande", ar: "إنشاء أمر", en: "Create an Order" })}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-dk-muted">
+                    {tx(lang, { fr: "Choisissez comment vous souhaitez commencer", ar: "اختر كيف تريد البدء", en: "Choose how you want to start" })}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setIsChoiceModalOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Internal Form Navigation */}
-            <div className="flex border-b border-slate-150 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-6 gap-4 shrink-0 text-xs font-bold">
-              <button 
-                type="button"
-                onClick={() => setModalFormTab('general')}
-                className={`py-3 border-b-2 ${modalFormTab === 'general' ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent border-indigo-600 dark:border-dk-accent' : 'text-slate-500 dark:text-dk-muted border-transparent'}`}
+            {/* Choice Cards Body */}
+            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+              {/* Option 1: Create New Model (same as Library "Nouveau Modèle") */}
+              <div 
+                onClick={() => {
+                  setIsChoiceModalOpen(false);
+                  if (onCreateNewProject) {
+                    onCreateNewProject();
+                  } else {
+                    onNavigate?.('library');
+                  }
+                }}
+                className="group relative p-4 sm:p-5 rounded-2xl border-2 border-slate-200 dark:border-dk-border hover:border-indigo-500 dark:hover:border-dk-accent bg-slate-50 dark:bg-dk-bg/40 hover:bg-indigo-50/50 dark:hover:bg-dk-elevated transition-all cursor-pointer flex items-center gap-3 sm:gap-4 shadow-sm"
               >
-                {tx(lang,{fr:'Général & Quantités',ar:'عام والكميات',en:'General & Quantities',es:'General y Cantidades',pt:'Geral e Quantidades',tr:'Genel ve Miktarlar'})}
-              </button>
-              <button 
-                type="button"
-                onClick={() => setModalFormTab('logistics')}
-                className={`py-3 border-b-2 ${modalFormTab === 'logistics' ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent border-indigo-600 dark:border-dk-accent' : 'text-slate-500 dark:text-dk-muted border-transparent'}`}
+                <div className="p-3 sm:p-3.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-2xl shrink-0 group-hover:scale-110 transition-transform">
+                  <Plus className="w-6 h-6 sm:w-7 sm:h-7 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-extrabold text-slate-800 dark:text-dk-text text-sm group-hover:text-indigo-600 dark:group-hover:text-dk-accent transition-colors">
+                    {tx(lang, { fr: "Créer un nouveau modèle", ar: "إنشاء موديل جديد", en: "Create a new model" })}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-dk-muted mt-1 leading-relaxed">
+                    {tx(lang, { 
+                      fr: "Rediriger vers la bibliothèque pour concevoir un nouveau modèle de A à Z avec sa gamme opératoire.", 
+                      ar: "التوجيه إلى المكتبة لتصميم موديل جديد وتحديد التسلسل التشغيلي والتكلفة.", 
+                      en: "Redirect to the library to design a new model with operational sequence." 
+                    })}
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-dk-accent group-hover:translate-x-1 transition-all shrink-0" />
+              </div>
+
+              {/* Option 2: Select Existing Model */}
+              <div 
+                onClick={() => {
+                  setIsChoiceModalOpen(false);
+                  openOrderFormModal();
+                }}
+                className="group relative p-4 sm:p-5 rounded-2xl border-2 border-slate-200 dark:border-dk-border hover:border-indigo-500 dark:hover:border-dk-accent bg-slate-50 dark:bg-dk-bg/40 hover:bg-indigo-50/50 dark:hover:bg-dk-elevated transition-all cursor-pointer flex items-center gap-3 sm:gap-4 shadow-sm"
               >
-                {tx(lang,{fr:'Logistique & Suivi',ar:'اللوجستيك والمتابعة',en:'Logistics & Tracking',es:'Logística y Seguimiento',pt:'Logística e Acompanhamento',tr:'Lojistik ve Takip'})}
-              </button>
-              <button 
-                type="button"
-                onClick={() => setModalFormTab('technical')}
-                className={`py-3 border-b-2 ${modalFormTab === 'technical' ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent border-indigo-600 dark:border-dk-accent' : 'text-slate-500 dark:text-dk-muted border-transparent'}`}
-              >
-                {tx(lang,{fr:'Spécifications Techniques',ar:'المواصفات التقنية',en:'Technical Specifications',es:'Especificaciones Técnicas',pt:'Especificações Técnicas',tr:'Teknik Şartname'})}
-              </button>
+                <div className="p-3 sm:p-3.5 bg-indigo-500/10 text-indigo-600 dark:text-dk-accent rounded-2xl shrink-0 group-hover:scale-110 transition-transform">
+                  <Package className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-600 dark:text-dk-accent" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-extrabold text-slate-800 dark:text-dk-text text-sm group-hover:text-indigo-600 dark:group-hover:text-dk-accent transition-colors">
+                    {tx(lang, { fr: "Sélectionner un modèle existant", ar: "اختيار موديل موجود من القائمة", en: "Select an existing model" })}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-dk-muted mt-1 leading-relaxed">
+                    {tx(lang, { 
+                      fr: "Sélectionner un modèle déjà enregistré dans votre catalogue pour lancer immédiatement la commande de sous-traitance.", 
+                      ar: "اختيار موديل مسجل في الكتالوج لبدء أمر المقاولة الفرعية مباشرة.", 
+                      en: "Select a model saved in catalog to immediately start the order." 
+                    })}
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-dk-accent group-hover:translate-x-1 transition-all shrink-0" />
+              </div>
             </div>
+          </div>
+        </div>
+      , document.body)}
+      {/* ======================================= */}
+      {/* STEP 2: ADD ORDER FORM MODAL */}
+      {/* ======================================= */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 z-[200] flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+            <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50">
+                <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
+                  <Truck className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent" />
+                  <span>{tx(lang,{fr:'Nouvelle Commande de Sous-traitance',ar:'أمر مقاولة من الباطن جديد',en:'New Subcontract Order',es:'Nuevo Pedido de Subcontratación',pt:'Nova Encomenda de Subcontratação',tr:'Yeni Taşeron Siparişi'})}</span>
+                </h2>
+                <button onClick={() => setIsAddModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-650 dark:hover:text-dk-text-soft">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-            <form onSubmit={handleAddOrder} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs text-slate-600 dark:text-dk-text-soft">
-              {modalFormTab === 'general' && (
-                <div className="space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Modèle *',ar:'الموديل *',en:'Model *',es:'Modelo *',pt:'Modelo *',tr:'Model *'})}</label>
-                      <select 
-                        value={formModelId} 
-                        onChange={(e) => handleModelChange(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
-                      >
-                        {models.map(m => (
-                          <option key={m.id} value={m.id}>{m.meta_data.nom_modele} ({m.meta_data.reference || tx(lang,{fr:'Aucune ref',ar:'لا يوجد مرجع',en:'No ref',es:'Sin ref',pt:'Sem ref',tr:'Referans yok'})})</option>
-                        ))}
-                        <option value="MANUAL">{tx(lang,{fr:'Saisie Manuelle (Sans modèle existant)',ar:'إدخال يدوي (بدون موديل موجود)',en:'Manual Entry (No existing model)',es:'Entrada Manual (Sin modelo existente)',pt:'Inserção Manual (Sem modelo existente)',tr:'Manuel Giriş (Mevcut model yok)'})}</option>
-                      </select>
+              <form onSubmit={handleAddOrder} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs text-slate-600 dark:text-dk-text-soft">
+                  <div className="space-y-5">
+                    {/* Model selection with visual card & pricing */}
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                          <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                            {tx(lang,{fr:'Modèle *',ar:'الموديل *',en:'Model *',es:'Modelo *',pt:'Modelo *',tr:'Model *'})}
+                          </label>
+                          <select 
+                            value={formModelId} 
+                            onChange={(e) => handleModelChange(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white text-xs font-semibold"
+                          >
+                            {models.map(m => (
+                              <option key={m.id} value={m.id}>
+                                {m.meta_data.nom_modele} ({m.meta_data.reference || tx(lang,{fr:'Aucune ref',ar:'لا يوجد مرجع',en:'No ref'})})
+                              </option>
+                            ))}
+                            <option value="MANUAL">{tx(lang,{fr:'Saisie Manuelle (Sans modèle existant)',ar:'إدخال يدوي (بدون موديل موجود)',en:'Manual Entry (No existing model)'})}</option>
+                          </select>
+                        </div>
+
+                      {/* Display Rich Model Visual Card if a model is selected */}
+                      {selectedModelInForm && (
+                        <div className="bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border p-4 rounded-2xl flex flex-col sm:flex-row gap-4 items-start sm:items-center shadow-xs">
+                          <div className="w-20 h-20 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border overflow-hidden shrink-0 flex items-center justify-center shadow-xs">
+                            {selectedModelInForm.image || selectedModelInForm.images?.front ? (
+                              <img src={selectedModelInForm.image || selectedModelInForm.images?.front || ''} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <Package className="w-8 h-8 text-slate-350 dark:text-dk-muted" />
+                            )}
+                          </div>
+                          <div className="flex-1 space-y-1.5 w-full">
+                            <div className="flex items-center justify-between gap-2">
+                              <h4 className="font-extrabold text-slate-800 dark:text-dk-text text-sm">
+                                {selectedModelInForm.meta_data.nom_modele}
+                              </h4>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-dk-accent border border-indigo-200 dark:border-dk-accent/40">
+                                Ref: {selectedModelInForm.meta_data.reference || 'N/A'}
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] text-slate-500 dark:text-dk-muted flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                              <span>{tx(lang,{fr:'Date de création:',ar:'تاريخ الإنشاء:',en:'Creation Date:'})} <strong>{selectedModelInForm.meta_data.date_creation || 'N/A'}</strong></span>
+                            </p>
+
+                            {/* Price details: Base Model Price on top, Stitching Price below */}
+                            <div className="space-y-2 pt-2 border-t border-slate-200/80 dark:border-dk-border/60">
+                              <div className="bg-white dark:bg-dk-surface p-2.5 rounded-xl border border-slate-200 dark:border-dk-border">
+                                <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider">
+                                  {tx(lang,{fr:'Prix Modèle (Matière sans façon)',ar:'ثمن الموديل (المواد بدون خياطة)',en:'Model Cost (Raw materials)'})}
+                                </span>
+                                <span className="font-extrabold text-slate-800 dark:text-dk-text text-sm">
+                                  {selectedModelPricing.baseModelPrice.toLocaleString()} MAD
+                                </span>
+                              </div>
+                              <div className="bg-indigo-50/80 dark:bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-200 dark:border-indigo-800/60">
+                                <span className="block text-[9px] font-extrabold text-indigo-600 dark:text-dk-accent uppercase tracking-wider">
+                                  {tx(lang,{fr:'Prix de la Façon / Couture',ar:'ثمن الخياطة / الصنعة',en:'Stitching / Façon Price'})}
+                                </span>
+                                <span className="font-black text-indigo-700 dark:text-dk-accent text-sm">
+                                  {selectedModelPricing.stitchingPrice.toLocaleString()} MAD / pc
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Nom du Client',ar:'اسم العميل',en:'Client Name',es:'Nombre del Cliente',pt:'Nome do Cliente',tr:'Müşteri Adı'})}</label>
-                      <input 
-                        type="text" 
-                        value={formClientName} 
-                        onChange={(e) => setFormClientName(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
-                        placeholder={tx(lang,{fr:"Nom du client donneur d'ordre",ar:'اسم العميل صاحب الطلب',en:'Ordering client name',es:'Nombre del cliente ordenante',pt:'Nome do cliente mandante',tr:'Sipariş veren müşteri adı'})}
-                      />
-                    </div>
-                  </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Subcontractor Selector with inline addition option */}
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                          {tx(lang,{fr:'Nom du Sous-traitant *',ar:'اسم المقاول من الباطن *',en:'Subcontractor Name *'})}
+                        </label>
+                        <select
+                          value={formSubcontractorName}
+                          onChange={(e) => {
+                            if (e.target.value === '__NEW__') {
+                              openNewProfileModal();
+                              return;
+                            }
+                            setFormSubcontractorName(e.target.value);
+                          }}
+                          className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white text-xs font-semibold"
+                          required
+                        >
+                          <option value="">{tx(lang,{fr:'Sélectionner un sous-traitant...',ar:'اختر ورشة / مقاولاً من الباطن...',en:'Select a subcontractor...'})}</option>
+                          {subcontractorNames.map(sub => (
+                            <option key={sub} value={sub}>{sub}</option>
+                          ))}
+                          <option value="__NEW__">{tx(lang,{fr:'+ Ajouter un nouveau sous-traitant',ar:'+ إضافة مقاول جديد',en:'+ Add a new subcontractor'})}</option>
+                        </select>
+                      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Nom du Sous-traitant *',ar:'اسم المقاول من الباطن *',en:'Subcontractor Name *',es:'Nombre del Subcontratista *',pt:'Nome do Subcontratado *',tr:'Taşeron Adı *'})}</label>
-                      <input 
-                        type="text" 
-                        value={formSubcontractorName} 
-                        onChange={(e) => setFormSubcontractorName(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
-                        placeholder={tx(lang,{fr:'Atelier externe',ar:'ورشة خارجية',en:'External workshop',es:'Taller externo',pt:'Oficina externa',tr:'Harici atölye'})}
-                        required
-                      />
+                      <div className="space-y-1.5">
+                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                          {tx(lang,{fr:'Date livraison prévue',ar:'تاريخ التسليم المتوقع',en:'Expected delivery date'})}
+                        </label>
+                        <input 
+                          type="date" 
+                          value={batches[0].deliveryDate} 
+                          onChange={(e) => setBatches(prev => {
+                            const updated = [...prev];
+                            updated[0].deliveryDate = e.target.value;
+                            return updated;
+                          })}
+                          className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white text-xs"
+                        />
+                      </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})}</label>
-                      <input 
-                        type="text" 
-                        value={formSubcontractorPhone} 
-                        onChange={(e) => setFormSubcontractorPhone(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
-                        placeholder="+212..."
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Date livraison prévue *',ar:'تاريخ التسليم المتوقع *',en:'Expected delivery date *',es:'Fecha de entrega prevista *',pt:'Data de entrega prevista *',tr:'Beklenen teslimat tarihi *'})}</label>
-                      <input 
-                        type="date" 
-                        value={batches[0].deliveryDate} 
-                        onChange={(e) => setBatches(prev => {
-                          const updated = [...prev];
-                          updated[0].deliveryDate = e.target.value;
-                          return updated;
-                        })}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Quantité Totale *',ar:'الكمية الإجمالية *',en:'Total Quantity *',es:'Cantidad Total *',pt:'Quantidade Total *',tr:'Toplam Miktar *'})}</label>
                       <input 
@@ -1989,249 +2014,8 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                         className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
                       />
                     </div>
-
-                    <div className="space-y-1.5 col-span-2 md:col-span-1">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Note / Instruction',ar:'ملاحظة / تعليمات',en:'Note / Instruction',es:'Nota / Instrucción',pt:'Nota / Instrução',tr:'Not / Talimat'})}</label>
-                      <input 
-                        type="text" 
-                        value={formNotes} 
-                        onChange={(e) => setFormNotes(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
-                        placeholder={tx(lang,{fr:'Détails logistiques...',ar:'تفاصيل لوجستية...',en:'Logistics details...',es:'Detalles logísticos...',pt:'Detalhes logísticos...',tr:'Lojistik detaylar...'})}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Grid matrix colors & sizes */}
-                  <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50 space-y-4">
-                    <div className="flex justify-between items-center flex-wrap gap-2">
-                      <span className="font-bold text-slate-800 dark:text-dk-text">{tx(lang,{fr:'Matrice Couleur - Taille (Facultatif)',ar:'مصفوفة اللون - المقاس (اختياري)',en:'Color - Size Matrix (Optional)',es:'Matriz Color - Talla (Opcional)',pt:'Matriz Cor - Tamanho (Opcional)',tr:'Renk - Beden Matrisi (İsteğe Bağlı)'})}</span>
-                      <div className="flex items-center gap-2">
-                        <input 
-                          type="text" 
-                          placeholder={tx(lang,{fr:'Ajouter couleur',ar:'إضافة لون',en:'Add color',es:'Añadir color',pt:'Adicionar cor',tr:'Renk ekle'})} 
-                          value={newColorInput} 
-                          onChange={(e) => setNewColorInput(e.target.value)}
-                          className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1 text-[11px] outline-none text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent"
-                        />
-                        <button 
-                          type="button" 
-                          onClick={handleAddColor}
-                          className="bg-indigo-600 dark:bg-dk-accent text-white px-3 py-1 rounded-lg hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 font-bold transition-all text-[11px]"
-                        >
-                          {tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}
-                        </button>
-                      </div>
-                    </div>
-
-                    {Object.keys(batches[0].grid).length === 0 ? (
-                      <p className="text-[11px] text-slate-500 dark:text-dk-muted italic">{tx(lang,{fr:'Aucune couleur configurée. Le lot sera traité de manière globale.',ar:'لم يتم تكوين أي لون. سيتم معالجة الدفعة بشكل إجمالي.',en:'No color configured. The batch will be processed globally.',es:'Ningún color configurado. El lote se procesará de forma global.',pt:'Nenhuma cor configurada. O lote será processado globalmente.',tr:'Hiçbir renk yapılandırılmadı. Parti genel olarak işlenecek.'})}</p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                          <thead>
-                            <tr className="border-b border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted font-bold">
-                              <th className="py-2 pr-4">{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
-                              {COMMON_SIZES.map(sz => <th key={sz} className="py-2 px-1 text-center">{sz}</th>)}
-                              <th className="py-2 text-right">{tx(lang,{fr:'Action',ar:'إجراء',en:'Action',es:'Acción',pt:'Ação',tr:'İşlem'})}</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
-                            {Object.entries(batches[0].grid).map(([color, sizesObj]) => (
-                              <tr key={color}>
-                                <td className="py-2 pr-4 font-semibold text-slate-700 dark:text-dk-text-soft">{color}</td>
-                                {COMMON_SIZES.map(sz => (
-                                  <td key={sz} className="py-1 px-1">
-                                    <input 
-                                      type="number"
-                                      value={sizesObj[sz] || ''}
-                                      onChange={(e) => handleUpdateGridQty(color, sz, parseInt(e.target.value) || 0)}
-                                      className="w-12 text-center bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border rounded p-1 text-xs focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent outline-none"
-                                    />
-                                  </td>
-                                ))}
-                                <td className="py-2 text-right">
-                                  <button type="button" onClick={() => handleRemoveColor(color)} className="text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-400">
-                                    <Trash2 className="w-4 h-4 inline" />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
                   </div>
                 </div>
-              )}
-
-              {modalFormTab === 'logistics' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-dk-text border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Expédition des Matières Premières',ar:'شحن المواد الأولية',en:'Raw Materials Shipment',es:'Expedición de Materias Primas',pt:'Expedição de Matérias-Primas',tr:'Hammadde Sevkiyatı'})}</h4>
-                    
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut Tissu',ar:'حالة القماش',en:'Fabric Status',es:'Estado de la Tela',pt:'Estado do Tecido',tr:'Kumaş Durumu'})}</label>
-                      <select 
-                        value={formTissuStatus} 
-                        onChange={(e: any) => setFormTissuStatus(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="PENDING">{tx(lang,{fr:'En attente d\'expédition',ar:'قيد انتظار الشحن',en:'Awaiting shipment',es:'Pendiente de envío',pt:'A aguardar expedição',tr:'Sevkiyat bekleniyor'})}</option>
-                        <option value="SENT">{tx(lang,{fr:'Tissu envoyé',ar:'تم إرسال القماش',en:'Fabric sent',es:'Tela enviada',pt:'Tecido enviado',tr:'Kumaş gönderildi'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut Fournitures / Accessoires',ar:'حالة اللوازم / الإكسسوارات',en:'Supplies / Accessories Status',es:'Estado de Suministros / Accesorios',pt:'Estado dos Fornecimentos / Acessórios',tr:'Malzeme / Aksesuar Durumu'})}</label>
-                      <select 
-                        value={formFournituresStatus} 
-                        onChange={(e: any) => setFormFournituresStatus(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="PENDING">{tx(lang,{fr:'En attente de livraison',ar:'قيد انتظار التسليم',en:'Awaiting delivery',es:'Pendiente de entrega',pt:'A aguardar entrega',tr:'Teslimat bekleniyor'})}</option>
-                        <option value="DELIVERED">{tx(lang,{fr:'Livrées au sous-traitant',ar:'تم التسليم للمقاول من الباطن',en:'Delivered to subcontractor',es:'Entregado al subcontratista',pt:'Entregue ao subcontratado',tr:'Taşerona teslim edildi'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-dk-bg p-3 rounded-xl border border-slate-200 dark:border-dk-border">
-                      <input 
-                        type="checkbox" 
-                        checked={formFicheTechniqueSent}
-                        onChange={(e) => setFormFicheTechniqueSent(e.target.checked)}
-                        className="rounded bg-white dark:bg-dk-surface text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent w-4 h-4 border-slate-300 dark:border-dk-border"
-                        id="checkFT"
-                      />
-                      <label htmlFor="checkFT" className="font-semibold text-slate-700 dark:text-dk-text-soft cursor-pointer">{tx(lang,{fr:'Fiche Technique validée et envoyée',ar:'الورقة التقنية معتمدة ومرسلة',en:'Technical sheet validated and sent',es:'Ficha técnica validada y enviada',pt:'Ficha técnica validada e enviada',tr:'Teknik fiş onaylandı ve gönderildi'})}</label>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-dk-text border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Profil Sous-traitant',ar:'ملف المقاول من الباطن',en:'Subcontractor Profile',es:'Perfil del Subcontratista',pt:'Perfil do Subcontratado',tr:'Taşeron Profili'})}</h4>
-                    
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Disponibilité de l\'atelier',ar:'توفر الورشة',en:'Workshop availability',es:'Disponibilidad del taller',pt:'Disponibilidade da oficina',tr:'Atölye müsaitliği'})}</label>
-                      <input 
-                        type="date"
-                        value={formSubcontractorAvailabilityDate}
-                        onChange={(e) => setFormSubcontractorAvailabilityDate(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Évaluation (Note sur 5)',ar:'التقييم (درجة من 5)',en:'Rating (Score out of 5)',es:'Evaluación (Puntuación sobre 5)',pt:'Avaliação (Nota de 0 a 5)',tr:'Değerlendirme (5 üzerinden puan)'})}</label>
-                      <select 
-                        value={formSubcontractorRating} 
-                        onChange={(e) => setFormSubcontractorRating(parseFloat(e.target.value))}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="5">{tx(lang,{fr:'★★★★★ - Excellent',ar:'★★★★★ - ممتاز',en:'★★★★★ - Excellent',es:'★★★★★ - Excelente',pt:'★★★★★ - Excelente',tr:'★★★★★ - Mükemmel'})}</option>
-                        <option value="4">{tx(lang,{fr:'★★★★☆ - Très Bon',ar:'★★★★☆ - جيد جداً',en:'★★★★☆ - Very Good',es:'★★★★☆ - Muy Bueno',pt:'★★★★☆ - Muito Bom',tr:'★★★★☆ - Çok İyi'})}</option>
-                        <option value="3">{tx(lang,{fr:'★★★☆☆ - Moyen',ar:'★★★☆☆ - متوسط',en:'★★★☆☆ - Average',es:'★★★☆☆ - Regular',pt:'★★★☆☆ - Médio',tr:'★★★☆☆ - Orta'})}</option>
-                        <option value="2">{tx(lang,{fr:'★★☆☆☆ - Faible',ar:'★★☆☆☆ - ضعيف',en:'★★☆☆☆ - Weak',es:'★★☆☆☆ - Bajo',pt:'★★☆☆☆ - Fraco',tr:'★★☆☆☆ - Zayıf'})}</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {modalFormTab === 'technical' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-dk-text border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Cahier des charges',ar:'دفتر الشروط',en:'Specifications',es:'Pliego de condiciones',pt:'Caderno de encargos',tr:'Şartname'})}</h4>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Type de prestation',ar:'نوع الخدمة',en:'Service Type',es:'Tipo de Prestación',pt:'Tipo de Prestação',tr:'Hizmet Türü'})}</label>
-                      <select 
-                        value={formPrestationType} 
-                        onChange={(e: any) => setFormPrestationType(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="CMT">CMT ({tx(lang,{fr:'Coupe, Couture, Finition',ar:'قص، خياطة، تشطيب',en:'Cutting, Sewing, Finishing',es:'Corte, Costura, Acabado',pt:'Corte, Costura, Acabamento',tr:'Kesim, Dikiş, Bitim'})})</option>
-                        <option value="FACON_PURE">{tx(lang,{fr:'Façon Pure (Couture seule)',ar:'تصنيع خالص (خياطة فقط)',en:'Pure Manufacturing (Sewing only)',es:'Fabricación Pura (Solo costura)',pt:'Confecção Pura (Apenas costura)',tr:'Saf İmalat (Sadece dikiş)'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Provenance du Tissu',ar:'مصدر القماش',en:'Fabric Origin',es:'Procedencia de la Tela',pt:'Proveniência do Tecido',tr:'Kumaşın Menşei'})}</label>
-                      <select 
-                        value={formTissuFournisseur} 
-                        onChange={(e: any) => setFormTissuFournisseur(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="CLIENT">{tx(lang,{fr:'Fourni par le donneur d\'ordre (Client)',ar:'مقدم من صاحب الطلب (العميل)',en:'Provided by the client',es:'Proporcionado por el cliente',pt:'Fornecido pelo cliente',tr:'Müşteri tarafından sağlanır'})}</option>
-                        <option value="SUBCONTRACTOR">{tx(lang,{fr:'Fourni par le sous-traitant',ar:'مقدم من المقاول من الباطن',en:'Provided by the subcontractor',es:'Proporcionado por el subcontratista',pt:'Fornecido pelo subcontratado',tr:'Taşeron tarafından sağlanır'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Provenance des Fournitures',ar:'مصدر اللوازم',en:'Supplies Origin',es:'Procedencia de los Suministros',pt:'Proveniência dos Fornecimentos',tr:'Malzeme Menşei'})}</label>
-                      <select 
-                        value={formFournituresFournisseur} 
-                        onChange={(e: any) => setFormFournituresFournisseur(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="CLIENT">{tx(lang,{fr:'Fourni par le donneur d\'ordre (Client)',ar:'مقدم من صاحب الطلب (العميل)',en:'Provided by the client',es:'Proporcionado por el cliente',pt:'Fornecido pelo cliente',tr:'Müşteri tarafından sağlanır'})}</option>
-                        <option value="SUBCONTRACTOR">{tx(lang,{fr:'Acheté par le sous-traitant',ar:'يشتريه المقاول من الباطن',en:'Purchased by the subcontractor',es:'Comprado por el subcontratista',pt:'Comprado pelo subcontratado',tr:'Taşeron tarafından satın alınır'})}</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-dk-text border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Contrôle qualité & Administratif',ar:'مراقبة الجودة والإداري',en:'Quality Control & Administrative',es:'Control de Calidad y Administrativo',pt:'Controlo de Qualidade e Administrativo',tr:'Kalite Kontrol ve İdari'})}</h4>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Prototype Requis',ar:'النموذج الأولي مطلوب',en:'Prototype Required',es:'Prototipo Requerido',pt:'Protótipo Necessário',tr:'Prototip Gerekli'})}</label>
-                      <select 
-                        value={formProtoRequired} 
-                        onChange={(e) => setFormProtoRequired(parseInt(e.target.value))}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="1">{tx(lang,{fr:'Oui, obligatoire',ar:'نعم، إلزامي',en:'Yes, mandatory',es:'Sí, obligatorio',pt:'Sim, obrigatório',tr:'Evet, zorunlu'})}</option>
-                        <option value="0">{tx(lang,{fr:'Non requis',ar:'غير مطلوب',en:'Not required',es:'No requerido',pt:'Não necessário',tr:'Gerekli değil'})}</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut du Prototype',ar:'حالة النموذج الأولي',en:'Prototype Status',es:'Estado del Prototipo',pt:'Estado do Protótipo',tr:'Prototip Durumu'})}</label>
-                      <select 
-                        value={formProtoStatus} 
-                        onChange={(e: any) => setFormProtoStatus(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="PENDING">{tx(lang,{fr:'En attente d\'approbation',ar:'قيد انتظار الموافقة',en:'Awaiting approval',es:'Pendiente de aprobación',pt:'A aguardar aprovação',tr:'Onay bekleniyor'})}</option>
-                        <option value="APPROVED">{tx(lang,{fr:'Validé / BPA signé',ar:'معتمد / تم توقيع BPA',en:'Approved / BPA signed',es:'Validado / BPA firmado',pt:'Validado / BPA assinado',tr:'Onaylandı / BPA imzalandı'})}</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Conditions de règlement',ar:'شروط الدفع',en:'Payment Terms',es:'Condiciones de Pago',pt:'Condições de Pagamento',tr:'Ödeme Koşulları'})}</label>
-                      <select 
-                        value={formPaymentTerms} 
-                        onChange={(e: any) => setFormPaymentTerms(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="AVANCE_RECEPTION">{tx(lang,{fr:'Acompte à la commande + solde à la livraison',ar:'دفعة مقدمة عند الطلب + الباقي عند التسليم',en:'Deposit on order + balance on delivery',es:'Anticipo al pedido + saldo a la entrega',pt:'Sinal na encomenda + saldo na entrega',tr:'Siparişte avans + teslimatta bakiye'})}</option>
-                        <option value="APRES_LIVRAISON">{tx(lang,{fr:'Paiement après réception de facture',ar:'الدفع بعد استلام الفاتورة',en:'Payment after receipt of invoice',es:'Pago después de recibir la factura',pt:'Pagamento após receção da fatura',tr:'Fatura alındıktan sonra ödeme'})}</option>
-                        <option value="ECHEANCES">{tx(lang,{fr:'Paiement échelonné',ar:'دفع مقسط',en:'Installment payment',es:'Pago fraccionado',pt:'Pagamento parcelado',tr:'Taksitli ödeme'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Consignes de Couture',ar:'تعليمات الخياطة',en:'Sewing Instructions',es:'Instrucciones de Costura',pt:'Instruções de Costura',tr:'Dikiş Talimatları'})}</label>
-                      <textarea 
-                        value={formStitchingDetails}
-                        onChange={(e) => setFormStitchingDetails(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none h-16 text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
-                        placeholder={tx(lang,{fr:'Instructions spécifiques d\'assemblage...',ar:'تعليمات تجميع محددة...',en:'Specific assembly instructions...',es:'Instrucciones específicas de ensamblaje...',pt:'Instruções específicas de montagem...',tr:'Özel montaj talimatları...'})}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
 
               <div className="flex gap-3 justify-end border-t border-slate-150 dark:border-dk-border pt-4 mt-6">
                 <button 
@@ -2256,10 +2040,123 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       )}
 
       {/* ======================================= */}
+      {/* NEW SUBCONTRACTOR MODAL (صفحة إضافة ورشة جديدة) */}
+      {/* ======================================= */}
+      {isNewSubModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 z-[220] flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+          <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-xl overflow-hidden flex flex-col border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-600 dark:bg-dk-accent text-white rounded-2xl shadow-sm">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 dark:text-dk-text text-base">
+                    {tx(lang,{fr:'Nouveau Sous-traitant',ar:'مقاول جديد / ورشة جديدة',en:'New Subcontractor'})}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-dk-muted">
+                    {tx(lang,{fr:'Enregistrer un nouvel atelier de façon',ar:'تسجيل ورشة / مقاول جديد للعمل',en:'Register a new subcontracting workshop'})}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setIsNewSubModalOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!formSubcontractorName.trim()) return;
+                setIsNewSubModalOpen(false);
+              }}
+              className="p-6 space-y-5"
+            >
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                  {tx(lang,{fr:'Nom de l\'atelier / Sous-traitant *',ar:'اسم الورشة / المقاول *',en:'Workshop / Subcontractor Name *'})}
+                </label>
+                <input 
+                  type="text"
+                  autoFocus
+                  value={formSubcontractorName} 
+                  onChange={(e) => setFormSubcontractorName(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white text-xs font-semibold"
+                  placeholder={tx(lang,{fr:'Ex: Atelier Ouali, Confection Atlas...',ar:'مثال: ورشة الولي، خياطة أطلس...',en:'E.g.: Ouali Workshop, Atlas Confection...'})}
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                  {tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone'})}
+                </label>
+                <input 
+                  type="text"
+                  value={formSubcontractorPhone} 
+                  onChange={(e) => setFormSubcontractorPhone(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white text-xs"
+                  placeholder="+212..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                    {tx(lang,{fr:'Évaluation (0-5)',ar:'التقييم (0-5)',en:'Rating (0-5)'})}
+                  </label>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    max="5" 
+                    step="0.5"
+                    value={formSubcontractorRating} 
+                    onChange={(e) => setFormSubcontractorRating(parseFloat(e.target.value) || 5)}
+                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white text-xs"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                    {tx(lang,{fr:'Disponibilité',ar:'التوفر',en:'Availability'})}
+                  </label>
+                  <input 
+                    type="date" 
+                    value={formSubcontractorAvailabilityDate} 
+                    onChange={(e) => setFormSubcontractorAvailabilityDate(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 pt-2 border-t border-slate-100 dark:border-dk-border">
+                <button 
+                  type="button" 
+                  onClick={() => setIsNewSubModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl text-xs font-bold transition-all"
+                >
+                  {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel'})}
+                </button>
+                <button 
+                  type="submit"
+                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{tx(lang,{fr:'Ajouter & Continuer',ar:'إضافة ومتابعة',en:'Add & Continue'})}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================= */}
       {/* EDIT ORDER MODAL */}
       {/* ======================================= */}
       {isEditModalOpen && selectedOrder && (
-        <div className="fixed inset-0 bg-slate-900/55 dark:bg-black/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 z-[200] flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
@@ -2279,20 +2176,6 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 className={`py-3 border-b-2 ${modalFormTab === 'general' ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent border-indigo-600 dark:border-dk-accent' : 'text-slate-500 dark:text-dk-muted border-transparent'}`}
               >
                 {tx(lang,{fr:'Général & Quantités',ar:'عام والكميات',en:'General & Quantities',es:'General y Cantidades',pt:'Geral e Quantidades',tr:'Genel ve Miktarlar'})}
-              </button>
-              <button 
-                type="button"
-                onClick={() => setModalFormTab('logistics')}
-                className={`py-3 border-b-2 ${modalFormTab === 'logistics' ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent border-indigo-600 dark:border-dk-accent' : 'text-slate-500 dark:text-dk-muted border-transparent'}`}
-              >
-                {tx(lang,{fr:'Logistique & Suivi',ar:'اللوجستيك والمتابعة',en:'Logistics & Tracking',es:'Logística y Seguimiento',pt:'Logística e Acompanhamento',tr:'Lojistik ve Takip'})}
-              </button>
-              <button 
-                type="button"
-                onClick={() => setModalFormTab('technical')}
-                className={`py-3 border-b-2 ${modalFormTab === 'technical' ? 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent border-indigo-600 dark:border-dk-accent' : 'text-slate-500 dark:text-dk-muted border-transparent'}`}
-              >
-                {tx(lang,{fr:'Spécifications Techniques',ar:'المواصفات التقنية',en:'Technical Specifications',es:'Especificaciones Técnicas',pt:'Especificações Técnicas',tr:'Teknik Şartname'})}
               </button>
             </div>
 
@@ -2464,174 +2347,6 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
                 </div>
               )}
 
-              {modalFormTab === 'logistics' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-dk-text border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Expédition des Matières Premières',ar:'شحن المواد الأولية',en:'Raw Materials Shipment',es:'Expedición de Materias Primas',pt:'Expedição de Matérias-Primas',tr:'Hammadde Sevkiyatı'})}</h4>
-                    
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut Tissu',ar:'حالة القماش',en:'Fabric Status',es:'Estado de la Tela',pt:'Estado do Tecido',tr:'Kumaş Durumu'})}</label>
-                      <select 
-                        value={formTissuStatus} 
-                        onChange={(e: any) => setFormTissuStatus(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="PENDING">{tx(lang,{fr:'En attente d\'expédition',ar:'قيد انتظار الشحن',en:'Awaiting shipment',es:'Pendiente de envío',pt:'A aguardar expedição',tr:'Sevkiyat bekleniyor'})}</option>
-                        <option value="SENT">{tx(lang,{fr:'Tissu envoyé',ar:'تم إرسال القماش',en:'Fabric sent',es:'Tela enviada',pt:'Tecido enviado',tr:'Kumaş gönderildi'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut Fournitures / Accessoires',ar:'حالة اللوازم / الإكسسوارات',en:'Supplies / Accessories Status',es:'Estado de Suministros / Accesorios',pt:'Estado dos Fornecimentos / Acessórios',tr:'Malzeme / Aksesuar Durumu'})}</label>
-                      <select 
-                        value={formFournituresStatus} 
-                        onChange={(e: any) => setFormFournituresStatus(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="PENDING">{tx(lang,{fr:'En attente de livraison',ar:'قيد انتظار التسليم',en:'Awaiting delivery',es:'Pendiente de entrega',pt:'A aguardar entrega',tr:'Teslimat bekleniyor'})}</option>
-                        <option value="DELIVERED">{tx(lang,{fr:'Livrées au sous-traitant',ar:'تم التسليم للمقاول من الباطن',en:'Delivered to subcontractor',es:'Entregado al subcontratista',pt:'Entregue ao subcontratado',tr:'Taşerona teslim edildi'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-3 bg-slate-50 dark:bg-dk-bg p-3 rounded-xl border border-slate-200 dark:border-dk-border">
-                      <input 
-                        type="checkbox" 
-                        checked={formFicheTechniqueSent}
-                        onChange={(e) => setFormFicheTechniqueSent(e.target.checked)}
-                        className="rounded bg-white dark:bg-dk-surface text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent w-4 h-4 border-slate-300 dark:border-dk-border"
-                        id="checkFT"
-                      />
-                      <label htmlFor="checkFT" className="font-semibold text-slate-700 dark:text-dk-text-soft cursor-pointer">{tx(lang,{fr:'Fiche Technique validée et envoyée',ar:'الورقة التقنية معتمدة ومرسلة',en:'Technical sheet validated and sent',es:'Ficha técnica validada y enviada',pt:'Ficha técnica validada e enviada',tr:'Teknik fiş onaylandı ve gönderildi'})}</label>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-dk-text border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Profil Sous-traitant',ar:'ملف المقاول من الباطن',en:'Subcontractor Profile',es:'Perfil del Subcontratista',pt:'Perfil do Subcontratado',tr:'Taşeron Profili'})}</h4>
-                    
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Disponibilité de l\'atelier',ar:'توفر الورشة',en:'Workshop availability',es:'Disponibilidad del taller',pt:'Disponibilidade da oficina',tr:'Atölye müsaitliği'})}</label>
-                      <input 
-                        type="date"
-                        value={formSubcontractorAvailabilityDate}
-                        onChange={(e) => setFormSubcontractorAvailabilityDate(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Évaluation (Note sur 5)',ar:'التقييم (درجة من 5)',en:'Rating (Score out of 5)',es:'Evaluación (Puntuación sobre 5)',pt:'Avaliação (Nota de 0 a 5)',tr:'Değerlendirme (5 üzerinden puan)'})}</label>
-                      <select 
-                        value={formSubcontractorRating} 
-                        onChange={(e) => setFormSubcontractorRating(parseFloat(e.target.value))}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="5">{tx(lang,{fr:'★★★★★ - Excellent',ar:'★★★★★ - ممتاز',en:'★★★★★ - Excellent',es:'★★★★★ - Excelente',pt:'★★★★★ - Excelente',tr:'★★★★★ - Mükemmel'})}</option>
-                        <option value="4">{tx(lang,{fr:'★★★★☆ - Très Bon',ar:'★★★★☆ - جيد جداً',en:'★★★★☆ - Very Good',es:'★★★★☆ - Muy Bueno',pt:'★★★★☆ - Muito Bom',tr:'★★★★☆ - Çok İyi'})}</option>
-                        <option value="3">{tx(lang,{fr:'★★★☆☆ - Moyen',ar:'★★★☆☆ - متوسط',en:'★★★☆☆ - Average',es:'★★★☆☆ - Regular',pt:'★★★☆☆ - Médio',tr:'★★★☆☆ - Orta'})}</option>
-                        <option value="2">{tx(lang,{fr:'★★☆☆☆ - Faible',ar:'★★☆☆☆ - ضعيف',en:'★★☆☆☆ - Weak',es:'★★☆☆☆ - Bajo',pt:'★★☆☆☆ - Fraco',tr:'★★☆☆☆ - Zayıf'})}</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {modalFormTab === 'technical' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-dk-text border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Cahier des charges',ar:'دفتر الشروط',en:'Specifications',es:'Pliego de condiciones',pt:'Caderno de encargos',tr:'Şartname'})}</h4>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Type de prestation',ar:'نوع الخدمة',en:'Service Type',es:'Tipo de Prestación',pt:'Tipo de Prestação',tr:'Hizmet Türü'})}</label>
-                      <select 
-                        value={formPrestationType} 
-                        onChange={(e: any) => setFormPrestationType(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="CMT">CMT ({tx(lang,{fr:'Coupe, Couture, Finition',ar:'قص، خياطة، تشطيب',en:'Cutting, Sewing, Finishing',es:'Corte, Costura, Acabado',pt:'Corte, Costura, Acabamento',tr:'Kesim, Dikiş, Bitim'})})</option>
-                        <option value="FACON_PURE">{tx(lang,{fr:'Façon Pure (Couture seule)',ar:'تصنيع خالص (خياطة فقط)',en:'Pure Manufacturing (Sewing only)',es:'Fabricación Pura (Solo costura)',pt:'Confecção Pura (Apenas costura)',tr:'Saf İmalat (Sadece dikiş)'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Provenance du Tissu',ar:'مصدر القماش',en:'Fabric Origin',es:'Procedencia de la Tela',pt:'Proveniência do Tecido',tr:'Kumaşın Menşei'})}</label>
-                      <select 
-                        value={formTissuFournisseur} 
-                        onChange={(e: any) => setFormTissuFournisseur(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="CLIENT">{tx(lang,{fr:'Fourni par le donneur d\'ordre (Client)',ar:'مقدم من صاحب الطلب (العميل)',en:'Provided by the client',es:'Proporcionado por el cliente',pt:'Fornecido pelo cliente',tr:'Müşteri tarafından sağlanır'})}</option>
-                        <option value="SUBCONTRACTOR">{tx(lang,{fr:'Fourni par le sous-traitant',ar:'مقدم من المقاول من الباطن',en:'Provided by the subcontractor',es:'Proporcionado por el subcontratista',pt:'Fornecido pelo subcontratado',tr:'Taşeron tarafından sağlanır'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Provenance des Fournitures',ar:'مصدر اللوازم',en:'Supplies Origin',es:'Procedencia de los Suministros',pt:'Proveniência dos Fornecimentos',tr:'Malzeme Menşei'})}</label>
-                      <select 
-                        value={formFournituresFournisseur} 
-                        onChange={(e: any) => setFormFournituresFournisseur(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="CLIENT">{tx(lang,{fr:'Fourni par le donneur d\'ordre (Client)',ar:'مقدم من صاحب الطلب (العميل)',en:'Provided by the client',es:'Proporcionado por el cliente',pt:'Fornecido pelo cliente',tr:'Müşteri tarafından sağlanır'})}</option>
-                        <option value="SUBCONTRACTOR">{tx(lang,{fr:'Acheté par le sous-traitant',ar:'يشتريه المقاول من الباطن',en:'Purchased by the subcontractor',es:'Comprado por el subcontratista',pt:'Comprado pelo subcontratado',tr:'Taşeron tarafından satın alınır'})}</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-slate-800 dark:text-dk-text border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Contrôle qualité & Administratif',ar:'مراقبة الجودة والإداري',en:'Quality Control & Administrative',es:'Control de Calidad y Administrativo',pt:'Controlo de Qualidade e Administrativo',tr:'Kalite Kontrol ve İdari'})}</h4>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Prototype Requis',ar:'النموذج الأولي مطلوب',en:'Prototype Required',es:'Prototipo Requerido',pt:'Protótipo Necessário',tr:'Prototip Gerekli'})}</label>
-                      <select 
-                        value={formProtoRequired} 
-                        onChange={(e) => setFormProtoRequired(parseInt(e.target.value))}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="1">{tx(lang,{fr:'Oui, obligatoire',ar:'نعم، إلزامي',en:'Yes, mandatory',es:'Sí, obligatorio',pt:'Sim, obrigatório',tr:'Evet, zorunlu'})}</option>
-                        <option value="0">{tx(lang,{fr:'Non requis',ar:'غير مطلوب',en:'Not required',es:'No requerido',pt:'Não necessário',tr:'Gerekli değil'})}</option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Statut du Prototype',ar:'حالة النموذج الأولي',en:'Prototype Status',es:'Estado del Prototipo',pt:'Estado do Protótipo',tr:'Prototip Durumu'})}</label>
-                      <select 
-                        value={formProtoStatus} 
-                        onChange={(e: any) => setFormProtoStatus(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="PENDING">{tx(lang,{fr:'En attente d\'approbation',ar:'قيد انتظار الموافقة',en:'Awaiting approval',es:'Pendiente de aprobación',pt:'A aguardar aprovação',tr:'Onay bekleniyor'})}</option>
-                        <option value="APPROVED">{tx(lang,{fr:'Validé / BPA signé',ar:'معتمد / تم توقيع BPA',en:'Approved / BPA signed',es:'Validado / BPA firmado',pt:'Validado / BPA assinado',tr:'Onaylandı / BPA imzalandı'})}</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Conditions de règlement',ar:'شروط الدفع',en:'Payment Terms',es:'Condiciones de Pago',pt:'Condições de Pagamento',tr:'Ödeme Koşulları'})}</label>
-                      <select 
-                        value={formPaymentTerms} 
-                        onChange={(e: any) => setFormPaymentTerms(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:bg-white"
-                      >
-                        <option value="AVANCE_RECEPTION">{tx(lang,{fr:'Acompte à la commande + solde à la livraison',ar:'دفعة مقدمة عند الطلب + الباقي عند التسليم',en:'Deposit on order + balance on delivery',es:'Anticipo al pedido + saldo a la entrega',pt:'Sinal na encomenda + saldo na entrega',tr:'Siparişte avans + teslimatta bakiye'})}</option>
-                        <option value="APRES_LIVRAISON">{tx(lang,{fr:'Paiement après réception de facture',ar:'الدفع بعد استلام الفاتورة',en:'Payment after receipt of invoice',es:'Pago después de recibir la factura',pt:'Pagamento após receção da fatura',tr:'Fatura alındıktan sonra ödeme'})}</option>
-                        <option value="ECHEANCES">{tx(lang,{fr:'Paiement échelonné',ar:'دفع مقسط',en:'Installment payment',es:'Pago fraccionado',pt:'Pagamento parcelado',tr:'Taksitli ödeme'})}</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Consignes de Couture',ar:'تعليمات الخياطة',en:'Sewing Instructions',es:'Instrucciones de Costura',pt:'Instruções de Costura',tr:'Dikiş Talimatları'})}</label>
-                      <textarea 
-                        value={formStitchingDetails}
-                        onChange={(e) => setFormStitchingDetails(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none h-16 text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
-                        placeholder={tx(lang,{fr:'Instructions spécifiques d\'assemblage...',ar:'تعليمات تجميع محددة...',en:'Specific assembly instructions...',es:'Instrucciones específicas de ensamblaje...',pt:'Instruções específicas de montagem...',tr:'Özel montaj talimatları...'})}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
               <div className="flex gap-3 justify-end border-t border-slate-150 dark:border-dk-border pt-4 mt-6">
                 <button 
                   type="button" 
@@ -2658,7 +2373,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       {/* DETAILED VIEW MODAL */}
       {/* ======================================= */}
       {isDetailModalOpen && detailOrder && (
-        <div className="fixed inset-0 bg-slate-900/55 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] text-slate-750 dark:text-dk-text">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/55 dark:bg-dk-surface/55">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base">{tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}</h2>
@@ -2793,7 +2508,7 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
       {/* SALE INVOICE MODAL (TAB 3 ACTION) */}
       {/* ======================================= */}
       {isSaleModalOpen && selectedModelForSale && (
-        <div className="fixed inset-0 bg-slate-900/55 dark:bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] text-slate-850 dark:text-dk-text">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/55 dark:bg-dk-surface/55">
               <h2 className="font-bold text-slate-850 dark:text-dk-text text-base flex items-center gap-2">
@@ -3010,6 +2725,157 @@ export default function SousTraitance({ models, settings, onLoadModel }: SousTra
           </div>
         </div>
       )}
+
+      {/* ========================================================== */}
+      {/* SPECIAL SUBCONTRACTOR PROFILE MODAL (صفحة خاصة لكل ورشة) */}
+      {/* ========================================================== */}
+      {selectedSubcontractorForDetail && (() => {
+        const subData = subcontractorStats.find(s => s.name === selectedSubcontractorForDetail) || {
+          name: selectedSubcontractorForDetail,
+          phone: tx(lang,{fr:'Non spécifié',ar:'غير محدد',en:'Not specified'}),
+          orderCount: 0,
+          totalQty: 0,
+          deliveredQty: 0,
+          remainingQty: 0,
+          avgRating: 5,
+          availabilityDate: ''
+        };
+        const subOrders = orders.filter(o => o.subcontractorName === selectedSubcontractorForDetail);
+        const completionPct = subData.totalQty > 0 ? Math.min(100, Math.round((subData.deliveredQty / subData.totalQty) * 100)) : 0;
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 z-[250] flex items-center justify-center p-4 overflow-y-auto animate-fadeIn">
+            <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text">
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-indigo-600 dark:bg-dk-accent text-white rounded-2xl shadow-sm">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className="font-black text-slate-800 dark:text-dk-text text-lg flex items-center gap-2">
+                      <span>{subData.name}</span>
+                      {subData.avgRating > 0 && (
+                        <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 px-2.5 py-0.5 rounded-full flex items-center gap-1 font-bold">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          {subData.avgRating}
+                        </span>
+                      )}
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-dk-muted flex items-center gap-3 mt-0.5 font-semibold">
+                      <span>📞 {subData.phone}</span>
+                      {subData.availabilityDate && (
+                        <span>📅 {tx(lang,{fr:'Disponible le:',ar:'متاح بتاريخ:',en:'Available date:'})} {subData.availabilityDate}</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      const subName = selectedSubcontractorForDetail;
+                      setSelectedSubcontractorForDetail(null);
+                      openOrderFormModal(subName);
+                    }}
+                    className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{tx(lang,{fr:'Nouvelle Commande',ar:'أمر جديد',en:'New Order'})}</span>
+                  </button>
+                  <button 
+                    onClick={() => setSelectedSubcontractorForDetail(null)}
+                    className="p-2 hover:bg-slate-200 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 overflow-y-auto space-y-6">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="bg-slate-50 dark:bg-dk-bg p-4 rounded-2xl border border-slate-200 dark:border-dk-border">
+                    <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Commandes',ar:'الطلبيات',en:'Orders'})}</span>
+                    <span className="font-extrabold text-slate-800 dark:text-dk-text text-lg">{subData.orderCount}</span>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-dk-bg p-4 rounded-2xl border border-slate-200 dark:border-dk-border">
+                    <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Quantité Totale',ar:'الكمية الإجمالية',en:'Total Qty'})}</span>
+                    <span className="font-extrabold text-slate-800 dark:text-dk-text text-lg">{subData.totalQty.toLocaleString()} pcs</span>
+                  </div>
+                  <div className="bg-emerald-50 dark:bg-emerald-950/30 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800/40">
+                    <span className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">{tx(lang,{fr:'Livré',ar:'المسلم',en:'Delivered'})}</span>
+                    <span className="font-extrabold text-emerald-700 dark:text-emerald-300 text-lg">{subData.deliveredQty.toLocaleString()} pcs</span>
+                  </div>
+                  <div className="bg-amber-50 dark:bg-amber-950/30 p-4 rounded-2xl border border-amber-200 dark:border-amber-800/40">
+                    <span className="block text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">{tx(lang,{fr:'Membres Reste',ar:'المتبقي',en:'Remaining'})}</span>
+                    <span className="font-extrabold text-amber-700 dark:text-amber-300 text-lg">{subData.remainingQty.toLocaleString()} pcs</span>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="bg-slate-50 dark:bg-dk-bg p-4 rounded-2xl border border-slate-200 dark:border-dk-border space-y-2">
+                  <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-dk-text">
+                    <span>{tx(lang,{fr:'Taux de réalisation global',ar:'نسبة الإنجاز الإجمالية',en:'Overall Completion Rate'})}</span>
+                    <span>{completionPct}%</span>
+                  </div>
+                  <div className="w-full bg-slate-200 dark:bg-dk-elevated h-2.5 rounded-full overflow-hidden">
+                    <div className="bg-indigo-600 dark:bg-dk-accent h-full transition-all" style={{ width: `${completionPct}%` }}></div>
+                  </div>
+                </div>
+
+                {/* Assigned Orders Table */}
+                <div className="space-y-3">
+                  <h3 className="font-bold text-slate-800 dark:text-dk-text text-sm uppercase tracking-wider">
+                    {tx(lang,{fr:'Liste des commandes assignées',ar:'قائمة الطلبيات المخصصة لهذه الورشة',en:'Assigned Orders List'})} ({subOrders.length})
+                  </h3>
+
+                  {subOrders.length === 0 ? (
+                    <p className="text-xs text-slate-400 dark:text-dk-muted py-6 text-center italic">
+                      {tx(lang,{fr:'Aucune commande assignée',ar:'لا توجد طلبية مخصصة لهذا المقاول',en:'No assigned orders'})}
+                    </p>
+                  ) : (
+                    <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden bg-white dark:bg-dk-surface">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 font-semibold uppercase">
+                            <tr>
+                              <th className="px-4 py-3">{tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model'})}</th>
+                              <th className="px-4 py-3">{tx(lang,{fr:'Client',ar:'العميل',en:'Client'})}</th>
+                              <th className="px-4 py-3">{tx(lang,{fr:'Qté',ar:'الكمية',en:'Qty'})}</th>
+                              <th className="px-4 py-3">{tx(lang,{fr:'Livré',ar:'المسلم',en:'Delivered'})}</th>
+                              <th className="px-4 py-3">{tx(lang,{fr:'Prix/pc',ar:'السعر/قطعة',en:'Price/pc'})}</th>
+                              <th className="px-4 py-3">{tx(lang,{fr:'Date Livraison',ar:'تاريخ التسليم',en:'Delivery Date'})}</th>
+                              <th className="px-4 py-3">{tx(lang,{fr:'Statut',ar:'الحالة',en:'Status'})}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                            {subOrders.map(o => (
+                              <tr key={o.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/50 transition-colors">
+                                <td className="px-4 py-3 font-bold text-slate-800 dark:text-dk-text">{o.modelName}</td>
+                                <td className="px-4 py-3 text-slate-600 dark:text-dk-text-soft">{o.clientName || 'N/A'}</td>
+                                <td className="px-4 py-3 font-semibold">{o.totalQuantity} pcs</td>
+                                <td className="px-4 py-3 text-emerald-600 font-semibold">{o.qtyAccepted || 0} pcs</td>
+                                <td className="px-4 py-3 font-bold">{o.pricePerPiece || 0} MAD</td>
+                                <td className="px-4 py-3 text-slate-500">{o.deliveryDate}</td>
+                                <td className="px-4 py-3">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    {o.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

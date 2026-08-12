@@ -96,90 +96,74 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
 export const updateSubcontractOrder = (req: Request, res: Response) => {
     const companyId = (req as any).companyId;
     const { id } = req.params;
-    const {
-        modelId, modelName, clientName, totalQuantity,
-        subcontractorName, pricePerPiece, deliveryDate,
-        status, sizes_json, colors_json, notes,
-        tissuStatus, fournituresStatus, ficheTechniqueSent,
-        qtyAccepted, qtyToRepair, qtyRejected,
-        subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
-        prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
-        protoRequired, protoStatus, paymentTerms, defectRateAccepted,
-        stitchingDetails, specifications_json
-    } = req.body;
+
+    // Whitelist of updatable columns → DB column name
+    const textColumns: Record<string, string> = {
+        modelId: 'modelId',
+        modelName: 'modelName',
+        clientName: 'clientName',
+        subcontractorName: 'subcontractorName',
+        deliveryDate: 'deliveryDate',
+        status: 'status',
+        sizes_json: 'sizes_json',
+        colors_json: 'colors_json',
+        notes: 'notes',
+        tissuStatus: 'tissuStatus',
+        fournituresStatus: 'fournituresStatus',
+        subcontractorPhone: 'subcontractorPhone',
+        subcontractorAvailabilityDate: 'subcontractorAvailabilityDate',
+        prestationType: 'prestationType',
+        tissuFournisseur: 'tissuFournisseur',
+        fournituresFournisseur: 'fournituresFournisseur',
+        conditionnementFournisseur: 'conditionnementFournisseur',
+        protoStatus: 'protoStatus',
+        paymentTerms: 'paymentTerms',
+        stitchingDetails: 'stitchingDetails',
+        specifications_json: 'specifications_json'
+    };
+
+    const numberColumns: Record<string, string> = {
+        totalQuantity: 'totalQuantity',
+        pricePerPiece: 'pricePerPiece',
+        ficheTechniqueSent: 'ficheTechniqueSent',
+        qtyAccepted: 'qtyAccepted',
+        qtyToRepair: 'qtyToRepair',
+        qtyRejected: 'qtyRejected',
+        subcontractorRating: 'subcontractorRating',
+        protoRequired: 'protoRequired',
+        defectRateAccepted: 'defectRateAccepted'
+    };
+
+    const sets: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(textColumns).forEach(([key, column]) => {
+        if (req.body[key] !== undefined) {
+            sets.push(`${column} = ?`);
+            // Empty string clears the field (set to NULL); otherwise keep the value
+            values.push(req.body[key] === '' ? null : req.body[key]);
+        }
+    });
+
+    Object.entries(numberColumns).forEach(([key, column]) => {
+        if (req.body[key] !== undefined && req.body[key] !== null) {
+            sets.push(`${column} = ?`);
+            values.push(req.body[key]);
+        }
+    });
+
+    if (sets.length === 0) {
+        return res.status(400).json({ message: 'No fields to update' });
+    }
 
     try {
         const stmt = db.prepare(`
             UPDATE subcontract_orders 
-            SET 
-                modelId = COALESCE(?, modelId),
-                modelName = COALESCE(?, modelName),
-                clientName = COALESCE(?, clientName),
-                totalQuantity = COALESCE(?, totalQuantity),
-                subcontractorName = COALESCE(?, subcontractorName),
-                pricePerPiece = COALESCE(?, pricePerPiece),
-                deliveryDate = COALESCE(?, deliveryDate),
-                status = COALESCE(?, status),
-                sizes_json = COALESCE(?, sizes_json),
-                colors_json = COALESCE(?, colors_json),
-                notes = COALESCE(?, notes),
-                tissuStatus = COALESCE(?, tissuStatus),
-                fournituresStatus = COALESCE(?, fournituresStatus),
-                ficheTechniqueSent = COALESCE(?, ficheTechniqueSent),
-                qtyAccepted = COALESCE(?, qtyAccepted),
-                qtyToRepair = COALESCE(?, qtyToRepair),
-                qtyRejected = COALESCE(?, qtyRejected),
-                subcontractorPhone = COALESCE(?, subcontractorPhone),
-                subcontractorRating = COALESCE(?, subcontractorRating),
-                subcontractorAvailabilityDate = COALESCE(?, subcontractorAvailabilityDate),
-                prestationType = COALESCE(?, prestationType),
-                tissuFournisseur = COALESCE(?, tissuFournisseur),
-                fournituresFournisseur = COALESCE(?, fournituresFournisseur),
-                conditionnementFournisseur = COALESCE(?, conditionnementFournisseur),
-                protoRequired = COALESCE(?, protoRequired),
-                protoStatus = COALESCE(?, protoStatus),
-                paymentTerms = COALESCE(?, paymentTerms),
-                defectRateAccepted = COALESCE(?, defectRateAccepted),
-                stitchingDetails = COALESCE(?, stitchingDetails),
-                specifications_json = COALESCE(?, specifications_json),
-                updated_at = CURRENT_TIMESTAMP
+            SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND owner_id = ?
         `);
 
-        const result = stmt.run(
-            modelId || null,
-            modelName || null,
-            clientName || null,
-            totalQuantity || null,
-            subcontractorName || null,
-            pricePerPiece || null,
-            deliveryDate || null,
-            status || null,
-            sizes_json || null,
-            colors_json || null,
-            notes || null,
-            tissuStatus || null,
-            fournituresStatus || null,
-            ficheTechniqueSent !== undefined ? ficheTechniqueSent : null,
-            qtyAccepted !== undefined ? qtyAccepted : null,
-            qtyToRepair !== undefined ? qtyToRepair : null,
-            qtyRejected !== undefined ? qtyRejected : null,
-            subcontractorPhone || null,
-            subcontractorRating !== undefined ? subcontractorRating : null,
-            subcontractorAvailabilityDate || null,
-            prestationType || null,
-            tissuFournisseur || null,
-            fournituresFournisseur || null,
-            conditionnementFournisseur || null,
-            protoRequired !== undefined ? protoRequired : null,
-            protoStatus || null,
-            paymentTerms || null,
-            defectRateAccepted !== undefined ? defectRateAccepted : null,
-            stitchingDetails || null,
-            specifications_json || null,
-            id,
-            companyId
-        );
+        const result = stmt.run(...values, id, companyId);
 
         if (result.changes === 0) {
             return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
@@ -271,5 +255,112 @@ export const deleteSubcontractorGroup = (req: Request, res: Response) => {
     } catch (error) {
         console.error('Delete subcontractor group error:', error);
         res.status(500).json({ message: 'Error deleting subcontractor group' });
+    }
+};
+
+// Get all subcontractor profiles
+export const getSubcontractorProfiles = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    try {
+        const stmt = db.prepare('SELECT * FROM subcontractor_profiles WHERE owner_id = ? ORDER BY name ASC');
+        const rows = stmt.all(companyId) as any[];
+        res.json(rows);
+    } catch (error) {
+        console.error('Get subcontractor profiles error:', error);
+        res.status(500).json({ message: 'Error fetching subcontractor profiles' });
+    }
+};
+
+// Create subcontractor profile
+export const createSubcontractorProfile = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const {
+        name, phone, address, serviceType, photo,
+        ifNumber, rcNumber, iceNumber, rating, availabilityDate, notes
+    } = req.body;
+
+    if (!name || !String(name).trim()) {
+        return res.status(400).json({ message: 'Le nom du sous-traitant est requis' });
+    }
+
+    try {
+        const id = randomUUID();
+        db.prepare(`
+            INSERT INTO subcontractor_profiles (
+                id, owner_id, name, phone, address, serviceType, photo,
+                ifNumber, rcNumber, iceNumber, rating, availabilityDate, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            id, companyId, name.trim(),
+            phone || null, address || null, serviceType || null, photo || null,
+            ifNumber || null, rcNumber || null, iceNumber || null,
+            rating !== undefined && rating !== null ? rating : 5,
+            availabilityDate || null, notes || null
+        );
+
+        res.status(201).json({ message: 'Sous-traitant créé avec succès', id });
+    } catch (error) {
+        console.error('Create subcontractor profile error:', error);
+        res.status(500).json({ message: 'Error creating subcontractor profile' });
+    }
+};
+
+// Update subcontractor profile
+export const updateSubcontractorProfile = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+
+    const columns: Record<string, string> = {
+        name: 'name', phone: 'phone', address: 'address', serviceType: 'serviceType',
+        photo: 'photo', ifNumber: 'ifNumber', rcNumber: 'rcNumber', iceNumber: 'iceNumber',
+        rating: 'rating', availabilityDate: 'availabilityDate', notes: 'notes'
+    };
+
+    const sets: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(columns).forEach(([key, column]) => {
+        if (req.body[key] !== undefined) {
+            sets.push(`${column} = ?`);
+            values.push(req.body[key] === '' ? null : req.body[key]);
+        }
+    });
+
+    if (sets.length === 0) {
+        return res.status(400).json({ message: 'No fields to update' });
+    }
+
+    try {
+        const result = db.prepare(`
+            UPDATE subcontractor_profiles
+            SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND owner_id = ?
+        `).run(...values, id, companyId);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ message: 'Subcontractor profile not found or unauthorized' });
+        }
+
+        res.json({ message: 'Sous-traitant mis à jour avec succès' });
+    } catch (error) {
+        console.error('Update subcontractor profile error:', error);
+        res.status(500).json({ message: 'Error updating subcontractor profile' });
+    }
+};
+
+// Delete subcontractor profile
+export const deleteSubcontractorProfile = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+
+    try {
+        const result = db.prepare('DELETE FROM subcontractor_profiles WHERE id = ? AND owner_id = ?').run(id, companyId);
+        if (result.changes === 0) {
+            return res.status(404).json({ message: 'Subcontractor profile not found or unauthorized' });
+        }
+        res.json({ message: 'Sous-traitant supprimé avec succès' });
+    } catch (error) {
+        console.error('Delete subcontractor profile error:', error);
+        res.status(500).json({ message: 'Error deleting subcontractor profile' });
     }
 };

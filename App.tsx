@@ -403,7 +403,7 @@ export default function App() {
         };
     }, []);
 
-    const [navigationContext, setNavigationContext] = useState<'coupe' | 'planning' | null>(null);
+    const [navigationContext, setNavigationContext] = useState<'coupe' | 'planning' | 'sousTraitance' | null>(null);
     const [navConfirm, setNavConfirm] = useState<{ isOpen: boolean; type: 'save' | 'new' | 'effectifs' | null; targetView: typeof currentView | null; }>({ isOpen: false, type: null, targetView: null });
 
     const [planningEvents, setPlanningEvents] = useState<import('./types').PlanningEvent[]>([]);
@@ -1293,11 +1293,12 @@ export default function App() {
         return () => clearTimeout(timer);
     }, [currentModelId, articleName, operations, assignments, postes, ficheData, ficheImages, efficiency, numWorkers, presenceTime, layoutMemory, activeLayout, manualLinks, savedPlantations, chronoData, chronoCustomStations, chronoLayoutSide, user, saveCurrentModel]);
 
-    const createNewProject = useCallback(() => {
+    const createNewProject = useCallback((fromContext?: 'coupe' | 'planning' | 'sousTraitance' | null) => {
         setSkipAutosaveRestore(true);
         rawCreateNewProject();
+        setNavigationContext(fromContext !== undefined ? fromContext : null);
         setTimeout(() => setSkipAutosaveRestore(false), 3000);
-    }, [rawCreateNewProject]);
+    }, [rawCreateNewProject, setNavigationContext]);
 
     if (authLoading) {
         return (
@@ -1423,6 +1424,7 @@ export default function App() {
 
         setCurrentView(targetView);
         setRouteTokens([]);
+        if (targetView !== 'ingenierie' && targetView !== 'library') setNavigationContext(null);
         navigate(targetView);
     };
 
@@ -1455,6 +1457,7 @@ export default function App() {
         if (type === 'save') {
             if (action === 'yes') saveCurrentModel(false, true); // true = silent, no alert
             setCurrentView(targetView);
+            setNavigationContext(null);
             navigate(targetView);
         } else if (type === 'new') {
             if (action === 'yes') {
@@ -1463,6 +1466,7 @@ export default function App() {
                 navigate('ingenierie');
             } else {
                 setCurrentView(targetView);
+                setNavigationContext(null);
                 navigate(targetView);
             }
         }
@@ -1983,7 +1987,7 @@ export default function App() {
                     {currentView === 'sousTraitance' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
                             <Suspense fallback={<div className="p-8 text-center text-gray-500 dark:text-dk-text-soft">Chargement...</div>}>
-                                <SousTraitance models={models} settings={globalSettings} onNavigate={(v) => handleNavigation(v as any)} planningEvents={planningEvents} setPlanningEvents={setPlanningEvents} />
+                                <SousTraitance models={models} settings={globalSettings} onNavigate={(v) => handleNavigation(v as any)} onCreateNewProject={() => createNewProject('sousTraitance')} planningEvents={planningEvents} setPlanningEvents={setPlanningEvents} />
                             </Suspense>
                         </div>
                     )}
@@ -2007,13 +2011,12 @@ export default function App() {
                             <button
                                 onClick={() => {
                                     handleNavigation(navigationContext as any);
-                                    setNavigationContext(null);
                                 }}
-                                title={`Retourner au ${navigationContext === 'coupe' ? 'La Coupe' : 'Planning'}`}
+                                title={`Retourner au ${navigationContext === 'coupe' ? 'La Coupe' : navigationContext === 'sousTraitance' ? 'Sous-traitance' : 'Planning'}`}
                                 className="group flex items-center gap-2 bg-slate-900 dark:bg-dk-surface border border-slate-700 dark:border-dk-border text-white dark:text-dk-text rounded-full pl-2.5 pr-3.5 py-1.5 shadow-lg hover:bg-slate-800 dark:hover:bg-dk-elevated/80 hover:-translate-y-0.5 transition-all"
                             >
                                 <LogOut className="w-3.5 h-3.5 text-white rotate-180 shrink-0" />
-                                <span className="text-[11px] font-semibold whitespace-nowrap">Retour {navigationContext === 'coupe' ? 'La Coupe' : 'Planning'}</span>
+                                <span className="text-[11px] font-semibold whitespace-nowrap">Retour {navigationContext === 'coupe' ? 'La Coupe' : navigationContext === 'sousTraitance' ? 'Sous-traitance' : 'Planning'}</span>
                             </button>
                         </div>
                     )}

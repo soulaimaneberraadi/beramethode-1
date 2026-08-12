@@ -1,0 +1,13 @@
+diff --git a/package.json b/package.json
+index 02ea200..1038f8f 100644
+--- a/package.json
++++ b/package.json
+@@ -51,7 +51,7 @@
+     "concurrently": "^9.1.2"
+   },
+   "engines": {
+-    "node": ">=20.0.0"
++    "node": "22.x"
+   },
+   "build": {
+     "appId": "com.beramethode.app",

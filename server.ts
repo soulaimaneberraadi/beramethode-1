@@ -71,7 +71,11 @@ import {
   deleteSubcontractOrder,
   getSubcontractorGroups,
   saveSubcontractorGroup,
-  deleteSubcontractorGroup
+  deleteSubcontractorGroup,
+  getSubcontractorProfiles,
+  createSubcontractorProfile,
+  updateSubcontractorProfile,
+  deleteSubcontractorProfile
 } from './server/subcontractController';
 import { getSuiviData, saveSuiviData, getSuiviStats } from './server/suiviController';
 import { getPosteSuivi, savePosteSuivi, deletePosteSuivi } from './server/posteSuiviController';
@@ -664,6 +668,10 @@ async function startServer() {
   app.get('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractorGroups);
   app.post('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveSubcontractorGroup);
   app.delete('/api/subcontract/groups/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontractor_groups', 'owner_id'), deleteSubcontractorGroup);
+  app.get('/api/subcontract/profiles', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractorProfiles);
+  app.post('/api/subcontract/profiles', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createSubcontractorProfile);
+  app.put('/api/subcontract/profiles/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontractor_profiles', 'owner_id'), updateSubcontractorProfile);
+  app.delete('/api/subcontract/profiles/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontractor_profiles', 'owner_id'), deleteSubcontractorProfile);
 
   app.get('/api/suivi', authenticateToken, requirePermission('page', 'suivi', 'view'), getSuiviData);
   app.post('/api/suivi', authenticateToken, requirePermission('page', 'suivi', 'edit'), saveSuiviData);

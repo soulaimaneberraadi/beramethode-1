@@ -1,0 +1,222 @@
+diff --git a/App.tsx b/App.tsx
+index 952254b..12260e4 100644
+--- a/App.tsx
++++ b/App.tsx
+@@ -52,6 +52,7 @@ import Facturation from './components/Facturation';
+ import Atelier from './components/Atelier';
+ import { sumPiecesFromSuiviForPlanning } from './utils/produced';
+ import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
++import { computeStockAlerts, computePlanningAlerts } from './src/lib/alertsEngine';
+ 
+ const TRANSLATIONS = {
+     fr: {
+@@ -1064,6 +1065,33 @@ export default function App() {
+         return () => clearTimeout(timer);
+     }, [currentModelId, articleName, operations, assignments, postes, ficheData, ficheImages, efficiency, numWorkers, presenceTime, layoutMemory, activeLayout, manualLinks, savedPlantations, chronoData, user]);
+ 
++    // ── Compteur d'alertes pour le badge navbar ──
++    const [navAlertCount, setNavAlertCount] = useState(0);
++    useEffect(() => {
++        const compute = () => {
++            fetch('/api/magasin/products', { credentials: 'include' })
++                .then(r => r.ok ? r.json() : [])
++                .then((products: any[]) => {
++                    const stock = computeStockAlerts(Array.isArray(products) ? products : []);
++                    const planning = computePlanningAlerts(planningEvents);
++                    const critiques = [...stock, ...planning].filter(a => a.severity === 'critical').length;
++                    setNavAlertCount(critiques);
++                })
++                .catch(() => {});
++        };
++        compute();
++        const t = setInterval(compute, 60_000);
++        return () => clearInterval(t);
++    }, [planningEvents]); // eslint-disable-line react-hooks/exhaustive-deps
++
++    // Auto-fill articleName from currentModel when field is empty (e.g. legacy models with empty nom_modele)
++    useEffect(() => {
++        if (!currentModelId || articleName.trim()) return;
++        const m = models.find(m => m.id === currentModelId);
++        const fallback = m?.meta_data.nom_modele || m?.meta_data.reference || '';
++        if (fallback) setArticleName(fallback);
++    }, [currentModelId]); // eslint-disable-line react-hooks/exhaustive-deps
++
+     useEffect(() => {
+         localStorage.setItem('beramethode_manual_links', JSON.stringify(manualLinks));
+         if (!user) return;
+@@ -1270,7 +1298,7 @@ export default function App() {
+         } else {
+             setNavigationContext(null); // Default to clear if not explicitly provided
+         }
+-        setArticleName(model.meta_data.nom_modele);
++        setArticleName(model.meta_data.nom_modele || model.meta_data.reference || '');
+         setOperations(model.gamme_operatoire || []);
+         setNumWorkers(model.meta_data.effectif || 1);
+ 
+@@ -1534,13 +1562,18 @@ export default function App() {
+                         <nav className="flex items-center gap-1 mx-4 overflow-x-auto no-scrollbar">
+                             <button
+                                 onClick={() => handleNavigation('dashboard')}
+-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[11px] font-bold uppercase tracking-wide whitespace-nowrap border ${currentView === 'dashboard'
++                                className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[11px] font-bold uppercase tracking-wide whitespace-nowrap border ${currentView === 'dashboard'
+                                     ? 'bg-indigo-50 border-indigo-100 text-indigo-700'
+                                     : 'bg-transparent border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                                     }`}
+                             >
+                                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></svg>
+                                 Tableau de bord
++                                {navAlertCount > 0 && (
++                                    <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-pulse">
++                                        {navAlertCount > 9 ? '9+' : navAlertCount}
++                                    </span>
++                                )}
+                             </button>
+                             <button
+                                 onClick={() => handleNavigation('ingenierie')}
+diff --git a/components/Dashboard.tsx b/components/Dashboard.tsx
+index d485245..6ea55ff 100644
+--- a/components/Dashboard.tsx
++++ b/components/Dashboard.tsx
+@@ -1,6 +1,7 @@
+ import React, { useMemo, useState, useEffect } from 'react';
+ import { ModelData, SuiviData, PlanningEvent, AppSettings, AppTask } from '../types';
+-import { Users, Activity, Layers, TrendingUp, Download, AlertTriangle, ShieldAlert, CheckCircle2, ListTodo, CalendarClock, ChevronRight, Factory, Package, DollarSign, RefreshCw, Calendar as CalendarIcon } from 'lucide-react';
++import { Users, Activity, Layers, TrendingUp, Download, AlertTriangle, ShieldAlert, CheckCircle2, ListTodo, CalendarClock, ChevronRight, Factory, Package, DollarSign, RefreshCw, Calendar as CalendarIcon, Bell, X, ChevronDown } from 'lucide-react';
++import { computeAllAlerts, type AppAlert } from '../src/lib/alertsEngine';
+ import {
+   LineChart,
+   Line,
+@@ -64,6 +65,17 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
+   const [liveKPIs, setLiveKPIs] = useState<any>(null);
+   const [kpiLoading, setKpiLoading] = useState(true);
+ 
++  // ── Magasin products for stock alerts ──
++  const [magasinProducts, setMagasinProducts] = useState<any[]>([]);
++  const [alertsPanelOpen, setAlertsPanelOpen] = useState(true);
++
++  useEffect(() => {
++    fetch('/api/magasin/products', { credentials: 'include' })
++      .then(r => r.ok ? r.json() : [])
++      .then(data => setMagasinProducts(Array.isArray(data) ? data : []))
++      .catch(() => {});
++  }, []);
++
+   const fetchKPIs = () => {
+     setKpiLoading(true);
+     fetch('/api/dashboard/kpis', { credentials: 'include' })
+@@ -318,6 +330,15 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
+     ];
+   }, [liveKPIs, activeModelsCount, totalEffectif, globalTRS, pJournaliere]);
+ 
++  // ── Alertes intelligentes ──
++  const allAlerts = useMemo<AppAlert[]>(() => computeAllAlerts({
++    products: magasinProducts,
++    planningEvents,
++    andonAlerts,
++  }), [magasinProducts, planningEvents, andonAlerts]);
++
++  const criticalCount = allAlerts.filter(a => a.severity === 'critical').length;
++
+   // --- TASK MANAGEMENT LOGIC ---
+   const [skipReasonModal, setSkipReasonModal] = useState<AppTask | null>(null);
+   const [skipReasonText, setSkipReasonText] = useState('');
+@@ -416,34 +437,78 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
+           })}
+         </div>
+ 
+-        {/* Stock Alert Banner */}
+-        {liveKPIs?.stock?.alertes?.length > 0 && (
+-          onNavigateModule ? (
++        {/* ── Centre de Contrôle des Alertes ── */}
++        {allAlerts.length > 0 && (
++          <div className={`rounded-2xl border shadow-sm overflow-hidden transition-all ${criticalCount > 0 ? 'border-rose-200 bg-rose-50/60' : 'border-amber-200 bg-amber-50/60'}`}>
++            {/* Header */}
+             <button
+               type="button"
+-              onClick={() => onNavigateModule('magasin')}
+-              className="w-full text-left rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-amber-100/80 transition-colors"
++              onClick={() => setAlertsPanelOpen(v => !v)}
++              className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-white/40 transition-colors"
+             >
+-              <AlertTriangle className="w-[18px] h-[18px] text-amber-600 shrink-0" />
+-              <div className="text-[13px] min-w-0">
+-                <strong className="text-amber-900">Alertes Stock ({liveKPIs.stock.alertes.length}) :</strong>{' '}
+-                <span className="text-amber-950/90">
+-                  {liveKPIs.stock.alertes.map((a: any) => `${a.designation} (${a.stock_actuel}/${a.stockAlerte})`).join(' • ')}
++              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${criticalCount > 0 ? 'bg-rose-100' : 'bg-amber-100'}`}>
++                <Bell className={`w-4 h-4 ${criticalCount > 0 ? 'text-rose-600' : 'text-amber-600'}`} />
++              </div>
++              <div className="flex-1 flex items-center gap-2">
++                <span className={`text-sm font-black ${criticalCount > 0 ? 'text-rose-900' : 'text-amber-900'}`}>
++                  Centre d'Alertes
++                </span>
++                {criticalCount > 0 && (
++                  <span className="px-2 py-0.5 bg-rose-600 text-white text-[10px] font-black rounded-full animate-pulse">
++                    {criticalCount} critique{criticalCount > 1 ? 's' : ''}
++                  </span>
++                )}
++                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${criticalCount > 0 ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}>
++                  {allAlerts.length} alerte{allAlerts.length > 1 ? 's' : ''}
+                 </span>
+               </div>
+-              <ChevronRight className="w-5 h-5 text-amber-700/60 shrink-0" aria-hidden />
++              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${alertsPanelOpen ? 'rotate-180' : ''}`} />
+             </button>
+-          ) : (
+-            <div className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-3">
+-              <AlertTriangle className="w-[18px] h-[18px] text-amber-600 shrink-0" />
+-              <div className="text-[13px] min-w-0">
+-                <strong className="text-amber-900">Alertes Stock ({liveKPIs.stock.alertes.length}) :</strong>{' '}
+-                <span className="text-amber-950/90">
+-                  {liveKPIs.stock.alertes.map((a: any) => `${a.designation} (${a.stock_actuel}/${a.stockAlerte})`).join(' • ')}
+-                </span>
++
++            {/* Body */}
++            {alertsPanelOpen && (
++              <div className="px-5 pb-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
++                {allAlerts.map(alert => {
++                  const isCritical = alert.severity === 'critical';
++                  const isWarning = alert.severity === 'warning';
++                  const cardClass = isCritical
++                    ? 'bg-rose-100/80 border-rose-200 hover:bg-rose-100'
++                    : isWarning
++                    ? 'bg-amber-100/80 border-amber-200 hover:bg-amber-100'
++                    : 'bg-sky-100/80 border-sky-200 hover:bg-sky-100';
++                  const titleClass = isCritical ? 'text-rose-900' : isWarning ? 'text-amber-900' : 'text-sky-900';
++                  const msgClass = isCritical ? 'text-rose-700' : isWarning ? 'text-amber-700' : 'text-sky-700';
++
++                  const Inner = (
++                    <div className={`flex items-start gap-2.5 p-3 rounded-xl border transition-colors ${cardClass}`}>
++                      <span className="text-base leading-none mt-0.5 shrink-0">{alert.icon}</span>
++                      <div className="flex-1 min-w-0">
++                        <p className={`text-xs font-black leading-snug ${titleClass}`}>{alert.title}</p>
++                        <p className={`text-[11px] mt-0.5 truncate ${msgClass}`}>{alert.message}</p>
++                      </div>
++                      {onNavigateModule && alert.nav && (
++                        <ChevronRight className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${isCritical ? 'text-rose-400' : 'text-amber-400'}`} />
++                      )}
++                    </div>
++                  );
++
++                  if (onNavigateModule && alert.nav) {
++                    return (
++                      <button
++                        key={alert.id}
++                        type="button"
++                        onClick={() => onNavigateModule(alert.nav as DashboardNavTarget)}
++                        className="text-left"
++                      >
++                        {Inner}
++                      </button>
++                    );
++                  }
++                  return <div key={alert.id}>{Inner}</div>;
++                })}
+               </div>
+-            </div>
+-          )
++            )}
++          </div>
+         )}
+ 
+         {/* CHARTS GRID & TASKS */}
