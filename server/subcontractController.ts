@@ -21,7 +21,7 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
     const {
         modelId, modelName, clientName, totalQuantity,
         subcontractorName, pricePerPiece, deliveryDate,
-        status, sizes_json, colors_json, notes,
+        status, sizes_json, colors_json, grid_json, notes,
         tissuStatus, fournituresStatus, ficheTechniqueSent,
         qtyAccepted, qtyToRepair, qtyRejected,
         subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
@@ -40,14 +40,14 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
             INSERT INTO subcontract_orders (
                 id, owner_id, modelId, modelName, clientName, totalQuantity,
                 subcontractorName, pricePerPiece, deliveryDate, status,
-                sizes_json, colors_json, notes,
+                sizes_json, colors_json, grid_json, notes,
                 tissuStatus, fournituresStatus, ficheTechniqueSent,
                 qtyAccepted, qtyToRepair, qtyRejected,
                 subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
                 prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
                 protoRequired, protoStatus, paymentTerms, defectRateAccepted,
                 stitchingDetails, specifications_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         stmt.run(
@@ -63,6 +63,7 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
             status || 'PENDING',
             sizes_json || null,
             colors_json || null,
+            grid_json || null,
             notes || null,
             tissuStatus || 'PENDING',
             fournituresStatus || 'PENDING',
@@ -96,74 +97,92 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
 export const updateSubcontractOrder = (req: Request, res: Response) => {
     const companyId = (req as any).companyId;
     const { id } = req.params;
-
-    // Whitelist of updatable columns → DB column name
-    const textColumns: Record<string, string> = {
-        modelId: 'modelId',
-        modelName: 'modelName',
-        clientName: 'clientName',
-        subcontractorName: 'subcontractorName',
-        deliveryDate: 'deliveryDate',
-        status: 'status',
-        sizes_json: 'sizes_json',
-        colors_json: 'colors_json',
-        notes: 'notes',
-        tissuStatus: 'tissuStatus',
-        fournituresStatus: 'fournituresStatus',
-        subcontractorPhone: 'subcontractorPhone',
-        subcontractorAvailabilityDate: 'subcontractorAvailabilityDate',
-        prestationType: 'prestationType',
-        tissuFournisseur: 'tissuFournisseur',
-        fournituresFournisseur: 'fournituresFournisseur',
-        conditionnementFournisseur: 'conditionnementFournisseur',
-        protoStatus: 'protoStatus',
-        paymentTerms: 'paymentTerms',
-        stitchingDetails: 'stitchingDetails',
-        specifications_json: 'specifications_json'
-    };
-
-    const numberColumns: Record<string, string> = {
-        totalQuantity: 'totalQuantity',
-        pricePerPiece: 'pricePerPiece',
-        ficheTechniqueSent: 'ficheTechniqueSent',
-        qtyAccepted: 'qtyAccepted',
-        qtyToRepair: 'qtyToRepair',
-        qtyRejected: 'qtyRejected',
-        subcontractorRating: 'subcontractorRating',
-        protoRequired: 'protoRequired',
-        defectRateAccepted: 'defectRateAccepted'
-    };
-
-    const sets: string[] = [];
-    const values: any[] = [];
-
-    Object.entries(textColumns).forEach(([key, column]) => {
-        if (req.body[key] !== undefined) {
-            sets.push(`${column} = ?`);
-            // Empty string clears the field (set to NULL); otherwise keep the value
-            values.push(req.body[key] === '' ? null : req.body[key]);
-        }
-    });
-
-    Object.entries(numberColumns).forEach(([key, column]) => {
-        if (req.body[key] !== undefined && req.body[key] !== null) {
-            sets.push(`${column} = ?`);
-            values.push(req.body[key]);
-        }
-    });
-
-    if (sets.length === 0) {
-        return res.status(400).json({ message: 'No fields to update' });
-    }
+    const {
+        modelId, modelName, clientName, totalQuantity,
+        subcontractorName, pricePerPiece, deliveryDate,
+        status, sizes_json, colors_json, grid_json, notes,
+        tissuStatus, fournituresStatus, ficheTechniqueSent,
+        qtyAccepted, qtyToRepair, qtyRejected,
+        subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
+        prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
+        protoRequired, protoStatus, paymentTerms, defectRateAccepted,
+        stitchingDetails, specifications_json
+    } = req.body;
 
     try {
         const stmt = db.prepare(`
             UPDATE subcontract_orders 
-            SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP
+            SET 
+                modelId = COALESCE(?, modelId),
+                modelName = COALESCE(?, modelName),
+                clientName = COALESCE(?, clientName),
+                totalQuantity = COALESCE(?, totalQuantity),
+                subcontractorName = COALESCE(?, subcontractorName),
+                pricePerPiece = COALESCE(?, pricePerPiece),
+                deliveryDate = COALESCE(?, deliveryDate),
+                status = COALESCE(?, status),
+                sizes_json = COALESCE(?, sizes_json),
+                colors_json = COALESCE(?, colors_json),
+                grid_json = COALESCE(?, grid_json),
+                notes = COALESCE(?, notes),
+                tissuStatus = COALESCE(?, tissuStatus),
+                fournituresStatus = COALESCE(?, fournituresStatus),
+                ficheTechniqueSent = COALESCE(?, ficheTechniqueSent),
+                qtyAccepted = COALESCE(?, qtyAccepted),
+                qtyToRepair = COALESCE(?, qtyToRepair),
+                qtyRejected = COALESCE(?, qtyRejected),
+                subcontractorPhone = COALESCE(?, subcontractorPhone),
+                subcontractorRating = COALESCE(?, subcontractorRating),
+                subcontractorAvailabilityDate = COALESCE(?, subcontractorAvailabilityDate),
+                prestationType = COALESCE(?, prestationType),
+                tissuFournisseur = COALESCE(?, tissuFournisseur),
+                fournituresFournisseur = COALESCE(?, fournituresFournisseur),
+                conditionnementFournisseur = COALESCE(?, conditionnementFournisseur),
+                protoRequired = COALESCE(?, protoRequired),
+                protoStatus = COALESCE(?, protoStatus),
+                paymentTerms = COALESCE(?, paymentTerms),
+                defectRateAccepted = COALESCE(?, defectRateAccepted),
+                stitchingDetails = COALESCE(?, stitchingDetails),
+                specifications_json = COALESCE(?, specifications_json),
+                updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND owner_id = ?
         `);
 
-        const result = stmt.run(...values, id, companyId);
+        const result = stmt.run(
+            modelId || null,
+            modelName || null,
+            clientName || null,
+            totalQuantity || null,
+            subcontractorName || null,
+            pricePerPiece || null,
+            deliveryDate || null,
+            status || null,
+            sizes_json || null,
+            colors_json || null,
+            grid_json || null,
+            notes || null,
+            tissuStatus || null,
+            fournituresStatus || null,
+            ficheTechniqueSent !== undefined ? ficheTechniqueSent : null,
+            qtyAccepted !== undefined ? qtyAccepted : null,
+            qtyToRepair !== undefined ? qtyToRepair : null,
+            qtyRejected !== undefined ? qtyRejected : null,
+            subcontractorPhone || null,
+            subcontractorRating !== undefined ? subcontractorRating : null,
+            subcontractorAvailabilityDate || null,
+            prestationType || null,
+            tissuFournisseur || null,
+            fournituresFournisseur || null,
+            conditionnementFournisseur || null,
+            protoRequired !== undefined ? protoRequired : null,
+            protoStatus || null,
+            paymentTerms || null,
+            defectRateAccepted !== undefined ? defectRateAccepted : null,
+            stitchingDetails || null,
+            specifications_json || null,
+            id,
+            companyId
+        );
 
         if (result.changes === 0) {
             return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
@@ -192,6 +211,210 @@ export const deleteSubcontractOrder = (req: Request, res: Response) => {
     } catch (error) {
         console.error('Delete subcontract order error:', error);
         res.status(500).json({ message: 'Error deleting subcontract order' });
+    }
+};
+
+// --- Journal des entrées/sorties (carte de commande) ---
+// Endpoints à plat (/api/subcontract/entries) pour rester compatibles avec
+// l'apiShim du mode statique (Vercel), qui résout un store par nom de chemin
+// (2 segments max) sans routage imbriqué. Le filtrage par commande se fait
+// via ?orderId= côté serveur, et côté client pour le mode statique.
+
+// Get entries — optionally filtered by ?orderId=
+export const getSubcontractEntries = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { orderId } = req.query as { orderId?: string };
+    try {
+        if (orderId) {
+            const owned = db.prepare('SELECT id FROM subcontract_orders WHERE id = ? AND owner_id = ?').get(orderId, companyId);
+            if (!owned) return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+            const stmt = db.prepare('SELECT * FROM subcontract_entries WHERE order_id = ? ORDER BY entry_date ASC, created_at ASC');
+            return res.json(stmt.all(orderId));
+        }
+        const stmt = db.prepare(`
+            SELECT e.* FROM subcontract_entries e
+            JOIN subcontract_orders o ON o.id = e.order_id
+            WHERE o.owner_id = ?
+            ORDER BY e.entry_date ASC, e.created_at ASC
+        `);
+        res.json(stmt.all(companyId));
+    } catch (error) {
+        console.error('Get subcontract entries error:', error);
+        res.status(500).json({ message: 'Error fetching subcontract entries' });
+    }
+};
+
+// Create an entry (order id passed as order_id in the body)
+export const createSubcontractEntry = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { order_id, direction, couleur, taille, quantite, entry_date, notes } = req.body;
+
+    if (!order_id || !direction || !entry_date || quantite === undefined || quantite === null) {
+        return res.status(400).json({ message: 'Required fields are missing' });
+    }
+
+    try {
+        const owned = db.prepare('SELECT id FROM subcontract_orders WHERE id = ? AND owner_id = ?').get(order_id, companyId);
+        if (!owned) return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+
+        const id = randomUUID();
+        db.prepare(`
+            INSERT INTO subcontract_entries (id, order_id, direction, couleur, taille, quantite, entry_date, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id, order_id, direction, couleur || null, taille || null, Number(quantite) || 0, entry_date, notes || null);
+
+        res.status(201).json({ message: 'Entry created successfully', id });
+    } catch (error) {
+        console.error('Create subcontract entry error:', error);
+        res.status(500).json({ message: 'Error creating subcontract entry' });
+    }
+};
+
+// Update an entry
+export const updateSubcontractEntry = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+    const { direction, couleur, taille, quantite, entry_date, notes } = req.body;
+
+    try {
+        const owned = db.prepare(`
+            SELECT e.id FROM subcontract_entries e
+            JOIN subcontract_orders o ON o.id = e.order_id
+            WHERE e.id = ? AND o.owner_id = ?
+        `).get(id, companyId);
+        if (!owned) return res.status(404).json({ message: 'Entry not found or unauthorized' });
+
+        db.prepare(`
+            UPDATE subcontract_entries
+            SET direction = COALESCE(?, direction),
+                couleur = COALESCE(?, couleur),
+                taille = COALESCE(?, taille),
+                quantite = COALESCE(?, quantite),
+                entry_date = COALESCE(?, entry_date),
+                notes = COALESCE(?, notes),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `).run(direction || null, couleur || null, taille || null, quantite !== undefined ? Number(quantite) : null, entry_date || null, notes || null, id);
+
+        res.json({ message: 'Entry updated successfully' });
+    } catch (error) {
+        console.error('Update subcontract entry error:', error);
+        res.status(500).json({ message: 'Error updating subcontract entry' });
+    }
+};
+
+// Delete an entry
+export const deleteSubcontractEntry = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+
+    try {
+        const result = db.prepare(`
+            DELETE FROM subcontract_entries
+            WHERE id = ? AND order_id IN (SELECT id FROM subcontract_orders WHERE owner_id = ?)
+        `).run(id, companyId);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ message: 'Entry not found or unauthorized' });
+        }
+        res.json({ message: 'Entry deleted successfully' });
+    } catch (error) {
+        console.error('Delete subcontract entry error:', error);
+        res.status(500).json({ message: 'Error deleting subcontract entry' });
+    }
+};
+
+// --- Frais additionnels de la commande ---
+
+export const getSubcontractExpenses = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { orderId } = req.query as { orderId?: string };
+    try {
+        if (orderId) {
+            const owned = db.prepare('SELECT id FROM subcontract_orders WHERE id = ? AND owner_id = ?').get(orderId, companyId);
+            if (!owned) return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+            const stmt = db.prepare('SELECT * FROM subcontract_expenses WHERE order_id = ? ORDER BY created_at ASC');
+            return res.json(stmt.all(orderId));
+        }
+        const stmt = db.prepare(`
+            SELECT ex.* FROM subcontract_expenses ex
+            JOIN subcontract_orders o ON o.id = ex.order_id
+            WHERE o.owner_id = ?
+            ORDER BY ex.created_at ASC
+        `);
+        res.json(stmt.all(companyId));
+    } catch (error) {
+        console.error('Get subcontract expenses error:', error);
+        res.status(500).json({ message: 'Error fetching subcontract expenses' });
+    }
+};
+
+export const createSubcontractExpense = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { order_id, label, amount } = req.body;
+
+    if (!order_id || !label || !label.trim() || amount === undefined || amount === null) {
+        return res.status(400).json({ message: 'Required fields are missing' });
+    }
+
+    try {
+        const owned = db.prepare('SELECT id FROM subcontract_orders WHERE id = ? AND owner_id = ?').get(order_id, companyId);
+        if (!owned) return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+
+        const id = randomUUID();
+        db.prepare(`INSERT INTO subcontract_expenses (id, order_id, label, amount) VALUES (?, ?, ?, ?)`)
+          .run(id, order_id, label.trim(), Number(amount) || 0);
+
+        res.status(201).json({ message: 'Expense created successfully', id });
+    } catch (error) {
+        console.error('Create subcontract expense error:', error);
+        res.status(500).json({ message: 'Error creating subcontract expense' });
+    }
+};
+
+export const updateSubcontractExpense = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+    const { label, amount } = req.body;
+
+    try {
+        const owned = db.prepare(`
+            SELECT ex.id FROM subcontract_expenses ex
+            JOIN subcontract_orders o ON o.id = ex.order_id
+            WHERE ex.id = ? AND o.owner_id = ?
+        `).get(id, companyId);
+        if (!owned) return res.status(404).json({ message: 'Expense not found or unauthorized' });
+
+        db.prepare(`
+            UPDATE subcontract_expenses
+            SET label = COALESCE(?, label), amount = COALESCE(?, amount), updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `).run(label || null, amount !== undefined ? Number(amount) : null, id);
+
+        res.json({ message: 'Expense updated successfully' });
+    } catch (error) {
+        console.error('Update subcontract expense error:', error);
+        res.status(500).json({ message: 'Error updating subcontract expense' });
+    }
+};
+
+export const deleteSubcontractExpense = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+
+    try {
+        const result = db.prepare(`
+            DELETE FROM subcontract_expenses
+            WHERE id = ? AND order_id IN (SELECT id FROM subcontract_orders WHERE owner_id = ?)
+        `).run(id, companyId);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ message: 'Expense not found or unauthorized' });
+        }
+        res.json({ message: 'Expense deleted successfully' });
+    } catch (error) {
+        console.error('Delete subcontract expense error:', error);
+        res.status(500).json({ message: 'Error deleting subcontract expense' });
     }
 };
 
@@ -271,84 +494,44 @@ export const getSubcontractorProfiles = (req: Request, res: Response) => {
     }
 };
 
-// Create subcontractor profile
-export const createSubcontractorProfile = (req: Request, res: Response) => {
+// Create or update a subcontractor profile
+export const saveSubcontractorProfile = (req: Request, res: Response) => {
     const companyId = (req as any).companyId;
-    const {
-        name, phone, address, serviceType, photo,
-        ifNumber, rcNumber, iceNumber, rating, availabilityDate, notes
-    } = req.body;
+    const { id, name, contactName, phone, cin, address, ice, rc, rating, notes, photo, cinRectoPhoto, cinVersoPhoto } = req.body;
 
-    if (!name || !String(name).trim()) {
-        return res.status(400).json({ message: 'Le nom du sous-traitant est requis' });
+    if (!name || !name.trim()) {
+        return res.status(400).json({ message: 'Subcontractor name is required' });
     }
 
     try {
-        const id = randomUUID();
-        db.prepare(`
-            INSERT INTO subcontractor_profiles (
-                id, owner_id, name, phone, address, serviceType, photo,
-                ifNumber, rcNumber, iceNumber, rating, availabilityDate, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            id, companyId, name.trim(),
-            phone || null, address || null, serviceType || null, photo || null,
-            ifNumber || null, rcNumber || null, iceNumber || null,
-            rating !== undefined && rating !== null ? rating : 5,
-            availabilityDate || null, notes || null
-        );
-
-        res.status(201).json({ message: 'Sous-traitant créé avec succès', id });
+        const profileId = id || randomUUID();
+        const stmt = db.prepare(`
+            INSERT INTO subcontractor_profiles (id, owner_id, name, contactName, phone, cin, address, ice, rc, rating, notes, photo, cinRectoPhoto, cinVersoPhoto)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                contactName = excluded.contactName,
+                phone = excluded.phone,
+                cin = excluded.cin,
+                address = excluded.address,
+                ice = excluded.ice,
+                rc = excluded.rc,
+                rating = excluded.rating,
+                notes = excluded.notes,
+                photo = excluded.photo,
+                cinRectoPhoto = excluded.cinRectoPhoto,
+                cinVersoPhoto = excluded.cinVersoPhoto,
+                updated_at = CURRENT_TIMESTAMP
+        `);
+        stmt.run(profileId, companyId, name.trim(), contactName || null, phone || null, cin || null, address || null, ice || null, rc || null, rating ?? 5, notes || null, photo || null, cinRectoPhoto || null, cinVersoPhoto || null);
+        res.json({ message: 'Subcontractor profile saved successfully', id: profileId });
     } catch (error) {
-        console.error('Create subcontractor profile error:', error);
-        res.status(500).json({ message: 'Error creating subcontractor profile' });
+        console.error('Save subcontractor profile error:', error);
+        res.status(500).json({ message: 'Error saving subcontractor profile' });
     }
 };
 
-// Update subcontractor profile
-export const updateSubcontractorProfile = (req: Request, res: Response) => {
-    const companyId = (req as any).companyId;
-    const { id } = req.params;
-
-    const columns: Record<string, string> = {
-        name: 'name', phone: 'phone', address: 'address', serviceType: 'serviceType',
-        photo: 'photo', ifNumber: 'ifNumber', rcNumber: 'rcNumber', iceNumber: 'iceNumber',
-        rating: 'rating', availabilityDate: 'availabilityDate', notes: 'notes'
-    };
-
-    const sets: string[] = [];
-    const values: any[] = [];
-
-    Object.entries(columns).forEach(([key, column]) => {
-        if (req.body[key] !== undefined) {
-            sets.push(`${column} = ?`);
-            values.push(req.body[key] === '' ? null : req.body[key]);
-        }
-    });
-
-    if (sets.length === 0) {
-        return res.status(400).json({ message: 'No fields to update' });
-    }
-
-    try {
-        const result = db.prepare(`
-            UPDATE subcontractor_profiles
-            SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP
-            WHERE id = ? AND owner_id = ?
-        `).run(...values, id, companyId);
-
-        if (result.changes === 0) {
-            return res.status(404).json({ message: 'Subcontractor profile not found or unauthorized' });
-        }
-
-        res.json({ message: 'Sous-traitant mis à jour avec succès' });
-    } catch (error) {
-        console.error('Update subcontractor profile error:', error);
-        res.status(500).json({ message: 'Error updating subcontractor profile' });
-    }
-};
-
-// Delete subcontractor profile
+// Delete a subcontractor profile
 export const deleteSubcontractorProfile = (req: Request, res: Response) => {
     const companyId = (req as any).companyId;
     const { id } = req.params;
@@ -358,7 +541,7 @@ export const deleteSubcontractorProfile = (req: Request, res: Response) => {
         if (result.changes === 0) {
             return res.status(404).json({ message: 'Subcontractor profile not found or unauthorized' });
         }
-        res.json({ message: 'Sous-traitant supprimé avec succès' });
+        res.json({ message: 'Subcontractor profile deleted successfully' });
     } catch (error) {
         console.error('Delete subcontractor profile error:', error);
         res.status(500).json({ message: 'Error deleting subcontractor profile' });

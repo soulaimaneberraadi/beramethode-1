@@ -616,6 +616,11 @@ export interface SubcontractOrder {
   status: 'PENDING' | 'IN_COUPE' | 'IN_COUTURE' | 'IN_FINITION' | 'LIVRE_PARTIEL' | 'COMPLETED';
   sizes_json?: string; // format: JSON string representing Record<string, number>
   colors_json?: string; // format: JSON string representing Record<string, number>
+  /** Matrice couleur × taille complète : Record<couleur, Record<taille, qté>>.
+   *  `sizes_json` / `colors_json` n'en sont que les totaux marginaux (1D) et ne
+   *  permettent pas de reconstruire la grille — d'où ce champ, source de vérité.
+   *  Absent sur les commandes créées avant son introduction. */
+  grid_json?: string;
   notes?: string;
   tissuStatus?: 'PENDING' | 'SENT';
   fournituresStatus?: 'PENDING' | 'DELIVERED';
@@ -643,16 +648,17 @@ export interface SubcontractOrder {
 export interface SubcontractorProfile {
   id: string;
   name: string;
+  contactName?: string;
   phone?: string;
+  cin?: string;
   address?: string;
-  serviceType?: 'COUPE' | 'COUTURE' | 'FINITION' | 'CMT' | 'AUTRE';
-  photo?: string; // data URL
-  ifNumber?: string;
-  rcNumber?: string;
-  iceNumber?: string;
+  ice?: string;
+  rc?: string;
   rating?: number;
-  availabilityDate?: string;
   notes?: string;
+  photo?: string;
+  cinRectoPhoto?: string;
+  cinVersoPhoto?: string;
   created_at?: string;
   updated_at?: string;
 }

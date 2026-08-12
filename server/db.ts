@@ -864,21 +864,67 @@ db.exec(`
     id TEXT PRIMARY KEY,
     owner_id INTEGER NOT NULL,
     name TEXT NOT NULL,
+    contactName TEXT,
     phone TEXT,
+    cin TEXT,
     address TEXT,
-    serviceType TEXT,
-    photo TEXT,
-    ifNumber TEXT,
-    rcNumber TEXT,
-    iceNumber TEXT,
+    ice TEXT,
+    rc TEXT,
     rating REAL DEFAULT 5,
-    availabilityDate TEXT,
     notes TEXT,
+    photo TEXT,
+    cinRectoPhoto TEXT,
+    cinVersoPhoto TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
   )
 `);
+try { db.exec("ALTER TABLE subcontractor_profiles ADD COLUMN contactName TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE subcontractor_profiles ADD COLUMN photo TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE subcontractor_profiles ADD COLUMN cinRectoPhoto TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE subcontractor_profiles ADD COLUMN cinVersoPhoto TEXT"); } catch { /* already exists */ }
+
+// Matrice couleur × taille complète. sizes_json / colors_json ne stockent que les
+// totaux marginaux : la grille 2D n'en est pas reconstructible sans la corrompre.
+try { db.exec("ALTER TABLE subcontract_orders ADD COLUMN grid_json TEXT"); } catch { /* already exists */ }
+
+// Journal des entrées/sorties de pièces (carte de commande sous-traitance) :
+// chaque ligne = un mouvement daté (OUT = envoyé au sous-traitant, IN = reçu),
+// avec la répartition couleur/taille. La quantité restante et l'avancement
+// se déduisent de ce journal plutôt que d'un compteur global.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subcontract_entries (
+    id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    direction TEXT NOT NULL DEFAULT 'OUT',
+    couleur TEXT,
+    taille TEXT,
+    quantite INTEGER NOT NULL DEFAULT 0,
+    entry_date TEXT NOT NULL,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES subcontract_orders(id) ON DELETE CASCADE
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_subcontract_entries_order ON subcontract_entries(order_id)`);
+
+// Frais additionnels de la commande (transport, traçage/patronage, emballage...),
+// appliqués au TOTAL de la commande — pas à la pièce. Voir CostCalculator pour
+// la conversion en coût par pièce lors de l'injection dans le prix de revient.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS subcontract_expenses (
+    id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    label TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES subcontract_orders(id) ON DELETE CASCADE
+  )
+`);
+db.exec(`CREATE INDEX IF NOT EXISTS idx_subcontract_expenses_order ON subcontract_expenses(order_id)`);
 
 // 🚀 CRÉATION DES INDEX POUR OPTIMISER LES PERFORMANCES (Lectures / Jointures)
 db.exec(`
