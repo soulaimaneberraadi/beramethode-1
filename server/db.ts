@@ -889,6 +889,10 @@ try { db.exec("ALTER TABLE subcontractor_profiles ADD COLUMN cinVersoPhoto TEXT"
 // totaux marginaux : la grille 2D n'en est pas reconstructible sans la corrompre.
 try { db.exec("ALTER TABLE subcontract_orders ADD COLUMN grid_json TEXT"); } catch { /* already exists */ }
 
+// Fournisseurs des matières à prévoir en mode Façon (le sous-traitant coud,
+// le client fournit la matière). JSON: Record<matériau, { fournisseur, delaiLivraison }>.
+try { db.exec("ALTER TABLE subcontract_orders ADD COLUMN materials_fournisseur_json TEXT"); } catch { /* already exists */ }
+
 // Journal des entrées/sorties de pièces (carte de commande sous-traitance) :
 // chaque ligne = un mouvement daté (OUT = envoyé au sous-traitant, IN = reçu),
 // avec la répartition couleur/taille. La quantité restante et l'avancement

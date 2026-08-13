@@ -90,6 +90,7 @@ export function useAppModelManager({
         };
 
         const modelToSave: ModelData = {
+            ...existingModel,
             id: currentModelId || Date.now().toString(),
             filename: `${articleName || 'Sans_Nom'}.json`,
             image: resolvedImages.front, // Thumbnail
@@ -173,7 +174,7 @@ export function useAppModelManager({
         }
     }, [activeLayout, articleName, assignments, currentModelId, ficheData, ficheImages, globalStats.tempsArticle, layoutMemory, manualLinks, models, numWorkers, operations, postes, setCurrentModelId, setCurrentView, setLayoutMemory, setModels, setPlanningEvents, showToast, user, efficiency, chronoData, chronoCustomStations, chronoLayoutSide]);
 
-    const loadModel = useCallback((model: ModelData, fromContext?: 'coupe' | 'planning' | null) => {
+    const loadModel = useCallback((model: ModelData, fromContext?: 'coupe' | 'planning' | 'sousTraitance' | null) => {
         setCurrentModelId(model.id);
         setNavigationContext(fromContext !== undefined ? fromContext : null);
         setArticleName(model.meta_data.nom_modele);

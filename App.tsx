@@ -1769,6 +1769,8 @@ export default function App() {
                             onOpenInAtelier={loadModel}
                             currentModelId={currentModelId}
                             setFicheData={setFicheData}
+                            onNavigate={(v) => handleNavigation(v as any)}
+                            onCreateNewProject={() => createNewProject('coupe')}
                         />
                     )}
 
@@ -1987,7 +1989,7 @@ export default function App() {
                     {currentView === 'sousTraitance' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
                             <Suspense fallback={<div className="p-8 text-center text-gray-500 dark:text-dk-text-soft">Chargement...</div>}>
-                                <SousTraitance models={models} settings={globalSettings} onNavigate={(v) => handleNavigation(v as any)} onCreateNewProject={() => createNewProject('sousTraitance')} planningEvents={planningEvents} setPlanningEvents={setPlanningEvents} />
+                                <SousTraitance models={models} settings={globalSettings} onNavigate={(v) => handleNavigation(v as any)} onCreateNewProject={() => createNewProject('sousTraitance')} planningEvents={planningEvents} setPlanningEvents={setPlanningEvents} onLoadModel={(m) => { setWorkflowInitialStep('fiche'); loadModel(m, 'sousTraitance'); setCurrentView('ingenierie'); navigate('ingenierie'); }} />
                             </Suspense>
                         </div>
                     )}

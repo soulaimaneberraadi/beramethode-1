@@ -1,18 +1,17 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ModelData, OrdreCoupe, Faisceau } from '../types';
+import { ModelData, OrdreCoupe, Faisceau, MatelasFichier } from '../types';
 import {
     Scissors, FileText, CheckCircle2, Clock, Search, Layers, ChevronRight,
     AlertCircle, Printer, PackageSearch, Plus, Trash2, Barcode,
     Send, CheckCircle, XCircle, Truck, PlayCircle, Save,
     Palette, X, Menu, ChevronLeft, LayoutGrid, List, Calendar, BarChart3,
     Download, Filter, Copy, Edit3, MoreVertical, ArrowRight, TrendingUp,
-    ArrowUpDown, RefreshCw, Zap, Target, Star, Hash
+    ArrowUpDown, RefreshCw, Zap, Target, Star, Hash, Upload, FolderOpen, Check
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import ExcelInput from './ExcelInput';
-import InlineInvoiceList from './InlineInvoiceList';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
 
@@ -33,6 +32,8 @@ interface LaCoupeProps {
     onOpenInAtelier?: (model: ModelData) => void;
     currentModelId?: string | null;
     setFicheData?: React.Dispatch<React.SetStateAction<any>>;
+    onNavigate?: (view: string) => void;
+    onCreateNewProject?: () => void;
 }
 
 const MOBILE_BREAKPOINT = 768;
@@ -464,15 +465,17 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 perSize[s] += (line.plis || 0) * r;
             });
             totalPieces += (line.plis || 0) * lineRatioSum;
-            totalFabric += (line.plis || 0) * ((line.longTracee || 0) + 0.03);
+            // Une ligne sans pièces (ratios à 0) ne consomme pas de tissu.
+            if (lineRatioSum > 0) totalFabric += (line.plis || 0) * ((line.longTracee || 0) + 0.03);
         });
-        
+
         return { totalPieces, totalFabric, perSize };
     }, [ordre.matelasLines, sizes]);
 
     const handleAddMatelasLine = () => {
         const newLine = {
             id: `MAT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            couleur: '',
             plis: 0,
             longTracee: 0,
             ratios: {} as Record<string, number>
@@ -481,6 +484,15 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         setOrdre(prev => ({
             ...prev,
             matelasLines: [...(prev.matelasLines || []), newLine]
+        }));
+    };
+
+    const handleUpdateMatelasCouleur = (id: string, value: string) => {
+        setOrdre(prev => ({
+            ...prev,
+            matelasLines: (prev.matelasLines || []).map(line =>
+                line.id === id ? { ...line, couleur: value } : line
+            )
         }));
     };
 
@@ -504,11 +516,220 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         }));
     };
 
+    const [deleteLineConfirmId, setDeleteLineConfirmId] = useState<string | null>(null);
+    const [toggleFaitConfirmId, setToggleFaitConfirmId] = useState<string | null>(null);
+
     const handleDeleteMatelasLine = (id: string) => {
         setOrdre(prev => ({
             ...prev,
             matelasLines: (prev.matelasLines || []).filter(line => line.id !== id)
         }));
+        setDeleteLineConfirmId(null);
+    };
+
+    /** Suivi d'avancement : une ligne cochée = matelas effectivement coupé. */
+    const handleToggleMatelasFait = (id: string) => {
+        setOrdre(prev => ({
+            ...prev,
+            matelasLines: (prev.matelasLines || []).map(line =>
+                line.id === id ? { ...line, fait: !line.fait } : line
+            )
+        }));
+        setToggleFaitConfirmId(null);
+    };
+
+    const handleUpdateMatelasMatiere = (id: string, value: string) => {
+        setOrdre(prev => ({
+            ...prev,
+            matelasLines: (prev.matelasLines || []).map(line =>
+                line.id === id ? { ...line, matiere: value } : line
+            )
+        }));
+    };
+
+    // --- Génération automatique des matelas depuis la répartition ---
+    const [autoMatelasOpen, setAutoMatelasOpen] = useState(false);
+    const [autoPlis, setAutoPlis] = useState<number>(50);
+
+    const openAutoMatelasModal = () => {
+        const totalNeeded = sizes.reduce((sum, _, idx) => sum + (matrixStats.colTotals[idx] || 0), 0);
+        if (totalNeeded === 0) {
+            showToast(tx(lang, { fr: 'Aucune quantité cible dans la matrice. Remplissez d\'abord la répartition.', ar: 'لا كميات مستهدفة في المصفوفة. املأ التوزيع أولاً.', en: 'No target quantities in the matrix. Fill the distribution first.', es: 'Sin cantidades objetivo en la matriz. Complete la distribución primero.', pt: 'Sem quantidades alvo na matriz. Preencha a distribuição primeiro.', tr: 'Matriste hedef miktar yok. Önce dağılımı doldurun.' }), 'info');
+            return;
+        }
+        setAutoPlis(50);
+        setAutoMatelasOpen(true);
+    };
+
+    /** Une ligne principale par couleur (Plis saisi), + une ligne d'appoint (Plis = 1)
+     *  qui absorbe le reste, afin de tomber exactement sur la quantité cible. */
+    const applyAutoMatelasGeneration = (plisCap: number) => {
+        const newLines: { id: string; couleur?: string; plis: number; longTracee: number; ratios: Record<string, number> }[] = [];
+
+        const groups: { couleur?: string; targets: Record<string, number> }[] = [];
+        if ((colors || []).length > 0) {
+            colors.forEach((c: any) => {
+                const cId = c.id || (typeof c === 'string' ? c : c.name);
+                const cName = c.name || (typeof c === 'string' ? c : c.id);
+                const targets: Record<string, number> = {};
+                sizes.forEach((s, sIdx) => { targets[s] = Number(gridQuantities[`${cId}_${sIdx}`]) || 0; });
+                if (Object.values(targets).some(v => v > 0)) groups.push({ couleur: cName, targets });
+            });
+        } else {
+            const targets: Record<string, number> = {};
+            sizes.forEach((s, idx) => { targets[s] = matrixStats.colTotals[idx] || 0; });
+            if (Object.values(targets).some(v => v > 0)) groups.push({ targets });
+        }
+        if (groups.length === 0) return;
+
+        groups.forEach((group, gi) => {
+            const cap = plisCap > 0 ? plisCap : 1;
+            const mainRatios: Record<string, number> = {};
+            const remainder: Record<string, number> = {};
+            let hasRemainder = false;
+            sizes.forEach((s) => {
+                const v = group.targets[s] || 0;
+                if (v <= 0) return;
+                const r = Math.floor(v / cap);
+                mainRatios[s] = r;
+                const rem = v - r * cap;
+                if (rem > 0) { remainder[s] = rem; hasRemainder = true; }
+            });
+            newLines.push({
+                id: `MAT-${gi}-${group.couleur || 'AUTO'}-0`,
+                couleur: group.couleur,
+                plis: cap,
+                longTracee: 0,
+                ratios: mainRatios
+            });
+            if (hasRemainder) {
+                newLines.push({
+                    id: `MAT-${gi}-${group.couleur || 'AUTO'}-B`,
+                    couleur: group.couleur,
+                    plis: 1,
+                    longTracee: 0,
+                    ratios: remainder
+                });
+            }
+        });
+
+        if (newLines.length === 0) return;
+        setOrdre(prev => ({ ...prev, matelasLines: newLines }));
+        setAutoMatelasOpen(false);
+        showToast(tx(lang, { fr: `${newLines.length} ligne(s) de matelas générée(s).`, ar: `تم توليد ${newLines.length} خط من المفرشات.`, en: `${newLines.length} layer line(s) generated.`, es: `${newLines.length} línea(s) de capas generadas.`, pt: `${newLines.length} linha(s) geradas.`, tr: `${newLines.length} katman satırı oluşturuldu.` }), 'success');
+    };
+
+    // --- Fichiers DXF/PLT par ligne de matelas (+ fichier du modèle) ---
+    const MODEL_FICHIER_TARGET = '__MODEL__';
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const pendingLineIdRef = useRef<string | null>(null);
+    const [libraryOpenId, setLibraryOpenId] = useState<string | null>(null);
+    const [removeConfirmId, setRemoveConfirmId] = useState<string | null>(null);
+
+    const fichiersSaves = ordre.fichieresSaves || [];
+
+    const triggerFichierUpload = (lineId: string) => {
+        pendingLineIdRef.current = lineId;
+        setLibraryOpenId(null);
+        fileInputRef.current?.click();
+    };
+
+    const handleFichierChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const lineId = pendingLineIdRef.current;
+        const file = e.target.files?.[0];
+        pendingLineIdRef.current = null;
+        e.target.value = '';
+        if (!lineId || !file) return;
+
+        const MAX_FILE_MB = 15;
+        if (file.size > MAX_FILE_MB * 1024 * 1024) {
+            showToast(tx(lang, { fr: `Fichier trop volumineux (max ${MAX_FILE_MB} Mo).`, ar: `الملف كبير جداً (الحد الأقصى ${MAX_FILE_MB} م.ب).`, en: `File too large (max ${MAX_FILE_MB} MB).`, es: `Archivo demasiado grande (máx. ${MAX_FILE_MB} MB).`, pt: `Arquivo muito grande (máx. ${MAX_FILE_MB} MB).`, tr: `Dosya çok büyük (maks. ${MAX_FILE_MB} MB).` }), 'error');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            const data = String(reader.result || '');
+            const ext = (file.name.split('.').pop() || 'BIN').toUpperCase();
+            const fichier: MatelasFichier = {
+                id: `FIL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                nom: file.name,
+                format: ext,
+                data,
+                size: file.size
+            };
+            if (lineId === MODEL_FICHIER_TARGET) {
+                setOrdre(prev => ({ ...prev, modeleFichier: fichier }));
+                return;
+            }
+            setOrdre(prev => {
+                let saved = prev.fichieresSaves || [];
+                if (!saved.some(f => f.nom === fichier.nom && f.size === fichier.size)) {
+                    saved = [...saved, fichier];
+                }
+                return {
+                    ...prev,
+                    matelasLines: (prev.matelasLines || []).map(l => l.id === lineId ? { ...l, fichier } : l),
+                    fichieresSaves: saved
+                };
+            });
+        };
+        reader.onerror = () => console.error('Erreur lecture fichier');
+        reader.readAsDataURL(file);
+    };
+
+    const handleAttachSavedFichier = (lineId: string, fichier: MatelasFichier) => {
+        setOrdre(prev => ({
+            ...prev,
+            matelasLines: (prev.matelasLines || []).map(l => l.id === lineId ? { ...l, fichier } : l)
+        }));
+        setLibraryOpenId(null);
+    };
+
+    const handleRemoveFichier = (lineId: string) => {
+        setRemoveConfirmId(null);
+        setOrdre(prev => ({
+            ...prev,
+            matelasLines: (prev.matelasLines || []).map(l => l.id === lineId ? { ...l, fichier: undefined } : l)
+        }));
+    };
+
+    const handleRemoveModeleFichier = () => {
+        setOrdre(prev => ({ ...prev, modeleFichier: undefined }));
+    };
+
+    const handleDeleteSavedFichier = (fichierId: string) => {
+        setOrdre(prev => ({
+            ...prev,
+            fichieresSaves: (prev.fichieresSaves || []).filter(f => f.id !== fichierId)
+        }));
+    };
+
+    const downloadFichier = (fichier: MatelasFichier) => {
+        try {
+            const a = document.createElement('a');
+            a.download = fichier.nom;
+            if (fichier.data && fichier.data.startsWith('data:')) {
+                const splitIdx = fichier.data.indexOf(',');
+                const meta = fichier.data.slice(0, splitIdx);
+                const mime = (meta.match(/data:([^;]+)/) || [])[1] || 'application/octet-stream';
+                const b64 = fichier.data.slice(splitIdx + 1);
+                const binStr = meta.includes(';base64') ? atob(b64) : b64;
+                const bytes = new Uint8Array(binStr.length);
+                for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+                const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+                a.href = url;
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+            } else {
+                a.href = fichier.data || '#';
+            }
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } catch (e) {
+            console.error('Erreur téléchargement fichier', e);
+            showToast(tx(lang, { fr: 'Erreur lors du téléchargement', ar: 'خطأ في التنزيل', en: 'Download error', es: 'Error de descarga', pt: 'Erro ao baixar', tr: 'İndirme hatası' }), 'error');
+        }
     };
 
     React.useEffect(() => {
@@ -694,6 +915,136 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             console.error("Failed to load magasin items", e);
         }
     }, [selectedModel]);
+
+    // Toutes les matières connues (fiche de coût + magasin + déjà saisies) pour les suggestions.
+    const allMatiereNames = React.useMemo(() => {
+        const set = new Set<string>();
+        (selectedModel?.ficheData?.materials || []).forEach((m: PurchasingData) => { if (m.name) set.add(m.name); });
+        magasinItems.forEach((mag: any) => { if (mag.nom) set.add(mag.nom); if (mag.designation) set.add(mag.designation); });
+        (ordre.matelasLines || []).forEach(l => { if (l.matiere) set.add(l.matiere); });
+        return Array.from(set);
+    }, [selectedModel, magasinItems, ordre.matelasLines]);
+
+    const matierePhoto = (name: string): string | null => {
+        const mag = magasinItems.find((m: any) => m.nom === name || m.designation === name);
+        return mag?.photo || null;
+    };
+
+    /** La Fiche de Coût peut affecter une matière à des couleurs précises (`scope.colors`).
+     *  Une matière sans scope vaut pour toutes les couleurs ; celles affectées à d'autres
+     *  couleurs sont masquées pour ce matelas. */
+    const matieresPourCouleur = React.useCallback((couleurName?: string): string[] => {
+        const materials = selectedModel?.ficheData?.materials || [];
+        const colorId = couleurName
+            ? ((colors as any[]).find((c: any) => (c.name || c) === couleurName)?.id ?? null)
+            : null;
+
+        const scoped = new Set<string>();
+        const excluded = new Set<string>();
+        materials.forEach((m: PurchasingData) => {
+            if (!m.name) return;
+            const scopeColors = m.scope?.colors;
+            if (!scopeColors || scopeColors.length === 0) { scoped.add(m.name); return; }
+            if (colorId && scopeColors.includes(colorId)) scoped.add(m.name);
+            else excluded.add(m.name);
+        });
+
+        return allMatiereNames.filter(n => scoped.has(n) || !excluded.has(n));
+    }, [selectedModel, colors, allMatiereNames]);
+
+    const [matiereOpenId, setMatiereOpenId] = useState<string | null>(null);
+    useEffect(() => {
+        if (!matiereOpenId) return;
+        const close = () => setMatiereOpenId(null);
+        window.addEventListener('click', close);
+        return () => window.removeEventListener('click', close);
+    }, [matiereOpenId]);
+
+    /** Ticket individuel d'un matelas, au format étiquette 80 mm, pour accompagner le paquet coupé. */
+    const handlePrintMatelasTicket = (lineId: string) => {
+        const idx = (ordre.matelasLines || []).findIndex(l => l.id === lineId);
+        const line = (ordre.matelasLines || [])[idx];
+        if (!line) return;
+
+        let ratioSum = 0;
+        sizes.forEach(s => { ratioSum += Number(line.ratios?.[s]) || 0; });
+        const pieces = (line.plis || 0) * ratioSum;
+        const cons = ratioSum > 0 ? (line.plis || 0) * ((line.longTracee || 0) + 0.03) : 0;
+        const matPhoto = line.matiere ? matierePhoto(line.matiere) : null;
+
+        const esc = (v: any) => String(v ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
+        const L = {
+            matelas: tx(lang, { fr: 'Matelas', ar: 'مفرشة', en: 'Matelas', es: 'Capa', pt: 'Esteira', tr: 'Katman' }),
+            couleur: tx(lang, { fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' }),
+            matiere: tx(lang, { fr: 'Matière', ar: 'المادة', en: 'Material', es: 'Material', pt: 'Material', tr: 'Malzeme' }),
+            plis: tx(lang, { fr: 'Plis', ar: 'طيات', en: 'Plys', es: 'Pliegues', pt: 'Dobras', tr: 'Kat' }),
+            longTracee: tx(lang, { fr: 'Long. tracée', ar: 'الطول المرسوم', en: 'Traced length', es: 'Long. trazada', pt: 'Comp. traçado', tr: 'Çizilen uzunluk' }),
+            taille: tx(lang, { fr: 'Taille', ar: 'المقاس', en: 'Size', es: 'Talla', pt: 'Tamanho', tr: 'Beden' }),
+            ratio: tx(lang, { fr: 'Ratio', ar: 'النسبة', en: 'Ratio', es: 'Ratio', pt: 'Rácio', tr: 'Oran' }),
+            pcs: tx(lang, { fr: 'Pcs', ar: 'قطع', en: 'Pcs', es: 'Pzs', pt: 'Peças', tr: 'Adet' }),
+            totalPcs: tx(lang, { fr: 'Total Pcs', ar: 'إجمالي القطع', en: 'Total Pcs', es: 'Total Pzs', pt: 'Total Peças', tr: 'Toplam Adet' }),
+            cons: tx(lang, { fr: 'Cons. (m)', ar: 'الاستهلاك (م)', en: 'Cons. (m)', es: 'Cons. (m)', pt: 'Cons. (m)', tr: 'Tük. (m)' }),
+        };
+
+        const rows = sizes
+            .filter(s => (Number(line.ratios?.[s]) || 0) > 0)
+            .map(s => {
+                const r = Number(line.ratios?.[s]) || 0;
+                return `<tr><td>${esc(s)}</td><td class="c">${r}</td><td class="c b">${r * (line.plis || 0)}</td></tr>`;
+            })
+            .join('');
+
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(L.matelas)} ${idx + 1}</title>
+<style>
+  @page { size: 80mm auto; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #f1f5f9; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; }
+  .ticket { width: 80mm; margin: 12px auto; padding: 6mm 5mm; background: #fff; box-shadow: 0 1px 6px rgba(15,23,42,.15); }
+  .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: #64748b; font-weight: 700; }
+  .n { font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
+  .hd { border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px; }
+  .mdl { font-size: 13px; font-weight: 700; margin-top: 3px; word-break: break-word; }
+  .kv { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; padding: 5px 0; border-bottom: 1px dotted #cbd5e1; }
+  .kv > span:first-child { color: #64748b; white-space: nowrap; }
+  .kv > span:last-child { font-weight: 700; text-align: right; word-break: break-word; }
+  .mat { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dotted #cbd5e1; }
+  .mat img { width: 34px; height: 34px; object-fit: cover; border-radius: 5px; border: 1px solid #cbd5e1; flex: 0 0 auto; }
+  .mat .v { font-size: 12px; font-weight: 700; word-break: break-word; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; table-layout: fixed; }
+  th { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 4px 3px; font-size: 9px; text-transform: uppercase; }
+  td { border: 1px solid #cbd5e1; padding: 5px 3px; }
+  .c { text-align: center; } .b { font-weight: 700; }
+  .tot { margin-top: 10px; border-top: 2px solid #0f172a; padding-top: 8px; display: flex; justify-content: space-between; font-size: 15px; font-weight: 800; }
+  @media print { html, body { background: #fff; } .ticket { width: auto; margin: 0; padding: 4mm; box-shadow: none; } }
+</style></head><body>
+ <div class="ticket">
+  <div class="hd">
+    <div class="lbl">${esc(L.matelas)}</div>
+    <div class="n">N° ${idx + 1}</div>
+    <div class="mdl">${esc(ordre.refModele || selectedModel?.meta_data?.nom_modele || '')}</div>
+  </div>
+  ${line.couleur ? `<div class="kv"><span>${esc(L.couleur)}</span><span>${esc(line.couleur)}</span></div>` : ''}
+  ${line.matiere ? `<div class="mat">${matPhoto ? `<img src="${esc(matPhoto)}" alt="">` : ''}<div><div class="lbl">${esc(L.matiere)}</div><div class="v">${esc(line.matiere)}</div></div></div>` : ''}
+  <div class="kv"><span>${esc(L.plis)}</span><span>${line.plis || 0}</span></div>
+  <div class="kv"><span>${esc(L.longTracee)}</span><span>${(line.longTracee || 0).toFixed(2)} m</span></div>
+  <table><thead><tr><th>${esc(L.taille)}</th><th>${esc(L.ratio)}</th><th>${esc(L.pcs)}</th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="tot"><span>${esc(L.totalPcs)}</span><span>${pieces}</span></div>
+  <div class="kv" style="border:0;margin-top:4px"><span>${esc(L.cons)}</span><span>${cons.toFixed(2)}</span></div>
+ </div>
+</body></html>`;
+
+        const w = window.open('', '_blank', 'width=420,height=640');
+        if (!w) {
+            showToast(tx(lang, { fr: "Autorisez les fenêtres pop-up pour imprimer.", ar: 'اسمح بالنوافذ المنبثقة للطباعة.', en: 'Allow pop-ups to print.', es: 'Permita las ventanas emergentes para imprimir.', pt: 'Permita pop-ups para imprimir.', tr: 'Yazdırmak için pop-up izni verin.' }), 'error');
+            return;
+        }
+        w.document.write(html);
+        w.document.close();
+        w.focus();
+        if (w.document.readyState === 'complete') setTimeout(() => w.print(), 150);
+        else w.addEventListener('load', () => setTimeout(() => w.print(), 150));
+    };
 
     const requiredMaterials = React.useMemo(() => {
         if (!selectedModel || !selectedModel.ficheData || !selectedModel.ficheData.materials) return [];
@@ -1197,7 +1548,21 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             <h4 className="text-[12px] font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide flex items-center gap-1.5">
                                                 <Scissors className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                                                 {tx(lang, { fr: 'Lignes de Matelas (Coupe)', ar: 'خطوط المفرشات (القص)', en: 'Layer Lines (Cutting)', es: 'Líneas de Capas (Corte)', pt: 'Linhas de Esteiramento (Corte)', tr: 'Katman Hatları (Kesim)' })}
+                                                {(ordre.matelasLines || []).length > 0 && (
+                                                    <span className="ml-1.5 text-[10px] font-bold normal-case tracking-normal bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-full px-2 py-0.5">
+                                                        {(ordre.matelasLines || []).filter(l => l.fait).length}/{(ordre.matelasLines || []).length} {tx(lang, { fr: 'coupés', ar: 'مقصوصة', en: 'cut', es: 'cortadas', pt: 'cortadas', tr: 'kesildi' })}
+                                                    </span>
+                                                )}
                                             </h4>
+                                            <button
+                                                type="button"
+                                                onClick={openAutoMatelasModal}
+                                                className="h-8 px-3 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm"
+                                                title={tx(lang, { fr: 'Générer automatiquement les lignes de matelas depuis la répartition', ar: 'توليد خطوط المفرشات تلقائياً من التوزيع', en: 'Auto-generate layer lines from the distribution', es: 'Generar líneas de capas automáticamente', pt: 'Gerar linhas automaticamente', tr: 'Katman satırlarını otomatik oluştur' })}
+                                            >
+                                                <Zap className="w-3.5 h-3.5" />
+                                                Auto
+                                            </button>
                                             <button
                                                 type="button"
                                                 onClick={handleAddMatelasLine}
@@ -1213,10 +1578,16 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             </div>
                                         ) : (
                                             <div className="overflow-x-auto">
-                                                <table className="w-full text-[12px] border-collapse border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface rounded-lg overflow-hidden min-w-[650px]">
+                                                <table className="w-full text-[12px] border-collapse border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface rounded-lg overflow-hidden min-w-[900px]">
                                                     <thead>
                                                         <tr className="bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border text-[10px] uppercase tracking-wider text-left">
+                                                            <th className="py-2.5 px-2 font-bold text-center w-10" title={tx(lang, { fr: 'Coupé', ar: 'مقصوص', en: 'Cut', es: 'Cortado', pt: 'Cortado', tr: 'Kesildi' })}>
+                                                                <CheckCircle2 className="w-3.5 h-3.5 mx-auto" />
+                                                            </th>
+                                                            <th className="py-2.5 px-3 font-bold text-center w-40">{tx(lang, { fr: 'Fichier (DXF/PLT)', ar: 'الملف (DXF/PLT)', en: 'File (DXF/PLT)', es: 'Archivo (DXF/PLT)', pt: 'Arquivo (DXF/PLT)', tr: 'Dosya (DXF/PLT)' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-12">{tx(lang, { fr: 'N°', ar: 'رقم', en: 'No.', es: 'N°', pt: 'N°', tr: 'No.' })}</th>
+                                                            <th className="py-2.5 px-3 font-bold text-center w-32">{tx(lang, { fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}</th>
+                                                            <th className="py-2.5 px-3 font-bold text-center w-40">{tx(lang, { fr: 'Matière', ar: 'المادة', en: 'Material', es: 'Material', pt: 'Material', tr: 'Malzeme' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Plis', ar: 'طيات', en: 'Plys', es: 'Pliegues', pt: 'Dobras', tr: 'Kat Sayısı' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-32">{tx(lang, { fr: 'Long. Tracée (m)', ar: 'الطول المرسوم (م)', en: 'Traced Length (m)', es: 'Long. Trazada (m)', pt: 'Comp. Traçado (m)', tr: 'Çizilen Uzunluk (m)' })}</th>
                                                             {sizes.map((s, idx) => (
@@ -1224,7 +1595,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             ))}
                                                             <th className="py-2.5 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Total Pcs', ar: 'إجمالي القطع', en: 'Total Pcs', es: 'Total Pzs', pt: 'Total Peças', tr: 'Toplam Adet' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-28">{tx(lang, { fr: 'Cons. (m)', ar: 'الاستهلاك (م)', en: 'Cons. (m)', es: 'Cons. (m)', pt: 'Cons. (m)', tr: 'Tük. (m)' })}</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-16"></th>
+                                                            <th className="py-2.5 px-3 font-bold text-center w-24"></th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
@@ -1232,11 +1603,130 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             let lineRatioSum = 0;
                                                             sizes.forEach(s => { lineRatioSum += Number(line.ratios?.[s]) || 0; });
                                                             const linePieces = (line.plis || 0) * lineRatioSum;
-                                                            const lineCons = (line.plis || 0) * ((line.longTracee || 0) + 0.03);
-                                                            
+                                                            const lineCons = lineRatioSum > 0 ? (line.plis || 0) * ((line.longTracee || 0) + 0.03) : 0;
+
                                                             return (
-                                                                <tr key={line.id} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors">
+                                                                <tr key={line.id} className={`hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors ${line.fait ? 'bg-emerald-50/40 dark:bg-emerald-900/10' : ''}`}>
+                                                                    <td className="py-1 px-2 text-center align-top">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setToggleFaitConfirmId(line.id)}
+                                                                            title={tx(lang, { fr: line.fait ? 'Marquer comme non coupé' : 'Marquer comme coupé', ar: line.fait ? 'إلغاء تعليم كمقصوص' : 'تعليم كمقصوص', en: line.fait ? 'Mark as not cut' : 'Mark as cut', es: line.fait ? 'Marcar como no cortado' : 'Marcar como cortado', pt: line.fait ? 'Marcar como não cortado' : 'Marcar como cortado', tr: line.fait ? 'Kesilmedi işaretle' : 'Kesildi işaretle' })}
+                                                                            className={`w-[18px] h-[18px] rounded-md border-2 flex items-center justify-center transition-colors mx-auto ${line.fait ? 'bg-emerald-500 border-emerald-500' : 'bg-white dark:bg-dk-surface border-slate-300 dark:border-dk-border hover:border-emerald-400'}`}
+                                                                        >
+                                                                            {line.fait && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                                                                        </button>
+                                                                    </td>
+                                                                    <td className="py-1 px-1.5 align-top">
+                                                                        <div className="relative flex flex-col gap-1 items-center">
+                                                                            <input ref={fileInputRef} type="file" accept=".dxf,.plt,.dwg,.ai,.svg,.egr,.txt,.csv,.jpg,.jpeg,.png,.pdf" className="hidden" onChange={handleFichierChange} />
+                                                                            {line.fichier ? (
+                                                                                <div className="flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-md px-1.5 py-1 w-full max-w-[150px]">
+                                                                                    <FileText className="w-3 h-3 text-indigo-500 shrink-0" />
+                                                                                    <span className="text-[9px] font-bold text-indigo-700 dark:text-indigo-300 truncate flex-1" title={line.fichier.nom}>{line.fichier.nom}</span>
+                                                                                    <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 rounded px-1 shrink-0">{line.fichier.format}</span>
+                                                                                    <button type="button" onClick={() => line.fichier && downloadFichier(line.fichier)} className="text-slate-400 hover:text-indigo-600 shrink-0" title={tx(lang, { fr: 'Télécharger', ar: 'تحميل', en: 'Download', es: 'Descargar', pt: 'Baixar', tr: 'İndir' })}>
+                                                                                        <Download className="w-3 h-3" />
+                                                                                    </button>
+                                                                                    <button type="button" onClick={() => setRemoveConfirmId(line.id)} className="text-slate-400 hover:text-rose-500 shrink-0" title={tx(lang, { fr: 'Détacher le fichier', ar: 'فصل الملف', en: 'Detach file', es: 'Desvincular', pt: 'Desvincular', tr: 'Ayır' })}>
+                                                                                        <X className="w-3 h-3" />
+                                                                                    </button>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <span className="text-[10px] text-slate-400 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Aucun fichier', ar: 'لا ملف', en: 'No file', es: 'Sin archivo', pt: 'Sem arquivo', tr: 'Dosya yok' })}</span>
+                                                                            )}
+                                                                            <div className="flex items-center gap-1">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => triggerFichierUpload(line.id)}
+                                                                                    title={tx(lang, { fr: 'Uploader un fichier DXF/PLT', ar: 'رفع ملف DXF/PLT', en: 'Upload DXF/PLT file', es: 'Subir archivo DXF/PLT', pt: 'Enviar arquivo DXF/PLT', tr: 'DXF/PLT yükle' })}
+                                                                                    className="p-1 bg-slate-100 dark:bg-dk-elevated hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-slate-500 hover:text-indigo-600 rounded transition-colors"
+                                                                                >
+                                                                                    <Upload className="w-3 h-3" />
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={e => { e.stopPropagation(); setLibraryOpenId(libraryOpenId === line.id ? null : line.id); }}
+                                                                                    title={tx(lang, { fr: 'Réutiliser un fichier sauvegardé', ar: 'استرجاع ملف محفوظ', en: 'Reuse a saved file', es: 'Reutilizar archivo', pt: 'Reutilizar arquivo', tr: 'Kayıtlı dosya' })}
+                                                                                    className={`p-1 rounded transition-colors ${libraryOpenId === line.id ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600' : 'bg-slate-100 dark:bg-dk-elevated hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-slate-500 hover:text-indigo-600'}`}
+                                                                                >
+                                                                                    <FolderOpen className="w-3 h-3" />
+                                                                                </button>
+                                                                            </div>
+                                                                            {libraryOpenId === line.id && (
+                                                                                <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg shadow-lg shadow-slate-900/10 p-1 max-h-36 overflow-y-auto" onClick={e => e.stopPropagation()}>
+                                                                                    {fichiersSaves.length === 0 ? (
+                                                                                        <p className="text-[9px] text-slate-400 dark:text-dk-muted text-center py-1.5">{tx(lang, { fr: 'Aucun fichier sauvegardé', ar: 'لا ملفات محفوظة', en: 'No saved file', es: 'Sin archivos guardados', pt: 'Sem arquivos salvos', tr: 'Kayıtlı dosya yok' })}</p>
+                                                                                    ) : fichiersSaves.map(f => (
+                                                                                        <div key={f.id} className="flex items-center gap-1 py-0.5 px-1 hover:bg-slate-50 dark:hover:bg-dk-elevated rounded">
+                                                                                            <button type="button" onClick={() => handleAttachSavedFichier(line.id, f)} className="flex-1 flex items-center gap-1.5 min-w-0">
+                                                                                                <FileText className="w-3 h-3 text-indigo-400 shrink-0" />
+                                                                                                <span className="text-[9px] font-semibold text-slate-700 dark:text-dk-text truncate">{f.nom}</span>
+                                                                                                <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 rounded px-1">{f.format}</span>
+                                                                                            </button>
+                                                                                            <button type="button" onClick={() => handleDeleteSavedFichier(f.id)} className="text-slate-400 hover:text-rose-500 shrink-0" title={tx(lang, { fr: 'Supprimer de la bibliothèque', ar: 'حذف من المكتبة', en: 'Remove from library', es: 'Eliminar de biblioteca', pt: 'Remover', tr: 'Sil' })}>
+                                                                                                <Trash2 className="w-3 h-3" />
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </td>
                                                                     <td className="py-2 px-3 text-center font-bold text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg/50">{lIdx + 1}</td>
+                                                                    <td className="py-1 px-2">
+                                                                        <select
+                                                                            value={line.couleur || ''}
+                                                                            onChange={e => handleUpdateMatelasCouleur(line.id, e.target.value)}
+                                                                            className="w-full py-1.5 px-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[11px] font-semibold text-slate-700 dark:text-dk-text outline-none focus:bg-white focus:border-indigo-400"
+                                                                        >
+                                                                            <option value="">—</option>
+                                                                            {(colors as any[]).map((c: any, i: number) => {
+                                                                                const cName = c.name || (typeof c === 'string' ? c : c.id);
+                                                                                return <option key={i} value={cName}>{cName}</option>;
+                                                                            })}
+                                                                        </select>
+                                                                    </td>
+                                                                    <td className="py-1 px-2">
+                                                                        <div className="relative flex items-center">
+                                                                            {(() => {
+                                                                                const photo = line.matiere ? matierePhoto(line.matiere) : null;
+                                                                                return photo ? <img src={photo} alt="" className="w-6 h-6 rounded-md object-cover border border-slate-200 dark:border-dk-border shrink-0 mr-1.5" /> : null;
+                                                                            })()}
+                                                                            <input
+                                                                                type="text"
+                                                                                value={line.matiere || ''}
+                                                                                onChange={e => handleUpdateMatelasMatiere(line.id, e.target.value)}
+                                                                                onFocus={() => setMatiereOpenId(line.id)}
+                                                                                onClick={e => { e.stopPropagation(); setMatiereOpenId(line.id); }}
+                                                                                placeholder={tx(lang, { fr: 'Matière', ar: 'المادة', en: 'Material', es: 'Material', pt: 'Material', tr: 'Malzeme' })}
+                                                                                className="w-full text-center py-1.5 px-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[11px] font-semibold text-slate-700 dark:text-dk-text outline-none focus:bg-white focus:border-indigo-400 placeholder:text-slate-300"
+                                                                            />
+                                                                            {matiereOpenId === line.id && (() => {
+                                                                                const q = (line.matiere || '').toLowerCase().trim();
+                                                                                const suggestions = matieresPourCouleur(line.couleur).filter(n => !q || n.toLowerCase().includes(q));
+                                                                                if (suggestions.length === 0) return null;
+                                                                                return (
+                                                                                    <div className="absolute top-full left-0 z-30 mt-1 min-w-full w-56 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-xl shadow-slate-900/10 py-1.5 max-h-64 overflow-y-auto" onClick={e => e.stopPropagation()}>
+                                                                                        {line.couleur && (
+                                                                                            <div className="px-3 pb-1.5 mb-1 border-b border-slate-100 dark:border-dk-border text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-dk-muted">
+                                                                                                {tx(lang, { fr: 'Matières pour', ar: 'مواد لـ', en: 'Materials for', es: 'Materiales para', pt: 'Materiais para', tr: 'Malzemeler' })} {line.couleur}
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {suggestions.map((n, i) => {
+                                                                                            const photo = matierePhoto(n);
+                                                                                            return (
+                                                                                                <button key={i} type="button" onClick={() => { handleUpdateMatelasMatiere(line.id, n); setMatiereOpenId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated text-left transition-colors">
+                                                                                                    {photo && <img src={photo} alt="" className="w-7 h-7 rounded-md object-cover border border-slate-200 dark:border-dk-border shrink-0" />}
+                                                                                                    <span className="text-[12px] font-semibold text-slate-700 dark:text-dk-text truncate">{n}</span>
+                                                                                                </button>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                );
+                                                                            })()}
+                                                                        </div>
+                                                                    </td>
                                                                     <td className="py-1 px-2">
                                                                         <input
                                                                             type="number"
@@ -1272,10 +1762,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                     ))}
                                                                     <td className="py-2 px-3 text-center font-bold text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-bg/20">{linePieces}</td>
                                                                     <td className="py-2 px-3 text-center font-bold text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-bg/20">{lineCons.toFixed(2)}</td>
-                                                                    <td className="py-1 px-2 text-center">
+                                                                    <td className="py-1 px-2 text-center whitespace-nowrap">
                                                                         <button
                                                                             type="button"
-                                                                            onClick={() => handleDeleteMatelasLine(line.id)}
+                                                                            onClick={() => handlePrintMatelasTicket(line.id)}
+                                                                            className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                                                                            title={tx(lang, { fr: 'Imprimer le ticket de ce matelas', ar: 'طباعة تذكرة هذه المفرشة', en: 'Print this matelas ticket', es: 'Imprimir el ticket de esta capa', pt: 'Imprimir o ticket desta esteira', tr: 'Bu katmanın fişini yazdır' })}
+                                                                        >
+                                                                            <Printer className="w-3.5 h-3.5" />
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setDeleteLineConfirmId(line.id)}
                                                                             className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-rose-600 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
                                                                             title={tx(lang, { fr: 'Supprimer la ligne', ar: 'حذف السطر', en: 'Delete line', es: 'Eliminar línea', pt: 'Excluir linha', tr: 'Satırı sil' })}
                                                                         >
@@ -1427,6 +1925,35 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         </div>
                                     )}
                                 </div>
+                            </div>
+
+                            {/* FICHIER DU MODÈLE */}
+                            <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 md:p-6">
+                                <label className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1.5 uppercase tracking-wide">
+                                    {tx(lang, { fr: 'Fichier du Modèle', ar: 'ملف الموديل', en: 'Model File', es: 'Archivo del Modelo', pt: 'Arquivo do Modelo', tr: 'Model Dosyası' })}
+                                </label>
+                                {ordre.modeleFichier ? (
+                                    <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg px-3 py-2.5">
+                                        <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
+                                        <span className="text-[12px] font-semibold text-indigo-700 dark:text-indigo-300 truncate flex-1" title={ordre.modeleFichier.nom}>{ordre.modeleFichier.nom}</span>
+                                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 rounded px-1.5 py-0.5 shrink-0">{ordre.modeleFichier.format}</span>
+                                        <button type="button" onClick={() => ordre.modeleFichier && downloadFichier(ordre.modeleFichier)} className="text-slate-400 hover:text-indigo-600 shrink-0" title={tx(lang, { fr: 'Télécharger', ar: 'تحميل', en: 'Download', es: 'Descargar', pt: 'Baixar', tr: 'İndir' })}>
+                                            <Download className="w-4 h-4" />
+                                        </button>
+                                        <button type="button" onClick={handleRemoveModeleFichier} className="text-slate-400 hover:text-rose-500 shrink-0" title={tx(lang, { fr: 'Détacher', ar: 'فصل', en: 'Detach', es: 'Desvincular', pt: 'Desvincular', tr: 'Ayır' })}>
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => triggerFichierUpload(MODEL_FICHIER_TARGET)}
+                                        className="w-full flex items-center justify-center gap-2 bg-slate-50 dark:bg-dk-bg border border-dashed border-slate-300 dark:border-dk-border rounded-lg px-3 py-3 text-[12px] font-semibold text-slate-500 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
+                                    >
+                                        <Upload className="w-4 h-4" />
+                                        {tx(lang, { fr: 'Uploader un fichier / une photo du modèle', ar: 'رفع ملف أو صورة للموديل', en: 'Upload a model file / photo', es: 'Subir archivo/foto del modelo', pt: 'Enviar arquivo/foto do modelo', tr: 'Model dosyası/fotoğrafı yükle' })}
+                                    </button>
+                                )}
                             </div>
 
                             {/* MATRIX CARD */}
@@ -1668,7 +2195,6 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                     <th className="py-3 px-3 font-bold">{tx(lang, { fr: 'Article', ar: 'الخامة', en: 'Article', es: 'Artículo', pt: 'Artigo', tr: 'Malzeme' })}</th>
                                                     <th className="py-3 px-3 font-bold">{tx(lang, { fr: 'Besoin', ar: 'الاحتياج', en: 'Need', es: 'Necesidad', pt: 'Necessidade', tr: 'İhtiyaç' })}</th>
                                                     <th className="py-3 px-3 font-bold">{tx(lang, { fr: 'Stock', ar: 'المخزون', en: 'Stock', es: 'Stock', pt: 'Estoque', tr: 'Stok' })}</th>
-                                                    <th className="py-3 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
@@ -1686,43 +2212,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             <span className={`font-bold ${mat.isSufficient ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{mat.stockActuel}</span>
                                                             <span className="text-[9px] text-slate-400 dark:text-dk-muted uppercase ml-1">{mat.unit}</span>
                                                         </td>
-                                                        <td className="py-3 px-3 text-center">
-                                                            {mat.isSufficient ? (
-                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 rounded text-[10px] font-bold border border-emerald-200">
-                                                                    <CheckCircle2 className="w-3 h-3" /> {tx(lang, { fr: 'OK', ar: 'متوفر', en: 'OK', es: 'OK', pt: 'OK', tr: 'Tamam' })}
-                                                                 </span>
-                                                             ) : (
-                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 text-rose-700 rounded text-[10px] font-bold border border-rose-200">
-                                                                     <AlertCircle className="w-3 h-3" /> {tx(lang, { fr: 'Rupture', ar: 'نفاد', en: 'Out of Stock', es: 'Agotado', pt: 'Esgotado', tr: 'Stok Yok' })}
-                                                                </span>
-                                                            )}
-                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
                                         </table>
                                     )}
                                 </div>
-                            </div>
-
-                            {/* PUBLISH FOOTER */}
-                            {!selectedModel.isPublishedToLibrary && (
-                                <div className="flex justify-end pb-4">
-                                    <button
-                                        onClick={() => handleSaveCoupe(true)}
-                                        className={`${isMobile ? 'h-12 w-full' : 'h-10 px-5'} bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-semibold rounded-lg transition-colors flex items-center justify-center gap-2`}
-                                    >
-                                        <Send className="w-4 h-4" />
-                                        {tx(lang, { fr: 'Valider & Publier', ar: 'تحقق وانشر', en: 'Validate & Publish', es: 'Validar y Publicar', pt: 'Validar e Publicar', tr: 'Onayla ve Yayınla' })}
-                                    </button>
-                                </div>
-                            )}
-                            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-dk-border">
-                                <InlineInvoiceList
-                                    productId={selectedModel.id}
-                                    productLabel={selectedModel.meta_data?.nom_modele || ''}
-                                    sourceModule="coupe"
-                                />
                             </div>
                         </div>
                     ) : (
@@ -1790,6 +2285,124 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* AUTO MATELAS */}
+            {autoMatelasOpen && createPortal(
+                <div className="fixed inset-0 z-[96] flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-[2px]" onClick={() => setAutoMatelasOpen(false)}>
+                    <div className="bg-white dark:bg-dk-surface rounded-xl shadow-xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Génération automatique des matelas', ar: 'توليد المفرشات تلقائياً', en: 'Auto-generate layers', es: 'Generar capas automáticamente', pt: 'Gerar esteiras automaticamente', tr: 'Katmanları otomatik oluştur' })}</h3>
+                            <button type="button" onClick={() => setAutoMatelasOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <label className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1.5 uppercase tracking-wide">{tx(lang, { fr: 'Plis par matelas', ar: 'الطيات لكل مفرشة', en: 'Plys per layer', es: 'Pliegues por capa', pt: 'Dobras por esteira', tr: 'Katman başına kat' })}</label>
+                        <input
+                            type="number"
+                            min="1"
+                            value={autoPlis}
+                            onChange={e => setAutoPlis(Number(e.target.value))}
+                            className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2.5 text-[13px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white focus:border-indigo-400"
+                        />
+                        <div className="flex items-center justify-end gap-2 mt-5">
+                            <button type="button" onClick={() => setAutoMatelasOpen(false)} className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+                            <button type="button" onClick={() => applyAutoMatelasGeneration(autoPlis)} className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">{tx(lang, { fr: 'Générer', ar: 'توليد', en: 'Generate', es: 'Generar', pt: 'Gerar', tr: 'Oluştur' })}</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* DÉTACHER FICHIER */}
+            {removeConfirmId && createPortal(
+                <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-[2px]" onClick={() => setRemoveConfirmId(null)}>
+                    <div className="bg-white dark:bg-dk-surface rounded-xl shadow-xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-start gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-full bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center shrink-0">
+                                <AlertCircle className="w-5 h-5 text-rose-500" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Détacher le fichier ?', ar: 'فصل هذا الملف؟', en: 'Detach this file?', es: '¿Desvincular archivo?', pt: 'Desvincular arquivo?', tr: 'Dosya ayrılsın mı?' })}</h3>
+                                <p className="text-[11px] text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang, { fr: 'Le fichier restera dans la bibliothèque.', ar: 'سيبقى الملف محفوظاً في المكتبة.', en: 'The file stays in the library.', es: 'El archivo permanece en la biblioteca.', pt: 'O arquivo permanece na biblioteca.', tr: 'Dosya kütüphanede kalır.' })}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 mt-5">
+                            <button type="button" onClick={() => setRemoveConfirmId(null)} className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+                            <button type="button" onClick={() => handleRemoveFichier(removeConfirmId)} className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-rose-600 text-white hover:bg-rose-700 transition-colors">{tx(lang, { fr: 'Détacher', ar: 'فصل', en: 'Detach', es: 'Desvincular', pt: 'Desvincular', tr: 'Ayır' })}</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* SUPPRIMER LIGNE MATELAS */}
+            {deleteLineConfirmId && createPortal(
+                <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-[2px]" onClick={() => setDeleteLineConfirmId(null)}>
+                    <div className="bg-white dark:bg-dk-surface rounded-xl shadow-xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-start gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-full bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center shrink-0">
+                                <AlertCircle className="w-5 h-5 text-rose-500" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">
+                                    {tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} {tx(lang, { fr: 'Matelas', ar: 'مفرشة', en: 'Matelas', es: 'Capa', pt: 'Esteira', tr: 'Katman' })} N°{(ordre.matelasLines || []).findIndex(l => l.id === deleteLineConfirmId) + 1} ?
+                                </h3>
+                                <p className="text-[11px] text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang, { fr: 'Cette action est irréversible.', ar: 'هذا الإجراء لا يمكن التراجع عنه.', en: 'This action cannot be undone.', es: 'Esta acción no se puede deshacer.', pt: 'Esta ação não pode ser desfeita.', tr: 'Bu işlem geri alınamaz.' })}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 mt-5">
+                            <button type="button" onClick={() => setDeleteLineConfirmId(null)} className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+                            <button type="button" onClick={() => handleDeleteMatelasLine(deleteLineConfirmId)} className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-rose-600 text-white hover:bg-rose-700 transition-colors">{tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* CONFIRMER MATELAS COUPÉ */}
+            {toggleFaitConfirmId && createPortal(
+                <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-[2px]" onClick={() => setToggleFaitConfirmId(null)}>
+                    <div className="bg-white dark:bg-dk-surface rounded-xl shadow-xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+                        {(() => {
+                            const targetIdx = (ordre.matelasLines || []).findIndex(l => l.id === toggleFaitConfirmId);
+                            const targetLine = (ordre.matelasLines || [])[targetIdx];
+                            const willBeFait = !targetLine?.fait;
+                            const matelasLabel = `${tx(lang, { fr: 'Matelas', ar: 'مفرشة', en: 'Matelas', es: 'Capa', pt: 'Esteira', tr: 'Katman' })} ${targetIdx + 1}`;
+                            let targetRatioSum = 0;
+                            sizes.forEach(s => { targetRatioSum += Number(targetLine?.ratios?.[s]) || 0; });
+                            const targetPieces = (targetLine?.plis || 0) * targetRatioSum;
+                            return (
+                                <>
+                                    <div className="flex items-start gap-3 mb-3">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${willBeFait ? 'bg-emerald-50 dark:bg-emerald-900/30' : 'bg-slate-100 dark:bg-dk-elevated'}`}>
+                                            <Check className={`w-5 h-5 ${willBeFait ? 'text-emerald-600' : 'text-slate-400'}`} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">
+                                                {willBeFait
+                                                    ? `${tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })} ${matelasLabel} ?`
+                                                    : `${tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Undo', es: 'Deshacer', pt: 'Desfazer', tr: 'Geri al' })} ${matelasLabel} ?`}
+                                            </h3>
+                                            <p className="text-[11px] text-slate-500 dark:text-dk-muted mt-0.5">
+                                                {targetLine?.couleur ? `${targetLine.couleur} · ` : ''}
+                                                {targetLine?.plis || 0} {tx(lang, { fr: 'plis', ar: 'طيات', en: 'plys', es: 'pliegues', pt: 'dobras', tr: 'kat' })} · {targetPieces} {tx(lang, { fr: 'pcs', ar: 'قطعة', en: 'pcs', es: 'pzs', pt: 'peças', tr: 'adet' })}
+                                            </p>
+                                        </div>
+                                        <button type="button" onClick={() => setToggleFaitConfirmId(null)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted shrink-0">
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2 mt-5">
+                                        <button type="button" onClick={() => setToggleFaitConfirmId(null)} className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+                                        <button type="button" onClick={() => handleToggleMatelasFait(toggleFaitConfirmId)} className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
+                                    </div>
+                                </>
+                            );
+                        })()}
+                    </div>
+                </div>,
+                document.body
             )}
 
             {/* TOAST */}

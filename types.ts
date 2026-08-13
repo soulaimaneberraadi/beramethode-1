@@ -423,11 +423,24 @@ export interface Faisceau {
   codeBarre: string;
 }
 
+export interface MatelasFichier {
+  id: string;
+  nom: string;
+  format: string; // DXF | PLT | ... (extension uppercase)
+  data: string; // base64 dataURL
+  size: number; // bytes
+}
+
 export interface MatelasLine {
   id: string;
+  libelle?: string; // free-text label for the spread/plateau (set later)
+  couleur?: string; // color name this layer is cut for (from Répartition)
   plis: number;
   longTracee: number;
   ratios: Record<string, number>; // sizeName -> ratio (e.g. {"36": 2, "38": 6})
+  fichier?: MatelasFichier; // attached DXF/PLT cutting file (base64)
+  fait?: boolean; // ligne coupée/confirmée (suivi d'avancement)
+  matiere?: string; // matière consommée par cette ligne (relie la conso au stock Simulation Fournitures)
 }
 
 export interface OrdreCoupe {
@@ -440,7 +453,9 @@ export interface OrdreCoupe {
   status: 'EN_PREPARATION' | 'EN_COURS' | 'SOUS_TRAITANCE' | 'VALIDE' | 'REJETE';
   faisceaux?: Faisceau[];
   matelasLines?: MatelasLine[];
+  fichieresSaves?: MatelasFichier[]; // shared library of uploaded DXF/PLT files (reusable across lines)
   tissuRecu?: number;
+  modeleFichier?: MatelasFichier; // reference file/photo of the model itself (not tied to a matelas line)
 }
 
 // --- NEW TYPE FOR LIBRARY ---
@@ -621,6 +636,9 @@ export interface SubcontractOrder {
    *  permettent pas de reconstruire la grille — d'où ce champ, source de vérité.
    *  Absent sur les commandes créées avant son introduction. */
   grid_json?: string;
+  /** Fournisseurs des matières à prévoir en mode Façon (JSON stringifié) :
+   *  Record<matériau, { fournisseur?: string; delaiLivraison?: number }>. */
+  materials_fournisseur_json?: string;
   notes?: string;
   tissuStatus?: 'PENDING' | 'SENT';
   fournituresStatus?: 'PENDING' | 'DELIVERED';

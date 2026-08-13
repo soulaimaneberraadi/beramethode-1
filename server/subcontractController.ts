@@ -27,7 +27,7 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
         subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
         prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
         protoRequired, protoStatus, paymentTerms, defectRateAccepted,
-        stitchingDetails, specifications_json
+        stitchingDetails, specifications_json, materials_fournisseur_json
     } = req.body;
 
     if (!modelId || !totalQuantity || !subcontractorName || !deliveryDate) {
@@ -46,8 +46,8 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
                 subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
                 prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
                 protoRequired, protoStatus, paymentTerms, defectRateAccepted,
-                stitchingDetails, specifications_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                stitchingDetails, specifications_json, materials_fournisseur_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         stmt.run(
@@ -83,7 +83,8 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
             paymentTerms || 'AVANCE_RECEPTION',
             defectRateAccepted !== undefined ? defectRateAccepted : 1.5,
             stitchingDetails || null,
-            specifications_json || null
+            specifications_json || null,
+            materials_fournisseur_json || null
         );
 
         res.status(201).json({ message: 'Subcontract order created successfully', id });
@@ -106,13 +107,13 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
         subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
         prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
         protoRequired, protoStatus, paymentTerms, defectRateAccepted,
-        stitchingDetails, specifications_json
+        stitchingDetails, specifications_json, materials_fournisseur_json
     } = req.body;
 
     try {
         const stmt = db.prepare(`
-            UPDATE subcontract_orders 
-            SET 
+            UPDATE subcontract_orders
+            SET
                 modelId = COALESCE(?, modelId),
                 modelName = COALESCE(?, modelName),
                 clientName = COALESCE(?, clientName),
@@ -144,6 +145,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
                 defectRateAccepted = COALESCE(?, defectRateAccepted),
                 stitchingDetails = COALESCE(?, stitchingDetails),
                 specifications_json = COALESCE(?, specifications_json),
+                materials_fournisseur_json = COALESCE(?, materials_fournisseur_json),
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND owner_id = ?
         `);
@@ -180,6 +182,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
             defectRateAccepted !== undefined ? defectRateAccepted : null,
             stitchingDetails || null,
             specifications_json || null,
+            materials_fournisseur_json || null,
             id,
             companyId
         );

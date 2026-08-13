@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { ModelData, SubcontractOrder, PlanningEvent, SubcontractorProfile } from '../types';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { resolveStock, MagasinItem } from '../lib/magasinMatch';
+import { fmt } from '../app/constants';
 import InlineInvoiceList from './InlineInvoiceList';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
@@ -126,6 +128,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [profileFormRating, setProfileFormRating] = useState(5);
   const [profileFormNotes, setProfileFormNotes] = useState('');
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [magasinData, setMagasinData] = useState<MagasinItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,6 +148,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [isSubPickerOpen, setIsSubPickerOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<SubcontractOrder | null>(null);
+  const [orderPendingDelete, setOrderPendingDelete] = useState<SubcontractOrder | null>(null);
+  const [isDeletingOrder, setIsDeletingOrder] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [detailOrder, setDetailOrder] = useState<SubcontractOrder | null>(null);
 
@@ -176,6 +181,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [formPaymentTerms, setFormPaymentTerms] = useState<'AVANCE_RECEPTION' | 'APRES_LIVRAISON' | 'ECHEANCES'>('AVANCE_RECEPTION');
   const [formDefectRateAccepted, setFormDefectRateAccepted] = useState<number>(1.5);
   const [formStitchingDetails, setFormStitchingDetails] = useState<string>('');
+  /** Mode Façon uniquement : fournisseur choisi par matière (clé = nom de la matière),
+   *  surcharge le fournisseur du Magasin quand renseigné. */
+  const [formMaterialsFournisseur, setFormMaterialsFournisseur] = useState<Record<string, string>>({});
   
   const [batches, setBatches] = useState<BatchInput[]>([{ quantity: 0, deliveryDate: '', notes: '', grid: {} }]);
   const [newColorInput, setNewColorInput] = useState('');
@@ -231,6 +239,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       if (!resInvoices.ok) throw new Error(tx(lang,{fr:'Echec du chargement des factures',ar:'فشل تحميل الفواتير',en:'Failed to load invoices',es:'Error al cargar facturas',pt:'Falha ao carregar faturas',tr:'Faturalar yüklenemedi'}));
       const invoicesData = await resInvoices.json();
       setInvoices(invoicesData);
+
+      // Fetch Magasin Products (stock + fournisseur, pour la table Matières & Fournisseurs en mode Façon)
+      const resMagasin = await fetch('/api/magasin/products', { credentials: 'include' });
+      if (resMagasin.ok) {
+        setMagasinData(await resMagasin.json());
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || tx(lang,{fr:'Une erreur est survenue lors de la récupération des données.',ar:'حدث خطأ أثناء استرجاع البيانات.',en:'An error occurred while fetching data.',es:'Ocurrió un error al recuperar los datos.',pt:'Ocorreu um erro ao recuperar os dados.',tr:'Veriler alınırken bir hata oluştu.'}));
@@ -424,6 +438,42 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       colors_json: Object.keys(colorsSum).length > 0 ? JSON.stringify(colorsSum) : null,
       grid_json: Object.keys(grid).length > 0 ? JSON.stringify(grid) : null,
     };
+  };
+
+  /** Matières à prévoir pour une commande en mode Façon (le sous-traitant coud,
+   *  le client fournit la matière). Même formule que le tableau « Détail des
+   *  Achats » de Coûts & Budget (majoration 5%), pour rester cohérent avec le
+   *  reste de l'appli : besoin = qté/pièce du modèle × quantité de la commande. */
+  const getFaconMaterialsNeeds = (
+    order: { modelId: string; totalQuantity: number } | null,
+    fournisseurOverride: Record<string, string> = {}
+  ) => {
+    if (!order) return [];
+    const model = models.find(m => m.id === order.modelId);
+    const materials = model?.ficheData?.materials || [];
+    if (!materials.length) return [];
+    const WASTE_RATE = 5;
+    return materials.map(m => {
+      const baseQty = m.qty * order.totalQuantity;
+      const withWaste = baseQty * (1 + WASTE_RATE / 100);
+      const buyQty = (m.unit === 'bobine' || m.unit === 'pc') ? Math.ceil(withWaste) : parseFloat(withWaste.toFixed(2));
+      const st = resolveStock(m, magasinData, buyQty);
+      const overrideFournisseur = fournisseurOverride[m.name];
+      const fournisseur = overrideFournisseur || st.fournisseur;
+      return {
+        id: m.id,
+        name: m.name,
+        unit: m.unit,
+        unitPrice: m.unitPrice,
+        buyQty,
+        stockActuel: st.stockActuel,
+        manque: st.manque,
+        fournisseur,
+        delaiLivraison: st.delaiLivraison,
+        cost: buyQty * m.unitPrice,
+        isOverridden: !!overrideFournisseur,
+      };
+    });
   };
 
   /** Reconstruit la grille d'une commande.
@@ -673,6 +723,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setFormPaymentTerms('AVANCE_RECEPTION');
     setFormDefectRateAccepted(1.5);
     setFormStitchingDetails('');
+    setFormMaterialsFournisseur({});
 
     setBatches([{
       quantity: firstModel?.meta_data.quantity || 0,
@@ -963,6 +1014,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setFormPaymentTerms(order.paymentTerms || 'AVANCE_RECEPTION');
     setFormDefectRateAccepted(order.defectRateAccepted !== undefined ? order.defectRateAccepted : 1.5);
     setFormStitchingDetails(order.stitchingDetails || '');
+    setFormMaterialsFournisseur(parseJsonSafe(order.materials_fournisseur_json, {} as Record<string, string>));
 
     // Restore matrix : grid_json fait foi, sinon reconstruction estimée signalée.
     const editedModel = models.find(m => m.id === order.modelId);
@@ -1021,7 +1073,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       protoStatus: formProtoStatus,
       paymentTerms: formPaymentTerms,
       defectRateAccepted: formDefectRateAccepted,
-      stitchingDetails: formStitchingDetails || null
+      stitchingDetails: formStitchingDetails || null,
+      materials_fournisseur_json: JSON.stringify(
+        Object.fromEntries(Object.entries(formMaterialsFournisseur).filter(([, v]) => v && v.trim()))
+      )
     };
 
     try {
@@ -1156,18 +1211,35 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   ]);
 
   // Delete subcontract order
-  const handleDeleteOrder = async (orderId: string) => {
-    if (!window.confirm(tx(lang,{fr:'Voulez-vous vraiment supprimer cette commande ?',ar:'هل تريد بالتأكيد حذف هذه الطلبية؟',en:'Are you sure you want to delete this order?',es:'¿Está seguro de eliminar este pedido?',pt:'Tem certeza de que deseja eliminar esta encomenda?',tr:'Bu siparişi silmek istediğinize emin misiniz?'}))) return;
+  // Retourne true uniquement si la commande a bien ete supprimee cote serveur,
+  // pour que l'appelant ne ferme la modale qu'en cas de succes reel.
+  const handleDeleteOrder = async (orderId: string): Promise<boolean> => {
     try {
       const res = await fetch(`/api/subcontract/${orderId}`, {
         method: 'DELETE',
         credentials: 'include'
       });
-      if (!res.ok) throw new Error(tx(lang,{fr:'Echec de la suppression',ar:'فشل الحذف',en:'Deletion failed',es:'Error al eliminar',pt:'Falha ao eliminar',tr:'Silme başarısız'}));
-      fetchData();
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null);
+        throw new Error(detail?.message || tx(lang,{fr:'Echec de la suppression',ar:'فشل الحذف',en:'Deletion failed',es:'Error al eliminar',pt:'Falha ao eliminar',tr:'Silme başarısız'}));
+      }
+      await fetchData();
+      return true;
     } catch (err: any) {
       alert(err.message || tx(lang,{fr:'Une erreur est survenue.',ar:'حدث خطأ.',en:'An error occurred.',es:'Ocurrió un error.',pt:'Ocorreu um erro.',tr:'Bir hata oluştu.'}));
+      return false;
     }
+  };
+
+  const confirmDeleteOrder = async () => {
+    if (!orderPendingDelete || isDeletingOrder) return;
+    setIsDeletingOrder(true);
+    const ok = await handleDeleteOrder(orderPendingDelete.id);
+    setIsDeletingOrder(false);
+    if (!ok) return;
+    setOrderPendingDelete(null);
+    setIsEditModalOpen(false);
+    setSelectedOrder(null);
   };
 
   // Open Sale Invoice Modal for a model (Tab 3)
@@ -2842,10 +2914,58 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               )}
 
+              {/* Matières & Fournisseurs à prévoir — mode Façon uniquement, éditable ici */}
+              {formTissuFournisseur !== 'SUBCONTRACTOR' && (() => {
+                const rows = getFaconMaterialsNeeds(
+                  { modelId: formModelId, totalQuantity: formTotalQuantity },
+                  formMaterialsFournisseur
+                );
+                if (!rows.length) return null;
+                return (
+                  <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-150 dark:border-dk-border">
+                      <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">{tx(lang,{fr:'Matières & fournisseurs à prévoir',ar:'المواد والموردون المطلوبون',en:'Materials & suppliers to plan',es:'Materiales y proveedores a prever',pt:'Materiais e fornecedores a prever',tr:'Öngörülecek malzeme ve tedarikçiler'})}</h4>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px]">
+                        <thead className="bg-white dark:bg-dk-surface text-slate-400 dark:text-dk-muted uppercase tracking-wide text-[9px] border-b border-slate-100 dark:border-dk-border">
+                          <tr>
+                            <th className="px-4 py-2 text-left font-medium">{tx(lang,{fr:'Matière',ar:'المادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'})}</th>
+                            <th className="px-4 py-2 text-center font-medium">{tx(lang,{fr:'Besoin',ar:'الاحتياج',en:'Need',es:'Necesidad',pt:'Necessidade',tr:'İhtiyaç'})}</th>
+                            <th className="px-4 py-2 text-center font-medium">{tx(lang,{fr:'Manque',ar:'النقص',en:'Shortage',es:'Déficit',pt:'Falta',tr:'Eksiklik'})}</th>
+                            <th className="px-4 py-2 text-left font-medium">{tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}</th>
+                            <th className="px-4 py-2 text-right font-medium">{tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                          {rows.map(r => (
+                            <tr key={r.id}>
+                              <td className="px-4 py-2 font-semibold text-slate-700 dark:text-dk-text-soft">{r.name}</td>
+                              <td className="px-4 py-2 text-center">{fmt(r.buyQty)} {r.unit}</td>
+                              <td className={`px-4 py-2 text-center font-bold ${r.manque > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-300 dark:text-dk-muted'}`}>{fmt(r.manque)} {r.unit}</td>
+                              <td className="px-4 py-1.5">
+                                <input
+                                  type="text"
+                                  value={formMaterialsFournisseur[r.name] ?? ''}
+                                  onChange={(e) => setFormMaterialsFournisseur(prev => ({ ...prev, [r.name]: e.target.value }))}
+                                  placeholder={r.fournisseur || tx(lang,{fr:'Nom du fournisseur',ar:'اسم المورد',en:'Supplier name',es:'Nombre del proveedor',pt:'Nome do fornecedor',tr:'Tedarikçi adı'})}
+                                  className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                />
+                              </td>
+                              <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(r.cost)} MAD</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="flex gap-3 justify-between items-center border-t border-slate-150 dark:border-dk-border pt-4 mt-6">
                 <button
                   type="button"
-                  onClick={async () => { await handleDeleteOrder(selectedOrder.id); setIsEditModalOpen(false); }}
+                  onClick={() => setOrderPendingDelete(selectedOrder)}
                   className="px-4 py-2.5 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl text-xs font-bold transition-all border border-transparent hover:border-rose-200 dark:hover:border-rose-800/50"
                 >
                   {tx(lang,{fr:'Supprimer la commande',ar:'حذف الطلبية',en:'Delete order',es:'Eliminar pedido',pt:'Eliminar encomenda',tr:'Siparişi sil'})}
@@ -2874,6 +2994,53 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       )}
 
       {/* ======================================= */}
+      {/* CONFIRMATION DE SUPPRESSION DE COMMANDE */}
+      {/* ======================================= */}
+      {orderPendingDelete && createPortal(
+        <div className="fixed inset-0 bg-slate-950/30 dark:bg-dk-bg/50 backdrop-blur-[2px] flex items-center justify-center z-[500] p-4">
+          <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-md p-6 text-slate-750 dark:text-dk-text">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40">
+                <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-slate-800 dark:text-dk-text text-sm">
+                  {tx(lang,{fr:'Supprimer cette commande ?',ar:'حذف هذه الطلبية؟',en:'Delete this order?',es:'¿Eliminar este pedido?',pt:'Eliminar esta encomenda?',tr:'Bu sipariş silinsin mi?'})}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-dk-muted mt-1.5 leading-relaxed">
+                  {tx(lang,{fr:'Cette action est definitive. Le journal des entrees/sorties et les frais lies seront egalement supprimes.',ar:'هذا الإجراء نهائي. سيتم كذلك حذف سجل الإدخال/الإخراج والمصاريف المرتبطة.',en:'This action is permanent. The entry/exit journal and related expenses will also be deleted.',es:'Esta accion es definitiva. El diario de entradas/salidas y los gastos vinculados tambien se eliminaran.',pt:'Esta acao e definitiva. O diario de entradas/saidas e as despesas associadas tambem serao eliminados.',tr:'Bu islem kalicidir. Giris/cikis kaydi ve ilgili masraflar da silinecek.'})}
+                </p>
+                <div className="mt-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-bg/50 border border-slate-150 dark:border-dk-border text-xs">
+                  <span className="font-bold text-slate-700 dark:text-dk-text">{orderPendingDelete.modelName || orderPendingDelete.modelId}</span>
+                  <span className="text-slate-400 dark:text-dk-muted"> · {orderPendingDelete.subcontractorName} · {orderPendingDelete.totalQuantity} pcs</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                type="button"
+                disabled={isDeletingOrder}
+                onClick={() => setOrderPendingDelete(null)}
+                className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-500 dark:text-dk-muted rounded-xl font-bold text-xs transition-all disabled:opacity-50"
+              >
+                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingOrder}
+                onClick={confirmDeleteOrder}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs transition-all shadow-md flex items-center gap-2 disabled:opacity-60"
+              >
+                {isDeletingOrder && <Loader2 className="w-4 h-4 animate-spin" />}
+                <span>{tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ======================================= */}
       {/* DETAILED VIEW MODAL */}
       {/* ======================================= */}
       {isDetailModalOpen && detailOrder && (
@@ -2888,10 +3055,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 dark:bg-dk-bg/75 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-150 dark:border-dk-border">
-                  <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest block">{tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'})}</span>
-                  <span className="text-sm font-bold text-slate-800 dark:text-dk-text mt-1 block">{detailOrder.subcontractorName}</span>
-                  {detailOrder.subcontractorPhone && <span className="text-slate-500 dark:text-dk-muted block mt-1">{tx(lang,{fr:'Tél:',ar:'الهاتف:',en:'Tel:',es:'Tel:',pt:'Tel:',tr:'Tel:'})} {detailOrder.subcontractorPhone}</span>}
+                <div className="bg-slate-50 dark:bg-dk-bg/75 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-150 dark:border-dk-border flex items-center gap-3">
+                  {(() => {
+                    const profile = subcontractorProfiles.find(p => p.name === detailOrder.subcontractorName);
+                    return profile?.photo ? (
+                      <img src={profile.photo} alt={detailOrder.subcontractorName} className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                        <Users className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
+                      </div>
+                    );
+                  })()}
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest block">{tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'})}</span>
+                    <span className="text-sm font-bold text-slate-800 dark:text-dk-text mt-1 block truncate">{detailOrder.subcontractorName}</span>
+                    {detailOrder.subcontractorPhone && <span className="text-slate-500 dark:text-dk-muted block mt-1">{tx(lang,{fr:'Tél:',ar:'الهاتف:',en:'Tel:',es:'Tel:',pt:'Tel:',tr:'Tel:'})} {detailOrder.subcontractorPhone}</span>}
+                  </div>
                 </div>
                 <div className="bg-slate-50 dark:bg-dk-bg/75 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-150 dark:border-dk-border">
                   <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest block">{tx(lang,{fr:'Client Donneur d\'Ordre',ar:'العميل صاحب الطلب',en:'Ordering Client',es:'Cliente Ordenante',pt:'Cliente Mandante',tr:'Sipariş Veren Müşteri'})}</span>
@@ -2900,21 +3079,33 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 dark:bg-dk-bg/75 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-150 dark:border-dk-border">
-                <div>
-                  <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}</span>
-                  <span 
-                    onClick={() => {
-                      const matched = models.find(m => m.id === detailOrder.modelId);
-                      if (onLoadModel && matched) {
-                        onLoadModel(matched);
-                        setIsDetailModalOpen(false);
-                      }
-                    }}
-                    className={`font-bold text-slate-800 dark:text-dk-text block mt-0.5 ${models.find(m => m.id === detailOrder.modelId) ? 'hover:text-indigo-650 dark:text-dk-accent-text dark:text-dk-accent dark:hover:text-dk-accent hover:underline cursor-pointer' : ''}`}
-                    title={models.find(m => m.id === detailOrder.modelId) ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:"فتح في الهندسة الفنية"}) : undefined}
-                  >
-                    {detailOrder.modelName}
-                  </span>
+                <div className="col-span-2 sm:col-span-1 flex items-center gap-3">
+                  {(() => {
+                    const matchedModel = models.find(m => m.id === detailOrder.modelId);
+                    return matchedModel?.image ? (
+                      <img src={matchedModel.image} alt={detailOrder.modelName} className="w-11 h-11 rounded-lg object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                    ) : (
+                      <div className="w-11 h-11 rounded-lg bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                        <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
+                      </div>
+                    );
+                  })()}
+                  <div className="min-w-0">
+                    <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}</span>
+                    <span
+                      onClick={() => {
+                        const matched = models.find(m => m.id === detailOrder.modelId);
+                        if (onLoadModel && matched) {
+                          onLoadModel(matched);
+                          setIsDetailModalOpen(false);
+                        }
+                      }}
+                      className={`font-bold text-slate-800 dark:text-dk-text block mt-0.5 truncate ${models.find(m => m.id === detailOrder.modelId) ? 'hover:text-indigo-650 dark:text-dk-accent-text dark:text-dk-accent dark:hover:text-dk-accent hover:underline cursor-pointer' : ''}`}
+                      title={models.find(m => m.id === detailOrder.modelId) ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:"فتح في الهندسة الفنية"}) : undefined}
+                    >
+                      {detailOrder.modelName}
+                    </span>
+                  </div>
                 </div>
                 <div>
                   <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Quantité totale',ar:'الكمية الإجمالية',en:'Total quantity',es:'Cantidad total',pt:'Quantidade total',tr:'Toplam miktar'})}</span>
@@ -2941,6 +3132,45 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   ))}
                 </div>
               </div>
+
+              {/* Matières & Fournisseurs à prévoir — mode Façon uniquement (le client fournit la matière) */}
+              {detailOrder.tissuFournisseur !== 'SUBCONTRACTOR' && (() => {
+                const rows = getFaconMaterialsNeeds(detailOrder, parseJsonSafe(detailOrder.materials_fournisseur_json, {} as Record<string, string>));
+                if (!rows.length) return null;
+                return (
+                  <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-150 dark:border-dk-border">
+                      <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">{tx(lang,{fr:'Matières & fournisseurs à prévoir',ar:'المواد والموردون المطلوبون',en:'Materials & suppliers to plan',es:'Materiales y proveedores a prever',pt:'Materiais e fornecedores a prever',tr:'Öngörülecek malzeme ve tedarikçiler'})}</h4>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px]">
+                        <thead className="bg-white dark:bg-dk-surface text-slate-400 dark:text-dk-muted uppercase tracking-wide text-[9px] border-b border-slate-100 dark:border-dk-border">
+                          <tr>
+                            <th className="px-4 py-2 text-left font-medium">{tx(lang,{fr:'Matière',ar:'المادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'})}</th>
+                            <th className="px-4 py-2 text-center font-medium">{tx(lang,{fr:'Besoin',ar:'الاحتياج',en:'Need',es:'Necesidad',pt:'Necessidade',tr:'İhtiyaç'})}</th>
+                            <th className="px-4 py-2 text-center font-medium">{tx(lang,{fr:'En stock',ar:'في المخزون',en:'In stock',es:'En stock',pt:'Em stock',tr:'Stokta'})}</th>
+                            <th className="px-4 py-2 text-center font-medium">{tx(lang,{fr:'Manque',ar:'النقص',en:'Shortage',es:'Déficit',pt:'Falta',tr:'Eksiklik'})}</th>
+                            <th className="px-4 py-2 text-center font-medium">{tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}</th>
+                            <th className="px-4 py-2 text-right font-medium">{tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                          {rows.map(r => (
+                            <tr key={r.id}>
+                              <td className="px-4 py-2 font-semibold text-slate-700 dark:text-dk-text-soft">{r.name}</td>
+                              <td className="px-4 py-2 text-center">{fmt(r.buyQty)} {r.unit}</td>
+                              <td className="px-4 py-2 text-center text-slate-500 dark:text-dk-muted">{fmt(r.stockActuel)} {r.unit}</td>
+                              <td className={`px-4 py-2 text-center font-bold ${r.manque > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-300 dark:text-dk-muted'}`}>{fmt(r.manque)} {r.unit}</td>
+                              <td className="px-4 py-2 text-center">{r.fournisseur || <span className="text-slate-300 dark:text-dk-muted">—</span>}</td>
+                              <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(r.cost)} MAD</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Quantity analysis details */}
               <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-3 bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50">
