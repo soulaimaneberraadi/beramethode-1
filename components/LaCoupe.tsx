@@ -12,6 +12,7 @@ import {
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import ExcelInput from './ExcelInput';
+import InlineInvoiceList from './InlineInvoiceList';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
 
@@ -2218,6 +2219,15 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         </table>
                                     )}
                                 </div>
+                            </div>
+
+                            {/* Factures liées à ce modèle (achats matière de la coupe) */}
+                            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-dk-border">
+                                <InlineInvoiceList
+                                    productId={selectedModel.id}
+                                    productLabel={selectedModel.meta_data?.nom_modele || ''}
+                                    sourceModule="coupe"
+                                />
                             </div>
                         </div>
                     ) : (
