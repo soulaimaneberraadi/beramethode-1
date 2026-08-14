@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcryptjs';
 import db from './db';
-import { logAudit } from './auditLogger';
+import { logAudit, listAudit } from './auditLogger';
 import {
   buildContext, can, PermissionContext, RolePermRow, OverrideRow, ResourceType, PermAction,
 } from './permissions/resolver';
@@ -67,10 +67,14 @@ export function loadUserContext(userId: number, globalRole?: string): ResolvedMe
   const rolePerms = roleChain.length
     ? (db
         .prepare(
+          // owner_id explicite : défense en profondeur. Même si un
+          // parent_role_id pointait vers une autre société, ses permissions ne
+          // seraient jamais chargées ici.
           `SELECT role_id, resource_type, resource_key, can_view, can_edit
-           FROM role_permissions WHERE role_id IN (${roleChain.map(() => '?').join(',')})`
+           FROM role_permissions
+           WHERE owner_id = ? AND role_id IN (${roleChain.map(() => '?').join(',')})`
         )
-        .all(...roleChain) as RolePermRow[])
+        .all(ownerId, ...roleChain) as RolePermRow[])
     : [];
 
   const overrides = db
@@ -82,6 +86,29 @@ export function loadUserContext(userId: number, globalRole?: string): ResolvedMe
 
   const ctx = buildContext({ isSuper, roleChain, rolePerms, overrides });
   return { ctx, ownerId, roleId: member.role_id, isSuper };
+}
+
+/**
+ * Niveau hiérarchique de l'appelant (0=patron, plus grand = plus bas).
+ * -1 pour patron/solo (isSuper sans rôle explicite dans company_roles).
+ */
+function getCallerLevel(meta: ResolvedMeta): number {
+  if (!meta.roleId) return -1;
+  const row = db.prepare(`SELECT level FROM company_roles WHERE id = ?`).get(meta.roleId) as
+    | { level?: number }
+    | undefined;
+  return row?.level ?? -1;
+}
+
+/**
+ * Garde hiérarchique : un chef intermédiaire ne peut agir que sur ce qui est
+ * STRICTEMENT en dessous de lui (jamais son propre niveau ni au-dessus).
+ * `isSuper` (admin global ou patron) passe toujours.
+ */
+function canManageRole(meta: ResolvedMeta, targetRole: { level: number }): boolean {
+  if (meta.isSuper) return true;
+  const callerLevel = getCallerLevel(meta);
+  return callerLevel < targetRole.level;
 }
 
 /** GET /api/permissions/me — contexte résolu pour le frontend (gating pages + champs). */
@@ -114,12 +141,35 @@ export const getMyPermissions = (req: Request, res: Response) => {
         if (row?.account_type) accountType = row.account_type;
       }
     } catch { /* colonne absente (ancienne base) => societe */ }
+
+    // Infos hiérarchie + exceptions personnelles de l'appelant (page « Mes accès »).
+    let level = -1;
+    let roleName: string | null = null;
+    let parentRoleId: string | null = null;
+    if (meta.roleId) {
+      const roleRow = db
+        .prepare(`SELECT level, name, parent_role_id FROM company_roles WHERE id = ?`)
+        .get(meta.roleId) as { level?: number; name?: string; parent_role_id?: string } | undefined;
+      if (roleRow) {
+        level = roleRow.level ?? -1;
+        roleName = roleRow.name ?? null;
+        parentRoleId = roleRow.parent_role_id ?? null;
+      }
+    }
+    const overrides = db
+      .prepare(
+        `SELECT resource_type, resource_key, can_view, can_edit
+         FROM member_permission_overrides WHERE owner_id = ? AND user_id = ?`
+      )
+      .all(meta.ownerId, uid(req));
+
     res.json({
       ok: true,
       isSuper: meta.isSuper,
       ownerId: meta.ownerId,
       roleId: meta.roleId,
       pages, fields, hiddenPages, accountType,
+      level, roleName, parentRoleId, overrides,
     });
   } catch (e) {
     console.error('getMyPermissions error:', e);
@@ -139,7 +189,6 @@ export const listRoles = (req: Request, res: Response) => {
 /** POST /api/permissions/roles  { name, level?, parent_role_id?, preset? } */
 export const createRole = (req: Request, res: Response) => {
   const meta = loadUserContext(uid(req), urole(req));
-  if (!meta.isSuper) return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
 
   const { name, level, parent_role_id, preset } = req.body as {
     name?: string; level?: number; parent_role_id?: string; preset?: RolePresetKey;
@@ -149,6 +198,19 @@ export const createRole = (req: Request, res: Response) => {
   const id = `role-${randomUUID()}`;
   const presetDef = preset ? ROLE_PRESETS[preset] : null;
   const lvl = level ?? presetDef?.level ?? 1;
+
+  if (!canManageRole(meta, { level: lvl })) return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
+
+  // Le parent DOIT appartenir à cette société. Sans ce contrôle, un
+  // parent_role_id pointant vers une autre société ferait hériter ses
+  // permissions : `loadUserContext` remonte la chaîne des parents sans filtre
+  // owner_id — c'est une brèche d'isolation entre sociétés.
+  if (parent_role_id) {
+    const parentOk = db
+      .prepare(`SELECT 1 FROM company_roles WHERE id = ? AND owner_id = ?`)
+      .get(parent_role_id, meta.ownerId);
+    if (!parentOk) return res.status(400).json({ ok: false, error: 'parent_role_id invalide pour cette société' });
+  }
 
   const tx = db.transaction(() => {
     db.prepare(
@@ -172,11 +234,71 @@ export const createRole = (req: Request, res: Response) => {
 /** DELETE /api/permissions/roles/:id */
 export const deleteRole = (req: Request, res: Response) => {
   const meta = loadUserContext(uid(req), urole(req));
-  if (!meta.isSuper) return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
   const role = db.prepare(`SELECT * FROM company_roles WHERE id = ? AND owner_id = ?`).get(req.params.id, meta.ownerId) as any;
   if (!role) return res.status(404).json({ ok: false, error: 'not found' });
   if (role.is_system) return res.status(403).json({ ok: false, error: 'system role protected' });
+  if (!canManageRole(meta, role)) return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
   db.prepare(`DELETE FROM company_roles WHERE id = ?`).run(req.params.id);
+  logAudit({ userId: uid(req), ownerId: meta.ownerId, action: 'DELETE', resource: 'company_roles', resourceId: req.params.id, detail: `role deleted (${role.name})`, ip: req.ip });
+  res.json({ ok: true });
+};
+
+/**
+ * PUT /api/permissions/roles/:id  { name?, level?, parent_role_id? }
+ * Modifie un rôle existant. Empêche les cycles dans la chaîne de parenté
+ * (`:id` ne doit jamais réapparaître en remontant depuis le nouveau parent).
+ */
+export const updateRole = (req: Request, res: Response) => {
+  const meta = loadUserContext(uid(req), urole(req));
+  const roleId = req.params.id;
+  const role = db.prepare(`SELECT * FROM company_roles WHERE id = ? AND owner_id = ?`).get(roleId, meta.ownerId) as any;
+  if (!role) return res.status(404).json({ ok: false, error: 'not found' });
+  if (role.is_system) return res.status(403).json({ ok: false, error: 'system role protected' });
+  if (!canManageRole(meta, role)) return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
+
+  const { name, level, parent_role_id } = req.body as {
+    name?: string; level?: number; parent_role_id?: string | null;
+  };
+
+  // Le NOUVEAU niveau doit lui aussi rester strictement sous l'appelant.
+  // Sinon : un chef de niveau 1 prend un rôle qu'il gère (niveau 2), le remonte
+  // au niveau 0, et le membre déjà rattaché devient patron → escalade.
+  if (level !== undefined && !canManageRole(meta, { level })) {
+    return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
+  }
+
+  if (parent_role_id !== undefined && parent_role_id !== null) {
+    if (parent_role_id === roleId) {
+      return res.status(400).json({ ok: false, code: 'ROLE_CYCLE' });
+    }
+    const parentRole = db
+      .prepare(`SELECT * FROM company_roles WHERE id = ? AND owner_id = ?`)
+      .get(parent_role_id, meta.ownerId) as any;
+    if (!parentRole) return res.status(400).json({ ok: false, error: 'parent_role_id invalide pour cette société' });
+
+    // Remonte la chaîne des parents depuis le nouveau parent : si `roleId`
+    // réapparaît, l'affectation créerait un cycle.
+    let cur: any = parentRole;
+    const guard = new Set<string>();
+    while (cur) {
+      if (cur.id === roleId) return res.status(400).json({ ok: false, code: 'ROLE_CYCLE' });
+      if (guard.has(cur.id)) break;
+      guard.add(cur.id);
+      cur = cur.parent_role_id
+        ? db.prepare(`SELECT * FROM company_roles WHERE id = ?`).get(cur.parent_role_id)
+        : null;
+    }
+  }
+
+  const sets: string[] = [];
+  const vals: (string | number | null)[] = [];
+  if (name !== undefined) { sets.push('name = ?'); vals.push(String(name).trim()); }
+  if (level !== undefined) { sets.push('level = ?'); vals.push(level); }
+  if (parent_role_id !== undefined) { sets.push('parent_role_id = ?'); vals.push(parent_role_id || null); }
+  if (!sets.length) return res.json({ ok: true });
+
+  db.prepare(`UPDATE company_roles SET ${sets.join(', ')} WHERE id = ? AND owner_id = ?`).run(...vals, roleId, meta.ownerId);
+  logAudit({ userId: uid(req), ownerId: meta.ownerId, action: 'UPDATE', resource: 'company_roles', resourceId: roleId, detail: 'role updated', ip: req.ip });
   res.json({ ok: true });
 };
 
@@ -192,8 +314,10 @@ export const getRolePermissions = (req: Request, res: Response) => {
 /** PUT /api/permissions/roles/:id/perms  { perms: [{resource_type, resource_key, can_view, can_edit}] } */
 export const setRolePermissions = (req: Request, res: Response) => {
   const meta = loadUserContext(uid(req), urole(req));
-  if (!meta.isSuper) return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
   const roleId = req.params.id;
+  const role = db.prepare(`SELECT * FROM company_roles WHERE id = ? AND owner_id = ?`).get(roleId, meta.ownerId) as any;
+  if (!role) return res.status(404).json({ ok: false, error: 'not found' });
+  if (!canManageRole(meta, role)) return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
   const perms = (req.body?.perms || []) as Array<{ resource_type: ResourceType; resource_key: string; can_view: number; can_edit: number }>;
 
   const tx = db.transaction(() => {
@@ -207,6 +331,7 @@ export const setRolePermissions = (req: Request, res: Response) => {
     }
   });
   tx();
+  logAudit({ userId: uid(req), ownerId: meta.ownerId, action: 'UPDATE', resource: 'role_permissions', resourceId: roleId, detail: `role perms updated (${perms.length})`, ip: req.ip });
   res.json({ ok: true, count: perms.length });
 };
 
@@ -228,7 +353,6 @@ export const listMembers = (req: Request, res: Response) => {
 /** POST /api/permissions/members  { email, role_id } — ajoute un membre existant par email */
 export const addMember = async (req: Request, res: Response) => {
   const meta = loadUserContext(uid(req), urole(req));
-  if (!meta.isSuper) return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
   const { email, role_id, name, password } = req.body as {
     email?: string; role_id?: string; name?: string; password?: string;
   };
@@ -237,8 +361,9 @@ export const addMember = async (req: Request, res: Response) => {
 
   // Le rôle doit appartenir à CETTE société (évite d'attacher un membre à un
   // rôle d'un autre tenant — intégrité + isolation).
-  const roleOk = db.prepare(`SELECT 1 FROM company_roles WHERE id = ? AND owner_id = ?`).get(role_id, meta.ownerId);
-  if (!roleOk) return res.status(400).json({ ok: false, error: 'role_id invalide pour cette société' });
+  const roleForAssign = db.prepare(`SELECT * FROM company_roles WHERE id = ? AND owner_id = ?`).get(role_id, meta.ownerId) as any;
+  if (!roleForAssign) return res.status(400).json({ ok: false, error: 'role_id invalide pour cette société' });
+  if (!canManageRole(meta, roleForAssign)) return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
 
   // Crée le compte login à la volée s'il n'existe pas encore (flux « ajouter un
   // employé » en une étape). Mot de passe fourni, sinon temporaire à partager.
@@ -263,7 +388,7 @@ export const addMember = async (req: Request, res: Response) => {
   ).run(`mem-${randomUUID()}`, meta.ownerId, u.id, role_id);
 
   logAudit({
-    userId: uid(req), action: 'CREATE', resource: 'company_members', resourceId: u.id,
+    userId: uid(req), ownerId: meta.ownerId, action: 'CREATE', resource: 'company_members', resourceId: u.id,
     detail: `add member ${normEmail}${createdAccount ? ' (+compte créé)' : ''}`, ip: req.ip,
   });
 
@@ -277,13 +402,187 @@ export const addMember = async (req: Request, res: Response) => {
 /** DELETE /api/permissions/members/:userId — retire (soft) : coupe l'accès, garde le profil */
 export const removeMember = (req: Request, res: Response) => {
   const meta = loadUserContext(uid(req), urole(req));
-  if (!meta.isSuper) return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
   const targetUserId = parseInt(req.params.userId, 10);
+  const member = db.prepare(`SELECT * FROM company_members WHERE owner_id = ? AND user_id = ?`).get(meta.ownerId, targetUserId) as any;
+  if (!member) return res.status(404).json({ ok: false, error: 'not found' });
+  const targetRole = member.role_id
+    ? (db.prepare(`SELECT * FROM company_roles WHERE id = ?`).get(member.role_id) as any)
+    : null;
+  if (!canManageRole(meta, { level: targetRole?.level ?? 0 })) {
+    return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
+  }
+
   db.prepare(
     `UPDATE company_members SET status = 'removed', removed_at = CURRENT_TIMESTAMP WHERE owner_id = ? AND user_id = ?`
   ).run(meta.ownerId, targetUserId);
-  logAudit({ userId: uid(req), action: 'DELETE', resource: 'company_members', resourceId: targetUserId, detail: 'remove member', ip: req.ip });
+  // Le membre retiré ne doit plus pointer vers ce workspace comme actif.
+  db.prepare(`UPDATE users SET active_owner_id = NULL WHERE id = ? AND active_owner_id = ?`).run(targetUserId, meta.ownerId);
+  logAudit({ userId: uid(req), ownerId: meta.ownerId, action: 'DELETE', resource: 'company_members', resourceId: targetUserId, detail: 'remove member', ip: req.ip });
   res.json({ ok: true });
+};
+
+// ── Exceptions individuelles (member_permission_overrides) ─────────────────
+// Les overrides priment sur le rôle mais retombent dessus si `null`.
+
+const isValidOverrideResource = (type: ResourceType, resourceKey: string): boolean => {
+  if (type === 'page') return (PROTECTED_PAGES as readonly string[]).includes(resourceKey);
+  if (type === 'field') return (PROTECTED_FIELDS as readonly string[]).includes(resourceKey);
+  return false;
+};
+
+/** Charge le membre visé + son rôle, vérifie l'appartenance société + la garde hiérarchique. */
+function loadManagedMember(meta: ResolvedMeta, targetUserId: number):
+  | { kind: 'ok'; member: any; role: any }
+  | { kind: 'error'; status: number; body: { ok: false; error?: string; code?: string } } {
+  const member = db
+    .prepare(`SELECT * FROM company_members WHERE owner_id = ? AND user_id = ?`)
+    .get(meta.ownerId, targetUserId) as any;
+  if (!member) return { kind: 'error', status: 404, body: { ok: false, error: 'not found' } };
+  const role = member.role_id
+    ? (db.prepare(`SELECT * FROM company_roles WHERE id = ?`).get(member.role_id) as any)
+    : null;
+  if (!canManageRole(meta, { level: role?.level ?? 0 })) {
+    return { kind: 'error', status: 403, body: { ok: false, code: 'PERMISSION_DENIED' } };
+  }
+  return { kind: 'ok', member, role };
+}
+
+/** GET /api/permissions/members/:userId/overrides */
+export const listMemberOverrides = (req: Request, res: Response) => {
+  const meta = loadUserContext(uid(req), urole(req));
+  const targetUserId = parseInt(req.params.userId, 10);
+  const check = loadManagedMember(meta, targetUserId);
+  if (check.kind === 'error') return res.status(check.status).json(check.body);
+
+  const rows = db
+    .prepare(
+      `SELECT resource_type, resource_key, can_view, can_edit
+       FROM member_permission_overrides WHERE owner_id = ? AND user_id = ?`
+    )
+    .all(meta.ownerId, targetUserId);
+  res.json({ ok: true, data: rows });
+};
+
+/**
+ * PUT /api/permissions/members/:userId/overrides
+ * body { overrides: [{ resource_type, resource_key, can_view: 0|1|null, can_edit: 0|1|null }] }
+ * Remplace l'ensemble des exceptions du membre en une transaction. `null` =
+ * pas d'exception (retombe sur le rôle) => non stocké.
+ */
+export const setMemberOverrides = (req: Request, res: Response) => {
+  const meta = loadUserContext(uid(req), urole(req));
+  const targetUserId = parseInt(req.params.userId, 10);
+  const check = loadManagedMember(meta, targetUserId);
+  if (check.kind === 'error') return res.status(check.status).json(check.body);
+
+  const overrides = (req.body?.overrides || []) as Array<{
+    resource_type: ResourceType; resource_key: string; can_view: number | null; can_edit: number | null;
+  }>;
+
+  for (const o of overrides) {
+    if (o.resource_type !== 'page' && o.resource_type !== 'field') {
+      return res.status(400).json({ ok: false, error: 'resource_type invalide' });
+    }
+    if (!isValidOverrideResource(o.resource_type, o.resource_key)) {
+      return res.status(400).json({ ok: false, error: `resource_key invalide: ${o.resource_key}` });
+    }
+  }
+
+  const tx = db.transaction(() => {
+    db.prepare(`DELETE FROM member_permission_overrides WHERE owner_id = ? AND user_id = ?`).run(meta.ownerId, targetUserId);
+    const ins = db.prepare(
+      `INSERT INTO member_permission_overrides (id, owner_id, user_id, resource_type, resource_key, can_view, can_edit)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    );
+    for (const o of overrides) {
+      const cv = o.can_view === null || o.can_view === undefined ? null : (o.can_view ? 1 : 0);
+      const ce = o.can_edit === null || o.can_edit === undefined ? null : (o.can_edit ? 1 : 0);
+      if (cv === null && ce === null) continue; // rien à mémoriser (retombe sur le rôle)
+      ins.run(`ov-${randomUUID()}`, meta.ownerId, targetUserId, o.resource_type, o.resource_key, cv, ce);
+    }
+  });
+  tx();
+
+  logAudit({
+    userId: uid(req), ownerId: meta.ownerId, action: 'UPDATE', resource: 'member_permission_overrides',
+    resourceId: targetUserId, detail: `overrides set (${overrides.length})`, ip: req.ip,
+  });
+  res.json({ ok: true, count: overrides.length });
+};
+
+/** DELETE /api/permissions/members/:userId/overrides — efface toutes les exceptions du membre. */
+export const clearMemberOverrides = (req: Request, res: Response) => {
+  const meta = loadUserContext(uid(req), urole(req));
+  const targetUserId = parseInt(req.params.userId, 10);
+  const check = loadManagedMember(meta, targetUserId);
+  if (check.kind === 'error') return res.status(check.status).json(check.body);
+
+  db.prepare(`DELETE FROM member_permission_overrides WHERE owner_id = ? AND user_id = ?`).run(meta.ownerId, targetUserId);
+  logAudit({
+    userId: uid(req), ownerId: meta.ownerId, action: 'DELETE', resource: 'member_permission_overrides',
+    resourceId: targetUserId, detail: 'overrides cleared', ip: req.ip,
+  });
+  res.json({ ok: true });
+};
+
+// ── Historique d'activité ───────────────────────────────────────────────────
+
+/**
+ * GET /api/permissions/activity?userId=&limit=&offset=
+ * Patron/admin : toute la société. Chef intermédiaire : uniquement les membres
+ * dont le rôle est strictement en dessous du sien + lui-même. Membre sans
+ * subordonné : uniquement sa propre activité.
+ */
+export const getActivity = (req: Request, res: Response) => {
+  try {
+    const callerId = uid(req);
+    const meta = loadUserContext(callerId, urole(req));
+    const { userId, limit, offset } = req.query as { userId?: string; limit?: string; offset?: string };
+
+    let allowedUserIds: number[] | undefined; // undefined => pas de restriction (patron/admin)
+    if (!meta.isSuper) {
+      const callerLevel = getCallerLevel(meta);
+      // Rôle introuvable/incohérent (-1 sans être patron) : on ne déduit pas de
+      // subordonnés, l'utilisateur ne voit que sa propre activité.
+      if (callerLevel < 0) {
+        const rows = listAudit({
+          ownerId: meta.ownerId,
+          userIds: [callerId],
+          limit: limit ? parseInt(limit, 10) : undefined,
+          offset: offset ? parseInt(offset, 10) : undefined,
+        });
+        return res.json({ ok: true, data: rows });
+      }
+      const subs = db
+        .prepare(
+          `SELECT m.user_id FROM company_members m
+           JOIN company_roles r ON r.id = m.role_id
+           WHERE m.owner_id = ? AND m.status = 'active' AND r.level > ?`
+        )
+        .all(meta.ownerId, callerLevel) as { user_id: number }[];
+      allowedUserIds = [callerId, ...subs.map((s) => s.user_id)];
+    }
+
+    let userIdsFilter: number[] | undefined = allowedUserIds;
+    if (userId !== undefined) {
+      const requested = parseInt(userId, 10);
+      if (allowedUserIds && !allowedUserIds.includes(requested)) {
+        return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
+      }
+      userIdsFilter = [requested];
+    }
+
+    const rows = listAudit({
+      ownerId: meta.ownerId,
+      userIds: userIdsFilter,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+    });
+    res.json({ ok: true, data: rows });
+  } catch (e) {
+    console.error('getActivity error:', e);
+    res.status(500).json({ ok: false, error: 'Resolve failed' });
+  }
 };
 
 // ── Informations entreprise (saisies à l'onboarding, éditables côté Admin) ───
@@ -366,19 +665,18 @@ export const updateCompanyInfo = (req: Request, res: Response) => {
     const sets: string[] = ['name = ?', 'specialty = ?', 'account_type = ?'];
     const vals: (string | null)[] = [cleanName, cleanSpecialty, type];
     if (logoProvided) { sets.push('logo = ?'); vals.push(logoValue); }
+    if (profileMeta !== undefined) {
+      let metaJson: string | null = null;
+      if (profileMeta && typeof profileMeta === 'object') {
+        try { metaJson = JSON.stringify(profileMeta); } catch { metaJson = null; }
+      }
+      sets.push('profile_meta = ?'); vals.push(metaJson);
+    }
 
     const store = resolveCompanyStore(meta.ownerId);
     if (store === 'workspace') {
-      // workspaces n'a pas de colonne profile_meta — profileMeta ignoré ici.
       db.prepare(`UPDATE workspaces SET ${sets.join(', ')} WHERE owner_id = ?`).run(...vals, meta.ownerId);
     } else {
-      if (profileMeta !== undefined) {
-        let metaJson: string | null = null;
-        if (profileMeta && typeof profileMeta === 'object') {
-          try { metaJson = JSON.stringify(profileMeta); } catch { metaJson = null; }
-        }
-        sets.push('profile_meta = ?'); vals.push(metaJson);
-      }
       db.prepare(`UPDATE company_settings SET ${sets.join(', ')} WHERE id = 1`).run(...vals);
     }
 
