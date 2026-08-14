@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Coins, Clock, Calendar, Plus, Trash2, Save, Loader2, Users, Shield, Building, Factory, CheckCircle } from 'lucide-react';
+import { Coins, Clock, Calendar, Plus, Trash2, Save, Loader2, Users, Shield, Building, CheckCircle } from 'lucide-react';
 import { AppSettings, Machine } from '../../types';
 import { tx, pickT } from '../../lib/i18n';
-import { isMachineOperational } from '../../utils/machineMatch';
 import { TRANSLATIONS, CURRENCIES } from '../configTranslations';
 
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
@@ -369,122 +368,6 @@ export function StructureSection({ settings, setSettings, lang, machines }) {
                                                     <span className="text-sm text-slate-400 dark:text-dk-muted font-bold bg-slate-50 dark:bg-dk-bg px-5 py-2 rounded-full border border-slate-100 dark:border-dk-border">{tx(lang, { fr: 'Aucun personnel affecté', ar: 'لا يوجد موظفون معينون', en: 'No staff assigned', es: 'Ningún personal asignado', pt: 'Nenhum pessoal atribuído', tr: 'Atanmış personel yok' })}</span>
                                                 </div>
                                             )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    <hr className="border-slate-100 dark:border-dk-border" />
-
-                    <div className="mt-10">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center border border-indigo-100">
-                                <Factory className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <h3 className="text-base font-black text-slate-800 dark:text-dk-text tracking-tight">
-                                    {tx(lang, { fr: 'Machines par chaîne (planning)', ar: 'الماكينات حسب الخط (التخطيط)', en: 'Machines per chain (planning)', es: 'Máquinas por cadena (planificación)', pt: 'Máquinas por cadeia (planeamento)', tr: 'Hat başına makineler (planlama)' })}
-                                </h3>
-                                <p className="text-xs text-slate-500 dark:text-dk-muted mt-0.5 font-medium max-w-3xl">
-                                    {tx(lang, {
-                                        fr: 'Cochez les machines réellement sur chaque ligne. Par défaut (aucune sélection enregistrée), le planning utilise tout le parc actif hors panne / maintenance. Réduire la liste force la vérification « gamme vs machines » sur ce sous-ensemble.',
-                                        ar: 'اختر الماكينات الفعلية لكل خط. بدون اختيار محفوظ يستخدم التخطيط كامل الماكينات النشطة الصالحة.',
-                                        en: 'Check the machines actually present on each line. By default (no selection saved), planning uses the entire active parc excluding breakdown / maintenance. Reducing the list forces the "operation range vs machines" check on this subset.',
-                                        es: 'Marque las máquinas realmente presentes en cada línea. Por defecto (sin selección guardada), la planificación usa todo el parque activo excepto avería / mantenimiento. Reducir la lista fuerza la verificación «gama vs máquinas» sobre este subconjunto.',
-                                        pt: 'Marque as máquinas realmente presentes em cada linha. Por defeito (sem seleção guardada), o planeamento usa todo o parque ativo exceto avaria / manutenção. Reduzir a lista força a verificação «gama vs máquinas» sobre este subconjunto.',
-                                        tr: 'Her hatta gerçekten bulunan makineleri işaretleyin. Varsayılan olarak (kayıtlı seçim yoksa), planlama arıza / bakım hariç tüm aktif parkı kullanır. Listeyi daraltmak bu alt kümede "operasyon dizisi vs makineler" kontrolünü zorunlu kılar.',
-                                    })}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
-                            {Array.from({ length: draft.chainsCount || 4 }).map((_, i) => {
-                                const chainKey = `CHAINE ${i + 1}`;
-                                const baseIds = machines.filter(isMachineOperational).map(m => m.id);
-                                const explicit = draft.chainMachines?.[chainKey];
-                                const selected =
-                                    explicit != null && explicit.length > 0 ? explicit.filter(id => baseIds.includes(id)) : baseIds;
-                                const chainDisplayName = draft.chainNames?.[chainKey] || chainKey;
-                                return (
-                                    <div
-                                        key={`cm-${chainKey}`}
-                                        className="bg-white dark:bg-dk-surface border-2 border-slate-100 dark:border-dk-border rounded-3xl overflow-hidden shadow-sm dark:shadow-dk-sm p-5 flex flex-col gap-3"
-                                    >
-                                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-dk-border pb-3">
-                                            <span className="font-black text-slate-800 dark:text-dk-text text-sm">{chainDisplayName}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    setDraft(prev => {
-                                                        const cm = { ...(prev.chainMachines || {}) };
-                                                        delete cm[chainKey];
-                                                        const keys = Object.keys(cm);
-                                                        return { ...prev, chainMachines: keys.length ? cm : undefined };
-                                                    })
-                                                }
-                                                className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text hover:text-indigo-800 px-2 py-1 rounded-lg hover:bg-indigo-50 dark:bg-dk-accent/20"
-                                            >
-                                                {tx(lang, { fr: 'Tout le parc', ar: 'الكل', en: 'Whole parc', es: 'Todo el parque', pt: 'Todo o parque', tr: 'Tüm park' })}
-                                            </button>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto custom-scrollbar">
-                                            {machines
-                                                .filter(m => m.active)
-                                                .map(m => {
-                                                    const usable = isMachineOperational(m);
-                                                    const checked = usable && selected.includes(m.id);
-                                                    return (
-                                                        <label
-                                                            key={`${chainKey}-${m.id}`}
-                                                            className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold cursor-pointer select-none ${
-                                                                usable
-                                                                    ? 'border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg hover:border-indigo-200'
-                                                                    : 'border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 text-slate-400 dark:text-dk-muted cursor-not-allowed'
-                                                            }`}
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                className="rounded border-slate-300 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text focus:ring-indigo-500"
-                                                                checked={checked}
-                                                                disabled={!usable}
-                                                                onChange={() => {
-                                                                    if (!usable) return;
-                                                                    setDraft(prev => {
-                                                                        const b = machines.filter(isMachineOperational).map(x => x.id);
-                                                                        const cur =
-                                                                            prev.chainMachines?.[chainKey]?.length
-                                                                                ? prev.chainMachines![chainKey]!
-                                                                                : [...b];
-                                                                        const on = cur.includes(m.id);
-                                                                        const next = on
-                                                                            ? cur.filter(id => id !== m.id)
-                                                                            : [...cur, m.id];
-                                                                        const sortedB = [...b].sort().join(',');
-                                                                        const sortedN = [...next].sort().join(',');
-                                                                        const cm = { ...(prev.chainMachines || {}) };
-                                                                        if (next.length === 0 || sortedB === sortedN) {
-                                                                            delete cm[chainKey];
-                                                                        } else {
-                                                                            cm[chainKey] = next;
-                                                                        }
-                                                                        const keys = Object.keys(cm);
-                                                                        return {
-                                                                            ...prev,
-                                                                            chainMachines: keys.length ? cm : undefined,
-                                                                        };
-                                                                    });
-                                                                }}
-                                                            />
-                                                            <span className="font-mono text-slate-700 dark:text-dk-text-soft">{m.classe}</span>
-                                                            <span className="text-slate-500 dark:text-dk-muted font-medium truncate max-w-[100px]">{m.name}</span>
-                                                            {!usable && m.status && (
-                                                                <span className="text-[9px] uppercase text-amber-600 dark:text-amber-400">{m.status}</span>
-                                                            )}
-                                                        </label>
-                                                    );
-                                                })}
                                         </div>
                                     </div>
                                 );

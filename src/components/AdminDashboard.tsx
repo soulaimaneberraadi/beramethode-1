@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   Trash2, Shield, User, Search, AlertCircle, Download, GitMerge, Database,
   Building2, Factory, Users, ImageUp, Check, ChevronRight, KeyRound, SlidersHorizontal,
+  FileText, MapPin, Landmark, Briefcase,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { tx } from '../../lib/i18n';
@@ -73,6 +74,43 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const [workspaceMsg, setWorkspaceMsg] = useState<string | null>(null);
+
+  // ── "Devenir société" (compte personnel → société) ──────────────────────────
+  const [showBecomeSociete, setShowBecomeSociete] = useState(false);
+  const [becomeSocieteForm, setBecomeSocieteForm] = useState({
+    name: '', raisonSociale: '', ice: '', rc: '', if: '', cnss: '', patente: '',
+    adresse: '', ville: '', companyPhone: '', companyEmail: '', siteWeb: '', banque: '', rib: '',
+  });
+  const [savingBecomeSociete, setSavingBecomeSociete] = useState(false);
+  const [becomeSocieteMsg, setBecomeSocieteMsg] = useState<string | null>(null);
+
+  const setBecomeSocieteField = (key: string, val: string) =>
+    setBecomeSocieteForm(f => ({ ...f, [key]: val }));
+
+  const submitBecomeSociete = async () => {
+    const name = becomeSocieteForm.name.trim();
+    if (!name) { setBecomeSocieteMsg('❌ ' + tx(lang, { fr: 'Le nom de l\'entreprise est requis.', ar: 'اسم الشركة مطلوب.', en: 'Company name is required.', es: 'El nombre de la empresa es obligatorio.', pt: 'O nome da empresa é obrigatório.', tr: 'Şirket adı gereklidir.' })); return; }
+    setSavingBecomeSociete(true); setBecomeSocieteMsg(null);
+    try {
+      const { name: _n, ...raw } = becomeSocieteForm;
+      // On FUSIONNE avec le profileMeta existant : `PUT /api/permissions/company`
+      // remplace la colonne `profile_meta` en entier, donc envoyer uniquement ce
+      // formulaire effacerait ce que l'onboarding y avait déjà écrit
+      // (adminPhone, region…). On ignore aussi les champs laissés vides.
+      const filled = Object.fromEntries(Object.entries(raw).filter(([, v]) => String(v).trim() !== ''));
+      const meta = { ...(company?.profileMeta || {}), ...filled };
+      const d = await api('/api/permissions/company', {
+        method: 'PUT',
+        body: JSON.stringify({ name, accountType: 'societe', profileMeta: meta }),
+      });
+      if (!d?.ok) throw new Error(d?.error || 'fail');
+      await refreshPermissions();
+      await loadCompany();
+      setShowBecomeSociete(false);
+    } catch {
+      setBecomeSocieteMsg('❌ ' + tx(lang, { fr: 'Échec de l\'enregistrement.', ar: 'فشل الحفظ.', en: 'Save failed.', es: 'Error al guardar.', pt: 'Falha ao guardar.', tr: 'Kaydetme başarısız.' }));
+    } finally { setSavingBecomeSociete(false); }
+  };
 
   const loadCompany = useCallback(async () => {
     try {
@@ -253,19 +291,7 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
             <h1 className="text-2xl font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Administration', ar: 'الإدارة', en: 'Administration', es: 'Administración', pt: 'Administração', tr: 'Yönetim' })}</h1>
             <p className="text-sm text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang, { fr: 'Entreprise, équipe, comptes et données.', ar: 'الشركة، الفريق، الحسابات والبيانات.', en: 'Company, team, accounts and data.', es: 'Empresa, equipo, cuentas y datos.', pt: 'Empresa, equipa, contas e dados.', tr: 'Şirket, ekip, hesaplar ve veri.' })}</p>
           </div>
-          <button type="button" onClick={() => setShowNewWorkspace(v => !v)} className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors shadow-sm">
-            <Factory className="w-4 h-4" />
-            {tx(lang, { fr: 'Nouvelle société', ar: 'شركة جديدة', en: 'New company', es: 'Nueva empresa', pt: 'Nova empresa', tr: 'Yeni şirket' })}
-          </button>
         </div>
-
-        {showNewWorkspace && (
-          <div className="mb-6 flex flex-wrap items-center gap-2 p-4 bg-white dark:bg-dk-surface rounded-2xl border border-emerald-200 dark:border-emerald-800 shadow-sm">
-            <input autoFocus value={newWorkspaceName} onChange={e => setNewWorkspaceName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void createWorkspace(); }} placeholder={tx(lang, { fr: 'Nom de la société', ar: 'اسم الشركة', en: 'Company name', es: 'Nombre de la empresa', pt: 'Nome da empresa', tr: 'Şirket adı' })} className="flex-1 min-w-[220px] px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-slate-700 dark:text-dk-text outline-none focus:border-emerald-500" />
-            <button type="button" onClick={() => void createWorkspace()} disabled={creatingWorkspace || !newWorkspaceName.trim()} className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50">{tx(lang, { fr: 'Créer', ar: 'إنشاء', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Oluştur' })}</button>
-            {workspaceMsg && <span className="w-full text-sm text-red-600 dark:text-red-400">{workspaceMsg}</span>}
-          </div>
-        )}
 
         {/* Tabs */}
         <div className="flex flex-wrap gap-1.5 mb-6 border-b border-slate-200 dark:border-dk-border">
@@ -339,8 +365,95 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                         <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Téléphone', ar: 'الهاتف', en: 'Phone', es: 'Teléfono', pt: 'Telefone', tr: 'Telefon' })}</label>
                         <input className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.companyPhone || company.profileMeta?.adminPhone || ''} onChange={e => setMeta('companyPhone', e.target.value)} />
                       </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Raison sociale', ar: 'الاسم القانوني الكامل', en: 'Legal name', es: 'Razón social', pt: 'Razão social', tr: 'Ticari unvan' })}</label>
+                        <input className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.raisonSociale || ''} onChange={e => setMeta('raisonSociale', e.target.value)} />
+                      </div>
                     </div>
                   )}
+                </div>
+
+                {/* Identifiants légaux */}
+                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
+                    <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Identifiants légaux', ar: 'المعرّفات القانونية', en: 'Legal identifiers', es: 'Identificadores legales', pt: 'Identificadores legais', tr: 'Yasal kimlikler' })}</h2>
+                  </div>
+                  {company.store !== 'company_settings' && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400">{tx(lang, { fr: 'Ces informations seront disponibles pour cet espace de travail prochainement.', ar: 'ستكون هذه المعلومات متاحة لمساحة العمل هذه قريبًا.', en: 'This information will be available for this workspace soon.', es: 'Esta información estará disponible para este espacio de trabajo próximamente.', pt: 'Esta informação estará disponível para este espaço de trabalho brevemente.', tr: 'Bu bilgiler bu çalışma alanı için yakında kullanılabilir olacak.' })}</p>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">ICE</label>
+                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.ice || ''} onChange={e => setMeta('ice', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">RC</label>
+                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.rc || ''} onChange={e => setMeta('rc', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">IF</label>
+                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.if || ''} onChange={e => setMeta('if', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">CNSS</label>
+                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.cnss || ''} onChange={e => setMeta('cnss', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Patente', ar: 'الباتنتة', en: 'Business license', es: 'Patente', pt: 'Patente', tr: 'Patent' })}</label>
+                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.patente || ''} onChange={e => setMeta('patente', e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact */}
+                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
+                    <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Contact', ar: 'التواصل', en: 'Contact', es: 'Contacto', pt: 'Contacto', tr: 'İletişim' })}</h2>
+                  </div>
+                  {company.store !== 'company_settings' && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400">{tx(lang, { fr: 'Ces informations seront disponibles pour cet espace de travail prochainement.', ar: 'ستكون هذه المعلومات متاحة لمساحة العمل هذه قريبًا.', en: 'This information will be available for this workspace soon.', es: 'Esta información estará disponible para este espacio de trabajo próximamente.', pt: 'Esta informação estará disponível para este espaço de trabalho brevemente.', tr: 'Bu bilgiler bu çalışma alanı için yakında kullanılabilir olacak.' })}</p>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Adresse', ar: 'العنوان', en: 'Address', es: 'Dirección', pt: 'Morada', tr: 'Adres' })}</label>
+                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.adresse || ''} onChange={e => setMeta('adresse', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Ville', ar: 'المدينة', en: 'City', es: 'Ciudad', pt: 'Cidade', tr: 'Şehir' })}</label>
+                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.ville || ''} onChange={e => setMeta('ville', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Email', ar: 'البريد الإلكتروني', en: 'Email', es: 'Correo', pt: 'E-mail', tr: 'E-posta' })}</label>
+                      <input type="email" className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.companyEmail || ''} onChange={e => setMeta('companyEmail', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Site web', ar: 'الموقع الإلكتروني', en: 'Website', es: 'Sitio web', pt: 'Site', tr: 'Web sitesi' })}</label>
+                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.siteWeb || ''} onChange={e => setMeta('siteWeb', e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Banque */}
+                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Landmark className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
+                    <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Banque', ar: 'البنك', en: 'Bank', es: 'Banco', pt: 'Banco', tr: 'Banka' })}</h2>
+                  </div>
+                  {company.store !== 'company_settings' && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400">{tx(lang, { fr: 'Ces informations seront disponibles pour cet espace de travail prochainement.', ar: 'ستكون هذه المعلومات متاحة لمساحة العمل هذه قريبًا.', en: 'This information will be available for this workspace soon.', es: 'Esta información estará disponible para este espacio de trabajo próximamente.', pt: 'Esta informação estará disponível para este espaço de trabalho brevemente.', tr: 'Bu bilgiler bu çalışma alanı için yakında kullanılabilir olacak.' })}</p>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Banque', ar: 'البنك', en: 'Bank', es: 'Banco', pt: 'Banco', tr: 'Banka' })}</label>
+                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.banque || ''} onChange={e => setMeta('banque', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">RIB</label>
+                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.rib || ''} onChange={e => setMeta('rib', e.target.value)} />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Type de compte + صلاحية الترقية */}
@@ -388,6 +501,87 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
               </div>
               <CompanyParamsSection settings={settings} setSettings={setSettings} lang={lang} />
             </div>
+
+            {/* Espaces de travail (multi-société) */}
+            {company?.canEdit && (company.accountType === 'societe' || company.accountType === 'client') && (
+              <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Factory className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
+                    <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Espaces de travail', ar: 'مساحات العمل', en: 'Workspaces', es: 'Espacios de trabajo', pt: 'Espaços de trabalho', tr: 'Çalışma alanları' })}</h2>
+                  </div>
+                  <button type="button" onClick={() => setShowNewWorkspace(v => !v)} className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors shadow-sm">
+                    <Factory className="w-4 h-4" />
+                    {tx(lang, { fr: 'Nouvelle société', ar: 'شركة جديدة', en: 'New company', es: 'Nueva empresa', pt: 'Nova empresa', tr: 'Yeni şirket' })}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Créez un nouvel espace de travail isolé pour gérer une autre société sous ce même compte.', ar: 'أنشئ مساحة عمل جديدة معزولة لإدارة شركة أخرى تحت نفس هذا الحساب.', en: 'Create a new isolated workspace to manage another company under this same account.', es: 'Cree un nuevo espacio de trabajo aislado para gestionar otra empresa bajo esta misma cuenta.', pt: 'Crie um novo espaço de trabalho isolado para gerir outra empresa sob esta mesma conta.', tr: 'Bu aynı hesap altında başka bir şirketi yönetmek için yeni, izole bir çalışma alanı oluşturun.' })}</p>
+                {showNewWorkspace && (
+                  <div className="flex flex-wrap items-center gap-2 p-4 bg-slate-50 dark:bg-dk-bg rounded-2xl border border-emerald-200 dark:border-emerald-800">
+                    <input autoFocus value={newWorkspaceName} onChange={e => setNewWorkspaceName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void createWorkspace(); }} placeholder={tx(lang, { fr: 'Nom de la société', ar: 'اسم الشركة', en: 'Company name', es: 'Nombre de la empresa', pt: 'Nome da empresa', tr: 'Şirket adı' })} className="flex-1 min-w-[220px] px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text outline-none focus:border-emerald-500" />
+                    <button type="button" onClick={() => void createWorkspace()} disabled={creatingWorkspace || !newWorkspaceName.trim()} className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50">{tx(lang, { fr: 'Créer', ar: 'إنشاء', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Oluştur' })}</button>
+                    {workspaceMsg && <span className="w-full text-sm text-red-600 dark:text-red-400">{workspaceMsg}</span>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Devenir société (compte personnel) */}
+            {company?.canEdit && company.accountType === 'personnel' && (
+              <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
+                  <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Devenir société', ar: 'التحوّل إلى شركة', en: 'Become a company', es: 'Convertirse en empresa', pt: 'Tornar-se uma empresa', tr: 'Şirkete dönüşün' })}</h2>
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Un compte indépendant ne gère pas plusieurs sociétés. Convertissez ce compte en société pour activer la gestion multi-société, l\'équipe et les rôles.', ar: 'الحساب الشخصي المستقل لا يدير عدة شركات. حوّل هذا الحساب إلى شركة لتفعيل إدارة عدة شركات والفريق والصلاحيات.', en: 'An independent account does not manage multiple companies. Convert this account into a company to enable multi-company management, team and roles.', es: 'Una cuenta independiente no gestiona varias empresas. Convierta esta cuenta en empresa para activar la gestión multiempresa, el equipo y los roles.', pt: 'Uma conta independente não gere várias empresas. Converta esta conta numa empresa para ativar a gestão multiempresa, a equipa e as funções.', tr: 'Bağımsız bir hesap birden fazla şirketi yönetemez. Çoklu şirket yönetimini, ekibi ve rolleri etkinleştirmek için bu hesabı bir şirkete dönüştürün.' })}</p>
+                {!showBecomeSociete ? (
+                  <button type="button" onClick={() => setShowBecomeSociete(true)} className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors shadow-sm">
+                    <Briefcase className="w-4 h-4" />
+                    {tx(lang, { fr: 'Devenir société', ar: 'التحوّل إلى شركة', en: 'Become a company', es: 'Convertirse en empresa', pt: 'Tornar-se uma empresa', tr: 'Şirkete dönüşün' })}
+                  </button>
+                ) : (
+                  <div className="space-y-4 p-4 bg-slate-50 dark:bg-dk-bg rounded-2xl border border-emerald-200 dark:border-emerald-800">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Nom de l\'entreprise', ar: 'اسم الشركة', en: 'Company name', es: 'Nombre de la empresa', pt: 'Nome da empresa', tr: 'Şirket adı' })} *</label>
+                      <input className={inputCls} value={becomeSocieteForm.name} onChange={e => setBecomeSocieteField('name', e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Raison sociale', ar: 'الاسم القانوني الكامل', en: 'Legal name', es: 'Razón social', pt: 'Razão social', tr: 'Ticari unvan' })}</label>
+                        <input className={inputCls} value={becomeSocieteForm.raisonSociale} onChange={e => setBecomeSocieteField('raisonSociale', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">ICE</label>
+                        <input className={inputCls} value={becomeSocieteForm.ice} onChange={e => setBecomeSocieteField('ice', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">RC</label>
+                        <input className={inputCls} value={becomeSocieteForm.rc} onChange={e => setBecomeSocieteField('rc', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Adresse', ar: 'العنوان', en: 'Address', es: 'Dirección', pt: 'Morada', tr: 'Adres' })}</label>
+                        <input className={inputCls} value={becomeSocieteForm.adresse} onChange={e => setBecomeSocieteField('adresse', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Ville', ar: 'المدينة', en: 'City', es: 'Ciudad', pt: 'Cidade', tr: 'Şehir' })}</label>
+                        <input className={inputCls} value={becomeSocieteForm.ville} onChange={e => setBecomeSocieteField('ville', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Téléphone', ar: 'الهاتف', en: 'Phone', es: 'Teléfono', pt: 'Telefone', tr: 'Telefon' })}</label>
+                        <input className={inputCls} value={becomeSocieteForm.companyPhone} onChange={e => setBecomeSocieteField('companyPhone', e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button type="button" onClick={submitBecomeSociete} disabled={savingBecomeSociete} className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-60 inline-flex items-center gap-2">
+                        <Check className="w-4 h-4" /> {savingBecomeSociete ? tx(lang, { fr: 'Enregistrement…', ar: 'جارٍ الحفظ…', en: 'Saving…', es: 'Guardando…', pt: 'A guardar…', tr: 'Kaydediliyor…' }) : tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}
+                      </button>
+                      <button type="button" onClick={() => setShowBecomeSociete(false)} className="px-4 py-2 text-slate-600 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-surface rounded-lg font-medium text-sm">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+                      {becomeSocieteMsg && <span className="text-xs font-medium text-rose-500">{becomeSocieteMsg}</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
