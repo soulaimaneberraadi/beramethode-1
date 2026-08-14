@@ -7,7 +7,8 @@ import {
     Send, CheckCircle, XCircle, Truck, PlayCircle, Save,
     Palette, X, Menu, ChevronLeft, LayoutGrid, List, Calendar, BarChart3,
     Download, Filter, Copy, Edit3, MoreVertical, ArrowRight, TrendingUp,
-    ArrowUpDown, RefreshCw, Zap, Target, Star, Hash, Upload, FolderOpen, Check
+    ArrowUpDown, RefreshCw, Zap, Target, Star, Hash, Upload, FolderOpen, Check,
+    PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
@@ -59,6 +60,44 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedModel, setSelectedModel] = useState<ModelData | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+        try { return localStorage.getItem('bera_coupe_sidebar_collapsed') === '1'; } catch { return false; }
+    });
+    const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+        try {
+            const v = Number(localStorage.getItem('bera_coupe_sidebar_width'));
+            return v >= 260 && v <= 480 ? v : 340;
+        } catch { return 340; }
+    });
+    const resizingRef = useRef(false);
+    const toggleSidebarCollapsed = useCallback(() => {
+        setSidebarCollapsed(prev => {
+            const next = !prev;
+            try { localStorage.setItem('bera_coupe_sidebar_collapsed', next ? '1' : '0'); } catch {}
+            return next;
+        });
+    }, []);
+    const handleSidebarResizeStart = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        resizingRef.current = true;
+        const startX = e.clientX;
+        const startWidth = sidebarWidth;
+        const onMove = (ev: MouseEvent) => {
+            if (!resizingRef.current) return;
+            const next = Math.min(480, Math.max(260, startWidth + (ev.clientX - startX)));
+            setSidebarWidth(next);
+        };
+        const onUp = () => {
+            resizingRef.current = false;
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+    }, [sidebarWidth]);
+    useEffect(() => {
+        try { localStorage.setItem('bera_coupe_sidebar_width', String(sidebarWidth)); } catch {}
+    }, [sidebarWidth]);
     const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -1131,7 +1170,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const valCount = coupeModels.filter(m => m.ordreCoupe?.status === 'VALIDE').length;
 
     const sidebar = (
-        <div className={`flex flex-col h-full bg-white dark:bg-dk-surface ${isMobile ? 'w-full' : 'w-[340px] shrink-0 border-r border-slate-100 dark:border-dk-border'}`}>
+        <div className="flex flex-col h-full w-full min-w-0 bg-white dark:bg-dk-surface">
             {/* Sidebar header */}
             <div className="px-4 py-3 border-b border-slate-100 dark:border-dk-border">
                 <div className="flex items-center gap-3">
@@ -1284,7 +1323,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 <div className={`${isMobile ? 'px-3 h-12' : 'px-6 h-14'} flex items-center gap-3`}>
                     {isMobile && selectedModel && (
                         <button
-                            onClick={() => { setSelectedModel(null); setSidebarOpen(true); }}
+                            onClick={() => setSelectedModel(null)}
                             className="w-8 h-8 flex items-center justify-center rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                         >
                             <ChevronLeft className="w-4 h-4" strokeWidth={2} />
@@ -1299,10 +1338,33 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         </button>
                     )}
 
+                    {!isMobile && (
+                        <button
+                            onClick={toggleSidebarCollapsed}
+                            className="w-8 h-8 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0"
+                            title={sidebarCollapsed
+                                ? tx(lang, { fr: 'Afficher la liste', ar: 'إظهار القائمة', en: 'Show list', es: 'Mostrar lista', pt: 'Mostrar lista', tr: 'Listeyi göster' })
+                                : tx(lang, { fr: 'Masquer la liste', ar: 'إخفاء القائمة', en: 'Hide list', es: 'Ocultar lista', pt: 'Ocultar lista', tr: 'Listeyi gizle' })}
+                        >
+                            {sidebarCollapsed ? <PanelLeftOpen className="w-4 h-4" strokeWidth={1.75} /> : <PanelLeftClose className="w-4 h-4" strokeWidth={1.75} />}
+                        </button>
+                    )}
+
                     <div className="flex items-baseline gap-2 shrink-0">
                         <h1 className={`${isMobile ? 'text-[15px]' : 'text-[15px]'} font-semibold text-slate-900 dark:text-dk-text tracking-tight`}>{tx(lang, { fr: 'La Coupe', ar: 'قسم القص', en: 'Cutting Dept.', es: 'Departamento de Corte', pt: 'Corte', tr: 'Kesim' })}</h1>
                         {!isMobile && <span className="text-[12px] text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Ordre de Fabrication', ar: 'أمر تصنيع', en: 'Production Order', es: 'Orden de Fabricación', pt: 'Ordem de Fabricação', tr: 'Üretim Emri' })}</span>}
                     </div>
+
+                    {selectedModel && !isMobile && (
+                        <button
+                            onClick={() => setSelectedModel(null)}
+                            className="h-8 px-2.5 inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] font-medium transition-colors shrink-0"
+                            title={tx(lang, { fr: 'Retour à la liste', ar: 'العودة إلى القائمة', en: 'Back to list', es: 'Volver a la lista', pt: 'Voltar à lista', tr: 'Listeye dön' })}
+                        >
+                            <ArrowRight className="w-4 h-4" strokeWidth={2} />
+                            <span>{tx(lang, { fr: 'Retour', ar: 'عودة', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}</span>
+                        </button>
+                    )}
 
                     {/* Stats inline */}
                     {!isMobile && (
@@ -1346,17 +1408,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     <div className="flex-1" />
 
                     {/* Actions */}
-                    <div className="flex items-center gap-1 shrink-0">
-                        {selectedModel && !isMobile && (
-                            <button
-                                onClick={() => setSelectedModel(null)}
-                                className="h-8 px-2.5 inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] font-medium transition-colors"
-                                title={tx(lang, { fr: 'Retour à la liste', ar: 'العودة إلى القائمة', en: 'Back to list', es: 'Volver a la lista', pt: 'Voltar à lista', tr: 'Listeye dön' })}
-                            >
-                                <ArrowRight className="w-4 h-4" strokeWidth={2} />
-                                <span>{tx(lang, { fr: 'Retour', ar: 'عودة', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}</span>
-                            </button>
-                        )}
+                    <div className="flex items-center gap-1 shrink-0 overflow-x-auto no-scrollbar">
                         <button
                             onClick={() => setShowFilters(!showFilters)}
                             className={`${isMobile ? 'w-11 h-11' : 'h-8 px-2.5'} inline-flex items-center justify-center gap-1.5 rounded-lg text-[12px] font-medium transition-colors ${
@@ -1451,7 +1503,24 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             <div className="flex-1 flex overflow-hidden">
                 {/* Sidebar — always on desktop, drawer on mobile */}
                 {!isMobile ? (
-                    sidebar
+                    sidebarCollapsed ? (
+                        <button
+                            onClick={toggleSidebarCollapsed}
+                            className="shrink-0 w-6 h-full border-r border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center justify-center text-slate-300 hover:text-slate-600 dark:text-dk-muted transition-colors"
+                            title={tx(lang, { fr: 'Afficher la liste', ar: 'إظهار القائمة', en: 'Show list', es: 'Mostrar lista', pt: 'Mostrar lista', tr: 'Listeyi göster' })}
+                        >
+                            <PanelLeftOpen className="w-3.5 h-3.5" strokeWidth={1.75} />
+                        </button>
+                    ) : (
+                        <div className="relative flex shrink-0 border-r border-slate-100 dark:border-dk-border" style={{ width: sidebarWidth }}>
+                            <div className="flex-1 min-w-0">{sidebar}</div>
+                            <div
+                                onMouseDown={handleSidebarResizeStart}
+                                className="absolute top-0 -right-0.5 h-full w-1.5 cursor-col-resize hover:bg-indigo-300/60 active:bg-indigo-400/70 transition-colors z-10"
+                                title={tx(lang, { fr: 'Glisser pour redimensionner', ar: 'اسحب لتغيير الحجم', en: 'Drag to resize', es: 'Arrastrar para redimensionar', pt: 'Arraste para redimensionar', tr: 'Boyutlandırmak için sürükleyin' })}
+                            />
+                        </div>
+                    )
                 ) : (
                     <>
                         {sidebarOpen && (
@@ -1492,7 +1561,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     )}
 
                     {selectedModel ? (
-                        <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-4 md:space-y-5">
+                        <div className="max-w-4xl xl:max-w-5xl 2xl:max-w-6xl mx-auto p-4 md:p-6 space-y-4 md:space-y-5">
 
                             {/* ORDER HEADER CARD */}
                             <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
@@ -3032,7 +3101,7 @@ function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any 
     }).join(', ');
 
     return (
-        <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
+        <div className="p-4 md:p-6 max-w-6xl 2xl:max-w-7xl mx-auto space-y-4">
             {/* Top stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <StatCard label={tx(lang, { fr: 'Total Ordres', ar: 'إجمالي الأوامر', en: 'Total Orders', es: 'Total Órdenes', pt: 'Total Ordens', tr: 'Toplam Emirler' })} value={models.length} icon={Layers} color="bg-slate-900" />
@@ -3192,7 +3261,7 @@ function EmptyDashboard({
     const drafts = models.filter(m => m.isPublishedToLibrary === false).length;
 
     return (
-        <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
+        <div className="p-4 md:p-6 max-w-6xl 2xl:max-w-7xl mx-auto space-y-4">
             {/* Hero */}
             <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 md:p-8 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-80 h-80 bg-rose-500/8 rounded-full blur-3xl" />
@@ -3224,15 +3293,8 @@ function EmptyDashboard({
                 </div>
             </div>
 
-            {/* Quick stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard label={tx(lang, { fr: 'Total Ordres', ar: 'إجمالي الأوامر', en: 'Total Orders', es: 'Total Órdenes', pt: 'Total Ordens', tr: 'Toplam Emirler' })} value={models.length} icon={Layers} color="bg-slate-900" delay={0} />
-                <StatCard label={tx(lang, { fr: 'Préparation', ar: 'تحضير', en: 'Preparation', es: 'Preparación', pt: 'Preparação', tr: 'Hazırlık' })} value={prepCount} icon={Clock} color="bg-slate-500" delay={50} />
-                <StatCard label={tx(lang, { fr: 'En Cours', ar: 'قيد التنفيذ', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' })} value={activeCount} icon={PlayCircle} color="bg-blue-500" delay={100} />
-                <StatCard label={tx(lang, { fr: 'Validés', ar: 'تم التحقق', en: 'Validated', es: 'Validados', pt: 'Validados', tr: 'Onaylanan' })} value={valCount} icon={CheckCircle} color="bg-emerald-500" delay={150} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Quick stats — Total/Préparation/En Cours/Validés déjà affichés dans le header, pas de doublon ici */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <StatCard label={tx(lang, { fr: 'Total Pièces', ar: 'إجمالي القطع', en: 'Total Pieces', es: 'Total Piezas', pt: 'Total Peças', tr: 'Toplam Adet' })} value={totalQty} icon={PackageSearch} color="bg-indigo-500" delay={200} />
                 <StatCard label={tx(lang, { fr: 'Brouillons', ar: 'مسودات', en: 'Drafts', es: 'Borradores', pt: 'Rascunhos', tr: 'Taslaklar' })} value={drafts} icon={FileText} color="bg-amber-500" delay={250} />
                 <StatCard label={tx(lang, { fr: 'Statuts', ar: 'الحالات', en: 'Statuses', es: 'Estados', pt: 'Status', tr: 'Durumlar' })} value={Object.keys(statusMap).length} icon={BarChart3} color="bg-purple-500" delay={300} />
