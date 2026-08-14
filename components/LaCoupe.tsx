@@ -12,7 +12,6 @@ import {
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import ExcelInput from './ExcelInput';
-import InlineInvoiceList from './InlineInvoiceList';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
 
@@ -1047,9 +1046,52 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         else w.addEventListener('load', () => setTimeout(() => w.print(), 150));
     };
 
+    // Cumul de la consommation (m) par matière, déduit des lignes de matelas confirmées "coupées".
+    const matiereSuivi = React.useMemo(() => {
+        const map: Record<string, number> = {};
+        (ordre.matelasLines || []).forEach(line => {
+            if (!line.fait || !line.matiere) return;
+            let ratioSum = 0;
+            sizes.forEach(s => { ratioSum += Number(line.ratios?.[s]) || 0; });
+            if (ratioSum > 0) {
+                const cons = (line.plis || 0) * ((line.longTracee || 0) + 0.03);
+                map[line.matiere] = (map[line.matiere] || 0) + cons;
+            }
+        });
+        return map;
+    }, [ordre.matelasLines, sizes]);
+
+    // Modifications manuelles (overrides) des tableaux Suivi Coupe et Simulation Fournitures.
+    const [suiviEdits, setSuiviEdits] = useState<Record<string, { cut?: number; rem?: number }>>({});
+    const [simEdits, setSimEdits] = useState<Record<string, { besoin?: number; cons?: number; stock?: number }>>({});
+
+    // Suivi coupe (par couleur × taille) : découpé / restant selon les lignes confirmées.
+    const suiviCoupe = React.useMemo(() => {
+        const rows = (colors as any[]).map((c: any) => {
+            const cName = c.name || (typeof c === 'string' ? c : c.id);
+            const cId = c.id || cName;
+            const cutPer: Record<string, number> = {};
+            const targetPer: Record<string, number> = {};
+            sizes.forEach((s, sIdx) => {
+                cutPer[s] = 0;
+                targetPer[s] = gridQuantities[`${cId}_${sIdx}`] || 0;
+            });
+            (ordre.matelasLines || []).forEach(line => {
+                if (!line.fait || line.couleur !== cName) return;
+                sizes.forEach(s => {
+                    cutPer[s] += (Number(line.ratios?.[s]) || 0) * (line.plis || 0);
+                });
+            });
+            return { name: cName, cutPer, targetPer };
+        });
+        const totalLines = (ordre.matelasLines || []).length;
+        const cutLines = (ordre.matelasLines || []).filter(l => l.fait).length;
+        return { rows, totalLines, cutLines };
+    }, [colors, sizes, gridQuantities, ordre.matelasLines]);
+
     const requiredMaterials = React.useMemo(() => {
         if (!selectedModel || !selectedModel.ficheData || !selectedModel.ficheData.materials) return [];
-        return selectedModel.ficheData.materials.map((m: PurchasingData) => {
+        const list = selectedModel.ficheData.materials.map((m: PurchasingData) => {
             const targetQty = matrixStats.grandTotal > 0 ? matrixStats.grandTotal : (selectedModel.meta_data?.quantity || 1);
             const qtyPerItem = m.qty;
             const totalRaw = qtyPerItem * targetQty;
@@ -1058,10 +1100,31 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             const neededForProduction = (m.unit === 'bobine' || m.unit === 'pc') ? Math.ceil(totalWithWaste) : parseFloat(totalWithWaste.toFixed(2));
             const inMagasin = magasinItems.find((mag: any) => mag.nom === m.name || mag.designation === m.name);
             const stockActuel = inMagasin ? (inMagasin.stockActuel || 0) : 0;
+            const consomme = matiereSuivi[m.name] || 0;
+            const restant = Math.round((stockActuel - consomme) * 100) / 100;
             const isSufficient = stockActuel >= neededForProduction;
-            return { ...m, neededForProduction, stockActuel, isSufficient };
+            return { ...m, neededForProduction, stockActuel, consomme, restant, isSufficient };
         });
-    }, [selectedModel, matrixStats.grandTotal, magasinItems]);
+
+        // Matières utilisées dans les lignes de matelas mais absentes de la Fiche de Coût.
+        Object.keys(matiereSuivi).forEach(name => {
+            if (list.some(r => r.name === name)) return;
+            const inMagasin = magasinItems.find((mag: any) => mag.nom === name || mag.designation === name);
+            const stockActuel = inMagasin ? (inMagasin.stockActuel || 0) : 0;
+            list.push({
+                name,
+                unit: 'm',
+                qty: 0,
+                neededForProduction: 0,
+                stockActuel,
+                consomme: matiereSuivi[name],
+                restant: Math.round((stockActuel - (matiereSuivi[name] || 0)) * 100) / 100,
+                isSufficient: true,
+            } as any);
+        });
+
+        return list;
+    }, [selectedModel, matrixStats.grandTotal, magasinItems, matiereSuivi]);
 
     const activeCount = coupeModels.filter(m => m.ordreCoupe?.status === 'EN_COURS').length;
     const prepCount = coupeModels.filter(m => !m.ordreCoupe?.status || m.ordreCoupe?.status === 'EN_PREPARATION').length;
@@ -1791,6 +1854,109 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     </div>
 
                                     {/* COMPARAISON TAILLES (Target vs Cut) & BILAN TISSU */}
+
+                                    {/* SUIVI COUPE (découpé / restant) par couleur × taille */}
+                                    {(ordre.matelasLines || []).length > 0 && suiviCoupe.rows.some(r => sizes.some((s, sIdx) => (r.cutPer[s] || 0) > 0 || (r.targetPer[s] || 0) > 0)) && (
+                                        <div className="mb-5 border-t border-slate-100 dark:border-dk-border pt-5">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <h5 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider flex items-center gap-1.5">
+                                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
+                                                    {tx(lang, { fr: 'Suivi Coupe (par couleur × taille)', ar: 'متابعة القص (حسب اللون × المقاس)', en: 'Cut Tracking (by color × size)', es: 'Seguimiento de Corte (por color × talla)', pt: 'Acompanhamento de Corte (por cor × tamanho)', tr: 'Kesim Takibi (renk × beden)' })}
+                                                    <span className="ml-1 text-[10px] font-bold normal-case tracking-normal bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 rounded-full px-2 py-0.5">
+                                                        {suiviCoupe.cutLines}/{suiviCoupe.totalLines} {tx(lang, { fr: 'coupés', ar: 'مقصوصة', en: 'cut', es: 'cortadas', pt: 'cortadas', tr: 'kesildi' })}
+                                                    </span>
+                                                </h5>
+                                            </div>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-[11px] border-collapse bg-white dark:bg-dk-surface rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border">
+                                                    <thead>
+                                                        <tr className="bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border text-[9px] uppercase tracking-wider text-left">
+                                                            <th className="py-2 px-2.5 font-bold">{tx(lang, { fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}</th>
+                                                            {sizes.map((s, idx) => (
+                                                                <th key={idx} className="py-2 px-1 text-center font-bold min-w-[90px]">{s}</th>
+                                                            ))}
+                                                            <th className="py-2 px-2.5 text-center font-bold bg-slate-200 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft w-24">{tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' })}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                                                        {suiviCoupe.rows.map((r, cIdx) => {
+                                                            const cHex = r.name && (colors as any[])[cIdx]?.id && String((colors as any[])[cIdx].id).startsWith('#') ? String((colors as any[])[cIdx].id) : null;
+                                                            const palette = BADGE_COLORS[cIdx % BADGE_COLORS.length];
+                                                            let rowCut = 0;
+                                                            let rowRem = 0;
+                                                            return (
+                                                            <tr key={r.name} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors">
+                                                                <td className="py-2 px-2.5 font-semibold text-slate-700 dark:text-dk-text">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cHex ? '' : palette.dot}`} style={cHex ? { backgroundColor: cHex } : undefined} />
+                                                                        <span className="truncate">{r.name}</span>
+                                                                    </div>
+                                                                </td>
+                                                                {sizes.map((s, sIdx) => {
+                                                                    const key = `${r.name}__${s}`;
+                                                                    const cut = r.cutPer[s] || 0;
+                                                                    const target = r.targetPer[s] || 0;
+                                                                    const effCut = suiviEdits[key]?.cut ?? cut;
+                                                                    const effRem = suiviEdits[key]?.rem ?? Math.max(0, target - effCut);
+                                                                    rowCut += effCut;
+                                                                    rowRem += effRem;
+                                                                    return (
+                                                                        <td key={s} className="py-1 px-1">
+                                                                            <div className="flex items-center justify-center gap-1">
+                                                                                <input
+                                                                                    type="number" min="0"
+                                                                                    value={effCut}
+                                                                                    onChange={e => setSuiviEdits(prev => ({ ...prev, [key]: { ...prev[key], cut: Number(e.target.value) } }))}
+                                                                                    title={tx(lang, { fr: `Découpé ${r.name} ${s}`, ar: `مقصوص ${r.name} ${s}`, en: `Cut ${r.name} ${s}`, es: `Cortado ${r.name} ${s}`, pt: `Cortado ${r.name} ${s}`, tr: `Kesildi ${r.name} ${s}` })}
+                                                                                    className="w-11 text-center py-0.5 bg-indigo-50 dark:bg-indigo-900/30 border border-slate-200 dark:border-dk-border rounded text-[11px] font-bold text-indigo-700 dark:text-indigo-300 outline-none focus:bg-white focus:border-indigo-400"
+                                                                                />
+                                                                                <input
+                                                                                    type="number" min="0"
+                                                                                    value={effRem}
+                                                                                    onChange={e => setSuiviEdits(prev => ({ ...prev, [key]: { ...prev[key], rem: Number(e.target.value) } }))}
+                                                                                    title={tx(lang, { fr: `Restant ${r.name} ${s}`, ar: `متبقّي ${r.name} ${s}`, en: `Remaining ${r.name} ${s}`, es: `Restante ${r.name} ${s}`, pt: `Restante ${r.name} ${s}`, tr: `Kalan ${r.name} ${s}` })}
+                                                                                    className={`w-11 text-center py-0.5 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[11px] font-bold outline-none focus:bg-white focus:border-amber-400 ${effRem > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                                                                                />
+                                                                            </div>
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                                <td className="py-2 px-2.5 text-center font-bold text-slate-700 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg/50">
+                                                                    <span className="text-indigo-700 dark:text-indigo-300">{rowCut}</span>
+                                                                    <span className="mx-1 text-slate-300 dark:text-dk-muted">/</span>
+                                                                    <span className={rowRem > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>{rowRem}</span>
+                                                                </td>
+                                                            </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                    <tfoot className="border-t border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg">
+                                                        <tr>
+                                                            <td className="py-2 px-2.5 text-left font-bold text-slate-600 dark:text-dk-text-soft text-[10px]">{tx(lang, { fr: 'GÉNÉRAL', ar: 'الإجمالي', en: 'TOTAL', es: 'GENERAL', pt: 'GERAL', tr: 'GENEL' })}</td>
+                                                            {sizes.map((s, sIdx) => {
+                                                                let cut = 0;
+                                                                let rem = 0;
+                                                                suiviCoupe.rows.forEach(r => {
+                                                                    const key = `${r.name}__${s}`;
+                                                                    cut += suiviEdits[key]?.cut ?? (r.cutPer[s] || 0);
+                                                                    rem += suiviEdits[key]?.rem ?? Math.max(0, (r.targetPer[s] || 0) - (suiviEdits[key]?.cut ?? (r.cutPer[s] || 0)));
+                                                                });
+                                                                return (
+                                                                    <td key={s} className="py-2 px-1 text-center font-bold text-[11px]">
+                                                                        <span className="text-indigo-700 dark:text-indigo-300">{cut}</span>
+                                                                        <span className="mx-0.5 text-slate-300 dark:text-dk-muted">/</span>
+                                                                        <span className={rem > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}>{rem}</span>
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                            <td className="py-2 px-2.5 text-center font-bold text-slate-800 dark:text-dk-text bg-slate-100 dark:bg-dk-elevated text-[12px]"></td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {(ordre.matelasLines || []).length > 0 && (
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 border-t border-slate-100 dark:border-dk-border pt-5">
                                             {/* Comparative table */}
@@ -2195,40 +2361,94 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                 <tr className="bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border text-[10px] uppercase tracking-wider text-left">
                                                     <th className="py-3 px-3 font-bold">{tx(lang, { fr: 'Article', ar: 'الخامة', en: 'Article', es: 'Artículo', pt: 'Artigo', tr: 'Malzeme' })}</th>
                                                     <th className="py-3 px-3 font-bold">{tx(lang, { fr: 'Besoin', ar: 'الاحتياج', en: 'Need', es: 'Necesidad', pt: 'Necessidade', tr: 'İhtiyaç' })}</th>
+                                                    <th className="py-3 px-3 font-bold">{tx(lang, { fr: 'Consommé', ar: 'المستهلك', en: 'Consumed', es: 'Consumido', pt: 'Consumido', tr: 'Tüketilen' })}</th>
                                                     <th className="py-3 px-3 font-bold">{tx(lang, { fr: 'Stock', ar: 'المخزون', en: 'Stock', es: 'Stock', pt: 'Estoque', tr: 'Stok' })}</th>
+                                                    <th className="py-3 px-3 font-bold">{tx(lang, { fr: 'Restant', ar: 'المتبقّي', en: 'Remaining', es: 'Restante', pt: 'Restante', tr: 'Kalan' })}</th>
+                                                    <th className="py-3 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' })}</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
-                                                {requiredMaterials.map((mat, idx) => (
+                                                {requiredMaterials.map((mat, idx) => {
+                                                    const key = mat.name;
+                                                    const effStock = simEdits[key]?.stock ?? mat.stockActuel;
+                                                    const effCons = simEdits[key]?.cons ?? mat.consomme;
+                                                    const effBesoin = simEdits[key]?.besoin ?? mat.neededForProduction;
+                                                    const effRestant = Math.round((effStock - effCons) * 100) / 100;
+                                                    const effOk = effRestant >= 0 && effStock >= effBesoin;
+                                                    return (
                                                     <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
                                                         <td className="py-3 px-3 font-semibold text-slate-800 dark:text-dk-text">
-                                                            {mat.name}
-                                                            <span className="text-[9px] text-slate-400 dark:text-dk-muted font-medium block">{mat.fournisseur || '-'}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                {(() => {
+                                                                    const photo = matierePhoto(mat.name);
+                                                                    return photo ? (
+                                                                        <img src={photo} alt="" className="w-7 h-7 rounded-md object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                                                                    ) : (
+                                                                        <span className="w-7 h-7 rounded-md bg-slate-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                                                                            <PackageSearch className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
+                                                                        </span>
+                                                                    );
+                                                                })()}
+                                                                <div className="min-w-0">
+                                                                    <span className="block truncate">{mat.name}</span>
+                                                                    <span className="text-[9px] text-slate-400 dark:text-dk-muted font-medium block">{mat.fournisseur || '-'}</span>
+                                                                </div>
+                                                            </div>
                                                         </td>
                                                         <td className="py-3 px-3">
-                                                            <span className="font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">{mat.neededForProduction}</span>
+                                                            <input
+                                                                type="number" min="0" step="0.01"
+                                                                value={effBesoin}
+                                                                onChange={e => setSimEdits(prev => ({ ...prev, [key]: { ...prev[key], besoin: Number(e.target.value) } }))}
+                                                                title={tx(lang, { fr: 'Besoin', ar: 'الاحتياج', en: 'Need', es: 'Necesidad', pt: 'Necessidade', tr: 'İhtiyaç' })}
+                                                                className="w-20 text-center py-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none focus:bg-white focus:border-indigo-400"
+                                                            />
                                                             <span className="text-[9px] text-slate-400 dark:text-dk-muted uppercase ml-1">{mat.unit}</span>
                                                         </td>
                                                         <td className="py-3 px-3">
-                                                            <span className={`font-bold ${mat.isSufficient ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{mat.stockActuel}</span>
+                                                            <input
+                                                                type="number" min="0" step="0.01"
+                                                                value={effCons}
+                                                                onChange={e => setSimEdits(prev => ({ ...prev, [key]: { ...prev[key], cons: Number(e.target.value) } }))}
+                                                                title={tx(lang, { fr: 'Consommé', ar: 'المستهلك', en: 'Consumed', es: 'Consumido', pt: 'Consumido', tr: 'Tüketilen' })}
+                                                                className={`w-20 text-center py-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-bold outline-none focus:bg-white focus:border-amber-400 ${effCons > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-dk-muted'}`}
+                                                            />
                                                             <span className="text-[9px] text-slate-400 dark:text-dk-muted uppercase ml-1">{mat.unit}</span>
+                                                        </td>
+                                                        <td className="py-3 px-3">
+                                                            <input
+                                                                type="number" min="0" step="0.01"
+                                                                value={effStock}
+                                                                onChange={e => setSimEdits(prev => ({ ...prev, [key]: { ...prev[key], stock: Number(e.target.value) } }))}
+                                                                title={tx(lang, { fr: 'Stock', ar: 'المخزون', en: 'Stock', es: 'Stock', pt: 'Estoque', tr: 'Stok' })}
+                                                                className={`w-20 text-center py-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-bold outline-none focus:bg-white focus:border-slate-400 ${effStock > 0 ? 'text-slate-800 dark:text-dk-text' : 'text-slate-400 dark:text-dk-muted'}`}
+                                                            />
+                                                            <span className="text-[9px] text-slate-400 dark:text-dk-muted uppercase ml-1">{mat.unit}</span>
+                                                        </td>
+                                                        <td className="py-3 px-3">
+                                                            <span className={`font-bold ${effRestant >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{effRestant}</span>
+                                                            <span className="text-[9px] text-slate-400 dark:text-dk-muted uppercase ml-1">{mat.unit}</span>
+                                                        </td>
+                                                        <td className="py-3 px-3 text-center">
+                                                            {effOk ? (
+                                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 rounded text-[10px] font-bold border border-emerald-200">
+                                                                    <CheckCircle2 className="w-3 h-3" /> {tx(lang, { fr: 'OK', ar: 'متوفر', en: 'OK', es: 'OK', pt: 'OK', tr: 'Tamam' })}
+                                                                 </span>
+                                                             ) : (
+                                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 text-rose-700 rounded text-[10px] font-bold border border-rose-200">
+                                                                     <AlertCircle className="w-3 h-3" /> {tx(lang, { fr: 'Rupture', ar: 'نفاد', en: 'Out of Stock', es: 'Agotado', pt: 'Esgotado', tr: 'Stok Yok' })}
+                                                                 </span>
+                                                             )}
                                                         </td>
                                                     </tr>
-                                                ))}
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Factures liées à ce modèle (achats matière de la coupe) */}
-                            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-dk-border">
-                                <InlineInvoiceList
-                                    productId={selectedModel.id}
-                                    productLabel={selectedModel.meta_data?.nom_modele || ''}
-                                    sourceModule="coupe"
-                                />
-                            </div>
                         </div>
                     ) : (
                         viewMode === 'board' ? (
