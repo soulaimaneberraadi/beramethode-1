@@ -818,6 +818,7 @@ db.exec(`
     defectRateAccepted REAL DEFAULT 1.5,
     stitchingDetails TEXT,
     specifications_json TEXT,
+    coupeLocation TEXT DEFAULT 'SUBCONTRACTOR',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
@@ -892,19 +893,26 @@ db.exec(`
 db.exec(`CREATE INDEX IF NOT EXISTS idx_subcontract_entries_order ON subcontract_entries(order_id)`);
 
 // Frais additionnels de la commande (transport, traçage/patronage, emballage...),
-// appliqués au TOTAL de la commande — pas à la pièce. Voir CostCalculator pour
-// la conversion en coût par pièce lors de l'injection dans le prix de revient.
+// au libellé LIBRE saisi par l'utilisateur. Le montant est un TOTAL — pas un
+// prix à la pièce. Voir CostCalculator pour la conversion en coût par pièce
+// lors de l'injection dans le prix de revient.
 db.exec(`
   CREATE TABLE IF NOT EXISTS subcontract_expenses (
     id TEXT PRIMARY KEY,
     order_id TEXT NOT NULL,
     label TEXT NOT NULL,
     amount REAL NOT NULL DEFAULT 0,
+    quantity_scope INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_id) REFERENCES subcontract_orders(id) ON DELETE CASCADE
   )
 `);
+// Portée du frais : NULL = s'applique à TOUTE la commande ; sinon nombre de
+// pièces concernées (ex. un transport qui ne couvre que 200 pièces sur 460).
+// La répartition par pièce doit donc diviser par quantity_scope quand il est
+// renseigné, et par totalQuantity sinon — impact direct sur le prix de revient.
+try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN quantity_scope INTEGER"); } catch { /* already exists */ }
 db.exec(`CREATE INDEX IF NOT EXISTS idx_subcontract_expenses_order ON subcontract_expenses(order_id)`);
 
 // Toutes les lectures sous-traitance filtrent sur owner_id (isolation workspace) :
@@ -1112,6 +1120,10 @@ db.exec(`
 try { db.exec("ALTER TABLE system_audit_logs ADD COLUMN user_id INTEGER REFERENCES users(id)"); } catch { /* colonne déjà présente */ }
 try { db.exec("ALTER TABLE system_audit_logs ADD COLUMN detail TEXT"); } catch { /* colonne déjà présente */ }
 try { db.exec("ALTER TABLE system_audit_logs ADD COLUMN ip TEXT"); } catch { /* colonne déjà présente */ }
+// owner_id : identifie la société/workspace concernée par la ligne d'audit (nullable pour l'historique
+// antérieur à cette colonne, où le rattachement au workspace n'était pas encore tracé).
+try { db.exec("ALTER TABLE system_audit_logs ADD COLUMN owner_id INTEGER"); } catch { /* colonne déjà présente */ }
+try { db.exec("CREATE INDEX IF NOT EXISTS idx_audit_owner ON system_audit_logs(owner_id, timestamp)"); } catch { /* index déjà présent */ }
 
 // ============================================================================
 // PHASE: FACTURATION (Achat, Vente, Devis, BL)
@@ -1254,6 +1266,13 @@ try {
 } catch(e) {}
 try {
   db.exec("ALTER TABLE subcontract_orders ADD COLUMN specifications_json TEXT");
+} catch(e) {}
+// Parcours de coupe de la commande : 'INTERNAL' = la coupe est faite chez nous
+// et seules les pièces coupées partent chez le sous-traitant ; 'SUBCONTRACTOR' =
+// la matière brute est expédiée et le sous-traitant coupe (comportement
+// historique implicite, d'où le DEFAULT pour les lignes déjà en base).
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN coupeLocation TEXT DEFAULT 'SUBCONTRACTOR'");
 } catch(e) {}
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1640,6 +1659,7 @@ db.exec(`
     name TEXT NOT NULL,
     logo TEXT,
     specialty TEXT,
+    profile_meta TEXT,                   -- JSON des informations légales (raisonSociale, ice, rc, if, cnss, patente, adresse, ville, companyPhone, companyEmail, siteWeb, banque, rib)
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (account_user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -1649,6 +1669,8 @@ db.exec(`
 // account_type par workspace (société/client/personnel) → gating des modules par
 // workspace actif, au lieu du singleton company_settings(id=1) global.
 try { db.exec("ALTER TABLE workspaces ADD COLUMN account_type TEXT DEFAULT 'societe'"); } catch { /* colonne déjà présente */ }
+// Rattrapage pour les bases existantes créées avant l'ajout de profil_meta au CREATE TABLE ci-dessus.
+try { db.exec("ALTER TABLE workspaces ADD COLUMN profile_meta TEXT"); } catch { /* colonne déjà présente */ }
 // Workspace actif par compte (NULL => fallback historique : 1ʳᵉ adhésion = comportement inchangé).
 try { db.exec('ALTER TABLE users ADD COLUMN active_owner_id INTEGER'); } catch { /* colonne déjà présente */ }
 // Ancre non-connectable : marque les lignes `users` créées comme support d'un workspace.
