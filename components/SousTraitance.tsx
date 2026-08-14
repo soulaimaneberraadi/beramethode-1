@@ -143,6 +143,126 @@ const ModelPickerField: React.FC<{
   );
 };
 
+/** Badge indiquant si le prix matière vient du magasin (fiable) ou d'une saisie
+ *  manuelle dans la fiche de coût (l'article n'est pas référencé au stock). */
+const MaterialPriceBadge: React.FC<{ source: 'stock' | 'manuel'; lang: string }> = ({ source, lang }) => (
+  <span
+    className={`ml-1.5 inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide align-middle ${source === 'stock' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400' : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'}`}
+    title={source === 'stock'
+      ? tx(lang as any,{fr:'Prix issu du magasin (CUMP/catalogue)',ar:'الثمن من المخزون (CUMP/الكتالوج)',en:'Price from stock (CUMP/catalog)',es:'Precio del almacén (CUMP/catálogo)',pt:'Preço do armazém (CUMP/catálogo)',tr:'Depo fiyatı (CUMP/katalog)'})
+      : tx(lang as any,{fr:"Prix saisi manuellement dans la fiche de coût (article absent du magasin)",ar:'ثمن مُدخَل يدوياً في بطاقة التكلفة (المادة غير موجودة بالمخزون)',en:'Manually entered in the cost sheet (item not in stock)',es:'Introducido manualmente en la ficha de coste (artículo sin stock)',pt:'Inserido manualmente na ficha de custo (artigo sem stock)',tr:'Maliyet formuna elle girildi (ürün depoda yok)'})}
+  >
+    {source === 'stock'
+      ? tx(lang as any,{fr:'Stock',ar:'مخزون',en:'Stock',es:'Stock',pt:'Stock',tr:'Stok'})
+      : tx(lang as any,{fr:'Manuel',ar:'يدوي',en:'Manual',es:'Manual',pt:'Manual',tr:'Manuel'})}
+  </span>
+);
+
+/** Où le modèle est-il coupé pour CETTE commande ?
+ *  `SUBCONTRACTOR` (défaut) = comportement historique : la matière brute part
+ *  telle quelle et le sous-traitant coupe. `INTERNAL` = la coupe est faite chez
+ *  vous, ce sont des pièces déjà coupées qui sont expédiées.
+ *  Ce champ n'entre dans AUCUN calcul : il n'adapte que les libellés du bon
+ *  d'envoi et une note dans la fiche. */
+type CoupeLocation = 'INTERNAL' | 'SUBCONTRACTOR';
+
+/** Lecture tolérante du champ : le back peut le restituer en camelCase ou en
+ *  snake_case, et il est absent des commandes créées avant son introduction.
+ *  Toute valeur inconnue retombe sur `SUBCONTRACTOR`, qui est le comportement
+ *  implicite d'avant — on ne requalifie pas une commande sans preuve. */
+const readCoupeLocation = (o: any): CoupeLocation =>
+  (o?.coupeLocation ?? o?.coupe_location) === 'INTERNAL' ? 'INTERNAL' : 'SUBCONTRACTOR';
+
+/** Sélecteur « Parcours de coupe » — même langage visuel que « Type de
+ *  prestation » : deux cartes cliquables titre + description. Partagé par les
+ *  modales d'ajout et d'édition. */
+const CoupeLocationField: React.FC<{
+  lang: string;
+  value: CoupeLocation;
+  onChange: (v: CoupeLocation) => void;
+}> = ({ lang, value, onChange }) => {
+  const options: { mode: CoupeLocation; title: string; desc: string }[] = [
+    {
+      mode: 'INTERNAL',
+      title: tx(lang as any,{fr:'Coupe interne',ar:'القص عندكم',en:'In-house cutting',es:'Corte interno',pt:'Corte interno',tr:'Şirket içi kesim'}),
+      desc: tx(lang as any,{
+        fr:"Le modèle est coupé chez vous avant l'envoi. Vous expédiez des pièces déjà coupées.",
+        ar:'الموديل كيتقطّع عندكم قبل الإرسال. كتصيفطو قطع مقطوعة من قبل.',
+        en:'The model is cut in-house before shipping. You send already-cut pieces.',
+        es:'El modelo se corta en su taller antes del envío. Usted expide piezas ya cortadas.',
+        pt:'O modelo é cortado na sua oficina antes do envio. Você expede peças já cortadas.',
+        tr:'Model gönderimden önce sizde kesilir. Kesilmiş parçaları sevk edersiniz.',
+      }),
+    },
+    {
+      mode: 'SUBCONTRACTOR',
+      title: tx(lang as any,{fr:'Coupe chez le sous-traitant',ar:'القص عند المقاول من الباطن',en:'Cutting at the subcontractor',es:'Corte en el subcontratista',pt:'Corte no subcontratado',tr:'Taşeronda kesim'}),
+      desc: tx(lang as any,{
+        fr:'La matière brute est expédiée telle quelle. Le sous-traitant coupe lui-même.',
+        ar:'المادة الخام كتصيفط كيف ما هي. المقاول من الباطن هو اللي كيقطّع.',
+        en:'The raw fabric is shipped as is. The subcontractor does the cutting.',
+        es:'La materia prima se envía tal cual. El subcontratista corta él mismo.',
+        pt:'A matéria-prima é expedida tal como está. O subcontratado corta ele próprio.',
+        tr:'Ham kumaş olduğu gibi gönderilir. Kesimi taşeron yapar.',
+      }),
+    },
+  ];
+
+  return (
+    <div className="space-y-1.5">
+      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+        {tx(lang as any,{fr:'Parcours de coupe',ar:'مسار القص',en:'Cutting route',es:'Recorrido de corte',pt:'Percurso de corte',tr:'Kesim rotası'})}
+      </label>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        {options.map(opt => {
+          const isActive = value === opt.mode;
+          return (
+            <button
+              key={opt.mode}
+              type="button"
+              onClick={() => onChange(opt.mode)}
+              className={`text-left p-3 rounded-xl border transition-all ${isActive ? 'border-indigo-500 dark:border-dk-accent bg-indigo-50 dark:bg-dk-accent/20' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:border-slate-300 dark:hover:border-dk-border'}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className={`font-bold ${isActive ? 'text-indigo-700 dark:text-dk-accent-text' : 'text-slate-700 dark:text-dk-text-soft'}`}>{opt.title}</span>
+                {isActive && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-dk-accent-text shrink-0" />}
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-1 leading-snug">{opt.desc}</p>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+/** Frais additionnel libre rattaché à une commande de sous-traitance.
+ *  `quantity_scope` à `null` = le frais porte sur toute la commande ; sinon il
+ *  ne couvre que ce nombre de pièces. Le libellé est 100% libre. */
+interface SubcontractExpense {
+  id: string;
+  order_id: string;
+  label: string;
+  amount: number;
+  quantity_scope: number | null;
+  created_at?: string;
+}
+
+/** Identité légale de l'entreprise émettrice (VOUS), affichée en tête de la
+ *  facture de sous-traitance. Source CANONIQUE et unique : `GET
+ *  /api/permissions/company` (édition dans Admin > Entreprise, réservée au
+ *  super-admin). Cette page ne fait que la LIRE — dupliquer ces champs ailleurs
+ *  ferait diverger l'ICE d'une facture à l'autre. */
+interface CompanyIdentity {
+  nom: string;
+  ice: string;
+  rc: string;
+  adresse: string;
+  tel: string;
+}
+
+const EMPTY_COMPANY_IDENTITY: CompanyIdentity = { nom: '', ice: '', rc: '', adresse: '', tel: '' };
+
 const KNOWN_COLOR_KEYWORDS: Record<string, string> = {
   'blanc': '#ffffff', 'white': '#ffffff', 'noir': '#1e1e1e', 'black': '#1e1e1e',
   'rouge': '#dc2626', 'red': '#dc2626', 'bleu': '#2563eb', 'blue': '#2563eb',
@@ -316,6 +436,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  Les champs `*Fournisseur` restent alimentés pour l'API, mais c'est ce
    *  champ qui pilote le coût de revient et l'affichage des matières. */
   const [formStMode, setFormStMode] = useState<StMode>('facon');
+  /** A : parcours de coupe de la commande. Défaut = comportement historique. */
+  const [formCoupeLocation, setFormCoupeLocation] = useState<CoupeLocation>('SUBCONTRACTOR');
   const [formPrestationType, setFormPrestationType] = useState<'CMT' | 'FACON_PURE'>('CMT');
   const [formTissuFournisseur, setFormTissuFournisseur] = useState<'CLIENT' | 'SUBCONTRACTOR'>('CLIENT');
   const [formFournituresFournisseur, setFormFournituresFournisseur] = useState<'CLIENT' | 'SUBCONTRACTOR'>('CLIENT');
@@ -356,6 +478,27 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   /** Numérotation de facture : elle vient du serveur, jamais d'un tirage aléatoire. */
   const [saleNumberLoading, setSaleNumberLoading] = useState(false);
   const [saleNumberError, setSaleNumberError] = useState<string | null>(null);
+
+  // ---- B : frais additionnels de la commande consultée --------------------
+  /** Chargés à l'ouverture de la fiche de détail UNIQUEMENT (pas au montage du
+   *  composant) : sinon on ferait une requête par commande listée. */
+  const [orderExpenses, setOrderExpenses] = useState<SubcontractExpense[]>([]);
+  const [expensesOrderId, setExpensesOrderId] = useState<string | null>(null);
+  const [expensesLoading, setExpensesLoading] = useState(false);
+  const [expensesError, setExpensesError] = useState<string | null>(null);
+  const [expenseSaving, setExpenseSaving] = useState(false);
+  const [expenseLabel, setExpenseLabel] = useState('');
+  /** `number | ''` : un champ vide reste vide, il ne se remplit pas d'un 0 fantôme. */
+  const [expenseAmount, setExpenseAmount] = useState<number | ''>('');
+  const [expenseScopeMode, setExpenseScopeMode] = useState<'ALL' | 'PARTIAL'>('ALL');
+  const [expenseQuantityScope, setExpenseQuantityScope] = useState<number | ''>('');
+
+  // ---- C : facture de sous-traitance (ce que VOUS payez au sous-traitant) ---
+  const [isCostInvoiceModalOpen, setIsCostInvoiceModalOpen] = useState(false);
+  const [costInvoiceOrder, setCostInvoiceOrder] = useState<SubcontractOrder | null>(null);
+  const [costInvoiceQty, setCostInvoiceQty] = useState<number | ''>('');
+  /** Lecture seule : renseignée par `GET /api/permissions/company`. */
+  const [companyIdentity, setCompanyIdentity] = useState<CompanyIdentity>(EMPTY_COMPANY_IDENTITY);
 
   // Tab 4 (Groups) States
   const { lang } = useLang();
@@ -442,6 +585,208 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     fetchData(controller.signal);
     return () => controller.abort();
   }, []);
+
+  // ======================================================================
+  // B — FRAIS ADDITIONNELS LIBRES (chargés à la demande, jamais en masse)
+  // ======================================================================
+
+  /** Normalise une ligne renvoyée par l'API : les montants doivent être des
+   *  nombres exploitables, une portée illisible vaut « toute la commande »
+   *  plutôt qu'une quantité inventée. */
+  const normalizeExpense = (raw: any): SubcontractExpense => {
+    const scope = Number(raw?.quantity_scope ?? raw?.quantityScope);
+    return {
+      id: String(raw?.id ?? ''),
+      order_id: String(raw?.order_id ?? raw?.orderId ?? ''),
+      label: String(raw?.label ?? ''),
+      amount: Number(raw?.amount) || 0,
+      quantity_scope: Number.isFinite(scope) && scope > 0 ? scope : null,
+      created_at: raw?.created_at ?? raw?.createdAt,
+    };
+  };
+
+  /** Message d'erreur réseau lisible — jamais d'`alert()`, jamais un code brut. */
+  const expenseErrorMessage = (status?: number): string => {
+    if (status === 403) {
+      return tx(lang,{fr:"Vous n'avez pas la permission de gérer les frais de cette commande.",ar:'ما عندكش الإذن لتدبير مصاريف هاد الطلبية.',en:'You do not have permission to manage this order\'s expenses.',es:'No tiene permiso para gestionar los gastos de este pedido.',pt:'Não tem permissão para gerir as despesas desta encomenda.',tr:'Bu siparişin masraflarını yönetme izniniz yok.'});
+    }
+    return tx(lang,{
+      fr:'Frais additionnels indisponibles — le service n\'a pas répondu. Les montants affichés ci-dessous peuvent être incomplets.',
+      ar:'المصاريف الإضافية غير متاحة — الخدمة ما جاوبتش. المبالغ المعروضة تحت يمكن تكون ناقصة.',
+      en:'Additional expenses unavailable — the service did not respond. The amounts shown below may be incomplete.',
+      es:'Gastos adicionales no disponibles — el servicio no respondió. Los importes mostrados pueden estar incompletos.',
+      pt:'Despesas adicionais indisponíveis — o serviço não respondeu. Os montantes apresentados podem estar incompletos.',
+      tr:'Ek masraflar kullanılamıyor — servis yanıt vermedi. Aşağıdaki tutarlar eksik olabilir.',
+    });
+  };
+
+  const loadExpenses = async (orderId: string, signal?: AbortSignal) => {
+    setExpensesLoading(true);
+    setExpensesError(null);
+    try {
+      const res = await fetch(`/api/subcontract/${orderId}/expenses`, { credentials: 'include', signal });
+      if (!res.ok) {
+        const err: any = new Error(String(res.status));
+        err.status = res.status;
+        throw err;
+      }
+      const data = await res.json();
+      if (signal?.aborted) return;
+      setOrderExpenses(Array.isArray(data) ? data.map(normalizeExpense) : []);
+      setExpensesOrderId(orderId);
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return;
+      console.error('[SousTraitance] expenses', err);
+      setOrderExpenses([]);
+      setExpensesOrderId(orderId);
+      setExpensesError(expenseErrorMessage(err?.status));
+    } finally {
+      if (!signal?.aborted) setExpensesLoading(false);
+    }
+  };
+
+  /** Les frais ne sont chargés qu'à l'ouverture d'une fiche, et rechargés
+   *  seulement si la commande consultée change. */
+  useEffect(() => {
+    if (!isDetailModalOpen || !detailOrder) return;
+    const controller = new AbortController();
+    loadExpenses(detailOrder.id, controller.signal);
+    setExpenseLabel('');
+    setExpenseAmount('');
+    setExpenseScopeMode('ALL');
+    setExpenseQuantityScope('');
+    return () => controller.abort();
+  }, [isDetailModalOpen, detailOrder?.id]);
+
+  const handleAddExpense = async (order: SubcontractOrder) => {
+    const label = expenseLabel.trim();
+    const amount = Number(expenseAmount);
+    if (!label) {
+      setExpensesError(tx(lang,{fr:'Indiquez un libellé pour le frais.',ar:'حدّد تسمية للمصروف.',en:'Enter a label for the expense.',es:'Indique una etiqueta para el gasto.',pt:'Indique um rótulo para a despesa.',tr:'Masraf için bir etiket girin.'}));
+      return;
+    }
+    if (!(amount > 0)) {
+      setExpensesError(tx(lang,{fr:'Le montant doit être supérieur à 0.',ar:'المبلغ خاصو يكون أكبر من 0.',en:'The amount must be greater than 0.',es:'El importe debe ser mayor que 0.',pt:'O montante deve ser superior a 0.',tr:'Tutar 0’dan büyük olmalıdır.'}));
+      return;
+    }
+    let quantityScope: number | null = null;
+    if (expenseScopeMode === 'PARTIAL') {
+      const q = Number(expenseQuantityScope);
+      if (!(q > 0) || q > order.totalQuantity) {
+        setExpensesError(tx(lang,{
+          fr:`La quantité partielle doit être comprise entre 1 et ${order.totalQuantity}.`,
+          ar:`الكمية الجزئية خاصها تكون بين 1 و ${order.totalQuantity}.`,
+          en:`The partial quantity must be between 1 and ${order.totalQuantity}.`,
+          es:`La cantidad parcial debe estar entre 1 y ${order.totalQuantity}.`,
+          pt:`A quantidade parcial deve estar entre 1 e ${order.totalQuantity}.`,
+          tr:`Kısmi miktar 1 ile ${order.totalQuantity} arasında olmalıdır.`,
+        }));
+        return;
+      }
+      quantityScope = q;
+    }
+
+    setExpenseSaving(true);
+    setExpensesError(null);
+    try {
+      const res = await fetch(`/api/subcontract/${order.id}/expenses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ label, amount, quantityScope }),
+      });
+      if (!res.ok) {
+        const err: any = new Error(String(res.status));
+        err.status = res.status;
+        throw err;
+      }
+      setExpenseLabel('');
+      setExpenseAmount('');
+      setExpenseScopeMode('ALL');
+      setExpenseQuantityScope('');
+      await loadExpenses(order.id);
+    } catch (err: any) {
+      console.error('[SousTraitance] add expense', err);
+      setExpensesError(expenseErrorMessage(err?.status));
+    } finally {
+      setExpenseSaving(false);
+    }
+  };
+
+  const handleDeleteExpense = async (order: SubcontractOrder, expenseId: string) => {
+    setExpenseSaving(true);
+    setExpensesError(null);
+    try {
+      const res = await fetch(`/api/subcontract/expenses/${expenseId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const err: any = new Error(String(res.status));
+        err.status = res.status;
+        throw err;
+      }
+      await loadExpenses(order.id);
+    } catch (err: any) {
+      console.error('[SousTraitance] delete expense', err);
+      setExpensesError(expenseErrorMessage(err?.status));
+    } finally {
+      setExpenseSaving(false);
+    }
+  };
+
+  // ======================================================================
+  // C — FACTURE DE SOUS-TRAITANCE (ce que VOUS payez au sous-traitant)
+  // ======================================================================
+
+  /** Part d'un frais imputable à une quantité facturée.
+   *  Règle unique : `montant × min(qtéFacturée, portée) / portée`, où la portée
+   *  vaut `quantity_scope` s'il existe, sinon la quantité totale de la commande.
+   *  - Un frais « toute la commande » facturé en entier est repris tel quel.
+   *  - Un frais à portée partielle est repris EN ENTIER dès que la quantité
+   *    facturée couvre sa portée, et au prorata sinon.
+   *  La somme des factures partielles successives retombe exactement sur le
+   *  montant saisi : ni double comptage, ni perte. */
+  const expenseShare = (expense: SubcontractExpense, billedQty: number, orderTotal: number): number => {
+    const scope = expense.quantity_scope && expense.quantity_scope > 0 ? expense.quantity_scope : orderTotal;
+    if (!(scope > 0)) return expense.amount;
+    const covered = Math.min(Math.max(0, billedQty), scope);
+    return (expense.amount * covered) / scope;
+  };
+
+  const openCostInvoiceModal = (order: SubcontractOrder) => {
+    setCostInvoiceOrder(order);
+    setCostInvoiceQty(order.totalQuantity > 0 ? order.totalQuantity : '');
+    setIsCostInvoiceModalOpen(true);
+    // Filet de sécurité : si la fiche n'a pas (ou plus) chargé les frais de
+    // CETTE commande, on les demande avant d'afficher un total incomplet.
+    if (expensesOrderId !== order.id) loadExpenses(order.id);
+    loadCompanyIdentity();
+  };
+
+  /** LECTURE SEULE de l'identité légale de l'entreprise. Aucune édition ici :
+   *  elle se fait dans Admin > Entreprise. Un échec ou un profil incomplet
+   *  n'empêche JAMAIS d'établir la facture — l'en-tête se contente d'être
+   *  moins complet, et la modale le signale. */
+  const loadCompanyIdentity = async () => {
+    try {
+      const res = await fetch('/api/permissions/company', { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const meta = (data?.profileMeta && typeof data.profileMeta === 'object') ? data.profileMeta : {};
+      const ville = String(meta.ville ?? '').trim();
+      const adresse = String(meta.adresse ?? '').trim();
+      setCompanyIdentity({
+        nom: String(meta.raisonSociale ?? '').trim() || String(data?.name ?? '').trim(),
+        ice: String(meta.ice ?? '').trim(),
+        rc: String(meta.rc ?? '').trim(),
+        adresse: [adresse, ville].filter(Boolean).join(', '),
+        tel: String(meta.companyPhone ?? meta.adminPhone ?? '').trim(),
+      });
+    } catch (err) {
+      console.error('[SousTraitance] company identity', err);
+    }
+  };
 
   // Subcontractor profile handlers
   const openNewProfileModal = () => {
@@ -646,17 +991,25 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       const st = resolveStock(m, magasinData, buyQty);
       const overrideFournisseur = fournisseurOverride[m.name];
       const fournisseur = overrideFournisseur || st.fournisseur;
+      // Ordre de fiabilité du prix : CUMP (coût réel constaté en magasin) > prix
+      // catalogue magasin > prix saisi manuellement dans la fiche de coût du
+      // modèle. On ne descend au prix manuel que si l'article n'est pas au stock.
+      const stockCump = Number(st.item?.cump) || 0;
+      const stockPrix = Number(st.item?.prixUnitaire) || 0;
+      const unitPrice = stockCump > 0 ? stockCump : stockPrix > 0 ? stockPrix : m.unitPrice;
+      const priceSource: 'stock' | 'manuel' = (stockCump > 0 || stockPrix > 0) ? 'stock' : 'manuel';
       return {
         id: m.id,
         name: m.name,
         unit: m.unit,
-        unitPrice: m.unitPrice,
+        unitPrice,
+        priceSource,
         buyQty,
         stockActuel: st.stockActuel,
         manque: st.manque,
         fournisseur,
         delaiLivraison: st.delaiLivraison,
-        cost: buyQty * m.unitPrice,
+        cost: buyQty * unitPrice,
         isOverridden: !!overrideFournisseur,
       };
     });
@@ -922,6 +1275,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setFormTissuFournisseur('CLIENT');
     setFormFournituresFournisseur('CLIENT');
     setFormConditionnementFournisseur('CLIENT');
+    // Défaut = comportement historique : matière brute expédiée, coupe chez le
+    // sous-traitant. Aucune commande existante n'est requalifiée.
+    setFormCoupeLocation('SUBCONTRACTOR');
     setFormQtyAccepted(0);
     setFormQtyToRepair(0);
     setFormQtyRejected(0);
@@ -1111,6 +1467,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       tissuFournisseur: formTissuFournisseur,
       fournituresFournisseur: formFournituresFournisseur,
       conditionnementFournisseur: formConditionnementFournisseur,
+      coupeLocation: formCoupeLocation,
       protoRequired: formProtoRequired,
       protoStatus: formProtoStatus,
       paymentTerms: formPaymentTerms,
@@ -1236,6 +1593,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setFormTissuFournisseur(order.tissuFournisseur || 'CLIENT');
     setFormFournituresFournisseur(order.fournituresFournisseur || 'CLIENT');
     setFormConditionnementFournisseur(order.conditionnementFournisseur || 'CLIENT');
+    setFormCoupeLocation(readCoupeLocation(order));
     setFormProtoRequired(order.protoRequired !== undefined ? order.protoRequired : 1);
     setFormProtoStatus(order.protoStatus || 'PENDING');
     setFormPaymentTerms(order.paymentTerms || 'AVANCE_RECEPTION');
@@ -1304,6 +1662,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       tissuFournisseur: formTissuFournisseur,
       fournituresFournisseur: formFournituresFournisseur,
       conditionnementFournisseur: formConditionnementFournisseur,
+      coupeLocation: formCoupeLocation,
       protoRequired: formProtoRequired,
       protoStatus: formProtoStatus,
       paymentTerms: formPaymentTerms,
@@ -1762,6 +2121,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           total: order.totalQuantity,
         }];
 
+    // A : le parcours de coupe ne change AUCUN calcul, seulement les libellés.
+    // En coupe interne ce sont des pièces déjà coupées qui partent, pas du tissu.
+    const isInternalCut = readCoupeLocation(order) === 'INTERNAL';
+    const shipmentNature = isInternalCut
+      ? tx(lang,{fr:'Pièces coupées',ar:'قطع مقطوعة',en:'Cut pieces',es:'Piezas cortadas',pt:'Peças cortadas',tr:'Kesilmiş parçalar'})
+      : tx(lang,{fr:'Tissu (matière brute)',ar:'قماش (مادة خام)',en:'Fabric (raw material)',es:'Tejido (materia prima)',pt:'Tecido (matéria-prima)',tr:'Kumaş (ham madde)'});
+    const shipmentNatureHint = isInternalCut
+      ? tx(lang,{fr:'Coupe réalisée en interne avant expédition.',ar:'القص تدار عندنا قبل الإرسال.',en:'Cutting done in-house before shipping.',es:'Corte realizado internamente antes del envío.',pt:'Corte realizado internamente antes da expedição.',tr:'Kesim sevkiyattan önce şirket içinde yapıldı.'})
+      : tx(lang,{fr:'La coupe est réalisée par le sous-traitant.',ar:'القص كيديرو المقاول من الباطن.',en:'Cutting is done by the subcontractor.',es:'El corte lo realiza el subcontratista.',pt:'O corte é feito pelo subcontratado.',tr:'Kesim taşeron tarafından yapılır.'});
+    const totalRowLabel = isInternalCut
+      ? tx(lang,{fr:'TOTAL PIÈCES COUPÉES ENVOYÉES',ar:'مجموع القطع المقطوعة المرسلة',en:'TOTAL CUT PIECES SENT',es:'TOTAL DE PIEZAS CORTADAS ENVIADAS',pt:'TOTAL DE PEÇAS CORTADAS ENVIADAS',tr:'GÖNDERİLEN TOPLAM KESİLMİŞ PARÇA'})
+      : tx(lang,{fr:'QUANTITÉ TOTALE ENVOYÉE',ar:'الكمية الإجمالية المرسلة',en:'TOTAL QUANTITY SENT',es:'CANTIDAD TOTAL ENVIADA',pt:'QUANTIDADE TOTAL ENVIADA',tr:'GÖNDERİLEN TOPLAM MİKTAR'});
+
     const rowsTotal = rows.reduce((a, r) => a + r.total, 0);
     // Si la matrice et la quantité enregistrée divergent, on le DIT sur le bon
     // plutôt que de laisser le sous-traitant arbitrer seul.
@@ -1842,6 +2214,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               <div class="meta-title">${tx(lang,{fr:'Date de Livraison Prévue',ar:'تاريخ التسليم المتوقع',en:'Expected Delivery Date',es:'Fecha de Entrega Prevista',pt:'Data de Entrega Prevista',tr:'Beklenen Teslimat Tarihi'})}</div>
               <div class="meta-val">${order.deliveryDate}</div>
             </div>
+            <div class="meta-box" style="grid-column: 1 / -1;">
+              <div class="meta-title">${esc(tx(lang,{fr:"Nature de l'envoi",ar:'طبيعة الإرسالية',en:'Nature of the shipment',es:'Naturaleza del envío',pt:'Natureza da remessa',tr:'Sevkiyatın niteliği'}))}</div>
+              <div class="meta-val">${esc(shipmentNature)}</div>
+              <div style="font-size: 11px; color: #64748b; font-weight: 600; margin-top: 2px;">${esc(shipmentNatureHint)}</div>
+            </div>
           </div>
 
           <h3 style="font-size: 15px; margin-bottom: 10px; color: #1e1b4b; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; font-weight: 800;">${tx(lang,{fr:'DETAILS DES PIECES',ar:'تفاصيل القطع',en:'PIECE DETAILS',es:'DETALLES DE LAS PIEZAS',pt:'DETALHES DAS PEÇAS',tr:'PARÇA DETAYLARI'})}</h3>
@@ -1856,7 +2233,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             <tbody>
               ${rowsHtml}
               <tr style="background: #f8fafc; font-weight: 900; font-size: 14px; border-top: 2px solid #cbd5e1;">
-                <td colspan="2">${tx(lang,{fr:'QUANTITÉ TOTALE ENVOYÉE',ar:'الكمية الإجمالية المرسلة',en:'TOTAL QUANTITY SENT',es:'CANTIDAD TOTAL ENVIADA',pt:'QUANTIDADE TOTAL ENVIADA',tr:'GÖNDERİLEN TOPLAM MİKTAR'})}</td>
+                <td colspan="2">${esc(totalRowLabel)}</td>
                 <td style="text-align: right; font-weight: 900; color: #4f46e5; font-size: 16px;">${rowsTotal.toLocaleString(dateLocale)} pcs</td>
               </tr>
             </tbody>
@@ -1875,6 +2252,231 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             <div class="sig-box">${tx(lang,{fr:'Livreur / Transporteur',ar:'المسلم / الناقل',en:'Delivery Person / Carrier',es:'Repartidor / Transportista',pt:'Entregador / Transportador',tr:'Teslim Eden / Nakliyeci'})}</div>
             <div class="sig-box">${tx(lang,{fr:'Réception Sous-traitant',ar:'استلام المقاول من الباطن',en:'Subcontractor Receipt',es:'Recepción Subcontratista',pt:'Recepção Subcontratado',tr:'Taşeron Teslim Alma'})}</div>
             <div class="sig-box">${tx(lang,{fr:'Contrôle Production',ar:'مراقبة الإنتاج',en:'Production Control',es:'Control de Producción',pt:'Controlo de Produção',tr:'Üretim Kontrolü'})}</div>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // ======================================================================
+  // C — FACTURE DE SOUS-TRAITANCE : construction des lignes
+  // ======================================================================
+
+  /** Lignes de la facture pour une quantité facturée donnée.
+   *  - Façon : quantité × tarif unitaire de la commande.
+   *  - Matières : uniquement en mode Façon (le sous-traitant ne fournit pas la
+   *    matière). Le besoin est RECALCULÉ à la quantité facturée via
+   *    `getFaconMaterialsNeeds` plutôt que mis à l'échelle après coup : les
+   *    unités indivisibles (bobine, pièce) restent ainsi correctement arrondies.
+   *  - Frais : voir `expenseShare` pour la règle de prorata.
+   *  Aucune valeur n'est inventée : un tarif absent vaut 0 et se voit. */
+  const buildCostInvoice = (order: SubcontractOrder, billedQty: number) => {
+    const maxQty = Math.max(1, order.totalQuantity);
+    const qty = Math.min(Math.max(1, Math.floor(billedQty) || 0), maxQty);
+    const isPartial = qty !== order.totalQuantity;
+
+    const unitPrice = Number(order.pricePerPiece) || 0;
+    const faconTotal = qty * unitPrice;
+
+    const isFacon = inferSubcontractMode(order) === 'facon';
+    const materials = isFacon
+      ? getFaconMaterialsNeeds(
+          { modelId: order.modelId, totalQuantity: qty },
+          parseJsonSafe(order.materials_fournisseur_json, {} as Record<string, string>)
+        )
+      : [];
+    const materialsTotal = materials.reduce((a, r) => a + r.cost, 0);
+
+    const expenses = orderExpenses
+      .map(e => ({ expense: e, applied: expenseShare(e, qty, order.totalQuantity) }))
+      .filter(e => e.applied > 0);
+    const expensesTotal = expenses.reduce((a, e) => a + e.applied, 0);
+
+    return {
+      qty,
+      isPartial,
+      unitPrice,
+      faconTotal,
+      isFacon,
+      materials,
+      materialsTotal,
+      expenses,
+      expensesTotal,
+      total: faconTotal + materialsTotal + expensesTotal,
+    };
+  };
+
+  /** Impression de la facture de sous-traitance — même patron que le bon
+   *  d'envoi : fenêtre vierge, HTML échappé, aucun JSX. */
+  const handlePrintCostInvoice = (order: SubcontractOrder, billedQty: number) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const esc = (v: unknown) => String(v ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const money = (v: number) => `${esc(fmt(v))} ${esc(currency)}`;
+
+    const inv = buildCostInvoice(order, billedQty);
+    const profile = subcontractorProfiles.find(p => p.name === order.subcontractorName);
+
+    const lineRows: string[] = [];
+    lineRows.push(`
+              <tr>
+                <td style="font-weight: 600;">${esc(tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}))} — ${esc(order.modelName || order.modelId)}</td>
+                <td style="text-align: right;">${esc(inv.qty.toLocaleString(dateLocale))} pcs</td>
+                <td style="text-align: right;">${money(inv.unitPrice)}</td>
+                <td style="text-align: right; font-weight: 700;">${money(inv.faconTotal)}</td>
+              </tr>`);
+
+    inv.materials.forEach(m => {
+      lineRows.push(`
+              <tr>
+                <td>${esc(tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'}))} — ${esc(m.name)}</td>
+                <td style="text-align: right;">${esc(fmt(m.buyQty))} ${esc(m.unit)}</td>
+                <td style="text-align: right;">${money(m.unitPrice)}</td>
+                <td style="text-align: right; font-weight: 700;">${money(m.cost)}</td>
+              </tr>`);
+    });
+
+    inv.expenses.forEach(({ expense, applied }) => {
+      const scopeLabel = expense.quantity_scope == null
+        ? tx(lang,{fr:'Toute la commande',ar:'الطلبية كاملة',en:'Whole order',es:'Todo el pedido',pt:'Toda a encomenda',tr:'Tüm sipariş'})
+        : `${expense.quantity_scope.toLocaleString(dateLocale)} pcs`;
+      const prorata = applied < expense.amount - 0.005
+        ? ` — ${esc(tx(lang,{fr:'au prorata',ar:'بالتناسب',en:'pro rata',es:'a prorrata',pt:'pro rata',tr:'orantılı'}))}`
+        : '';
+      lineRows.push(`
+              <tr>
+                <td>${esc(tx(lang,{fr:'Frais',ar:'مصروف',en:'Expense',es:'Gasto',pt:'Despesa',tr:'Masraf'}))} — ${esc(expense.label)}
+                  <div style="font-size: 11px; color: #64748b;">${esc(scopeLabel)}${prorata}</div>
+                </td>
+                <td style="text-align: right;">&mdash;</td>
+                <td style="text-align: right;">&mdash;</td>
+                <td style="text-align: right; font-weight: 700;">${money(applied)}</td>
+              </tr>`);
+    });
+
+    const partialNotice = inv.isPartial ? `
+          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:20px;font-size:12px;color:#92400e;font-weight:700;">
+            ${esc(tx(lang,{
+              fr:`Facturation partielle : ${inv.qty} pièces facturées sur ${order.totalQuantity} commandées.`,
+              ar:`فوترة جزئية: ${inv.qty} قطعة مفوترة من ${order.totalQuantity} مطلوبة.`,
+              en:`Partial invoicing: ${inv.qty} pieces invoiced out of ${order.totalQuantity} ordered.`,
+              es:`Facturación parcial: ${inv.qty} piezas facturadas de ${order.totalQuantity} pedidas.`,
+              pt:`Faturação parcial: ${inv.qty} peças faturadas de ${order.totalQuantity} encomendadas.`,
+              tr:`Kısmi faturalama: sipariş edilen ${order.totalQuantity} adetten ${inv.qty} adet faturalandı.`,
+            }))}
+          </div>` : '';
+
+    const issuerLines = [
+      companyIdentity.adresse,
+      companyIdentity.tel ? `${tx(lang,{fr:'Tél',ar:'الهاتف',en:'Tel',es:'Tel',pt:'Tel',tr:'Tel'})} : ${companyIdentity.tel}` : '',
+      [companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : ''].filter(Boolean).join(' · '),
+    ].filter(Boolean).map(l => `<div style="font-size: 11px; color: #475569; margin-top: 3px;">${esc(l)}</div>`).join('');
+
+    const recipientLines = [
+      profile?.address || '',
+      profile?.phone || order.subcontractorPhone || '',
+      [profile?.ice ? `ICE : ${profile.ice}` : '', profile?.rc ? `RC : ${profile.rc}` : ''].filter(Boolean).join(' · '),
+    ].filter(Boolean).map(l => `<div style="font-size: 11px; color: #475569; margin-top: 3px;">${esc(l)}</div>`).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${esc(tx(lang,{fr:'Facture Sous-traitance',ar:'فاتورة المقاولة من الباطن',en:'Subcontract Invoice',es:'Factura de Subcontratación',pt:'Fatura de Subcontratação',tr:'Taşeron Faturası'}))} - ${esc(order.modelName || order.modelId)}</title>
+          <style>
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; padding: 40px; line-height: 1.5; font-size: 13px; }
+            .invoice-box { max-width: 820px; margin: auto; }
+            .header { display: flex; justify-content: space-between; border-bottom: 3px solid #6366f1; padding-bottom: 20px; margin-bottom: 30px; }
+            .logo { font-size: 24px; font-weight: 900; color: #1e1b4b; }
+            .meta-section { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+            .box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; }
+            .box-title { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 800; }
+            .box-val { font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 4px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th { background: #f1f5f9; padding: 12px; text-align: left; font-size: 11px; color: #475569; font-weight: 800; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
+            td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+            .total-table { width: 300px; margin-left: auto; }
+            .total-table td { padding: 8px 12px; border: none; }
+            .total-row { font-weight: 900; color: #4f46e5; font-size: 16px; border-top: 2px solid #cbd5e1 !important; }
+            .signatures { display: flex; justify-content: space-between; margin-top: 70px; }
+            .sig-box { width: 240px; border-top: 2px dashed #cbd5e1; text-align: center; padding-top: 10px; font-size: 11px; color: #475569; font-weight: 800; }
+            .footer { margin-top: 40px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body onload="window.print()">
+          <div class="invoice-box">
+            <div class="header">
+              <div>
+                <div class="logo">BeraMéthode</div>
+                <div style="font-size: 12px; color: #64748b; font-weight: 600;">${esc(tx(lang,{fr:'ERP de Production & Confection Textile',ar:'ERP للإنتاج وصناعة الخياطة النسيجية',en:'ERP for Textile Production & Garment Manufacturing',es:'ERP de Producción y Confección Textil',pt:'ERP de Produção e Confecção Têxtil',tr:'Tekstil Üretimi ve Konfeksiyon için ERP'}))}</div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 18px; font-weight: 900; color: #4f46e5;">${esc(tx(lang,{fr:'FACTURE SOUS-TRAITANCE',ar:'فاتورة المقاولة من الباطن',en:'SUBCONTRACT INVOICE',es:'FACTURA DE SUBCONTRATACIÓN',pt:'FATURA DE SUBCONTRATAÇÃO',tr:'TAŞERON FATURASI'}))}</div>
+                <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-top: 4px;">REF: FS-${esc(order.id.slice(0, 8).toUpperCase())}</div>
+                <div style="font-size: 11px; font-weight: 700; color: #64748b;">${esc(new Date().toLocaleDateString(dateLocale))}</div>
+              </div>
+            </div>
+
+            <div class="meta-section">
+              <div class="box">
+                <div class="box-title">${esc(tx(lang,{fr:'Émetteur',ar:'المصدر',en:'Issuer',es:'Emisor',pt:'Emitente',tr:'Düzenleyen'}))}</div>
+                <div class="box-val">${esc(companyIdentity.nom || tx(lang,{fr:'Entreprise non renseignée',ar:'الشركة غير محدَّدة',en:'Company not set',es:'Empresa no indicada',pt:'Empresa não indicada',tr:'Şirket belirtilmedi'}))}</div>
+                ${issuerLines}
+              </div>
+              <div class="box">
+                <div class="box-title">${esc(tx(lang,{fr:'Sous-traitant (bénéficiaire)',ar:'المقاول من الباطن (المستفيد)',en:'Subcontractor (payee)',es:'Subcontratista (beneficiario)',pt:'Subcontratado (beneficiário)',tr:'Taşeron (alacaklı)'}))}</div>
+                <div class="box-val">${esc(order.subcontractorName)}</div>
+                ${recipientLines}
+              </div>
+            </div>
+
+            ${partialNotice}
+
+            <table>
+              <thead>
+                <tr>
+                  <th>${esc(tx(lang,{fr:'Désignation',ar:'البيان',en:'Description',es:'Designación',pt:'Designação',tr:'Açıklama'}))}</th>
+                  <th style="text-align: right;">${esc(tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'}))}</th>
+                  <th style="text-align: right;">${esc(tx(lang,{fr:'Prix Unitaire',ar:'السعر الوحدة',en:'Unit Price',es:'Precio Unitario',pt:'Preço Unitário',tr:'Birim Fiyat'}))}</th>
+                  <th style="text-align: right;">${esc(tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'}))}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${lineRows.join('')}
+              </tbody>
+            </table>
+
+            <table class="total-table">
+              <tr>
+                <td style="color: #64748b;">${esc(tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}))}</td>
+                <td style="text-align: right; font-weight: 700;">${money(inv.faconTotal)}</td>
+              </tr>
+              ${inv.isFacon ? `
+              <tr>
+                <td style="color: #64748b;">${esc(tx(lang,{fr:'Matières',ar:'المواد',en:'Materials',es:'Materiales',pt:'Materiais',tr:'Malzemeler'}))}</td>
+                <td style="text-align: right; font-weight: 700;">${money(inv.materialsTotal)}</td>
+              </tr>` : ''}
+              <tr>
+                <td style="color: #64748b;">${esc(tx(lang,{fr:'Frais additionnels',ar:'مصاريف إضافية',en:'Additional expenses',es:'Gastos adicionales',pt:'Despesas adicionais',tr:'Ek masraflar'}))}</td>
+                <td style="text-align: right; font-weight: 700;">${money(inv.expensesTotal)}</td>
+              </tr>
+              <tr class="total-row">
+                <td>${esc(tx(lang,{fr:'TOTAL À PAYER',ar:'المجموع الواجب أداؤه',en:'TOTAL DUE',es:'TOTAL A PAGAR',pt:'TOTAL A PAGAR',tr:'ÖDENECEK TOPLAM'}))}</td>
+                <td style="text-align: right;">${money(inv.total)}</td>
+              </tr>
+            </table>
+
+            <div class="signatures">
+              <div class="sig-box">${esc(tx(lang,{fr:'Atelier donneur d\'ordre',ar:'الورشة صاحبة الطلب',en:'Ordering workshop',es:'Taller ordenante',pt:'Oficina mandante',tr:'Sipariş veren atölye'}))}</div>
+              <div class="sig-box">${esc(tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'}))}</div>
+            </div>
+
+            <div class="footer">
+              ${esc(tx(lang,{fr:'Document généré électroniquement et valable sans signature.',ar:'مستند تم إنشاؤه إلكترونياً وصالح بدون توقيع.',en:'Electronically generated document valid without signature.',es:'Documento generado electrónicamente y válido sin firma.',pt:'Documento gerado eletronicamente e válido sem assinatura.',tr:'Elektronik olarak oluşturulmuş, imzasız geçerli belge.'}))}
+            </div>
           </div>
         </body>
       </html>
@@ -2962,6 +3564,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
 
+              <CoupeLocationField lang={lang} value={formCoupeLocation} onChange={setFormCoupeLocation} />
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Tarif par pièce (MAD)',ar:'سعر القطعة (MAD)',en:'Price per piece (MAD)',es:'Precio por pieza (MAD)',pt:'Preço por peça (MAD)',tr:'Birim fiyat (MAD)'})}</label>
@@ -3120,6 +3724,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     </div>
                   </div>
 
+                  <CoupeLocationField lang={lang} value={formCoupeLocation} onChange={setFormCoupeLocation} />
+
                   {/* Grid matrix colors & sizes */}
                   <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 bg-slate-50 dark:bg-dk-surface/50 space-y-4">
                     <div className="flex justify-between items-center flex-wrap gap-2">
@@ -3236,7 +3842,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                   className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
                                 />
                               </td>
-                              <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(r.cost)} MAD</td>
+                              <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">
+                                {fmt(r.cost)} MAD
+                                <MaterialPriceBadge source={r.priceSource} lang={lang} />
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -3417,6 +4026,25 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
 
+              {/* A : coupe interne — simple rappel opérationnel. AUCUNE liaison
+                  automatique avec le module Coupe n'existe : la vérification
+                  reste manuelle, et on ne promet pas le contraire. */}
+              {readCoupeLocation(detailOrder) === 'INTERNAL' && (
+                <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/25 border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span className="text-[11px] font-semibold leading-relaxed">
+                    {tx(lang,{
+                      fr:'Ce modèle est coupé en interne — vérifier son passage en Coupe avant expédition.',
+                      ar:'هاد الموديل كيتقطّع عندنا — تحقّق من مروره فالقص قبل الإرسال.',
+                      en:'This model is cut in-house — check that it went through Cutting before shipping.',
+                      es:'Este modelo se corta internamente — verifique su paso por Corte antes del envío.',
+                      pt:'Este modelo é cortado internamente — verifique a sua passagem pelo Corte antes da expedição.',
+                      tr:'Bu model şirket içinde kesiliyor — sevkiyattan önce Kesim aşamasından geçtiğini doğrulayın.',
+                    })}
+                  </span>
+                </div>
+              )}
+
               {/* Matières & Fournisseurs à prévoir — mode Façon uniquement (le client fournit la matière) */}
               {detailOrder.tissuFournisseur !== 'SUBCONTRACTOR' && (() => {
                 const rows = getFaconMaterialsNeeds(detailOrder, parseJsonSafe(detailOrder.materials_fournisseur_json, {} as Record<string, string>));
@@ -3446,7 +4074,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               <td className="px-4 py-2 text-center text-slate-500 dark:text-dk-muted">{fmt(r.stockActuel)} {r.unit}</td>
                               <td className={`px-4 py-2 text-center font-bold ${r.manque > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-300 dark:text-dk-muted'}`}>{fmt(r.manque)} {r.unit}</td>
                               <td className="px-4 py-2 text-center">{r.fournisseur || <span className="text-slate-300 dark:text-dk-muted">—</span>}</td>
-                              <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(r.cost)} MAD</td>
+                              <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">
+                                {fmt(r.cost)} MAD
+                                <MaterialPriceBadge source={r.priceSource} lang={lang} />
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -3455,6 +4086,149 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   </div>
                 );
               })()}
+
+              {/* ================================================================
+                  B — FRAIS ADDITIONNELS LIBRES
+                  Libellé 100% libre, montant, portée facultative. Toujours
+                  optionnels : leur absence n'est pas une anomalie.
+                  ================================================================ */}
+              <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border flex items-center justify-between gap-2 flex-wrap">
+                  <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
+                    {tx(lang,{fr:'Frais additionnels',ar:'مصاريف إضافية',en:'Additional expenses',es:'Gastos adicionales',pt:'Despesas adicionais',tr:'Ek masraflar'})}
+                  </h4>
+                  <span className="text-[9px] text-slate-400 dark:text-dk-muted font-semibold">
+                    {tx(lang,{fr:'Facultatifs — ils entrent dans le coût final du modèle',ar:'اختيارية — كتدخل فالتكلفة النهائية ديال الموديل',en:'Optional — they count in the final model cost',es:'Opcionales — entran en el coste final del modelo',pt:'Facultativas — entram no custo final do modelo',tr:'İsteğe bağlı — modelin nihai maliyetine girer'})}
+                  </span>
+                </div>
+
+                <div className="p-4 space-y-3">
+                  {expensesError && (
+                    <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span className="text-[10px] font-semibold leading-relaxed">{expensesError}</span>
+                    </div>
+                  )}
+
+                  {expensesLoading ? (
+                    <div className="flex items-center gap-2 text-slate-400 dark:text-dk-muted text-[11px] font-semibold py-1">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>{tx(lang,{fr:'Chargement des frais…',ar:'جاري تحميل المصاريف…',en:'Loading expenses…',es:'Cargando gastos…',pt:'A carregar despesas…',tr:'Masraflar yükleniyor…'})}</span>
+                    </div>
+                  ) : orderExpenses.length === 0 ? (
+                    !expensesError && (
+                      <p className="text-[11px] text-slate-400 dark:text-dk-muted italic">
+                        {tx(lang,{fr:'Aucun frais additionnel enregistré pour cette commande.',ar:'ما كاين حتى مصروف إضافي مسجّل لهاد الطلبية.',en:'No additional expense recorded for this order.',es:'Ningún gasto adicional registrado para este pedido.',pt:'Nenhuma despesa adicional registada para esta encomenda.',tr:'Bu sipariş için kayıtlı ek masraf yok.'})}
+                      </p>
+                    )
+                  ) : (
+                    <ul className="divide-y divide-slate-100 dark:divide-dk-border">
+                      {orderExpenses.map(exp => (
+                        <li key={exp.id} className="flex items-center gap-3 py-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-slate-700 dark:text-dk-text-soft truncate">{exp.label}</p>
+                            <p className="text-[10px] text-slate-400 dark:text-dk-muted">
+                              {exp.quantity_scope == null
+                                ? tx(lang,{fr:'Toute la commande',ar:'الطلبية كاملة',en:'Whole order',es:'Todo el pedido',pt:'Toda a encomenda',tr:'Tüm sipariş'})
+                                : `${exp.quantity_scope.toLocaleString()} pcs ${tx(lang,{fr:'sur',ar:'من',en:'of',es:'de',pt:'de',tr:'/'})} ${detailOrder.totalQuantity.toLocaleString()}`}
+                            </p>
+                          </div>
+                          <span className="font-bold text-slate-700 dark:text-dk-text-soft shrink-0">{fmt(exp.amount)} {currency}</span>
+                          <button
+                            type="button"
+                            disabled={expenseSaving}
+                            onClick={() => handleDeleteExpense(detailOrder, exp.id)}
+                            title={tx(lang,{fr:'Supprimer ce frais',ar:'حذف هاد المصروف',en:'Delete this expense',es:'Eliminar este gasto',pt:'Eliminar esta despesa',tr:'Bu masrafı sil'})}
+                            className="p-1.5 rounded-lg text-rose-500 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40 shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* Formulaire d'ajout inline */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-dk-border space-y-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
+                      <div className="sm:col-span-3 space-y-1">
+                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                          {tx(lang,{fr:'Libellé',ar:'التسمية',en:'Label',es:'Etiqueta',pt:'Rótulo',tr:'Etiket'})}
+                        </label>
+                        <input
+                          type="text"
+                          value={expenseLabel}
+                          onChange={(e) => setExpenseLabel(e.target.value)}
+                          placeholder={tx(lang,{fr:'Transport, patronage, repassage…',ar:'نقل، باترون، تصفيح…',en:'Transport, pattern making, ironing…',es:'Transporte, patronaje, planchado…',pt:'Transporte, modelagem, engomadoria…',tr:'Nakliye, kalıp, ütü…'})}
+                          className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-2 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        />
+                      </div>
+                      <div className="sm:col-span-2 space-y-1">
+                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                          {tx(lang,{fr:'Montant',ar:'المبلغ',en:'Amount',es:'Importe',pt:'Montante',tr:'Tutar'})} ({currency})
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={expenseAmount}
+                          onChange={(e) => setExpenseAmount(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))}
+                          className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-2 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-end gap-2.5">
+                      <div className="flex rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden">
+                        {([
+                          { key: 'ALL' as const, label: tx(lang,{fr:'Toute la commande',ar:'الطلبية كاملة',en:'Whole order',es:'Todo el pedido',pt:'Toda a encomenda',tr:'Tüm sipariş'}) },
+                          { key: 'PARTIAL' as const, label: tx(lang,{fr:'Quantité partielle',ar:'كمية جزئية',en:'Partial quantity',es:'Cantidad parcial',pt:'Quantidade parcial',tr:'Kısmi miktar'}) },
+                        ]).map(opt => (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => setExpenseScopeMode(opt.key)}
+                            className={`px-3 py-2 text-[10px] font-bold transition-colors ${expenseScopeMode === opt.key ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text' : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {expenseScopeMode === 'PARTIAL' && (
+                        <input
+                          type="number"
+                          min={1}
+                          max={detailOrder.totalQuantity}
+                          value={expenseQuantityScope}
+                          onChange={(e) => setExpenseQuantityScope(e.target.value === '' ? '' : Math.min(detailOrder.totalQuantity, Math.max(1, parseInt(e.target.value) || 1)))}
+                          placeholder={`1 – ${detailOrder.totalQuantity}`}
+                          className="w-28 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-2 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        />
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={expenseSaving}
+                        onClick={() => handleAddExpense(detailOrder)}
+                        className="ml-auto bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-4 py-2 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 disabled:opacity-60 border border-indigo-600 dark:border-dk-accent"
+                      >
+                        {expenseSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                        <span>{tx(lang,{fr:'Ajouter le frais',ar:'إضافة المصروف',en:'Add expense',es:'Añadir gasto',pt:'Adicionar despesa',tr:'Masraf ekle'})}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-dk-border">
+                    <span className="font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide text-[10px]">
+                      {tx(lang,{fr:'Total des frais',ar:'مجموع المصاريف',en:'Total expenses',es:'Total de gastos',pt:'Total das despesas',tr:'Toplam masraf'})}
+                    </span>
+                    <span className="font-extrabold text-slate-800 dark:text-dk-text">
+                      {fmt(orderExpenses.reduce((a, e) => a + e.amount, 0))} {currency}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
               {/* Quantity analysis details */}
               <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-3 bg-slate-50 dark:bg-dk-surface/50">
@@ -3501,7 +4275,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <Printer className="w-4 h-4" />
                 <span>{tx(lang,{fr:"Imprimer Bon d'Envoi",ar:'طباعة مذكرة الإرسال',en:'Print Delivery Note',es:'Imprimir Nota de Envío',pt:'Imprimir Nota de Remessa',tr:'Sevk İrsaliyesi Yazdır'})}</span>
               </button>
-              <button 
+              <button
+                onClick={() => openCostInvoiceModal(detailOrder)}
+                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-none transition-all"
+                title={tx(lang,{fr:'Facture de ce que vous devez payer au sous-traitant',ar:'فاتورة ديال اللي خاصك تخلّص للمقاول من الباطن',en:'Invoice of what you owe the subcontractor',es:'Factura de lo que debe pagar al subcontratista',pt:'Fatura do que deve pagar ao subcontratado',tr:'Taşerona ödemeniz gerekenin faturası'})}
+              >
+                <Coins className="w-4 h-4" />
+                <span>{tx(lang,{fr:'Facturer',ar:'فوترة',en:'Invoice',es:'Facturar',pt:'Faturar',tr:'Faturala'})}</span>
+              </button>
+              <button
                 onClick={() => setIsDetailModalOpen(false)}
                 className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow dark:shadow-dk-sm transition-all border border-indigo-600 dark:border-dk-accent"
               >
@@ -3511,6 +4293,208 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           </div>
         </div>
       )}
+
+      {/* ======================================= */}
+      {/* C — FACTURE SOUS-TRAITANCE (À PAYER)   */}
+      {/* Distincte de la facture de VENTE : ici */}
+      {/* on facture ce que VOUS devez au        */}
+      {/* sous-traitant pour cette commande.     */}
+      {/* ======================================= */}
+      {isCostInvoiceModalOpen && costInvoiceOrder && (() => {
+        const order = costInvoiceOrder;
+        const inv = buildCostInvoice(order, Number(costInvoiceQty) || 0);
+        const identityIncomplete = !companyIdentity.nom || !companyIdentity.ice;
+        return (
+          <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-4 overflow-y-auto">
+            <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
+                <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
+                  <Coins className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
+                  <span>{tx(lang,{fr:'Facture de sous-traitance (à payer)',ar:'فاتورة المقاولة من الباطن (للأداء)',en:'Subcontract invoice (payable)',es:'Factura de subcontratación (a pagar)',pt:'Fatura de subcontratação (a pagar)',tr:'Taşeron faturası (ödenecek)'})}</span>
+                </h2>
+                <button onClick={() => setIsCostInvoiceModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
+                  <div className="min-w-0">
+                    <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'})}</span>
+                    <span className="font-bold text-slate-800 dark:text-dk-text block truncate">{order.subcontractorName}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}</span>
+                    <span className="font-bold text-slate-800 dark:text-dk-text block truncate">{order.modelName || order.modelId}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Quantité commandée',ar:'الكمية المطلوبة',en:'Ordered quantity',es:'Cantidad pedida',pt:'Quantidade encomendada',tr:'Sipariş miktarı'})}</span>
+                    <span className="font-bold text-slate-800 dark:text-dk-text">{order.totalQuantity.toLocaleString()} pcs</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                    {tx(lang,{fr:'Quantité à facturer',ar:'الكمية المراد فوترتها',en:'Quantity to invoice',es:'Cantidad a facturar',pt:'Quantidade a faturar',tr:'Faturalanacak miktar'})}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={order.totalQuantity}
+                    value={costInvoiceQty}
+                    onChange={(e) => setCostInvoiceQty(
+                      e.target.value === ''
+                        ? ''
+                        : Math.min(order.totalQuantity, Math.max(1, parseInt(e.target.value) || 1))
+                    )}
+                    className="w-full sm:w-56 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white"
+                  />
+                  {inv.isPartial && (
+                    <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+                      {tx(lang,{
+                        fr:`Facturation partielle : ${inv.qty} sur ${order.totalQuantity} pièces.`,
+                        ar:`فوترة جزئية: ${inv.qty} من ${order.totalQuantity} قطعة.`,
+                        en:`Partial invoicing: ${inv.qty} of ${order.totalQuantity} pieces.`,
+                        es:`Facturación parcial: ${inv.qty} de ${order.totalQuantity} piezas.`,
+                        pt:`Faturação parcial: ${inv.qty} de ${order.totalQuantity} peças.`,
+                        tr:`Kısmi faturalama: ${order.totalQuantity} adetten ${inv.qty} adet.`,
+                      })}
+                    </p>
+                  )}
+                </div>
+
+                {expensesError && (
+                  <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span className="text-[10px] font-semibold leading-relaxed">{expensesError}</span>
+                  </div>
+                )}
+
+                <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
+                    <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
+                      {tx(lang,{fr:'Détail de la facture',ar:'تفصيل الفاتورة',en:'Invoice breakdown',es:'Detalle de la factura',pt:'Detalhe da fatura',tr:'Fatura dökümü'})}
+                    </h4>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[11px]">
+                      <thead className="bg-white dark:bg-dk-surface text-slate-400 dark:text-dk-muted uppercase tracking-wide text-[9px] border-b border-slate-100 dark:border-dk-border">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-medium">{tx(lang,{fr:'Désignation',ar:'البيان',en:'Description',es:'Designación',pt:'Designação',tr:'Açıklama'})}</th>
+                          <th className="px-4 py-2 text-right font-medium">{tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
+                          <th className="px-4 py-2 text-right font-medium">{tx(lang,{fr:'P.U.',ar:'س.و.',en:'Unit',es:'P.U.',pt:'P.U.',tr:'B.F.'})}</th>
+                          <th className="px-4 py-2 text-right font-medium">{tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                        <tr>
+                          <td className="px-4 py-2 font-semibold text-slate-700 dark:text-dk-text-soft">
+                            {tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'})} — {order.modelName || order.modelId}
+                          </td>
+                          <td className="px-4 py-2 text-right">{inv.qty.toLocaleString()} pcs</td>
+                          <td className="px-4 py-2 text-right">{fmt(inv.unitPrice)} {currency}</td>
+                          <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(inv.faconTotal)} {currency}</td>
+                        </tr>
+
+                        {inv.materials.map(m => (
+                          <tr key={`mat-${m.id}`}>
+                            <td className="px-4 py-2 text-slate-600 dark:text-dk-text-soft">
+                              {tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'})} — {m.name}
+                              <MaterialPriceBadge source={m.priceSource} lang={lang} />
+                            </td>
+                            <td className="px-4 py-2 text-right">{fmt(m.buyQty)} {m.unit}</td>
+                            <td className="px-4 py-2 text-right">{fmt(m.unitPrice)} {currency}</td>
+                            <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(m.cost)} {currency}</td>
+                          </tr>
+                        ))}
+
+                        {inv.expenses.map(({ expense, applied }) => (
+                          <tr key={`exp-${expense.id}`}>
+                            <td className="px-4 py-2 text-slate-600 dark:text-dk-text-soft">
+                              {tx(lang,{fr:'Frais',ar:'مصروف',en:'Expense',es:'Gasto',pt:'Despesa',tr:'Masraf'})} — {expense.label}
+                              <span className="block text-[9px] text-slate-400 dark:text-dk-muted">
+                                {expense.quantity_scope == null
+                                  ? tx(lang,{fr:'Toute la commande',ar:'الطلبية كاملة',en:'Whole order',es:'Todo el pedido',pt:'Toda a encomenda',tr:'Tüm sipariş'})
+                                  : `${expense.quantity_scope.toLocaleString()} pcs`}
+                                {applied < expense.amount - 0.005 && (
+                                  <> · {tx(lang,{fr:'au prorata',ar:'بالتناسب',en:'pro rata',es:'a prorrata',pt:'pro rata',tr:'orantılı'})} ({fmt(expense.amount)} {currency})</>
+                                )}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-right text-slate-300 dark:text-dk-muted">—</td>
+                            <td className="px-4 py-2 text-right text-slate-300 dark:text-dk-muted">—</td>
+                            <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(applied)} {currency}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-slate-50 dark:bg-dk-bg/60 border-t border-slate-200 dark:border-dk-border">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-3 font-bold uppercase tracking-wide text-[10px] text-slate-600 dark:text-dk-text-soft">
+                            {tx(lang,{fr:'Total à payer',ar:'المجموع الواجب أداؤه',en:'Total due',es:'Total a pagar',pt:'Total a pagar',tr:'Ödenecek toplam'})}
+                          </td>
+                          <td className="px-4 py-3 text-right font-extrabold text-indigo-600 dark:text-dk-accent text-sm">{fmt(inv.total)} {currency}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Identité de l'entreprise — LECTURE SEULE. L'édition vit dans
+                    Admin > Entreprise : une seconde saisie ici ferait diverger
+                    l'ICE d'une facture à l'autre. */}
+                <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
+                    <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
+                      {tx(lang,{fr:'Infos entreprise (en-tête de la facture)',ar:'معلومات الشركة (رأس الفاتورة)',en:'Company info (invoice header)',es:'Datos de la empresa (encabezado)',pt:'Dados da empresa (cabeçalho)',tr:'Şirket bilgileri (fatura başlığı)'})}
+                    </h4>
+                  </div>
+                  <div className="p-4 space-y-1.5">
+                    <p className="font-bold text-slate-800 dark:text-dk-text">
+                      {companyIdentity.nom || <span className="text-slate-400 dark:text-dk-muted font-semibold italic">{tx(lang,{fr:'Raison sociale non renseignée',ar:'الاسم التجاري غير محدَّد',en:'Company name not set',es:'Razón social no indicada',pt:'Razão social não indicada',tr:'Ticari unvan girilmedi'})}</span>}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-dk-muted">
+                      {[companyIdentity.ice && `ICE : ${companyIdentity.ice}`, companyIdentity.rc && `RC : ${companyIdentity.rc}`].filter(Boolean).join(' · ') || '—'}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-dk-muted">
+                      {[companyIdentity.adresse, companyIdentity.tel].filter(Boolean).join(' · ') || '—'}
+                    </p>
+                    {identityIncomplete && (
+                      <p className="text-[10px] text-slate-400 dark:text-dk-muted italic pt-1">
+                        {tx(lang,{
+                          fr:'Complétez les informations légales dans Admin > Entreprise pour les faire apparaître ici.',
+                          ar:'كمّل المعلومات القانونية ف Admin > Entreprise باش تبان هنا.',
+                          en:'Complete the legal information in Admin > Company to have it appear here.',
+                          es:'Complete la información legal en Admin > Empresa para que aparezca aquí.',
+                          pt:'Complete as informações legais em Admin > Empresa para que apareçam aqui.',
+                          tr:'Burada görünmesi için yasal bilgileri Admin > Şirket bölümünde tamamlayın.',
+                        })}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-6 py-4 flex gap-3 justify-end text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setIsCostInvoiceModalOpen(false)}
+                  className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                >
+                  {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePrintCostInvoice(order, inv.qty)}
+                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>{tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ======================================= */}
       {/* SALE INVOICE MODAL (TAB 3 ACTION) */}
