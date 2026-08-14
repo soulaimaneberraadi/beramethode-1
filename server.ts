@@ -13,11 +13,11 @@ import { logAudit } from './server/auditLogger';
 import { getSetupStatus, initSetup } from './server/setupController';
 import { listWorkspaces, createWorkspace, switchWorkspace } from './server/workspacesController';
 import { verifyLicenseProxy } from './server/licenseController';
-import { reportError, getReports, resolveReport } from './server/errorController';
+import { reportError } from './server/errorController';
 import { getAllUsers, updateUserRole, deleteUser, isAdmin } from './server/userController';
 import {
   getMyPermissions, listRoles, createRole, deleteRole,
-  getRolePermissions, setRolePermissions, setOverride,
+  getRolePermissions, setRolePermissions,
   listMembers, addMember, removeMember,
   getCompanyInfo, updateCompanyInfo,
 } from './server/permissionsController';
@@ -46,18 +46,15 @@ import {
   deleteMaterialReceipt,
   getInventoryMovements,
   saveInventoryMovement,
-  deleteInventoryMovement,
   saveMaterialInvoice,
   getMaterialInvoices,
   serveMaterialInvoice,
-  deleteMaterialInvoice,
 } from './server/magasinController';
 import {
   getFinishedGoods,
   saveFinishedGood,
   deleteFinishedGood,
   createFromCloture,
-  getFinishedGoodMovements,
   getAllFinishedGoodMovements,
   saveFinishedGoodMovement,
   deleteFinishedGoodMovement,
@@ -75,23 +72,15 @@ import {
   getSubcontractorProfiles,
   saveSubcontractorProfile,
   deleteSubcontractorProfile,
-  getSubcontractEntries,
-  createSubcontractEntry,
-  updateSubcontractEntry,
-  deleteSubcontractEntry,
-  getSubcontractExpenses,
-  createSubcontractExpense,
-  updateSubcontractExpense,
-  deleteSubcontractExpense
 } from './server/subcontractController';
-import { getSuiviData, saveSuiviData, getSuiviStats } from './server/suiviController';
-import { getPosteSuivi, savePosteSuivi, deletePosteSuivi } from './server/posteSuiviController';
-import { getDemandesAppro, saveDemandesAppro, updateDemandeApproStatut } from './server/demandesApproController';
-import { getWorkerSkills, saveWorkerSkill, deleteWorkerSkill, updateSkillFromSuivi } from './server/workerSkillsController';
-import { getPointage, savePointage, bulkSavePointage, deletePointage, getWorkerActivity, exportPointageMensuel } from './server/workerPointageController';
+import { getSuiviData, saveSuiviData } from './server/suiviController';
+import { getPosteSuivi, savePosteSuivi } from './server/posteSuiviController';
+import { getDemandesAppro, saveDemandesAppro } from './server/demandesApproController';
+import { getWorkerSkills, saveWorkerSkill, deleteWorkerSkill } from './server/workerSkillsController';
+import { getPointage, savePointage, exportPointageMensuel } from './server/workerPointageController';
 import {
   getHRWorkers, getHRWorkerDossier, getHRWorkerById, saveHRWorker, deleteHRWorker,
-  getHRPointage, saveHRPointage, validateHRPointage,
+  getHRPointage, saveHRPointage,
   getHRProduction, saveHRProduction,
   getHRAvances, saveHRAvance, updateHRAvanceStatut,
   getWorkerByCin, getWorkerPointageToday, getWorkerProductionToday,
@@ -126,7 +115,7 @@ import { forcePushNow, supabaseSyncMiddleware, logSupabaseSyncStatus, startSupab
 import { dataChangeNotifier } from './server/eventBus';
 import {
   getActivityRates, saveActivityRate,
-  getLearningCurves, saveLearningCurve, deleteLearningCurve,
+  getLearningCurves, saveLearningCurve,
   getCrisisAlerts, saveCrisisAlert, updateCrisisAlert,
   updateAllCR
 } from './server/schedulingController';
@@ -134,8 +123,7 @@ import {
   getChronoSessions,
   createChronoSession,
   updateChronoSession,
-  deleteChronoSession,
-  batchSaveChronoSessions
+  deleteChronoSession
 } from './server/chronoController';
 import {
   getCatalogEntries,
@@ -581,18 +569,6 @@ async function startServer() {
 
   // ── Rapports de crash (Desktop Foundation) ──
   app.post('/api/errors/report', reportError);
-  app.get('/api/errors/reports', authenticateToken, (req, res, next) => {
-    if ((req as any).user?.role !== 'admin') {
-      return res.status(403).json({ message: 'Réservé aux administrateurs' });
-    }
-    next();
-  }, getReports);
-  app.put('/api/errors/reports/:id/resolve', authenticateToken, (req, res, next) => {
-    if ((req as any).user?.role !== 'admin') {
-      return res.status(403).json({ message: 'Réservé aux administrateurs' });
-    }
-    next();
-  }, resolveReport);
 
   app.get('/api/models', authenticateToken, requirePermission('page', 'ingenierie', 'view'), getModels);
   app.post('/api/models', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), saveModel);
@@ -610,8 +586,6 @@ async function startServer() {
   app.get('/api/material-receipts', authenticateToken, requirePermission('page', 'magasin', 'view'), getMaterialReceipts);
   app.post('/api/material-receipts', authenticateToken, requirePermission('page', 'magasin', 'edit'), saveMaterialReceipt);
   app.delete('/api/material-receipts/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), ownershipGuard('material_receipts', 'owner_id'), deleteMaterialReceipt);
-  app.delete('/api/material-invoices/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), ownershipGuard('material_invoices', 'owner_id'), deleteMaterialInvoice);
-  app.delete('/api/inventory-movements/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), ownershipGuard('inventory_movements', 'owner_id'), deleteInventoryMovement);
   app.delete('/api/magasin/commandes/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), ownershipGuard('magasin_commandes', 'owner_id'), deleteMagasinCommande);
   app.delete('/api/magasin/demandes/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), ownershipGuard('magasin_demandes', 'owner_id'), deleteMagasinDemande);
   app.delete('/api/magasin/dechets/:id', authenticateToken, requirePermission('page', 'magasin', 'edit'), ownershipGuard('magasin_dechets', 'owner_id'), deleteMagasinDechet);
@@ -622,7 +596,6 @@ async function startServer() {
   app.post('/api/finished-goods/cloture', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'edit'), createFromCloture);
   app.get('/api/finished-goods/mouvements', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'view'), getAllFinishedGoodMovements);
   app.post('/api/finished-goods/mouvements', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'edit'), saveFinishedGoodMovement);
-  app.get('/api/finished-goods/:fgId/mouvements', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'view'), getFinishedGoodMovements);
   app.delete('/api/finished-goods/mouvements/:id', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'edit'), ownershipGuard('finished_goods_movements', 'owner_id'), deleteFinishedGoodMovement);
   app.delete('/api/finished-goods/:id', authenticateToken, requirePermission('page', ['magasin', 'atelierProd'], 'edit'), ownershipGuard('finished_goods_stock', 'owner_id'), deleteFinishedGood);
 
@@ -644,7 +617,6 @@ async function startServer() {
   app.delete('/api/permissions/roles/:id', authenticateToken, deleteRole);
   app.get('/api/permissions/roles/:id/perms', authenticateToken, getRolePermissions);
   app.put('/api/permissions/roles/:id/perms', authenticateToken, setRolePermissions);
-  app.put('/api/permissions/overrides/:userId', authenticateToken, setOverride);
   app.get('/api/permissions/members', authenticateToken, listMembers);
   app.post('/api/permissions/members', authenticateToken, addMember);
   app.delete('/api/permissions/members/:userId', authenticateToken, removeMember);
@@ -676,40 +648,25 @@ async function startServer() {
   app.get('/api/subcontract/profiles', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractorProfiles);
   app.post('/api/subcontract/profiles', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveSubcontractorProfile);
   app.delete('/api/subcontract/profiles/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontractor_profiles', 'owner_id'), deleteSubcontractorProfile);
-  app.get('/api/subcontract/entries', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractEntries);
-  app.post('/api/subcontract/entries', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createSubcontractEntry);
-  app.put('/api/subcontract/entries/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), updateSubcontractEntry);
-  app.delete('/api/subcontract/entries/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteSubcontractEntry);
-  app.get('/api/subcontract/expenses', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractExpenses);
-  app.post('/api/subcontract/expenses', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createSubcontractExpense);
-  app.put('/api/subcontract/expenses/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), updateSubcontractExpense);
-  app.delete('/api/subcontract/expenses/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteSubcontractExpense);
 
   app.get('/api/suivi', authenticateToken, requirePermission('page', 'suivi', 'view'), getSuiviData);
   app.post('/api/suivi', authenticateToken, requirePermission('page', 'suivi', 'edit'), saveSuiviData);
-  app.get('/api/suivi/stats', authenticateToken, requirePermission('page', 'suivi', 'view'), getSuiviStats);
 
   app.get('/api/poste-suivi', authenticateToken, requirePermission('page', 'suivi', 'view'), getPosteSuivi);
   app.post('/api/poste-suivi', authenticateToken, requirePermission('page', 'suivi', 'edit'), savePosteSuivi);
-  app.delete('/api/poste-suivi/:id', authenticateToken, requirePermission('page', 'suivi', 'edit'), ownershipGuard('poste_suivi', 'owner_id'), deletePosteSuivi);
 
   app.get('/api/demandes-appro', authenticateToken, requirePermission('page', 'magasin', 'view'), getDemandesAppro);
   app.post('/api/demandes-appro', authenticateToken, requirePermission('page', 'magasin', 'edit'), saveDemandesAppro);
-  app.put('/api/demandes-appro/:id/statut', authenticateToken, requirePermission('page', 'magasin', 'edit'), updateDemandeApproStatut);
 
   // Phase 5 — Effectifs
   // Les employés sont servis exclusivement par /api/hr/workers (table hr_workers).
   app.get('/api/worker-skills', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getWorkerSkills);
   app.post('/api/worker-skills', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), saveWorkerSkill);
   app.delete('/api/worker-skills/:id', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), ownershipGuard('worker_skills', 'owner_id'), deleteWorkerSkill);
-  app.post('/api/worker-skills/auto-update', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), updateSkillFromSuivi);
 
   app.get('/api/worker-pointage', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getPointage);
   app.get('/api/worker-pointage/export', authenticateToken, requirePermission('page', 'gestionRh', 'view'), exportPointageMensuel);
-  app.get('/api/worker-pointage/activity', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getWorkerActivity);
   app.post('/api/worker-pointage', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), savePointage);
-  app.post('/api/worker-pointage/bulk', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), bulkSavePointage);
-  app.delete('/api/worker-pointage/:id', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), ownershipGuard('worker_pointage', 'owner_id'), deletePointage);
 
   // Phase 5 — HR Full Module
   app.get('/api/hr/workers', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getHRWorkers);
@@ -723,7 +680,6 @@ async function startServer() {
 
   app.get('/api/hr/pointage', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getHRPointage);
   app.post('/api/hr/pointage', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), saveHRPointage);
-  app.post('/api/hr/pointage/validate', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), validateHRPointage);
 
   app.get('/api/hr/production', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getHRProduction);
   app.post('/api/hr/production', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), saveHRProduction);
@@ -778,7 +734,6 @@ async function startServer() {
   app.post('/api/scheduling/activity-rates', authenticateToken, requirePermission('page', 'planning', 'edit'), saveActivityRate);
   app.get('/api/scheduling/learning-curves', authenticateToken, requirePermission('page', 'planning', 'view'), getLearningCurves);
   app.post('/api/scheduling/learning-curves', authenticateToken, requirePermission('page', 'planning', 'edit'), saveLearningCurve);
-  app.delete('/api/scheduling/learning-curves/:id', authenticateToken, requirePermission('page', 'planning', 'edit'), ownershipGuard('learning_curve_profiles', 'owner_id'), deleteLearningCurve);
   app.get('/api/scheduling/crisis-alerts', authenticateToken, requirePermission('page', 'planning', 'view'), getCrisisAlerts);
   app.post('/api/scheduling/crisis-alerts', authenticateToken, requirePermission('page', 'planning', 'edit'), saveCrisisAlert);
   app.put('/api/scheduling/crisis-alerts/:id', authenticateToken, requirePermission('page', 'planning', 'edit'), updateCrisisAlert);
@@ -789,7 +744,6 @@ async function startServer() {
   app.post('/api/chrono/sessions', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), createChronoSession);
   app.put('/api/chrono/sessions/:id', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), updateChronoSession);
   app.delete('/api/chrono/sessions/:id', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), ownershipGuard('chrono_sessions', 'owner_id'), deleteChronoSession);
-  app.post('/api/chrono/sessions/batch', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), batchSaveChronoSessions);
 
   // Catalogue de Temps
   app.get('/api/catalog/entries', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'view'), getCatalogEntries);

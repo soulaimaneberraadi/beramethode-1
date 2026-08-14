@@ -532,14 +532,6 @@ export const saveHRPointage = (req: Request, res: Response) => {
     }
 };
 
-export const validateHRPointage = (req: Request, res: Response) => {
-    const companyId = (req as any).companyId;
-    try {
-        db.prepare(`UPDATE hr_pointage SET is_validated = 1 WHERE worker_id IN (SELECT id FROM hr_workers WHERE owner_id = ?) AND date = ?`).run(companyId, req.body.date);
-        res.json({message: 'Validé'});
-    } catch(e) { res.status(500).json({message: 'Error'}); }
-};
-
 // ==========================================
 // PRODUCTION
 // ==========================================

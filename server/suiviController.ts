@@ -92,8 +92,4 @@ export const saveSuiviData = (req: Request, res: Response) => {
 };
 
 // Simple Stats 
-export const getSuiviStats = (req: Request, res: Response) => {
-    const companyId = (req as any).companyId;
-    // Just a placeholder for P1
-    res.json({ message: "Stats endpoint available" });
-};
+

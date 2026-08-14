@@ -146,44 +146,4 @@ export const deleteChronoSession = (req: Request, res: Response) => {
 };
 
 // Batch save all sessions for a model (replaces all)
-export const batchSaveChronoSessions = (req: Request, res: Response) => {
-    const userId = (req as any).companyId ?? (req as any).user.id;
-    const { modelId, sessions } = req.body;
 
-    if (!modelId || !Array.isArray(sessions)) {
-        return res.status(400).json({ message: 'modelId and sessions array are required' });
-    }
-
-    try {
-        const transaction = db.transaction(() => {
-            // Delete existing sessions for this model
-            db.prepare('DELETE FROM chrono_sessions WHERE owner_id = ? AND model_id = ?').run(userId, modelId);
-
-            // Insert new sessions
-            const stmt = db.prepare(`
-                INSERT INTO chrono_sessions (id, owner_id, model_id, label, entries, op_names, total_temp_majore, gamme_type, order_source)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            `);
-
-            for (const s of sessions) {
-                stmt.run(
-                    s.id || `CS-${Date.now()}-${randomUUID().slice(0, 8)}`,
-                    userId,
-                    modelId,
-                    s.label,
-                    JSON.stringify(s.entries || {}),
-                    JSON.stringify(s.opNames || {}),
-                    s.totalTempMajore || 0,
-                    s.gammeType || 'default',
-                    s.orderSource || 'gamme'
-                );
-            }
-        });
-
-        transaction();
-        res.json({ success: true, count: sessions.length });
-    } catch (error) {
-        console.error('Batch save chrono sessions error:', error);
-        res.status(500).json({ message: 'Error batch saving chrono sessions' });
-    }
-};

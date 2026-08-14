@@ -55,8 +55,6 @@ const STORES: Record<string, StoreRef> = {
   subcontract:            { kind: 'ls', key: 'beramethode_subcontract_orders' },
   'subcontract/groups':   { kind: 'ls', key: 'beramethode_subcontract_groups' },
   'subcontract/profiles': { kind: 'ls', key: 'beramethode_subcontract_profiles' },
-  'subcontract/entries':  { kind: 'ls', key: 'beramethode_subcontract_entries' },
-  'subcontract/expenses': { kind: 'ls', key: 'beramethode_subcontract_expenses' },
 };
 
 // ─── Generic entity reader / writer ──────────────────────────────────────────

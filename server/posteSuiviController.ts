@@ -61,15 +61,4 @@ export const savePosteSuivi = (req: Request, res: Response) => {
 };
 
 // Delete
-export const deletePosteSuivi = (req: Request, res: Response) => {
-    const companyId = (req as any).companyId;
-    const id = req.params.id;
 
-    try {
-        const stmt = db.prepare('DELETE FROM poste_suivi WHERE id = ? AND owner_id = ?');
-        stmt.run(id, companyId);
-        res.json({ message: 'Poste_suivi deleted' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error deleting poste_suivi' });
-    }
-};

@@ -55,58 +55,6 @@ export const savePointage = (req: Request, res: Response) => {
     }
 };
 
-export const bulkSavePointage = (req: Request, res: Response) => {
-    const userId = (req as any).companyId ?? (req as any).user.id;
-    const { entries } = req.body;
-    if (!Array.isArray(entries)) {
-        return res.status(400).json({ message: 'entries array required' });
-    }
-    try {
-        const stmt = db.prepare(`
-            INSERT INTO worker_pointage
-            (id, owner_id, worker_id, date, chaine, poste_assigned, status, heure_entree, heure_sortie, heures_travaillees, heures_supp_25, heures_supp_50, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(worker_id, date) DO UPDATE SET
-              chaine=excluded.chaine, poste_assigned=excluded.poste_assigned, status=excluded.status,
-              heure_entree=excluded.heure_entree, heure_sortie=excluded.heure_sortie,
-              heures_travaillees=excluded.heures_travaillees,
-              heures_supp_25=excluded.heures_supp_25, heures_supp_50=excluded.heures_supp_50,
-              notes=excluded.notes
-        `);
-        const tx = db.transaction(() => {
-            for (const p of entries) {
-                if (!p.id || !p.worker_id || !p.date) continue;
-                stmt.run(
-                    p.id, userId, p.worker_id, p.date,
-                    p.chaine || null, p.poste_assigned || null,
-                    p.status || 'PRESENT',
-                    p.heure_entree || null, p.heure_sortie || null,
-                    p.heures_travaillees ?? null,
-                    p.heures_supp_25 || 0, p.heures_supp_50 || 0,
-                    p.notes || null
-                );
-            }
-        });
-        tx();
-        res.json({ message: 'Bulk pointage saved', count: entries.length });
-    } catch (error) {
-        console.error('Bulk pointage error:', error);
-        res.status(500).json({ message: 'Error bulk saving pointage' });
-    }
-};
-
-export const deletePointage = (req: Request, res: Response) => {
-    const userId = (req as any).companyId ?? (req as any).user.id;
-    const { id } = req.params;
-    try {
-        db.prepare('DELETE FROM worker_pointage WHERE id = ? AND owner_id = ?').run(id, userId);
-        res.json({ message: 'Pointage deleted' });
-    } catch (error) {
-        console.error('Delete pointage error:', error);
-        res.status(500).json({ message: 'Error deleting pointage' });
-    }
-};
-
 /**
  * Export pointage mensuel → fichier Excel.
  * Query: ?mois=2026-05  (obligatoire, format YYYY-MM)
@@ -297,37 +245,3 @@ export const exportPointageMensuel = async (req: Request, res: Response) => {
     }
 };
 
-/**
- * Summary: presence stats for a worker over N days.
- * Query: ?workerId=xxx&days=30
- */
-export const getWorkerActivity = (req: Request, res: Response) => {
-    const userId = (req as any).companyId ?? (req as any).user.id;
-    const { workerId, days } = req.query as any;
-    if (!workerId) return res.status(400).json({ message: 'workerId required' });
-
-    const n = Math.min(parseInt(days || '30', 10) || 30, 365);
-    const since = new Date();
-    since.setDate(since.getDate() - n);
-    const sinceIso = since.toISOString().slice(0, 10);
-
-    try {
-        const stats = db.prepare(`
-            SELECT
-              SUM(CASE WHEN status='PRESENT' THEN 1 ELSE 0 END) as present,
-              SUM(CASE WHEN status='ABSENT' THEN 1 ELSE 0 END) as absent,
-              SUM(CASE WHEN status='CONGE' THEN 1 ELSE 0 END) as conge,
-              SUM(CASE WHEN status='MALADIE' THEN 1 ELSE 0 END) as maladie,
-              SUM(CASE WHEN status='RETARD' THEN 1 ELSE 0 END) as retard,
-              SUM(COALESCE(heures_travaillees,0)) as total_hours,
-              SUM(COALESCE(heures_supp_25,0)) as hs_25,
-              SUM(COALESCE(heures_supp_50,0)) as hs_50
-            FROM worker_pointage
-            WHERE owner_id = ? AND worker_id = ? AND date >= ?
-        `).get(userId, workerId, sinceIso);
-        res.json({ days: n, since: sinceIso, ...(stats as any) });
-    } catch (error) {
-        console.error('Activity error:', error);
-        res.status(500).json({ message: 'Error computing activity' });
-    }
-};

@@ -435,16 +435,6 @@ export const saveInventoryMovement = (req: Request, res: Response) => {
     }
 };
 
-export const deleteInventoryMovement = (req: Request, res: Response) => {
-    const userId = (req as any).companyId ?? (req as any).user.id;
-    try {
-        db.prepare('DELETE FROM inventory_movements WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
-        res.json({ message: 'Inventory movement deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error deleting inventory movement' });
-    }
-};
-
 // ════════════════════════════════════════════════════════════════════════════
 // MATERIAL INVOICES (Factures par matière) — fichiers image/PDF stockés en BDD.
 // Le modèle ne garde qu'une référence (id + URL), pas le binaire → la sync cloud
@@ -504,16 +494,6 @@ export const serveMaterialInvoice = (req: Request, res: Response) => {
     } catch (error) {
         console.error('Serve material invoice error:', error);
         res.status(500).json({ message: 'Error serving material invoice' });
-    }
-};
-
-export const deleteMaterialInvoice = (req: Request, res: Response) => {
-    const userId = (req as any).companyId ?? (req as any).user.id;
-    try {
-        db.prepare('DELETE FROM material_invoices WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
-        res.json({ message: 'Material invoice deleted successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error deleting material invoice' });
     }
 };
 

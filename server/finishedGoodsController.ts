@@ -101,17 +101,6 @@ export const createFromCloture = (req: Request, res: Response) => {
 };
 
 // GET all movements for a finished good
-export const getFinishedGoodMovements = (req: Request, res: Response) => {
-    const userId = (req as any).companyId ?? (req as any).user.id;
-    const { fgId } = req.params;
-    try {
-        const rows = db.prepare('SELECT * FROM finished_goods_movements WHERE owner_id = ? AND fgId = ? ORDER BY date DESC').all(userId, fgId);
-        res.json(rows);
-    } catch (error) {
-        console.error('Get fg movements error:', error);
-        res.status(500).json({ message: 'Error fetching movements' });
-    }
-};
 
 // GET all movements for this user
 export const getAllFinishedGoodMovements = (req: Request, res: Response) => {

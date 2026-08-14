@@ -85,18 +85,6 @@ export function saveLearningCurve(req: Request, res: Response) {
     }
 }
 
-/** DELETE /api/scheduling/learning-curves/:id */
-export function deleteLearningCurve(req: Request, res: Response) {
-    try {
-        // Cloisonnement : ne supprimer que dans la société/workspace active (anti-IDOR).
-        const userId = (req as any).companyId ?? (req as any).user?.id;
-        db.prepare('DELETE FROM learning_curve_profiles WHERE id = ? AND owner_id = ?').run(req.params.id, userId);
-        res.json({ success: true });
-    } catch (e: any) {
-        res.status(500).json({ error: e.message });
-    }
-}
-
 // ─── Crisis Alerts ──────────────────────────────────────────────────────────
 
 /** GET /api/scheduling/crisis-alerts */

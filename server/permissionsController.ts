@@ -210,23 +210,6 @@ export const setRolePermissions = (req: Request, res: Response) => {
   res.json({ ok: true, count: perms.length });
 };
 
-/** PUT /api/permissions/overrides/:userId  { resource_type, resource_key, can_view, can_edit } (exception) */
-export const setOverride = (req: Request, res: Response) => {
-  const meta = loadUserContext(uid(req), urole(req));
-  if (!meta.isSuper) return res.status(403).json({ ok: false, code: 'PERMISSION_DENIED' });
-  const targetUser = parseInt(req.params.userId, 10);
-  const { resource_type, resource_key, can_view, can_edit } = req.body as {
-    resource_type: ResourceType; resource_key: string; can_view: number | null; can_edit: number | null;
-  };
-  db.prepare(
-    `INSERT INTO member_permission_overrides (id, owner_id, user_id, resource_type, resource_key, can_view, can_edit)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(owner_id, user_id, resource_type, resource_key)
-     DO UPDATE SET can_view = excluded.can_view, can_edit = excluded.can_edit`
-  ).run(`ov-${randomUUID()}`, meta.ownerId, targetUser, resource_type, resource_key, can_view, can_edit);
-  res.json({ ok: true });
-};
-
 /** GET /api/permissions/members */
 export const listMembers = (req: Request, res: Response) => {
   const meta = loadUserContext(uid(req), urole(req));

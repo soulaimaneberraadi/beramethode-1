@@ -61,15 +61,4 @@ export const saveDemandesAppro = (req: Request, res: Response) => {
 };
 
 // Update status
-export const updateDemandeApproStatut = (req: Request, res: Response) => {
-    const companyId = (req as any).companyId;
-    const { id } = req.params;
-    const { statut } = req.body;
-    
-    try {
-        db.prepare('UPDATE demandes_appro SET statut = ? WHERE id = ? AND owner_id = ?').run(statut, id, companyId);
-        res.json({ message: 'Status updated successfully' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error updating statut' });
-    }
-};
+
