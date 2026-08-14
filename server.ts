@@ -16,9 +16,11 @@ import { verifyLicenseProxy } from './server/licenseController';
 import { reportError } from './server/errorController';
 import { getAllUsers, updateUserRole, deleteUser, isAdmin } from './server/userController';
 import {
-  getMyPermissions, listRoles, createRole, deleteRole,
+  getMyPermissions, listRoles, createRole, updateRole, deleteRole,
   getRolePermissions, setRolePermissions,
   listMembers, addMember, removeMember,
+  listMemberOverrides, setMemberOverrides, clearMemberOverrides,
+  getActivity,
   getCompanyInfo, updateCompanyInfo,
 } from './server/permissionsController';
 import { getMyProfile, updateMyProfile } from './server/profileController';
@@ -73,6 +75,10 @@ import {
   saveSubcontractorProfile,
   deleteSubcontractorProfile,
   getNextSubcontractInvoiceNumber,
+  getSubcontractExpenses,
+  createSubcontractExpense,
+  updateSubcontractExpense,
+  deleteSubcontractExpense,
 } from './server/subcontractController';
 import { getSuiviData, saveSuiviData } from './server/suiviController';
 import { getPosteSuivi, savePosteSuivi } from './server/posteSuiviController';
@@ -612,12 +618,17 @@ async function startServer() {
   app.get('/api/permissions/me', authenticateToken, getMyPermissions);
   app.get('/api/permissions/roles', authenticateToken, listRoles);
   app.post('/api/permissions/roles', authenticateToken, createRole);
+  app.put('/api/permissions/roles/:id', authenticateToken, updateRole);
   app.delete('/api/permissions/roles/:id', authenticateToken, deleteRole);
   app.get('/api/permissions/roles/:id/perms', authenticateToken, getRolePermissions);
   app.put('/api/permissions/roles/:id/perms', authenticateToken, setRolePermissions);
   app.get('/api/permissions/members', authenticateToken, listMembers);
   app.post('/api/permissions/members', authenticateToken, addMember);
   app.delete('/api/permissions/members/:userId', authenticateToken, removeMember);
+  app.get('/api/permissions/members/:userId/overrides', authenticateToken, listMemberOverrides);
+  app.put('/api/permissions/members/:userId/overrides', authenticateToken, setMemberOverrides);
+  app.delete('/api/permissions/members/:userId/overrides', authenticateToken, clearMemberOverrides);
+  app.get('/api/permissions/activity', authenticateToken, getActivity);
   app.get('/api/permissions/company', authenticateToken, getCompanyInfo);
   app.put('/api/permissions/company', authenticateToken, updateCompanyInfo);
 
@@ -648,6 +659,16 @@ async function startServer() {
   app.get('/api/subcontract/profiles', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractorProfiles);
   app.post('/api/subcontract/profiles', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveSubcontractorProfile);
   app.delete('/api/subcontract/profiles/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontractor_profiles', 'owner_id'), deleteSubcontractorProfile);
+
+  // Frais additionnels d'une commande de sous-traitance.
+  // ⚠️ /expenses/:id (préfixe littéral) est déclarée avant /:orderId/expenses.
+  // La propriété est vérifiée dans le contrôleur par jointure sur
+  // subcontract_orders.owner_id — ownershipGuard ne convient pas ici, l'id de
+  // l'URL étant celui du frais et non celui de la commande.
+  app.put('/api/subcontract/expenses/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), updateSubcontractExpense);
+  app.delete('/api/subcontract/expenses/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteSubcontractExpense);
+  app.get('/api/subcontract/:orderId/expenses', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractExpenses);
+  app.post('/api/subcontract/:orderId/expenses', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createSubcontractExpense);
 
   app.get('/api/suivi', authenticateToken, requirePermission('page', 'suivi', 'view'), getSuiviData);
   app.post('/api/suivi', authenticateToken, requirePermission('page', 'suivi', 'edit'), saveSuiviData);

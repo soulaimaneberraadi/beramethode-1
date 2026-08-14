@@ -77,7 +77,8 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
         subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
         prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
         protoRequired, protoStatus, paymentTerms, defectRateAccepted,
-        stitchingDetails, specifications_json, materials_fournisseur_json
+        stitchingDetails, specifications_json, materials_fournisseur_json,
+        coupeLocation
     } = req.body;
 
     if (!modelId || !totalQuantity || !subcontractorName || !deliveryDate) {
@@ -101,8 +102,9 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
                 subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
                 prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
                 protoRequired, protoStatus, paymentTerms, defectRateAccepted,
-                stitchingDetails, specifications_json, materials_fournisseur_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                stitchingDetails, specifications_json, materials_fournisseur_json,
+                coupeLocation
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         stmt.run(
@@ -139,7 +141,8 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
             defectRateAccepted !== undefined ? defectRateAccepted : 1.5,
             stitchingDetails || null,
             specifications_json || null,
-            materials_fournisseur_json || null
+            materials_fournisseur_json || null,
+            coupeLocation || 'SUBCONTRACTOR'
         );
 
         res.status(201).json({ message: 'Subcontract order created successfully', id });
@@ -162,7 +165,8 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
         subcontractorPhone, subcontractorRating, subcontractorAvailabilityDate,
         prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
         protoRequired, protoStatus, paymentTerms, defectRateAccepted,
-        stitchingDetails, specifications_json, materials_fournisseur_json
+        stitchingDetails, specifications_json, materials_fournisseur_json,
+        coupeLocation
     } = req.body;
 
     try {
@@ -211,6 +215,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
                 stitchingDetails = COALESCE(?, stitchingDetails),
                 specifications_json = COALESCE(?, specifications_json),
                 materials_fournisseur_json = COALESCE(?, materials_fournisseur_json),
+                coupeLocation = COALESCE(?, coupeLocation),
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND owner_id = ?
         `);
@@ -256,6 +261,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
             v(stitchingDetails),
             v(specifications_json),
             v(materials_fournisseur_json),
+            v(coupeLocation),
             id,
             companyId
         );
@@ -434,5 +440,188 @@ export const deleteSubcontractorProfile = (req: Request, res: Response) => {
     } catch (error) {
         console.error('Delete subcontractor profile error:', error);
         res.status(500).json({ message: 'Error deleting subcontractor profile' });
+    }
+};
+
+// ════════════════════════════════════════════════════════════════════════════
+// FRAIS ADDITIONNELS DE COMMANDE (subcontract_expenses)
+// ════════════════════════════════════════════════════════════════════════════
+// Libellé libre saisi par l'utilisateur (« Transport », « Patronage », ...),
+// montant = TOTAL en dirhams, et portée optionnelle :
+//   quantityScope = null  → le frais couvre TOUTE la commande
+//   quantityScope = N     → le frais ne couvre que N pièces sur totalQuantity
+// La portée est décisive pour le prix de revient : diviser par quantityScope
+// quand il est renseigné, jamais par totalQuantity.
+
+/** Projection camelCase renvoyée par toutes les routes de frais. */
+const EXPENSE_COLUMNS = `
+    id,
+    order_id AS orderId,
+    label,
+    amount,
+    quantity_scope AS quantityScope,
+    created_at,
+    updated_at
+`;
+
+/** Charge la commande si — et seulement si — elle appartient au workspace appelant. */
+const findOwnedOrder = (orderId: string, companyId: number): any =>
+    db.prepare('SELECT id, totalQuantity FROM subcontract_orders WHERE id = ? AND owner_id = ?').get(orderId, companyId);
+
+/**
+ * Validation d'un frais. `existing` = ligne actuelle (update) pour les champs
+ * non fournis. `totalQuantity` = quantité de la commande porteuse.
+ * Retourne un message d'erreur, ou null si tout est valide.
+ */
+const validateExpensePayload = (body: any, totalQuantity: any, existing?: any): string | null => {
+    const label = body.label !== undefined ? body.label : existing?.label;
+    if (typeof label !== 'string' || !label.trim()) {
+        return 'label est requis et ne peut pas être vide';
+    }
+
+    const amount = body.amount !== undefined ? body.amount : existing?.amount;
+    if (!isNum(amount) || Number(amount) < 0) {
+        return 'amount doit être un nombre supérieur ou égal à 0';
+    }
+
+    // `undefined` = champ absent (on garde l'existant) ; `null` = portée effacée
+    // volontairement (le frais couvre toute la commande).
+    const scopeProvided = body.quantityScope !== undefined;
+    const scope = scopeProvided ? body.quantityScope : existing?.quantity_scope;
+    if (scope !== undefined && scope !== null && scope !== '') {
+        if (!isNum(scope) || !Number.isInteger(Number(scope)) || Number(scope) <= 0) {
+            return 'quantityScope doit être un nombre entier strictement positif';
+        }
+        const total = isNum(totalQuantity) ? Number(totalQuantity) : null;
+        if (total !== null && Number(scope) > total) {
+            return `quantityScope (${Number(scope)}) dépasse la quantité de la commande (${total})`;
+        }
+    }
+
+    return null;
+};
+
+/** Normalise la portée pour le binding SQLite : NULL, ou entier positif. */
+const normalizeScope = (scope: any): number | null =>
+    scope === undefined || scope === null || scope === '' ? null : Number(scope);
+
+// GET /api/subcontract/:orderId/expenses
+export const getSubcontractExpenses = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { orderId } = req.params;
+
+    try {
+        if (!findOwnedOrder(orderId, companyId)) {
+            return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+        }
+
+        const rows = db.prepare(
+            `SELECT ${EXPENSE_COLUMNS} FROM subcontract_expenses WHERE order_id = ? ORDER BY created_at ASC`
+        ).all(orderId) as any[];
+
+        res.json(rows);
+    } catch (error) {
+        console.error('Get subcontract expenses error:', error);
+        res.status(500).json({ message: 'Error fetching subcontract expenses' });
+    }
+};
+
+// POST /api/subcontract/:orderId/expenses
+export const createSubcontractExpense = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { orderId } = req.params;
+    const { label, amount, quantityScope } = req.body;
+
+    try {
+        const order = findOwnedOrder(orderId, companyId);
+        if (!order) {
+            return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+        }
+
+        const validationError = validateExpensePayload(req.body, order.totalQuantity);
+        if (validationError) {
+            return res.status(400).json({ message: validationError });
+        }
+
+        const id = randomUUID();
+        db.prepare(`
+            INSERT INTO subcontract_expenses (id, order_id, label, amount, quantity_scope)
+            VALUES (?, ?, ?, ?, ?)
+        `).run(id, orderId, String(label).trim(), Number(amount), normalizeScope(quantityScope));
+
+        const expense = db.prepare(`SELECT ${EXPENSE_COLUMNS} FROM subcontract_expenses WHERE id = ?`).get(id);
+        res.status(201).json({ message: 'Subcontract expense created successfully', id, expense });
+    } catch (error) {
+        console.error('Create subcontract expense error:', error);
+        res.status(500).json({ message: 'Error creating subcontract expense' });
+    }
+};
+
+// PUT /api/subcontract/expenses/:id
+export const updateSubcontractExpense = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+    const { label, amount, quantityScope } = req.body;
+
+    try {
+        // Propriété vérifiée par jointure : un frais n'est accessible que via la
+        // commande porteuse, elle-même filtrée sur owner_id.
+        const existing = db.prepare(`
+            SELECT e.*, o.totalQuantity AS orderTotalQuantity
+            FROM subcontract_expenses e
+            JOIN subcontract_orders o ON o.id = e.order_id
+            WHERE e.id = ? AND o.owner_id = ?
+        `).get(id, companyId) as any;
+
+        if (!existing) {
+            return res.status(404).json({ message: 'Subcontract expense not found or unauthorized' });
+        }
+
+        const validationError = validateExpensePayload(req.body, existing.orderTotalQuantity, existing);
+        if (validationError) {
+            return res.status(400).json({ message: validationError });
+        }
+
+        const nextLabel = label !== undefined ? String(label).trim() : existing.label;
+        const nextAmount = amount !== undefined ? Number(amount) : existing.amount;
+        // `quantityScope` absent → portée inchangée ; fourni à null → portée effacée.
+        const nextScope = quantityScope !== undefined ? normalizeScope(quantityScope) : existing.quantity_scope;
+
+        db.prepare(`
+            UPDATE subcontract_expenses
+            SET label = ?, amount = ?, quantity_scope = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `).run(nextLabel, nextAmount, nextScope, id);
+
+        const expense = db.prepare(`SELECT ${EXPENSE_COLUMNS} FROM subcontract_expenses WHERE id = ?`).get(id);
+        res.json({ message: 'Subcontract expense updated successfully', expense });
+    } catch (error) {
+        console.error('Update subcontract expense error:', error);
+        res.status(500).json({ message: 'Error updating subcontract expense' });
+    }
+};
+
+// DELETE /api/subcontract/expenses/:id
+export const deleteSubcontractExpense = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    const { id } = req.params;
+
+    try {
+        const existing = db.prepare(`
+            SELECT e.id
+            FROM subcontract_expenses e
+            JOIN subcontract_orders o ON o.id = e.order_id
+            WHERE e.id = ? AND o.owner_id = ?
+        `).get(id, companyId) as any;
+
+        if (!existing) {
+            return res.status(404).json({ message: 'Subcontract expense not found or unauthorized' });
+        }
+
+        db.prepare('DELETE FROM subcontract_expenses WHERE id = ?').run(id);
+        res.json({ message: 'Subcontract expense deleted successfully' });
+    } catch (error) {
+        console.error('Delete subcontract expense error:', error);
+        res.status(500).json({ message: 'Error deleting subcontract expense' });
     }
 };
