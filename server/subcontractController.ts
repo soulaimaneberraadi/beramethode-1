@@ -1,6 +1,56 @@
 import { Request, Response } from 'express';
 import db from './db';
 import { randomUUID } from 'crypto';
+import { generateNumero } from './facturationController';
+
+/** Statuts autorisés d'une commande de sous-traitance. */
+const ORDER_STATUSES = ['PENDING', 'IN_COUPE', 'IN_COUTURE', 'IN_FINITION', 'LIVRE_PARTIEL', 'COMPLETED'] as const;
+
+const isNum = (v: any): boolean => v !== null && v !== '' && Number.isFinite(Number(v));
+
+/**
+ * Validations métier communes create/update.
+ * `existing` = ligne actuelle en base (update) pour valider les champs non fournis.
+ * Retourne un message d'erreur, ou null si tout est valide.
+ */
+const validateOrderPayload = (body: any, existing?: any): string | null => {
+    const pick = (key: string) => (body[key] !== undefined ? body[key] : existing?.[key]);
+
+    const totalQuantity = pick('totalQuantity');
+    if (totalQuantity !== undefined && totalQuantity !== null) {
+        if (!isNum(totalQuantity) || Number(totalQuantity) <= 0) {
+            return 'totalQuantity doit être un nombre strictement positif';
+        }
+    }
+
+    const pricePerPiece = pick('pricePerPiece');
+    if (pricePerPiece !== undefined && pricePerPiece !== null && pricePerPiece !== '') {
+        if (!isNum(pricePerPiece) || Number(pricePerPiece) < 0) {
+            return 'pricePerPiece doit être un nombre supérieur ou égal à 0';
+        }
+    }
+
+    const status = body.status;
+    if (status !== undefined && status !== null && status !== '') {
+        if (!ORDER_STATUSES.includes(status)) {
+            return `status invalide : attendu l'une de ${ORDER_STATUSES.join(', ')}`;
+        }
+    }
+
+    const qty = (key: string) => {
+        const v = pick(key);
+        return isNum(v) ? Number(v) : 0;
+    };
+    const total = isNum(totalQuantity) ? Number(totalQuantity) : null;
+    if (total !== null) {
+        const sum = qty('qtyAccepted') + qty('qtyToRepair') + qty('qtyRejected');
+        if (sum > total) {
+            return `La somme des quantités contrôlées (${sum}) dépasse totalQuantity (${total})`;
+        }
+    }
+
+    return null;
+};
 
 // Get all subcontract orders
 export const getSubcontractOrders = (req: Request, res: Response) => {
@@ -32,6 +82,11 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
 
     if (!modelId || !totalQuantity || !subcontractorName || !deliveryDate) {
         return res.status(400).json({ message: 'Required fields are missing' });
+    }
+
+    const validationError = validateOrderPayload(req.body);
+    if (validationError) {
+        return res.status(400).json({ message: validationError });
     }
 
     try {
@@ -111,6 +166,16 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
     } = req.body;
 
     try {
+        const existing = db.prepare('SELECT * FROM subcontract_orders WHERE id = ? AND owner_id = ?').get(id, companyId) as any;
+        if (!existing) {
+            return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
+        }
+
+        const validationError = validateOrderPayload(req.body, existing);
+        if (validationError) {
+            return res.status(400).json({ message: validationError });
+        }
+
         const stmt = db.prepare(`
             UPDATE subcontract_orders
             SET
@@ -150,39 +215,47 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
             WHERE id = ? AND owner_id = ?
         `);
 
+        // ⚠️ `x || null` combiné à COALESCE rendait impossible l'enregistrement de
+        // pricePerPiece = 0, totalQuantity = 0, ou la remise à vide de notes /
+        // clientName : l'ancienne valeur était conservée silencieusement (impact
+        // financier direct). On distingue désormais « champ absent » (undefined →
+        // NULL → COALESCE garde l'existant) de « valeur fournie » (0 / '' respectés).
+        // (les booléens sont convertis en 0/1 : better-sqlite3 refuse de binder un boolean)
+        const v = (x: any) => (x === undefined ? null : typeof x === 'boolean' ? (x ? 1 : 0) : x);
+
         const result = stmt.run(
-            modelId || null,
-            modelName || null,
-            clientName || null,
-            totalQuantity || null,
-            subcontractorName || null,
-            pricePerPiece || null,
-            deliveryDate || null,
-            status || null,
-            sizes_json || null,
-            colors_json || null,
-            grid_json || null,
-            notes || null,
-            tissuStatus || null,
-            fournituresStatus || null,
-            ficheTechniqueSent !== undefined ? ficheTechniqueSent : null,
-            qtyAccepted !== undefined ? qtyAccepted : null,
-            qtyToRepair !== undefined ? qtyToRepair : null,
-            qtyRejected !== undefined ? qtyRejected : null,
-            subcontractorPhone || null,
-            subcontractorRating !== undefined ? subcontractorRating : null,
-            subcontractorAvailabilityDate || null,
-            prestationType || null,
-            tissuFournisseur || null,
-            fournituresFournisseur || null,
-            conditionnementFournisseur || null,
-            protoRequired !== undefined ? protoRequired : null,
-            protoStatus || null,
-            paymentTerms || null,
-            defectRateAccepted !== undefined ? defectRateAccepted : null,
-            stitchingDetails || null,
-            specifications_json || null,
-            materials_fournisseur_json || null,
+            v(modelId),
+            v(modelName),
+            v(clientName),
+            v(totalQuantity),
+            v(subcontractorName),
+            v(pricePerPiece),
+            v(deliveryDate),
+            v(status),
+            v(sizes_json),
+            v(colors_json),
+            v(grid_json),
+            v(notes),
+            v(tissuStatus),
+            v(fournituresStatus),
+            v(ficheTechniqueSent),
+            v(qtyAccepted),
+            v(qtyToRepair),
+            v(qtyRejected),
+            v(subcontractorPhone),
+            v(subcontractorRating),
+            v(subcontractorAvailabilityDate),
+            v(prestationType),
+            v(tissuFournisseur),
+            v(fournituresFournisseur),
+            v(conditionnementFournisseur),
+            v(protoRequired),
+            v(protoStatus),
+            v(paymentTerms),
+            v(defectRateAccepted),
+            v(stitchingDetails),
+            v(specifications_json),
+            v(materials_fournisseur_json),
             id,
             companyId
         );
@@ -217,21 +290,22 @@ export const deleteSubcontractOrder = (req: Request, res: Response) => {
     }
 };
 
-// --- Journal des entrées/sorties (carte de commande) ---
-// Endpoints à plat (/api/subcontract/entries) pour rester compatibles avec
-// l'apiShim du mode statique (Vercel), qui résout un store par nom de chemin
-// (2 segments max) sans routage imbriqué. Le filtrage par commande se fait
-// via ?orderId= côté serveur, et côté client pour le mode statique.
-
-// Get entries — optionally filtered by ?orderId=
-
-// Create an entry (order id passed as order_id in the body)
-
-// Update an entry
-
-// Delete an entry
-
-// --- Frais additionnels de la commande ---
+/**
+ * Prochain numéro de facture (aperçu) pour la vente issue de la sous-traitance.
+ * Réutilise la séquence officielle de facturationController (FV-<année>-<0000>,
+ * calculée par owner_id à partir du max existant) au lieu d'un numéro aléatoire.
+ * NB : le numéro définitif reste attribué par saveFacture au moment de
+ * l'enregistrement — cet endpoint sert à pré-remplir le formulaire.
+ */
+export const getNextSubcontractInvoiceNumber = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId;
+    try {
+        res.json({ number: generateNumero('VENTE', companyId) });
+    } catch (error) {
+        console.error('Next subcontract invoice number error:', error);
+        res.status(500).json({ message: 'Error generating invoice number' });
+    }
+};
 
 // Get all subcontractor groups
 export const getSubcontractorGroups = (req: Request, res: Response) => {

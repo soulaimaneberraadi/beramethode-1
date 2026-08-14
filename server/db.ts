@@ -907,6 +907,14 @@ db.exec(`
 `);
 db.exec(`CREATE INDEX IF NOT EXISTS idx_subcontract_expenses_order ON subcontract_expenses(order_id)`);
 
+// Toutes les lectures sous-traitance filtrent sur owner_id (isolation workspace) :
+// sans index, chaque appel fait un full scan. Idempotent (IF NOT EXISTS).
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_subcontract_orders_owner ON subcontract_orders(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_subcontractor_groups_owner ON subcontractor_groups(owner_id);
+  CREATE INDEX IF NOT EXISTS idx_subcontractor_profiles_owner ON subcontractor_profiles(owner_id);
+`);
+
 // 🚀 CRÉATION DES INDEX POUR OPTIMISER LES PERFORMANCES (Lectures / Jointures)
 db.exec(`
   -- Index généraux

@@ -168,6 +168,78 @@ function colorNameToHex(name: string): string {
   return `hsl(${hue}, 55%, 55%)`;
 }
 
+/** Locale d'affichage par langue : les dates suivent la langue active, elles ne
+ *  sont plus figées en 'fr-FR'. */
+const DATE_LOCALES: Record<string, string> = {
+  fr: 'fr-FR', ar: 'ar-MA', en: 'en-GB', es: 'es-ES', pt: 'pt-PT', tr: 'tr-TR',
+};
+
+/** Mode de sous-traitance. `facon` = le sous-traitant coud seulement (coût =
+ *  matières + prix) ; `complet` = il fournit tout (coût = prix seul). */
+type StMode = 'facon' | 'complet';
+
+/** Valeur INITIALE du sélecteur de mode, déduite de la commande — jamais une
+ *  décision finale : l'utilisateur tranche via le sélecteur explicite.
+ *  `complet` n'est retenu que si le sous-traitant fournit À LA FOIS le tissu et
+ *  les fournitures (et, quand l'information existe, le conditionnement).
+ *  Tout cas ambigu retombe sur `facon`, qui ajoute les matières au coût :
+ *  sous-estimer le coût de revient ferait vendre à perte, le surestimer n'est
+ *  que prudent. */
+const inferSubcontractMode = (o: {
+  tissuFournisseur?: string | null;
+  fournituresFournisseur?: string | null;
+  conditionnementFournisseur?: string | null;
+  prestationType?: string | null;
+}): StMode => {
+  const allSub =
+    o.tissuFournisseur === 'SUBCONTRACTOR' &&
+    o.fournituresFournisseur === 'SUBCONTRACTOR' &&
+    (o.conditionnementFournisseur == null || o.conditionnementFournisseur === 'SUBCONTRACTOR');
+  return allSub ? 'complet' : 'facon';
+};
+
+/** Prix de revient d'un modèle — MÊME formule que CostCalculator.tsx (~l.360) et
+ *  CompactCostSheet.tsx : coût = matières + main d'œuvre, la main d'œuvre étant
+ *  le prix du sous-traitant quand `ficheData.soustraitance` est active, sinon
+ *  temps total (base + coupe + emballage) × coût minute.
+ *  Retourne `null` dès qu'aucune donnée fiable n'existe : on n'invente pas un prix. */
+const computeModelCostPrice = (model: ModelData, settings: any): number | null => {
+  const fiche: any = model.ficheData || {};
+  const st = fiche.soustraitance;
+  const stActive = !!st?.active;
+  const stPrix = Number(st?.prix) || 0;
+  const stComplet = stActive && st?.mode === 'complet';
+  // Matières exclues du coût en Export OU en sous-traitance « tout compris ».
+  const materialsExcluded = fiche.typeMarche === 'Export' || stComplet;
+  const materials: any[] = fiche.materials || [];
+  const totalMaterials = materialsExcluded
+    ? 0
+    : materials.reduce((acc: number, m: any) => acc + (Number(m?.unitPrice) || 0) * (Number(m?.qty) || 0), 0);
+
+  let laborCost: number;
+  if (stActive) {
+    if (stPrix <= 0) return null;
+    laborCost = stPrix;
+  } else {
+    const baseTime = Number(model.meta_data?.total_temps) || 0;
+    const costMinute = Number(settings?.costMinute) || 0;
+    if (baseTime <= 0 || costMinute <= 0) return null;
+    const cutRate = Number(settings?.cutRate) || 0;
+    const packRate = Number(settings?.packRate) || 0;
+    laborCost = baseTime * (1 + cutRate / 100 + packRate / 100) * costMinute;
+  }
+
+  const cost = totalMaterials + laborCost;
+  return cost > 0 ? cost : null;
+};
+
+/** Total d'une grille couleur × taille. */
+const sumGrid = (grid: Record<string, Record<string, number>> | undefined): number =>
+  Object.values(grid || {}).reduce(
+    (sum, sizes) => sum + Object.values(sizes || {}).reduce((a, b) => a + (Number(b) || 0), 0),
+    0
+  );
+
 export default function SousTraitance({ models, setModels, settings, onLoadModel, onNavigate, onCreateNewProject }: SousTraitanceProps) {
   // Navigation Tabs
   const [activeTab, setActiveTab] = useState<'orders' | 'subcontractors' | 'stock'>('orders');
@@ -240,6 +312,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [formQtyToRepair, setFormQtyToRepair] = useState<number>(0);
   const [formQtyRejected, setFormQtyRejected] = useState<number>(0);
 
+  /** Mode de sous-traitance CHOISI explicitement par l'utilisateur (A6).
+   *  Les champs `*Fournisseur` restent alimentés pour l'API, mais c'est ce
+   *  champ qui pilote le coût de revient et l'affichage des matières. */
+  const [formStMode, setFormStMode] = useState<StMode>('facon');
   const [formPrestationType, setFormPrestationType] = useState<'CMT' | 'FACON_PURE'>('CMT');
   const [formTissuFournisseur, setFormTissuFournisseur] = useState<'CLIENT' | 'SUBCONTRACTOR'>('CLIENT');
   const [formFournituresFournisseur, setFormFournituresFournisseur] = useState<'CLIENT' | 'SUBCONTRACTOR'>('CLIENT');
@@ -270,59 +346,101 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [saleClientTel, setSaleClientTel] = useState('');
   const [saleClientEmail, setSaleClientEmail] = useState('');
   const [saleQuantity, setSaleQuantity] = useState<number>(0);
-  const [salePrice, setSalePrice] = useState<number>(0);
+  /** Prix unitaire de vente : VIDE tant qu'aucune valeur fiable n'existe.
+   *  Jamais de valeur devinée — le champ est `required`, l'utilisateur tranche. */
+  const [salePrice, setSalePrice] = useState<number | ''>('');
   const [saleTvaRate, setSaleTvaRate] = useState<number>(20);
   const [saleNotes, setSaleNotes] = useState('');
   const [saleStatus, setSaleStatus] = useState<'BROUILLON' | 'PAYEE' | 'ENVOYEE'>('BROUILLON');
   const [saleInvoiceNumber, setSaleInvoiceNumber] = useState('');
+  /** Numérotation de facture : elle vient du serveur, jamais d'un tirage aléatoire. */
+  const [saleNumberLoading, setSaleNumberLoading] = useState(false);
+  const [saleNumberError, setSaleNumberError] = useState<string | null>(null);
 
   // Tab 4 (Groups) States
   const { lang } = useLang();
 
-  // Fetch all initial data
-  const fetchData = async () => {
+  /** Devise et locale issues des réglages — plus de 'MAD' ni de 'fr-FR' en dur. */
+  const currency: string = settings?.currency || 'MAD';
+  const dateLocale: string = DATE_LOCALES[lang as string] || 'fr-FR';
+  const fmtDate = (value?: string | null): string => {
+    if (!value) return '-';
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? String(value) : d.toLocaleDateString(dateLocale);
+  };
+
+  /** Chargement initial — les cinq sources sont indépendantes : l'échec de l'une
+   *  ne doit pas priver l'écran des quatre autres (C2). Chaque source rapporte sa
+   *  propre erreur, y compris le magasin dont l'échec était auparavant avalé en
+   *  silence — ce qui faisait afficher un stock matières à zéro sans le dire. */
+  const fetchData = async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
-    try {
-      // Fetch Subcontract Orders
-      const resOrders = await fetch('/api/subcontract', { credentials: 'include' });
-      if (!resOrders.ok) throw new Error(tx(lang,{fr:'Echec du chargement des commandes de sous-traitance',ar:'فشل تحميل طلبيات المقاولة من الباطن',en:'Failed to load subcontract orders',es:'Error al cargar pedidos de subcontratación',pt:'Falha ao carregar encomendas de subcontratação',tr:'Taşeron siparişleri yüklenemedi'}));
-      const ordersData = await resOrders.json();
-      setOrders(ordersData);
 
-      // Fetch Subcontractor Groups
-      const resGroups = await fetch('/api/subcontract/groups', { credentials: 'include' });
-      if (!resGroups.ok) throw new Error(tx(lang,{fr:'Echec du chargement des groupes de sous-traitants',ar:'فشل تحميل مجموعات المقاولين من الباطن',en:'Failed to load subcontractor groups',es:'Error al cargar grupos de subcontratistas',pt:'Falha ao carregar grupos de subcontratados',tr:'Taşeron grupları yüklenemedi'}));
-      const groupsData = await resGroups.json();
-      setGroups(groupsData);
+    const sources = [
+      {
+        url: '/api/subcontract',
+        label: tx(lang,{fr:'commandes de sous-traitance',ar:'طلبيات المقاولة من الباطن',en:'subcontract orders',es:'pedidos de subcontratación',pt:'encomendas de subcontratação',tr:'taşeron siparişleri'}),
+        apply: (d: any) => setOrders(Array.isArray(d) ? d : []),
+      },
+      {
+        url: '/api/subcontract/groups',
+        label: tx(lang,{fr:'groupes de sous-traitants',ar:'مجموعات المقاولين من الباطن',en:'subcontractor groups',es:'grupos de subcontratistas',pt:'grupos de subcontratados',tr:'taşeron grupları'}),
+        apply: (d: any) => setGroups(Array.isArray(d) ? d : []),
+      },
+      {
+        url: '/api/subcontract/profiles',
+        label: tx(lang,{fr:'profils sous-traitants',ar:'ملفات المقاولين من الباطن',en:'subcontractor profiles',es:'perfiles de subcontratistas',pt:'perfis de subcontratados',tr:'taşeron profilleri'}),
+        apply: (d: any) => setSubcontractorProfiles(Array.isArray(d) ? d : []),
+      },
+      {
+        url: '/api/facturation/factures?type=VENTE',
+        label: tx(lang,{fr:'factures de vente',ar:'فواتير البيع',en:'sale invoices',es:'facturas de venta',pt:'faturas de venda',tr:'satış faturaları'}),
+        apply: (d: any) => setInvoices(Array.isArray(d) ? d : []),
+      },
+      {
+        url: '/api/magasin/products',
+        label: tx(lang,{fr:'stock magasin',ar:'مخزون المستودع',en:'store stock',es:'stock del almacén',pt:'stock do armazém',tr:'depo stoğu'}),
+        apply: (d: any) => setMagasinData(Array.isArray(d) ? d : []),
+      },
+    ];
 
-      // Fetch Subcontractor Profiles
-      const resProfiles = await fetch('/api/subcontract/profiles', { credentials: 'include' });
-      if (!resProfiles.ok) throw new Error(tx(lang,{fr:'Echec du chargement des profils sous-traitants',ar:'فشل تحميل ملفات المقاولين من الباطن',en:'Failed to load subcontractor profiles',es:'Error al cargar perfiles de subcontratistas',pt:'Falha ao carregar perfis de subcontratados',tr:'Taşeron profilleri yüklenemedi'}));
-      const profilesData = await resProfiles.json();
-      setSubcontractorProfiles(profilesData);
+    const results = await Promise.allSettled(
+      sources.map(async (s) => {
+        const res = await fetch(s.url, { credentials: 'include', signal });
+        if (!res.ok) throw new Error(String(res.status));
+        return res.json();
+      })
+    );
 
-      // Fetch Sales Invoices
-      const resInvoices = await fetch('/api/facturation/factures?type=VENTE', { credentials: 'include' });
-      if (!resInvoices.ok) throw new Error(tx(lang,{fr:'Echec du chargement des factures',ar:'فشل تحميل الفواتير',en:'Failed to load invoices',es:'Error al cargar facturas',pt:'Falha ao carregar faturas',tr:'Faturalar yüklenemedi'}));
-      const invoicesData = await resInvoices.json();
-      setInvoices(invoicesData);
+    if (signal?.aborted) return;
 
-      // Fetch Magasin Products (stock + fournisseur, pour la table Matières & Fournisseurs en mode Façon)
-      const resMagasin = await fetch('/api/magasin/products', { credentials: 'include' });
-      if (resMagasin.ok) {
-        setMagasinData(await resMagasin.json());
+    const failed: string[] = [];
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        sources[i].apply(r.value);
+      } else {
+        if ((r.reason as any)?.name === 'AbortError') return;
+        console.error(`[SousTraitance] ${sources[i].url}`, r.reason);
+        failed.push(sources[i].label);
       }
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || tx(lang,{fr:'Une erreur est survenue lors de la récupération des données.',ar:'حدث خطأ أثناء استرجاع البيانات.',en:'An error occurred while fetching data.',es:'Ocurrió un error al recuperar los datos.',pt:'Ocorreu um erro ao recuperar os dados.',tr:'Veriler alınırken bir hata oluştu.'}));
-    } finally {
-      setLoading(false);
+    });
+
+    if (failed.length > 0) {
+      setError(
+        tx(lang,{
+          fr:'Sources non chargées', ar:'مصادر لم تُحمَّل', en:'Sources not loaded',
+          es:'Fuentes no cargadas', pt:'Fontes não carregadas', tr:'Yüklenemeyen kaynaklar',
+        }) + ' : ' + failed.join(', ')
+      );
     }
+    setLoading(false);
   };
 
   useEffect(() => {
-    fetchData();
+    const controller = new AbortController();
+    fetchData(controller.signal);
+    return () => controller.abort();
   }, []);
 
   // Subcontractor profile handlers
@@ -595,6 +713,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     return seen.length > 0 ? seen : COMMON_SIZES;
   }, [batches]);
 
+  /** Total DÉRIVÉ de la grille (C1). Il n'est plus poussé depuis un updater
+   *  `setBatches` — appeler `setFormTotalQuantity` à l'intérieur d'un updater
+   *  provoquait une double application en StrictMode / React 19. */
+  const gridTotal = useMemo(() => sumGrid(batches[0]?.grid), [batches]);
+  const hasGrid = useMemo(() => Object.keys(batches[0]?.grid || {}).length > 0, [batches]);
+  /** Quantité qui fait foi : la grille dès qu'elle existe, sinon la saisie manuelle. */
+  const effectiveTotalQuantity = hasGrid ? gridTotal : formTotalQuantity;
+
+  /** Mise à jour immuable du premier lot — aucune mutation en place des objets
+   *  `grid[color]`, qui empêchait React de voir le changement. */
+  const patchBatch = (patch: Partial<BatchInput> | ((b: BatchInput) => Partial<BatchInput>)) => {
+    setBatches(prev => prev.map((b, i) => (i === 0 ? { ...b, ...(typeof patch === 'function' ? patch(b) : patch) } : b)));
+  };
+
   // Find subcontractors belonging to a selected group filter
   const groupSubcontractors = useMemo(() => {
     if (groupFilter === 'ALL') return [];
@@ -708,7 +840,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       producedQty: number;
       soldQty: number;
       remainingStock: number;
-      price: number;
+      /** Prix de revient réel du modèle, ou `null` si aucune donnée fiable. */
+      price: number | null;
       startDate: string;
       status: string;
     }> = [];
@@ -733,38 +866,40 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         }
       });
 
-      // 2. Calculate sold quantity from VENTE invoices
+      // 2. Quantité vendue depuis les factures VENTE.
+      //    UNIQUEMENT sur `line.modelId` : l'ancien repli textuel
+      //    `designation.includes(nom_modele)` faisait compter les ventes de
+      //    « POLO ENFANT » dans le stock de « POLO », donc un stock fini faux.
       let sold = 0;
       invoices.forEach(inv => {
         const lignes = inv.lignes || [];
         lignes.forEach((line: any) => {
-          if (line.modelId === model.id) {
-            sold += line.qte || 0;
-          } else if (!line.modelId && line.designation && line.designation.includes(model.meta_data.nom_modele)) {
-            // Fallback match by model name
+          if (line.modelId && line.modelId === model.id) {
             sold += line.qte || 0;
           }
         });
       });
 
       const remaining = Math.max(0, produced - sold);
-      
-      // Look up default unit price if any
-      const price = model.meta_data.total_temps * 1.5; // simple dynamic estimate based on times
+
+      // Prix de revient réel (même formule que la fiche de coût). `null` quand
+      // le modèle n'a ni gamme chiffrée ni prix de sous-traitance : on n'invente
+      // aucun montant, le champ de la facture restera vide et obligatoire.
+      const price = computeModelCostPrice(model, settings);
 
       list.push({
         model,
         producedQty: produced,
         soldQty: sold,
         remainingStock: remaining,
-        price: Math.round(price) || 100,
-        startDate: oldestDate ? new Date(oldestDate).toLocaleDateString('fr-FR') : tx(lang,{fr:'Non commencée',ar:'لم تبدأ',en:'Not started',es:'No iniciado',pt:'Não iniciado',tr:'Başlamadı'}),
+        price,
+        startDate: oldestDate ? fmtDate(oldestDate) : tx(lang,{fr:'Non commencée',ar:'لم تبدأ',en:'Not started',es:'No iniciado',pt:'Não iniciado',tr:'Başlamadı'}),
         status: activeStatus
       });
     });
 
     return list;
-  }, [models, orders, invoices]);
+  }, [models, orders, invoices, settings, lang, dateLocale]);
 
   // Initialize form for adding order
   const openAddModal = () => {
@@ -782,10 +917,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setFormSubcontractorRating(5);
     setFormSubcontractorAvailabilityDate('');
     
+    setFormStMode('facon');
     setFormPrestationType('CMT');
     setFormTissuFournisseur('CLIENT');
     setFormFournituresFournisseur('CLIENT');
     setFormConditionnementFournisseur('CLIENT');
+    setFormQtyAccepted(0);
+    setFormQtyToRepair(0);
+    setFormQtyRejected(0);
     setFormProtoRequired(1);
     setFormProtoStatus('PENDING');
     setFormPaymentTerms('AVANCE_RECEPTION');
@@ -815,11 +954,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     if (modelId === 'MANUAL') {
       setFormClientName('');
       setModelMaxGrid({});
-      setBatches(prev => {
-        const updated = [...prev];
-        if (updated[0]) updated[0].grid = {};
-        return updated;
-      });
+      patchBatch({ grid: {} });
       return;
     }
     const selected = models.find(m => m.id === modelId);
@@ -844,108 +979,111 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         });
         setModelMaxGrid(newMax);
         setFormTotalQuantity(0);
-        setBatches(prev => {
-          const updated = [...prev];
-          if (updated[0]) {
-            updated[0].grid = newGrid;
-            updated[0].quantity = 0;
-          }
-          return updated;
-        });
+        patchBatch({ grid: newGrid, quantity: 0 });
       } else {
         setModelMaxGrid({});
         const qty = selected.meta_data.quantity || 0;
         setFormTotalQuantity(qty);
-        setBatches(prev => {
-          const updated = [...prev];
-          if (updated[0]) {
-            updated[0].grid = {};
-            updated[0].quantity = qty;
-          }
-          return updated;
-        });
+        patchBatch({ grid: {}, quantity: qty });
       }
     }
   };
 
-  // Color-Size grid helpers for new order
+  // Color-Size grid helpers for new order — mises à jour strictement immuables.
   const handleAddColor = () => {
     const color = newColorInput.trim();
     if (!color) return;
-    setBatches(prev => {
-      const updated = [...prev];
-      const batch = updated[0];
-      if (!batch.grid[color]) {
-        const sizes: Record<string, number> = {};
-        COMMON_SIZES.forEach(sz => { sizes[sz] = 0; });
-        batch.grid[color] = sizes;
-      }
-      return updated;
+    patchBatch(b => {
+      if (b.grid[color]) return {};
+      const sizes: Record<string, number> = {};
+      COMMON_SIZES.forEach(sz => { sizes[sz] = 0; });
+      return { grid: { ...b.grid, [color]: sizes } };
     });
     setNewColorInput('');
   };
 
   const handleRemoveColor = (color: string) => {
-    setBatches(prev => {
-      const updated = [...prev];
-      delete updated[0].grid[color];
-      // Re-sum total quantity
-      updated[0].quantity = Object.values(updated[0].grid).reduce((sum, sizes) => {
-        return sum + Object.values(sizes).reduce((a, b) => a + b, 0);
-      }, 0);
-      setFormTotalQuantity(updated[0].quantity);
-      return updated;
+    patchBatch(b => {
+      const grid = { ...b.grid };
+      delete grid[color];
+      return { grid, quantity: sumGrid(grid) };
     });
   };
 
   const handleFillFullQuantity = () => {
-    setBatches(prev => {
-      const updated = [...prev];
-      const batch = updated[0];
-      let total = 0;
-      Object.keys(batch.grid).forEach(color => {
-        Object.keys(batch.grid[color]).forEach(sz => {
-          const max = modelMaxGrid[color]?.[sz] || 0;
-          batch.grid[color][sz] = max;
-          total += max;
+    patchBatch(b => {
+      const grid: Record<string, Record<string, number>> = {};
+      Object.keys(b.grid).forEach(color => {
+        grid[color] = {};
+        Object.keys(b.grid[color]).forEach(sz => {
+          grid[color][sz] = modelMaxGrid[color]?.[sz] || 0;
         });
       });
-      setFormTotalQuantity(total);
-      return updated;
+      return { grid, quantity: sumGrid(grid) };
     });
   };
 
   const handleUpdateGridQty = (color: string, size: string, qty: number) => {
     const cleanQty = Math.max(0, qty || 0);
-    setBatches(prev => {
-      const updated = [...prev];
-      const batch = updated[0];
-      if (batch.grid[color]) {
-        batch.grid[color][size] = cleanQty;
-      }
-      // Re-sum
-      batch.quantity = Object.values(batch.grid).reduce((sum, sizes) => {
-        return sum + Object.values(sizes).reduce((a, b) => a + b, 0);
-      }, 0);
-      setFormTotalQuantity(batch.quantity);
-      return updated;
+    patchBatch(b => {
+      if (!b.grid[color]) return {};
+      const grid = { ...b.grid, [color]: { ...b.grid[color], [size]: cleanQty } };
+      return { grid, quantity: sumGrid(grid) };
     });
+  };
+
+  /** Libellé du modèle porté par la commande (plus de texte français en dur). */
+  const resolveModelName = (modelId: string): string => {
+    if (modelId === 'MANUAL') {
+      return tx(lang,{fr:'Commande Directe',ar:'طلبية مباشرة',en:'Direct Order',es:'Pedido Directo',pt:'Encomenda Direta',tr:'Doğrudan Sipariş'});
+    }
+    return models.find(m => m.id === modelId)?.meta_data?.nom_modele
+      || tx(lang,{fr:'Inconnu',ar:'غير معروف',en:'Unknown',es:'Desconocido',pt:'Desconhecido',tr:'Bilinmiyor'});
+  };
+
+  /** Garde-fous financiers communs à la création ET à l'édition (A3).
+   *  Retourne un message d'erreur traduit, ou `null` si tout est cohérent. */
+  const validateOrderForm = (opts: { total: number; price: number; accepted: number; toRepair: number; rejected: number }): string | null => {
+    if (!(opts.total > 0)) {
+      return tx(lang,{fr:'La quantité totale doit être supérieure à 0.',ar:'الكمية الإجمالية يجب أن تكون أكبر من 0.',en:'The total quantity must be greater than 0.',es:'La cantidad total debe ser mayor que 0.',pt:'A quantidade total deve ser superior a 0.',tr:'Toplam miktar 0\'dan büyük olmalıdır.'});
+    }
+    if (!(opts.price >= 0) || !Number.isFinite(opts.price)) {
+      return tx(lang,{fr:'Le tarif par pièce ne peut pas être négatif.',ar:'سعر القطعة لا يمكن أن يكون سالباً.',en:'The price per piece cannot be negative.',es:'El precio por pieza no puede ser negativo.',pt:'O preço por peça não pode ser negativo.',tr:'Birim fiyat negatif olamaz.'});
+    }
+    if (opts.accepted < 0 || opts.toRepair < 0 || opts.rejected < 0) {
+      return tx(lang,{fr:'Les quantités contrôlées ne peuvent pas être négatives.',ar:'الكميات المراقَبة لا يمكن أن تكون سالبة.',en:'Inspected quantities cannot be negative.',es:'Las cantidades controladas no pueden ser negativas.',pt:'As quantidades controladas não podem ser negativas.',tr:'Kontrol edilen miktarlar negatif olamaz.'});
+    }
+    const controlled = opts.accepted + opts.toRepair + opts.rejected;
+    if (controlled > opts.total) {
+      return tx(lang,{
+        fr:`Incohérence : acceptées + à retoucher + rejetées (${controlled}) dépasse la quantité totale (${opts.total}).`,
+        ar:`تناقض: المقبولة + قيد التعديل + المرفوضة (${controlled}) تتجاوز الكمية الإجمالية (${opts.total}).`,
+        en:`Inconsistency: accepted + to rework + rejected (${controlled}) exceeds the total quantity (${opts.total}).`,
+        es:`Incoherencia: aceptadas + por retocar + rechazadas (${controlled}) supera la cantidad total (${opts.total}).`,
+        pt:`Incoerência: aceites + por retocar + rejeitadas (${controlled}) excede a quantidade total (${opts.total}).`,
+        tr:`Tutarsızlık: kabul + rötuş + ret (${controlled}) toplam miktarı (${opts.total}) aşıyor.`,
+      });
+    }
+    return null;
   };
 
   // Submit new subcontract order
   const handleAddOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    setActionLoading(true);
     setError(null);
 
     if (!formSubcontractorName.trim()) {
       setError(tx(lang,{fr:'Veuillez specifier le nom du sous-traitant.',ar:'يرجى تحديد اسم المقاول من الباطن.',en:'Please specify the subcontractor name.',es:'Por favor, especifique el nombre del subcontratista.',pt:'Por favor, especifique o nome do subcontratado.',tr:'Lütfen taşeron adını belirtin.'}));
-      setActionLoading(false);
       return;
     }
 
-    const selectedModel = models.find(m => m.id === formModelId);
-    const modelName = formModelId === 'MANUAL' ? 'Commande Directe' : (selectedModel?.meta_data?.nom_modele || 'Inconnu');
+    const invalid = validateOrderForm({
+      total: effectiveTotalQuantity, price: formPricePerPiece, accepted: 0, toRepair: 0, rejected: 0,
+    });
+    if (invalid) { setError(invalid); return; }
+
+    setActionLoading(true);
+    const modelName = resolveModelName(formModelId);
 
     const gridJson = serializeGrid(batches[0].grid);
 
@@ -953,7 +1091,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       modelId: formModelId,
       modelName,
       clientName: formClientName,
-      totalQuantity: formTotalQuantity,
+      totalQuantity: effectiveTotalQuantity,
       subcontractorName: formSubcontractorName,
       pricePerPiece: formPricePerPiece,
       deliveryDate: batches[0].deliveryDate || new Date().toISOString().split('T')[0],
@@ -995,7 +1133,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       }
 
       setIsAddModalOpen(false);
-      await applySubcontractPriceToModel();
+      await applySubcontractPriceToModel(formModelId, formPricePerPiece, formStMode);
       fetchData();
     } catch (err: any) {
       console.error(err);
@@ -1005,39 +1143,57 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     }
   };
 
-  // Après création d'une commande : proposer de répercuter le prix du sous-traitant
-  // sur le calcul de coût du modèle (Façon = matières + prix ; Tout compris = prix seul).
-  const applySubcontractPriceToModel = async () => {
-    if (formModelId === 'MANUAL' || formPricePerPiece <= 0) return;
-    const model = models.find(m => m.id === formModelId);
+  // Après création OU modification d'une commande : proposer de répercuter le prix
+  // du sous-traitant sur le calcul de coût du modèle.
+  // Règle métier : Façon = matières + prix ; Tout compris = prix seul.
+  // La répercussion reste TOUJOURS soumise à une confirmation explicite : jamais
+  // automatique, parce qu'elle réécrit le coût de revient du modèle.
+  const applySubcontractPriceToModel = async (modelId: string, price: number, mode: StMode) => {
+    if (modelId === 'MANUAL' || !(price > 0)) return;
+    const model = models.find(m => m.id === modelId);
     if (!model) return;
 
-    const mode: 'facon' | 'complet' = formTissuFournisseur === 'SUBCONTRACTOR' ? 'complet' : 'facon';
     const modeLabel = mode === 'complet'
       ? tx(lang,{fr:'Tout compris (prix seul)',ar:'كلشي عليه (الثمن فقط)',en:'All-inclusive (price only)',es:'Todo incluido (solo precio)',pt:'Tudo incluído (apenas preço)',tr:'Her şey dahil (sadece fiyat)'})
       : tx(lang,{fr:'Façon (matières + prix)',ar:'خياطة فقط (المواد + الثمن)',en:'Cut-Make (materials + price)',es:'Confección (materiales + precio)',pt:'Confeção (materiais + preço)',tr:'Fason (malzeme + fiyat)'});
 
+    const modelLabel = model.meta_data.nom_modele;
     const question = tx(lang,{
-      fr:`Appliquer ${formPricePerPiece} MAD/pièce au calcul de coût de « ${model.meta_data.nom_modele} » ?\n\nMode : ${modeLabel}\n\nCela remplacera le coût de main d'œuvre calculé depuis la gamme.`,
-      ar:`واش نطبّقو ${formPricePerPiece} MAD/قطعة فحساب تكلفة «${model.meta_data.nom_modele}»؟\n\nالنوع: ${modeLabel}\n\nهادشي غادي يعوّض تكلفة اليد العاملة المحسوبة من الـ gamme.`,
-      en:`Apply ${formPricePerPiece} MAD/piece to the cost calculation of "${model.meta_data.nom_modele}"?\n\nMode: ${modeLabel}\n\nThis will replace the labour cost computed from the gamme.`,
-      es:`¿Aplicar ${formPricePerPiece} MAD/pieza al cálculo de coste de «${model.meta_data.nom_modele}»?\n\nModo: ${modeLabel}\n\nEsto reemplazará el coste de mano de obra calculado desde la gama.`,
-      pt:`Aplicar ${formPricePerPiece} MAD/peça ao cálculo de custo de "${model.meta_data.nom_modele}"?\n\nModo: ${modeLabel}\n\nIsto substituirá o custo de mão de obra calculado a partir da gama.`,
-      tr:`"${model.meta_data.nom_modele}" maliyet hesabına ${formPricePerPiece} MAD/adet uygulansın mı?\n\nMod: ${modeLabel}\n\nBu, gamme'den hesaplanan işçilik maliyetinin yerine geçecek.`,
+      fr:`Appliquer ${price} ${currency}/pièce au calcul de coût de « ${modelLabel} » ?\n\nMode : ${modeLabel}\n\nCela remplacera le coût de main d'œuvre calculé depuis la gamme.`,
+      ar:`واش نطبّقو ${price} ${currency}/قطعة فحساب تكلفة «${modelLabel}»؟\n\nالنوع: ${modeLabel}\n\nهادشي غادي يعوّض تكلفة اليد العاملة المحسوبة من الـ gamme.`,
+      en:`Apply ${price} ${currency}/piece to the cost calculation of "${modelLabel}"?\n\nMode: ${modeLabel}\n\nThis will replace the labour cost computed from the gamme.`,
+      es:`¿Aplicar ${price} ${currency}/pieza al cálculo de coste de «${modelLabel}»?\n\nModo: ${modeLabel}\n\nEsto reemplazará el coste de mano de obra calculado desde la gama.`,
+      pt:`Aplicar ${price} ${currency}/peça ao cálculo de custo de "${modelLabel}"?\n\nModo: ${modeLabel}\n\nIsto substituirá o custo de mão de obra calculado a partir da gama.`,
+      tr:`"${modelLabel}" maliyet hesabına ${price} ${currency}/adet uygulansın mı?\n\nMod: ${modeLabel}\n\nBu, gamme'den hesaplanan işçilik maliyetinin yerine geçecek.`,
     });
 
+    // Confirmation explicite obligatoire — jamais de répercussion automatique.
     if (!window.confirm(question)) return;
 
-    const updated: ModelData = {
-      ...model,
-      ficheData: {
-        ...(model.ficheData as any),
-        soustraitance: { active: true, mode, prix: formPricePerPiece },
-      },
-      updatedAt: new Date().toISOString(),
-    };
-
     try {
+      // L'API `POST /api/models` remplace le modèle ENTIER : envoyer la copie
+      // portée par la prop `models` écraserait tout ce que l'ingénierie a pu
+      // modifier entre-temps. On relit donc la version à jour juste avant
+      // l'écriture et on n'y applique QUE `ficheData.soustraitance` (A7).
+      let base: ModelData = model;
+      const fresh = await fetch('/api/models', { credentials: 'include' });
+      if (fresh.ok) {
+        const list = await fresh.json();
+        const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : null;
+        if (found) base = found;
+      } else {
+        throw new Error(tx(lang,{fr:'Impossible de relire le modèle à jour — mise à jour annulée pour ne rien écraser.',ar:'تعذّرت إعادة قراءة الموديل المحدَّث — أُلغي التحديث تفادياً لطمس البيانات.',en:'Could not re-read the up-to-date model — update cancelled to avoid overwriting.',es:'No se pudo releer el modelo actualizado — actualización cancelada para no sobrescribir.',pt:'Não foi possível reler o modelo atualizado — atualização cancelada para não sobrescrever.',tr:'Güncel model yeniden okunamadı — üzerine yazmamak için güncelleme iptal edildi.'}));
+      }
+
+      const updated: ModelData = {
+        ...base,
+        ficheData: {
+          ...(base.ficheData as any),
+          soustraitance: { active: true, mode, prix: price },
+        },
+        updatedAt: new Date().toISOString(),
+      };
+
       const res = await fetch('/api/models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1073,6 +1229,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setFormSubcontractorRating(order.subcontractorRating || 5);
     setFormSubcontractorAvailabilityDate(order.subcontractorAvailabilityDate || '');
 
+    // Valeur initiale du sélecteur explicite (A6) : déduite de TOUS les champs
+    // fournisseur, pas du seul tissu, et conservatrice en cas d'ambiguïté.
+    setFormStMode(inferSubcontractMode(order));
     setFormPrestationType(order.prestationType || 'CMT');
     setFormTissuFournisseur(order.tissuFournisseur || 'CLIENT');
     setFormFournituresFournisseur(order.fournituresFournisseur || 'CLIENT');
@@ -1106,19 +1265,27 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const handleEditOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOrder) return;
-    setActionLoading(true);
     setError(null);
 
-    const gridJson = serializeGrid(batches[0].grid);
+    const invalid = validateOrderForm({
+      total: effectiveTotalQuantity,
+      price: formPricePerPiece,
+      accepted: formQtyAccepted,
+      toRepair: formQtyToRepair,
+      rejected: formQtyRejected,
+    });
+    if (invalid) { setError(invalid); return; }
 
-    const selectedModel = models.find(m => m.id === formModelId);
-    const modelName = formModelId === 'MANUAL' ? 'Commande Directe' : (selectedModel?.meta_data?.nom_modele || 'Inconnu');
+    setActionLoading(true);
+
+    const gridJson = serializeGrid(batches[0].grid);
+    const modelName = resolveModelName(formModelId);
 
     const body = {
       modelId: formModelId,
       modelName,
       clientName: formClientName,
-      totalQuantity: formTotalQuantity,
+      totalQuantity: effectiveTotalQuantity,
       subcontractorName: formSubcontractorName,
       pricePerPiece: formPricePerPiece,
       deliveryDate: batches[0].deliveryDate || selectedOrder.deliveryDate,
@@ -1161,6 +1328,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       }
 
       setIsEditModalOpen(false);
+      // A5 : le lien vers le coût de revient ne vivait qu'à la création. Si le
+      // tarif change ici, le coût du modèle resterait figé sur l'ancien montant.
+      // La répercussion reste soumise à la confirmation explicite habituelle.
+      if ((selectedOrder.pricePerPiece || 0) !== formPricePerPiece) {
+        await applySubcontractPriceToModel(formModelId, formPricePerPiece, formStMode);
+      }
       fetchData();
     } catch (err: any) {
       console.error(err);
@@ -1180,9 +1353,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         body: JSON.stringify({ status: newStatus })
       });
       if (!res.ok) throw new Error(tx(lang,{fr:'Echec de la modification du statut',ar:'فشل تعديل الحالة',en:'Failed to update status',es:'Error al modificar el estado',pt:'Falha ao modificar o estado',tr:'Durum güncellenemedi'}));
+      setError(null);
       fetchData();
     } catch (err: any) {
-      alert(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
+      setError(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
     }
   };
 
@@ -1225,7 +1399,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       // Le serveur n'a pas pris la modification : ne pas laisser l'écran mentir.
       setOrders(prev => prev.map(o => (o.id === order.id ? order : o)));
       setDetailOrder(prev => (prev && prev.id === order.id ? order : prev));
-      alert(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
+      setError(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
     }
   };
 
@@ -1291,10 +1465,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         const detail = await res.json().catch(() => null);
         throw new Error(detail?.message || tx(lang,{fr:'Echec de la suppression',ar:'فشل الحذف',en:'Deletion failed',es:'Error al eliminar',pt:'Falha ao eliminar',tr:'Silme başarısız'}));
       }
+      setError(null);
       await fetchData();
       return true;
     } catch (err: any) {
-      alert(err.message || tx(lang,{fr:'Une erreur est survenue.',ar:'حدث خطأ.',en:'An error occurred.',es:'Ocurrió un error.',pt:'Ocorreu um erro.',tr:'Bir hata oluştu.'}));
+      setError(err.message || tx(lang,{fr:'Une erreur est survenue.',ar:'حدث خطأ.',en:'An error occurred.',es:'Ocurrió un error.',pt:'Ocorreu um erro.',tr:'Bir hata oluştu.'}));
       return false;
     }
   };
@@ -1311,11 +1486,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   };
 
   // Open Sale Invoice Modal for a model (Tab 3)
-  const openSaleModal = (item: { model: ModelData, remainingStock: number, price: number }) => {
-    const today = new Date().toISOString().split('T')[0];
-    const serial = Math.floor(1000 + Math.random() * 9000);
-    const num = `FAC-VENTE-${today.replace(/-/g, '')}-${serial}`;
-    
+  const openSaleModal = async (item: { model: ModelData, remainingStock: number, price: number | null }) => {
     setSelectedModelForSale(item.model);
     setSaleClient(item.model.ficheData?.client || '');
     setSaleClientIce('');
@@ -1324,27 +1495,65 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setSaleClientTel('');
     setSaleClientEmail('');
     setSaleQuantity(item.remainingStock);
-    setSalePrice(item.price);
+    // Prix de revient réel s'il existe, sinon champ VIDE (et `required`).
+    setSalePrice(item.price != null ? Number(item.price.toFixed(2)) : '');
     setSaleTvaRate(20);
     setSaleNotes(tx(lang,{fr:'Sortie de stock sous-traitance pour le modele',ar:'إخراج من مخزون المقاولة من الباطن للموديل',en:'Subcontract stock exit for model',es:'Salida de stock de subcontratación para el modelo',pt:'Saída de stock de subcontratação para o modelo',tr:'Taşeron stok çıkışı model için'}) + ` ${item.model.meta_data.nom_modele}`);
     setSaleStatus('BROUILLON');
-    setSaleInvoiceNumber(num);
+
+    // A4 : le numéro de facture vient du serveur. Aucune valeur aléatoire de
+    // repli — deux factures homonymes fausseraient la comptabilité.
+    setSaleInvoiceNumber('');
+    setSaleNumberError(null);
+    setSaleNumberLoading(true);
     setIsSaleModalOpen(true);
+    try {
+      const res = await fetch('/api/subcontract/next-invoice-number', { credentials: 'include' });
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      const number = typeof data?.number === 'string' ? data.number.trim() : '';
+      if (!number) throw new Error('empty');
+      setSaleInvoiceNumber(number);
+    } catch (err) {
+      console.error('[SousTraitance] next-invoice-number', err);
+      setSaleNumberError(tx(lang,{
+        fr:"Numéro de facture indisponible : le serveur n'a pas répondu. Impossible d'émettre la facture — réessayez.",
+        ar:'رقم الفاتورة غير متاح: الخادم لم يستجب. لا يمكن إصدار الفاتورة — أعد المحاولة.',
+        en:'Invoice number unavailable: the server did not respond. The invoice cannot be issued — please retry.',
+        es:'Número de factura no disponible: el servidor no respondió. No se puede emitir la factura — reinténtelo.',
+        pt:'Número de fatura indisponível: o servidor não respondeu. Não é possível emitir a fatura — tente novamente.',
+        tr:'Fatura numarası alınamadı: sunucu yanıt vermedi. Fatura kesilemez — tekrar deneyin.',
+      }));
+    } finally {
+      setSaleNumberLoading(false);
+    }
   };
 
   // Submit sale invoice (Tab 3)
   const handleSaveSaleInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedModelForSale) return;
-    setActionLoading(true);
+    setError(null);
 
     if (saleQuantity <= 0) {
-      alert(tx(lang,{fr:'La quantite vendue doit etre superieure a 0.',ar:'الكمية المباعة يجب أن تكون أكبر من 0.',en:'The sold quantity must be greater than 0.',es:'La cantidad vendida debe ser mayor que 0.',pt:'A quantidade vendida deve ser superior a 0.',tr:'Satılan miktar 0\'dan büyük olmalıdır.'}));
-      setActionLoading(false);
+      setError(tx(lang,{fr:'La quantite vendue doit etre superieure a 0.',ar:'الكمية المباعة يجب أن تكون أكبر من 0.',en:'The sold quantity must be greater than 0.',es:'La cantidad vendida debe ser mayor que 0.',pt:'A quantidade vendida deve ser superior a 0.',tr:'Satılan miktar 0\'dan büyük olmalıdır.'}));
       return;
     }
 
-    const totalHT = saleQuantity * salePrice;
+    if (salePrice === '' || !(Number(salePrice) >= 0)) {
+      setError(tx(lang,{fr:'Veuillez saisir un prix unitaire.',ar:'يرجى إدخال سعر الوحدة.',en:'Please enter a unit price.',es:'Por favor, introduzca un precio unitario.',pt:'Por favor, introduza um preço unitário.',tr:'Lütfen bir birim fiyat girin.'}));
+      return;
+    }
+
+    // A4 : sans numéro validé par le serveur, on bloque l'émission.
+    if (!saleInvoiceNumber.trim()) {
+      setError(saleNumberError || tx(lang,{fr:"Numéro de facture manquant : émission bloquée.",ar:'رقم الفاتورة ناقص: الإصدار موقوف.',en:'Missing invoice number: issuing blocked.',es:'Falta el número de factura: emisión bloqueada.',pt:'Número de fatura em falta: emissão bloqueada.',tr:'Fatura numarası eksik: kesim engellendi.'}));
+      return;
+    }
+
+    setActionLoading(true);
+    const unitPrice = Number(salePrice);
+    const totalHT = saleQuantity * unitPrice;
     const totalTVA = (totalHT * saleTvaRate) / 100;
     const totalTTC = totalHT + totalTVA;
 
@@ -1352,7 +1561,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const lines = [{
       designation: `Modele: ${selectedModelForSale.meta_data.nom_modele} (Ref: ${selectedModelForSale.meta_data.reference || 'N/A'})`,
       qte: saleQuantity,
-      prix_unitaire: salePrice,
+      prix_unitaire: unitPrice,
       total: totalHT,
       modelId: selectedModelForSale.id // Store modelId in JSON line item for exact stock calculation
     }];
@@ -1394,7 +1603,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setIsSaleModalOpen(false);
       await fetchData();
     } catch (err: any) {
-      alert(err.message || tx(lang,{fr:'Une erreur est survenue lors de la facturation.',ar:'حدث خطأ أثناء إصدار الفاتورة.',en:'An error occurred during invoicing.',es:'Ocurrió un error durante la facturación.',pt:'Ocorreu um erro durante a faturação.',tr:'Faturalama sırasında bir hata oluştu.'}));
+      setError(err.message || tx(lang,{fr:'Une erreur est survenue lors de la facturation.',ar:'حدث خطأ أثناء إصدار الفاتورة.',en:'An error occurred during invoicing.',es:'Ocurrió un error durante la facturación.',pt:'Ocorreu um erro durante a faturação.',tr:'Faturalama sırasında bir hata oluştu.'}));
     } finally {
       setActionLoading(false);
     }
@@ -1406,7 +1615,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const totalHT = saleQuantity * salePrice;
+    const unitPrice = Number(salePrice) || 0;
+    const totalHT = saleQuantity * unitPrice;
     const totalTVA = (totalHT * saleTvaRate) / 100;
     const totalTTC = totalHT + totalTVA;
 
@@ -1478,9 +1688,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     Modèle: ${selectedModelForSale.meta_data.nom_modele}
                     <div style="font-size: 11px; color: #64748b; font-weight: 400; margin-top: 2px;">Réf: ${selectedModelForSale.meta_data.reference || 'N/A'}</div>
                   </td>
-                  <td style="text-align: right;">${saleQuantity.toLocaleString()} pcs</td>
-                  <td style="text-align: right;">${salePrice.toLocaleString()} MAD</td>
-                  <td style="text-align: right; font-weight: 600;">${totalHT.toLocaleString()} MAD</td>
+                  <td style="text-align: right;">${saleQuantity.toLocaleString(dateLocale)} pcs</td>
+                  <td style="text-align: right;">${unitPrice.toLocaleString(dateLocale)} ${currency}</td>
+                  <td style="text-align: right; font-weight: 600;">${totalHT.toLocaleString(dateLocale)} ${currency}</td>
                 </tr>
               </tbody>
             </table>
@@ -1488,15 +1698,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             <table class="total-table">
               <tr>
                 <td style="color: #64748b;">Total HT</td>
-                <td style="text-align: right; font-weight: 600;">${totalHT.toLocaleString()} MAD</td>
+                <td style="text-align: right; font-weight: 600;">${totalHT.toLocaleString(dateLocale)} ${currency}</td>
               </tr>
               <tr>
                 <td style="color: #64748b;">TVA (${saleTvaRate}%)</td>
-                <td style="text-align: right; font-weight: 600;">${totalTVA.toLocaleString()} MAD</td>
+                <td style="text-align: right; font-weight: 600;">${totalTVA.toLocaleString(dateLocale)} ${currency}</td>
               </tr>
               <tr class="total-row">
                 <td>Total TTC</td>
-                <td style="text-align: right;">${totalTTC.toLocaleString()} MAD</td>
+                <td style="text-align: right;">${totalTTC.toLocaleString(dateLocale)} ${currency}</td>
               </tr>
             </table>
 
@@ -1520,10 +1730,65 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   // Helper to print subcontractor delivery bon/slip (Tab 1 action)
   const handlePrintDeliveryNote = (order: SubcontractOrder) => {
-    const sizes = parseJsonSafe(order.sizes_json);
-    const colors = parseJsonSafe(order.colors_json);
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
+
+    const esc = (v: unknown) => String(v ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+    // B2 : les quantités réelles viennent de `grid_json` (matrice couleur × taille).
+    // L'ancien rendu faisait un produit cartésien : pour CHAQUE couleur il répétait
+    // le détail des tailles toutes couleurs confondues — le bon remis au
+    // sous-traitant annonçait donc des quantités fausses.
+    const parsedGrid = parseJsonSafe(order.grid_json, null as any);
+    const grid: Record<string, Record<string, number>> | null =
+      parsedGrid && typeof parsedGrid === 'object' && Object.keys(parsedGrid).length > 0 ? parsedGrid : null;
+    const sizeTotals: Record<string, number> = parseJsonSafe(order.sizes_json);
+
+    const rows = grid
+      ? Object.entries(grid)
+          .map(([color, sizesObj]) => {
+            const detail = Object.entries(sizesObj || {})
+              .map(([sz, q]) => [sz, Number(q) || 0] as const)
+              .filter(([, q]) => q > 0);
+            return { color, detail, total: detail.reduce((a, [, q]) => a + q, 0) };
+          })
+          .filter(r => r.total > 0)
+      : [{
+          color: tx(lang,{fr:'Standard',ar:'قياسي',en:'Standard',es:'Estándar',pt:'Padrão',tr:'Standart'}),
+          detail: Object.entries(sizeTotals)
+            .map(([sz, q]) => [sz, Number(q) || 0] as const)
+            .filter(([, q]) => q > 0),
+          total: order.totalQuantity,
+        }];
+
+    const rowsTotal = rows.reduce((a, r) => a + r.total, 0);
+    // Si la matrice et la quantité enregistrée divergent, on le DIT sur le bon
+    // plutôt que de laisser le sous-traitant arbitrer seul.
+    const mismatch = grid && rowsTotal !== order.totalQuantity;
+
+    const rowsHtml = rows.map(r => `
+                <tr>
+                  <td style="font-weight: 800; color: #1e1b4b;">${esc(r.color)}</td>
+                  <td style="font-weight: 600;">
+                    ${r.detail.length > 0
+                      ? r.detail.map(([sz, q]) => `[${esc(sz)}]: ${q.toLocaleString(dateLocale)} pcs`).join(' | ')
+                      : '&mdash;'}
+                  </td>
+                  <td style="text-align: right; font-weight: 800; color: #4f46e5;">${r.total.toLocaleString(dateLocale)} pcs</td>
+                </tr>`).join('');
+
+    const mismatchHtml = mismatch ? `
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:20px;font-size:12px;color:#92400e;font-weight:700;">
+              ${esc(tx(lang,{
+                fr:`Attention : le détail par couleur totalise ${rowsTotal} pièces alors que la commande en enregistre ${order.totalQuantity}. Vérifier avant expédition.`,
+                ar:`تنبيه: التفصيل حسب اللون مجموعه ${rowsTotal} قطعة بينما الطلبية مسجّلة بـ ${order.totalQuantity}. تحقّق قبل الإرسال.`,
+                en:`Warning: the per-color detail totals ${rowsTotal} pieces while the order records ${order.totalQuantity}. Check before shipping.`,
+                es:`Atención: el detalle por color suma ${rowsTotal} piezas mientras el pedido registra ${order.totalQuantity}. Verifique antes del envío.`,
+                pt:`Atenção: o detalhe por cor totaliza ${rowsTotal} peças enquanto a encomenda regista ${order.totalQuantity}. Verifique antes da expedição.`,
+                tr:`Uyarı: renk detayı ${rowsTotal} adet toplarken sipariş ${order.totalQuantity} kaydediyor. Sevkiyattan önce kontrol edin.`,
+              }))}
+            </div>` : '';
 
     printWindow.document.write(`
       <html>
@@ -1589,29 +1854,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </tr>
             </thead>
             <tbody>
-              ${Object.keys(colors).length > 0 ? Object.entries(colors).map(([color, qty]) => `
-                <tr>
-                  <td style="font-weight: 800; color: #1e1b4b;">${color}</td>
-                  <td style="font-weight: 600;">
-                    ${Object.entries(sizes).map(([sz, q]) => `[${sz}]: ${q} pcs`).join(' | ')}
-                  </td>
-                  <td style="text-align: right; font-weight: 800; color: #4f46e5;">${qty.toLocaleString()} pcs</td>
-                </tr>
-              `).join('') : `
-                <tr>
-                  <td style="font-weight: 800; color: #1e1b4b;">{tx(lang, {fr: 'Standard', ar: 'قياسي', en: 'Standard', es: 'Estándar', pt: 'Padrão', tr: 'Standart'})}</td>
-                  <td style="font-weight: 600;">
-                    ${Object.entries(sizes).map(([sz, q]) => `[${sz}]: ${q} pcs`).join(' | ')}
-                  </td>
-                  <td style="text-align: right; font-weight: 800; color: #4f46e5;">${order.totalQuantity.toLocaleString()} pcs</td>
-                </tr>
-              `}
+              ${rowsHtml}
               <tr style="background: #f8fafc; font-weight: 900; font-size: 14px; border-top: 2px solid #cbd5e1;">
                 <td colspan="2">${tx(lang,{fr:'QUANTITÉ TOTALE ENVOYÉE',ar:'الكمية الإجمالية المرسلة',en:'TOTAL QUANTITY SENT',es:'CANTIDAD TOTAL ENVIADA',pt:'QUANTIDADE TOTAL ENVIADA',tr:'GÖNDERİLEN TOPLAM MİKTAR'})}</td>
-                <td style="text-align: right; font-weight: 900; color: #4f46e5; font-size: 16px;">${order.totalQuantity.toLocaleString()} pcs</td>
+                <td style="text-align: right; font-weight: 900; color: #4f46e5; font-size: 16px;">${rowsTotal.toLocaleString(dateLocale)} pcs</td>
               </tr>
             </tbody>
           </table>
+
+          ${mismatchHtml}
 
           ${order.notes ? `
             <div style="background: #faf5ff; border: 1px solid #f3e8ff; border-radius: 12px; padding: 15px; margin-bottom: 30px;">
@@ -1635,10 +1886,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     <div className="flex-1 overflow-y-auto space-y-3.5 lg:space-y-6 p-3 lg:p-6 bg-slate-50 dark:bg-dk-bg text-slate-800 dark:text-dk-text relative font-sans animate-fade-in w-full h-full">
       
       {/* Header Banner - Compact and White - Hidden on Mobile/Tablet */}
-      <div className="hidden lg:block relative overflow-hidden rounded-2xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 p-3.5 lg:p-4 shadow-sm dark:shadow-dk-sm dark:shadow-none text-slate-800 dark:text-dk-text">
+      <div className="hidden lg:block relative overflow-hidden rounded-2xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 p-3.5 lg:p-4 shadow-sm dark:shadow-none text-slate-800 dark:text-dk-text">
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-0.5">
-            <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent uppercase tracking-widest block">{tx(lang,{fr:'Plateforme Industrielle',ar:'المنصة الصناعية',en:'Industrial Platform',es:'Plataforma Industrial',pt:'Plataforma Industrial',tr:'Endüstriyel Platform'})}</span>
+            <span className="text-[10px] font-black text-indigo-600 dark:text-dk-accent uppercase tracking-widest block">{tx(lang,{fr:'Plateforme Industrielle',ar:'المنصة الصناعية',en:'Industrial Platform',es:'Plataforma Industrial',pt:'Plataforma Industrial',tr:'Endüstriyel Platform'})}</span>
             <h1 className="text-lg lg:text-xl font-black tracking-tight text-slate-900 dark:text-dk-text">
               {tx(lang,{fr:'Sous-traitance & Monawla',ar:'المقاولة من الباطن ومناولة',en:'Subcontracting & Monawla',es:'Subcontratación & Monawla',pt:'Subcontratação & Monawla',tr:'Taşeronluk & Monawla'})}
             </h1>
@@ -1646,7 +1897,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           {activeTab === 'orders' && (
             <button
               onClick={() => setIsChoiceModalOpen(true)}
-              className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover dark:hover:bg-dk-accent/90 hover:scale-[1.01] active:scale-[0.99] text-white px-4 py-2 rounded-xl transition-all shadow-sm dark:shadow-dk-sm dark:shadow-none flex items-center justify-center gap-2 font-bold w-full sm:w-auto text-xs shrink-0 border border-indigo-600 dark:border-dk-accent"
+              className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 hover:scale-[1.01] active:scale-[0.99] text-white px-4 py-2 rounded-xl transition-all shadow-sm dark:shadow-none flex items-center justify-center gap-2 font-bold w-full sm:w-auto text-xs shrink-0 border border-indigo-600 dark:border-dk-accent"
             >
               <Plus className="w-3.5 h-3.5 text-white" />
               <span>{tx(lang,{fr:'Nouvelle Commande',ar:'أمر شراء جديد',en:'New Order',es:'Nuevo Pedido',pt:'Nova Encomenda',tr:'Yeni Sipariş'})}</span>
@@ -1656,24 +1907,24 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       </div>
 
       {/* Modern Pill-Style Tabs Bar - Compact */}
-      <div className="flex bg-white dark:bg-dk-surface p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/60 overflow-x-auto gap-0.5 shadow-sm dark:shadow-dk-sm dark:shadow-none max-w-max scrollbar-none shrink-0">
+      <div className="flex bg-white dark:bg-dk-surface p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/60 overflow-x-auto gap-0.5 shadow-sm dark:shadow-none max-w-max scrollbar-none shrink-0">
         <button
           onClick={() => setActiveTab('orders')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'orders' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'orders' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
         >
           <Package className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Commandes',ar:'الطلبيات',en:'Orders',es:'Pedidos',pt:'Encomendas',tr:'Siparişler'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('subcontractors')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'subcontractors' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'subcontractors' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
         >
           <Users className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Sous-traitants',ar:'المقاولون من الباطن',en:'Subcontractors',es:'Subcontratistas',pt:'Subcontratados',tr:'Taşeronlar'})}</span>
         </button>
         <button
           onClick={() => setActiveTab('stock')}
-          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'stock' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-dk-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated'}`}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'stock' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
         >
           <Coins className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Stock & Ventes',ar:'المخزون والمبيعات',en:'Stock & Sales',es:'Stock & Ventas',pt:'Stock & Vendas',tr:'Stok & Satışlar'})}</span>
@@ -1682,14 +1933,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
       {/* ERROR BANNER */}
       {error && (
-        <div className="bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 text-rose-850 dark:text-rose-400 p-3 lg:p-4 rounded-xl flex items-center gap-3">
+        <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 text-rose-800 dark:text-rose-400 p-3 lg:p-4 rounded-xl flex items-center gap-3">
           <AlertCircle className="w-4 h-4 lg:w-5 lg:h-5 text-rose-600 dark:text-rose-400 shrink-0" />
           <span className="text-xs lg:text-sm font-medium">{error}</span>
         </div>
       )}
 
       {loading ? (
-        <div className="h-64 flex flex-col items-center justify-center bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none gap-3">
+        <div className="h-64 flex flex-col items-center justify-center bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none gap-3">
           <Loader2 className="w-6 h-6 lg:w-8 lg:h-8 text-indigo-500 dark:text-dk-accent animate-spin" />
           <p className="text-[11px] lg:text-xs text-slate-500 dark:text-dk-muted font-medium">{tx(lang,{fr:'Chargement des données de sous-traitance...',ar:'جاري تحميل بيانات المقاولة من الباطن...',en:'Loading subcontracting data...',es:'Cargando datos de subcontratación...',pt:'A carregar dados de subcontratação...',tr:'Taşeronluk verileri yükleniyor...'})}</p>
         </div>
@@ -1702,8 +1953,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             <div className="space-y-3 lg:space-y-4">
               {/* Clean Minimalist Stats Widgets - Horizontally scrollable on mobile/tablet */}
               <div className="flex flex-row flex-nowrap overflow-x-auto lg:grid lg:grid-cols-4 gap-2 lg:gap-3 pb-1.5 lg:pb-0 scrollbar-none w-full shrink-0">
-                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-dk-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
-                  <div className="p-1.5 lg:p-2 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent rounded-md lg:rounded-lg shrink-0">
+                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
+                  <div className="p-1.5 lg:p-2 bg-indigo-50 dark:bg-dk-elevated text-indigo-600 dark:text-dk-accent rounded-md lg:rounded-lg shrink-0">
                     <Truck className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                   </div>
                   <div>
@@ -1711,17 +1962,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <span className="text-xs lg:text-sm font-extrabold text-slate-800 dark:text-dk-text tracking-tight block leading-none mt-0.5">{stats.activeOrdersCount}</span>
                   </div>
                 </div>
-                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-dk-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
-                  <div className="p-1.5 lg:p-2 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent rounded-md lg:rounded-lg shrink-0">
+                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
+                  <div className="p-1.5 lg:p-2 bg-indigo-50 dark:bg-dk-elevated text-indigo-600 dark:text-dk-accent rounded-md lg:rounded-lg shrink-0">
                     <Package className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                   </div>
                   <div>
                     <span className="text-[8px] lg:text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider block">{tx(lang,{fr:'Total Commandé',ar:'إجمالي المطلوب',en:'Total Ordered',es:'Total Pedido',pt:'Total Encomendado',tr:'Toplam Sipariş Edilen'})}</span>
-                    <span className="text-xs lg:text-sm font-extrabold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent tracking-tight block leading-none mt-0.5" dir="ltr">{stats.totalQty.toLocaleString()} <span className="text-[9px] lg:text-[10px] font-semibold text-slate-400 dark:text-dk-muted">pcs</span></span>
+                    <span className="text-xs lg:text-sm font-extrabold text-indigo-600 dark:text-dk-accent tracking-tight block leading-none mt-0.5" dir="ltr">{stats.totalQty.toLocaleString()} <span className="text-[9px] lg:text-[10px] font-semibold text-slate-400 dark:text-dk-muted">pcs</span></span>
                   </div>
                 </div>
-                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-dk-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
-                  <div className="p-1.5 lg:p-2 bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-md lg:rounded-lg shrink-0">
+                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
+                  <div className="p-1.5 lg:p-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-md lg:rounded-lg shrink-0">
                     <ShieldCheck className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                   </div>
                   <div>
@@ -1729,8 +1980,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <span className="text-xs lg:text-sm font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight block leading-none mt-0.5">{stats.avgQualityRate}%</span>
                   </div>
                 </div>
-                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-dk-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
-                  <div className="p-1.5 lg:p-2 bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 rounded-md lg:rounded-lg shrink-0">
+                <div className="flex-1 min-w-[110px] lg:min-w-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/50 p-2 lg:p-2.5 rounded-lg lg:rounded-xl shadow-sm dark:shadow-none flex items-center gap-2 lg:gap-2.5 hover:shadow-md dark:hover:shadow-none transition-all shrink-0">
+                  <div className="p-1.5 lg:p-2 bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 rounded-md lg:rounded-lg shrink-0">
                     <Clock className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                   </div>
                   <div>
@@ -1741,7 +1992,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </div>
 
               {/* Clean Filters Toolbar */}
-              <div className="bg-white dark:bg-dk-surface rounded-xl p-2 lg:p-3 border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none flex flex-col gap-2.5 w-full shrink-0">
+              <div className="bg-white dark:bg-dk-surface rounded-xl p-2 lg:p-3 border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none flex flex-col gap-2.5 w-full shrink-0">
                 {/* Search input + Mobile filter toggle */}
                 <div className="flex gap-2 w-full">
                   <div className="relative flex-1">
@@ -1751,7 +2002,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       placeholder={tx(lang,{fr:'Rechercher sous-traitant, modèle...',ar:'بحث عن مقاول من الباطن، موديل...',en:'Search subcontractor, model...',es:'Buscar subcontratista, modelo...',pt:'Pesquisar subcontratado, modelo...',tr:'Taşeron, model ara...'})}
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-8 pr-3 py-1.5 border border-slate-200 dark:border-dk-border rounded-xl text-[11px] lg:text-xs focus:outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent w-full bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50 text-slate-800 dark:text-dk-text placeholder:text-slate-400"
+                      className="pl-8 pr-3 py-1.5 border border-slate-200 dark:border-dk-border rounded-xl text-[11px] lg:text-xs focus:outline-none focus:border-indigo-500 dark:focus:border-dk-accent w-full bg-slate-50 dark:bg-dk-surface/50 text-slate-800 dark:text-dk-text placeholder:text-slate-400"
                     />
                   </div>
                   <button 
@@ -1765,12 +2016,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
 
                 {/* Dropdowns + View Toggle (Always visible on desktop, toggleable on mobile/tablet) */}
-                <div className={`${showMobileFilters ? 'flex' : 'hidden'} lg:flex flex-wrap items-center gap-2 w-full lg:justify-end border-t border-slate-150 dark:border-dk-border pt-2 lg:border-t-0 lg:pt-0`}>
+                <div className={`${showMobileFilters ? 'flex' : 'hidden'} lg:flex flex-wrap items-center gap-2 w-full lg:justify-end border-t border-slate-200 dark:border-dk-border pt-2 lg:border-t-0 lg:pt-0`}>
                   {/* Group Filter */}
                   <select
                     value={groupFilter}
                     onChange={(e) => setGroupFilter(e.target.value)}
-                    className="text-[11px] lg:text-xs font-bold text-slate-700 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg p-1.5 outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated flex-1 sm:flex-initial"
+                    className="text-[11px] lg:text-xs font-bold text-slate-700 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg p-1.5 outline-none focus:border-indigo-500 dark:focus:border-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated flex-1 sm:flex-initial"
                   >
                     <option value="ALL">{tx(lang,{fr:'Tous les groupements',ar:'جميع المجموعات',en:'All Groups',es:'Todos los Grupos',pt:'Todos os Grupos',tr:'Tüm Gruplar'})}</option>
                     {groups.map(g => (
@@ -1782,7 +2033,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="text-[11px] lg:text-xs font-bold text-slate-700 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg p-1.5 outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated flex-1 sm:flex-initial"
+                    className="text-[11px] lg:text-xs font-bold text-slate-700 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg p-1.5 outline-none focus:border-indigo-500 dark:focus:border-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated flex-1 sm:flex-initial"
                   >
                     <option value="ALL">{tx(lang,{fr:'Tous les statuts',ar:'جميع الحالات',en:'All Statuses',es:'Todos los Estados',pt:'Todos os Estados',tr:'Tüm Durumlar'})}</option>
                     <option value="PENDING">{tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}</option>
@@ -1813,8 +2064,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
               {/* View Rendering */}
               {filteredOrders.length === 0 ? (
-                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 p-12 lg:p-16 text-center text-slate-400 dark:text-dk-muted shadow-sm dark:shadow-dk-sm dark:shadow-none">
-                  <Package className="w-10 h-10 lg:w-12 lg:h-12 mx-auto mb-3 opacity-25 text-slate-350 dark:text-dk-muted" />
+                <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 p-12 lg:p-16 text-center text-slate-400 dark:text-dk-muted shadow-sm dark:shadow-none">
+                  <Package className="w-10 h-10 lg:w-12 lg:h-12 mx-auto mb-3 opacity-25 text-slate-300 dark:text-dk-muted" />
                   <p className="text-xs font-semibold">{tx(lang,{fr:'Aucune commande trouvée',ar:'لم يتم العثور على أي طلبية',en:'No orders found',es:'No se encontraron pedidos',pt:'Nenhuma encomenda encontrada',tr:'Sipariş bulunamadı'})}</p>
                 </div>
               ) : viewMode === 'card' ? (
@@ -1827,6 +2078,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     const repPct = order.totalQuantity > 0 ? Math.round((qtyRep / order.totalQuantity) * 100) : 0;
                     const rejPct = order.totalQuantity > 0 ? Math.round((qtyRej / order.totalQuantity) * 100) : 0;
                     const progress = Math.min(100, accPct + repPct + rejPct);
+                    const controlledQty = qtyAcc + qtyRep + qtyRej;
+                    const overCounted = controlledQty > order.totalQuantity;
+                    const overflowLabel = tx(lang,{
+                      fr:`Incohérence : ${controlledQty} pièces contrôlées pour ${order.totalQuantity} commandées.`,
+                      ar:`تناقض: ${controlledQty} قطعة مراقَبة مقابل ${order.totalQuantity} مطلوبة.`,
+                      en:`Inconsistency: ${controlledQty} inspected pieces for ${order.totalQuantity} ordered.`,
+                      es:`Incoherencia: ${controlledQty} piezas controladas para ${order.totalQuantity} pedidas.`,
+                      pt:`Incoerência: ${controlledQty} peças controladas para ${order.totalQuantity} encomendadas.`,
+                      tr:`Tutarsızlık: ${order.totalQuantity} sipariş için ${controlledQty} kontrol edilen parça.`,
+                    });
+                    const labelAccepted = tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul Edilen'});
+                    const labelRework = tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rötus yapılacak'});
+                    const labelRejected = tx(lang,{fr:'Rejetées',ar:'مرفوضة',en:'Rejected',es:'Rechazadas',pt:'Rejeitadas',tr:'Reddedilen'});
 
                     const matchedModel = models.find(m => m.id === order.modelId);
                     // La vignette illustre l'atelier : photo du profil sous-traitant en priorité,
@@ -1837,25 +2101,25 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     return (
                       <div 
                         key={order.id}
-                        className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none hover:shadow-md dark:hover:shadow-none hover:border-slate-350 transition-all overflow-hidden flex flex-col justify-between group"
+                        className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none hover:shadow-md dark:hover:shadow-none hover:border-slate-300 transition-all overflow-hidden flex flex-col justify-between group"
                       >
                         <div className="p-4 lg:p-5 space-y-3.5">
                           <div className="flex justify-between items-start">
                             <div>
-                              <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent uppercase tracking-widest block">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {order.clientName || 'N/A'}</span>
+                              <span className="text-[9px] font-black text-indigo-600 dark:text-dk-accent uppercase tracking-widest block">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {order.clientName || 'N/A'}</span>
                               <h3 
                                 onClick={() => { if (onLoadModel && matchedModel) onLoadModel(matchedModel); }}
-                                className={`font-bold text-slate-800 dark:text-dk-text text-sm mt-0.5 line-clamp-1 ${matchedModel ? 'hover:text-indigo-650 dark:text-dk-accent-text dark:text-dk-accent dark:hover:text-dk-accent hover:underline cursor-pointer' : ''}`}
-                                title={matchedModel ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:"فتح في الهندسة الفنية"}) : undefined}
+                                className={`font-bold text-slate-800 dark:text-dk-text text-sm mt-0.5 line-clamp-1 ${matchedModel ? 'hover:text-indigo-600 dark:hover:text-dk-accent hover:underline cursor-pointer' : ''}`}
+                                title={matchedModel ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:'فتح في الهندسة الفنية',en:'Open in engineering',es:'Abrir en ingeniería',pt:'Abrir na engenharia',tr:'Mühendislikte aç'}) : undefined}
                               >
                                 {order.modelName}
                               </h3>
                             </div>
                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
                               order.status === 'COMPLETED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
-                              order.status === 'LIVRE_PARTIEL' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50' :
-                              order.status === 'IN_COUTURE' ? 'bg-purple-100 text-purple-700 dark:text-purple-400 border border-purple-200' :
-                              order.status === 'IN_COUPE' ? 'bg-blue-100 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50' :
+                              order.status === 'LIVRE_PARTIEL' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50' :
+                              order.status === 'IN_COUTURE' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50' :
+                              order.status === 'IN_COUPE' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/50' :
                               'bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
                             }`}>
                               {order.status === 'PENDING' ? tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'}) :
@@ -1870,7 +2134,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             <div 
                               onClick={() => { if (onLoadModel && matchedModel) onLoadModel(matchedModel); }}
                               className={`w-12 h-12 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl overflow-hidden shrink-0 flex items-center justify-center ${matchedModel ? 'cursor-pointer hover:border-indigo-400 hover:shadow-sm dark:shadow-none transition-all' : ''}`}
-                              title={matchedModel ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:"فتح في الهندسة الفنية"}) : undefined}
+                              title={matchedModel ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:'فتح في الهندسة الفنية',en:'Open in engineering',es:'Abrir en ingeniería',pt:'Abrir na engenharia',tr:'Mühendislikte aç'}) : undefined}
                             >
                               {photo ? (
                                 <img src={photo} alt="" className="w-full h-full object-cover" />
@@ -1892,26 +2156,41 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 </div>
                                 <span className="text-[9px] text-slate-400 dark:text-dk-muted font-semibold">({order.subcontractorRating || 5}/5)</span>
                               </div>
-                              <p className="text-slate-400 dark:text-dk-muted text-[10px] mt-0.5">{tx(lang,{fr:'Livraison:',ar:'التسليم:',en:'Delivery:',es:'Entrega:',pt:'Entrega:',tr:'Teslimat:'})} {new Date(order.deliveryDate).toLocaleDateString('fr-FR')}</p>
+                              <p className="text-slate-400 dark:text-dk-muted text-[10px] mt-0.5">{tx(lang,{fr:'Livraison:',ar:'التسليم:',en:'Delivery:',es:'Entrega:',pt:'Entrega:',tr:'Teslimat:'})} {fmtDate(order.deliveryDate)}</p>
                             </div>
                           </div>
 
                           {/* Multi-segment Progress bar */}
                           <div className="space-y-1.5">
                             <div className="flex justify-between text-[10px] font-bold">
-                              <span className="text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Progression :',ar:'التقدم:',en:'Progress:',es:'Progresión:',pt:'Progresso:',tr:'İlerleme:'})} {progress}%</span>
-                              <span className="text-indigo-650 dark:text-dk-accent-text dark:text-dk-accent" dir="ltr">{(qtyAcc + qtyRep + qtyRej).toLocaleString()} / {order.totalQuantity.toLocaleString()} pcs</span>
+                              <span className="text-slate-500 dark:text-dk-muted flex items-center gap-1">
+                                {tx(lang,{fr:'Progression :',ar:'التقدم:',en:'Progress:',es:'Progresión:',pt:'Progresso:',tr:'İlerleme:'})} {progress}%
+                                {/* A3 : la barre est bornée à 100 % pour rester lisible, mais le
+                                    dépassement ne doit pas être masqué — il signale une saisie
+                                    qualité incohérente avec la quantité commandée. */}
+                                {overCounted && (
+                                  <AlertTriangle
+                                    className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0"
+                                    aria-label={overflowLabel}
+                                  >
+                                    <title>{overflowLabel}</title>
+                                  </AlertTriangle>
+                                )}
+                              </span>
+                              <span className={`${overCounted ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-600 dark:text-dk-accent'}`} dir="ltr" title={overCounted ? overflowLabel : undefined}>
+                                {controlledQty.toLocaleString(dateLocale)} / {order.totalQuantity.toLocaleString(dateLocale)} pcs
+                              </span>
                             </div>
-                            <div className="w-full bg-slate-100 dark:bg-dk-elevated h-2 rounded-full overflow-hidden flex">
-                              <div className="bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/300 h-full transition-all duration-300" style={{ width: `${accPct}%` }} title={`Accepté: ${qtyAcc}`} />
-                              <div className="bg-amber-400 h-full transition-all duration-300" style={{ width: `${repPct}%` }} title={`À retoucher: ${qtyRep}`} />
-                              <div className="bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/300 h-full transition-all duration-300" style={{ width: `${rejPct}%` }} title={`Rejeté: ${qtyRej}`} />
+                            <div className={`w-full bg-slate-100 dark:bg-dk-elevated h-2 rounded-full overflow-hidden flex ${overCounted ? 'ring-1 ring-amber-400 dark:ring-amber-500' : ''}`}>
+                              <div className="bg-emerald-500 dark:bg-emerald-400 h-full transition-all duration-300" style={{ width: `${accPct}%` }} title={`${labelAccepted}: ${qtyAcc}`} />
+                              <div className="bg-amber-400 dark:bg-amber-300 h-full transition-all duration-300" style={{ width: `${repPct}%` }} title={`${labelRework}: ${qtyRep}`} />
+                              <div className="bg-rose-500 dark:bg-rose-400 h-full transition-all duration-300" style={{ width: `${rejPct}%` }} title={`${labelRejected}: ${qtyRej}`} />
                             </div>
                             {/* Detailed Quality Legend */}
                             <div className="flex items-center gap-3 text-[9px] font-semibold text-slate-500 dark:text-dk-muted justify-between">
-                              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/300" /> {qtyAcc} ok</span>
-                              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> {qtyRep} retouche</span>
-                              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/300" /> {qtyRej} rebut</span>
+                              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" /> {qtyAcc} {labelAccepted}</span>
+                              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 dark:bg-amber-300" /> {qtyRep} {labelRework}</span>
+                              <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rose-500 dark:bg-rose-400" /> {qtyRej} {labelRejected}</span>
                             </div>
                           </div>
 
@@ -1924,18 +2203,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         </div>
 
                       {/* Card Actions Footer */}
-                        <div className="px-5 py-3.5 bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50 border-t border-slate-100 dark:border-dk-border flex items-center justify-between gap-3 text-xs font-bold">
+                        <div className="px-5 py-3.5 bg-slate-50 dark:bg-dk-surface/50 border-t border-slate-100 dark:border-dk-border flex items-center justify-between gap-3 text-xs font-bold">
                           <button 
                             onClick={() => { setDetailOrder(order); setIsDetailModalOpen(true); }}
-                            className="text-slate-500 dark:text-dk-muted hover:text-indigo-650 dark:text-dk-accent-text dark:text-dk-accent dark:hover:text-dk-accent transition-colors flex items-center gap-1.5"
+                            className="text-slate-500 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent transition-colors flex items-center gap-1.5"
                           >
-                            <Eye className="w-4 h-4 text-slate-450 dark:text-dk-muted" />
+                            <Eye className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
                             <span>{tx(lang,{fr:'Consulter',ar:'عرض',en:'View',es:'Consultar',pt:'Consultar',tr:'Görüntüle'})}</span>
                           </button>
                           <div className="flex items-center gap-3">
                             <button
                               onClick={() => openEditModal(order)}
-                              className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent hover:text-indigo-700 dark:text-dk-accent-text dark:hover:text-dk-accent/90 transition-colors flex items-center gap-1"
+                              className="text-indigo-600 dark:text-dk-accent hover:text-indigo-700 dark:hover:text-dk-accent/90 transition-colors flex items-center gap-1"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                               <span>{tx(lang,{fr:'Modifier',ar:'تعديل',en:'Edit',es:'Editar',pt:'Editar',tr:'Düzenle'})}</span>
@@ -1947,7 +2226,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   })}
                 </div>
               ) : (
-                <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none overflow-hidden">
+                <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                       <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-semibold text-xs uppercase">
@@ -1962,9 +2241,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface">
                         {filteredOrders.map(order => (
-                          <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated/50 transition-colors group">
+                          <tr key={order.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/50 transition-colors group">
                             <td className="px-6 py-4 font-semibold">
-                              <span className="text-[9px] text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent block font-normal uppercase">{order.clientName || 'N/A'}</span>
+                              <span className="text-[9px] text-indigo-600 dark:text-dk-accent block font-normal uppercase">{order.clientName || 'N/A'}</span>
                               <span className="text-slate-900 dark:text-dk-text">{order.modelName}</span>
                             </td>
                             <td className="px-6 py-4">
@@ -1981,7 +2260,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               <select 
                                 value={order.status}
                                 onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                                className="text-xs font-bold text-slate-700 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg p-1.5 focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent outline-none hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                                className="text-xs font-bold text-slate-700 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg p-1.5 focus:border-indigo-500 dark:focus:border-dk-accent outline-none hover:bg-slate-100 dark:hover:bg-dk-elevated"
                               >
                                 <option value="PENDING">{tx(lang,{fr:'En attente',ar:'قيد الانتظار',en:'Pending',es:'Pendiente',pt:'Pendente',tr:'Beklemede'})}</option>
                                 <option value="IN_COUPE">{tx(lang,{fr:'En Coupe',ar:'في القص',en:'In Cutting',es:'En Corte',pt:'Em Corte',tr:'Kesimde'})}</option>
@@ -1996,10 +2275,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 <button onClick={() => { setDetailOrder(order); setIsDetailModalOpen(true); }} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-lg">
                                   <Eye className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => handlePrintDeliveryNote(order)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text dark:text-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-lg" title={tx(lang,{fr:"Bon d'envoi",ar:'مذكرة إرسال',en:'Delivery Note',es:'Nota de Envío',pt:'Nota de Remessa',tr:'Sevk İrsaliyesi'})}>
+                                <button onClick={() => handlePrintDeliveryNote(order)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-lg" title={tx(lang,{fr:"Bon d'envoi",ar:'مذكرة إرسال',en:'Delivery Note',es:'Nota de Envío',pt:'Nota de Remessa',tr:'Sevk İrsaliyesi'})}>
                                   <Printer className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => openEditModal(order)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text dark:text-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-lg">
+                                <button onClick={() => openEditModal(order)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-lg">
                                   <Edit2 className="w-4 h-4" />
                                 </button>
                               </div>
@@ -2015,8 +2294,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             {/* Floating Action Button (FAB) for Mobile/Tablet */}
                             <button
                               onClick={() => setIsChoiceModalOpen(true)}
-                              className="lg:hidden fixed bottom-6 right-6 w-12 h-12 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover dark:hover:bg-dk-accent/90 active:scale-95 text-white rounded-full shadow-lg dark:shadow-dk-lg flex items-center justify-center transition-all z-50 hover:shadow-xl border border-indigo-500 dark:border-dk-accent"
-                              title={tx(lang,{fr:'Nouvelle Commande',ar:'أمر شراء جديد'})}
+                              className="lg:hidden fixed bottom-6 right-6 w-12 h-12 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 active:scale-95 text-white rounded-full shadow-lg dark:shadow-dk-lg flex items-center justify-center transition-all z-50 hover:shadow-xl border border-indigo-500 dark:border-dk-accent"
+                              title={tx(lang,{fr:'Nouvelle Commande',ar:'أمر شراء جديد',en:'New Order',es:'Nuevo Pedido',pt:'Nova Encomenda',tr:'Yeni Sipariş'})}
                             >
                               <Plus className="w-6 h-6 text-white" />
                             </button>
@@ -2052,7 +2331,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
                 <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-0.5">
                   {subcontractorGroups.length === 0 ? (
-                    <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 p-10 text-center text-slate-400 dark:text-dk-muted shadow-sm dark:shadow-dk-sm dark:shadow-none">
+                    <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 p-10 text-center text-slate-400 dark:text-dk-muted shadow-sm dark:shadow-none">
                       <Users className="w-10 h-10 mx-auto mb-2 opacity-25" />
                       <p className="text-xs font-semibold">{tx(lang,{fr:'Aucun sous-traitant',ar:'لا يوجد مقاول من الباطن',en:'No subcontractor',es:'Ningún subcontratista',pt:'Nenhum subcontratado',tr:'Taşeron yok'})}</p>
                     </div>
@@ -2087,12 +2366,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
               <div className={`lg:col-span-2 ${selectedSubcontractor ? '' : 'hidden lg:block'}`}>
                 {!selectedSubcontractor ? (
-                  <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl p-16 text-center text-slate-400 dark:text-dk-muted h-full flex flex-col justify-center items-center shadow-sm dark:shadow-dk-sm dark:shadow-none">
+                  <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl p-16 text-center text-slate-400 dark:text-dk-muted h-full flex flex-col justify-center items-center shadow-sm dark:shadow-none">
                     <Users className="w-12 h-12 mb-3 opacity-20" />
                     <p className="text-xs font-semibold">{tx(lang,{fr:'Sélectionnez un sous-traitant pour voir ses modèles.',ar:'اختر مقاولاً من الباطن لعرض موديلاته.',en:'Select a subcontractor to see their models.',es:'Seleccione un subcontratista para ver sus modelos.',pt:'Selecione um subcontratado para ver os seus modelos.',tr:'Modellerini görmek için bir taşeron seçin.'})}</p>
                   </div>
                 ) : (
-                  <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl overflow-hidden shadow-sm dark:shadow-dk-sm dark:shadow-none">
+                  <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl overflow-hidden shadow-sm dark:shadow-none">
                     <button
                       type="button"
                       onClick={() => setSelectedSubcontractorName(null)}
@@ -2268,7 +2547,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           {/* ======================================= */}
           {activeTab === 'stock' && (
             <div className="space-y-6">
-              <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-dk-sm dark:shadow-none overflow-hidden">
+              <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-semibold text-xs uppercase">
@@ -2285,7 +2564,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface">
                       {modelStockStats.map(item => (
-                        <tr key={item.model.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated/50 transition-colors">
+                        <tr key={item.model.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/50 transition-colors">
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
@@ -2297,7 +2576,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               </div>
                               <div>
                                 <span className="font-semibold block text-slate-800 dark:text-dk-text">{item.model.meta_data.nom_modele}</span>
-                                <span className="text-[9px] text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent block font-normal uppercase">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {item.model.ficheData?.client || 'N/A'}</span>
+                                <span className="text-[9px] text-indigo-600 dark:text-dk-accent block font-normal uppercase">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {item.model.ficheData?.client || 'N/A'}</span>
                               </div>
                             </div>
                           </td>
@@ -2307,7 +2586,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           <td className="px-6 py-4">
                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase whitespace-nowrap inline-block ${
                               item.status === 'FINISHED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
-                              item.status === 'IN_PRODUCTION' ? 'bg-purple-100 text-purple-700 dark:text-purple-400 border border-purple-200' :
+                              item.status === 'IN_PRODUCTION' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50' :
                               'bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
                             }`}>
                               {item.status === 'FINISHED' ? tx(lang,{fr:'Terminé',ar:'منتهٍ',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'}) :
@@ -2318,7 +2597,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           <td className="px-6 py-4 font-semibold text-slate-800 dark:text-dk-text">
                             {item.producedQty.toLocaleString()} pcs
                           </td>
-                          <td className="px-6 py-4 font-semibold text-indigo-650 dark:text-dk-accent-text dark:text-dk-accent">
+                          <td className="px-6 py-4 font-semibold text-indigo-600 dark:text-dk-accent">
                             {item.soldQty.toLocaleString()} pcs
                           </td>
                           <td className="px-6 py-4 font-bold text-emerald-600 dark:text-emerald-400">
@@ -2331,9 +2610,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             <button
                               disabled={item.remainingStock <= 0}
                               onClick={() => openSaleModal(item)}
-                              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm dark:shadow-none ${
+                              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
                                 item.remainingStock > 0 
-                                  ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 text-white hover:scale-[1.02]' 
+                                  ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white hover:scale-[1.02]' 
                                   : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
                               }`}
                             >
@@ -2430,12 +2709,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           {isAddModalOpen && (
         <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-4 overflow-y-auto">
           <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/50">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                <Truck className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent" />
+                <Truck className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
                 <span>{tx(lang,{fr:'Nouvelle Commande de Sous-traitance',ar:'أمر مقاولة من الباطن جديد',en:'New Subcontract Order',es:'Nuevo Pedido de Subcontratación',pt:'Nova Encomenda de Subcontratação',tr:'Yeni Taşeron Siparişi'})}</span>
               </h2>
-              <button onClick={() => setIsAddModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-650 dark:hover:text-dk-text-soft">
+              <button onClick={() => setIsAddModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2458,7 +2737,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       type="number"
                       value={formTotalQuantity || ''}
                       onChange={(e) => setFormTotalQuantity(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
+                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white"
                       required
                     />
                   </div>
@@ -2638,7 +2917,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       updated[0].deliveryDate = e.target.value;
                       return updated;
                     })}
-                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
+                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white"
                     required
                   />
                 </div>
@@ -2691,7 +2970,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     step="0.01"
                     value={formPricePerPiece || ''}
                     onChange={(e) => setFormPricePerPiece(Math.max(0, parseFloat(e.target.value) || 0))}
-                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
+                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white"
                   />
                 </div>
 
@@ -2703,18 +2982,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
 
-              <div className="flex gap-3 justify-end border-t border-slate-150 dark:border-dk-border pt-4 mt-6">
+              <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4 mt-6">
                 <button 
                   type="button" 
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                  className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
                 >
                   {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                 </button>
                 <button 
                   type="submit"
                   disabled={actionLoading}
-                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
+                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
                 >
                   {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                   <span>{tx(lang,{fr:'Créer la Commande',ar:'إنشاء الطلبية',en:'Create Order',es:'Crear Pedido',pt:'Criar Encomenda',tr:'Sipariş Oluştur'})}</span>
@@ -2731,12 +3010,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {isEditModalOpen && selectedOrder && (
         <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-4 overflow-y-auto">
           <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/50">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                <Edit2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent" />
+                <Edit2 className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
                 <span>{tx(lang,{fr:'Modifier la Commande de Sous-traitance',ar:'تعديل أمر المقاولة من الباطن',en:'Edit Subcontract Order',es:'Editar Pedido de Subcontratación',pt:'Editar Encomenda de Subcontratação',tr:'Taşeron Siparişini Düzenle'})}</span>
               </h2>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-650 dark:hover:text-dk-text-soft">
+              <button onClick={() => setIsEditModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2760,7 +3039,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         type="text" 
                         value={formClientName} 
                         onChange={(e) => setFormClientName(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
+                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white"
                         placeholder={tx(lang,{fr:"Nom du client donneur d'ordre",ar:'اسم العميل صاحب الطلب',en:'Ordering client name',es:'Nombre del cliente ordenante',pt:'Nome do cliente mandante',tr:'Sipariş veren müşteri adı'})}
                       />
                     </div>
@@ -2773,7 +3052,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         type="text" 
                         value={formSubcontractorName} 
                         onChange={(e) => setFormSubcontractorName(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
+                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white"
                         placeholder={tx(lang,{fr:'Atelier externe',ar:'ورشة خارجية',en:'External workshop',es:'Taller externo',pt:'Oficina externa',tr:'Harici atölye'})}
                         required
                       />
@@ -2785,7 +3064,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         type="text"
                         value={formSubcontractorPhone}
                         onChange={(e) => setFormSubcontractorPhone(formatPhoneInput(e.target.value))}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
+                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white"
                         placeholder="06 XX XX XX XX"
                       />
                     </div>
@@ -2800,7 +3079,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           updated[0].deliveryDate = e.target.value;
                           return updated;
                         })}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
+                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white"
                         required
                       />
                     </div>
@@ -2813,7 +3092,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         type="number" 
                         value={formTotalQuantity || ''} 
                         onChange={(e) => setFormTotalQuantity(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
+                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white"
                         required
                       />
                     </div>
@@ -2825,7 +3104,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         step="0.01" 
                         value={formPricePerPiece || ''} 
                         onChange={(e) => setFormPricePerPiece(Math.max(0, parseFloat(e.target.value) || 0))}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
+                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white"
                       />
                     </div>
 
@@ -2835,14 +3114,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         type="text" 
                         value={formNotes} 
                         onChange={(e) => setFormNotes(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
+                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white"
                         placeholder={tx(lang,{fr:'Détails logistiques...',ar:'تفاصيل لوجستية...',en:'Logistics details...',es:'Detalles logísticos...',pt:'Detalhes logísticos...',tr:'Lojistik detaylar...'})}
                       />
                     </div>
                   </div>
 
                   {/* Grid matrix colors & sizes */}
-                  <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50 space-y-4">
+                  <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 bg-slate-50 dark:bg-dk-surface/50 space-y-4">
                     <div className="flex justify-between items-center flex-wrap gap-2">
                       <span className="font-bold text-slate-800 dark:text-dk-text">{tx(lang,{fr:'Matrice Couleur - Taille (Facultatif)',ar:'مصفوفة اللون - المقاس (اختياري)',en:'Color - Size Matrix (Optional)',es:'Matriz Color - Talla (Opcional)',pt:'Matriz Cor - Tamanho (Opcional)',tr:'Renk - Beden Matrisi (İsteğe Bağlı)'})}</span>
                       <div className="flex items-center gap-2">
@@ -2851,12 +3130,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           placeholder={tx(lang,{fr:'Ajouter couleur',ar:'إضافة لون',en:'Add color',es:'Añadir color',pt:'Adicionar cor',tr:'Renk ekle'})} 
                           value={newColorInput} 
                           onChange={(e) => setNewColorInput(e.target.value)}
-                          className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1 text-[11px] outline-none text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent"
+                          className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1 text-[11px] outline-none text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent"
                         />
                         <button 
                           type="button" 
                           onClick={handleAddColor}
-                          className="bg-indigo-600 dark:bg-dk-accent text-white px-3 py-1 rounded-lg hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 font-bold transition-all text-[11px]"
+                          className="bg-indigo-600 dark:bg-dk-accent text-white px-3 py-1 rounded-lg hover:bg-indigo-700 dark:hover:bg-dk-accent/90 font-bold transition-all text-[11px]"
                         >
                           {tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}
                         </button>
@@ -2900,7 +3179,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                       type="number"
                                       value={sizesObj[sz] || ''}
                                       onChange={(e) => handleUpdateGridQty(color, sz, parseInt(e.target.value) || 0)}
-                                      className="w-12 text-center bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border rounded p-1 text-xs focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent outline-none"
+                                      className="w-12 text-center bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border rounded p-1 text-xs focus:border-indigo-500 dark:focus:border-dk-accent outline-none"
                                     />
                                   </td>
                                 ))}
@@ -2928,7 +3207,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 if (!rows.length) return null;
                 return (
                   <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
-                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-150 dark:border-dk-border">
+                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
                       <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">{tx(lang,{fr:'Matières & fournisseurs à prévoir',ar:'المواد والموردون المطلوبون',en:'Materials & suppliers to plan',es:'Materiales y proveedores a prever',pt:'Materiais e fornecedores a prever',tr:'Öngörülecek malzeme ve tedarikçiler'})}</h4>
                     </div>
                     <div className="overflow-x-auto">
@@ -2967,7 +3246,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 );
               })()}
 
-              <div className="flex gap-3 justify-between items-center border-t border-slate-150 dark:border-dk-border pt-4 mt-6">
+              <div className="flex gap-3 justify-between items-center border-t border-slate-200 dark:border-dk-border pt-4 mt-6">
                 <button
                   type="button"
                   onClick={() => setOrderPendingDelete(selectedOrder)}
@@ -2979,14 +3258,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(false)}
-                    className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                    className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
                   >
                     {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                   </button>
                   <button
                     type="submit"
                     disabled={actionLoading}
-                    className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-50 dark:bg-dk-accent/20 dark:hover:bg-dk-elevated dark:bg-dk-elevated0 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
+                    className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
                   >
                     {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                     <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
@@ -3003,7 +3282,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* ======================================= */}
       {orderPendingDelete && createPortal(
         <div className="fixed inset-0 bg-slate-950/30 dark:bg-dk-bg/50 backdrop-blur-[2px] flex items-center justify-center z-[500] p-4">
-          <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-md p-6 text-slate-750 dark:text-dk-text">
+          <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-md p-6 text-slate-700 dark:text-dk-text">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40">
                 <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
@@ -3015,7 +3294,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <p className="text-xs text-slate-500 dark:text-dk-muted mt-1.5 leading-relaxed">
                   {tx(lang,{fr:'Cette action est definitive. Le journal des entrees/sorties et les frais lies seront egalement supprimes.',ar:'هذا الإجراء نهائي. سيتم كذلك حذف سجل الإدخال/الإخراج والمصاريف المرتبطة.',en:'This action is permanent. The entry/exit journal and related expenses will also be deleted.',es:'Esta accion es definitiva. El diario de entradas/salidas y los gastos vinculados tambien se eliminaran.',pt:'Esta acao e definitiva. O diario de entradas/saidas e as despesas associadas tambem serao eliminados.',tr:'Bu islem kalicidir. Giris/cikis kaydi ve ilgili masraflar da silinecek.'})}
                 </p>
-                <div className="mt-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-bg/50 border border-slate-150 dark:border-dk-border text-xs">
+                <div className="mt-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-bg/50 border border-slate-200 dark:border-dk-border text-xs">
                   <span className="font-bold text-slate-700 dark:text-dk-text">{orderPendingDelete.modelName || orderPendingDelete.modelId}</span>
                   <span className="text-slate-400 dark:text-dk-muted"> · {orderPendingDelete.subcontractorName} · {orderPendingDelete.totalQuantity} pcs</span>
                 </div>
@@ -3050,8 +3329,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* ======================================= */}
       {isDetailModalOpen && detailOrder && (
         <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] text-slate-750 dark:text-dk-text">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/55 dark:bg-dk-surface/55">
+          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] text-slate-700 dark:text-dk-text">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base">{tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}</h2>
               <button onClick={() => setIsDetailModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
                 <X className="w-5 h-5" />
@@ -3060,7 +3339,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 dark:bg-dk-bg/75 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-150 dark:border-dk-border flex items-center gap-3">
+                <div className="bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border flex items-center gap-3">
                   {(() => {
                     const profile = subcontractorProfiles.find(p => p.name === detailOrder.subcontractorName);
                     return profile?.photo ? (
@@ -3077,13 +3356,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     {detailOrder.subcontractorPhone && <span className="text-slate-500 dark:text-dk-muted block mt-1">{tx(lang,{fr:'Tél:',ar:'الهاتف:',en:'Tel:',es:'Tel:',pt:'Tel:',tr:'Tel:'})} {detailOrder.subcontractorPhone}</span>}
                   </div>
                 </div>
-                <div className="bg-slate-50 dark:bg-dk-bg/75 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-150 dark:border-dk-border">
+                <div className="bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
                   <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest block">{tx(lang,{fr:'Client Donneur d\'Ordre',ar:'العميل صاحب الطلب',en:'Ordering Client',es:'Cliente Ordenante',pt:'Cliente Mandante',tr:'Sipariş Veren Müşteri'})}</span>
                   <span className="text-sm font-bold text-slate-800 dark:text-dk-text mt-1 block">{detailOrder.clientName || 'N/A'}</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 dark:bg-dk-bg/75 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-150 dark:border-dk-border">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
                 <div className="col-span-2 sm:col-span-1 flex items-center gap-3">
                   {(() => {
                     const matchedModel = models.find(m => m.id === detailOrder.modelId);
@@ -3105,8 +3384,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           setIsDetailModalOpen(false);
                         }
                       }}
-                      className={`font-bold text-slate-800 dark:text-dk-text block mt-0.5 truncate ${models.find(m => m.id === detailOrder.modelId) ? 'hover:text-indigo-650 dark:text-dk-accent-text dark:text-dk-accent dark:hover:text-dk-accent hover:underline cursor-pointer' : ''}`}
-                      title={models.find(m => m.id === detailOrder.modelId) ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:"فتح في الهندسة الفنية"}) : undefined}
+                      className={`font-bold text-slate-800 dark:text-dk-text block mt-0.5 truncate ${models.find(m => m.id === detailOrder.modelId) ? 'hover:text-indigo-600 dark:hover:text-dk-accent hover:underline cursor-pointer' : ''}`}
+                      title={models.find(m => m.id === detailOrder.modelId) ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:'فتح في الهندسة الفنية',en:'Open in engineering',es:'Abrir en ingeniería',pt:'Abrir na engenharia',tr:'Mühendislikte aç'}) : undefined}
                     >
                       {detailOrder.modelName}
                     </span>
@@ -3127,7 +3406,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </div>
 
               {/* Jalons — mêmes contrôles que sur la carte, en plus grand */}
-              <div className="bg-slate-50 dark:bg-dk-bg/75 border border-slate-150 dark:border-dk-border rounded-xl p-4 space-y-2.5">
+              <div className="bg-slate-50 dark:bg-dk-bg/75 border border-slate-200 dark:border-dk-border rounded-xl p-4 space-y-2.5">
                 <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px] tracking-wide">
                   {tx(lang,{fr:'Jalons — cliquer pour basculer',ar:'المراحل — انقر للتبديل',en:'Milestones — click to toggle',es:'Hitos — clic para alternar',pt:'Marcos — clique para alternar',tr:'Kilometre taşları — değiştirmek için tıklayın'})}
                 </span>
@@ -3144,7 +3423,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 if (!rows.length) return null;
                 return (
                   <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
-                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-150 dark:border-dk-border">
+                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
                       <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">{tx(lang,{fr:'Matières & fournisseurs à prévoir',ar:'المواد والموردون المطلوبون',en:'Materials & suppliers to plan',es:'Materiales y proveedores a prever',pt:'Materiais e fornecedores a prever',tr:'Öngörülecek malzeme ve tedarikçiler'})}</h4>
                     </div>
                     <div className="overflow-x-auto">
@@ -3178,27 +3457,27 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               })()}
 
               {/* Quantity analysis details */}
-              <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-3 bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-surface/50">
+              <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-3 bg-slate-50 dark:bg-dk-surface/50">
                 <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide">{tx(lang,{fr:'État des pièces livrées',ar:'حالة القطع المسلَّمة',en:'Status of delivered pieces',es:'Estado de las piezas entregadas',pt:'Estado das peças entregues',tr:'Teslim edilen parçaların durumu'})}</h4>
                 <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="bg-emerald-50 dark:bg-emerald-900/30 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
+                  <div className="bg-emerald-50 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
                     <span className="text-emerald-800 dark:text-emerald-300 font-bold block text-[9px] uppercase tracking-wide">{tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul Edilen'})}</span>
                     <span className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 mt-1 block">{(detailOrder.qtyAccepted || 0).toLocaleString()} pcs</span>
                   </div>
-                  <div className="bg-amber-50 dark:bg-amber-900/30 dark:bg-amber-950/30 p-2.5 rounded-xl border border-amber-100 dark:border-amber-900/50">
+                  <div className="bg-amber-50 dark:bg-amber-950/30 p-2.5 rounded-xl border border-amber-100 dark:border-amber-900/50">
                     <span className="text-amber-800 dark:text-amber-300 font-bold block text-[9px] uppercase tracking-wide">{tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rötus yapılacak'})}</span>
                     <span className="text-base font-extrabold text-amber-600 dark:text-amber-400 mt-1 block">{(detailOrder.qtyToRepair || 0).toLocaleString()} pcs</span>
                   </div>
-                  <div className="bg-rose-50 dark:bg-rose-900/30 dark:bg-rose-950/30 p-2.5 rounded-xl border border-rose-100">
+                  <div className="bg-rose-50 dark:bg-rose-950/30 p-2.5 rounded-xl border border-rose-100">
                     <span className="text-rose-800 dark:text-rose-400 font-bold block text-[9px] uppercase tracking-wide">{tx(lang,{fr:'Rejetées',ar:'مرفوضة',en:'Rejected',es:'Rechazadas',pt:'Rejeitadas',tr:'Reddedilen'})}</span>
-                    <span className="text-base font-extrabold text-rose-650 dark:text-rose-400 mt-1 block">{(detailOrder.qtyRejected || 0).toLocaleString()} pcs</span>
+                    <span className="text-base font-extrabold text-rose-600 dark:text-rose-400 mt-1 block">{(detailOrder.qtyRejected || 0).toLocaleString()} pcs</span>
                   </div>
                 </div>
               </div>
 
               {detailOrder.notes && (
-                <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-dk-elevated/70 p-3.5 border border-indigo-100 rounded-xl">
-                  <span className="text-[10px] font-bold text-indigo-700 dark:text-dk-accent-text dark:text-dk-accent block uppercase tracking-wide">{tx(lang,{fr:'Instructions',ar:'تعليمات',en:'Instructions',es:'Instrucciones',pt:'Instruções',tr:'Talimatlar'})}</span>
+                <div className="bg-indigo-50 dark:bg-dk-elevated/70 p-3.5 border border-indigo-100 rounded-xl">
+                  <span className="text-[10px] font-bold text-indigo-700 dark:text-dk-accent block uppercase tracking-wide">{tx(lang,{fr:'Instructions',ar:'تعليمات',en:'Instructions',es:'Instrucciones',pt:'Instruções',tr:'Talimatlar'})}</span>
                   <p className="mt-1 font-semibold text-indigo-950 dark:text-dk-accent italic">{detailOrder.notes}</p>
                 </div>
               )}
@@ -3217,14 +3496,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-6 py-4 flex gap-3 justify-end text-xs font-bold">
               <button 
                 onClick={() => handlePrintDeliveryNote(detailOrder)} 
-                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-dk-sm dark:shadow-none transition-all"
+                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-none transition-all"
               >
                 <Printer className="w-4 h-4" />
                 <span>{tx(lang,{fr:"Imprimer Bon d'Envoi",ar:'طباعة مذكرة الإرسال',en:'Print Delivery Note',es:'Imprimir Nota de Envío',pt:'Imprimir Nota de Remessa',tr:'Sevk İrsaliyesi Yazdır'})}</span>
               </button>
               <button 
                 onClick={() => setIsDetailModalOpen(false)}
-                className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-550 text-white px-5 py-2.5 rounded-xl shadow dark:shadow-dk-sm transition-all border border-indigo-600 dark:border-dk-accent"
+                className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow dark:shadow-dk-sm transition-all border border-indigo-600 dark:border-dk-accent"
               >
                 {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
               </button>
@@ -3238,10 +3517,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* ======================================= */}
       {isSaleModalOpen && selectedModelForSale && (
         <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] text-slate-850 dark:text-dk-text">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/55 dark:bg-dk-surface/55">
-              <h2 className="font-bold text-slate-850 dark:text-dk-text text-base flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent" />
+          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
+              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
                 <span>{tx(lang,{fr:'Générer une facture de sortie de stock (Vente)',ar:'إنشاء فاتورة إخراج من المخزون (بيع)',en:'Generate stock exit invoice (Sale)',es:'Generar factura de salida de stock (Venta)',pt:'Gerar fatura de saída de stock (Venda)',tr:'Stok çıkış faturası oluştur (Satış)'})}</span>
               </h2>
               <button onClick={() => setIsSaleModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
@@ -3251,7 +3530,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
             <form onSubmit={handleSaveSaleInvoice} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs text-slate-700 dark:text-dk-text-soft">
               {/* Invoice structured details */}
-              <div className="bg-slate-50 dark:bg-dk-bg/75 dark:bg-dk-surface/75 rounded-2xl p-4 border border-slate-150 dark:border-dk-border space-y-4">
+              <div className="bg-slate-50 dark:bg-dk-surface/75 rounded-2xl p-4 border border-slate-200 dark:border-dk-border space-y-4">
                 <h3 className="font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider text-[9px]">{tx(lang,{fr:'Informations Facture',ar:'معلومات الفاتورة',en:'Invoice Information',es:'Información de Factura',pt:'Informações da Fatura',tr:'Fatura Bilgileri'})}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
@@ -3260,7 +3539,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       type="text"
                       value={saleInvoiceNumber}
                       onChange={(e) => setSaleInvoiceNumber(e.target.value)}
-                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text font-bold outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
+                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text font-bold outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
                       required
                     />
                   </div>
@@ -3270,7 +3549,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       type="text"
                       value={saleClient}
                       onChange={(e) => setSaleClient(e.target.value)}
-                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
+                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
                       placeholder={tx(lang,{fr:"Nom de l'acheteur",ar:'اسم المشتري',en:'Buyer name',es:'Nombre del comprador',pt:'Nome do comprador',tr:'Alıcı adı'})}
                       required
                     />
@@ -3281,7 +3560,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       type="text"
                       value={saleClientIce}
                       onChange={(e) => setSaleClientIce(e.target.value)}
-                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
+                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
                       placeholder="ICE"
                     />
                   </div>
@@ -3294,7 +3573,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       type="text"
                       value={saleClientRc}
                       onChange={(e) => setSaleClientRc(e.target.value)}
-                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
+                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
                       placeholder="RC"
                     />
                   </div>
@@ -3304,7 +3583,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       type="text"
                       value={saleClientTel}
                       onChange={(e) => setSaleClientTel(e.target.value)}
-                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
+                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
                     />
                   </div>
                   <div className="space-y-1 col-span-2">
@@ -3313,7 +3592,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       type="text"
                       value={saleClientAdresse}
                       onChange={(e) => setSaleClientAdresse(e.target.value)}
-                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
+                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
                       placeholder={tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'})}
                     />
                   </div>
@@ -3325,7 +3604,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <h3 className="font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider text-[9px]">{tx(lang,{fr:'Lignes de facturation',ar:'بنود الفاتورة',en:'Invoice Lines',es:'Líneas de Facturación',pt:'Linhas de Faturação',tr:'Fatura Kalemleri'})}</h3>
                 <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden bg-slate-50 dark:bg-dk-bg/30">
                   <table className="w-full text-left">
-                    <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-150 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold">
+                    <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold">
                       <tr>
                         <th className="px-4 py-3">{tx(lang,{fr:'Désignation',ar:'البيان',en:'Description',es:'Designación',pt:'Designação',tr:'Açıklama'})}</th>
                         <th className="px-4 py-3 text-center w-28">{tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
@@ -3333,7 +3612,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         <th className="px-4 py-3 text-right w-40">{tx(lang,{fr:'Total HT',ar:'الإجمالي HT',en:'Total HT',es:'Total HT',pt:'Total HT',tr:'Toplam HT'})}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-150 dark:divide-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface">
+                    <tbody className="divide-y divide-slate-200 dark:divide-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface">
                       <tr>
                         <td className="px-4 py-3 font-semibold text-slate-800 dark:text-dk-text">
                           {tx(lang,{fr:'Modèle:',ar:'الموديل:',en:'Model:',es:'Modelo:',pt:'Modelo:',tr:'Model:'})} {selectedModelForSale.meta_data.nom_modele}
@@ -3344,7 +3623,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             type="number"
                             value={saleQuantity || ''}
                             onChange={(e) => setSaleQuantity(Math.max(0, parseInt(e.target.value) || 0))}
-                            className="w-full bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border rounded-lg p-2 text-center text-xs focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent outline-none"
+                            className="w-full bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border rounded-lg p-2 text-center text-xs focus:border-indigo-500 dark:focus:border-dk-accent outline-none"
                             required
                           />
                         </td>
@@ -3353,12 +3632,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             type="number"
                             value={salePrice || ''}
                             onChange={(e) => setSalePrice(Math.max(0, parseFloat(e.target.value) || 0))}
-                            className="w-full bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border rounded-lg p-2 text-center text-xs focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent outline-none"
+                            className="w-full bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border rounded-lg p-2 text-center text-xs focus:border-indigo-500 dark:focus:border-dk-accent outline-none"
                             required
                           />
                         </td>
-                        <td className="px-4 py-3 text-right font-bold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent">
-                          {(saleQuantity * salePrice).toLocaleString()} MAD
+                        <td className="px-4 py-3 text-right font-bold text-indigo-600 dark:text-dk-accent">
+                          {(saleQuantity * (Number(salePrice) || 0)).toLocaleString()} MAD
                         </td>
                       </tr>
                     </tbody>
@@ -3374,7 +3653,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <select 
                       value={saleTvaRate} 
                       onChange={(e) => setSaleTvaRate(parseInt(e.target.value))}
-                      className="w-full border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent"
+                      className="w-full border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
                     >
                       <option value="20">{tx(lang,{fr:'20% (Standard)',ar:'20% (قياسي)',en:'20% (Standard)',es:'20% (Estándar)',pt:'20% (Padrão)',tr:'%20 (Standart)'})}</option>
                       <option value="14">14%</option>
@@ -3389,7 +3668,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <select 
                       value={saleStatus} 
                       onChange={(e: any) => setSaleStatus(e.target.value)}
-                      className="w-full border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent"
+                      className="w-full border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
                     >
                       <option value="BROUILLON">{tx(lang,{fr:'Brouillon',ar:'مسودة',en:'Draft',es:'Borrador',pt:'Rascunho',tr:'Taslak'})}</option>
                       <option value="ENVOYEE">{tx(lang,{fr:'Envoyée au client',ar:'أرسلت للعميل',en:'Sent to client',es:'Enviada al cliente',pt:'Enviada ao cliente',tr:'Müşteriye gönderildi'})}</option>
@@ -3402,34 +3681,34 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <textarea 
                       value={saleNotes}
                       onChange={(e) => setSaleNotes(e.target.value)}
-                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none h-16 text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent"
+                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none h-16 text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent"
                     />
                   </div>
                 </div>
 
                 {/* Calculations preview box */}
-                <div className="bg-slate-50 dark:bg-dk-bg/75 dark:bg-dk-surface/75 rounded-2xl p-5 border border-slate-150 dark:border-dk-border space-y-3 ml-auto w-full md:w-80">
-                  <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wider text-[10px] border-b border-slate-150 dark:border-dk-border pb-2">{tx(lang,{fr:'Récapitulatif',ar:'الملخص',en:'Summary',es:'Resumen',pt:'Resumo',tr:'Özet'})}</h4>
+                <div className="bg-slate-50 dark:bg-dk-surface/75 rounded-2xl p-5 border border-slate-200 dark:border-dk-border space-y-3 ml-auto w-full md:w-80">
+                  <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-dk-border pb-2">{tx(lang,{fr:'Récapitulatif',ar:'الملخص',en:'Summary',es:'Resumen',pt:'Resumo',tr:'Özet'})}</h4>
                   <div className="flex justify-between text-xs font-semibold">
                     <span className="text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Montant HT',ar:'المبلغ HT',en:'HT Amount',es:'Importe HT',pt:'Valor HT',tr:'HT Tutarı'})}</span>
-                    <span className="text-slate-800 dark:text-dk-text">{(saleQuantity * salePrice).toLocaleString()} MAD</span>
+                    <span className="text-slate-800 dark:text-dk-text">{(saleQuantity * (Number(salePrice) || 0)).toLocaleString()} MAD</span>
                   </div>
                   <div className="flex justify-between text-xs font-semibold">
                     <span className="text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'TVA',ar:'TVA',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'})} ({saleTvaRate}%)</span>
-                    <span className="text-slate-800 dark:text-dk-text">{((saleQuantity * salePrice * saleTvaRate) / 100).toLocaleString()} MAD</span>
+                    <span className="text-slate-800 dark:text-dk-text">{((saleQuantity * (Number(salePrice) || 0) * saleTvaRate) / 100).toLocaleString()} MAD</span>
                   </div>
-                  <div className="flex justify-between text-sm font-bold border-t border-slate-150 dark:border-dk-border pt-2 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent">
+                  <div className="flex justify-between text-sm font-bold border-t border-slate-200 dark:border-dk-border pt-2 text-indigo-600 dark:text-dk-accent">
                     <span>{tx(lang,{fr:'Total TTC',ar:'الإجمالي TTC',en:'Total TTC',es:'Total TTC',pt:'Total TTC',tr:'Toplam TTC'})}</span>
-                    <span>{((saleQuantity * salePrice) * (1 + saleTvaRate / 100)).toLocaleString()} MAD</span>
+                    <span>{((saleQuantity * (Number(salePrice) || 0)) * (1 + saleTvaRate / 100)).toLocaleString()} MAD</span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-3 justify-end border-t border-slate-150 dark:border-dk-border pt-4 mt-6">
+              <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4 mt-6">
                 <button 
                   type="button" 
                   onClick={handlePrintSaleInvoice}
-                  className="px-4 py-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft rounded-xl font-bold flex items-center gap-2 shadow-sm dark:shadow-dk-sm dark:shadow-none transition-all"
+                  className="px-4 py-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft rounded-xl font-bold flex items-center gap-2 shadow-sm dark:shadow-none transition-all"
                 >
                   <Printer className="w-4 h-4" />
                   <span>{tx(lang,{fr:'Imprimer la Facture',ar:'طباعة الفاتورة',en:'Print Invoice',es:'Imprimir Factura',pt:'Imprimir Fatura',tr:'Fatura Yazdır'})}</span>
@@ -3437,14 +3716,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <button 
                   type="button" 
                   onClick={() => setIsSaleModalOpen(false)}
-                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
                 >
                   {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                 </button>
                 <button 
                   type="submit"
                   disabled={actionLoading}
-                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-550 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent"
+                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent"
                 >
                   {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                   <span>{tx(lang,{fr:'Enregistrer la Sortie',ar:'حفظ الإخراج',en:'Save Exit',es:'Guardar Salida',pt:'Guardar Saída',tr:'Çıkışı Kaydet'})}</span>
@@ -3705,7 +3984,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 />
               </div>
 
-              <div className="flex gap-3 justify-between items-center border-t border-slate-150 dark:border-dk-border pt-4">
+              <div className="flex gap-3 justify-between items-center border-t border-slate-200 dark:border-dk-border pt-4">
                 {editingProfile ? (
                   <button
                     type="button"

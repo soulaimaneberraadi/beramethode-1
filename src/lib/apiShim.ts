@@ -141,12 +141,22 @@ const purgeExpiredTombstones = () => {
 
 // ─── CRUD helpers ────────────────────────────────────────────────────────────
 
-const upsertItem = (type: string, item: any): any => {
+/**
+ * Upsert d'un enregistrement.
+ *
+ * `merge=true` (PUT/PATCH partiels) : on FUSIONNE avec l'existant au lieu de le
+ * remplacer. Le front envoie régulièrement des mises à jour partielles
+ * (`{ status }` seul, `{ tissuStatus }` seul depuis une pastille) ; un remplacement
+ * intégral effaçait alors pricePerPiece, totalQuantity et la grille couleur×taille
+ * — perte de données à impact financier direct.
+ */
+const upsertItem = (type: string, item: any, merge = false): any => {
   if (!STORES[type]) return null;
   const id = String(item.id ?? Date.now());
   const arr = readArray(type);
   const idx = arr.findIndex((it: any) => String(it.id) === id);
-  const next = { ...item, id };
+  const existing = idx >= 0 ? arr[idx] : null;
+  const next = merge && existing ? { ...existing, ...item, id } : { ...item, id };
   if (idx >= 0) arr[idx] = next; else arr.push(next);
   writeArray(type, arr);
   removeTombstone(type, id); // restoring a deleted item by upserting
@@ -237,6 +247,23 @@ const handleGet = (pathname: string): any => {
       production_journaliere: 0,
     };
   }
+  // Numéro de facture séquentiel (mode statique) : même contrat que le serveur
+  // — { number: string } au format FV-<année>-<0000>. La séquence est déduite du
+  // max local des factures déjà connues, faute de SQLite côté navigateur.
+  if (/^\/api\/subcontract\/next-invoice-number$/.test(pathname)) {
+    const year = new Date().getFullYear();
+    const prefix = `FV-${year}-`;
+    const exp = readJson(SQLITE_EXPORT_KEY) || {};
+    const factures: any[] = Array.isArray(exp?.factures) ? exp.factures : [];
+    let max = 0;
+    for (const f of factures) {
+      const n = String(f?.numero || '');
+      if (!n.startsWith(prefix)) continue;
+      const seq = parseInt(n.slice(prefix.length), 10);
+      if (Number.isFinite(seq) && seq > max) max = seq;
+    }
+    return { number: `${prefix}${String(max + 1).padStart(4, '0')}` };
+  }
   // Tombstones inspection endpoint (for Corbeille UI)
   if (/^\/api\/_tombstones$/.test(pathname)) {
     purgeExpiredTombstones();
@@ -311,7 +338,9 @@ export const installApiShim = () => {
     if (method === 'PUT' || method === 'PATCH') {
       if (body == null && r.id == null) return reply({ ok: false }, 400);
       const item = { ...(body || {}), id: r.id ?? body?.id };
-      const saved = upsertItem(r.type, item);
+      // merge=true : PUT/PATCH sont partiels côté front (cf. upsertItem).
+      // S'aligne sur le serveur SQLite dont l'UPDATE ne touche que les champs fournis.
+      const saved = upsertItem(r.type, item, true);
       return reply(saved ?? { ok: true });
     }
     if (method === 'DELETE') {

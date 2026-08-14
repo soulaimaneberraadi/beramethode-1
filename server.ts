@@ -72,6 +72,7 @@ import {
   getSubcontractorProfiles,
   saveSubcontractorProfile,
   deleteSubcontractorProfile,
+  getNextSubcontractInvoiceNumber,
 } from './server/subcontractController';
 import { getSuiviData, saveSuiviData } from './server/suiviController';
 import { getPosteSuivi, savePosteSuivi } from './server/posteSuiviController';
@@ -639,6 +640,8 @@ async function startServer() {
   app.post('/api/subcontract', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createSubcontractOrder);
   app.put('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), updateSubcontractOrder);
   app.delete('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontract_orders', 'owner_id'), deleteSubcontractOrder);
+  // ⚠️ doit être déclarée avant toute route paramétrée /api/subcontract/:id
+  app.get('/api/subcontract/next-invoice-number', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getNextSubcontractInvoiceNumber);
   app.get('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractorGroups);
   app.post('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveSubcontractorGroup);
   app.delete('/api/subcontract/groups/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontractor_groups', 'owner_id'), deleteSubcontractorGroup);

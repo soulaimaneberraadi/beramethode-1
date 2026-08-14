@@ -22,6 +22,11 @@ const SYNC_KEYS = [
   'BERA_SALLES',
   'beramethode_subcontract_orders',
   'beramethode_subcontract_groups',
+  // Profils sous-traitants (CIN, ICE, RC, photos). Les champs photo/cinRectoPhoto/
+  // cinVersoPhoto sont des data-URLs : replaceImages() les compresse (ou les
+  // téléverse si le bucket est activé) avant l'UPSERT, comme pour les autres clés
+  // à images — pas de blob base64 brut envoyé à Supabase.
+  'beramethode_subcontract_profiles',
 ];
 
 const TABLE = 'user_data';
