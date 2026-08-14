@@ -1163,8 +1163,8 @@ export type InvoiceStatut = 'BROUILLON' | 'VALIDEE' | 'PAYEE' | 'ANNULEE';
 export type InvoiceSourceModule = 'atelier' | 'magasin' | 'coupe' | 'model' | 'sous_traitance' | 'global';
 
 export interface InvoiceLine {
-  id: string;
-  invoice_id: string;
+  id?: string;
+  /** Rattache la ligne à un produit — sert à retrouver la facture depuis sa fiche. */
   product_id?: string | null;
   designation: string;
   quantite: number;
@@ -1172,27 +1172,34 @@ export interface InvoiceLine {
   total: number;
 }
 
+/**
+ * Facture telle que servie par /api/facturation/factures (table `factures`).
+ * C'est l'unique système de facturation : les listes contextuelles (Atelier,
+ * Library, Magasin…) s'y rattachent via source_module/source_id.
+ */
 export interface Invoice {
   id: string;
   owner_id: number;
   numero: string;
   type: InvoiceType;
-  source_module: InvoiceSourceModule;
+  source_module?: InvoiceSourceModule | null;
   source_id?: string | null;
   tiers_nom?: string | null;
   tiers_ice?: string | null;
   tiers_adresse?: string | null;
   tiers_tel?: string | null;
   tiers_email?: string | null;
-  date_invoice: string;
+  date_facture: string;
   date_echeance?: string | null;
   statut: InvoiceStatut;
   total_ht: number;
   taux_tva: number;
   total_tva: number;
   total_ttc: number;
+  /** Suivi des règlements — absent de l'ancien système `invoices`. */
+  montant_paye?: number;
   notes?: string | null;
-  lines: InvoiceLine[];
+  lignes: InvoiceLine[];
   created_at: string;
   updated_at: string;
 }

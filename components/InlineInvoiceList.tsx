@@ -34,7 +34,7 @@ export default function InlineInvoiceList({ productId, productLabel, sourceModul
         setIsLoading(true);
         setError(null);
         try {
-            const res = await fetch(`/api/invoices/product/${productId}`);
+            const res = await fetch(`/api/facturation/factures/produit/${productId}`, { credentials: 'include' });
             if (!res.ok) throw new Error('Erreur chargement factures');
             const data = await res.json();
             setInvoices(data);
@@ -49,10 +49,10 @@ export default function InlineInvoiceList({ productId, productLabel, sourceModul
         if (lineDetails[invoiceId]) return;
         setLoadingLines(prev => ({ ...prev, [invoiceId]: true }));
         try {
-            const res = await fetch(`/api/invoices/${invoiceId}`);
+            const res = await fetch(`/api/facturation/factures/${invoiceId}`, { credentials: 'include' });
             if (!res.ok) throw new Error('Erreur chargement détails');
             const data = await res.json();
-            setLineDetails(prev => ({ ...prev, [invoiceId]: data.lines || [] }));
+            setLineDetails(prev => ({ ...prev, [invoiceId]: data.lignes || [] }));
         } catch {
         } finally {
             setLoadingLines(prev => ({ ...prev, [invoiceId]: false }));
@@ -76,10 +76,10 @@ export default function InlineInvoiceList({ productId, productLabel, sourceModul
             <style>body{font-family:sans-serif;padding:40px}table{width:100%;border-collapse:collapse}th,td{padding:8px 12px;border:1px solid #ddd;text-align:left}</style>
             </head><body>
             <h2>Facture ${inv.numero}</h2>
-            <p>Type: ${inv.type} | Date: ${inv.date_invoice} | Statut: ${inv.statut}</p>
+            <p>Type: ${inv.type} | Date: ${inv.date_facture} | Statut: ${inv.statut}</p>
             <p>Client: ${inv.tiers_nom || '-'}</p>
             <table><thead><tr><th>Désignation</th><th>Qté</th><th>Prix unit.</th><th>Total</th></tr></thead><tbody>
-            ${(lineDetails[inv.id] || inv.lines || []).map((l: any) =>
+            ${(lineDetails[inv.id] || inv.lignes || []).map((l: any) =>
                 `<tr><td>${l.designation || ''}</td><td>${l.quantite ?? 0}</td><td>${(l.prix_unitaire ?? 0).toFixed(2)}</td><td>${(l.total ?? 0).toFixed(2)}</td></tr>`
             ).join('')}
             </tbody></table>
@@ -169,7 +169,7 @@ export default function InlineInvoiceList({ productId, productLabel, sourceModul
                                         <td className="px-4 py-2.5 text-[13px] font-medium text-slate-900 dark:text-dk-text tabular-nums">{inv.numero}</td>
                                         <td className="px-4 py-2.5 text-[13px] text-slate-700 dark:text-dk-text-soft">{inv.type}</td>
                                         <td className="px-4 py-2.5 text-[13px] text-slate-500 dark:text-dk-muted tabular-nums">
-                                            {inv.date_invoice ? new Date(inv.date_invoice).toLocaleDateString('fr-FR') : '-'}
+                                            {inv.date_facture ? new Date(inv.date_facture).toLocaleDateString('fr-FR') : '-'}
                                         </td>
                                         <td className="px-4 py-2.5 text-[13px] font-semibold text-slate-900 dark:text-dk-text tabular-nums text-right">
                                             {formatCurrency(inv.total_ttc || 0)}

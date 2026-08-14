@@ -40,7 +40,6 @@ const STORES: Record<string, StoreRef> = {
   planning:         { kind: 'ls', key: 'beramethode_planning' },
   suivi:            { kind: 'ls', key: 'beramethode_suivis' },
   'demandes-appro': { kind: 'ls', key: 'beramethode_demandesAppro' },
-  workers:          { kind: 'export', path: ['workers'] },
   'worker-skills':  { kind: 'export', path: ['workerSkills'] },
   'worker-pointage':{ kind: 'export', path: ['workerPointage'] },
   'poste-suivi':    { kind: 'export', path: ['posteSuivi'] },

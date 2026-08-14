@@ -87,7 +87,6 @@ import {
 import { getSuiviData, saveSuiviData, getSuiviStats } from './server/suiviController';
 import { getPosteSuivi, savePosteSuivi, deletePosteSuivi } from './server/posteSuiviController';
 import { getDemandesAppro, saveDemandesAppro, updateDemandeApproStatut } from './server/demandesApproController';
-import { getWorkers, saveWorker, deleteWorker, bulkImportWorkers } from './server/workersController';
 import { getWorkerSkills, saveWorkerSkill, deleteWorkerSkill, updateSkillFromSuivi } from './server/workerSkillsController';
 import { getPointage, savePointage, bulkSavePointage, deletePointage, getWorkerActivity, exportPointageMensuel } from './server/workerPointageController';
 import {
@@ -116,11 +115,10 @@ import {
 } from './server/hrIdentityController';
 import { getSageExports, generateSageExport, previewSageExport } from './server/hrSageController';
 import { 
-  getFactures, getFactureById, saveFacture, deleteFacture,
+  getFactures, getFactureById, getFacturesByProduit, saveFacture, deleteFacture,
   getBonsLivraison, saveBonLivraison, deleteBonLivraison,
   getPaiementsParFacture, savePaiement, deletePaiement
 } from './server/facturationController';
-import * as invoiceController from './server/invoiceController';
 import { getDashboardKPIs, streamDashboardKPIs } from './server/dashboardController';
 import { authenticateToken, requirePermission, clearAuthCookie } from './server/middleware';
 import { postAnalyzeTextile, postSuggestVocabulary, postGenerateOperations, postOptimizePlanning } from './server/geminiController';
@@ -700,11 +698,7 @@ async function startServer() {
   app.put('/api/demandes-appro/:id/statut', authenticateToken, requirePermission('page', 'magasin', 'edit'), updateDemandeApproStatut);
 
   // Phase 5 — Effectifs
-  app.get('/api/workers', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getWorkers);
-  app.post('/api/workers', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), saveWorker);
-  app.delete('/api/workers/:id', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), ownershipGuard('workers', 'owner_id'), deleteWorker);
-  app.post('/api/workers/bulk-import', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), bulkImportWorkers);
-
+  // Les employés sont servis exclusivement par /api/hr/workers (table hr_workers).
   app.get('/api/worker-skills', authenticateToken, requirePermission('page', 'gestionRh', 'view'), getWorkerSkills);
   app.post('/api/worker-skills', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), saveWorkerSkill);
   app.delete('/api/worker-skills/:id', authenticateToken, requirePermission('page', 'gestionRh', 'edit'), ownershipGuard('worker_skills', 'owner_id'), deleteWorkerSkill);
@@ -759,6 +753,8 @@ async function startServer() {
 
   // Phase: Facturation (Achat, Vente, Devis, BL)
   app.get('/api/facturation/factures', authenticateToken, requirePermission('page', 'facturation', 'view'), getFactures);
+  // À déclarer avant /:id, sinon Express interprète « produit » comme un identifiant.
+  app.get('/api/facturation/factures/produit/:productId', authenticateToken, requirePermission('page', 'facturation', 'view'), getFacturesByProduit);
   app.get('/api/facturation/factures/:id', authenticateToken, requirePermission('page', 'facturation', 'view'), getFactureById);
   app.post('/api/facturation/factures', authenticateToken, requirePermission('page', 'facturation', 'edit'), saveFacture);
   app.delete('/api/facturation/factures/:id', authenticateToken, requirePermission('page', 'facturation', 'edit'), ownershipGuard('factures', 'owner_id'), deleteFacture);
@@ -770,14 +766,6 @@ async function startServer() {
   app.get('/api/facturation/paiements/:facture_id', authenticateToken, requirePermission('page', 'facturation', 'view'), getPaiementsParFacture);
   app.post('/api/facturation/paiements', authenticateToken, requirePermission('page', 'facturation', 'edit'), savePaiement);
   app.delete('/api/facturation/paiements/:facture_id/:id', authenticateToken, requirePermission('page', 'facturation', 'edit'), deletePaiement);
-
-  // Invoices
-  app.get('/api/invoices', authenticateToken, invoiceController.getInvoices);
-  app.get('/api/invoices/:id', authenticateToken, invoiceController.getInvoiceById);
-  app.get('/api/invoices/product/:productId', authenticateToken, invoiceController.getInvoicesByProduct);
-  app.post('/api/invoices', authenticateToken, invoiceController.saveInvoice);
-  app.delete('/api/invoices/:id', authenticateToken, invoiceController.deleteInvoice);
-  app.post('/api/invoices/:id/publish', authenticateToken, invoiceController.publishInvoice);
 
   // Gemini / IA — API key server-side only
   app.post('/api/ai/analyze-textile', authenticateToken, requirePermission('page', 'ingenierie', 'view'), postAnalyzeTextile);

@@ -362,20 +362,14 @@ export const getHRWorkerDossier = (req: Request, res: Response) => {
             };
         }
 
-        const mat = String((worker as { matricule: string }).matricule || '');
-        const legacy = db
-            .prepare('SELECT id FROM workers WHERE owner_id = ? AND matricule = ?')
-            .get(companyId, mat) as { id: string } | undefined;
-        let skills: any[] = [];
-        let skills_matched = false;
-        if (legacy) {
-            skills = db
-                .prepare(
-                    'SELECT * FROM worker_skills WHERE owner_id = ? AND worker_id = ? ORDER BY level DESC, poste_keyword ASC'
-                )
-                .all(companyId, legacy.id);
-            skills_matched = true;
-        }
+        // worker_skills est désormais rattaché directement à hr_workers(id) :
+        // plus besoin de repasser par la table `workers` legacy via le matricule.
+        const skills = db
+            .prepare(
+                'SELECT * FROM worker_skills WHERE owner_id = ? AND worker_id = ? ORDER BY level DESC, poste_keyword ASC'
+            )
+            .all(companyId, wid) as any[];
+        const skills_matched = skills.length > 0;
 
         const safeWorker = sanitizeHrWorkerRow(worker as Record<string, unknown>);
         res.json({

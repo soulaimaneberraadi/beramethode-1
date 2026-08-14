@@ -72,27 +72,59 @@ export const getFactures = (req: Request, res: Response) => {
   try {
     const ownerId = (req as any).companyId as number;
     const type = req.query.type as string; // Optional filter ACHAT/VENTE/DEVIS
-    
+    const sourceModule = req.query.source_module as string;
+    const sourceId = req.query.source_id as string;
+
     let query = 'SELECT * FROM factures WHERE owner_id = ?';
     const params: any[] = [ownerId];
-    
+
     if (type) {
         query += ' AND type = ?';
         params.push(type);
     }
-    
+    if (sourceModule) {
+        query += ' AND source_module = ?';
+        params.push(sourceModule);
+    }
+    if (sourceId) {
+        query += ' AND source_id = ?';
+        params.push(sourceId);
+    }
+
     query += ' ORDER BY created_at DESC';
-    
+
     const rows = db.prepare(query).all(...params) as any[];
-    
+
     const parsed = rows.map(r => ({
       ...r,
       lignes: JSON.parse(r.lignes || '[]')
     }));
-    
+
     res.json(parsed);
   } catch (error: any) {
     console.error('getFactures error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// GET /api/facturation/factures/produit/:productId
+// Retourne les factures dont au moins une ligne porte ce product_id.
+export const getFacturesByProduit = (req: Request, res: Response) => {
+  try {
+    const ownerId = (req as any).companyId as number;
+    const { productId } = req.params;
+
+    const rows = db.prepare(`
+      SELECT DISTINCT f.*
+      FROM factures f, json_each(f.lignes) AS l
+      WHERE f.owner_id = ?
+        AND json_extract(l.value, '$.product_id') = ?
+      ORDER BY f.created_at DESC
+    `).all(ownerId, productId) as any[];
+
+    res.json(rows.map(r => ({ ...r, lignes: JSON.parse(r.lignes || '[]') })));
+  } catch (error: any) {
+    console.error('getFacturesByProduit error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -130,6 +162,7 @@ export const saveFacture = (req: Request, res: Response) => {
         date_facture, date_echeance,
         total_ht, taux_tva, total_tva, total_ttc, montant_paye,
         devis_id, planning_id, commande_id,
+        source_module, source_id,
         statut, notes, lignes
     } = payload;
 
@@ -153,6 +186,7 @@ export const saveFacture = (req: Request, res: Response) => {
         date_facture, date_echeance,
         total_ht, taux_tva, total_tva, total_ttc, montant_paye,
         devis_id, planning_id, commande_id,
+        source_module, source_id,
         statut, notes, lignes, updated_at
       ) VALUES (
         ?, ?, ?, ?,
@@ -160,6 +194,7 @@ export const saveFacture = (req: Request, res: Response) => {
         ?, ?,
         ?, ?, ?, ?, ?,
         ?, ?, ?,
+        ?, ?,
         ?, ?, ?, CURRENT_TIMESTAMP
       )
       ON CONFLICT(id) DO UPDATE SET
@@ -182,6 +217,8 @@ export const saveFacture = (req: Request, res: Response) => {
         devis_id = excluded.devis_id,
         planning_id = excluded.planning_id,
         commande_id = excluded.commande_id,
+        source_module = excluded.source_module,
+        source_id = excluded.source_id,
         statut = excluded.statut,
         notes = excluded.notes,
         lignes = excluded.lignes,
@@ -199,6 +236,7 @@ export const saveFacture = (req: Request, res: Response) => {
         date_facture, date_echeance || null,
         finalHt, finalTaux, finalTva, finalTtc, montant_paye || 0,
         devis_id || null, planning_id || null, commande_id || null,
+        source_module || null, source_id || null,
         statut || 'BROUILLON', notes || null, JSON.stringify(lignes || [])
     );
 

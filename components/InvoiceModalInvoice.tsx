@@ -18,6 +18,10 @@ interface InvoiceModalInvoiceProps {
 }
 
 interface InvoiceFormLine {
+    // Rattache la ligne au produit du contexte : c'est ce champ que la fiche
+    // produit interroge pour retrouver ses factures. Sans lui, la liste
+    // « Factures liées » reste vide quoi qu'on enregistre.
+    product_id?: string;
     designation: string;
     quantite: number;
     prix_unitaire: number;
@@ -28,6 +32,12 @@ const DEFAULT_LINE: InvoiceFormLine = { designation: '', quantite: 1, prix_unita
 
 export default function InvoiceModalInvoice({ context, onClose, onSaved }: InvoiceModalInvoiceProps) {
     const today = new Date().toISOString().split('T')[0];
+    const productId = context.productId != null ? String(context.productId) : undefined;
+    const newLine = (): InvoiceFormLine => ({
+        ...DEFAULT_LINE,
+        product_id: productId,
+        designation: context.productLabel || '',
+    });
     const [form, setForm] = useState({
         type: 'VENTE' as FormType,
         tiers_nom: context.productLabel || '',
@@ -35,7 +45,7 @@ export default function InvoiceModalInvoice({ context, onClose, onSaved }: Invoi
         taux_tva: 20,
         notes: '',
     });
-    const [lines, setLines] = useState<InvoiceFormLine[]>([{ ...DEFAULT_LINE }]);
+    const [lines, setLines] = useState<InvoiceFormLine[]>([newLine()]);
     const [saving, setSaving] = useState(false);
 
     const updateLine = (idx: number, field: keyof InvoiceFormLine, value: string | number) => {
@@ -49,7 +59,7 @@ export default function InvoiceModalInvoice({ context, onClose, onSaved }: Invoi
         });
     };
 
-    const addLine = () => setLines(prev => [...prev, { ...DEFAULT_LINE }]);
+    const addLine = () => setLines(prev => [...prev, newLine()]);
     const removeLine = (idx: number) => {
         if (lines.length <= 1) return;
         setLines(prev => prev.filter((_, i) => i !== idx));
@@ -65,18 +75,21 @@ export default function InvoiceModalInvoice({ context, onClose, onSaved }: Invoi
             const body = {
                 type: form.type,
                 tiers_nom: form.tiers_nom,
-                date_invoice: form.date_invoice,
+                date_facture: form.date_invoice,
                 taux_tva: form.taux_tva,
                 notes: form.notes,
                 source_module: context.sourceModule.toUpperCase(),
                 source_id: String(context.sourceId),
-                lines,
+                // `product_id` reste porté par chaque ligne : c'est lui qui permet
+                // de retrouver la facture depuis la fiche produit.
+                lignes: lines,
                 total_ht: totalHT,
                 total_tva: totalTVA,
                 total_ttc: totalTTC,
             };
-            const res = await fetch('/api/invoices', {
+            const res = await fetch('/api/facturation/factures', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });

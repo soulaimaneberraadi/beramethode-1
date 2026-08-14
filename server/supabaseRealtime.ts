@@ -197,7 +197,8 @@ export const mergeSnapshotIntoSqlite = (snapshot: any, localOwnerId: number) => 
     // Tables that mirror SQLite directly via __sqlite_export__
     const exp = snapshot.__sqlite_export__;
     if (exp && typeof exp === 'object') {
-      if (exp.workers) summary.workers = applyArrayToTable('workers', exp.workers, localOwnerId);
+      // `exp.workers` (table legacy `workers`) est volontairement ignoré :
+      // les employés vivent uniquement dans hr_workers (voir exp.hr.workers).
       if (exp.workerSkills) summary.workerSkills = applyArrayToTable('worker_skills', exp.workerSkills, localOwnerId);
       if (exp.posteSuivi) summary.posteSuivi = applyArrayToTable('poste_suivi', exp.posteSuivi, localOwnerId);
       if (exp.magasin?.products) summary.magasinProducts = applyArrayToTable('magasin_products', exp.magasin.products, localOwnerId);
@@ -217,7 +218,6 @@ export const mergeSnapshotIntoSqlite = (snapshot: any, localOwnerId: number) => 
         planning: 'planning_events',
         suivi: 'suivi_data',
         'demandes-appro': 'demandes_appro',
-        workers: 'workers',
         'worker-skills': 'worker_skills',
         'worker-pointage': 'worker_pointage',
         'poste-suivi': 'poste_suivi',

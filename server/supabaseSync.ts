@@ -275,7 +275,6 @@ const buildSnapshot = async (localUserId: number, accessToken: string, userId: s
   const planningEvents = safe('SELECT * FROM planning_events WHERE owner_id = ?', [localUserId]);
   const suiviData = safe('SELECT * FROM suivi_data WHERE owner_id = ?', [localUserId]);
   const posteSuivi = safe('SELECT * FROM poste_suivi WHERE owner_id = ?', [localUserId]);
-  const workers = safe('SELECT * FROM workers WHERE owner_id = ?', [localUserId]);
   const workerSkills = safe('SELECT * FROM worker_skills WHERE owner_id = ?', [localUserId]);
   const workerPointage = safe('SELECT * FROM worker_pointage WHERE owner_id = ?', [localUserId]);
   const magasinProducts = safe('SELECT * FROM magasin_products WHERE owner_id = ?', [localUserId]);
@@ -308,10 +307,6 @@ const buildSnapshot = async (localUserId: number, accessToken: string, userId: s
     magasinProducts.map(async (row: any) => replaceImages(parseJsonFields(row), accessToken, userId)),
   );
 
-  const slimWorkers = await Promise.all(
-    workers.map(async (row: any) => replaceImages(parseJsonFields(row), accessToken, userId)),
-  );
-
   const slimHrWorkers = await Promise.all(
     hrWorkers.map(async (row: any) => replaceImages(parseJsonFields(row), accessToken, userId)),
   );
@@ -330,11 +325,9 @@ const buildSnapshot = async (localUserId: number, accessToken: string, userId: s
         models: libraryModels.length,
         planningEvents: planningEvents.length,
         suiviData: suiviData.length,
-        workers: slimWorkers.length,
         magasinProducts: magasinProducts.length,
         hrWorkers: slimHrWorkers.length,
       },
-      workers: slimWorkers,
       workerSkills: workerSkills.map(parseJsonFields),
       workerPointage: workerPointage.map(parseJsonFields),
       posteSuivi: posteSuivi.map(parseJsonFields),
@@ -542,7 +535,7 @@ const pushNowForUser = async (state: UserSyncState) => {
       console.warn(`[supabaseSync] Push failed for ${state.email} (${res.status}): ${body.slice(0, 200)}`);
     } else {
       const c = (snapshot as any).__sqlite_export__?.counts || {};
-      console.log(`[supabaseSync] ✅ pushed successfully for ${state.email} — models=${c.models||0} planning=${c.planningEvents||0} workers=${c.workers||0} hrWorkers=${c.hrWorkers||0}`);
+      console.log(`[supabaseSync] ✅ pushed successfully for ${state.email} — models=${c.models||0} planning=${c.planningEvents||0} hrWorkers=${c.hrWorkers||0}`);
       
       // Broadcast signal
       try {

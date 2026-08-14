@@ -370,33 +370,10 @@ CREATE TABLE IF NOT EXISTS poste_suivi (
 );
 `);
 
-// PHASE 5 — Effectifs: Workers + Skills + Pointage
+// PHASE 5 — Effectifs: Skills + Pointage
+// NOTE: la table `workers` legacy a été supprimée. `hr_workers` est la seule
+// source de vérité pour les employés (elle seule porte les champs de paie).
 db.exec(`
-CREATE TABLE IF NOT EXISTS workers (
-  id TEXT PRIMARY KEY,
-  owner_id INTEGER NOT NULL,
-  matricule TEXT NOT NULL,
-  nom TEXT NOT NULL,
-  prenom TEXT NOT NULL,
-  cin TEXT,
-  cnss TEXT,
-  phone TEXT,
-  date_naissance TEXT,
-  adresse TEXT,
-  photo TEXT,
-  date_embauche TEXT NOT NULL,
-  type_contrat TEXT DEFAULT 'CDI',
-  date_fin_contrat TEXT,
-  is_active INTEGER DEFAULT 1,
-  hidden_from_societes TEXT,
-  notes TEXT,
-  comments TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
-  UNIQUE(owner_id, matricule)
-);
-
 CREATE TABLE IF NOT EXISTS worker_skills (
   id TEXT PRIMARY KEY,
   owner_id INTEGER NOT NULL,
@@ -413,7 +390,7 @@ CREATE TABLE IF NOT EXISTS worker_skills (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE,
+  FOREIGN KEY (worker_id) REFERENCES hr_workers(id) ON DELETE CASCADE,
   UNIQUE(worker_id, poste_keyword, fabric_type)
 );
 
@@ -433,7 +410,7 @@ CREATE TABLE IF NOT EXISTS worker_pointage (
   notes TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (worker_id) REFERENCES workers(id) ON DELETE CASCADE,
+  FOREIGN KEY (worker_id) REFERENCES hr_workers(id) ON DELETE CASCADE,
   UNIQUE(worker_id, date)
 );
 `);
@@ -959,7 +936,6 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_suivi_sections_suivi ON suivi_sections(suivi_id);
 
   -- Index Workers (Standard)
-  CREATE INDEX IF NOT EXISTS idx_workers_owner ON workers(owner_id);
   CREATE INDEX IF NOT EXISTS idx_worker_pointage_lookup ON worker_pointage(worker_id, date);
 
   -- Index HR (Avancé)
@@ -1157,10 +1133,16 @@ db.exec(`
     total_ttc REAL NOT NULL DEFAULT 0,
     montant_paye REAL DEFAULT 0,
     
-    devis_id TEXT,                       
-    planning_id TEXT,                    
-    commande_id TEXT,                    
-    
+    devis_id TEXT,
+    planning_id TEXT,
+    commande_id TEXT,
+
+    -- Rattachement au module d'origine (ex. ATEL/MAGA/STRA + id de l'objet).
+    -- Permet aux listes contextuelles (Atelier, Library, Magasin…) de retrouver
+    -- leurs factures sans second système de facturation.
+    source_module TEXT,
+    source_id TEXT,
+
     statut TEXT DEFAULT 'BROUILLON',    -- BROUILLON | ENVOYEE | PAYEE | PARTIELLEMENT | ANNULEE
     notes TEXT,
     lignes TEXT NOT NULL,                -- JSON: [{designation, qte, prix_unitaire, total}]
@@ -1201,59 +1183,8 @@ db.exec(`
   
   CREATE INDEX IF NOT EXISTS idx_factures_owner ON factures(owner_id);
   CREATE INDEX IF NOT EXISTS idx_factures_type ON factures(type);
-`);
-
-// ============================================================================
-// NEW INVOICE SYSTEM (modular, module-source-aware)
-// ============================================================================
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS invoices (
-    id TEXT PRIMARY KEY,
-    owner_id INTEGER NOT NULL,
-    numero TEXT NOT NULL UNIQUE,
-    type TEXT NOT NULL,                  -- VENTE | ACHAT | PRODUCTION | TRANSFERT
-    source_module TEXT NOT NULL,          -- MODE | ATEL | MAGA | COUP | STRA | MODEL
-    source_id TEXT,                       -- optional FK to the source record
-
-    tiers_nom TEXT,
-    tiers_ice TEXT,
-    tiers_adresse TEXT,
-    tiers_tel TEXT,
-    tiers_email TEXT,
-
-    date_invoice TEXT NOT NULL,
-    date_echeance TEXT,
-
-    total_ht REAL NOT NULL DEFAULT 0,
-    taux_tva REAL DEFAULT 0,
-    total_tva REAL DEFAULT 0,
-    total_ttc REAL NOT NULL DEFAULT 0,
-
-    statut TEXT DEFAULT 'BROUILLON',     -- BROUILLON | VALIDEE | ANNULEE
-    notes TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS invoice_lines (
-    id TEXT PRIMARY KEY,
-    invoice_id TEXT NOT NULL,
-    product_id TEXT,
-    designation TEXT NOT NULL,
-    quantite REAL NOT NULL DEFAULT 1,
-    prix_unitaire REAL NOT NULL DEFAULT 0,
-    total REAL NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_invoices_owner ON invoices(owner_id);
-  CREATE INDEX IF NOT EXISTS idx_invoices_type ON invoices(type);
-  CREATE INDEX IF NOT EXISTS idx_invoices_source ON invoices(source_module);
-  CREATE INDEX IF NOT EXISTS idx_invoice_lines_invoice ON invoice_lines(invoice_id);
-  CREATE INDEX IF NOT EXISTS idx_invoice_lines_product ON invoice_lines(product_id);
+  -- idx_factures_source est créé plus bas, après la migration qui ajoute
+  -- source_module/source_id aux bases existantes.
 `);
 
 // ============================================================================
@@ -1797,6 +1728,145 @@ db.exec(`
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
+
+// ---------------------------------------------------------------------------
+// Migration : fusion du second système de facturation (`invoices`/`invoice_lines`)
+// dans `factures`.
+//
+// Les deux systèmes coexistaient sans passerelle : une facture créée via les
+// listes contextuelles (Atelier, Library, Magasin…) atterrissait dans `invoices`
+// et restait invisible pour la page Facturation, qui ne lit que `factures`.
+// `invoices` n'avait par ailleurs aucun suivi de règlement, donc son chiffre
+// d'affaires ne pouvait jamais être marqué payé.
+//
+// `factures` reçoit source_module/source_id ; les lignes gardent leur product_id
+// dans le JSON `lignes`. Comme pour les employés, on ne supprime les anciennes
+// tables que si elles sont vides.
+// ---------------------------------------------------------------------------
+for (const col of ['source_module', 'source_id']) {
+  try {
+    db.exec(`ALTER TABLE factures ADD COLUMN ${col} TEXT`);
+  } catch {
+    // colonne déjà présente
+  }
+}
+db.exec('CREATE INDEX IF NOT EXISTS idx_factures_source ON factures(source_module, source_id)');
+
+try {
+  const legacyInvoices = db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='invoices'")
+    .get();
+
+  if (legacyInvoices) {
+    const remaining = db.prepare('SELECT COUNT(*) AS c FROM invoices').get() as { c: number };
+
+    if (remaining.c > 0) {
+      console.warn(
+        `[db] Migration invoices→factures ignorée : la table legacy \`invoices\` contient ${remaining.c} facture(s). ` +
+        'Reportez-les dans `factures` (avec source_module/source_id) avant de relancer.'
+      );
+    } else {
+      db.exec('DROP TABLE IF EXISTS invoice_lines; DROP TABLE IF EXISTS invoices;');
+      console.log('[db] Migration invoices→factures effectuée : tables legacy `invoices`/`invoice_lines` supprimées.');
+    }
+  }
+} catch (e) {
+  console.error('[db] Migration invoices→factures :', e);
+}
+
+// ---------------------------------------------------------------------------
+// Migration : suppression de la table `workers` legacy au profit de `hr_workers`
+//
+// `workers` n'avait aucun appelant côté interface et ne portait aucun champ de
+// paie (salaire_base, taux_horaire, taux_piece...), ce qui rendait tout employé
+// qui n'existait que dans cette table invisible pour la paie et l'export Sage.
+// `worker_skills` et `worker_pointage` sont donc repointés vers `hr_workers`.
+//
+// Garde-fou : la migration ne s'exécute que si `workers` est vide. Si elle
+// contient des lignes, on ne touche à rien et on journalise un avertissement —
+// aucune donnée employé ne doit disparaître silencieusement.
+// ---------------------------------------------------------------------------
+try {
+  const legacyWorkers = db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='workers'")
+    .get();
+
+  if (legacyWorkers) {
+    const remaining = db.prepare('SELECT COUNT(*) AS c FROM workers').get() as { c: number };
+
+    if (remaining.c > 0) {
+      console.warn(
+        `[db] Migration workers→hr_workers ignorée : la table legacy \`workers\` contient ${remaining.c} ligne(s). ` +
+        'Migrez ces employés vers hr_workers avant de relancer, sinon leurs pointages et compétences seront orphelins.'
+      );
+    } else {
+      db.pragma('foreign_keys = OFF');
+      try {
+        db.exec(`
+          BEGIN;
+
+          CREATE TABLE worker_skills__new (
+            id TEXT PRIMARY KEY,
+            owner_id INTEGER NOT NULL,
+            worker_id TEXT NOT NULL,
+            poste_keyword TEXT NOT NULL,
+            fabric_type TEXT,
+            level TEXT NOT NULL,
+            source TEXT DEFAULT 'AUTO',
+            pieces_total INTEGER DEFAULT 0,
+            pieces_per_hour_avg REAL,
+            quality_rate REAL,
+            last_worked_date TEXT,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (worker_id) REFERENCES hr_workers(id) ON DELETE CASCADE,
+            UNIQUE(worker_id, poste_keyword, fabric_type)
+          );
+          INSERT INTO worker_skills__new SELECT * FROM worker_skills;
+          DROP TABLE worker_skills;
+          ALTER TABLE worker_skills__new RENAME TO worker_skills;
+
+          CREATE TABLE worker_pointage__new (
+            id TEXT PRIMARY KEY,
+            owner_id INTEGER NOT NULL,
+            worker_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            chaine TEXT,
+            poste_assigned TEXT,
+            status TEXT DEFAULT 'PRESENT',
+            heure_entree TEXT,
+            heure_sortie TEXT,
+            heures_travaillees REAL,
+            heures_supp_25 REAL DEFAULT 0,
+            heures_supp_50 REAL DEFAULT 0,
+            notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (worker_id) REFERENCES hr_workers(id) ON DELETE CASCADE,
+            UNIQUE(worker_id, date)
+          );
+          INSERT INTO worker_pointage__new SELECT * FROM worker_pointage;
+          DROP TABLE worker_pointage;
+          ALTER TABLE worker_pointage__new RENAME TO worker_pointage;
+
+          DROP TABLE workers;
+
+          COMMIT;
+        `);
+        console.log('[db] Migration workers→hr_workers effectuée : table legacy `workers` supprimée.');
+      } catch (e) {
+        try { db.exec('ROLLBACK;'); } catch { /* rien à annuler */ }
+        throw e;
+      } finally {
+        db.pragma('foreign_keys = ON');
+      }
+    }
+  }
+} catch (e) {
+  console.error('[db] Migration workers→hr_workers :', e);
+}
 
 export default db;
 

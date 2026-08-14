@@ -41,12 +41,7 @@ export function computeDashboardKPIs(ownerId: number) {
         WHERE p.date = ? AND w.owner_id = ?
     `).get(today, ownerId) as any;
 
-    // ── Effectifs basique (workers) si hr_workers vide ──
-    const basicWorkers = db.prepare(`
-        SELECT COUNT(*) as total FROM workers WHERE owner_id = ? AND is_active = 1
-    `).get(ownerId) as any;
-
-    const totalEffectif = (hrWorkers?.total || 0) > 0 ? hrWorkers.total : (basicWorkers?.total || 0);
+    const totalEffectif = hrWorkers?.total || 0;
 
     // ── Stock alertes ───────────────────────────────────
     const stockAlerts = db.prepare(`
