@@ -127,11 +127,8 @@ import {
 } from './server/chronoController';
 import {
   getCatalogEntries,
-  syncCatalog,
-  pinCatalogEntry,
-  deleteCatalogEntry,
-  updateCatalogEntry,
-  confirmCatalogEntry,
+  upsertCatalogCuration,
+  deleteCatalogCuration,
 } from './server/catalogController';
 
 // ── Agent 3: UUID Generation (prevents sequential ID enumeration) ──
@@ -747,11 +744,8 @@ async function startServer() {
 
   // Catalogue de Temps
   app.get('/api/catalog/entries', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'view'), getCatalogEntries);
-  app.post('/api/catalog/sync', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'edit'), syncCatalog);
-  app.put('/api/catalog/:id', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'edit'), updateCatalogEntry);
-  app.put('/api/catalog/:id/pin', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'edit'), pinCatalogEntry);
-  app.post('/api/catalog/:id/confirm', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'edit'), confirmCatalogEntry);
-  app.delete('/api/catalog/:id', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'edit'), ownershipGuard('time_catalog_entries', 'owner_id'), deleteCatalogEntry);
+  app.put('/api/catalog/curation', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'edit'), upsertCatalogCuration);
+  app.delete('/api/catalog/curation/:normKey', authenticateToken, requirePermission('page', ['catalogueTemps', 'catalogTemps'], 'edit'), deleteCatalogCuration);
 
   // BERAOUVIER — Read-Only (no financial data); rate-limited, minimal fields
   app.get('/api/worker/:cin', beraouvierPublicLimiter, getWorkerByCin);

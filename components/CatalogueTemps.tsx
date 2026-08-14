@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useIsMobile } from './planning/shared/useIsMobile';
 import { useLang } from '../src/context/LanguageContext';
@@ -58,7 +58,38 @@ type CatalogEntry = {
     operators: string[];
     clients: string[];
     sources: Measure[];
+    /** Clé de jointure avec la curation serveur (doit matcher `buildNormKey` côté serveur). */
+    normKey: string;
+    /** Temps calculé avant application d'une éventuelle correction manuelle. */
+    avgCalcule: number;
+    /** true si `avg` provient d'une correction manuelle enregistrée. */
+    corrige: boolean;
+    /** Temps validé par le méthodiste. */
+    confirme: boolean;
+    epingle: boolean;
 };
+
+/** Curation stockée côté serveur pour une opération (table time_catalog_entries). */
+type Curation = {
+    norm_key: string;
+    avg_time: number;
+    pinned: number;
+    confirmed: number;
+    custom_notes?: string | null;
+};
+
+// La normalisation doit rester identique à `buildNormKey` dans server/catalogController.ts.
+const normServeur = (s: string) =>
+    (s || '').toLowerCase().normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '').trim().replace(/\s+/g, ' ');
+
+const machineNormServeur = (raw: string) =>
+    normServeur(raw)
+        .replace(/\s*·\s*/g, '·')
+        .replace(/\s*[-–—]\s*/g, '-')
+        .replace(/\s{2,}/g, ' ');
+
+const buildNormKey = (description: string, machine: string) =>
+    `${normServeur(description)}|${machineNormServeur(machine)}`;
 
 // ── Normalisation / similarité ────────────────────────────────────────────────
 const deaccent = (s: string) => s.normalize('NFD').replace(new RegExp('[\\u0300-\\u036f]', 'g'), '');
@@ -194,6 +225,44 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
     const [customCategories, setCustomCategories] = useState<string[]>(() => {
         try { return JSON.parse(localStorage.getItem(CUSTOM_CAT_KEY) || '[]'); } catch { return []; }
     });
+    /** Curations serveur indexées par norm_key (temps corrigés, validés, épinglés). */
+    const [curations, setCurations] = useState<Map<string, Curation>>(new Map());
+
+    const chargerCurations = useCallback(async () => {
+        try {
+            const res = await fetch('/api/catalog/entries', { credentials: 'include' });
+            if (!res.ok) return; // catalogue purement calculé si la curation est indisponible
+            const rows: Curation[] = await res.json();
+            setCurations(new Map(rows.map(r => [r.norm_key, r])));
+        } catch {
+            /* hors-ligne : on reste sur les temps calculés */
+        }
+    }, []);
+
+    useEffect(() => { chargerCurations(); }, [chargerCurations]);
+
+    /** Enregistre une curation puis recharge, afin que le serveur reste la référence. */
+    const enregistrerCuration = useCallback(async (
+        entry: CatalogEntry,
+        patch: Partial<Pick<Curation, 'avg_time' | 'pinned' | 'confirmed'>>,
+    ) => {
+        try {
+            const res = await fetch('/api/catalog/curation', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    description: entry.description,
+                    machine: entry.machine,
+                    section: entry.section ?? null,
+                    ...patch,
+                }),
+            });
+            if (res.ok) await chargerCurations();
+        } catch {
+            /* échec silencieux : l'affichage retombe sur le temps calculé */
+        }
+    }, [chargerCurations]);
     const addCustomCategory = (name: string) => {
         const v = name.trim();
         if (!v) return;
@@ -344,6 +413,12 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                     operators: mz.operator ? [mz.operator] : [],
                     clients: mz.client !== '—' ? [mz.client] : [],
                     sources: [mz],
+                    // renseignés à la finalisation, une fois le libellé représentatif choisi
+                    normKey: '',
+                    avgCalcule: 0,
+                    corrige: false,
+                    confirme: false,
+                    epingle: false,
                     _tokens: toks,
                 });
             }
@@ -356,14 +431,39 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
             c.sources.forEach(m => freq.set(m.operationDesc, (freq.get(m.operationDesc) || 0) + 1));
             c.description = Array.from(freq.entries()).sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)[0][0];
             const { _tokens, ...rest } = c;
-            return rest as CatalogEntry;
+            const e = rest as CatalogEntry;
+            e.normKey = buildNormKey(e.description, e.machine);
+            e.avgCalcule = e.avg;
+            e.corrige = false;
+            e.confirme = false;
+            e.epingle = false;
+            return e;
         });
     }, [measures]);
+
+    // — 2 bis) Curation serveur appliquée par-dessus le calcul —
+    // Un temps corrigé à la main remplace la moyenne calculée : c'est lui qui
+    // alimente ensuite le prix de revient, donc il prime sur le clustering.
+    const entriesCurees = useMemo(() => {
+        if (curations.size === 0) return entries;
+        return entries.map(e => {
+            const c = curations.get(e.normKey);
+            if (!c) return e;
+            const corrige = Number(c.avg_time) > 0;
+            return {
+                ...e,
+                avg: corrige ? Number(c.avg_time) : e.avgCalcule,
+                corrige,
+                confirme: !!c.confirmed,
+                epingle: !!c.pinned,
+            };
+        });
+    }, [entries, curations]);
 
     // — 3) Filtres + tri —
     const visible = useMemo(() => {
         const q = deaccent(query.toLowerCase()).trim();
-        let list = entries.filter(e => {
+        let list = entriesCurees.filter(e => {
             if (machineFilter && e.machine !== machineFilter) return false;
             if (matiereFilter && !e.matieres.includes(matiereFilter)) return false;
             if (categoryFilter && !e.categories.includes(categoryFilter)) return false;
@@ -378,14 +478,16 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                 || e.clients.some(o => deaccent(o.toLowerCase()).includes(q));
         });
         list = list.sort((a, b) => {
+            // les opérations épinglées restent en tête quel que soit le tri
+            if (a.epingle !== b.epingle) return a.epingle ? -1 : 1;
             if (sortBy === 'alpha') return a.description.localeCompare(b.description);
             if (sortBy === 'time') return b.avg - a.avg;
             return b.count - a.count || b.avg - a.avg;
         });
         return list;
-    }, [entries, query, machineFilter, matiereFilter, categoryFilter, clientFilter, operatorFilter, sectionFilter, sortBy]);
+    }, [entriesCurees, query, machineFilter, matiereFilter, categoryFilter, clientFilter, operatorFilter, sectionFilter, sortBy]);
 
-    const selected = useMemo(() => entries.find(e => e.key === selectedKey) || null, [entries, selectedKey]);
+    const selected = useMemo(() => entriesCurees.find(e => e.key === selectedKey) || null, [entriesCurees, selectedKey]);
 
     const fmtTime = (min: number) => unit === 'sec' ? (min * 60).toFixed(1) : min.toFixed(3);
     const unitSuffix = unit === 'sec' ? 's' : 'min';
@@ -565,7 +667,7 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                 </div>
 
                 {selected && (
-                    <DetailPanel entry={selected} fmt={fmtTime} unitSuffix={unitSuffix} reliability={reliability(selected.count)} onClose={() => setSelectedKey(null)} onOpenWorker={onOpenWorker} />
+                    <DetailPanel entry={selected} fmt={fmtTime} unitSuffix={unitSuffix} reliability={reliability(selected.count)} onClose={() => setSelectedKey(null)} onOpenWorker={onOpenWorker} onCurate={enregistrerCuration} unit={unit} />
                 )}
             </div>
         </div>
@@ -573,14 +675,25 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
 }
 
 // ── Panneau détail ─────────────────────────────────────────────────────────────
-function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorker }: {
+function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorker, onCurate, unit }: {
     entry: CatalogEntry; fmt: (m: number) => string; unitSuffix: string;
     reliability: { label: string; cls: string; dot: string }; onClose: () => void;
     onOpenWorker?: (name: string) => void;
+    onCurate?: (entry: CatalogEntry, patch: { avg_time?: number; pinned?: number; confirmed?: number }) => void;
+    unit: 'min' | 'sec';
 }) {
     const { lang } = useLang();
     const isMobile = useIsMobile();
     const sorted = [...entry.sources].sort((a, b) => b.timeMin - a.timeMin);
+
+    const [tempsSaisi, setTempsSaisi] = useState('');
+    // La saisie suit l'unité affichée ; la base stocke toujours des minutes.
+    const enregistrerTemps = () => {
+        const v = Number(tempsSaisi.replace(',', '.'));
+        if (!Number.isFinite(v) || v <= 0) return;
+        onCurate?.(entry, { avg_time: unit === 'sec' ? v / 60 : v });
+        setTempsSaisi('');
+    };
 
     const titleBlock = (
         <div className="min-w-0">
@@ -599,6 +712,76 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
                 <KpiCard icon={TrendingUp} label={tx(lang, { fr: "Min", ar: "أدنى", en: "Min", es: "Mín", pt: "Mín", tr: "Min" })} value={fmt(entry.min)} suffix={unitSuffix} accent="from-emerald-500 to-teal-500" />
                 <KpiCard icon={TrendingUp} label={tx(lang, { fr: "Max", ar: "أعلى", en: "Max", es: "Máx", pt: "Máx", tr: "Maks" })} value={fmt(entry.max)} suffix={unitSuffix} accent="from-rose-500 to-orange-500" />
             </div>
+
+            {onCurate && (
+                <div className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-dk-muted uppercase tracking-wide">
+                            {tx(lang, { fr: 'Temps retenu', ar: 'الوقت المعتمد', en: 'Standard time', es: 'Tiempo estándar', pt: 'Tempo padrão', tr: 'Standart süre' })}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                onClick={() => onCurate(entry, { pinned: entry.epingle ? 0 : 1 })}
+                                className={`h-7 px-2 rounded-md text-[11px] font-medium border transition-colors ${entry.epingle
+                                    ? 'border-amber-200 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300'
+                                    : 'border-slate-200 dark:border-dk-border text-slate-500 hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
+                            >
+                                {tx(lang, { fr: 'Épingler', ar: 'تثبيت', en: 'Pin', es: 'Fijar', pt: 'Fixar', tr: 'Sabitle' })}
+                            </button>
+                            <button
+                                onClick={() => onCurate(entry, { confirmed: entry.confirme ? 0 : 1 })}
+                                className={`h-7 px-2 rounded-md text-[11px] font-medium border transition-colors ${entry.confirme
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300'
+                                    : 'border-slate-200 dark:border-dk-border text-slate-500 hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
+                            >
+                                {tx(lang, { fr: 'Valider', ar: 'اعتماد', en: 'Validate', es: 'Validar', pt: 'Validar', tr: 'Onayla' })}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            inputMode="decimal"
+                            value={tempsSaisi}
+                            onChange={e => setTempsSaisi(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') enregistrerTemps(); }}
+                            placeholder={`${fmt(entry.avgCalcule)} ${unitSuffix}`}
+                            className="flex-1 h-8 px-2.5 text-[12px] tabular-nums rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-elevated text-slate-900 dark:text-dk-text focus:outline-none focus:ring-1 focus:ring-slate-400"
+                        />
+                        <button
+                            onClick={enregistrerTemps}
+                            disabled={!tempsSaisi}
+                            className="h-8 px-3 rounded-md text-[12px] font-medium bg-slate-900 dark:bg-dk-text text-white dark:text-dk-surface hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
+                        >
+                            {tx(lang, { fr: 'Corriger', ar: 'تصحيح', en: 'Override', es: 'Corregir', pt: 'Corrigir', tr: 'Düzelt' })}
+                        </button>
+                    </div>
+
+                    {entry.corrige && (
+                        <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                                {tx(lang, {
+                                    fr: `Temps corrigé à la main · calculé : ${fmt(entry.avgCalcule)} ${unitSuffix}`,
+                                    ar: `وقت مصحّح يدوياً · المحسوب: ${fmt(entry.avgCalcule)} ${unitSuffix}`,
+                                    en: `Manually overridden · computed: ${fmt(entry.avgCalcule)} ${unitSuffix}`,
+                                    es: `Corregido manualmente · calculado: ${fmt(entry.avgCalcule)} ${unitSuffix}`,
+                                    pt: `Corrigido manualmente · calculado: ${fmt(entry.avgCalcule)} ${unitSuffix}`,
+                                    tr: `Elle düzeltildi · hesaplanan: ${fmt(entry.avgCalcule)} ${unitSuffix}`,
+                                })}
+                            </p>
+                            <button
+                                onClick={() => onCurate(entry, { avg_time: 0 })}
+                                className="text-[11px] font-medium text-slate-500 hover:text-slate-900 dark:hover:text-dk-text underline flex-shrink-0"
+                            >
+                                {tx(lang, { fr: 'Rétablir', ar: 'استرجاع', en: 'Reset', es: 'Restablecer', pt: 'Repor', tr: 'Sıfırla' })}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className={`flex items-center gap-2 px-3 py-2 rounded-xl ring-1 ${reliability.cls}`}>
                 {entry.count >= 3 ? <ShieldCheck className="w-4 h-4" /> : <CircleAlert className="w-4 h-4" />}
