@@ -1,24 +1,13 @@
 /**
- * Catalogue des ressources protégeables + presets de rôles (données pures).
+ * Presets de rôles (données pures). Le catalogue des ressources protégeables
+ * (pages + champs) vit désormais dans `app/permissionCatalog.ts` — source de
+ * vérité unique, réexportée ici pour ne casser aucun import existant.
  * Les clés de pages correspondent à `currentView` dans App.tsx / defaultNavOrder.
  */
 
-/** Pages protégeables (alignées sur defaultNavOrder dans app/constants.ts). */
-export const PROTECTED_PAGES = [
-  'vuegenerale', 'dashboard', 'ingenierie', 'atelier', 'atelierProd', 'library',
-  'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'rendement',
-  'magasin', 'export', 'facturation', 'config', 'pageMachine', 'machin',
-  'objectifs', 'sousTraitance', 'catalogueTemps',
-] as const;
+import { PROTECTED_PAGES, PROTECTED_FIELDS } from '../../app/permissionCatalog';
 
-/** Champs sensibles protégeables (resource_key = 'domaine.champ'). */
-export const PROTECTED_FIELDS = [
-  'model.cout_minute',   // coût/minute
-  'model.prix_revient',  // prix de revient
-  'hr.salaire',          // salaires
-  'hr.avances',          // avances
-  'facturation.marge',   // marge
-] as const;
+export { PROTECTED_PAGES, PROTECTED_FIELDS };
 
 export type RolePresetKey = 'patron' | 'methode' | 'chrono' | 'commercial' | 'rh' | 'chef_chaine';
 
@@ -42,7 +31,7 @@ export const ROLE_PRESETS: Record<RolePresetKey, PresetDef> = {
     name: 'Méthode', level: 1,
     view: ['vuegenerale', 'dashboard', 'ingenierie', 'atelier', 'atelierProd', 'library', 'coupe', 'planning', 'suivi', 'rendement', 'machin', 'pageMachine'],
     edit: ['ingenierie', 'atelier', 'atelierProd', 'library', 'coupe'],
-    fields: ['model.cout_minute', 'model.prix_revient'],
+    fields: ['model.cout_minute', 'model.prix_revient', 'model.marge'],
   },
   chrono: {
     name: 'Chrono', level: 2,
@@ -60,7 +49,7 @@ export const ROLE_PRESETS: Record<RolePresetKey, PresetDef> = {
     name: 'RH', level: 1,
     view: ['dashboard', 'gestionRh', 'effectifs', 'objectifs'],
     edit: ['gestionRh', 'effectifs'],
-    fields: ['hr.salaire', 'hr.avances'],
+    fields: ['hr.salaire', 'hr.avances', 'hr.cnss'],
   },
   chef_chaine: {
     name: 'Chef de chaîne', level: 2,

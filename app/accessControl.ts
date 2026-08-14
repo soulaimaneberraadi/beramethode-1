@@ -13,23 +13,20 @@
 
 import { AccountType, ACCOUNT_TYPE_HIDDEN } from './accountTypes';
 import { defaultNavOrder } from './constants';
+import { FIELDS_BY_MODULE, PROTECTED_FIELDS } from './permissionCatalog';
 
 /** كل مفاتيح الصفحات (الوحدات) المعروفة في التنقّل. */
 export const PAGE_CATALOG: string[] = [...defaultNavOrder];
 
 /**
  * كتالوج الحقول الحسّاسة، مُجمَّعة حسب الوحدة. مفتاح الحقل = `module.field`
- * (نفس صيغة `can('view', key)` في الـ resolver). قائمة أولية قابلة للتوسيع.
+ * (نفس صيغة `can('view', key)` في الـ resolver). مصدره الآن الموحَّد
+ * `app/permissionCatalog.ts` — لا تكرار للقيم هنا.
  */
-export const FIELD_CATALOG: Record<string, string[]> = {
-  ingenierie: ['model.cout_minute', 'model.prix_revient', 'model.marge'],
-  gestionRh: ['hr.salaire', 'hr.avances', 'hr.cnss'],
-  facturation: ['facture.marge', 'facture.remise'],
-  profil: ['profil.community'], // مثال: حقل «المجتمع» يُطفأ لـ client
-};
+export const FIELD_CATALOG: Record<string, string[]> = FIELDS_BY_MODULE;
 
 /** كل مفاتيح الحقول مسطّحة. */
-export const ALL_FIELDS: string[] = Object.values(FIELD_CATALOG).flat();
+export const ALL_FIELDS: string[] = [...PROTECTED_FIELDS];
 
 export interface TypeAccess {
   hiddenPages: string[];
@@ -42,7 +39,9 @@ export interface TypeAccess {
  */
 export const DEFAULT_TYPE_ACCESS: Record<AccountType, TypeAccess> = {
   societe: { hiddenPages: [...ACCOUNT_TYPE_HIDDEN.societe], hiddenFields: [] },
-  client: { hiddenPages: [...ACCOUNT_TYPE_HIDDEN.client], hiddenFields: ['profil.community'] },
+  // `profil.community` n'existe pas (encore) dans le catalogue unifié
+  // (app/permissionCatalog.ts) → laissé vide jusqu'à son ajout éventuel.
+  client: { hiddenPages: [...ACCOUNT_TYPE_HIDDEN.client], hiddenFields: [] },
   personnel: { hiddenPages: [...ACCOUNT_TYPE_HIDDEN.personnel], hiddenFields: [] },
 };
 
