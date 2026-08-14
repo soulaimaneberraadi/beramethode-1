@@ -76,6 +76,73 @@ const MilestoneChip: React.FC<{
   </button>
 );
 
+/** Sélecteur de modèle avec vignette photo. Partagé par les modales d'ajout et d'édition. */
+const ModelPickerField: React.FC<{
+  lang: string;
+  models: ModelData[];
+  value: string;
+  open: boolean;
+  setOpen: (v: boolean | ((p: boolean) => boolean)) => void;
+  onSelect: (id: string) => void;
+}> = ({ lang, models, value, open, setOpen, onSelect }) => {
+  const manualLabel = tx(lang as any,{fr:'Saisie Manuelle (Sans modèle existant)',ar:'إدخال يدوي (بدون موديل موجود)',en:'Manual Entry (No existing model)',es:'Entrada Manual (Sin modelo existente)',pt:'Inserção Manual (Sem modelo existente)',tr:'Manuel Giriş (Mevcut model yok)'});
+  const selected = models.find(m => m.id === value);
+  const thumb = (src?: string, alt?: string, s = 'w-8 h-8') => src
+    ? <img src={src} alt={alt || ''} className={`${s} rounded-lg object-cover shrink-0 border border-slate-200 dark:border-dk-border`} />
+    : <div className={`${s} rounded-lg bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0`}><Package className="w-4 h-4 text-slate-400 dark:text-dk-muted" /></div>;
+
+  return (
+    <div className="space-y-1.5 relative">
+      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang as any,{fr:'Modèle *',ar:'الموديل *',en:'Model *',es:'Modelo *',pt:'Modelo *',tr:'Model *'})}</label>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white flex items-center gap-2.5"
+      >
+        {value === 'MANUAL' ? thumb(undefined) : thumb(selected?.image, selected?.meta_data?.nom_modele)}
+        <span className="flex-1 text-left truncate">
+          {value === 'MANUAL'
+            ? manualLabel
+            : (selected?.meta_data?.nom_modele || tx(lang as any,{fr:'Sélectionner un modèle',ar:'اختر موديل',en:'Select a model',es:'Seleccionar un modelo',pt:'Selecionar um modelo',tr:'Bir model seçin'}))}
+        </span>
+        <ChevronDown className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-1 w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg max-h-64 overflow-y-auto">
+          {models.map(m => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => { onSelect(m.id); setOpen(false); }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-left border-b border-slate-100 dark:border-dk-border last:border-b-0 ${m.id === value ? 'bg-indigo-50 dark:bg-dk-elevated' : ''}`}
+            >
+              {thumb(m.image, m.meta_data.nom_modele, 'w-9 h-9')}
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-slate-800 dark:text-dk-text truncate">{m.meta_data.nom_modele}</p>
+                <p className="text-[10px] text-slate-400 dark:text-dk-muted truncate">
+                  {m.meta_data.reference || tx(lang as any,{fr:'Aucune ref',ar:'لا يوجد مرجع',en:'No ref',es:'Sin ref',pt:'Sem ref',tr:'Referans yok'})}
+                  {m.meta_data.date_creation ? ` · ${new Date(m.meta_data.date_creation).toLocaleDateString()}` : ''}
+                </p>
+              </div>
+              {m.id === value && <Check className="w-4 h-4 text-indigo-500 dark:text-dk-accent shrink-0" />}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => { onSelect('MANUAL'); setOpen(false); }}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-left ${value === 'MANUAL' ? 'bg-indigo-50 dark:bg-dk-elevated' : ''}`}
+          >
+            {thumb(undefined, '', 'w-9 h-9')}
+            <p className="flex-1 font-semibold text-slate-800 dark:text-dk-text">{manualLabel}</p>
+            {value === 'MANUAL' && <Check className="w-4 h-4 text-indigo-500 dark:text-dk-accent shrink-0" />}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const KNOWN_COLOR_KEYWORDS: Record<string, string> = {
   'blanc': '#ffffff', 'white': '#ffffff', 'noir': '#1e1e1e', 'black': '#1e1e1e',
   'rouge': '#dc2626', 'red': '#dc2626', 'bleu': '#2563eb', 'blue': '#2563eb',
@@ -145,6 +212,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
   const [isModelPickerOpen, setIsModelPickerOpen] = useState(false);
+  const [isEditModelPickerOpen, setIsEditModelPickerOpen] = useState(false);
   const [isSubPickerOpen, setIsSubPickerOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<SubcontractOrder | null>(null);
@@ -1761,7 +1829,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     const progress = Math.min(100, accPct + repPct + rejPct);
 
                     const matchedModel = models.find(m => m.id === order.modelId);
-                    const photo = matchedModel?.image || null;
+                    // La vignette illustre l'atelier : photo du profil sous-traitant en priorité,
+                    // repli sur l'image du modèle si le profil n'en a pas.
+                    const orderProfile = subcontractorProfiles.find(p => p.name === order.subcontractorName);
+                    const photo = orderProfile?.photo || matchedModel?.image || null;
 
                     return (
                       <div 
@@ -2371,75 +2442,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
             <form onSubmit={handleAddOrder} className="flex-1 overflow-y-auto p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5 relative">
-                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Modèle *',ar:'الموديل *',en:'Model *',es:'Modelo *',pt:'Modelo *',tr:'Model *'})}</label>
-                  <button
-                    type="button"
-                    onClick={() => setIsModelPickerOpen(v => !v)}
-                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white flex items-center gap-2.5"
-                  >
-                    {formModelId === 'MANUAL' ? (
-                      <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0">
-                        <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
-                      </div>
-                    ) : (
-                      (() => {
-                        const m = models.find(mm => mm.id === formModelId);
-                        return m?.image ? (
-                          <img src={m.image} alt={m.meta_data.nom_modele} className="w-8 h-8 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
-                        ) : (
-                          <div className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0">
-                            <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
-                          </div>
-                        );
-                      })()
-                    )}
-                    <span className="flex-1 text-left truncate">
-                      {formModelId === 'MANUAL'
-                        ? tx(lang,{fr:'Saisie Manuelle (Sans modèle existant)',ar:'إدخال يدوي (بدون موديل موجود)',en:'Manual Entry (No existing model)',es:'Entrada Manual (Sin modelo existente)',pt:'Inserção Manual (Sem modelo existente)',tr:'Manuel Giriş (Mevcut model yok)'})
-                        : (models.find(mm => mm.id === formModelId)?.meta_data.nom_modele || tx(lang,{fr:'Sélectionner un modèle',ar:'اختر موديل',en:'Select a model',es:'Seleccionar un modelo',pt:'Selecionar um modelo',tr:'Bir model seçin'}))}
-                    </span>
-                    <ChevronDown className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />
-                  </button>
-
-                  {isModelPickerOpen && (
-                    <div className="absolute z-10 mt-1 w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg dark:shadow-dk-elevated max-h-64 overflow-y-auto">
-                      {models.map(m => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => { handleModelChange(m.id); setIsModelPickerOpen(false); }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-left border-b border-slate-100 dark:border-dk-border last:border-b-0"
-                        >
-                          {m.image ? (
-                            <img src={m.image} alt={m.meta_data.nom_modele} className="w-9 h-9 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
-                          ) : (
-                            <div className="w-9 h-9 rounded-lg bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0">
-                              <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-slate-800 dark:text-dk-text truncate">{m.meta_data.nom_modele}</p>
-                            <p className="text-[10px] text-slate-400 dark:text-dk-muted truncate">
-                              {m.meta_data.reference || tx(lang,{fr:'Aucune ref',ar:'لا يوجد مرجع',en:'No ref',es:'Sin ref',pt:'Sem ref',tr:'Referans yok'})}
-                              {m.meta_data.date_creation ? ` · ${new Date(m.meta_data.date_creation).toLocaleDateString()}` : ''}
-                            </p>
-                          </div>
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => { handleModelChange('MANUAL'); setIsModelPickerOpen(false); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-left"
-                      >
-                        <div className="w-9 h-9 rounded-lg bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0">
-                          <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
-                        </div>
-                        <p className="font-semibold text-slate-800 dark:text-dk-text">{tx(lang,{fr:'Saisie Manuelle (Sans modèle existant)',ar:'إدخال يدوي (بدون موديل موجود)',en:'Manual Entry (No existing model)',es:'Entrada Manual (Sin modelo existente)',pt:'Inserção Manual (Sem modelo existente)',tr:'Manuel Giriş (Mevcut model yok)'})}</p>
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <ModelPickerField
+                  lang={lang}
+                  models={models}
+                  value={formModelId}
+                  open={isModelPickerOpen}
+                  setOpen={setIsModelPickerOpen}
+                  onSelect={handleModelChange}
+                />
 
                 {Object.keys(batches[0].grid).length === 0 && (
                   <div className="space-y-1.5">
@@ -2735,19 +2745,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               {(
                 <div className="space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Modèle *',ar:'الموديل *',en:'Model *',es:'Modelo *',pt:'Modelo *',tr:'Model *'})}</label>
-                      <select 
-                        value={formModelId} 
-                        onChange={(e) => handleModelChange(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent dark:border-dk-accent focus:bg-white"
-                      >
-                        {models.map(m => (
-                          <option key={m.id} value={m.id}>{m.meta_data.nom_modele} ({m.meta_data.reference || tx(lang,{fr:'Aucune ref',ar:'لا يوجد مرجع',en:'No ref',es:'Sin ref',pt:'Sem ref',tr:'Referans yok'})})</option>
-                        ))}
-                        <option value="MANUAL">{tx(lang,{fr:'Saisie Manuelle (Sans modèle existant)',ar:'إدخال يدوي (بدون موديل موجود)',en:'Manual Entry (No existing model)',es:'Entrada Manual (Sin modelo existente)',pt:'Inserção Manual (Sem modelo existente)',tr:'Manuel Giriş (Mevcut model yok)'})}</option>
-                      </select>
-                    </div>
+                    <ModelPickerField
+                      lang={lang}
+                      models={models}
+                      value={formModelId}
+                      open={isEditModelPickerOpen}
+                      setOpen={setIsEditModelPickerOpen}
+                      onSelect={handleModelChange}
+                    />
 
                     <div className="space-y-1.5">
                       <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Nom du Client',ar:'اسم العميل',en:'Client Name',es:'Nombre del Cliente',pt:'Nome do Cliente',tr:'Müşteri Adı'})}</label>
