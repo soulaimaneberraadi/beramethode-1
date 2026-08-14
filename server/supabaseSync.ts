@@ -551,9 +551,9 @@ const pushNowForUser = async (state: UserSyncState) => {
         console.warn(`[supabaseSync] Failed to send broadcast for ${state.email}:`, err);
       }
 
-      // Clear outbox
+      // Clear outbox (delete synced rows instead of just marking them, to avoid unbounded growth)
       try {
-        db.prepare("UPDATE sync_outbox SET status = 'synced' WHERE status = 'pending'").run();
+        db.prepare("DELETE FROM sync_outbox WHERE status = 'pending'").run();
       } catch (e) {
         console.warn('[supabaseSync] Failed to clear outbox:', e);
       }
