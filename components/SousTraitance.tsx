@@ -3687,7 +3687,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       >
                         {tx(lang,{fr:'Quantité complète',ar:'الكمية الكاملة',en:'Full quantity',es:'Cantidad completa',pt:'Quantidade completa',tr:'Tam miktar'})}
                       </button>
-                      <span className="font-bold text-indigo-600 dark:text-dk-accent-text">{formTotalQuantity.toLocaleString()} pcs</span>
+                      <span className="font-bold text-indigo-600 dark:text-dk-accent-text">{effectiveTotalQuantity.toLocaleString()} pcs</span>
                     </div>
                   </div>
                   {gridEstimated && (
@@ -3910,7 +3910,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <div className="space-y-1.5 col-span-2">
                   <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang,{fr:'Total (MAD)',ar:'المجموع (MAD)',en:'Total (MAD)',es:'Total (MAD)',pt:'Total (MAD)',tr:'Toplam (MAD)'})}</label>
                   <div className="w-full bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text font-bold">
-                    {(formTotalQuantity * formPricePerPiece).toLocaleString()} MAD
+                    {/* `effectiveTotalQuantity` et non `formTotalQuantity` : dès qu'une
+                        grille couleur × taille existe, la saisie manuelle est masquée
+                        et c'est la grille qui fait foi — sinon le total restait à 0. */}
+                    {(effectiveTotalQuantity * formPricePerPiece).toLocaleString()} MAD
                   </div>
                 </div>
               </div>
@@ -4136,7 +4139,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               {/* Matières & Fournisseurs à prévoir — mode Façon uniquement, éditable ici */}
               {formTissuFournisseur !== 'SUBCONTRACTOR' && (() => {
                 const rows = getFaconMaterialsNeeds(
-                  { modelId: formModelId, totalQuantity: formTotalQuantity },
+                  { modelId: formModelId, totalQuantity: effectiveTotalQuantity },
                   formMaterialsFournisseur
                 );
                 if (!rows.length) return null;
