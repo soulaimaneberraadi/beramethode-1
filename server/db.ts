@@ -872,27 +872,6 @@ try { db.exec("ALTER TABLE subcontract_orders ADD COLUMN grid_json TEXT"); } cat
 // le client fournit la matière). JSON: Record<matériau, { fournisseur, delaiLivraison }>.
 try { db.exec("ALTER TABLE subcontract_orders ADD COLUMN materials_fournisseur_json TEXT"); } catch { /* already exists */ }
 
-// Journal des entrées/sorties de pièces (carte de commande sous-traitance) :
-// chaque ligne = un mouvement daté (OUT = envoyé au sous-traitant, IN = reçu),
-// avec la répartition couleur/taille. La quantité restante et l'avancement
-// se déduisent de ce journal plutôt que d'un compteur global.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS subcontract_entries (
-    id TEXT PRIMARY KEY,
-    order_id TEXT NOT NULL,
-    direction TEXT NOT NULL DEFAULT 'OUT',
-    couleur TEXT,
-    taille TEXT,
-    quantite INTEGER NOT NULL DEFAULT 0,
-    entry_date TEXT NOT NULL,
-    notes TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (order_id) REFERENCES subcontract_orders(id) ON DELETE CASCADE
-  )
-`);
-db.exec(`CREATE INDEX IF NOT EXISTS idx_subcontract_entries_order ON subcontract_entries(order_id)`);
-
 // Frais additionnels de la commande (transport, traçage/patronage, emballage...),
 // au libellé LIBRE saisi par l'utilisateur. Le montant est un TOTAL — pas un
 // prix à la pièce. Voir CostCalculator pour la conversion en coût par pièce

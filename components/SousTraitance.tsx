@@ -10,9 +10,9 @@ import {
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
   ChevronDown, ChevronUp, Loader2, Info, Eye, Layers, Palette,
-  Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins,
+  Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
-  AlertTriangle
+  AlertTriangle, Scissors
 } from 'lucide-react';
 
 interface SousTraitanceProps {
@@ -178,6 +178,24 @@ const readCoupeLocation = (o: any): CoupeLocation =>
  *  signification métier précise (statuts consommés ailleurs). Les jalons
  *  personnalisés sont une simple checklist libre par commande. */
 interface CustomMilestone { id: string; label: string; done: boolean }
+
+/** Palette tournante pour distinguer visuellement les jalons libres entre eux
+ *  (contrairement aux 4 jalons fixes, ils n'ont pas de couleur métier dédiée).
+ *  La couleur est dérivée de l'id, donc stable tant que le jalon n'est pas
+ *  supprimé/recréé. */
+const CUSTOM_MILESTONE_COLORS = [
+  'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/50',
+  'bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-800/50',
+  'bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800/50',
+  'bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-400 border-pink-200 dark:border-pink-800/50',
+  'bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/50',
+  'bg-lime-50 dark:bg-lime-950/30 text-lime-700 dark:text-lime-400 border-lime-200 dark:border-lime-800/50',
+];
+const customMilestoneColor = (id: string) => {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return CUSTOM_MILESTONE_COLORS[hash % CUSTOM_MILESTONE_COLORS.length];
+};
 
 const readCustomMilestones = (o: any): CustomMilestone[] => {
   const raw = o?.custom_milestones_json ?? o?.customMilestonesJson;
@@ -503,6 +521,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [newMilestoneLabel, setNewMilestoneLabel] = useState('');
   const [milestoneSaving, setMilestoneSaving] = useState(false);
   const [milestoneError, setMilestoneError] = useState<string | null>(null);
+  /** Jalon libre en cours de renommage — id du chip + valeur éditée localement. */
+  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
+  const [editingMilestoneLabel, setEditingMilestoneLabel] = useState('');
 
   // ---- B : frais additionnels de la commande consultée --------------------
   /** Chargés à l'ouverture de la fiche de détail UNIQUEMENT (pas au montage du
@@ -522,6 +543,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [isCostInvoiceModalOpen, setIsCostInvoiceModalOpen] = useState(false);
   const [costInvoiceOrder, setCostInvoiceOrder] = useState<SubcontractOrder | null>(null);
   const [costInvoiceQty, setCostInvoiceQty] = useState<number | ''>('');
+  const [costInvoiceTva, setCostInvoiceTva] = useState<number>(20);
+  const [costInvoiceSaving, setCostInvoiceSaving] = useState(false);
+  const [costInvoiceSaveError, setCostInvoiceSaveError] = useState<string | null>(null);
+  const [costInvoiceSavedNumber, setCostInvoiceSavedNumber] = useState<string | null>(null);
+  /** Remonte <InlineInvoiceList> ("Factures liées") après enregistrement pour
+   *  qu'elle recharge sans dépendre d'un callback exposé par ce composant tiers. */
+  const [invoiceListKey, setInvoiceListKey] = useState(0);
   /** Lecture seule : renseignée par `GET /api/permissions/company`. */
   const [companyIdentity, setCompanyIdentity] = useState<CompanyIdentity>(EMPTY_COMPANY_IDENTITY);
 
@@ -784,6 +812,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const openCostInvoiceModal = (order: SubcontractOrder) => {
     setCostInvoiceOrder(order);
     setCostInvoiceQty(order.totalQuantity > 0 ? order.totalQuantity : '');
+    setCostInvoiceTva(20);
+    setCostInvoiceSaveError(null);
+    setCostInvoiceSavedNumber(null);
     setIsCostInvoiceModalOpen(true);
     // Filet de sécurité : si la fiche n'a pas (ou plus) chargé les frais de
     // CETTE commande, on les demande avant d'afficher un total incomplet.
@@ -1794,7 +1825,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  serveur refuse. Contrairement aux 4 jalons fixes, ces jalons n'ont aucune
    *  signification métier consommée ailleurs : c'est une checklist libre. */
   const persistCustomMilestones = async (order: SubcontractOrder, next: CustomMilestone[], previous: CustomMilestone[]) => {
-    setCustomMilestones(next);
+    const isModalOrder = detailOrder?.id === order.id;
+    if (isModalOrder) setCustomMilestones(next);
     setMilestoneSaving(true);
     setMilestoneError(null);
     try {
@@ -1809,7 +1841,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, ...patch } : o)));
       setDetailOrder(prev => (prev && prev.id === order.id ? { ...prev, ...patch } : prev));
     } catch (err: any) {
-      setCustomMilestones(previous);
+      if (isModalOrder) setCustomMilestones(previous);
       setMilestoneError(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
     } finally {
       setMilestoneSaving(false);
@@ -1828,13 +1860,24 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   };
 
   const handleToggleCustomMilestone = (order: SubcontractOrder, id: string) => {
-    const next = customMilestones.map(m => (m.id === id ? { ...m, done: !m.done } : m));
-    persistCustomMilestones(order, next, customMilestones);
+    const current = readCustomMilestones(order);
+    const next = current.map(m => (m.id === id ? { ...m, done: !m.done } : m));
+    persistCustomMilestones(order, next, current);
   };
 
   const handleRemoveCustomMilestone = (order: SubcontractOrder, id: string) => {
-    const next = customMilestones.filter(m => m.id !== id);
-    persistCustomMilestones(order, next, customMilestones);
+    const current = readCustomMilestones(order);
+    const next = current.filter(m => m.id !== id);
+    persistCustomMilestones(order, next, current);
+  };
+
+  const handleRenameCustomMilestone = (order: SubcontractOrder, id: string) => {
+    const label = editingMilestoneLabel.trim();
+    setEditingMilestoneId(null);
+    if (!label) return;
+    const current = readCustomMilestones(order);
+    const next = current.map(m => (m.id === id ? { ...m, label } : m));
+    persistCustomMilestones(order, next, current);
   };
 
   /** Décrit les quatre pastilles d'une commande — même définition sur la carte
@@ -2382,6 +2425,74 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     };
   };
 
+  /** Enregistre la facture (ce qu'on doit payer au sous-traitant) via le même
+   *  système générique de facturation que le reste de l'app (ACHAT, source
+   *  "sousTraitance", numérotation séquentielle attribuée par le serveur —
+   *  voir saveFacture/generateNumero). Aucune table ni route dédiée : on
+   *  réutilise l'existant plutôt que de dupliquer un mécanisme qui marche déjà. */
+  const handleSaveCostInvoice = async (order: SubcontractOrder, inv: ReturnType<typeof buildCostInvoice>) => {
+    setCostInvoiceSaving(true);
+    setCostInvoiceSaveError(null);
+    try {
+      const lignes: any[] = [
+        {
+          product_id: order.modelId,
+          designation: `${tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'})} — ${order.modelName || order.modelId}`,
+          quantite: inv.qty,
+          prix_unitaire: inv.unitPrice,
+          total: inv.faconTotal,
+        },
+        ...inv.materials.map(m => ({
+          product_id: order.modelId,
+          designation: `${tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'})} — ${m.name}`,
+          quantite: 1,
+          prix_unitaire: m.cost,
+          total: m.cost,
+        })),
+        ...inv.expenses.map(e => ({
+          product_id: order.modelId,
+          designation: `${tx(lang,{fr:'Frais',ar:'مصروف',en:'Expense',es:'Gasto',pt:'Despesa',tr:'Masraf'})} — ${e.expense.label}`,
+          quantite: 1,
+          prix_unitaire: e.applied,
+          total: e.applied,
+        })),
+      ];
+      const totalHT = lignes.reduce((s, l) => s + l.total, 0);
+      const totalTVA = totalHT * (costInvoiceTva / 100);
+      const res = await fetch('/api/facturation/factures', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'ACHAT',
+          tiers_nom: order.subcontractorName,
+          date_facture: new Date().toISOString().split('T')[0],
+          taux_tva: costInvoiceTva,
+          notes: inv.isPartial
+            ? `${tx(lang,{fr:'Facturation partielle',ar:'فوترة جزئية',en:'Partial invoicing',es:'Facturación parcial',pt:'Faturação parcial',tr:'Kısmi faturalama'})} : ${inv.qty}/${order.totalQuantity} pcs`
+            : '',
+          source_module: 'SOUSTRAITANCE',
+          source_id: order.id,
+          lignes,
+          total_ht: totalHT,
+          total_tva: totalTVA,
+          total_ttc: totalHT + totalTVA,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || tx(lang,{fr:'Échec de l\'enregistrement de la facture',ar:'فشل تسجيل الفاتورة',en:'Failed to save the invoice',es:'Error al guardar la factura',pt:'Falha ao guardar a fatura',tr:'Fatura kaydedilemedi'}));
+      }
+      const saved = await res.json();
+      setCostInvoiceSavedNumber(saved?.numero || null);
+      setInvoiceListKey(k => k + 1);
+    } catch (err: any) {
+      setCostInvoiceSaveError(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
+    } finally {
+      setCostInvoiceSaving(false);
+    }
+  };
+
   /** Impression de la facture de sous-traitance — même patron que le bon
    *  d'envoi : fenêtre vierge, HTML échappé, aucun JSX. */
   const handlePrintCostInvoice = (order: SubcontractOrder, billedQty: number) => {
@@ -2784,13 +2895,30 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           <div className="flex justify-between items-start">
                             <div>
                               <span className="text-[9px] font-black text-indigo-600 dark:text-dk-accent uppercase tracking-widest block">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {order.clientName || 'N/A'}</span>
-                              <h3 
+                              <h3
                                 onClick={() => { if (onLoadModel && matchedModel) onLoadModel(matchedModel); }}
                                 className={`font-bold text-slate-800 dark:text-dk-text text-sm mt-0.5 line-clamp-1 ${matchedModel ? 'hover:text-indigo-600 dark:hover:text-dk-accent hover:underline cursor-pointer' : ''}`}
                                 title={matchedModel ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:'فتح في الهندسة الفنية',en:'Open in engineering',es:'Abrir en ingeniería',pt:'Abrir na engenharia',tr:'Mühendislikte aç'}) : undefined}
                               >
                                 {order.modelName}
                               </h3>
+                              {readCoupeLocation(order) === 'INTERNAL' && (() => {
+                                const coupeStatus = matchedModel?.ordreCoupe?.status;
+                                const isValidated = coupeStatus === 'VALIDE';
+                                const isInProgress = coupeStatus === 'EN_COURS';
+                                return (
+                                  <span className={`inline-flex items-center gap-1 mt-1 text-[8px] font-bold uppercase tracking-wide ${
+                                    isValidated ? 'text-emerald-600 dark:text-emerald-400' : isInProgress ? 'text-amber-600 dark:text-amber-400' : 'text-amber-600 dark:text-amber-400'
+                                  }`}>
+                                    <Scissors className="w-2.5 h-2.5" />
+                                    {isValidated
+                                      ? tx(lang,{fr:'Coupe confirmée',ar:'القص تأكّد',en:'Cutting confirmed',es:'Corte confirmado',pt:'Corte confirmado',tr:'Kesim onaylandı'})
+                                      : isInProgress
+                                      ? tx(lang,{fr:'Coupe en cours',ar:'القص فالطريق',en:'Cutting in progress',es:'Corte en curso',pt:'Corte em curso',tr:'Kesim devam ediyor'})
+                                      : tx(lang,{fr:'Coupe non lancée',ar:'القص ماشي تلقا',en:'Cutting not started',es:'Corte no iniciado',pt:'Corte não iniciado',tr:'Kesim başlamadı'})}
+                                  </span>
+                                );
+                              })()}
                             </div>
                             <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
                               order.status === 'COMPLETED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
@@ -2875,6 +3003,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           <div className="flex flex-wrap gap-1 pt-1.5 border-t border-slate-100 dark:border-dk-border">
                             {milestoneChips(order).map(chip => (
                               <MilestoneChip key={chip.field} {...chip} onToggle={() => handleToggleMilestone(order, chip.field)} />
+                            ))}
+                            {readCustomMilestones(order).map(m => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => handleToggleCustomMilestone(order, m.id)}
+                                title={tx(lang,{fr:'Cliquer pour basculer',ar:'انقر للتبديل',en:'Click to toggle',es:'Clic para alternar',pt:'Clique para alternar',tr:'Değiştirmek için tıklayın'})}
+                                className={`font-bold rounded border flex items-center gap-1 text-[9px] px-2 py-1 transition-colors ${
+                                  m.done ? customMilestoneColor(m.id) : 'bg-slate-50 dark:bg-dk-bg text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                                }`}
+                              >
+                                {m.done ? <Check className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5 opacity-0" />}
+                                {m.label}
+                              </button>
                             ))}
                           </div>
                         </div>
@@ -3224,7 +3366,75 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           {/* ======================================= */}
           {activeTab === 'stock' && (
             <div className="space-y-6">
-              <div className="bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none overflow-hidden">
+              {/* Vue mobile : cartes (le tableau ci-dessous devient illisible sous md) */}
+              <div className="md:hidden space-y-3">
+                {modelStockStats.map(item => (
+                  <div key={item.model.id} className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none p-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
+                        {item.model.image ? (
+                          <img src={item.model.image} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <Package className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-semibold block text-slate-800 dark:text-dk-text truncate">{item.model.meta_data.nom_modele}</span>
+                        <span className="text-[9px] text-indigo-600 dark:text-dk-accent block font-normal uppercase">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {item.model.ficheData?.client || 'N/A'}</span>
+                      </div>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase whitespace-nowrap shrink-0 ${
+                        item.status === 'FINISHED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
+                        item.status === 'IN_PRODUCTION' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50' :
+                        'bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
+                      }`}>
+                        {item.status === 'FINISHED' ? tx(lang,{fr:'Terminé',ar:'منتهٍ',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'}) :
+                         item.status === 'IN_PRODUCTION' ? tx(lang,{fr:'En production',ar:'قيد الإنتاج',en:'In production',es:'En producción',pt:'Em produção',tr:'Üretimde'}) :
+                         tx(lang,{fr:'Inactif',ar:'غير نشط',en:'Inactive',es:'Inactivo',pt:'Inativo',tr:'Pasif'})}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
+                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Produit',ar:'المنتج',en:'Produced',es:'Producido',pt:'Produzido',tr:'Üretilen'})}</span>
+                        <span className="block font-bold text-slate-800 dark:text-dk-text text-xs">{item.producedQty.toLocaleString()}</span>
+                      </div>
+                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
+                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Vendu',ar:'المباع',en:'Sold',es:'Vendido',pt:'Vendido',tr:'Satılan'})}</span>
+                        <span className="block font-bold text-indigo-600 dark:text-dk-accent text-xs">{item.soldQty.toLocaleString()}</span>
+                      </div>
+                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
+                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Restant',ar:'المتبقي',en:'Remaining',es:'Restante',pt:'Restante',tr:'Kalan'})}</span>
+                        <span className="block font-bold text-emerald-600 dark:text-emerald-400 text-xs">{item.remainingStock.toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <div>
+                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Date lancement',ar:'تاريخ الإطلاق',en:'Launch date',es:'Fecha de inicio',pt:'Data de lançamento',tr:'Başlangıç tarihi'})}</span>
+                        <span className="text-slate-600 dark:text-dk-text-soft text-[11px]">{item.startDate}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Prix estimé',ar:'السعر التقديري',en:'Estimated price',es:'Precio estimado',pt:'Preço estimado',tr:'Tahmini fiyat'})}</span>
+                        <span className="font-semibold text-slate-800 dark:text-dk-text text-[11px]">{item.price} MAD</span>
+                      </div>
+                    </div>
+
+                    <button
+                      disabled={item.remainingStock <= 0}
+                      onClick={() => openSaleModal(item)}
+                      className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
+                        item.remainingStock > 0
+                          ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white'
+                          : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
+                      }`}
+                    >
+                      {tx(lang,{fr:'Sortie Facture',ar:'إخراج فاتورة',en:'Issue Invoice',es:'Emitir Factura',pt:'Emitir Fatura',tr:'Fatura Kes'})}
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden md:block bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-semibold text-xs uppercase">
@@ -4099,32 +4309,55 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <MilestoneChip key={chip.field} {...chip} onToggle={() => handleToggleMilestone(detailOrder, chip.field)} />
                   ))}
                   {customMilestones.map(m => (
-                    <span
-                      key={m.id}
-                      className={`font-bold rounded border flex items-center gap-1 text-[10px] px-2.5 py-1.5 ${
-                        m.done
-                          ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text border-indigo-200 dark:border-dk-accent/40'
-                          : 'bg-slate-50 dark:bg-dk-bg text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleToggleCustomMilestone(detailOrder, m.id)}
-                        title={tx(lang,{fr:'Cliquer pour basculer',ar:'انقر للتبديل',en:'Click to toggle',es:'Clic para alternar',pt:'Clique para alternar',tr:'Değiştirmek için tıklayın'})}
-                        className="flex items-center gap-1 hover:brightness-95 dark:hover:brightness-125 transition-colors"
+                    editingMilestoneId === m.id ? (
+                      <span key={m.id} className="flex items-center gap-1">
+                        <input
+                          autoFocus
+                          type="text"
+                          value={editingMilestoneLabel}
+                          onChange={(e) => setEditingMilestoneLabel(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); handleRenameCustomMilestone(detailOrder, m.id); }
+                            if (e.key === 'Escape') { e.preventDefault(); setEditingMilestoneId(null); }
+                          }}
+                          onBlur={() => handleRenameCustomMilestone(detailOrder, m.id)}
+                          className="bg-white dark:bg-dk-surface border border-indigo-300 dark:border-dk-accent rounded px-2 py-1.5 text-[10px] font-bold text-slate-800 dark:text-dk-text outline-none w-28"
+                        />
+                      </span>
+                    ) : (
+                      <span
+                        key={m.id}
+                        className={`font-bold rounded border flex items-center gap-1 text-[10px] px-2.5 py-1.5 ${
+                          m.done ? customMilestoneColor(m.id) : 'bg-slate-50 dark:bg-dk-bg text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                        }`}
                       >
-                        {m.done ? <Check className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5 opacity-0" />}
-                        {m.label}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCustomMilestone(detailOrder, m.id)}
-                        title={tx(lang,{fr:'Supprimer ce jalon',ar:'حذف هاد المرحلة',en:'Remove this milestone',es:'Eliminar este hito',pt:'Remover este marco',tr:'Bu kilometre taşını kaldır'})}
-                        className="text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400"
-                      >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </span>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCustomMilestone(detailOrder, m.id)}
+                          title={tx(lang,{fr:'Cliquer pour basculer',ar:'انقر للتبديل',en:'Click to toggle',es:'Clic para alternar',pt:'Clique para alternar',tr:'Değiştirmek için tıklayın'})}
+                          className="flex items-center gap-1 hover:brightness-95 dark:hover:brightness-125 transition-colors"
+                        >
+                          {m.done ? <Check className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5 opacity-0" />}
+                          {m.label}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setEditingMilestoneId(m.id); setEditingMilestoneLabel(m.label); }}
+                          title={tx(lang,{fr:'Renommer ce jalon',ar:'إعادة تسمية هاد المرحلة',en:'Rename this milestone',es:'Renombrar este hito',pt:'Renomear este marco',tr:'Bu kilometre taşını yeniden adlandır'})}
+                          className="text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent"
+                        >
+                          <Edit2 className="w-2.5 h-2.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCustomMilestone(detailOrder, m.id)}
+                          title={tx(lang,{fr:'Supprimer ce jalon',ar:'حذف هاد المرحلة',en:'Remove this milestone',es:'Eliminar este hito',pt:'Remover este marco',tr:'Bu kilometre taşını kaldır'})}
+                          className="text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </span>
+                    )
                   ))}
                 </div>
 
@@ -4153,24 +4386,31 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 )}
               </div>
 
-              {/* A : coupe interne — simple rappel opérationnel. AUCUNE liaison
-                  automatique avec le module Coupe n'existe : la vérification
-                  reste manuelle, et on ne promet pas le contraire. */}
-              {readCoupeLocation(detailOrder) === 'INTERNAL' && (
-                <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/25 border border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span className="text-[11px] font-semibold leading-relaxed">
-                    {tx(lang,{
-                      fr:'Ce modèle est coupé en interne — vérifier son passage en Coupe avant expédition.',
-                      ar:'هاد الموديل كيتقطّع عندنا — تحقّق من مروره فالقص قبل الإرسال.',
-                      en:'This model is cut in-house — check that it went through Cutting before shipping.',
-                      es:'Este modelo se corta internamente — verifique su paso por Corte antes del envío.',
-                      pt:'Este modelo é cortado internamente — verifique a sua passagem pelo Corte antes da expedição.',
-                      tr:'Bu model şirket içinde kesiliyor — sevkiyattan önce Kesim aşamasından geçtiğini doğrulayın.',
-                    })}
-                  </span>
-                </div>
-              )}
+              {/* A : coupe interne — statut réel lu depuis models[].ordreCoupe.status
+                  (rempli par le module La Coupe). VALIDE = coupé et confirmé,
+                  sinon on affiche encore un rappel car le passage n'est pas garanti. */}
+              {readCoupeLocation(detailOrder) === 'INTERNAL' && (() => {
+                const matchedModel = models.find(m => m.id === detailOrder.modelId);
+                const coupeStatus = matchedModel?.ordreCoupe?.status;
+                const isValidated = coupeStatus === 'VALIDE';
+                const isInProgress = coupeStatus === 'EN_COURS';
+                return (
+                  <div className={`flex items-start gap-2 px-3.5 py-2.5 rounded-xl border ${
+                    isValidated
+                      ? 'bg-emerald-50 dark:bg-emerald-900/25 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-300'
+                      : 'bg-amber-50 dark:bg-amber-900/25 border-amber-200 dark:border-amber-800/50 text-amber-800 dark:text-amber-300'
+                  }`}>
+                    {isValidated ? <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" /> : <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
+                    <span className="text-[11px] font-semibold leading-relaxed">
+                      {isValidated
+                        ? tx(lang,{fr:'Coupe confirmée dans le module Coupe — prêt pour expédition.',ar:'القص تأكّد فمودول القص — واجد للإرسال.',en:'Cutting confirmed in the Cutting module — ready to ship.',es:'Corte confirmado en el módulo de Corte — listo para envío.',pt:'Corte confirmado no módulo de Corte — pronto para expedição.',tr:'Kesim modülünde onaylandı — sevkiyata hazır.'})
+                        : isInProgress
+                        ? tx(lang,{fr:'Coupe en cours dans le module Coupe — pas encore confirmée.',ar:'القص فالطريق فمودول القص — مازال ما تأكّدش.',en:'Cutting in progress in the Cutting module — not confirmed yet.',es:'Corte en curso en el módulo de Corte — aún no confirmado.',pt:'Corte em curso no módulo de Corte — ainda não confirmado.',tr:'Kesim modülünde devam ediyor — henüz onaylanmadı.'})
+                        : tx(lang,{fr:'Ce modèle est coupé en interne — pas encore lancé dans le module Coupe.',ar:'هاد الموديل كيتقطّع عندنا — مازال ما تلقاش فمودول القص.',en:'This model is cut in-house — not yet started in the Cutting module.',es:'Este modelo se corta internamente — aún no iniciado en el módulo de Corte.',pt:'Este modelo é cortado internamente — ainda não iniciado no módulo de Corte.',tr:'Bu model şirket içinde kesiliyor — Kesim modülünde henüz başlatılmadı.'})}
+                    </span>
+                  </div>
+                );
+              })()}
 
               {/* Matières & Fournisseurs à prévoir — mode Façon uniquement (le client fournit la matière) */}
               {detailOrder.tissuFournisseur !== 'SUBCONTRACTOR' && (() => {
@@ -4384,6 +4624,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               {detailOrder.modelId && (
                 <div className="mt-4 pt-4 border-t border-slate-100 dark:border-dk-border">
                   <InlineInvoiceList
+                    key={invoiceListKey}
                     productId={detailOrder.modelId}
                     productLabel={detailOrder.modelName || ''}
                     sourceModule="sousTraitance"
@@ -4597,15 +4838,60 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     )}
                   </div>
                 </div>
+
+                {costInvoiceSaveError && (
+                  <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span className="text-[10px] font-semibold leading-relaxed">{costInvoiceSaveError}</span>
+                  </div>
+                )}
+                {costInvoiceSavedNumber && (
+                  <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400">
+                    <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span className="text-[10px] font-semibold leading-relaxed">
+                      {tx(lang,{
+                        fr:`Facture enregistrée sous le n° ${costInvoiceSavedNumber} — visible dans "Factures liées".`,
+                        ar:`تم تسجيل الفاتورة برقم ${costInvoiceSavedNumber} — تظهر في "الفواتير المرتبطة".`,
+                        en:`Invoice saved as #${costInvoiceSavedNumber} — visible in "Related invoices".`,
+                        es:`Factura guardada con el n.º ${costInvoiceSavedNumber} — visible en "Facturas relacionadas".`,
+                        pt:`Fatura guardada com o n.º ${costInvoiceSavedNumber} — visível em "Faturas relacionadas".`,
+                        tr:`Fatura #${costInvoiceSavedNumber} numarasıyla kaydedildi — "İlgili faturalar" içinde görünür.`,
+                      })}
+                    </span>
+                  </div>
+                )}
               </div>
 
-              <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-6 py-4 flex gap-3 justify-end text-xs font-bold">
+              <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-6 py-4 flex items-center gap-3 justify-end text-xs font-bold flex-wrap">
+                <div className="flex items-center gap-1.5 mr-auto">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">
+                    {tx(lang,{fr:'TVA',ar:'الضريبة',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'})}
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={costInvoiceTva}
+                    onChange={(e) => setCostInvoiceTva(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                    className="w-16 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                  />
+                  <span className="text-[10px] text-slate-400 dark:text-dk-muted">%</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => setIsCostInvoiceModalOpen(false)}
                   className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
                 >
                   {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
+                </button>
+                <button
+                  type="button"
+                  disabled={costInvoiceSaving}
+                  onClick={() => handleSaveCostInvoice(order, inv)}
+                  className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-100 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-5 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {costInvoiceSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span>{tx(lang,{fr:'Enregistrer',ar:'تسجيل',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
                 </button>
                 <button
                   type="button"
