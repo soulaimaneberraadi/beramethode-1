@@ -11,7 +11,7 @@ import rateLimit from 'express-rate-limit';
 import { register, login, logout, me, requestPasswordReset, verifyResetCode, resetPassword, supabaseSessionLogin } from './server/authController';
 import { logAudit } from './server/auditLogger';
 import { getSetupStatus, initSetup } from './server/setupController';
-import { listWorkspaces, createWorkspace, switchWorkspace } from './server/workspacesController';
+import { listWorkspaces, createWorkspace, switchWorkspace, exportWorkspace, deleteWorkspace } from './server/workspacesController';
 import { verifyLicenseProxy } from './server/licenseController';
 import { reportError } from './server/errorController';
 import { getAllUsers, updateUserRole, deleteUser, isAdmin } from './server/userController';
@@ -636,6 +636,11 @@ async function startServer() {
   app.get('/api/workspaces', authenticateToken, listWorkspaces);
   app.post('/api/workspaces', authenticateToken, isAdmin, createWorkspace);
   app.post('/api/workspaces/switch', authenticateToken, switchWorkspace);
+  // Export (filet de sécurité avant suppression) et suppression définitive.
+  // L'autorisation fine (patron de CE workspace) est vérifiée dans le handler,
+  // pas par isAdmin : un patron non-admin plateforme doit pouvoir le faire.
+  app.get('/api/workspaces/:ownerId/export', authenticateToken, exportWorkspace);
+  app.post('/api/workspaces/:ownerId/delete', authenticateToken, deleteWorkspace);
 
   app.get('/api/planning', authenticateToken, requirePermission('page', 'planning', 'view'), getPlanningEvents);
   app.post('/api/planning', authenticateToken, requirePermission('page', 'planning', 'edit'), savePlanningEvents);
