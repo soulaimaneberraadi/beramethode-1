@@ -425,7 +425,10 @@ export default function PermissionsManager() {
                 <div key={fd} className="flex items-center justify-between py-0.5 gap-2">
                   <span className={`text-[12px] truncate ${isDark ? 'text-dk-text' : 'text-slate-600'}`}>{'🔒'} {fieldLabel(fd, lang)}</span>
                   <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-[9px] uppercase ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>{tx(lang, { fr: 'Voir', ar: 'عرض', en: 'View', es: 'Ver', pt: 'Ver', tr: 'Görüntüle' })}</span>
                     <TriState value={o.can_view} onChange={v => setOverrideValue('field', fd, 'can_view', v)} label="can_view" />
+                    <span className={`text-[9px] uppercase ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>{tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })}</span>
+                    <TriState value={o.can_edit} onChange={v => setOverrideValue('field', fd, 'can_edit', v)} label="can_edit" />
                   </div>
                 </div>
               );
