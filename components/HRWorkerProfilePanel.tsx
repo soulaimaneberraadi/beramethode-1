@@ -7,6 +7,7 @@ import { HRWorker, HRWorkerRole, HRPointageStatus, AppSettings } from '../types'
 import { tx, type TxMap } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
+import SensitiveValue from './ui/SensitiveValue';
 
 const uid = () => `hr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -465,9 +466,9 @@ export function HRWorkerProfilePanel({ workerId, onClose, onEdit, settings }: Pr
                 [_({fr:'Spécialité',ar:'التخصص',en:'Specialty',es:'Especialidad',pt:'Especialidade',tr:'Uzmanlık'}), w.specialite || '—'],
                 [_({fr:'Parda / Équipe',ar:'الوِرد / الفريق',en:'Shift / Team',es:'Turno / Equipo',pt:'Turno / Equipa',tr:'Vardiya / Ekip'}), (w as any).equipe || '—'],
                 [_({fr:'Quartier (Ligne)',ar:'الحي (الخط)',en:'District (Line)',es:'Distrito (Línea)',pt:'Bairro (Linha)',tr:'Bölge (Hat)'}), (w as any).transport_ligne_quartier || (w as any).transport_ligne_nom ? `${(w as any).transport_ligne_quartier || '—'} (${(w as any).transport_ligne_nom || '—'})` : '—'],
-                [_({fr:'Salaire base (MAD)',ar:'الراتب الأساسي (MAD)',en:'Base salary (MAD)',es:'Salario base (MAD)',pt:'Salário base (MAD)',tr:'Taban maaş (MAD)'}), w.salaire_base != null ? String(w.salaire_base) : '—'],
-                [_({fr:'Taux horaire',ar:'السعر بالساعة',en:'Hourly rate',es:'Tarifa por hora',pt:'Taxa horária',tr:'Saatlik ücret'}), w.taux_horaire != null ? `${w.taux_horaire} MAD` : '—'],
-                [_({fr:'Primes A/T',ar:'مكافآت الحضور/النقل',en:'Attendance/Transport bonuses',es:'Bonos asistencia/transporte',pt:'Bónus assiduidade/transporte',tr:'Devamlılık/Ulaşım primleri'}), `${w.prime_assiduite ?? 0} / ${w.prime_transport ?? 0} MAD`],
+                [_({fr:'Salaire base (MAD)',ar:'الراتب الأساسي (MAD)',en:'Base salary (MAD)',es:'Salario base (MAD)',pt:'Salário base (MAD)',tr:'Taban maaş (MAD)'}), <SensitiveValue field="hr.salaire">{w.salaire_base != null ? String(w.salaire_base) : '—'}</SensitiveValue>],
+                [_({fr:'Taux horaire',ar:'السعر بالساعة',en:'Hourly rate',es:'Tarifa por hora',pt:'Taxa horária',tr:'Saatlik ücret'}), <SensitiveValue field="hr.salaire">{w.taux_horaire != null ? `${w.taux_horaire} MAD` : '—'}</SensitiveValue>],
+                [_({fr:'Primes A/T',ar:'مكافآت الحضور/النقل',en:'Attendance/Transport bonuses',es:'Bonos asistencia/transporte',pt:'Bónus assiduidade/transporte',tr:'Devamlılık/Ulaşım primleri'}), <SensitiveValue field="hr.salaire">{`${w.prime_assiduite ?? 0} / ${w.prime_transport ?? 0} MAD`}</SensitiveValue>],
                 [_({fr:'Période dossier',ar:'فترة الملف',en:'File period',es:'Período del expediente',pt:'Período do dossiê',tr:'Dosya dönemi'}), `${dossier.meta.date_from} → ${dossier.meta.date_to}`],
                 [_({fr:'Jours pointage (lignes)',ar:'أيام التسجيل (أسطر)',en:'Attendance days (rows)',es:'Días de asistencia (filas)',pt:'Dias de ponto (linhas)',tr:'Yoklama günleri (satırlar)'}), String(dossier.pointage.length)],
                 [_({fr:'Jours pointés (présent+retard)',ar:'أيام الحضور (حاضر+متأخر)',en:'Days worked (present+late)',es:'Días trabajados (presente+retardo)',pt:'Dias trabalhados (presente+atrasado)',tr:'Çalışılan günler (mevcut+geç)'}), String(daysPresent.size)],
@@ -720,10 +721,10 @@ export function HRWorkerProfilePanel({ workerId, onClose, onEdit, settings }: Pr
                         return (
                           <tr key={a.id}>
                             <td style={styles.td}>{a.date_demande}</td>
-                            <td style={styles.td}><strong>{m.toLocaleString()} MAD</strong></td>
-                            <td style={styles.td}>{a.solde_restant != null ? `${a.solde_restant.toLocaleString()} MAD` : '—'}</td>
+                            <td style={styles.td}><strong><SensitiveValue field="hr.avances">{m.toLocaleString()} MAD</SensitiveValue></strong></td>
+                            <td style={styles.td}><SensitiveValue field="hr.avances">{a.solde_restant != null ? `${a.solde_restant.toLocaleString()} MAD` : '—'}</SensitiveValue></td>
                             <td style={styles.td}>{a.statut}</td>
-                            <td style={styles.td}>{sb > 0 ? <span style={{ color: m > sb * 0.1 ? (isDark ? '#f87171' : '#EF4444') : (isDark ? '#34d399' : '#10B981') }}>{pct}%</span> : '—'}</td>
+                            <td style={styles.td}>{sb > 0 ? <SensitiveValue field="hr.avances"><span style={{ color: m > sb * 0.1 ? (isDark ? '#f87171' : '#EF4444') : (isDark ? '#34d399' : '#10B981') }}>{pct}%</span></SensitiveValue> : '—'}</td>
                           </tr>
                         );
                       })}
@@ -742,11 +743,11 @@ export function HRWorkerProfilePanel({ workerId, onClose, onEdit, settings }: Pr
           <div style={styles.card}>
             <div style={{ fontSize: 12, color: isDark ? '#9DB5AB' : '#64748B', marginBottom: 10 }}>{_({fr:'Mois Sage :',ar:'شهر Sage :',en:'Sage month:',es:'Mes Sage:',pt:'Mês Sage:',tr:'Sage ayı:'})} {dossier.sage_preview.mois}</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-              {[
+              {([
                 [_({fr:'Jours (présent)',ar:'أيام (حاضر)',en:'Days (present)',es:'Días (presente)',pt:'Dias (presente)',tr:'Günler (mevcut)'}), String(dossier.sage_preview.nb_jours)],
-                [_({fr:'Total brut (MAD)',ar:'الإجمالي الخام (MAD)',en:'Gross total (MAD)',es:'Total bruto (MAD)',pt:'Total bruto (MAD)',tr:'Brüt toplam (MAD)'}), dossier.sage_preview.total_brut.toFixed(2)],
-                [_({fr:'Net à payer (MAD)',ar:'الصافي للدفع (MAD)',en:'Net to pay (MAD)',es:'Neto a pagar (MAD)',pt:'Líquido a pagar (MAD)',tr:'Ödenecek net (MAD)'}), dossier.sage_preview.net_a_payer.toFixed(2)],
-              ].map(([a, b]) => (
+                [_({fr:'Total brut (MAD)',ar:'الإجمالي الخام (MAD)',en:'Gross total (MAD)',es:'Total bruto (MAD)',pt:'Total bruto (MAD)',tr:'Brüt toplam (MAD)'}), <SensitiveValue field="hr.salaire">{dossier.sage_preview.total_brut.toFixed(2)}</SensitiveValue>],
+                [_({fr:'Net à payer (MAD)',ar:'الصافي للدفع (MAD)',en:'Net to pay (MAD)',es:'Neto a pagar (MAD)',pt:'Líquido a pagar (MAD)',tr:'Ödenecek net (MAD)'}), <SensitiveValue field="hr.salaire">{dossier.sage_preview.net_a_payer.toFixed(2)}</SensitiveValue>],
+              ] as [string, React.ReactNode][]).map(([a, b]) => (
                 <div key={a}><div style={styles.labelStyle}>{a}</div><div style={{ fontSize: 16, fontWeight: 700, color: isDark ? '#EAF1ED' : '#0F172A' }}>{b}</div></div>
               ))}
             </div>

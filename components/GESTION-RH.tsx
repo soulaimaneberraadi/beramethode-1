@@ -6,9 +6,10 @@ import {
   Camera, Edit3, Trash2, Eye, EyeOff, Phone, Calendar,
   Shield, Star, Plus, Save, RefreshCw, Filter,
   TrendingUp,   Award, AlertTriangle, CheckCircle, Factory, PieChart, IdCard,
-  Mail, Key, Copy, LayoutGrid, Table2, Truck, Navigation,
+  Mail, Key, Copy, LayoutGrid, Table2, Truck, Navigation, Lock,
 } from 'lucide-react';
 import { HRWorkerProfilePanel } from './HRWorkerProfilePanel';
+import SensitiveValue, { useFieldAccess } from './ui/SensitiveValue';
 import * as XLSX from 'xlsx';
 import { HRWorker, HRPointage, HRAvance, HRWorkerRole, HRContractType, HRPointageStatus, SuiviData, PlanningEvent, AppSettings, HRTransportLigne } from '../types';
 import { getSageTimesForHeuresCalc, sageCreneauWarning } from '../lib/sageTimeRules';
@@ -172,13 +173,23 @@ function btnDanger(isDark: boolean): React.CSSProperties {
   return { display: 'flex', alignItems: 'center', padding: '10px 16px', background: isDark ? '#3b0f1a' : '#fff1f2', color: isDark ? '#fb7185' : '#e11d48', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, transition: 'all 0.2s' };
 }
 
-function Field({ label, value, onChange, type = 'text', placeholder, required }: { label: string; value?: string | number; onChange: (v: string) => void; type?: string; placeholder?: string; required?: boolean }) {
+function Field({ label, value, onChange, type = 'text', placeholder, required, disabled, masked }: { label: string; value?: string | number; onChange: (v: string) => void; type?: string; placeholder?: string; required?: boolean; disabled?: boolean; masked?: boolean }) {
   const isDark = useIsDark();
+  if (masked) {
+    return (
+      <div>
+        <label style={labelStyle(isDark)}>{label}{required && <span style={{ color: isDark ? '#fb7185' : '#EF4444' }}> *</span>}</label>
+        <div style={{ ...inputStyle(isDark), display: 'flex', alignItems: 'center', gap: 6, color: isDark ? '#64748B' : '#94A3B8', cursor: 'not-allowed' }}>
+          <Lock size={12} strokeWidth={1.75} /> •••
+        </div>
+      </div>
+    );
+  }
   return (
     <div>
       <label style={labelStyle(isDark)}>{label}{required && <span style={{ color: isDark ? '#fb7185' : '#EF4444' }}> *</span>}</label>
-      <input type={type} value={value ?? ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        style={inputStyle(isDark)} />
+      <input type={type} value={value ?? ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} disabled={disabled}
+        style={{ ...inputStyle(isDark), ...(disabled ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }} />
     </div>
   );
 }
@@ -217,6 +228,8 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
   const [pin2, setPin2] = useState('');
   const [pinBusy, setPinBusy] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
+  const salaireAccess = useFieldAccess('hr.salaire');
+  const cnssAccess = useFieldAccess('hr.cnss');
 
   useEffect(() => {
     setForm(worker ?? EMPTY_WORKER);
@@ -361,7 +374,7 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <Field label={tx(lang, { fr: 'Matricule', ar: 'الرقم المهني', en: 'Registration No.', es: 'Matrícula', pt: 'Matrícula', tr: 'Kayıt No' })} value={form.matricule} onChange={v => set('matricule', v)} placeholder="MAT-001" required />
               <Field label={tx(lang, { fr: 'Nom Complet', ar: 'الاسم الكامل', en: 'Full Name', es: 'Nombre Completo', pt: 'Nome Completo', tr: 'Tam Ad' })} value={form.full_name} onChange={v => set('full_name', v)} placeholder={tx(lang, { fr: 'Prénom Nom', ar: 'الاسم الأول والنسب', en: 'First Last', es: 'Nombre Apellido', pt: 'Nome Sobrenome', tr: 'Ad Soyad' })} required />
               <Field label={tx(lang, { fr: 'CIN', ar: 'رقم البطاقة الوطنية', en: 'ID No.', es: 'Cédula', pt: 'CIN', tr: 'Kimlik No' })} value={form.cin ?? ''} onChange={v => set('cin', v)} placeholder="AB123456" />
-              <Field label={tx(lang, { fr: 'CNSS', ar: 'رقم CNSS', en: 'CNSS No.', es: 'CNSS', pt: 'CNSS', tr: 'CNSS No' })} value={form.cnss ?? ''} onChange={v => set('cnss', v)} placeholder={tx(lang, { fr: 'Numéro CNSS', ar: 'رقم CNSS', en: 'CNSS Number', es: 'Número CNSS', pt: 'Número CNSS', tr: 'CNSS Numarası' })} />
+              <Field label={tx(lang, { fr: 'CNSS', ar: 'رقم CNSS', en: 'CNSS No.', es: 'CNSS', pt: 'CNSS', tr: 'CNSS No' })} value={form.cnss ?? ''} onChange={v => set('cnss', v)} placeholder={tx(lang, { fr: 'Numéro CNSS', ar: 'رقم CNSS', en: 'CNSS Number', es: 'Número CNSS', pt: 'Número CNSS', tr: 'CNSS Numarası' })} masked={!cnssAccess.canView} disabled={!cnssAccess.canEdit} />
               {form.id && (
                 <div style={{ gridColumn: '1/-1' }}>
                   <label style={_labelStyle}>{tx(lang, { fr: 'Person ID (plateforme)', ar: 'معرف الشخص (المنصة)', en: 'Person ID (platform)', es: 'ID Persona (plataforma)', pt: 'ID Pessoa (plataforma)', tr: 'Kişi ID (platform)' })}</label>
@@ -455,11 +468,11 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
               <div style={{ gridColumn: '1/-1', background: isDark ? '#0c2d4a' : '#F0F9FF', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: isDark ? '#7dd3fc' : '#0369A1' }}>
                 {tx(lang, { fr: 'ℹ️ Ces données sont confidentielles — non exposées aux ouvriers via BERAOUVIER', ar: 'ℹ️ هذه البيانات سرية — لا يطلع عليها العمال عبر BERAOUVIER', en: 'ℹ️ This data is confidential — not exposed to workers via BERAOUVIER', es: 'ℹ️ Estos datos son confidenciales — no expuestos a los trabajadores via BERAOUVIER', pt: 'ℹ️ Estes dados são confidenciais — não expostos aos trabalhadores via BERAOUVIER', tr: 'ℹ️ Bu veriler gizlidir — BERAOUVIER üzerinden işçilere gösterilmez' })}
               </div>
-              <Field label={tx(lang, { fr: 'Salaire Base (MAD)', ar: 'Salaire Base (MAD)', en: 'Salaire Base (MAD)', es: 'Salaire Base (MAD)', pt: 'Salaire Base (MAD)', tr: 'Salaire Base (MAD)' })} value={form.salaire_base ?? 0} onChange={v => set('salaire_base', parseFloat(v) || 0)} type="number" />
-              <Field label={tx(lang, { fr: 'Taux Horaire (MAD/h)', ar: 'Taux Horaire (MAD/h)', en: 'Taux Horaire (MAD/h)', es: 'Taux Horaire (MAD/h)', pt: 'Taux Horaire (MAD/h)', tr: 'Taux Horaire (MAD/h)' })} value={form.taux_horaire ?? 0} onChange={v => set('taux_horaire', parseFloat(v) || 0)} type="number" />
-              <Field label={tx(lang, { fr: 'Taux Pièce (MAD)', ar: 'Taux Pièce (MAD)', en: 'Taux Pièce (MAD)', es: 'Taux Pièce (MAD)', pt: 'Taux Pièce (MAD)', tr: 'Taux Pièce (MAD)' })} value={form.taux_piece ?? 0} onChange={v => set('taux_piece', parseFloat(v) || 0)} type="number" />
-              <Field label={tx(lang, { fr: 'Prime Assiduité (MAD)', ar: 'Prime Assiduité (MAD)', en: 'Prime Assiduité (MAD)', es: 'Prime Assiduité (MAD)', pt: 'Prime Assiduité (MAD)', tr: 'Prime Assiduité (MAD)' })} value={form.prime_assiduite ?? 0} onChange={v => set('prime_assiduite', parseFloat(v) || 0)} type="number" />
-              <Field label={tx(lang, { fr: 'Prime Transport (MAD)', ar: 'Prime Transport (MAD)', en: 'Prime Transport (MAD)', es: 'Prime Transport (MAD)', pt: 'Prime Transport (MAD)', tr: 'Prime Transport (MAD)' })} value={form.prime_transport ?? 0} onChange={v => set('prime_transport', parseFloat(v) || 0)} type="number" />
+              <Field label={tx(lang, { fr: 'Salaire Base (MAD)', ar: 'Salaire Base (MAD)', en: 'Salaire Base (MAD)', es: 'Salaire Base (MAD)', pt: 'Salaire Base (MAD)', tr: 'Salaire Base (MAD)' })} value={form.salaire_base ?? 0} onChange={v => set('salaire_base', parseFloat(v) || 0)} type="number" masked={!salaireAccess.canView} disabled={!salaireAccess.canEdit} />
+              <Field label={tx(lang, { fr: 'Taux Horaire (MAD/h)', ar: 'Taux Horaire (MAD/h)', en: 'Taux Horaire (MAD/h)', es: 'Taux Horaire (MAD/h)', pt: 'Taux Horaire (MAD/h)', tr: 'Taux Horaire (MAD/h)' })} value={form.taux_horaire ?? 0} onChange={v => set('taux_horaire', parseFloat(v) || 0)} type="number" masked={!salaireAccess.canView} disabled={!salaireAccess.canEdit} />
+              <Field label={tx(lang, { fr: 'Taux Pièce (MAD)', ar: 'Taux Pièce (MAD)', en: 'Taux Pièce (MAD)', es: 'Taux Pièce (MAD)', pt: 'Taux Pièce (MAD)', tr: 'Taux Pièce (MAD)' })} value={form.taux_piece ?? 0} onChange={v => set('taux_piece', parseFloat(v) || 0)} type="number" masked={!salaireAccess.canView} disabled={!salaireAccess.canEdit} />
+              <Field label={tx(lang, { fr: 'Prime Assiduité (MAD)', ar: 'Prime Assiduité (MAD)', en: 'Prime Assiduité (MAD)', es: 'Prime Assiduité (MAD)', pt: 'Prime Assiduité (MAD)', tr: 'Prime Assiduité (MAD)' })} value={form.prime_assiduite ?? 0} onChange={v => set('prime_assiduite', parseFloat(v) || 0)} type="number" masked={!salaireAccess.canView} disabled={!salaireAccess.canEdit} />
+              <Field label={tx(lang, { fr: 'Prime Transport (MAD)', ar: 'Prime Transport (MAD)', en: 'Prime Transport (MAD)', es: 'Prime Transport (MAD)', pt: 'Prime Transport (MAD)', tr: 'Prime Transport (MAD)' })} value={form.prime_transport ?? 0} onChange={v => set('prime_transport', parseFloat(v) || 0)} type="number" masked={!salaireAccess.canView} disabled={!salaireAccess.canEdit} />
               <div>
                 <label style={_labelStyle}>{tx(lang, { fr: 'Mode Paiement', ar: 'طريقة الدفع', en: 'Payment Method', es: 'Método de Pago', pt: 'Método de Pagamento', tr: 'Ödeme Yöntemi' })}</label>
                 <select value={form.mode_paiement ?? 'VIREMENT'} onChange={e => set('mode_paiement', e.target.value)} style={_inputStyle}>
@@ -1128,6 +1141,8 @@ export default function GestionRH({
   const _btnPrimary = btnPrimary(isDark);
   const _btnSecondary = btnSecondary(isDark);
   const _btnDanger = btnDanger(isDark);
+  const salaireFieldAccess = useFieldAccess('hr.salaire');
+  const avancesFieldAccess = useFieldAccess('hr.avances');
   const [tab, setTab] = useState<Tab>('annuaire');
   const [workers, setWorkers] = useState<HRWorker[]>([]);
   const [pointages, setPointages] = useState<any[]>([]);
@@ -1613,6 +1628,10 @@ export default function GestionRH({
         });
         mainRows.push(totals);
       }
+      if (!salaireFieldAccess.canView) {
+        const salaryCols = ['Taux Horaire (MAD)', 'Salaire Base (MAD)', 'Prime Assiduité (MAD)', 'Prime Transport (MAD)', 'Total Brut (MAD)', 'Net à Payer (MAD)'];
+        mainRows.forEach((r: any) => { salaryCols.forEach(c => { r[c] = '•••'; }); });
+      }
       const ws1 = XLSX.utils.json_to_sheet(mainRows);
       ws1['!cols'] = [8,20,12,12,12,8,8,10,12,12,12,14,14].map(w => ({ wch: w }));
       XLSX.utils.book_append_sheet(wb, ws1, 'Rapport Mensuel');
@@ -1622,6 +1641,10 @@ export default function GestionRH({
         'Montant Approuvé (MAD)': a.montant_approuve || 0, 'Solde Restant (MAD)': a.solde_restant || 0,
         'Statut': a.statut, 'Nbre Échéances': a.nb_echeances || '', 'Mois Début': a.mois_debut_deduction || '',
       }));
+      if (!avancesFieldAccess.canView) {
+        const avanceCols = ['Montant Demandé (MAD)', 'Montant Approuvé (MAD)', 'Solde Restant (MAD)'];
+        avanceRows.forEach((r: any) => { avanceCols.forEach(c => { r[c] = '•••'; }); });
+      }
       const ws2 = XLSX.utils.json_to_sheet(avanceRows.length ? avanceRows : [{ 'Info': 'Aucune avance active' }]);
       ws2['!cols'] = [20,12,16,16,14,10,10,10].map(w => ({ wch: w }));
       XLSX.utils.book_append_sheet(wb, ws2, 'Avances');
@@ -1630,8 +1653,8 @@ export default function GestionRH({
       const summaryRows = [
         { 'Indicateur': 'Période', 'Valeur': selectedMois },
         { 'Indicateur': 'Nb Salariés', 'Valeur': (preview.rows || []).length },
-        { 'Indicateur': 'Masse Salariale Brute (MAD)', 'Valeur': Math.round(totalBrut * 100) / 100 },
-        { 'Indicateur': 'Masse Salariale Nette (MAD)', 'Valeur': Math.round(totalNet * 100) / 100 },
+        { 'Indicateur': 'Masse Salariale Brute (MAD)', 'Valeur': salaireFieldAccess.canView ? Math.round(totalBrut * 100) / 100 : '•••' },
+        { 'Indicateur': 'Masse Salariale Nette (MAD)', 'Valeur': salaireFieldAccess.canView ? Math.round(totalNet * 100) / 100 : '•••' },
         { 'Indicateur': 'Export généré le', 'Valeur': new Date().toLocaleDateString('fr-FR') },
         { 'Indicateur': 'Conforme', 'Valeur': 'Art. 385 Code du Travail Marocain' },
       ];
@@ -2654,19 +2677,21 @@ export default function GestionRH({
                             <tr key={a.id} style={{ borderBottom: `1px solid ${isDark ? '#1D2E28' : '#F1F5F9'}` }}>
                               <td style={{ padding: '10px 14px' }}>
                                 <div style={{ fontWeight: 600 }}>{a.full_name}</div>
-                                <div style={{ fontSize: 11, color: isDark ? '#64748B' : '#94A3B8' }}>{tx(lang, { fr: 'Salaire', ar: 'الراتب', en: 'Salary', es: 'Salario', pt: 'Salário', tr: 'Maaş' })}: {a.salaire_base?.toLocaleString()} MAD</div>
+                                <div style={{ fontSize: 11, color: isDark ? '#64748B' : '#94A3B8' }}>{tx(lang, { fr: 'Salaire', ar: 'الراتب', en: 'Salary', es: 'Salario', pt: 'Salário', tr: 'Maaş' })}: <SensitiveValue field="hr.salaire">{a.salaire_base?.toLocaleString()} MAD</SensitiveValue></div>
                               </td>
                               <td style={{ padding: '10px 14px', color: isDark ? '#94A3B8' : '#64748B' }}>{a.date_demande}</td>
                               <td style={{ padding: '10px 14px', fontWeight: 700, color: isDark ? '#EAF1ED' : '#0F172A' }}>
-                                {a.montant?.toLocaleString()} MAD
-                                {a.salaire_base > 0 && (
-                                  <div style={{ fontSize: 10, color: a.montant > a.salaire_base * 0.1 ? isDark ? '#F87171' : '#EF4444' : isDark ? '#34D399' : '#10B981' }}>
-                                    {((a.montant / a.salaire_base) * 100).toFixed(0)}% salaire
-                                  </div>
-                                )}
+                                <SensitiveValue field="hr.avances">
+                                  {a.montant?.toLocaleString()} MAD
+                                  {a.salaire_base > 0 && (
+                                    <div style={{ fontSize: 10, color: a.montant > a.salaire_base * 0.1 ? isDark ? '#F87171' : '#EF4444' : isDark ? '#34D399' : '#10B981' }}>
+                                      {((a.montant / a.salaire_base) * 100).toFixed(0)}% salaire
+                                    </div>
+                                  )}
+                                </SensitiveValue>
                               </td>
                               <td style={{ padding: '10px 14px', fontWeight: 600, color: isDark ? '#2F9E64' : '#6366F1' }}>
-                                {a.solde_restant != null ? `${a.solde_restant?.toLocaleString()} MAD` : '—'}
+                                <SensitiveValue field="hr.avances">{a.solde_restant != null ? `${a.solde_restant?.toLocaleString()} MAD` : '—'}</SensitiveValue>
                               </td>
                               <td style={{ padding: '10px 14px' }}>
                                 <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: isDark ? sc.darkBg : sc.bg, color: sc.color }}>{tx(lang, sc.label)}</span>
@@ -2674,10 +2699,10 @@ export default function GestionRH({
                               <td style={{ padding: '10px 14px' }}>
                                 {a.statut === 'DEMANDE' && (
                                   <div style={{ display: 'flex', gap: 6 }}>
-                                    <button onClick={() => handleAvanceStatut(a.id, 'APPROUVE')}
-                                      style={{ padding: '4px 10px', border: 'none', borderRadius: 6, background: isDark ? '#1a3a2a' : '#D1FAE5', color: isDark ? '#6ee7b7' : '#065F46', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>{tx(lang, { fr: '✓ Approuver', ar: '✓ موافقة', en: '✓ Approve', es: '✓ Aprobar', pt: '✓ Aprovar', tr: '✓ Onayla' })}</button>
-                                    <button onClick={() => handleAvanceStatut(a.id, 'REFUSE')}
-                                      style={{ padding: '4px 10px', border: 'none', borderRadius: 6, background: isDark ? '#3d1a1a' : '#FEE2E2', color: isDark ? '#fca5a5' : '#991B1B', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>{tx(lang, { fr: '✗ Refuser', ar: '✗ رفض', en: '✗ Refuse', es: '✗ Rechazar', pt: '✗ Recusar', tr: '✗ Reddet' })}</button>
+                                    <button disabled={!avancesFieldAccess.canEdit} onClick={() => handleAvanceStatut(a.id, 'APPROUVE')}
+                                      style={{ padding: '4px 10px', border: 'none', borderRadius: 6, background: isDark ? '#1a3a2a' : '#D1FAE5', color: isDark ? '#6ee7b7' : '#065F46', cursor: avancesFieldAccess.canEdit ? 'pointer' : 'not-allowed', opacity: avancesFieldAccess.canEdit ? 1 : 0.5, fontSize: 11, fontWeight: 600 }}>{tx(lang, { fr: '✓ Approuver', ar: '✓ موافقة', en: '✓ Approve', es: '✓ Aprobar', pt: '✓ Aprovar', tr: '✓ Onayla' })}</button>
+                                    <button disabled={!avancesFieldAccess.canEdit} onClick={() => handleAvanceStatut(a.id, 'REFUSE')}
+                                      style={{ padding: '4px 10px', border: 'none', borderRadius: 6, background: isDark ? '#3d1a1a' : '#FEE2E2', color: isDark ? '#fca5a5' : '#991B1B', cursor: avancesFieldAccess.canEdit ? 'pointer' : 'not-allowed', opacity: avancesFieldAccess.canEdit ? 1 : 0.5, fontSize: 11, fontWeight: 600 }}>{tx(lang, { fr: '✗ Refuser', ar: '✗ رفض', en: '✗ Refuse', es: '✗ Rechazar', pt: '✗ Recusar', tr: '✗ Reddet' })}</button>
                                   </div>
                                 )}
                               </td>
