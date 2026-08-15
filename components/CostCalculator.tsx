@@ -20,6 +20,7 @@ import A4DocumentView from './A4DocumentView';
 import A4ResponsiveFrame from './A4ResponsiveFrame';
 import CompactCostSheet from './CompactCostSheet';
 import ThreadCalculator from './ThreadCalculator';
+import SensitiveValue, { useFieldAccess } from './ui/SensitiveValue';
 import SousTraitanceModal, { SousTraitance } from './SousTraitanceModal';
 import { Operation } from '../types';
 
@@ -58,6 +59,9 @@ export default function CostCalculator({
 }: CostCalculatorProps) {
     // --- UI State Fixed ---
     const { lang } = useLang();
+    // Masquage des champs financiers sensibles (Epic 2 — gating champ).
+    const { canView: canViewPrixRevient } = useFieldAccess('model.prix_revient');
+    const { canView: canViewMarge, canEdit: canEditMarge } = useFieldAccess('model.marge');
     const currency = initialPropsSettings?.currency || 'DH';
     const darkMode = useIsDark();
     const [viewMode, setViewMode] = useState<'ticket' | 'a4'>('a4'); // Default to A4 as requested
@@ -883,17 +887,22 @@ export default function CostCalculator({
             styleDataRow(totMatRow);
 
             // --- Section PRIX (bloc r\u00E9capitulatif) ---
+            // Masquage financier : Prix de Revient/Vente/Boutique d\u00E9coulent tous du co\u00FBt
+            // de revient (model.prix_revient) \u2014 si l'utilisateur n'a pas le droit de voir
+            // ce champ, on redacte ces montants dans l'export Excel. Le % de marge affich\u00E9
+            // dans le libell\u00E9 d\u00E9pend de model.marge.
+            const margeLabel = canViewMarge ? `${settings.marginAtelier}%` : '\u2022\u2022\u2022';
             ws.addRow([]);
-            const prixRows: [string, number][] = [
-                [t.costPrice || 'Prix de Revient', costPrice],
-                [`${t.sellHT || 'Prix Vente HT'} (+${settings.marginAtelier}%)`, sellPriceHT],
-                [`${t.sellTTC || 'Prix Vente TTC'} (+${settings.tva}%)`, sellPriceTTC],
-                [t.shopPrice || 'Prix Boutique', boutiquePrice],
+            const prixRows: [string, number | null][] = [
+                [t.costPrice || 'Prix de Revient', canViewPrixRevient ? costPrice : null],
+                [`${t.sellHT || 'Prix Vente HT'} (+${margeLabel})`, canViewPrixRevient ? sellPriceHT : null],
+                [`${t.sellTTC || 'Prix Vente TTC'} (+${settings.tva}%)`, canViewPrixRevient ? sellPriceTTC : null],
+                [t.shopPrice || 'Prix Boutique', canViewPrixRevient ? boutiquePrice : null],
             ];
             prixRows.forEach(([label, val], idx) => {
-                const r = ws.addRow([label, '', '', '', Math.round(val * 100) / 100]);
+                const r = ws.addRow([label, '', '', '', val === null ? '\u2022\u2022\u2022' : Math.round(val * 100) / 100]);
                 ws.mergeCells(`A${r.number}:D${r.number}`);
-                r.getCell(5).numFmt = `0.00 "${currency}"`;
+                if (val !== null) r.getCell(5).numFmt = `0.00 "${currency}"`;
                 if (idx === 0) {
                     // Co\u00FBt de Revient = bandeau navy
                     r.eachCell((cell: any) => {
@@ -1229,18 +1238,23 @@ export default function CostCalculator({
                                         <div className="bg-slate-50 dark:bg-dk-bg/60 p-4 rounded-md border border-slate-200 dark:border-dk-border">
                                             <div className="flex justify-between items-center mb-2.5">
                                                 <span className="text-[12px] text-slate-600 dark:text-dk-text-soft">Marge Atelier ciblée</span>
-                                                <span className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">{settings.marginAtelier}%</span>
+                                                <span className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">
+                                                    <SensitiveValue field="model.marge">{settings.marginAtelier}%</SensitiveValue>
+                                                </span>
                                             </div>
                                             <input
                                                 type="range"
                                                 min="0" max="100" step="1"
                                                 value={settings.marginAtelier}
                                                 onChange={handleMarginChange}
-                                                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+                                                disabled={!canEditMarge}
+                                                className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                             />
                                             <div className="flex justify-between items-center mt-4 pt-3 border-t border-slate-200 dark:border-dk-border">
                                                 <span className="text-[12px] text-slate-500 dark:text-dk-muted">Prix de Vente HT simulé</span>
-                                                <span className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">{fmt(sellPriceHT)} <span className="text-[11px] font-normal text-slate-400 dark:text-dk-muted">{currency}</span></span>
+                                                <span className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tabular-nums">
+                                                    <SensitiveValue field="model.prix_revient">{fmt(sellPriceHT)} <span className="text-[11px] font-normal text-slate-400 dark:text-dk-muted">{currency}</span></SensitiveValue>
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
@@ -1272,7 +1286,7 @@ export default function CostCalculator({
                                                     });
                                                 })()}
                                                 <text x="60" y="54" textAnchor="middle" className="fill-slate-800 dark:fill-dk-text font-bold text-[9px]" dominantBaseline="middle">
-                                                    {fmt(costDataForChart.reduce((s, d) => s + d.value, 0))}
+                                                    {canViewPrixRevient ? fmt(costDataForChart.reduce((s, d) => s + d.value, 0)) : '•••'}
                                                 </text>
                                                 <text x="60" y="64" textAnchor="middle" className="fill-slate-400 dark:fill-dk-muted text-[6px]" dominantBaseline="middle">
                                                     {currency}
