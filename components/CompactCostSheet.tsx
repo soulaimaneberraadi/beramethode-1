@@ -33,6 +33,14 @@ interface CompactCostSheetProps {
     soustraitanceActive?: boolean;
     stPrix?: number;
     stMode?: string;
+    /** Frais additionnels de la commande de sous-traitance (montants pour toute
+     *  la commande) et leur part par pièce déjà calculée par l'appelant.
+     *  `stFraisQty` est la quantité de la commande qui a servi de diviseur — c'est
+     *  BIEN celle-là qu'il faut afficher, et non `orderQty` qui est une quantité
+     *  de simulation librement modifiable par l'utilisateur. */
+    stFrais?: { label: string; amount: number }[];
+    stFraisPerPiece?: number;
+    stFraisQty?: number;
     colors?: { id: string; name: string }[];
     gridQuantities?: Record<string, number>;
     sizes?: string[];
@@ -45,6 +53,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
     materials, laborCost, costPrice, sellPriceHT, sellPriceTTC, boutiquePrice,
     orderQty, wasteRate, purchasingData, totalPurchasingMatCost,
     productImage, soustraitanceActive = false, stPrix = 0, stMode,
+    stFrais = [], stFraisPerPiece = 0, stFraisQty = 0,
     colors = [], gridQuantities = {}, sizes = []
 }, ref) => {
     const { lang } = useLang();
@@ -207,6 +216,30 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                         </>
                     )}
 
+                    {stFrais.length > 0 && (
+                        <>
+                            <tr className="bg-slate-100">
+                                <td colSpan={5} className="px-2 py-0.5 text-[8px] font-bold text-slate-500 uppercase tracking-widest">
+                                    {_({fr:'Frais Additionnels',ar:'مصاريف إضافية',en:'Additional Costs',es:'Gastos Adicionales',pt:'Custos Adicionais',tr:'Ek Masraflar'})}
+                                    <span className="ml-1 normal-case tracking-normal font-semibold text-slate-400">
+                                        ({_({fr:'répartis sur',ar:'موزّعة على',en:'spread over',es:'repartidos sobre',pt:'repartidos por',tr:'dağıtılan'})} {fmt(stFraisQty)} pcs)
+                                    </span>
+                                </td>
+                            </tr>
+                            {stFrais.map((f, i) => (
+                                <tr key={`${f.label}-${i}`} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50 dark:bg-dk-bg/50'}`}>
+                                    <td className="p-2 font-bold text-slate-800">{f.label || '-'}</td>
+                                    <td className="p-2 text-center text-[9px] text-slate-500">—</td>
+                                    <td className="p-2 text-center text-[9px]">{fmt(f.amount)}</td>
+                                    <td className="p-2 text-center font-mono text-[9px] text-slate-400">
+                                        / {fmt(stFraisQty)} <span className="text-[8px]">pcs</span>
+                                    </td>
+                                    <td className="p-2 text-right font-bold text-slate-800">{fmt(stFraisQty > 0 ? f.amount / stFraisQty : 0)}</td>
+                                </tr>
+                            ))}
+                        </>
+                    )}
+
                     <tr className="bg-blue-50 dark:bg-blue-900/30 border-b border-blue-200">
                         <td className="p-2 font-bold text-blue-800" colSpan={3}>
                             <div className="flex items-center gap-1">
@@ -224,7 +257,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
 
                     <tr className="bg-slate-900 text-white">
                         <td className="p-2 font-black text-[9px] uppercase tracking-wider rounded-bl-lg" colSpan={4}>{_({fr:'Total Nomenclature',ar:'إجمالي قائمة المواد',en:'Total Nomenclature',es:'Total Nomenclatura',pt:'Total Nomenclatura',tr:'Toplam Malzeme Listesi'})}</td>
-                        <td className="p-2 text-right font-black text-xs rounded-br-lg">{fmt(totalMaterials + laborCost)} {currency}</td>
+                        <td className="p-2 text-right font-black text-xs rounded-br-lg">{fmt(totalMaterials + laborCost + stFraisPerPiece)} {currency}</td>
                     </tr>
                 </tbody>
             </table>

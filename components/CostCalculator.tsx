@@ -363,18 +363,27 @@ export default function CostCalculator({
 
     const laborCost = stActive ? stPrix : totalTime * settings.costMinute;
 
-    const costPrice = materialsExcluded ? laborCost : totalMaterials + laborCost;
-    const sellPriceHT = costPrice * (1 + settings.marginAtelier / 100);
-    const sellPriceTTC = sellPriceHT * (1 + settings.tva / 100);
-    const boutiquePrice = sellPriceTTC * (1 + settings.marginBoutique / 100);
-
     // Quantité réelle de la commande = somme de la grille (couleurs × tailles),
-    // sinon la quantité du modèle. C'est elle qui pilote « Estimation des Besoins ».
+    // sinon la quantité du modèle. C'est elle qui pilote « Estimation des Besoins »
+    // ET la répartition des frais additionnels de sous-traitance.
     const commandeQty = useMemo(() => {
         const gq = ficheData.gridQuantities || {};
         const total = Object.values(gq).reduce((acc: number, v) => acc + (Number(v) || 0), 0);
         return total > 0 ? total : (ficheData.quantity || 0);
     }, [ficheData.gridQuantities, ficheData.quantity]);
+
+    // Frais additionnels remontés depuis la commande de sous-traitance (transport,
+    // patronage, repassage…). Ce sont des montants pour TOUTE la commande : leur
+    // part par pièce = total / quantité de la commande. Ils s'ajoutent au coût dans
+    // les deux modes, car ils vous incombent en plus du prix du sous-traitant.
+    const stFrais = stActive ? (st?.frais || []) : [];
+    const stFraisTotal = stFrais.reduce((acc, f) => acc + (Number(f.amount) || 0), 0);
+    const stFraisPerPiece = commandeQty > 0 ? stFraisTotal / commandeQty : 0;
+
+    const costPrice = (materialsExcluded ? laborCost : totalMaterials + laborCost) + stFraisPerPiece;
+    const sellPriceHT = costPrice * (1 + settings.marginAtelier / 100);
+    const sellPriceTTC = sellPriceHT * (1 + settings.tva / 100);
+    const boutiquePrice = sellPriceTTC * (1 + settings.marginBoutique / 100);
 
     // Quantité par couleur (nom de couleur → nb de pièces) pour ventiler les fils :
     // un fil ne se consomme que sur les pièces de SA couleur, pas sur toute la commande.
@@ -485,9 +494,10 @@ export default function CostCalculator({
         return [
             { name: 'Matières', value: matVal, color: '#2149C1' }, // accent blue
             { name: stActive ? 'Façon' : 'Main d\'Œuvre', value: laborCost, color: '#94a3b8' },  // slate-400
+            { name: 'Frais add.', value: stFraisPerPiece, color: '#f59e0b' }, // amber-500
             // packaging could be separated later, assuming included in materials for now
         ].filter(d => d.value > 0);
-    }, [totalMaterials, laborCost, materialsExcluded, stActive]);
+    }, [totalMaterials, laborCost, materialsExcluded, stActive, stFraisPerPiece]);
 
     const handleInstantSettingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -1067,7 +1077,7 @@ export default function CostCalculator({
                         totalPurchasingMatCost={totalPurchasingMatCost}
                         productImage={productImage}
                         soustraitanceActive={stActive}
-                        stPrix={stPrix} stMode={st?.mode}
+                        stPrix={stPrix} stMode={st?.mode} stFrais={stFrais} stFraisPerPiece={stFraisPerPiece} stFraisQty={commandeQty}
                         colors={ficheData.colors || []} gridQuantities={ficheData.gridQuantities || {}} sizes={ficheData.sizes || []}
                     />
                 )}
@@ -1138,14 +1148,15 @@ export default function CostCalculator({
                         <div className="flex justify-end gap-2">
                             <button
                                 onClick={() => setShowSousTraitance(true)}
-                                className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-[12px] font-medium transition-colors ${stActive ? 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft'}`}
+                                className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-[12px] font-medium transition-colors ${stActive ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft'}`}
                                 title={tx(lang, {fr: "Confier ce modèle à un sous-traitant à prix fixe / pièce", ar: "تكليف هذا الموديل لمقاول من الباطن بسعر ثابت / للقطعة", en: "Assign this model to a subcontractor at a fixed price / per piece", es: "Confiar este modelo a un subcontratista a precio fijo / por pieza", pt: "Confiar este modelo a um subcontratante a preço fixo / por peça", tr: "Bu modeli bir taşerona sabit fiyat / parça başına devret"})}
                             >
                                 <Factory className="w-3.5 h-3.5" strokeWidth={1.75} />
                                 {tx(lang,{fr:'Sous-traitance',ar:'المقاولة من الباطن',en:'Subcontracting',es:'Subcontratación',pt:'Subcontratação',tr:'Taşeronluk'})}
                                 {stActive && (
-                                    <span className="bg-white dark:bg-dk-surface/20 px-1.5 py-0.5 rounded text-[11px] font-medium">
+                                    <span className="bg-white/20 px-1.5 py-0.5 rounded text-[11px] font-medium tabular-nums">
                                         {st?.mode === 'complet' ? tx(lang,{fr:'Tout compris',ar:'كل شيء شامل',en:'All inclusive',es:'Todo incluido',pt:'Tudo incluído',tr:'Her şey dahil'}) : tx(lang,{fr:'Façon',ar:'التفصيل',en:'CMT only',es:'Solo confección',pt:'Apenas confeção',tr:'Sadece dikiş'})}
+                                        {stPrix > 0 && ` · ${stPrix} ${currency}/pc`}
                                     </span>
                                 )}
                             </button>
@@ -1400,7 +1411,7 @@ export default function CostCalculator({
                                             totalPurchasingMatCost={totalPurchasingMatCost}
                                             productImage={productImage}
                                             soustraitanceActive={stActive}
-                                            stPrix={stPrix} stMode={st?.mode}
+                                            stPrix={stPrix} stMode={st?.mode} stFrais={stFrais} stFraisPerPiece={stFraisPerPiece} stFraisQty={commandeQty}
                                             colors={ficheData.colors || []} gridQuantities={ficheData.gridQuantities || {}} sizes={ficheData.sizes || []}
                                         />
                                       </A4ResponsiveFrame>

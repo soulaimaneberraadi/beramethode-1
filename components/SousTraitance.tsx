@@ -15,6 +15,10 @@ import {
   AlertTriangle, Scissors
 } from 'lucide-react';
 
+/** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
+ *  Les écritures modèle passent alors par `setModels`, qui persiste côté client. */
+const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
+
 interface SousTraitanceProps {
   models: ModelData[];
   setModels?: React.Dispatch<React.SetStateAction<ModelData[]>>;
@@ -315,8 +319,8 @@ function formatPhoneInput(value: string): string {
 }
 
 function colorNameToHex(name: string): string {
-  const lower = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const found = Object.entries(KNOWN_COLOR_KEYWORDS).find(([kw]) => lower.includes(kw.normalize('NFD').replace(/[̀-ͯ]/g, '')));
+  const lower = name.toLowerCase().normalize('NFD').replace(new RegExp('[\u0300-\u036f]', 'g'), '');
+  const found = Object.entries(KNOWN_COLOR_KEYWORDS).find(([kw]) => lower.includes(kw.normalize('NFD').replace(new RegExp('[\u0300-\u036f]', 'g'), '')));
   if (found) return found[1];
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -684,17 +688,74 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         throw err;
       }
       const data = await res.json();
-      if (signal?.aborted) return;
-      setOrderExpenses(Array.isArray(data) ? data.map(normalizeExpense) : []);
+      if (signal?.aborted) return [];
+      const list = Array.isArray(data) ? data.map(normalizeExpense) : [];
+      setOrderExpenses(list);
       setExpensesOrderId(orderId);
+      return list;
     } catch (err: any) {
-      if (err?.name === 'AbortError') return;
+      if (err?.name === 'AbortError') return [];
       console.error('[SousTraitance] expenses', err);
       setOrderExpenses([]);
       setExpensesOrderId(orderId);
       setExpensesError(expenseErrorMessage(err?.status));
+      return [];
     } finally {
       if (!signal?.aborted) setExpensesLoading(false);
+    }
+  };
+
+  /** Répercute les frais additionnels d'une commande sur la fiche de coût du
+   *  modèle, pour qu'ils entrent dans le prix de revient (répartis sur la
+   *  quantité de la commande côté calcul).
+   *
+   *  Volontairement SILENCIEUX et sans confirmation, mais UNIQUEMENT si le modèle
+   *  est déjà en sous-traitance : le lien coût ↔ sous-traitance a alors déjà été
+   *  accepté explicitement via `applySubcontractPriceToModel`. Sans ce garde-fou,
+   *  ajouter un frais réécrirait le coût de revient d'un modèle qui n'a jamais
+   *  été rattaché à cette commande. */
+  const syncExpensesToModel = async (order: SubcontractOrder, expenses: SubcontractExpense[]) => {
+    if (!order.modelId || order.modelId === 'MANUAL') return;
+    const local = models.find(m => m.id === order.modelId);
+    if (!local?.ficheData?.soustraitance?.active) return;
+
+    const frais = expenses.map(e => ({ label: e.label, amount: Number(e.amount) || 0 }));
+    try {
+      // Même précaution que pour le prix : relire le modèle à jour avant d'écrire,
+      // `POST /api/models` remplaçant le modèle entier. En mode statique il n'y a
+      // pas d'API : la copie locale fait foi.
+      let base: ModelData = local;
+      if (!IS_STATIC) {
+        const fresh = await fetch('/api/models', { credentials: 'include' });
+        if (!fresh.ok) return;
+        const list = await fresh.json();
+        const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === order.modelId) : undefined;
+        if (!found) return;
+        base = found;
+      }
+      if (!base?.ficheData?.soustraitance?.active) return;
+
+      const updated: ModelData = {
+        ...base,
+        ficheData: {
+          ...(base.ficheData as any),
+          soustraitance: { ...base.ficheData.soustraitance, frais },
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      if (!IS_STATIC) {
+        const res = await fetch('/api/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(updated),
+        });
+        if (!res.ok) return;
+      }
+      setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+    } catch (err) {
+      // Un échec de répercussion ne doit pas casser la saisie du frais lui-même.
+      console.error('[SousTraitance] sync expenses to model', err);
     }
   };
 
@@ -759,7 +820,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setExpenseAmount('');
       setExpenseScopeMode('ALL');
       setExpenseQuantityScope('');
-      await loadExpenses(order.id);
+      await syncExpensesToModel(order, await loadExpenses(order.id));
     } catch (err: any) {
       console.error('[SousTraitance] add expense', err);
       setExpensesError(expenseErrorMessage(err?.status));
@@ -781,7 +842,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         err.status = res.status;
         throw err;
       }
-      await loadExpenses(order.id);
+      await syncExpensesToModel(order, await loadExpenses(order.id));
     } catch (err: any) {
       console.error('[SousTraitance] delete expense', err);
       setExpensesError(expenseErrorMessage(err?.status));
@@ -1590,9 +1651,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       // portée par la prop `models` écraserait tout ce que l'ingénierie a pu
       // modifier entre-temps. On relit donc la version à jour juste avant
       // l'écriture et on n'y applique QUE `ficheData.soustraitance` (A7).
+      //
+      // En mode statique (pas de serveur Express) il n'y a pas d'API : la prop
+      // `models` EST la source de vérité et `setModels` déclenche la persistance.
       let base: ModelData = model;
-      const fresh = await fetch('/api/models', { credentials: 'include' });
-      if (fresh.ok) {
+      const fresh = IS_STATIC ? null : await fetch('/api/models', { credentials: 'include' });
+      if (!fresh) {
+        // mode statique : on part de la copie locale, pas de relecture serveur
+      } else if (fresh.ok) {
         const list = await fresh.json();
         const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : null;
         if (found) base = found;
@@ -1604,18 +1670,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         ...base,
         ficheData: {
           ...(base.ficheData as any),
-          soustraitance: { active: true, mode, prix: price },
+          // `frais` est préservé : il est alimenté par la fiche de commande
+          // (`syncExpensesToModel`) et ne doit pas être effacé par une simple
+          // mise à jour du prix / du mode.
+          soustraitance: { ...base.ficheData?.soustraitance, active: true, mode, prix: price },
         },
         updatedAt: new Date().toISOString(),
       };
 
-      const res = await fetch('/api/models', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(updated),
-      });
-      if (!res.ok) throw new Error(tx(lang,{fr:'Echec de la mise à jour du modèle',ar:'فشل تحديث الموديل',en:'Failed to update the model',es:'Error al actualizar el modelo',pt:'Falha ao atualizar o modelo',tr:'Model güncellenemedi'}));
+      if (!IS_STATIC) {
+        const res = await fetch('/api/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(updated),
+        });
+        if (!res.ok) throw new Error(tx(lang,{fr:'Echec de la mise à jour du modèle',ar:'فشل تحديث الموديل',en:'Failed to update the model',es:'Error al actualizar el modelo',pt:'Falha ao atualizar o modelo',tr:'Model güncellenemedi'}));
+      }
       setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
     } catch (err: any) {
       setError(err.message);
@@ -3276,37 +3347,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           <div className="col-span-2 md:col-span-2">
                             <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'})}</p>
                             <p className="font-semibold text-slate-700 dark:text-dk-text-soft">{selectedSubcontractor.profile.notes}</p>
-                          </div>
-                        )}
-                        {(selectedSubcontractor.profile.cinRectoPhoto || selectedSubcontractor.profile.cinVersoPhoto) && (
-                          <div className="col-span-2 md:col-span-4">
-                            <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase mb-1.5">{tx(lang,{fr:"Carte d'identité",ar:'البطاقة الوطنية',en:'ID card',es:'DNI',pt:'Cartão de identidade',tr:'Kimlik kartı'})}</p>
-                            <div className="flex flex-wrap gap-2">
-                              {[
-                                { label: tx(lang,{fr:'Recto',ar:'الوجه',en:'Front',es:'Anverso',pt:'Frente',tr:'Ön'}), value: selectedSubcontractor.profile.cinRectoPhoto },
-                                { label: tx(lang,{fr:'Verso',ar:'الظهر',en:'Back',es:'Reverso',pt:'Verso',tr:'Arka'}), value: selectedSubcontractor.profile.cinVersoPhoto },
-                              ].filter(d => d.value).map((doc, i) => (
-                                <div key={i} className="flex items-center gap-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg pl-2 pr-1 py-1">
-                                  <span className="text-[10px] font-bold text-slate-600 dark:text-dk-text-soft">{doc.label}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => openDocument(doc.value!)}
-                                    className="p-1 rounded text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent-text transition-colors"
-                                    title={tx(lang,{fr:'Ouvrir',ar:'فتح',en:'Open',es:'Abrir',pt:'Abrir',tr:'Aç'})}
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => downloadDocument(doc.value!, `CIN-${doc.label}-${selectedSubcontractor.name}`)}
-                                    className="p-1 rounded text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent-text transition-colors"
-                                    title={tx(lang,{fr:'Télécharger',ar:'تنزيل',en:'Download',es:'Descargar',pt:'Descarregar',tr:'İndir'})}
-                                  >
-                                    <ArrowRight className="w-3.5 h-3.5 rotate-90" />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
                           </div>
                         )}
                       </div>

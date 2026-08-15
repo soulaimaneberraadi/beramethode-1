@@ -228,6 +228,13 @@ export type FicheData = {
     active: boolean;
     mode: 'facon' | 'complet';
     prix: number;
+    /** Frais additionnels saisis sur la commande de sous-traitance (transport,
+     *  patronage, repassage…), répercutés ici pour entrer dans le prix de revient.
+     *  Ce sont des montants pour TOUTE la commande : le calcul de coût les divise
+     *  par la quantité de la commande pour obtenir leur part par pièce.
+     *  Ils s'appliquent dans les deux modes (façon ET tout compris) : ce sont des
+     *  coûts qui vous incombent en plus de ce que facture le sous-traitant. */
+    frais?: { label: string; amount: number }[];
   };
   /** Saved state for the Thread Calculator modal (prices, waste, bobbin, etc.) */
   threadCalcState?: any;
