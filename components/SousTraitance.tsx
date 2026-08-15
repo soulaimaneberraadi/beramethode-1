@@ -4237,23 +4237,36 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border flex items-center gap-3">
-                  {(() => {
-                    const profile = subcontractorProfiles.find(p => p.name === detailOrder.subcontractorName);
-                    return profile?.photo ? (
-                      <img src={profile.photo} alt={detailOrder.subcontractorName} className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-dk-border shrink-0" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-lg bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0">
-                        <Users className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
+                {(() => {
+                  const profile = subcontractorProfiles.find(p => p.name === detailOrder.subcontractorName);
+                  return (
+                    <div
+                      onClick={profile ? () => { setIsDetailModalOpen(false); setActiveTab('subcontractors'); setSelectedSubcontractorName(detailOrder.subcontractorName); } : undefined}
+                      className={`bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border flex items-center gap-3 ${profile ? 'cursor-pointer hover:border-indigo-300 dark:hover:border-dk-accent hover:bg-indigo-50/40 dark:hover:bg-dk-elevated transition-colors' : ''}`}
+                    >
+                      {profile?.photo ? (
+                        <img src={profile.photo} alt={detailOrder.subcontractorName} className="w-12 h-12 rounded-lg object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                          <Users className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest block">{tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'})}</span>
+                          {profile && (
+                            <span className="text-[9px] font-bold text-indigo-600 dark:text-dk-accent-text flex items-center gap-0.5 shrink-0">
+                              {tx(lang,{fr:'Voir sa fiche',ar:'عرض ملفه',en:'View profile',es:'Ver ficha',pt:'Ver ficha',tr:'Profili gör'})}
+                              <ArrowRight className="w-3 h-3" />
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-sm font-bold text-slate-800 dark:text-dk-text mt-1 block truncate">{detailOrder.subcontractorName}</span>
+                        {detailOrder.subcontractorPhone && <span className="text-slate-500 dark:text-dk-muted block mt-1">{tx(lang,{fr:'Tél:',ar:'الهاتف:',en:'Tel:',es:'Tel:',pt:'Tel:',tr:'Tel:'})} {detailOrder.subcontractorPhone}</span>}
                       </div>
-                    );
-                  })()}
-                  <div className="min-w-0">
-                    <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest block">{tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'})}</span>
-                    <span className="text-sm font-bold text-slate-800 dark:text-dk-text mt-1 block truncate">{detailOrder.subcontractorName}</span>
-                    {detailOrder.subcontractorPhone && <span className="text-slate-500 dark:text-dk-muted block mt-1">{tx(lang,{fr:'Tél:',ar:'الهاتف:',en:'Tel:',es:'Tel:',pt:'Tel:',tr:'Tel:'})} {detailOrder.subcontractorPhone}</span>}
-                  </div>
-                </div>
+                    </div>
+                  );
+                })()}
                 <div className="bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
                   <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest block">{tx(lang,{fr:'Client Donneur d\'Ordre',ar:'العميل صاحب الطلب',en:'Ordering Client',es:'Cliente Ordenante',pt:'Cliente Mandante',tr:'Sipariş Veren Müşteri'})}</span>
                   <span className="text-sm font-bold text-slate-800 dark:text-dk-text mt-1 block">{detailOrder.clientName || 'N/A'}</span>
