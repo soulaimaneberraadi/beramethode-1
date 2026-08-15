@@ -812,11 +812,11 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                     <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">
                       {tx(lang, { fr: `Tapez « ${deleteTarget.name} » pour confirmer`, ar: `اكتب «${deleteTarget.name}» للتأكيد`, en: `Type "${deleteTarget.name}" to confirm`, es: `Escriba «${deleteTarget.name}» para confirmar`, pt: `Digite «${deleteTarget.name}» para confirmar`, tr: `Onaylamak için "${deleteTarget.name}" yazın` })}
                     </label>
-                    <input className={inputCls} value={deleteConfirmName} onChange={e => setDeleteConfirmName(e.target.value)} />
+                    <input name="delete-confirm-name" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} className={inputCls} value={deleteConfirmName} onChange={e => setDeleteConfirmName(e.target.value)} />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Mot de passe', ar: 'كلمة السر', en: 'Password', es: 'Contraseña', pt: 'Palavra-passe', tr: 'Şifre' })}</label>
-                    <input type="password" className={inputCls} value={deletePassword} onChange={e => setDeletePassword(e.target.value)} />
+                    <input type="password" name="delete-confirm-password" autoComplete="new-password" className={inputCls} value={deletePassword} onChange={e => setDeletePassword(e.target.value)} />
                   </div>
                   {deleteError && <p className="text-xs font-medium text-rose-500">{deleteError}</p>}
                   <div className="flex justify-end gap-3">
