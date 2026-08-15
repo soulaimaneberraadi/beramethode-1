@@ -249,7 +249,9 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                                     <td className="py-2.5 px-3 text-center font-medium text-[#2149C1] tabular-nums">{fmt(cc.ht)}</td>
                                                     <td className="py-2.5 px-3 text-center font-medium text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text tabular-nums">{fmt(cc.ttc)}</td>
                                                     <td className="py-2.5 px-3 text-center font-medium text-violet-600 tabular-nums">{fmt(cc.boutique)}</td>
-                                                    <td className="py-2.5 px-3 text-center font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{fmt(cc.ht - cc.pr)}</td>
+                                                    <td className="py-2.5 px-3 text-center font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                                        <SensitiveValue field="facturation.marge">{fmt(cc.ht - cc.pr)}</SensitiveValue>
+                                                    </td>
                                                 </tr>
                                             );
                                         });
@@ -265,7 +267,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                 { label: `Prix de vente HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-[#2149C1]', field: null },
                                 { label: `Prix de vente TTC (+${settings.tva}%)`, value: sellPriceTTC, color: 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text', field: null },
                                 { label: `Prix boutique (+${settings.marginBoutique}%)`, value: boutiquePrice, color: 'text-violet-600', field: null },
-                                { label: 'Marge usine / pièce', value: sellPriceHT - costPrice, color: 'text-emerald-600 dark:text-emerald-400', field: null },
+                                { label: 'Marge usine / pièce', value: sellPriceHT - costPrice, color: 'text-emerald-600 dark:text-emerald-400', field: 'facturation.marge' },
                             ].map((item, i) => (
                                 <div key={i} className="text-center p-3 rounded-md bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border hover:bg-white hover:border-slate-300 transition-all">
                                     <p className="text-[10px] font-medium text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-1.5">{item.label}</p>
