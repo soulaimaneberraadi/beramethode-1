@@ -819,6 +819,7 @@ db.exec(`
     stitchingDetails TEXT,
     specifications_json TEXT,
     coupeLocation TEXT DEFAULT 'SUBCONTRACTOR',
+    custom_milestones_json TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
@@ -1273,6 +1274,12 @@ try {
 // historique implicite, d'où le DEFAULT pour les lignes déjà en base).
 try {
   db.exec("ALTER TABLE subcontract_orders ADD COLUMN coupeLocation TEXT DEFAULT 'SUBCONTRACTOR'");
+} catch(e) {}
+// Jalons libres ajoutés par l'utilisateur en plus des 4 jalons fixes
+// (Tissu/Fournitures/FT/Proto) : [{ id, label, done }]. JSON en texte pour
+// rester cohérent avec sizes_json/colors_json/grid_json sur la même table.
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN custom_milestones_json TEXT");
 } catch(e) {}
 
 // ════════════════════════════════════════════════════════════════════════════════

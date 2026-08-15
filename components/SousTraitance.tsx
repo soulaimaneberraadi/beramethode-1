@@ -173,6 +173,24 @@ type CoupeLocation = 'INTERNAL' | 'SUBCONTRACTOR';
 const readCoupeLocation = (o: any): CoupeLocation =>
   (o?.coupeLocation ?? o?.coupe_location) === 'INTERNAL' ? 'INTERNAL' : 'SUBCONTRACTOR';
 
+/** Jalon libre ajouté par l'utilisateur, en plus des 4 jalons fixes
+ *  (Tissu/Fournitures/FT/Proto) qui restent inchangés — ceux-là portent une
+ *  signification métier précise (statuts consommés ailleurs). Les jalons
+ *  personnalisés sont une simple checklist libre par commande. */
+interface CustomMilestone { id: string; label: string; done: boolean }
+
+const readCustomMilestones = (o: any): CustomMilestone[] => {
+  const raw = o?.custom_milestones_json ?? o?.customMilestonesJson;
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(m => m && typeof m.id === 'string' && typeof m.label === 'string');
+  } catch {
+    return [];
+  }
+};
+
 /** Sélecteur « Parcours de coupe » — même langage visuel que « Type de
  *  prestation » : deux cartes cliquables titre + description. Partagé par les
  *  modales d'ajout et d'édition. */
@@ -478,6 +496,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   /** Numérotation de facture : elle vient du serveur, jamais d'un tirage aléatoire. */
   const [saleNumberLoading, setSaleNumberLoading] = useState(false);
   const [saleNumberError, setSaleNumberError] = useState<string | null>(null);
+  /** Jalons libres de la fiche ouverte — synchronisés depuis detailOrder à
+   *  l'ouverture, puis modifiés localement + PUT optimiste (même patron que
+   *  handleToggleMilestone pour les 4 jalons fixes). */
+  const [customMilestones, setCustomMilestones] = useState<CustomMilestone[]>([]);
+  const [newMilestoneLabel, setNewMilestoneLabel] = useState('');
+  const [milestoneSaving, setMilestoneSaving] = useState(false);
+  const [milestoneError, setMilestoneError] = useState<string | null>(null);
 
   // ---- B : frais additionnels de la commande consultée --------------------
   /** Chargés à l'ouverture de la fiche de détail UNIQUEMENT (pas au montage du
@@ -655,6 +680,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setExpenseAmount('');
     setExpenseScopeMode('ALL');
     setExpenseQuantityScope('');
+    setCustomMilestones(readCustomMilestones(detailOrder));
+    setNewMilestoneLabel('');
     return () => controller.abort();
   }, [isDetailModalOpen, detailOrder?.id]);
 
@@ -1760,6 +1787,54 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setDetailOrder(prev => (prev && prev.id === order.id ? order : prev));
       setError(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
     }
+  };
+
+  /** Persiste la liste de jalons libres après une opération locale (ajout,
+   *  bascule, suppression) — optimiste, avec retour à l'état précédent si le
+   *  serveur refuse. Contrairement aux 4 jalons fixes, ces jalons n'ont aucune
+   *  signification métier consommée ailleurs : c'est une checklist libre. */
+  const persistCustomMilestones = async (order: SubcontractOrder, next: CustomMilestone[], previous: CustomMilestone[]) => {
+    setCustomMilestones(next);
+    setMilestoneSaving(true);
+    setMilestoneError(null);
+    try {
+      const res = await fetch(`/api/subcontract/${order.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ custom_milestones_json: JSON.stringify(next) })
+      });
+      if (!res.ok) throw new Error(tx(lang,{fr:'Echec de la mise à jour',ar:'فشل التحديث',en:'Update failed',es:'Error al actualizar',pt:'Falha na atualização',tr:'Güncelleme başarısız'}));
+      const patch = { custom_milestones_json: JSON.stringify(next) };
+      setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, ...patch } : o)));
+      setDetailOrder(prev => (prev && prev.id === order.id ? { ...prev, ...patch } : prev));
+    } catch (err: any) {
+      setCustomMilestones(previous);
+      setMilestoneError(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
+    } finally {
+      setMilestoneSaving(false);
+    }
+  };
+
+  const handleAddCustomMilestone = (order: SubcontractOrder) => {
+    const label = newMilestoneLabel.trim();
+    if (!label) {
+      setMilestoneError(tx(lang,{fr:'Indiquez un nom pour le jalon.',ar:'حدّد اسماً للمرحلة.',en:'Enter a name for the milestone.',es:'Indique un nombre para el hito.',pt:'Indique um nome para o marco.',tr:'Kilometre taşı için bir ad girin.'}));
+      return;
+    }
+    const next = [...customMilestones, { id: `cm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, label, done: false }];
+    setNewMilestoneLabel('');
+    persistCustomMilestones(order, next, customMilestones);
+  };
+
+  const handleToggleCustomMilestone = (order: SubcontractOrder, id: string) => {
+    const next = customMilestones.map(m => (m.id === id ? { ...m, done: !m.done } : m));
+    persistCustomMilestones(order, next, customMilestones);
+  };
+
+  const handleRemoveCustomMilestone = (order: SubcontractOrder, id: string) => {
+    const next = customMilestones.filter(m => m.id !== id);
+    persistCustomMilestones(order, next, customMilestones);
   };
 
   /** Décrit les quatre pastilles d'une commande — même définition sur la carte
@@ -4023,7 +4098,59 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   {milestoneChips(detailOrder, 'md').map(chip => (
                     <MilestoneChip key={chip.field} {...chip} onToggle={() => handleToggleMilestone(detailOrder, chip.field)} />
                   ))}
+                  {customMilestones.map(m => (
+                    <span
+                      key={m.id}
+                      className={`font-bold rounded border flex items-center gap-1 text-[10px] px-2.5 py-1.5 ${
+                        m.done
+                          ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text border-indigo-200 dark:border-dk-accent/40'
+                          : 'bg-slate-50 dark:bg-dk-bg text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCustomMilestone(detailOrder, m.id)}
+                        title={tx(lang,{fr:'Cliquer pour basculer',ar:'انقر للتبديل',en:'Click to toggle',es:'Clic para alternar',pt:'Clique para alternar',tr:'Değiştirmek için tıklayın'})}
+                        className="flex items-center gap-1 hover:brightness-95 dark:hover:brightness-125 transition-colors"
+                      >
+                        {m.done ? <Check className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5 opacity-0" />}
+                        {m.label}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCustomMilestone(detailOrder, m.id)}
+                        title={tx(lang,{fr:'Supprimer ce jalon',ar:'حذف هاد المرحلة',en:'Remove this milestone',es:'Eliminar este hito',pt:'Remover este marco',tr:'Bu kilometre taşını kaldır'})}
+                        className="text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </span>
+                  ))}
                 </div>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={newMilestoneLabel}
+                    onChange={(e) => setNewMilestoneLabel(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustomMilestone(detailOrder); } }}
+                    placeholder={tx(lang,{fr:'Ajouter un jalon (repassage, contrôle qualité…)',ar:'إضافة مرحلة (كوي، مراقبة الجودة…)',en:'Add a milestone (ironing, quality check…)',es:'Añadir un hito (planchado, control de calidad…)',pt:'Adicionar um marco (engomar, controlo de qualidade…)',tr:'Kilometre taşı ekle (ütüleme, kalite kontrol…)'})}
+                    className="flex-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                  />
+                  <button
+                    type="button"
+                    disabled={milestoneSaving || !newMilestoneLabel.trim()}
+                    onClick={() => handleAddCustomMilestone(detailOrder)}
+                    className="shrink-0 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-100 dark:hover:bg-dk-elevated text-slate-600 dark:text-dk-text-soft px-2.5 py-1.5 rounded-lg font-bold text-[10px] transition-colors flex items-center gap-1 disabled:opacity-40"
+                  >
+                    <Plus className="w-3 h-3" />
+                    {tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}
+                  </button>
+                </div>
+
+                {milestoneError && (
+                  <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{milestoneError}</p>
+                )}
               </div>
 
               {/* A : coupe interne — simple rappel opérationnel. AUCUNE liaison
@@ -4063,7 +4190,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             <th className="px-4 py-2 text-center font-medium">{tx(lang,{fr:'En stock',ar:'في المخزون',en:'In stock',es:'En stock',pt:'Em stock',tr:'Stokta'})}</th>
                             <th className="px-4 py-2 text-center font-medium">{tx(lang,{fr:'Manque',ar:'النقص',en:'Shortage',es:'Déficit',pt:'Falta',tr:'Eksiklik'})}</th>
                             <th className="px-4 py-2 text-center font-medium">{tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}</th>
-                            <th className="px-4 py-2 text-right font-medium">{tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
@@ -4074,15 +4200,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               <td className="px-4 py-2 text-center text-slate-500 dark:text-dk-muted">{fmt(r.stockActuel)} {r.unit}</td>
                               <td className={`px-4 py-2 text-center font-bold ${r.manque > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-300 dark:text-dk-muted'}`}>{fmt(r.manque)} {r.unit}</td>
                               <td className="px-4 py-2 text-center">{r.fournisseur || <span className="text-slate-300 dark:text-dk-muted">—</span>}</td>
-                              <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">
-                                {fmt(r.cost)} MAD
-                                <MaterialPriceBadge source={r.priceSource} lang={lang} />
-                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
+                    {/* Le prix (matière + provenance stock/manuel) n'est volontairement pas
+                        affiché ici — cette table sert à préparer l'approvisionnement, pas à
+                        chiffrer. Le coût réel apparaît dans la facture (bouton "Facturer"). */}
                   </div>
                 );
               })()}
@@ -4209,7 +4334,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
                       <button
                         type="button"
-                        disabled={expenseSaving}
+                        disabled={expenseSaving || !expenseLabel.trim() || !(Number(expenseAmount) > 0)}
                         onClick={() => handleAddExpense(detailOrder)}
                         className="ml-auto bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-4 py-2 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 disabled:opacity-60 border border-indigo-600 dark:border-dk-accent"
                       >

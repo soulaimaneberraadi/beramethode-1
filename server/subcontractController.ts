@@ -78,7 +78,7 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
         prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
         protoRequired, protoStatus, paymentTerms, defectRateAccepted,
         stitchingDetails, specifications_json, materials_fournisseur_json,
-        coupeLocation
+        coupeLocation, custom_milestones_json
     } = req.body;
 
     if (!modelId || !totalQuantity || !subcontractorName || !deliveryDate) {
@@ -103,8 +103,8 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
                 prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
                 protoRequired, protoStatus, paymentTerms, defectRateAccepted,
                 stitchingDetails, specifications_json, materials_fournisseur_json,
-                coupeLocation
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                coupeLocation, custom_milestones_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         stmt.run(
@@ -142,7 +142,8 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
             stitchingDetails || null,
             specifications_json || null,
             materials_fournisseur_json || null,
-            coupeLocation || 'SUBCONTRACTOR'
+            coupeLocation || 'SUBCONTRACTOR',
+            custom_milestones_json || null
         );
 
         res.status(201).json({ message: 'Subcontract order created successfully', id });
@@ -166,7 +167,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
         prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
         protoRequired, protoStatus, paymentTerms, defectRateAccepted,
         stitchingDetails, specifications_json, materials_fournisseur_json,
-        coupeLocation
+        coupeLocation, custom_milestones_json
     } = req.body;
 
     try {
@@ -216,6 +217,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
                 specifications_json = COALESCE(?, specifications_json),
                 materials_fournisseur_json = COALESCE(?, materials_fournisseur_json),
                 coupeLocation = COALESCE(?, coupeLocation),
+                custom_milestones_json = COALESCE(?, custom_milestones_json),
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND owner_id = ?
         `);
@@ -262,6 +264,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
             v(specifications_json),
             v(materials_fournisseur_json),
             v(coupeLocation),
+            v(custom_milestones_json),
             id,
             companyId
         );

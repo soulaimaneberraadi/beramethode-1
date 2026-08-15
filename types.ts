@@ -659,6 +659,13 @@ export interface SubcontractOrder {
   defectRateAccepted?: number;
   stitchingDetails?: string;
   specifications_json?: string;
+  /** 'INTERNAL' = la coupe est faite chez nous (seules les pièces coupées
+   *  partent) ; 'SUBCONTRACTOR' = la matière brute est expédiée et le
+   *  sous-traitant coupe (comportement historique implicite = défaut). */
+  coupeLocation?: 'INTERNAL' | 'SUBCONTRACTOR';
+  /** Jalons libres ajoutés par l'utilisateur en plus des 4 jalons fixes
+   *  (Tissu/Fournitures/FT/Proto) — JSON stringifié de { id, label, done }[]. */
+  custom_milestones_json?: string;
   created_at?: string;
   updated_at?: string;
 }
