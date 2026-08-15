@@ -5,7 +5,6 @@ import {
     ExternalLink, CreditCard
 } from 'lucide-react';
 import { Facture } from '../types';
-import PaiementsModal from './PaiementsModal';
 
 interface FacturationProps {
     t: (key: string) => string;
@@ -51,8 +50,6 @@ export default function Facturation({ t }: FacturationProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
     const [view, setView] = useState<'dashboard' | 'pending'>('dashboard');
-    /** Facture dont on gère les encaissements (null = modale fermée). */
-    const [factureEncaissement, setFactureEncaissement] = useState<Facture | null>(null);
 
     useEffect(() => {
         loadAll();
@@ -279,14 +276,6 @@ export default function Facturation({ t }: FacturationProps) {
                                     <StatusDot status={f.statut} />
                                     {f.statut}
                                 </span>
-                                <button
-                                    onClick={() => setFactureEncaissement(f)}
-                                    className="h-7 px-2.5 inline-flex items-center gap-1.5 rounded-md text-[12px] font-medium border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
-                                    title="Enregistrer un encaissement"
-                                >
-                                    <CreditCard className="w-3.5 h-3.5" strokeWidth={1.75} />
-                                    Encaisser
-                                </button>
                             </div>
                         </div>
                     ))}
@@ -446,14 +435,6 @@ export default function Facturation({ t }: FacturationProps) {
                         </div>
                     )}
                 </>
-            )}
-
-            {factureEncaissement && (
-                <PaiementsModal
-                    facture={factureEncaissement}
-                    onClose={() => setFactureEncaissement(null)}
-                    onChanged={loadAll}
-                />
             )}
         </div>
     );

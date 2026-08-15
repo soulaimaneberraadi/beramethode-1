@@ -2881,10 +2881,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     const labelRejected = tx(lang,{fr:'Rejetées',ar:'مرفوضة',en:'Rejected',es:'Rechazadas',pt:'Rejeitadas',tr:'Reddedilen'});
 
                     const matchedModel = models.find(m => m.id === order.modelId);
-                    // La vignette illustre l'atelier : photo du profil sous-traitant en priorité,
-                    // repli sur l'image du modèle si le profil n'en a pas.
                     const orderProfile = subcontractorProfiles.find(p => p.name === order.subcontractorName);
-                    const photo = orderProfile?.photo || matchedModel?.image || null;
 
                     return (
                       <div 
@@ -2936,19 +2933,26 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           </div>
 
                           <div className="flex gap-3 items-center">
-                            <div 
+                            <div
                               onClick={() => { if (onLoadModel && matchedModel) onLoadModel(matchedModel); }}
                               className={`w-12 h-12 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl overflow-hidden shrink-0 flex items-center justify-center ${matchedModel ? 'cursor-pointer hover:border-indigo-400 hover:shadow-sm dark:shadow-none transition-all' : ''}`}
                               title={matchedModel ? tx(lang,{fr:"Ouvrir dans l'ingénierie",ar:'فتح في الهندسة الفنية',en:'Open in engineering',es:'Abrir en ingeniería',pt:'Abrir na engenharia',tr:'Mühendislikte aç'}) : undefined}
                             >
-                              {photo ? (
-                                <img src={photo} alt="" className="w-full h-full object-cover" />
+                              {matchedModel?.image ? (
+                                <img src={matchedModel.image} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <Building2 className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
+                                <Package className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
                               )}
                             </div>
                             <div className="space-y-0.5 text-[11px] flex-1">
-                              <p className="font-bold text-slate-800 dark:text-dk-text leading-none">{tx(lang,{fr:'Atelier:',ar:'الورشة:',en:'Workshop:',es:'Taller:',pt:'Oficina:',tr:'Atölye:'})} {order.subcontractorName}</p>
+                              <p className="font-bold text-slate-800 dark:text-dk-text leading-none flex items-center gap-1.5">
+                                {orderProfile?.photo ? (
+                                  <img src={orderProfile.photo} alt="" className="w-4 h-4 rounded-full object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
+                                ) : (
+                                  <Building2 className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted shrink-0" />
+                                )}
+                                {tx(lang,{fr:'Atelier:',ar:'الورشة:',en:'Workshop:',es:'Taller:',pt:'Oficina:',tr:'Atölye:'})} {order.subcontractorName}
+                              </p>
                               {/* Rating display */}
                               <div className="flex items-center gap-1 mt-0.5">
                                 <div className="flex text-amber-400 dark:text-amber-300 text-[10px]">

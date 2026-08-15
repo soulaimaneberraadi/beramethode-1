@@ -7,7 +7,7 @@ const DEFAULT_PREFIXES: Record<string, string> = {
 
 const NUMERO_RETRIES = 5;
 
-function generateNumero(
+export function generateNumero(
   type: string,
   ownerId: number,
   table: 'factures' | 'bons_livraison' = 'factures',

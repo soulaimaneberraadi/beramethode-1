@@ -1766,7 +1766,7 @@ export default function App() {
                         <LaCoupe
                             models={models}
                             setModels={setModels}
-                            onOpenInAtelier={loadModel}
+                            onOpenInAtelier={(m) => { loadModel(m, 'coupe'); setCurrentView('ingenierie'); navigate('ingenierie'); }}
                             currentModelId={currentModelId}
                             setFicheData={setFicheData}
                             onNavigate={(v) => handleNavigation(v as any)}
