@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   Trash2, Shield, User, Search, AlertCircle, Download, GitMerge, Database,
   Building2, Factory, Users, ImageUp, Check, ChevronRight, KeyRound, SlidersHorizontal,
-  FileText, MapPin, Landmark, Briefcase,
+  FileText, MapPin, Landmark, Briefcase, UserPlus, X, Upload, Loader2, AlertTriangle,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { tx } from '../../lib/i18n';
@@ -75,6 +75,115 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const [workspaceMsg, setWorkspaceMsg] = useState<string | null>(null);
 
+  // ── Liste des sociétés (espaces de travail) + import/export/suppression ────
+  interface WorkspaceRow { ownerId: string; name: string; logo: string | null; specialty: string; isActive: boolean }
+  const [workspaces, setWorkspaces] = useState<WorkspaceRow[]>([]);
+  const [workspacesMax, setWorkspacesMax] = useState(2);
+  const [workspacesCanCreate, setWorkspacesCanCreate] = useState(true);
+  const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
+
+  const loadWorkspaces = useCallback(async () => {
+    setLoadingWorkspaces(true);
+    try {
+      const d = await api('/api/workspaces');
+      if (d?.ok) {
+        setWorkspaces(d.workspaces || []);
+        setWorkspacesMax(d.max ?? 2);
+        setWorkspacesCanCreate(!!d.canCreate);
+      }
+    } catch { /* réseau : liste laissée vide */ } finally { setLoadingWorkspaces(false); }
+  }, []);
+
+  // Import (fichier d'export choisi lors de la création d'une société)
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importData, setImportData] = useState<any>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [workspaceResult, setWorkspaceResult] = useState<{ warning?: string | null; imported?: Record<string, number>; skipped?: Record<string, number> } | null>(null);
+  const [showImportDetail, setShowImportDetail] = useState(false);
+
+  const onImportFile = async (file: File) => {
+    setImportError(null);
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      setImportData(parsed);
+      setImportFile(file);
+    } catch {
+      setImportError(tx(lang, { fr: 'Fichier JSON invalide.', ar: 'ملف JSON غير صالح.', en: 'Invalid JSON file.', es: 'Archivo JSON inválido.', pt: 'Ficheiro JSON inválido.', tr: 'Geçersiz JSON dosyası.' }));
+      setImportFile(null);
+      setImportData(null);
+    }
+  };
+  const clearImportFile = () => { setImportFile(null); setImportData(null); setImportError(null); };
+
+  // Export d'une société
+  const [exportingOwnerId, setExportingOwnerId] = useState<string | null>(null);
+  const exportWorkspace = async (ws: WorkspaceRow) => {
+    setExportingOwnerId(ws.ownerId);
+    try {
+      const res = await fetch(`/api/workspaces/${ws.ownerId}/export`, { credentials: 'include' });
+      if (!res.ok) throw new Error('export failed');
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `beramethode-societe-${(ws.name || 'societe').replace(/[^a-z0-9]+/gi, '-')}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setWorkspaceMsg(tx(lang, { fr: "Échec de l'export.", ar: 'فشل التصدير.', en: 'Export failed.', es: 'Error de exportación.', pt: 'Falha na exportação.', tr: 'Dışa aktarma başarısız.' }));
+    } finally { setExportingOwnerId(null); }
+  };
+
+  // Suppression protégée d'une société
+  const [deleteTarget, setDeleteTarget] = useState<WorkspaceRow | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const openDeleteWorkspace = (ws: WorkspaceRow) => {
+    setDeleteTarget(ws); setDeletePassword(''); setDeleteConfirmName(''); setDeleteError(null);
+  };
+  const closeDeleteWorkspace = () => { setDeleteTarget(null); setDeletePassword(''); setDeleteConfirmName(''); setDeleteError(null); };
+
+  const confirmDeleteWorkspace = async () => {
+    if (!deleteTarget || deleteConfirmName !== deleteTarget.name || deleting) return;
+    setDeleting(true); setDeleteError(null);
+    try {
+      const res = await fetch(`/api/workspaces/${deleteTarget.ownerId}/delete`, {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: deletePassword, confirmName: deleteConfirmName }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d?.ok) {
+        const code = d?.code;
+        const msg = code === 'BAD_PASSWORD'
+          ? tx(lang, { fr: 'Mot de passe incorrect.', ar: 'كلمة السر غير صحيحة.', en: 'Incorrect password.', es: 'Contraseña incorrecta.', pt: 'Palavra-passe incorreta.', tr: 'Şifre yanlış.' })
+          : code === 'NAME_MISMATCH'
+          ? tx(lang, { fr: 'Le nom ne correspond pas.', ar: 'الاسم غير مطابق.', en: 'The name does not match.', es: 'El nombre no coincide.', pt: 'O nome não corresponde.', tr: 'Ad eşleşmiyor.' })
+          : code === 'LAST_WORKSPACE'
+          ? tx(lang, { fr: 'Impossible de supprimer la dernière société.', ar: 'لا يمكن حذف آخر شركة.', en: 'Cannot delete the last company.', es: 'No se puede eliminar la última empresa.', pt: 'Não é possível eliminar a última empresa.', tr: 'Son şirket silinemez.' })
+          : code === 'PASSWORD_REQUIRED'
+          ? tx(lang, { fr: 'Le mot de passe est requis.', ar: 'كلمة السر مطلوبة.', en: 'Password is required.', es: 'La contraseña es obligatoria.', pt: 'A palavra-passe é obrigatória.', tr: 'Şifre gereklidir.' })
+          : code === 'NAME_REQUIRED'
+          ? tx(lang, { fr: 'Le nom de confirmation est requis.', ar: 'اسم التأكيد مطلوب.', en: 'Confirmation name is required.', es: 'El nombre de confirmación es obligatorio.', pt: 'O nome de confirmação é obrigatório.', tr: 'Onay adı gereklidir.' })
+          : tx(lang, { fr: 'Échec de la suppression.', ar: 'فشل الحذف.', en: 'Deletion failed.', es: 'Error al eliminar.', pt: 'Falha ao eliminar.', tr: 'Silme başarısız.' });
+        setDeleteError(msg);
+        setDeleting(false);
+        return;
+      }
+      setDeleteTarget(null);
+      setDeleting(false);
+      clearLocalAppData();
+      window.location.reload();
+    } catch {
+      setDeleteError(tx(lang, { fr: 'Échec de la suppression.', ar: 'فشل الحذف.', en: 'Deletion failed.', es: 'Error al eliminar.', pt: 'Falha ao eliminar.', tr: 'Silme başarısız.' }));
+      setDeleting(false);
+    }
+  };
+
   // ── "Devenir société" (compte personnel → société) ──────────────────────────
   const [showBecomeSociete, setShowBecomeSociete] = useState(false);
   const [becomeSocieteForm, setBecomeSocieteForm] = useState({
@@ -123,14 +232,41 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
   }, []);
   useEffect(() => { void loadCompany(); }, [loadCompany]);
 
+  useEffect(() => {
+    if (company?.canEdit && (company.accountType === 'societe' || company.accountType === 'client')) void loadWorkspaces();
+  }, [company?.canEdit, company?.accountType, loadWorkspaces]);
+
+  const isSociete = (company?.accountType || ctxAccountType) === 'societe';
+
   const createWorkspace = async () => {
     const name = newWorkspaceName.trim();
     if (!name || creatingWorkspace) return;
     setCreatingWorkspace(true);
     setWorkspaceMsg(null);
+    setWorkspaceResult(null);
     try {
-      const d = await api('/api/workspaces', { method: 'POST', body: JSON.stringify({ name }) });
-      if (!d?.ok) throw new Error(d?.error || 'create failed');
+      const body: Record<string, any> = { name };
+      if (importData) body.importData = importData;
+      const res = await fetch('/api/workspaces', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const d = await res.json();
+      if (!res.ok || !d?.ok) {
+        const code = d?.code;
+        const msg = code === 'WORKSPACE_LIMIT'
+          ? tx(lang, { fr: `Limite de ${d.max ?? workspacesMax} sociétés atteinte.`, ar: `تم بلوغ الحد الأقصى (${d.max ?? workspacesMax} شركات).`, en: `Limit of ${d.max ?? workspacesMax} companies reached.`, es: `Límite de ${d.max ?? workspacesMax} empresas alcanzado.`, pt: `Limite de ${d.max ?? workspacesMax} empresas atingido.`, tr: `${d.max ?? workspacesMax} şirket sınırına ulaşıldı.` })
+          : code === 'IMPORT_CONFLICT'
+          ? tx(lang, { fr: 'Ces données existent déjà dans une société active — supprimez d\'abord la société source si vous voulez la restaurer ailleurs.', ar: 'هذه البيانات موجودة بالفعل في شركة نشطة — احذف الشركة المصدر أولاً إذا كنت تريد استعادتها في مكان آخر.', en: 'This data already exists in an active company — delete the source company first if you want to restore it elsewhere.', es: 'Estos datos ya existen en una empresa activa — elimine primero la empresa origen si desea restaurarlos en otro lugar.', pt: 'Estes dados já existem numa empresa ativa — elimine primeiro a empresa de origem se quiser restaurá-los noutro local.', tr: 'Bu veriler zaten etkin bir şirkette mevcut — başka bir yere geri yüklemek istiyorsanız önce kaynak şirketi silin.' })
+          : tx(lang, { fr: 'Échec de la création.', ar: 'فشل إنشاء الشركة.', en: 'Creation failed.', es: 'Error de creación.', pt: 'Falha na criação.', tr: 'Oluşturma başarısız.' });
+        setWorkspaceMsg(msg);
+        setCreatingWorkspace(false);
+        return;
+      }
+      if (d.warning) {
+        setWorkspaceResult({ warning: d.warning, imported: d.imported, skipped: d.skipped });
+        setCreatingWorkspace(false);
+        return;
+      }
       clearLocalAppData();
       window.location.reload();
     } catch {
@@ -138,6 +274,8 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
       setCreatingWorkspace(false);
     }
   };
+
+  const finishAfterWarning = () => { clearLocalAppData(); window.location.reload(); };
 
   const setMeta = (key: string, val: string) =>
     setCompany(c => c ? { ...c, profileMeta: { ...(c.profileMeta || {}), [key]: val } } : c);
@@ -218,6 +356,42 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
     } catch (err: any) { alert(err.message); }
   };
 
+  // ── Ajout direct d'un compte à l'équipe (société active) ────────────────────
+  const [teamRoles, setTeamRoles] = useState<{ id: string; name: string }[]>([]);
+  const [addTeamUserId, setAddTeamUserId] = useState<number | null>(null);
+  const [addTeamRoleId, setAddTeamRoleId] = useState('');
+  const [addingTeamUserId, setAddingTeamUserId] = useState<number | null>(null);
+  const [addTeamError, setAddTeamError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isSociete) return;
+    api('/api/permissions/roles').then(d => { if (d?.ok && Array.isArray(d.data)) setTeamRoles(d.data); }).catch(() => {});
+  }, [isSociete]);
+
+  const openAddToTeam = (u: UserData) => {
+    setAddTeamError(null);
+    setAddTeamUserId(u.id);
+    setAddTeamRoleId(teamRoles[0]?.id || '');
+  };
+  const closeAddToTeam = () => { setAddTeamUserId(null); setAddTeamError(null); };
+
+  const submitAddToTeam = async (u: UserData) => {
+    if (!addTeamRoleId) { setAddTeamError(tx(lang, { fr: 'Choisissez un rôle.', ar: 'اختر دوراً.', en: 'Choose a role.', es: 'Elija un rol.', pt: 'Escolha uma função.', tr: 'Bir rol seçin.' })); return; }
+    setAddingTeamUserId(u.id); setAddTeamError(null);
+    try {
+      const res = await fetch('/api/permissions/members', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: u.email, role_id: addTeamRoleId, name: u.name }),
+      });
+      const d = await res.json();
+      if (!res.ok || !d?.ok) throw new Error(d?.error || 'add failed');
+      setAddTeamUserId(null);
+      setTab('team');
+    } catch {
+      setAddTeamError(tx(lang, { fr: "Échec de l'ajout à l'équipe.", ar: 'فشل الإضافة إلى الفريق.', en: 'Failed to add to team.', es: 'Error al añadir al equipo.', pt: 'Falha ao adicionar à equipa.', tr: 'Ekibe eklenemedi.' }));
+    } finally { setAddingTeamUserId(null); }
+  };
+
   const handleDeleteUser = async (userId: number) => {
     if (!confirm(tx(lang, { fr: 'Supprimer ce compte ? Action irréversible.', ar: 'حذف هذا الحساب؟ إجراء لا رجعة فيه.', en: 'Delete this account? Irreversible.', es: '¿Eliminar esta cuenta? Irreversible.', pt: 'Eliminar esta conta? Irreversível.', tr: 'Bu hesap silinsin mi? Geri alınamaz.' }))) return;
     try {
@@ -266,8 +440,6 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
     (u.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (u.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const isSociete = (company?.accountType || ctxAccountType) === 'societe';
 
   // Onglets visibles selon le type de compte (RBAC d'équipe : société uniquement).
   const TABS: { key: Tab; label: string; icon: any; show: boolean }[] = [
@@ -509,20 +681,153 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                   <div className="flex items-center gap-2">
                     <Factory className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                     <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Espaces de travail', ar: 'مساحات العمل', en: 'Workspaces', es: 'Espacios de trabajo', pt: 'Espaços de trabalho', tr: 'Çalışma alanları' })}</h2>
+                    <span className="text-[11px] font-semibold text-slate-400 dark:text-dk-muted">({workspaces.length}/{workspacesMax})</span>
                   </div>
-                  <button type="button" onClick={() => setShowNewWorkspace(v => !v)} className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors shadow-sm">
+                  <button type="button" onClick={() => { setShowNewWorkspace(v => !v); setWorkspaceMsg(null); setWorkspaceResult(null); clearImportFile(); }} disabled={!workspacesCanCreate}
+                    className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600">
                     <Factory className="w-4 h-4" />
                     {tx(lang, { fr: 'Nouvelle société', ar: 'شركة جديدة', en: 'New company', es: 'Nueva empresa', pt: 'Nova empresa', tr: 'Yeni şirket' })}
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Créez un nouvel espace de travail isolé pour gérer une autre société sous ce même compte.', ar: 'أنشئ مساحة عمل جديدة معزولة لإدارة شركة أخرى تحت نفس هذا الحساب.', en: 'Create a new isolated workspace to manage another company under this same account.', es: 'Cree un nuevo espacio de trabajo aislado para gestionar otra empresa bajo esta misma cuenta.', pt: 'Crie um novo espaço de trabalho isolado para gerir outra empresa sob esta mesma conta.', tr: 'Bu aynı hesap altında başka bir şirketi yönetmek için yeni, izole bir çalışma alanı oluşturun.' })}</p>
-                {showNewWorkspace && (
-                  <div className="flex flex-wrap items-center gap-2 p-4 bg-slate-50 dark:bg-dk-bg rounded-2xl border border-emerald-200 dark:border-emerald-800">
-                    <input autoFocus value={newWorkspaceName} onChange={e => setNewWorkspaceName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void createWorkspace(); }} placeholder={tx(lang, { fr: 'Nom de la société', ar: 'اسم الشركة', en: 'Company name', es: 'Nombre de la empresa', pt: 'Nome da empresa', tr: 'Şirket adı' })} className="flex-1 min-w-[220px] px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text outline-none focus:border-emerald-500" />
-                    <button type="button" onClick={() => void createWorkspace()} disabled={creatingWorkspace || !newWorkspaceName.trim()} className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50">{tx(lang, { fr: 'Créer', ar: 'إنشاء', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Oluştur' })}</button>
-                    {workspaceMsg && <span className="w-full text-sm text-red-600 dark:text-red-400">{workspaceMsg}</span>}
+
+                {!workspacesCanCreate && (
+                  <p className="text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" /> {tx(lang, { fr: `Limite de ${workspacesMax} sociétés atteinte.`, ar: `تم بلوغ الحد الأقصى (${workspacesMax} شركات).`, en: `Limit of ${workspacesMax} companies reached.`, es: `Límite de ${workspacesMax} empresas alcanzado.`, pt: `Limite de ${workspacesMax} empresas atingido.`, tr: `${workspacesMax} şirket sınırına ulaşıldı.` })}
+                  </p>
+                )}
+
+                {/* Liste des sociétés existantes */}
+                {loadingWorkspaces ? (
+                  <div className="p-4 text-center text-slate-400 dark:text-dk-muted text-xs">{tx(lang, { fr: 'Chargement…', ar: 'جارٍ التحميل…', en: 'Loading…', es: 'Cargando…', pt: 'A carregar…', tr: 'Yükleniyor…' })}</div>
+                ) : workspaces.length > 0 && (
+                  <div className="divide-y divide-slate-100 dark:divide-dk-border border border-slate-100 dark:border-dk-border rounded-xl overflow-hidden">
+                    {workspaces.map(ws => (
+                      <div key={ws.ownerId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-white dark:bg-dk-surface">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Factory className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" strokeWidth={1.75} />
+                          <span className="text-sm font-semibold text-slate-700 dark:text-dk-text truncate">{ws.name}</span>
+                          {ws.isActive && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 shrink-0">
+                              {tx(lang, { fr: 'Actuelle', ar: 'الحالية', en: 'Current', es: 'Actual', pt: 'Atual', tr: 'Mevcut' })}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button type="button" onClick={() => void exportWorkspace(ws)} disabled={exportingOwnerId === ws.ownerId}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg text-slate-600 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-bg disabled:opacity-50 transition-colors">
+                            {exportingOwnerId === ws.ownerId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                            {tx(lang, { fr: 'Exporter', ar: 'تصدير', en: 'Export', es: 'Exportar', pt: 'Exportar', tr: 'Dışa aktar' })}
+                          </button>
+                          <button type="button" onClick={() => openDeleteWorkspace(ws)} disabled={workspaces.length <= 1}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Eliminar', tr: 'Sil' })}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
+                {workspaceMsg && <p className="text-sm text-red-600 dark:text-red-400">{workspaceMsg}</p>}
+
+                {showNewWorkspace && !workspaceResult && (
+                  <div className="space-y-3 p-4 bg-slate-50 dark:bg-dk-bg rounded-2xl border border-emerald-200 dark:border-emerald-800">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input autoFocus value={newWorkspaceName} onChange={e => setNewWorkspaceName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void createWorkspace(); }} placeholder={tx(lang, { fr: 'Nom de la société', ar: 'اسم الشركة', en: 'Company name', es: 'Nombre de la empresa', pt: 'Nome da empresa', tr: 'Şirket adı' })} className="flex-1 min-w-[220px] px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text outline-none focus:border-emerald-500" />
+                      <button type="button" onClick={() => void createWorkspace()} disabled={creatingWorkspace || !newWorkspaceName.trim()} className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2">
+                        {creatingWorkspace && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        {creatingWorkspace ? tx(lang, { fr: 'Création…', ar: 'جارٍ الإنشاء…', en: 'Creating…', es: 'Creando…', pt: 'A criar…', tr: 'Oluşturuluyor…' }) : tx(lang, { fr: 'Créer', ar: 'إنشاء', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Oluştur' })}
+                      </button>
+                    </div>
+
+                    {/* Import d'un export précédent */}
+                    <div className="pt-2 border-t border-slate-200 dark:border-dk-border">
+                      <p className="text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-2">{tx(lang, { fr: 'Importer les données d\'un export précédent', ar: 'استيراد بيانات من تصدير سابق', en: 'Import data from a previous export', es: 'Importar datos de una exportación anterior', pt: 'Importar dados de uma exportação anterior', tr: 'Önceki bir dışa aktarımdan veri içe aktar' })}</p>
+                      {!importFile ? (
+                        <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-dk-accent-text cursor-pointer hover:underline">
+                          <Upload className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Choisir un fichier JSON', ar: 'اختر ملف JSON', en: 'Choose a JSON file', es: 'Elegir un archivo JSON', pt: 'Escolher um ficheiro JSON', tr: 'Bir JSON dosyası seç' })}
+                          <input type="file" accept="application/json" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) void onImportFile(f); }} />
+                        </label>
+                      ) : (
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="font-medium text-slate-600 dark:text-dk-text truncate max-w-[220px]">{importFile.name}</span>
+                          <button type="button" onClick={clearImportFile} className="text-slate-400 dark:text-dk-muted hover:text-rose-500"><X className="w-3.5 h-3.5" /></button>
+                        </div>
+                      )}
+                      {importError && <p className="text-[11px] text-rose-500 mt-1">{importError}</p>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Résultat de la création avec avertissement d'import */}
+                {workspaceResult && (
+                  <div className="space-y-3 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-800">
+                    <p className="text-sm font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4" />
+                      {workspaceResult.warning === 'PARTIAL_IMPORT_DUPLICATES'
+                        ? tx(lang, { fr: 'Certaines données existaient déjà et ont été ignorées.', ar: 'بعض البيانات كانت موجودة مسبقًا وتم تجاهلها.', en: 'Some data already existed and was skipped.', es: 'Algunos datos ya existían y fueron omitidos.', pt: 'Alguns dados já existiam e foram ignorados.', tr: 'Bazı veriler zaten mevcuttu ve atlandı.' })
+                        : tx(lang, { fr: "Certaines lignes n'ont pas pu être importées.", ar: 'تعذّر استيراد بعض السطور.', en: 'Some rows could not be imported.', es: 'Algunas filas no se pudieron importar.', pt: 'Algumas linhas não puderam ser importadas.', tr: 'Bazı satırlar içe aktarılamadı.' })}
+                    </p>
+                    <button type="button" onClick={() => setShowImportDetail(v => !v)} className="text-xs font-semibold text-amber-700 dark:text-amber-400 underline">
+                      {showImportDetail ? tx(lang, { fr: 'Masquer le détail', ar: 'إخفاء التفاصيل', en: 'Hide details', es: 'Ocultar detalles', pt: 'Ocultar detalhes', tr: 'Ayrıntıları gizle' }) : tx(lang, { fr: 'Voir le détail', ar: 'عرض التفاصيل', en: 'View details', es: 'Ver detalles', pt: 'Ver detalhes', tr: 'Ayrıntıları göster' })}
+                    </button>
+                    {showImportDetail && (
+                      <div className="text-[11px] text-slate-600 dark:text-dk-muted grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                        {Object.keys({ ...(workspaceResult.imported || {}), ...(workspaceResult.skipped || {}) }).map(table => (
+                          <div key={table} className="flex justify-between gap-2">
+                            <span className="truncate">{table}</span>
+                            <span className="font-mono">
+                              {tx(lang, { fr: 'importé', ar: 'مستورد', en: 'imported', es: 'importado', pt: 'importado', tr: 'içe aktarıldı' })}: {workspaceResult.imported?.[table] ?? 0} · {tx(lang, { fr: 'ignoré', ar: 'متجاوَز', en: 'skipped', es: 'omitido', pt: 'ignorado', tr: 'atlandı' })}: {workspaceResult.skipped?.[table] ?? 0}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <button type="button" onClick={finishAfterWarning} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700">
+                      {tx(lang, { fr: 'Continuer', ar: 'متابعة', en: 'Continue', es: 'Continuar', pt: 'Continuar', tr: 'Devam et' })}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Modale de suppression protégée d'une société */}
+            {deleteTarget && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeDeleteWorkspace}>
+                <div className="bg-white dark:bg-dk-surface rounded-2xl p-6 w-full max-w-md shadow-2xl dark:shadow-dk-elevated space-y-4" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-rose-500" />
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Supprimer la société', ar: 'حذف الشركة', en: 'Delete company', es: 'Eliminar empresa', pt: 'Eliminar empresa', tr: 'Şirketi sil' })}</h2>
+                  </div>
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-medium bg-rose-50 dark:bg-rose-900/20 p-3 rounded-xl">
+                    {tx(lang, { fr: `Cette action est IRRÉVERSIBLE : toutes les données de « ${deleteTarget.name} » seront définitivement supprimées.`, ar: `هذا الإجراء لا رجعة فيه: سيتم حذف جميع بيانات «${deleteTarget.name}» نهائيًا.`, en: `This action is IRREVERSIBLE: all data for "${deleteTarget.name}" will be permanently deleted.`, es: `Esta acción es IRREVERSIBLE: todos los datos de «${deleteTarget.name}» se eliminarán permanentemente.`, pt: `Esta ação é IRREVERSÍVEL: todos os dados de «${deleteTarget.name}» serão eliminados permanentemente.`, tr: `Bu işlem GERİ ALINAMAZ: "${deleteTarget.name}" şirketinin tüm verileri kalıcı olarak silinecek.` })}
+                  </p>
+                  <button type="button" onClick={() => void exportWorkspace(deleteTarget)} disabled={exportingOwnerId === deleteTarget.ownerId}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border text-sm font-bold text-slate-700 dark:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-bg disabled:opacity-50">
+                    {exportingOwnerId === deleteTarget.ownerId ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                    {tx(lang, { fr: "Exporter d'abord", ar: 'التصدير أولاً', en: 'Export first', es: 'Exportar primero', pt: 'Exportar primeiro', tr: 'Önce dışa aktar' })}
+                  </button>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">
+                      {tx(lang, { fr: `Tapez « ${deleteTarget.name} » pour confirmer`, ar: `اكتب «${deleteTarget.name}» للتأكيد`, en: `Type "${deleteTarget.name}" to confirm`, es: `Escriba «${deleteTarget.name}» para confirmar`, pt: `Digite «${deleteTarget.name}» para confirmar`, tr: `Onaylamak için "${deleteTarget.name}" yazın` })}
+                    </label>
+                    <input className={inputCls} value={deleteConfirmName} onChange={e => setDeleteConfirmName(e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Mot de passe', ar: 'كلمة السر', en: 'Password', es: 'Contraseña', pt: 'Palavra-passe', tr: 'Şifre' })}</label>
+                    <input type="password" className={inputCls} value={deletePassword} onChange={e => setDeletePassword(e.target.value)} />
+                  </div>
+                  {deleteError && <p className="text-xs font-medium text-rose-500">{deleteError}</p>}
+                  <div className="flex justify-end gap-3">
+                    <button type="button" onClick={closeDeleteWorkspace} className="px-4 py-2 text-slate-600 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-bg rounded-lg font-medium text-sm">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+                    <button type="button" onClick={confirmDeleteWorkspace} disabled={deleteConfirmName !== deleteTarget.name || !deletePassword || deleting}
+                      className="px-4 py-2 bg-rose-600 text-white text-sm rounded-lg font-bold hover:bg-rose-700 disabled:opacity-50 inline-flex items-center gap-2">
+                      {deleting && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {tx(lang, { fr: 'Supprimer définitivement', ar: 'حذف نهائي', en: 'Delete permanently', es: 'Eliminar definitivamente', pt: 'Eliminar definitivamente', tr: 'Kalıcı olarak sil' })}
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -648,6 +953,12 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                           </td>
                           <td className="px-6 py-4 text-end">
                             <div className="flex items-center justify-end gap-2">
+                              {isSociete && (
+                                <button onClick={() => (addTeamUserId === u.id ? closeAddToTeam() : openAddToTeam(u))}
+                                  className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold rounded-lg text-emerald-700 dark:text-dk-accent-text hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
+                                  <UserPlus className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Équipe', ar: 'الفريق', en: 'Team', es: 'Equipo', pt: 'Equipa', tr: 'Ekip' })}
+                                </button>
+                              )}
                               <select value={u.role} onChange={e => handleRoleUpdate(u.id, e.target.value as 'user' | 'admin')} disabled={u.id === user?.id}
                                 className="text-sm rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-bg text-slate-700 dark:text-dk-text focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-50 px-2 py-1">
                                 <option value="user">user</option>
@@ -657,6 +968,24 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
+                            {isSociete && addTeamUserId === u.id && (
+                              <div className="mt-2 flex flex-wrap items-center justify-end gap-2 p-3 bg-emerald-50/60 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-800 rounded-xl">
+                                <span className="text-xs font-semibold text-slate-600 dark:text-dk-muted">{tx(lang, { fr: 'Rôle', ar: 'الدور', en: 'Role', es: 'Rol', pt: 'Função', tr: 'Rol' })}</span>
+                                <select value={addTeamRoleId} onChange={e => setAddTeamRoleId(e.target.value)}
+                                  className="text-sm rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-bg text-slate-700 dark:text-dk-text px-2 py-1.5">
+                                  {teamRoles.length === 0 && <option value="">{tx(lang, { fr: 'Aucun rôle', ar: 'لا يوجد دور', en: 'No role', es: 'Sin rol', pt: 'Sem função', tr: 'Rol yok' })}</option>}
+                                  {teamRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                </select>
+                                <button onClick={() => submitAddToTeam(u)} disabled={addingTeamUserId === u.id || !addTeamRoleId}
+                                  className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50">
+                                  {addingTeamUserId === u.id ? tx(lang, { fr: 'Ajout…', ar: 'جارٍ الإضافة…', en: 'Adding…', es: 'Añadiendo…', pt: 'A adicionar…', tr: 'Ekleniyor…' }) : tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
+                                </button>
+                                <button onClick={closeAddToTeam} className="px-2 py-1.5 text-xs font-semibold text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text">
+                                  {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
+                                </button>
+                                {addTeamError && <span className="w-full text-end text-xs font-medium text-rose-500">{addTeamError}</span>}
+                              </div>
+                            )}
                           </td>
                         </motion.tr>
                       ))}

@@ -1,10 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Shield, ChevronRight, Lock, Check, Briefcase, Phone } from 'lucide-react';
+import { Mail, Shield, ChevronRight, Lock, Check, Briefcase, Phone, Eye, Pencil, KeyRound } from 'lucide-react';
 import { useAuth } from '../src/context/AuthContext';
 import { usePermissions } from '../src/context/PermissionsContext';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 import PermissionsManager from './PermissionsManager';
+import { PROTECTED_PAGES, pageLabel, fieldLabel } from '../app/permissionCatalog';
+
+type MyAccessResp = {
+  ok: boolean;
+  isSuper?: boolean;
+  roleId?: string | null;
+  pages?: Record<string, { view?: boolean; edit?: boolean }>;
+  fields?: Record<string, { view?: boolean; edit?: boolean }>;
+  hiddenPages?: string[];
+  accountType?: string;
+  level?: number;
+  roleName?: string | null;
+  parentRoleId?: string | null;
+  overrides?: { resource_type: 'page' | 'field'; resource_key: string; can_view: 0 | 1; can_edit: 0 | 1 }[];
+};
 
 const ACCENT = '#2149C1';
 
@@ -19,6 +34,17 @@ export default function Profil() {
   const { lang } = useLang();
   const { isSuper, roleId } = usePermissions();
   const [showAccess, setShowAccess] = useState(false);
+
+  // Mes accès (lecture seule) — chargé directement via /api/permissions/me
+  const [myAccess, setMyAccess] = useState<MyAccessResp | null>(null);
+  const [myAccessLoading, setMyAccessLoading] = useState(true);
+  useEffect(() => {
+    fetch('/api/permissions/me', { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => { if (d?.ok) setMyAccess(d); })
+      .catch(() => {})
+      .finally(() => setMyAccessLoading(false));
+  }, []);
 
   // Profil personnel (user_profiles) — chargé/sauvegardé via /api/profile/me
   const [form, setForm] = useState({ name: '', phone: '', metier: '' });
@@ -99,6 +125,103 @@ export default function Profil() {
             </button>
             {saved && <span className="text-[12px] text-emerald-600 dark:text-emerald-400 dark:text-green-300 inline-flex items-center gap-1"><Check size={13} strokeWidth={2} /> {tx(lang, { fr: 'Enregistré', ar: 'تم الحفظ', en: 'Saved', es: 'Guardado', pt: 'Salvo', tr: 'Kaydedildi' })}</span>}
           </div>
+        </div>
+
+        {/* Mes accès — lecture seule, visible par tous */}
+        <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border p-5">
+          <h2 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text mb-3 flex items-center gap-2">
+            <KeyRound size={14} strokeWidth={1.75} className="text-slate-400 dark:text-dk-muted" />
+            {tx(lang, { fr: 'Mes accès', ar: 'صلاحياتي', en: 'My access', es: 'Mis accesos', pt: 'Meus acessos', tr: 'Erişimlerim' })}
+          </h2>
+
+          {myAccessLoading ? (
+            <p className="text-[12px] text-slate-400 dark:text-dk-muted">
+              {tx(lang, { fr: 'Chargement…', ar: 'جارٍ التحميل…', en: 'Loading…', es: 'Cargando…', pt: 'Carregando…', tr: 'Yükleniyor…' })}
+            </p>
+          ) : !myAccess ? (
+            <p className="text-[12px] text-slate-400 dark:text-dk-muted">
+              {tx(lang, { fr: 'Informations d’accès indisponibles pour le moment.', ar: 'معلومات الصلاحيات غير متوفرة حالياً.', en: 'Access information is currently unavailable.', es: 'Información de accesos no disponible por el momento.', pt: 'Informações de acesso indisponíveis no momento.', tr: 'Erişim bilgileri şu anda kullanılamıyor.' })}
+            </p>
+          ) : myAccess.isSuper ? (
+            <p className="text-[12px] text-slate-500 dark:text-dk-text-soft leading-relaxed">
+              {tx(lang, { fr: 'Vous avez un accès complet à cette société.', ar: 'لديك صلاحية كاملة على هذه الشركة.', en: 'You have full access to this company.', es: 'Tiene acceso completo a esta empresa.', pt: 'Você tem acesso total a esta empresa.', tr: 'Bu şirkete tam erişiminiz var.' })}
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md border border-indigo-200 dark:border-dk-border bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">
+                  <Shield size={11} strokeWidth={1.75} />
+                  {myAccess.roleName || tx(lang, { fr: 'Aucun rôle assigné', ar: 'لا يوجد دور مسند', en: 'No role assigned', es: 'Sin rol asignado', pt: 'Nenhum papel atribuído', tr: 'Atanmış rol yok' })}
+                </span>
+                {typeof myAccess.level === 'number' && myAccess.level >= 0 && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 text-slate-500 dark:text-dk-text-soft">
+                    {tx(lang, { fr: 'Niveau', ar: 'المستوى', en: 'Level', es: 'Nivel', pt: 'Nível', tr: 'Seviye' })} {myAccess.level}
+                  </span>
+                )}
+              </div>
+
+              {/* Pages accessibles */}
+              <div>
+                <span className="text-[11px] font-medium text-slate-500 dark:text-dk-text-soft">
+                  {tx(lang, { fr: 'Pages accessibles', ar: 'الصفحات المتاحة', en: 'Accessible pages', es: 'Páginas accesibles', pt: 'Páginas acessíveis', tr: 'Erişilebilir sayfalar' })}
+                </span>
+                <div className="mt-2 space-y-0.5">
+                  {PROTECTED_PAGES.filter(pg => myAccess.pages?.[pg]?.view).map(pg => {
+                    const p = myAccess.pages![pg];
+                    return (
+                      <div key={pg} className="flex items-center justify-between py-0.5">
+                        <span className="text-[13px] text-slate-600 dark:text-dk-text-soft">{pageLabel(pg, lang)}</span>
+                        <div className="flex items-center gap-2 text-slate-400 dark:text-dk-muted">
+                          <Eye size={13} strokeWidth={1.75} className="text-emerald-500 dark:text-emerald-400" />
+                          {p?.edit && <Pencil size={13} strokeWidth={1.75} className="text-indigo-500 dark:text-indigo-400" />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {PROTECTED_PAGES.filter(pg => myAccess.pages?.[pg]?.view).length === 0 && (
+                    <p className="text-[12px] text-slate-400 dark:text-dk-muted">
+                      {tx(lang, { fr: 'Aucune page accessible.', ar: 'لا توجد صفحة متاحة.', en: 'No accessible pages.', es: 'Ninguna página accesible.', pt: 'Nenhuma página acessível.', tr: 'Erişilebilir sayfa yok.' })}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Exceptions personnelles */}
+              {myAccess.overrides && myAccess.overrides.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-dk-text-soft">
+                    {tx(lang, { fr: 'Exceptions personnelles', ar: 'استثناءات شخصية', en: 'Personal exceptions', es: 'Excepciones personales', pt: 'Exceções pessoais', tr: 'Kişisel istisnalar' })}
+                  </span>
+                  <p className="text-[11px] text-slate-400 dark:text-dk-muted mt-0.5">
+                    {tx(lang, { fr: 'Ces exceptions priment sur votre rôle.', ar: 'هذه الاستثناءات لها الأولوية على دورك.', en: 'These exceptions take priority over your role.', es: 'Estas excepciones tienen prioridad sobre su rol.', pt: 'Essas exceções têm prioridade sobre seu papel.', tr: 'Bu istisnalar rolünüzden önceliklidir.' })}
+                  </p>
+                  <div className="mt-2 space-y-1">
+                    {myAccess.overrides.map((ov, i) => (
+                      <div key={`${ov.resource_type}-${ov.resource_key}-${i}`} className="flex items-center justify-between py-0.5">
+                        <span className="text-[13px] text-slate-600 dark:text-dk-text-soft">
+                          {ov.resource_type === 'page' ? pageLabel(ov.resource_key, lang) : fieldLabel(ov.resource_key, lang)}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md border ${ov.can_view ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-700'}`}>
+                            <Eye size={9} strokeWidth={2} className="inline -mt-0.5 mr-0.5" />
+                            {ov.can_view
+                              ? tx(lang, { fr: 'Autorisé', ar: 'مسموح', en: 'Allowed', es: 'Permitido', pt: 'Permitido', tr: 'İzinli' })
+                              : tx(lang, { fr: 'Interdit', ar: 'ممنوع', en: 'Denied', es: 'Denegado', pt: 'Negado', tr: 'Reddedildi' })}
+                          </span>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md border ${ov.can_edit ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-700' : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-700'}`}>
+                            <Pencil size={9} strokeWidth={2} className="inline -mt-0.5 mr-0.5" />
+                            {ov.can_edit
+                              ? tx(lang, { fr: 'Autorisé', ar: 'مسموح', en: 'Allowed', es: 'Permitido', pt: 'Permitido', tr: 'İzinli' })
+                              : tx(lang, { fr: 'Interdit', ar: 'ممنوع', en: 'Denied', es: 'Denegado', pt: 'Negado', tr: 'Reddedildi' })}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Équipe & Permissions — admin/patron uniquement */}
