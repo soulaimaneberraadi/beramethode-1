@@ -12,7 +12,7 @@ import {
   ChevronDown, ChevronUp, Loader2, Info, Eye, Layers, Palette,
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
-  AlertTriangle, Scissors
+  AlertTriangle, Scissors, Lock
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
@@ -88,7 +88,13 @@ const ModelPickerField: React.FC<{
   open: boolean;
   setOpen: (v: boolean | ((p: boolean) => boolean)) => void;
   onSelect: (id: string) => void;
-}> = ({ lang, models, value, open, setOpen, onSelect }) => {
+  /** Verrouille le choix — utilisé à l'ÉDITION d'une commande. Le modèle porte
+   *  désormais le tarif, les frais et la quantité de SA commande dans sa fiche de
+   *  coût : le rebrancher ailleurs laisserait l'ancien modèle avec un prix de
+   *  revient qui ne correspond plus à aucune commande. Le champ reste visible,
+   *  car savoir de quel modèle il s'agit fait partie de la lecture de la fiche. */
+  locked?: boolean;
+}> = ({ lang, models, value, open, setOpen, onSelect, locked = false }) => {
   const manualLabel = tx(lang as any,{fr:'Saisie Manuelle (Sans modèle existant)',ar:'إدخال يدوي (بدون موديل موجود)',en:'Manual Entry (No existing model)',es:'Entrada Manual (Sin modelo existente)',pt:'Inserção Manual (Sem modelo existente)',tr:'Manuel Giriş (Mevcut model yok)'});
   const selected = models.find(m => m.id === value);
   const thumb = (src?: string, alt?: string, s = 'w-8 h-8') => src
@@ -100,8 +106,10 @@ const ModelPickerField: React.FC<{
       <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">{tx(lang as any,{fr:'Modèle *',ar:'الموديل *',en:'Model *',es:'Modelo *',pt:'Modelo *',tr:'Model *'})}</label>
       <button
         type="button"
-        onClick={() => setOpen(v => !v)}
-        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white flex items-center gap-2.5"
+        onClick={() => { if (!locked) setOpen(v => !v); }}
+        disabled={locked}
+        title={locked ? tx(lang as any,{fr:"Le modèle d'une commande existante ne peut pas être changé : sa fiche de coût est liée à cette commande.",ar:'موديل أمر موجود ما يتبدّلش: فيش التكلفة ديالو مربوطة بهاد الأمر.',en:'The model of an existing order cannot be changed: its cost sheet is linked to this order.',es:'El modelo de un pedido existente no se puede cambiar: su ficha de coste está vinculada a este pedido.',pt:'O modelo de uma encomenda existente não pode ser alterado: a sua ficha de custo está ligada a esta encomenda.',tr:'Mevcut bir siparişin modeli değiştirilemez: maliyet kartı bu siparişe bağlıdır.'}) : undefined}
+        className={`w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text outline-none flex items-center gap-2.5 ${locked ? 'cursor-not-allowed opacity-70' : 'focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white'}`}
       >
         {value === 'MANUAL' ? thumb(undefined) : thumb(selected?.image, selected?.meta_data?.nom_modele)}
         <span className="flex-1 text-left truncate">
@@ -109,10 +117,18 @@ const ModelPickerField: React.FC<{
             ? manualLabel
             : (selected?.meta_data?.nom_modele || tx(lang as any,{fr:'Sélectionner un modèle',ar:'اختر موديل',en:'Select a model',es:'Seleccionar un modelo',pt:'Selecionar um modelo',tr:'Bir model seçin'}))}
         </span>
-        <ChevronDown className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />
+        {locked
+          ? <Lock className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted shrink-0" strokeWidth={1.75} />
+          : <ChevronDown className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />}
       </button>
 
-      {open && (
+      {locked && (
+        <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+          {tx(lang as any,{fr:'Modèle verrouillé — sa fiche de coût est liée à cette commande.',ar:'الموديل مقفول — فيش التكلفة ديالو مربوطة بهاد الأمر.',en:'Model locked — its cost sheet is linked to this order.',es:'Modelo bloqueado — su ficha de coste está vinculada a este pedido.',pt:'Modelo bloqueado — a sua ficha de custo está ligada a esta encomenda.',tr:'Model kilitli — maliyet kartı bu siparişe bağlı.'})}
+        </p>
+      )}
+
+      {open && !locked && (
         <div className="absolute z-20 mt-1 w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg max-h-64 overflow-y-auto">
           {models.map(m => (
             <button
@@ -4044,6 +4060,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       open={isEditModelPickerOpen}
                       setOpen={setIsEditModelPickerOpen}
                       onSelect={handleModelChange}
+                      locked
                     />
 
                     <div className="space-y-1.5">

@@ -1256,6 +1256,39 @@ export default function App() {
         chronoCustomStations, setChronoCustomStations, chronoLayoutSide, setChronoLayoutSide
     });
 
+    // Champs de `ficheData.soustraitance` qui appartiennent à la COMMANDE de
+    // sous-traitance et jamais à l'atelier : frais additionnels, quantité commandée
+    // et rattachement. Ils ne se saisissent que sur la fiche de commande.
+    //
+    // Sans cette adoption, l'autosave ci-dessous réécrivait le modèle avec la copie
+    // de `ficheData` figée au chargement : un frais ajouté côté sous-traitance était
+    // donc effacé de la fiche de coût deux secondes plus tard, et le prix de revient
+    // repartait sur d'anciens montants sans que rien ne le signale.
+    //
+    // `active`, `mode` et `prix` sont volontairement exclus : ceux-là s'éditent AUSSI
+    // depuis la fiche de coût, et les adopter écraserait la saisie en cours.
+    useEffect(() => {
+        if (!currentModelId) return;
+        const st: any = models.find(m => m.id === currentModelId)?.ficheData?.soustraitance;
+        if (!st) return;
+        setFicheData(prev => {
+            const cur: any = prev.soustraitance || {};
+            const unchanged =
+                JSON.stringify(cur.frais ?? []) === JSON.stringify(st.frais ?? []) &&
+                cur.orderQty === st.orderQty &&
+                cur.orderId === st.orderId;
+            if (unchanged) return prev;
+            return {
+                ...prev,
+                soustraitance: {
+                    active: false, mode: 'facon' as const, prix: 0,
+                    ...cur,
+                    frais: st.frais, orderQty: st.orderQty, orderId: st.orderId,
+                },
+            };
+        });
+    }, [models, currentModelId, setFicheData]);
+
     const lastFlushedImageSigRef = useRef('');
     useEffect(() => {
         if (!currentModelId) return;
@@ -1989,7 +2022,12 @@ export default function App() {
                     {currentView === 'sousTraitance' && (
                         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
                             <Suspense fallback={<div className="p-8 text-center text-gray-500 dark:text-dk-text-soft">Chargement...</div>}>
-                                <SousTraitance models={models} settings={globalSettings} onNavigate={(v) => handleNavigation(v as any)} onCreateNewProject={() => createNewProject('sousTraitance')} planningEvents={planningEvents} setPlanningEvents={setPlanningEvents} onLoadModel={(m) => { setWorkflowInitialStep('couts'); loadModel(m, 'sousTraitance'); setCurrentView('ingenierie'); navigate('ingenierie'); }} />
+                                {/* `setModels` est INDISPENSABLE : sans lui, les écritures de
+                                    la sous-traitance atteignaient bien le serveur mais l'état
+                                    `models` d'App restait périmé, et l'autosave du workflow
+                                    ré-écrasait le modèle deux secondes plus tard avec l'ancienne
+                                    copie — les frais additionnels disparaissaient en silence. */}
+                                <SousTraitance models={models} setModels={setModels} settings={globalSettings} onNavigate={(v) => handleNavigation(v as any)} onCreateNewProject={() => createNewProject('sousTraitance')} planningEvents={planningEvents} setPlanningEvents={setPlanningEvents} onLoadModel={(m) => { setWorkflowInitialStep('couts'); loadModel(m, 'sousTraitance'); setCurrentView('ingenierie'); navigate('ingenierie'); }} />
                             </Suspense>
                         </div>
                     )}
