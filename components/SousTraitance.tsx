@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ModelData, SubcontractOrder, PlanningEvent, SubcontractorProfile } from '../types';
 import { tx } from '../lib/i18n';
@@ -815,6 +815,44 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       orderId: order.id,
     });
   };
+
+  /** Réconciliation des FRAIS. Il n'existe pas d'endpoint global : les frais ne se
+   *  lisent que commande par commande, donc sans ce passage un frais saisi avant
+   *  l'existence du lien (ou depuis un autre poste) n'atteindrait jamais la fiche
+   *  de coût — le modèle afficherait un prix de revient trop bas.
+   *
+   *  Une requête par commande liée, une seule fois par lot de commandes : le `ref`
+   *  garde la signature déjà traitée pour que les re-rendus (dont ceux provoqués
+   *  par nos propres écritures) ne relancent pas les lectures. */
+  const reconciledExpensesRef = useRef<string>('');
+  useEffect(() => {
+    if (loading || orders.length === 0 || models.length === 0) return;
+
+    const linked = orders.filter(o => o.modelId && o.modelId !== 'MANUAL' && models.some(m => m.id === o.modelId));
+    if (linked.length === 0) return;
+
+    const signature = linked.map(o => o.id).sort().join('|');
+    if (reconciledExpensesRef.current === signature) return;
+    reconciledExpensesRef.current = signature;
+
+    let cancelled = false;
+    (async () => {
+      for (const order of linked) {
+        if (cancelled) return;
+        try {
+          const res = await fetch(`/api/subcontract/${order.id}/expenses`, { credentials: 'include' });
+          if (!res.ok) continue;
+          const rows = await res.json();
+          if (cancelled) return;
+          await syncExpensesToModel(order, (Array.isArray(rows) ? rows : []).map(normalizeExpense));
+        } catch (err) {
+          console.error('[SousTraitance] réconciliation frais', order.id, err);
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [orders, models.length, loading]);
 
   /** Les frais ne sont chargés qu'à l'ouverture d'une fiche, et rechargés
    *  seulement si la commande consultée change. */
