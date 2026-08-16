@@ -33,12 +33,14 @@ interface CompactCostSheetProps {
     soustraitanceActive?: boolean;
     stPrix?: number;
     stMode?: string;
-    /** Frais additionnels de la commande de sous-traitance (montants pour toute
-     *  la commande) et leur part par pièce déjà calculée par l'appelant.
-     *  `stFraisQty` est la quantité de la commande qui a servi de diviseur — c'est
-     *  BIEN celle-là qu'il faut afficher, et non `orderQty` qui est une quantité
-     *  de simulation librement modifiable par l'utilisateur. */
-    stFrais?: { label: string; amount: number }[];
+    /** Frais additionnels de la commande de sous-traitance, avec leur PORTÉE :
+     *  `scope` = nombre de pièces réellement concernées (toute la commande, ou une
+     *  quantité partielle), `perPieceOrder` = poids du frais dans le prix de
+     *  revient moyen du modèle. Ces deux valeurs sont calculées par l'appelant
+     *  (CostCalculator) pour que fiche et écran affichent strictement le même chiffre.
+     *  `stFraisQty` est la quantité de la commande — c'est BIEN celle-là qu'il faut
+     *  afficher, et non `orderQty` qui est une simulation librement modifiable. */
+    stFrais?: { label: string; amount: number; scope?: number; perPieceOrder?: number }[];
     stFraisPerPiece?: number;
     stFraisQty?: number;
     colors?: { id: string; name: string }[];
@@ -226,17 +228,31 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                                     </span>
                                 </td>
                             </tr>
-                            {stFrais.map((f, i) => (
-                                <tr key={`${f.label}-${i}`} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50 dark:bg-dk-bg/50'}`}>
-                                    <td className="p-2 font-bold text-slate-800">{f.label || '-'}</td>
-                                    <td className="p-2 text-center text-[9px] text-slate-500">—</td>
-                                    <td className="p-2 text-center text-[9px]">{fmt(f.amount)}</td>
-                                    <td className="p-2 text-center font-mono text-[9px] text-slate-400">
-                                        / {fmt(stFraisQty)} <span className="text-[8px]">pcs</span>
-                                    </td>
-                                    <td className="p-2 text-right font-bold text-slate-800">{fmt(stFraisQty > 0 ? f.amount / stFraisQty : 0)}</td>
-                                </tr>
-                            ))}
+                            {stFrais.map((f, i) => {
+                                // Portée du frais : ses propres pièces si elle est connue,
+                                // sinon toute la commande (frais enregistrés avant la portée).
+                                const scope = f.scope && f.scope > 0 ? f.scope : stFraisQty;
+                                const partial = scope > 0 && scope < stFraisQty;
+                                // Colonne finale = poids dans le prix de revient MOYEN, donc
+                                // toujours réparti sur la commande entière : c'est la seule
+                                // valeur qui, × quantité, redonne la dépense engagée.
+                                const perPiece = f.perPieceOrder ?? (stFraisQty > 0 ? f.amount / stFraisQty : 0);
+                                return (
+                                    <tr key={`${f.label}-${i}`} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50 dark:bg-dk-bg/50'}`}>
+                                        <td className="p-2 font-bold text-slate-800">{f.label || '-'}</td>
+                                        <td className="p-2 text-center text-[9px] text-slate-500">
+                                            {partial
+                                                ? _({fr:'Partiel',ar:'جزئي',en:'Partial',es:'Parcial',pt:'Parcial',tr:'Kısmi'})
+                                                : '—'}
+                                        </td>
+                                        <td className="p-2 text-center text-[9px]">{fmt(f.amount)}</td>
+                                        <td className="p-2 text-center font-mono text-[9px] text-slate-400">
+                                            / {fmt(scope)} <span className="text-[8px]">pcs</span>
+                                        </td>
+                                        <td className="p-2 text-right font-bold text-slate-800">{fmt(perPiece)}</td>
+                                    </tr>
+                                );
+                            })}
                         </>
                     )}
 

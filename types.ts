@@ -230,11 +230,23 @@ export type FicheData = {
     prix: number;
     /** Frais additionnels saisis sur la commande de sous-traitance (transport,
      *  patronage, repassage…), répercutés ici pour entrer dans le prix de revient.
-     *  Ce sont des montants pour TOUTE la commande : le calcul de coût les divise
-     *  par la quantité de la commande pour obtenir leur part par pièce.
      *  Ils s'appliquent dans les deux modes (façon ET tout compris) : ce sont des
-     *  coûts qui vous incombent en plus de ce que facture le sous-traitant. */
-    frais?: { label: string; amount: number }[];
+     *  coûts qui vous incombent en plus de ce que facture le sous-traitant.
+     *
+     *  `quantityScope` = portée du frais, exactement comme sur la commande :
+     *   - absent / null  → le frais porte sur TOUTE la commande
+     *   - nombre > 0     → le frais ne porte que sur ce nombre de pièces
+     *  Le coût sur les pièces concernées vaut donc `amount / portée`, tandis que
+     *  son poids dans le prix de revient MOYEN du modèle vaut `amount / qté commande`.
+     *  Les anciens frais enregistrés sans `quantityScope` restent « toute la commande ». */
+    frais?: { label: string; amount: number; quantityScope?: number | null }[];
+    /** Quantité de la commande de sous-traitance liée, recopiée depuis celle-ci.
+     *  Elle sert de base de répartition des frais quand la grille du modèle est
+     *  vide ou ne correspond pas encore à ce qui a réellement été commandé. */
+    orderQty?: number;
+    /** Identifiant de la commande de sous-traitance à l'origine de ces valeurs.
+     *  Sert au lien retour Modèle → Commande et à éviter les écritures en boucle. */
+    orderId?: string;
   };
   /** Saved state for the Thread Calculator modal (prices, waste, bobbin, etc.) */
   threadCalcState?: any;

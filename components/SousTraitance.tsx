@@ -358,10 +358,21 @@ const inferSubcontractMode = (o: {
   return allSub ? 'complet' : 'facon';
 };
 
-/** Prix de revient d'un modèle — MÊME formule que CostCalculator.tsx (~l.360) et
- *  CompactCostSheet.tsx : coût = matières + main d'œuvre, la main d'œuvre étant
- *  le prix du sous-traitant quand `ficheData.soustraitance` est active, sinon
- *  temps total (base + coupe + emballage) × coût minute.
+/** Base de répartition des frais additionnels d'un modèle : la grille couleur ×
+ *  taille si elle est remplie, sinon la quantité de la commande de sous-traitance
+ *  liée, sinon la quantité du modèle. Même ordre de priorité que `commandeQty`
+ *  dans CostCalculator.tsx — les deux doivent donner le même prix de revient. */
+const modelCommandeQty = (fiche: any): number => {
+  const gq = fiche?.gridQuantities || {};
+  const total = Object.values(gq).reduce<number>((acc, v: any) => acc + (Number(v) || 0), 0);
+  if (total > 0) return total;
+  return Number(fiche?.soustraitance?.orderQty) || Number(fiche?.quantity) || 0;
+};
+
+/** Prix de revient d'un modèle — MÊME formule que CostCalculator.tsx (~l.380) et
+ *  CompactCostSheet.tsx : coût = matières + main d'œuvre + frais additionnels, la
+ *  main d'œuvre étant le prix du sous-traitant quand `ficheData.soustraitance` est
+ *  active, sinon temps total (base + coupe + emballage) × coût minute.
  *  Retourne `null` dès qu'aucune donnée fiable n'existe : on n'invente pas un prix. */
 const computeModelCostPrice = (model: ModelData, settings: any): number | null => {
   const fiche: any = model.ficheData || {};
@@ -389,7 +400,14 @@ const computeModelCostPrice = (model: ModelData, settings: any): number | null =
     laborCost = baseTime * (1 + cutRate / 100 + packRate / 100) * costMinute;
   }
 
-  const cost = totalMaterials + laborCost;
+  // Frais additionnels de la commande, répartis sur la quantité commandée. Comme
+  // dans CostCalculator, c'est la MOYENNE qui entre dans le prix de revient : elle
+  // seule, multipliée par la quantité, redonne exactement la dépense engagée.
+  const qty = modelCommandeQty(fiche);
+  const fraisTotal = (st?.frais || []).reduce((acc: number, f: any) => acc + (Number(f?.amount) || 0), 0);
+  const fraisPerPiece = qty > 0 ? fraisTotal / qty : 0;
+
+  const cost = totalMaterials + laborCost + fraisPerPiece;
   return cost > 0 ? cost : null;
 };
 
@@ -705,41 +723,65 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     }
   };
 
-  /** Répercute les frais additionnels d'une commande sur la fiche de coût du
-   *  modèle, pour qu'ils entrent dans le prix de revient (répartis sur la
-   *  quantité de la commande côté calcul).
-   *
-   *  Volontairement SILENCIEUX et sans confirmation, mais UNIQUEMENT si le modèle
-   *  est déjà en sous-traitance : le lien coût ↔ sous-traitance a alors déjà été
-   *  accepté explicitement via `applySubcontractPriceToModel`. Sans ce garde-fou,
-   *  ajouter un frais réécrirait le coût de revient d'un modèle qui n'a jamais
-   *  été rattaché à cette commande. */
-  const syncExpensesToModel = async (order: SubcontractOrder, expenses: SubcontractExpense[]) => {
-    if (!order.modelId || order.modelId === 'MANUAL') return;
-    const local = models.find(m => m.id === order.modelId);
-    if (!local?.ficheData?.soustraitance?.active) return;
+  /** Champs de `ficheData.soustraitance` qu'une commande peut imposer au modèle. */
+  type StPatch = {
+    active?: boolean;
+    mode?: StMode;
+    prix?: number;
+    orderQty?: number;
+    orderId?: string;
+    frais?: { label: string; amount: number; quantityScope: number | null }[];
+  };
 
-    const frais = expenses.map(e => ({ label: e.label, amount: Number(e.amount) || 0 }));
+  /** Vrai si le patch n'apporte AUCUNE valeur nouvelle. C'est le garde-fou qui
+   *  empêche la synchronisation bidirectionnelle Commande ↔ Modèle de boucler :
+   *  le second aller-retour ne trouve plus rien à écrire et s'arrête. */
+  const stPatchIsNoop = (current: any, patch: StPatch): boolean =>
+    (Object.keys(patch) as (keyof StPatch)[]).every(k => {
+      if (k === 'frais') return JSON.stringify(current?.frais ?? []) === JSON.stringify(patch.frais ?? []);
+      return current?.[k] === patch[k];
+    });
+
+  /** Écrit un patch partiel dans `ficheData.soustraitance` d'un modèle.
+   *
+   *  `POST /api/models` remplace le modèle ENTIER : envoyer la copie portée par la
+   *  prop `models` écraserait ce que l'ingénierie a modifié entre-temps. On relit
+   *  donc la version à jour juste avant d'écrire, et on n'y applique que ce patch.
+   *  En mode statique (pas de serveur Express) la prop `models` EST la source de
+   *  vérité et `setModels` déclenche la persistance.
+   *
+   *  N'écrit rien si le patch est un no-op : ni requête, ni re-render inutile. */
+  const writeModelSoustraitance = async (modelId: string, patch: StPatch): Promise<void> => {
+    if (!modelId || modelId === 'MANUAL') return;
+    const local = models.find(m => m.id === modelId);
+    if (!local) return;
+    if (stPatchIsNoop(local.ficheData?.soustraitance, patch)) return;
+
     try {
-      // Même précaution que pour le prix : relire le modèle à jour avant d'écrire,
-      // `POST /api/models` remplaçant le modèle entier. En mode statique il n'y a
-      // pas d'API : la copie locale fait foi.
       let base: ModelData = local;
       if (!IS_STATIC) {
         const fresh = await fetch('/api/models', { credentials: 'include' });
         if (!fresh.ok) return;
         const list = await fresh.json();
-        const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === order.modelId) : undefined;
+        const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
         if (!found) return;
         base = found;
       }
-      if (!base?.ficheData?.soustraitance?.active) return;
+      // Re-test sur la version fraîche : un autre poste a pu écrire la même valeur
+      // entre-temps, auquel cas il n'y a plus rien à faire.
+      if (stPatchIsNoop((base.ficheData as any)?.soustraitance, patch)) return;
 
       const updated: ModelData = {
         ...base,
         ficheData: {
           ...(base.ficheData as any),
-          soustraitance: { ...base.ficheData.soustraitance, frais },
+          soustraitance: {
+            // Valeurs de repli : un patch qui ne porte que des frais ne doit pas
+            // produire un bloc sous-traitance incomplet.
+            active: false, mode: 'facon' as StMode, prix: 0,
+            ...((base.ficheData as any)?.soustraitance || {}),
+            ...patch,
+          },
         },
         updatedAt: new Date().toISOString(),
       };
@@ -754,9 +796,24 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       }
       setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
     } catch (err) {
-      // Un échec de répercussion ne doit pas casser la saisie du frais lui-même.
-      console.error('[SousTraitance] sync expenses to model', err);
+      console.error('[SousTraitance] sync soustraitance → modèle', err);
     }
+  };
+
+  /** Répercute les frais additionnels d'une commande sur la fiche de coût du
+   *  modèle, en conservant la PORTÉE de chaque frais (`quantity_scope`) : la fiche
+   *  de coût doit pouvoir distinguer un frais qui pèse sur toute la commande d'un
+   *  frais qui ne pèse que sur une partie des pièces. */
+  const syncExpensesToModel = async (order: SubcontractOrder, expenses: SubcontractExpense[]) => {
+    await writeModelSoustraitance(order.modelId, {
+      frais: expenses.map(e => ({
+        label: e.label,
+        amount: Number(e.amount) || 0,
+        quantityScope: e.quantity_scope && e.quantity_scope > 0 ? e.quantity_scope : null,
+      })),
+      orderQty: Number(order.totalQuantity) || 0,
+      orderId: order.id,
+    });
   };
 
   /** Les frais ne sont chargés qu'à l'ouverture d'une fiche, et rechargés
@@ -1609,7 +1666,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       }
 
       setIsAddModalOpen(false);
-      await applySubcontractPriceToModel(formModelId, formPricePerPiece, formStMode);
+      // La commande créée n'est pas encore dans `orders` : on construit le
+      // minimum nécessaire au lien plutôt que d'attendre le rechargement.
+      const created = await res.json().catch(() => null);
+      await syncOrderToModel({
+        ...(body as any),
+        id: created?.id || '',
+        totalQuantity: effectiveTotalQuantity,
+        pricePerPiece: formPricePerPiece,
+      } as SubcontractOrder, formStMode);
       fetchData();
     } catch (err: any) {
       console.error(err);
@@ -1619,79 +1684,52 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     }
   };
 
-  // Après création OU modification d'une commande : proposer de répercuter le prix
-  // du sous-traitant sur le calcul de coût du modèle.
-  // Règle métier : Façon = matières + prix ; Tout compris = prix seul.
-  // La répercussion reste TOUJOURS soumise à une confirmation explicite : jamais
-  // automatique, parce qu'elle réécrit le coût de revient du modèle.
-  const applySubcontractPriceToModel = async (modelId: string, price: number, mode: StMode) => {
-    if (modelId === 'MANUAL' || !(price > 0)) return;
-    const model = models.find(m => m.id === modelId);
-    if (!model) return;
-
-    const modeLabel = mode === 'complet'
-      ? tx(lang,{fr:'Tout compris (prix seul)',ar:'كلشي عليه (الثمن فقط)',en:'All-inclusive (price only)',es:'Todo incluido (solo precio)',pt:'Tudo incluído (apenas preço)',tr:'Her şey dahil (sadece fiyat)'})
-      : tx(lang,{fr:'Façon (matières + prix)',ar:'خياطة فقط (المواد + الثمن)',en:'Cut-Make (materials + price)',es:'Confección (materiales + precio)',pt:'Confeção (materiais + preço)',tr:'Fason (malzeme + fiyat)'});
-
-    const modelLabel = model.meta_data.nom_modele;
-    const question = tx(lang,{
-      fr:`Appliquer ${price} ${currency}/pièce au calcul de coût de « ${modelLabel} » ?\n\nMode : ${modeLabel}\n\nCela remplacera le coût de main d'œuvre calculé depuis la gamme.`,
-      ar:`واش نطبّقو ${price} ${currency}/قطعة فحساب تكلفة «${modelLabel}»؟\n\nالنوع: ${modeLabel}\n\nهادشي غادي يعوّض تكلفة اليد العاملة المحسوبة من الـ gamme.`,
-      en:`Apply ${price} ${currency}/piece to the cost calculation of "${modelLabel}"?\n\nMode: ${modeLabel}\n\nThis will replace the labour cost computed from the gamme.`,
-      es:`¿Aplicar ${price} ${currency}/pieza al cálculo de coste de «${modelLabel}»?\n\nModo: ${modeLabel}\n\nEsto reemplazará el coste de mano de obra calculado desde la gama.`,
-      pt:`Aplicar ${price} ${currency}/peça ao cálculo de custo de "${modelLabel}"?\n\nModo: ${modeLabel}\n\nIsto substituirá o custo de mão de obra calculado a partir da gama.`,
-      tr:`"${modelLabel}" maliyet hesabına ${price} ${currency}/adet uygulansın mı?\n\nMod: ${modeLabel}\n\nBu, gamme'den hesaplanan işçilik maliyetinin yerine geçecek.`,
+  /** Répercute une commande de sous-traitance sur la fiche de coût de son modèle.
+   *
+   *  AUTOMATIQUE et silencieux : la commande est la décision commerciale réelle,
+   *  le prix de revient du modèle doit donc toujours la refléter. Le lien couvre
+   *  le tarif, le mode, la quantité commandée et l'identifiant de la commande.
+   *  Règle métier inchangée : Façon = matières + prix ; Tout compris = prix seul.
+   *
+   *  `active` n'est mis à `true` QUE si le tarif est renseigné : activer la
+   *  sous-traitance à 0 remplacerait la main d'œuvre calculée par zéro et ferait
+   *  vendre à perte. Une commande encore sans tarif se contente donc de rattacher
+   *  le modèle (orderId / orderQty) sans toucher au mode de calcul.
+   *  La désactivation reste manuelle : on ne coupe jamais un lien tout seul.
+   *
+   *  Le mode explicite choisi dans le formulaire prime ; sinon il est déduit des
+   *  fournisseurs de la commande (`inferSubcontractMode`, prudent par défaut). */
+  const syncOrderToModel = async (order: SubcontractOrder, mode?: StMode) => {
+    const price = Number(order.pricePerPiece) || 0;
+    await writeModelSoustraitance(order.modelId, {
+      ...(price > 0 ? { active: true } : {}),
+      // `orderId` n'est écrit que s'il est connu : juste après la création, la
+      // réponse de l'API peut ne pas le porter — la réconciliation le posera.
+      ...(order.id ? { orderId: order.id } : {}),
+      mode: mode ?? inferSubcontractMode(order),
+      prix: price,
+      orderQty: Number(order.totalQuantity) || 0,
     });
-
-    // Confirmation explicite obligatoire — jamais de répercussion automatique.
-    if (!window.confirm(question)) return;
-
-    try {
-      // L'API `POST /api/models` remplace le modèle ENTIER : envoyer la copie
-      // portée par la prop `models` écraserait tout ce que l'ingénierie a pu
-      // modifier entre-temps. On relit donc la version à jour juste avant
-      // l'écriture et on n'y applique QUE `ficheData.soustraitance` (A7).
-      //
-      // En mode statique (pas de serveur Express) il n'y a pas d'API : la prop
-      // `models` EST la source de vérité et `setModels` déclenche la persistance.
-      let base: ModelData = model;
-      const fresh = IS_STATIC ? null : await fetch('/api/models', { credentials: 'include' });
-      if (!fresh) {
-        // mode statique : on part de la copie locale, pas de relecture serveur
-      } else if (fresh.ok) {
-        const list = await fresh.json();
-        const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : null;
-        if (found) base = found;
-      } else {
-        throw new Error(tx(lang,{fr:'Impossible de relire le modèle à jour — mise à jour annulée pour ne rien écraser.',ar:'تعذّرت إعادة قراءة الموديل المحدَّث — أُلغي التحديث تفادياً لطمس البيانات.',en:'Could not re-read the up-to-date model — update cancelled to avoid overwriting.',es:'No se pudo releer el modelo actualizado — actualización cancelada para no sobrescribir.',pt:'Não foi possível reler o modelo atualizado — atualização cancelada para não sobrescrever.',tr:'Güncel model yeniden okunamadı — üzerine yazmamak için güncelleme iptal edildi.'}));
-      }
-
-      const updated: ModelData = {
-        ...base,
-        ficheData: {
-          ...(base.ficheData as any),
-          // `frais` est préservé : il est alimenté par la fiche de commande
-          // (`syncExpensesToModel`) et ne doit pas être effacé par une simple
-          // mise à jour du prix / du mode.
-          soustraitance: { ...base.ficheData?.soustraitance, active: true, mode, prix: price },
-        },
-        updatedAt: new Date().toISOString(),
-      };
-
-      if (!IS_STATIC) {
-        const res = await fetch('/api/models', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(updated),
-        });
-        if (!res.ok) throw new Error(tx(lang,{fr:'Echec de la mise à jour du modèle',ar:'فشل تحديث الموديل',en:'Failed to update the model',es:'Error al actualizar el modelo',pt:'Falha ao atualizar o modelo',tr:'Model güncellenemedi'}));
-      }
-      setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
-    } catch (err: any) {
-      setError(err.message);
-    }
   };
+
+  /** Réconciliation au chargement : une commande a pu être créée ou modifiée
+   *  ailleurs (autre poste, autre onglet, import) pendant que le modèle dormait.
+   *  On réaligne les fiches de coût dès que les deux listes sont disponibles.
+   *  `writeModelSoustraitance` n'écrit que ce qui diffère : le second passage est
+   *  un no-op et la boucle d'effet se stabilise immédiatement. */
+  useEffect(() => {
+    if (loading || orders.length === 0 || models.length === 0) return;
+    // Un modèle peut porter plusieurs commandes : la plus récente fait foi.
+    const latestByModel = new Map<string, SubcontractOrder>();
+    orders.forEach(o => {
+      if (!o.modelId || o.modelId === 'MANUAL') return;
+      const prev = latestByModel.get(o.modelId);
+      if (!prev || String(o.created_at || '') > String(prev.created_at || '')) {
+        latestByModel.set(o.modelId, o);
+      }
+    });
+    latestByModel.forEach(o => { void syncOrderToModel(o); });
+  }, [orders, models, loading]);
 
   // Open Edit Order Modal
   const openEditModal = (order: SubcontractOrder) => {
@@ -1816,12 +1854,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       }
 
       setIsEditModalOpen(false);
-      // A5 : le lien vers le coût de revient ne vivait qu'à la création. Si le
-      // tarif change ici, le coût du modèle resterait figé sur l'ancien montant.
-      // La répercussion reste soumise à la confirmation explicite habituelle.
-      if ((selectedOrder.pricePerPiece || 0) !== formPricePerPiece) {
-        await applySubcontractPriceToModel(formModelId, formPricePerPiece, formStMode);
-      }
+      // A5 : le lien vers le coût de revient ne vivait qu'à la création. On le
+      // rejoue à CHAQUE édition — tarif, mode ET quantité pèsent tous sur le prix
+      // de revient (la quantité sert de base de répartition des frais).
+      await syncOrderToModel(
+        { ...selectedOrder, ...(body as any), modelId: formModelId, pricePerPiece: formPricePerPiece },
+        formStMode,
+      );
       fetchData();
     } catch (err: any) {
       console.error(err);

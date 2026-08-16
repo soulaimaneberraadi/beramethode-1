@@ -24,6 +24,9 @@ import SensitiveValue, { useFieldAccess } from './ui/SensitiveValue';
 import SousTraitanceModal, { SousTraitance } from './SousTraitanceModal';
 import { Operation } from '../types';
 
+/** Mode Vercel : pas de serveur Express, donc aucune API commande à mettre à jour. */
+const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
+
 interface CostCalculatorProps {
     initialArticleName: string;
     initialTotalTime: number;
@@ -364,20 +367,47 @@ export default function CostCalculator({
     const laborCost = stActive ? stPrix : totalTime * settings.costMinute;
 
     // Quantité réelle de la commande = somme de la grille (couleurs × tailles),
-    // sinon la quantité du modèle. C'est elle qui pilote « Estimation des Besoins »
-    // ET la répartition des frais additionnels de sous-traitance.
+    // sinon la quantité de la commande de sous-traitance liée, sinon la quantité
+    // du modèle. C'est elle qui pilote « Estimation des Besoins » ET la
+    // répartition des frais additionnels de sous-traitance.
     const commandeQty = useMemo(() => {
         const gq = ficheData.gridQuantities || {};
         const total = Object.values(gq).reduce((acc: number, v) => acc + (Number(v) || 0), 0);
-        return total > 0 ? total : (ficheData.quantity || 0);
-    }, [ficheData.gridQuantities, ficheData.quantity]);
+        if (total > 0) return total;
+        return Number(st?.orderQty) || ficheData.quantity || 0;
+    }, [ficheData.gridQuantities, ficheData.quantity, st?.orderQty]);
 
     // Frais additionnels remontés depuis la commande de sous-traitance (transport,
-    // patronage, repassage…). Ce sont des montants pour TOUTE la commande : leur
-    // part par pièce = total / quantité de la commande. Ils s'ajoutent au coût dans
-    // les deux modes, car ils vous incombent en plus du prix du sous-traitant.
-    const stFrais = stActive ? (st?.frais || []) : [];
-    const stFraisTotal = stFrais.reduce((acc, f) => acc + (Number(f.amount) || 0), 0);
+    // patronage, repassage…). Ils s'ajoutent au coût dans les DEUX modes : ce sont
+    // des dépenses qui vous incombent en plus de ce que facture le sous-traitant.
+    //
+    // Chaque frais garde SA PORTÉE, exactement comme sur la fiche de commande :
+    //   • portée = toute la commande  → il pèse sur les `commandeQty` pièces
+    //   • portée = quantité partielle → il ne pèse que sur ces pièces-là
+    //
+    // D'où deux lectures, toutes deux justes et volontairement distinctes :
+    //   `perPieceScoped` = montant / portée   → ce que la pièce CONCERNÉE a coûté
+    //   `perPieceOrder`  = montant / commandeQty → son poids dans le prix de
+    //                      revient MOYEN du modèle
+    // Le prix de revient, qui est un chiffre unique par pièce, utilise la moyenne :
+    // c'est la seule lecture qui, multipliée par la quantité, redonne exactement la
+    // dépense engagée — ni sur-estimation, ni sous-estimation.
+    const stFraisDetail = useMemo(() => (st?.frais || []).map(f => {
+        const amount = Number(f.amount) || 0;
+        const rawScope = Number((f as any).quantityScope);
+        // Absent / nul / incohérent → le frais porte sur toute la commande.
+        const scope = Number.isFinite(rawScope) && rawScope > 0 ? Math.min(rawScope, commandeQty || rawScope) : commandeQty;
+        return {
+            label: f.label,
+            amount,
+            scope,
+            isPartial: Number.isFinite(rawScope) && rawScope > 0 && rawScope < commandeQty,
+            perPieceScoped: scope > 0 ? amount / scope : 0,
+            perPieceOrder: commandeQty > 0 ? amount / commandeQty : 0,
+        };
+    }), [st?.frais, commandeQty]);
+
+    const stFraisTotal = stFraisDetail.reduce((acc, f) => acc + f.amount, 0);
     const stFraisPerPiece = commandeQty > 0 ? stFraisTotal / commandeQty : 0;
 
     const costPrice = (materialsExcluded ? laborCost : totalMaterials + laborCost) + stFraisPerPiece;
@@ -415,14 +445,17 @@ export default function CostCalculator({
                 const applies = !m.scope?.colors?.length || m.scope.colors.includes(c.id);
                 return applies ? s + (m.unitPrice * m.qty) : s;
             }, 0);
-            const pr = materialsExcluded ? laborCost : matCost + laborCost;
+            // Les frais additionnels pèsent sur CHAQUE pièce, quelle que soit sa
+            // couleur : les omettre ici donnait un prix de revient par couleur
+            // inférieur au prix de revient global, donc une marge surévaluée.
+            const pr = (materialsExcluded ? laborCost : matCost + laborCost) + stFraisPerPiece;
             const ht = pr * (1 + settings.marginAtelier / 100);
             const ttc = ht * (1 + settings.tva / 100);
             const boutique = ttc * (1 + settings.marginBoutique / 100);
             map[c.id] = { matCost, pr, ht, ttc, boutique };
         });
         return map;
-    }, [ficheData.colors, materials, materialsExcluded, laborCost, settings.marginAtelier, settings.tva, settings.marginBoutique]);
+    }, [ficheData.colors, materials, materialsExcluded, laborCost, stFraisPerPiece, settings.marginAtelier, settings.tva, settings.marginBoutique]);
 
     // Par défaut, la simulation d'achat reflète la quantité réelle de la commande.
     // L'utilisateur peut toujours la modifier pour simuler une autre quantité.
@@ -607,8 +640,47 @@ export default function CostCalculator({
     }, []);
 
     // Enregistre la config sous-traitance dans le modèle (hide-only, non destructif).
+    //
+    // FUSION, pas remplacement : la modale ne connaît que `active/mode/prix`, alors
+    // que le bloc porte aussi les frais additionnels et le rattachement à la
+    // commande (`frais`, `orderQty`, `orderId`) remontés depuis la sous-traitance.
+    // Un remplacement pur les effacerait à chaque passage dans la modale.
     const applySousTraitance = (value: SousTraitance) => {
-        setFicheData(prev => ({ ...prev, soustraitance: value }));
+        setFicheData(prev => ({ ...prev, soustraitance: { ...prev.soustraitance, ...value } }));
+        void pushPriceToLinkedOrder(value.prix);
+    };
+
+    /** Lien retour Modèle → Commande : le tarif saisi ici est le tarif réellement
+     *  convenu avec le sous-traitant, il doit donc redescendre sur la commande.
+     *
+     *  Seul `pricePerPiece` est repoussé. Le MODE ne l'est volontairement pas :
+     *  côté commande il se déduit des fournisseurs (tissu / fournitures /
+     *  conditionnement), qui sont de vraies données d'approvisionnement — les
+     *  réécrire depuis une case de calcul fausserait les besoins matière.
+     *
+     *  N'écrit que si la valeur diffère : c'est ce qui arrête l'aller-retour avec
+     *  la réconciliation Commande → Modèle au lieu de le faire boucler. */
+    const pushPriceToLinkedOrder = async (prix: number) => {
+        const orderId = (ficheData.soustraitance as any)?.orderId;
+        if (IS_STATIC || !orderId || !(prix >= 0)) return;
+        try {
+            const res = await fetch('/api/subcontract', { credentials: 'include' });
+            if (!res.ok) return;
+            const list = await res.json();
+            const order = Array.isArray(list) ? list.find((o: any) => o.id === orderId) : null;
+            if (!order || (Number(order.pricePerPiece) || 0) === prix) return;
+
+            await fetch(`/api/subcontract/${orderId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ ...order, pricePerPiece: prix }),
+            });
+        } catch (err) {
+            // Le lien retour est un confort : son échec ne doit pas empêcher
+            // l'enregistrement du tarif sur la fiche de coût.
+            console.error('[CostCalculator] push prix → commande', err);
+        }
     };
 
     // Imprime EXACTEMENT l'aperçu A4 du modal (#pdf-print-area) : mêmes sections
@@ -888,6 +960,21 @@ export default function CostCalculator({
             const moRow = ws.addRow([stActive ? 'Fa\u00E7on (sous-traitance)' : `Main d'\u0152uvre`, '', '', '', Math.round(laborCost * 100) / 100]);
             moRow.getCell(5).numFmt = '0.00';
             styleDataRow(moRow);
+            // Frais additionnels de sous-traitance : sans eux, l'export affichait un
+            // co\u00FBt de revient sup\u00E9rieur \u00E0 la somme de ses lignes. La colonne 4 rappelle
+            // la port\u00E9e r\u00E9elle de chaque frais, la colonne 5 son poids par pi\u00E8ce moyen.
+            stFraisDetail.forEach(f => {
+                const r = ws.addRow([
+                    f.label,
+                    '',
+                    Math.round(f.amount * 100) / 100,
+                    `/ ${f.scope} pcs`,
+                    Math.round(f.perPieceOrder * 100) / 100,
+                ]);
+                r.getCell(3).numFmt = '0.00';
+                r.getCell(5).numFmt = '0.00';
+                styleDataRow(r);
+            });
             // Total mati\u00E8re
             const totMatRow = ws.addRow([`${t.totalMat || 'Total Mati\u00E8re'}`, '', '', '', Math.round(totalMaterials * 100) / 100]);
             ws.mergeCells(`A${totMatRow.number}:D${totMatRow.number}`);
@@ -1077,7 +1164,7 @@ export default function CostCalculator({
                         totalPurchasingMatCost={totalPurchasingMatCost}
                         productImage={productImage}
                         soustraitanceActive={stActive}
-                        stPrix={stPrix} stMode={st?.mode} stFrais={stFrais} stFraisPerPiece={stFraisPerPiece} stFraisQty={commandeQty}
+                        stPrix={stPrix} stMode={st?.mode} stFrais={stFraisDetail} stFraisPerPiece={stFraisPerPiece} stFraisQty={commandeQty}
                         colors={ficheData.colors || []} gridQuantities={ficheData.gridQuantities || {}} sizes={ficheData.sizes || []}
                     />
                 )}
@@ -1222,6 +1309,100 @@ export default function CostCalculator({
                             modelName={productName}
                             onStockConfirmed={() => { /* statut recalculé via magasinData */ }}
                         />
+
+                        {/* Frais additionnels de sous-traitance — juste sous l'estimation
+                            des besoins, parce qu'ils complètent la même question : ce que
+                            la commande coûte réellement, pièce par pièce. */}
+                        {stFraisDetail.length > 0 && (
+                            <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden">
+                                <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <Receipt className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" strokeWidth={1.75} />
+                                        <div className="min-w-0">
+                                            <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight truncate">
+                                                {tx(lang,{fr:'Frais Additionnels',ar:'مصاريف إضافية',en:'Additional Costs',es:'Gastos Adicionales',pt:'Despesas Adicionais',tr:'Ek Masraflar'})}
+                                            </h3>
+                                            <p className="text-[11px] text-slate-400 dark:text-dk-muted truncate">
+                                                {tx(lang,{fr:'Depuis la commande de sous-traitance',ar:'من أمر المقاولة من الباطن',en:'From the subcontract order',es:'Desde el pedido de subcontratación',pt:'Da encomenda de subcontratação',tr:'Taşeron siparişinden'})}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className="text-[11px] text-slate-400 dark:text-dk-muted tabular-nums shrink-0">
+                                        {commandeQty.toLocaleString()} pcs
+                                    </span>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse min-w-[520px]">
+                                        <thead>
+                                            <tr className="bg-slate-50 dark:bg-dk-bg/60 text-[11px] text-slate-500 dark:text-dk-muted">
+                                                <th className="px-5 py-2 font-medium">{tx(lang,{fr:'Libellé',ar:'التسمية',en:'Label',es:'Etiqueta',pt:'Rótulo',tr:'Etiket'})}</th>
+                                                <th className="px-3 py-2 font-medium">{tx(lang,{fr:'Portée',ar:'المدى',en:'Scope',es:'Alcance',pt:'Âmbito',tr:'Kapsam'})}</th>
+                                                <th className="px-3 py-2 font-medium text-right">{tx(lang,{fr:'Montant',ar:'المبلغ',en:'Amount',es:'Importe',pt:'Montante',tr:'Tutar'})}</th>
+                                                <th className="px-3 py-2 font-medium text-right">
+                                                    {tx(lang,{fr:'/ pièce concernée',ar:'/ القطعة المعنية',en:'/ affected piece',es:'/ pieza afectada',pt:'/ peça abrangida',tr:'/ ilgili adet'})}
+                                                </th>
+                                                <th className="px-5 py-2 font-medium text-right">
+                                                    {tx(lang,{fr:'/ pièce (moyenne)',ar:'/ القطعة (المعدّل)',en:'/ piece (average)',es:'/ pieza (media)',pt:'/ peça (média)',tr:'/ adet (ortalama)'})}
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {stFraisDetail.map((f, i) => (
+                                                <tr key={`${f.label}-${i}`} className="border-t border-slate-100 dark:border-dk-border text-[12px]">
+                                                    <td className="px-5 py-2.5 text-slate-700 dark:text-dk-text-soft">{f.label}</td>
+                                                    <td className="px-3 py-2.5">
+                                                        {f.isPartial ? (
+                                                            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 tabular-nums">
+                                                                {f.scope.toLocaleString()} pcs
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[11px] text-slate-400 dark:text-dk-muted">
+                                                                {tx(lang,{fr:'Toute la commande',ar:'كل الطلبية',en:'Whole order',es:'Todo el pedido',pt:'Toda a encomenda',tr:'Tüm sipariş'})}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-700 dark:text-dk-text-soft">
+                                                        <SensitiveValue field="model.prix_revient">{fmt(f.amount)}</SensitiveValue>
+                                                    </td>
+                                                    <td className="px-3 py-2.5 text-right tabular-nums text-slate-500 dark:text-dk-muted">
+                                                        <SensitiveValue field="model.prix_revient">{fmt(f.perPieceScoped)}</SensitiveValue>
+                                                    </td>
+                                                    <td className="px-5 py-2.5 text-right tabular-nums font-medium text-slate-900 dark:text-dk-text">
+                                                        <SensitiveValue field="model.prix_revient">{fmt(f.perPieceOrder)}</SensitiveValue>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr className="border-t border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 text-[12px]">
+                                                <td className="px-5 py-2.5 font-medium text-slate-600 dark:text-dk-text-soft" colSpan={2}>
+                                                    {tx(lang,{fr:'Total frais',ar:'مجموع المصاريف',en:'Total costs',es:'Total gastos',pt:'Total despesas',tr:'Toplam masraf'})}
+                                                </td>
+                                                <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-slate-900 dark:text-dk-text">
+                                                    <SensitiveValue field="model.prix_revient">{fmt(stFraisTotal)} <span className="text-[10px] font-normal text-slate-400 dark:text-dk-muted">{currency}</span></SensitiveValue>
+                                                </td>
+                                                <td className="px-3 py-2.5" />
+                                                <td className="px-5 py-2.5 text-right tabular-nums font-semibold text-slate-900 dark:text-dk-text">
+                                                    <SensitiveValue field="model.prix_revient">{fmt(stFraisPerPiece)} <span className="text-[10px] font-normal text-slate-400 dark:text-dk-muted">{currency}</span></SensitiveValue>
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+
+                                <p className="px-5 py-3 text-[11px] leading-relaxed text-slate-400 dark:text-dk-muted border-t border-slate-100 dark:border-dk-border">
+                                    {tx(lang,{
+                                        fr:"« / pièce concernée » = ce que le frais coûte sur les pièces qu'il touche réellement. « / pièce (moyenne) » = son poids dans le prix de revient du modèle, réparti sur toute la commande. C'est cette moyenne qui entre dans le calcul.",
+                                        ar:'«/ القطعة المعنية» = ثمن المصروف على القطع اللي كيمسّها فعلاً. «/ القطعة (المعدّل)» = وزنو فسعر تكلفة الموديل، مقسّم على كل الطلبية. المعدّل هو اللي كيدخل فالحساب.',
+                                        en:'"/ affected piece" = what the cost represents on the pieces it actually covers. "/ piece (average)" = its weight in the model cost price, spread over the whole order. The average is what feeds the calculation.',
+                                        es:'«/ pieza afectada» = lo que el gasto cuesta en las piezas que realmente cubre. «/ pieza (media)» = su peso en el precio de coste del modelo, repartido en todo el pedido. La media es la que entra en el cálculo.',
+                                        pt:'"/ peça abrangida" = o que a despesa custa nas peças que realmente cobre. "/ peça (média)" = o seu peso no preço de custo do modelo, repartido por toda a encomenda. A média é a que entra no cálculo.',
+                                        tr:'"/ ilgili adet" = masrafın gerçekten kapsadığı adetlerdeki maliyeti. "/ adet (ortalama)" = model maliyet fiyatındaki ağırlığı, tüm siparişe yayılmış hâli. Hesaba giren ortalamadır.',
+                                    })}
+                                </p>
+                            </div>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <SettingsPanel
@@ -1411,7 +1592,7 @@ export default function CostCalculator({
                                             totalPurchasingMatCost={totalPurchasingMatCost}
                                             productImage={productImage}
                                             soustraitanceActive={stActive}
-                                            stPrix={stPrix} stMode={st?.mode} stFrais={stFrais} stFraisPerPiece={stFraisPerPiece} stFraisQty={commandeQty}
+                                            stPrix={stPrix} stMode={st?.mode} stFrais={stFraisDetail} stFraisPerPiece={stFraisPerPiece} stFraisQty={commandeQty}
                                             colors={ficheData.colors || []} gridQuantities={ficheData.gridQuantities || {}} sizes={ficheData.sizes || []}
                                         />
                                       </A4ResponsiveFrame>
