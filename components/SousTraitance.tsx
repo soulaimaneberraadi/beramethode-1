@@ -853,11 +853,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  exclure une ligne doit être un geste conscient. Ce qui est décoché
    *  disparaît des totaux, de l'impression ET de la facture enregistrée. */
   const [costInvoiceOff, setCostInvoiceOff] = useState<Set<string>>(new Set());
+  /** Identité du bénéficiaire, pré-remplie depuis sa fiche mais CORRIGIBLE ici :
+   *  un ICE fraîchement communiqué ne doit pas obliger à quitter la facture.
+   *  La fiche sous-traitant reste la source, on ne la réécrit pas en douce. */
+  const [costInvoiceTiers, setCostInvoiceTiers] = useState<{ nom: string; ice: string; rc: string; adresse: string; tel: string }>(
+    { nom: '', ice: '', rc: '', adresse: '', tel: '' }
+  );
   /** Réécritures manuelles d'une ligne : libellé et/ou montant. La ligne garde
    *  sa valeur CALCULÉE tant que rien n'est saisi — on n'écrase jamais le calcul
    *  en silence, et un bouton permet de revenir dessus. */
-  const [costInvoiceEdits, setCostInvoiceEdits] = useState<Record<string, { label?: string; amount?: number }>>({});
-  const editCostLine = (key: string, patch: { label?: string; amount?: number }) =>
+  const [costInvoiceEdits, setCostInvoiceEdits] = useState<Record<string, { label?: string; amount?: number; qty?: number }>>({});
+  const editCostLine = (key: string, patch: { label?: string; amount?: number; qty?: number }) =>
     setCostInvoiceEdits(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }));
   const resetCostLine = (key: string) =>
     setCostInvoiceEdits(prev => { const n = { ...prev }; delete n[key]; return n; });
@@ -1341,6 +1347,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setCostInvoiceSavedNumber(null);
     setCostInvoiceOff(new Set());
     setCostInvoiceEdits({});
+    {
+      const prof = subcontractorProfiles.find(p => p.name === order.subcontractorName);
+      setCostInvoiceTiers({
+        nom: order.subcontractorName || '',
+        ice: prof?.ice || '',
+        rc: prof?.rc || '',
+        adresse: prof?.address || '',
+        tel: prof?.phone || order.subcontractorPhone || '',
+      });
+    }
     setCostInvoiceShow({ logo: true, model: true, subcontractor: false });
     setIsCostInvoiceModalOpen(true);
     // Filet de sécurité : si la fiche n'a pas (ou plus) chargé les frais de
@@ -2652,6 +2668,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   // Print Invoice (Tab 3 Invoice template preview)
   const handlePrintSaleInvoice = () => {
+    // Échappement HTML : ces valeurs viennent de la saisie utilisateur et
+    // partent dans un document écrit à la main.
+    const esc2 = (v: unknown) => String(v ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     if (!selectedModelForSale) return;
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -2691,8 +2711,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           <div class="invoice-box">
             <div class="header">
               <div>
-                <div class="logo">BeraMéthode</div>
-                <div style="color: #64748b; font-weight: 500; font-size: 11px;">ERP Textile & Confection</div>
+                <div class="logo">${companyIdentity.nom || saleClient || ""}</div>
+                <div style="color: #64748b; font-weight: 500; font-size: 11px;">${[companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : "", companyIdentity.rc ? `RC : ${companyIdentity.rc}` : ""].filter(Boolean).join(" · ")}</div>
               </div>
               <div style="text-align: right;">
                 <div style="font-size: 18px; font-weight: 800; color: #1e1b4b;">${tx(lang,{fr:'FACTURE DE VENTE',ar:'فاتورة بيع',en:'SALE INVOICE',es:'FACTURA DE VENTA',pt:'FATURA DE VENDA',tr:'SATIŞ FATURASI'})}</div>
@@ -2703,7 +2723,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             <div class="meta-section">
               <div class="box">
                 <div class="title">${tx(lang,{fr:'Émetteur',ar:'المصدر',en:'Issuer',es:'Emisor',pt:'Emitente',tr:'Düzenleyen'})}</div>
-                <div class="val">BeraMéthode Confection</div>
+                <div class="val">${companyIdentity.nom || ""}</div>
                 <div style="color: #64748b; font-size: 11px; margin-top: 4px;">${tx(lang,{fr:'Atelier principal de production',ar:'ورشة الإنتاج الرئيسية',en:'Main production workshop',es:'Taller principal de producción',pt:'Oficina principal de produção',tr:'Ana üretim atölyesi'})}</div>
               </div>
               <div class="box">
@@ -2759,7 +2779,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             ` : ''}
 
             <div class="footer">
-              BeraMéthode - ${tx(lang,{fr:'Solution de gestion ERP pour l\'industrie de confection.',ar:'حل ERP لإدارة صناعة الخياطة.',en:'ERP management solution for the garment industry.',es:'Solución de gestión ERP para la industria de la confección.',pt:'Solução de gestão ERP para a indústria de confeção.',tr:'Konfeksiyon endüstrisi için ERP yönetim çözümü.'})}<br/>
+              ${esc2(companyIdentity.nom || '')}${companyIdentity.adresse ? ` — ${esc2(companyIdentity.adresse)}` : ''}<br/>
               ${tx(lang,{fr:'Document généré électroniquement et valable sans signature.',ar:'مستند تم إنشاؤه إلكترونياً وصالح بدون توقيع.',en:'Electronically generated document valid without signature.',es:'Documento generado electrónicamente y válido sin firma.',pt:'Documento gerado eletronicamente e válido sem assinatura.',tr:'Elektronik olarak oluşturulmuş, imzasız geçerli belge.'})}
             </div>
           </div>
@@ -2833,7 +2853,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </tr>`).join('');
 
     const mismatchHtml = mismatch ? `
-            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:20px;font-size:12px;color:#92400e;font-weight:700;">
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:6px 9px;margin-bottom:8px;font-size:9.5px;color:#92400e;font-weight:700;">
               ${esc(tx(lang,{
                 fr:`Attention : le détail par couleur totalise ${rowsTotal} pièces alors que la commande en enregistre ${order.totalQuantity}. Vérifier avant expédition.`,
                 ar:`تنبيه: التفصيل حسب اللون مجموعه ${rowsTotal} قطعة بينما الطلبية مسجّلة بـ ${order.totalQuantity}. تحقّق قبل الإرسال.`,
@@ -2870,8 +2890,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         <body onload="window.print()">
           <div class="header">
             <div>
-              <div class="title">BeraMéthode</div>
-              <div style="font-size: 12px; color: #64748b; font-weight: 600;">${tx(lang,{fr:'ERP de Production & Confection Textile',ar:'ERP للإنتاج وصناعة الخياطة النسيجية',en:'ERP for Textile Production & Garment Manufacturing',es:'ERP de Producción y Confección Textil',pt:'ERP de Produção e Confecção Têxtil',tr:'Tekstil Üretimi ve Konfeksiyon için ERP'})}</div>
+              <div class="title">${esc(companyIdentity.nom || '')}</div>
+              <div style="font-size: 12px; color: #64748b; font-weight: 600;">${esc([companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : ''].filter(Boolean).join(' · '))}</div>
             </div>
             <div style="text-align: right;">
               <div style="font-size: 18px; font-weight: 900; color: #4f46e5;">${tx(lang,{fr:"BON D'ENVOI DE SOUS-TRAITANCE",ar:'مذكرة إرسال المقاولة من الباطن',en:'SUBCONTRACT DELIVERY NOTE',es:'NOTA DE ENVÍO DE SUBCONTRATACIÓN',pt:'NOTA DE REMESSA DE SUBCONTRATAÇÃO',tr:'TAŞERON SEVK İRSALİYESİ'})}</div>
@@ -3099,10 +3119,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       };
     };
 
-    const materialsView = materials.map(m => ({
-      ...m,
-      ...applyEdit(`mat-${m.id}`, { label: m.name, amount: m.cost }),
-    }));
+    const materialsView = materials.map(m => {
+      const e = costInvoiceEdits[`mat-${m.id}`];
+      // Une quantité corrigée doit se répercuter sur le montant : facturer 400 m
+      // au prix de 483 m serait faux. Un montant explicitement saisi reste
+      // prioritaire, c'est la volonté la plus récente de l'utilisateur.
+      const qty = e?.qty != null && Number.isFinite(e.qty) ? e.qty : m.buyQty;
+      const baseAmount = e?.qty != null && Number.isFinite(e.qty) ? qty * m.unitPrice : m.cost;
+      return {
+        ...m,
+        qty,
+        qtyEdited: e?.qty != null,
+        ...applyEdit(`mat-${m.id}`, { label: m.name, amount: baseAmount }),
+      };
+    });
     const expensesView = expenses.map(e => ({
       ...e,
       ...applyEdit(`exp-${e.expense.id}`, { label: e.expense.label, amount: e.applied }),
@@ -3233,13 +3263,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'ACHAT',
-          tiers_nom: order.subcontractorName,
+          tiers_nom: costInvoiceTiers.nom || order.subcontractorName,
           // Identifiants légaux du bénéficiaire, repris de sa fiche : sans eux la
           // facture d'achat n'est pas exploitable comptablement.
-          tiers_ice: stProfile?.ice || null,
-          tiers_rc: stProfile?.rc || null,
-          tiers_adresse: stProfile?.address || null,
-          tiers_tel: stProfile?.phone || order.subcontractorPhone || null,
+          tiers_ice: costInvoiceTiers.ice || stProfile?.ice || null,
+          tiers_rc: costInvoiceTiers.rc || stProfile?.rc || null,
+          tiers_adresse: costInvoiceTiers.adresse || stProfile?.address || null,
+          tiers_tel: costInvoiceTiers.tel || stProfile?.phone || order.subcontractorPhone || null,
           date_facture: inv.dateFacture,
           date_echeance: inv.dueDate,
           taux_tva: inv.tvaRate,
@@ -3337,13 +3367,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const stPhoto = profile?.photo || '';
     const visuals: string[] = [];
     if (costInvoiceShow.model && modelPhoto) {
-      visuals.push(`<div style="text-align:center;"><img src="${esc(modelPhoto)}" alt="" style="height:70px;width:70px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;" /><div style="font-size:10px;color:#64748b;margin-top:4px;">${esc(order.modelName || order.modelId)}</div></div>`);
+      visuals.push(`<div style="text-align:center;"><img src="${esc(modelPhoto)}" alt="" style="height:42px;width:42px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" /><div style="font-size:8px;color:#64748b;margin-top:2px;">${esc(order.modelName || order.modelId)}</div></div>`);
     }
     if (costInvoiceShow.subcontractor && stPhoto) {
-      visuals.push(`<div style="text-align:center;"><img src="${esc(stPhoto)}" alt="" style="height:70px;width:70px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;" /><div style="font-size:10px;color:#64748b;margin-top:4px;">${esc(order.subcontractorName)}</div></div>`);
+      visuals.push(`<div style="text-align:center;"><img src="${esc(stPhoto)}" alt="" style="height:42px;width:42px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" /><div style="font-size:8px;color:#64748b;margin-top:2px;">${esc(order.subcontractorName)}</div></div>`);
     }
     const visualsBlock = visuals.length
-      ? `<div style="display:flex;gap:16px;margin-bottom:18px;">${visuals.join('')}</div>`
+      ? `<div style="display:flex;gap:10px;margin-bottom:8px;">${visuals.join('')}</div>`
       : '';
 
     const partialNotice = inv.isPartial ? `
@@ -3365,9 +3395,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     ].filter(Boolean).map(l => `<div style="font-size: 11px; color: #475569; margin-top: 3px;">${esc(l)}</div>`).join('');
 
     const recipientLines = [
-      profile?.address || '',
-      profile?.phone || order.subcontractorPhone || '',
-      [profile?.ice ? `ICE : ${profile.ice}` : '', profile?.rc ? `RC : ${profile.rc}` : ''].filter(Boolean).join(' · '),
+      costInvoiceTiers.adresse || profile?.address || '',
+      costInvoiceTiers.tel || profile?.phone || order.subcontractorPhone || '',
+      [(costInvoiceTiers.ice || profile?.ice) ? `ICE : ${costInvoiceTiers.ice || profile?.ice}` : '', (costInvoiceTiers.rc || profile?.rc) ? `RC : ${costInvoiceTiers.rc || profile?.rc}` : ''].filter(Boolean).join(' · '),
     ].filter(Boolean).map(l => `<div style="font-size: 11px; color: #475569; margin-top: 3px;">${esc(l)}</div>`).join('');
 
     // Le numéro définitif est attribué par le serveur à l'enregistrement. Tant
@@ -3399,36 +3429,44 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         <head>
           <title>${esc(tx(lang,{fr:'Facture Sous-traitance',ar:'فاتورة المقاولة من الباطن',en:'Subcontract Invoice',es:'Factura de Subcontratación',pt:'Fatura de Subcontratação',tr:'Taşeron Faturası'}))} - ${esc(order.modelName || order.modelId)}</title>
           <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; padding: 40px; line-height: 1.5; font-size: 13px; }
+            /* Facture d'atelier : elle doit tenir sur UNE feuille A4. Tout est
+               donc calibré serré — une facture qui déborde sur une seconde page
+               oblige à agrafer, et la page 2 finit par se perdre. */
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; padding: 16px; line-height: 1.35; font-size: 11px; }
             .invoice-box { max-width: 820px; margin: auto; }
-            .header { display: flex; justify-content: space-between; border-bottom: 3px solid #6366f1; padding-bottom: 20px; margin-bottom: 30px; }
-            .logo { font-size: 24px; font-weight: 900; color: #1e1b4b; }
-            .meta-section { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
-            .box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; }
-            .box-title { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 800; }
-            .box-val { font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 4px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th { background: #f1f5f9; padding: 12px; text-align: left; font-size: 11px; color: #475569; font-weight: 800; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
-            td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
-            .total-table { width: 300px; margin-left: auto; }
-            .total-table td { padding: 8px 12px; border: none; }
-            .total-row { font-weight: 900; color: #4f46e5; font-size: 16px; border-top: 2px solid #cbd5e1 !important; }
-            .signatures { display: flex; justify-content: space-between; margin-top: 70px; }
-            .sig-box { width: 240px; border-top: 2px dashed #cbd5e1; text-align: center; padding-top: 10px; font-size: 11px; color: #475569; font-weight: 800; }
-            .footer { margin-top: 40px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 16px; }
-            .words { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; margin: 18px 0; background: #fafafa; }
-            .words-ar { direction: rtl; font-size: 13px; margin-top: 6px; }
-            .legal { font-size: 10px; color: #64748b; line-height: 1.6; margin-top: 18px; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #6366f1; padding-bottom: 10px; margin-bottom: 12px; }
+            .logo { font-size: 18px; font-weight: 900; color: #1e1b4b; }
+            .meta-section { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+            .box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 10px; border-radius: 8px; }
+            .box-title { font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: .04em; }
+            .box-val { font-size: 12px; font-weight: 800; color: #0f172a; margin-top: 2px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+            th { background: #f1f5f9; padding: 6px 8px; text-align: left; font-size: 9px; color: #475569; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; }
+            td { padding: 5px 8px; border-bottom: 1px solid #eef2f7; }
+            .total-table { width: 280px; margin-left: auto; }
+            .total-table td { padding: 3px 8px; border: none; }
+            .total-row { font-weight: 900; color: #4f46e5; font-size: 13px; border-top: 1px solid #cbd5e1 !important; }
+            .signatures { display: flex; justify-content: space-between; margin-top: 22px; }
+            .sig-box { width: 220px; border-top: 1px dashed #cbd5e1; text-align: center; padding-top: 6px; font-size: 9px; color: #475569; font-weight: 800; }
+            .footer { margin-top: 12px; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+            .words { border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 10px; margin: 10px 0; background: #fafafa; }
+            .words-ar { direction: rtl; font-size: 11px; margin-top: 3px; }
+            .legal { font-size: 8.5px; color: #64748b; line-height: 1.45; margin-top: 10px; }
+            /* La vignette du modèle est un repère visuel, pas une illustration :
+               au-delà de cette taille elle mange une ligne du tableau. */
+            .model-thumb img { height: 40px !important; }
             /* Papier A4 : marges typographiques raisonnables, en-tête de tableau
                répété sur chaque page et lignes jamais coupées en deux — sans quoi
                une facture de 30 lignes devient illisible à l'impression. */
-            @page { size: A4; margin: 14mm 12mm; }
+            @page { size: A4; margin: 10mm 10mm; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
             tr, .box, .words, .signatures { break-inside: avoid; page-break-inside: avoid; }
             @media print {
-              body { padding: 0; font-size: 12px; }
+              body { padding: 0; font-size: 10.5px; }
               .invoice-box { max-width: none; }
+              /* Rien ne doit provoquer de saut : la facture tient sur une page. */
+              .signatures { margin-top: 16px; }
             }
           </style>
         </head>
@@ -3439,8 +3477,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <div style="display:flex;align-items:center;gap:12px;">
                   ${costInvoiceShow.logo && companyIdentity.logo ? `<img src="${esc(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
                   <div>
-                    <div class="logo">${esc(companyIdentity.nom || 'BeraMéthode')}</div>
-                    <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">${esc(tx(lang,{fr:'Édité avec BeraMéthode',ar:'مُحرَّر بواسطة BeraMéthode',en:'Issued with BeraMéthode',es:'Emitido con BeraMéthode',pt:'Emitido com BeraMéthode',tr:'BeraMéthode ile düzenlendi'}))}</div>
+                    <div class="logo">${esc(companyIdentity.nom || '')}</div>
+                    <div style="font-size: 10px; color: #64748b; font-weight: 600;">${esc([companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : ''].filter(Boolean).join(' · '))}</div>
                   </div>
                 </div>
               </div>
@@ -6279,36 +6317,72 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   </div>
                 )}
 
-                {/* Préréglages : facturer un TYPE de ligne en un clic. Ils ne font que
-                    cocher/décocher, donc tout reste ajustable ligne à ligne ensuite. */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-dk-muted">
-                    {tx(lang,{fr:'Facturer',ar:'فوترة',en:'Invoice',es:'Facturar',pt:'Faturar',tr:'Faturala'})}
-                  </span>
-                  {([
-                    { id: 'all', label: tx(lang,{fr:'Tout',ar:'الكل',en:'Everything',es:'Todo',pt:'Tudo',tr:'Hepsi'}) },
-                    { id: 'facon', label: tx(lang,{fr:'Façon seule',ar:'الخياطة فقط',en:'Making only',es:'Solo confección',pt:'Só confeção',tr:'Sadece fason'}) },
-                    { id: 'mat', label: tx(lang,{fr:'Matières seules',ar:'المواد فقط',en:'Materials only',es:'Solo materias',pt:'Só matérias',tr:'Sadece malzemeler'}) },
-                    { id: 'exp', label: tx(lang,{fr:'Frais seuls',ar:'المصاريف فقط',en:'Expenses only',es:'Solo gastos',pt:'Só encargos',tr:'Sadece masraflar'}) },
-                  ] as const).map(preset => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => {
-                        const off = new Set<string>();
-                        const matKeys = inv.allMaterials.map(m => `mat-${m.id}`);
-                        const expKeys = inv.allExpenses.map(e => `exp-${e.expense.id}`);
-                        if (preset.id === 'facon') { matKeys.forEach(k => off.add(k)); expKeys.forEach(k => off.add(k)); }
-                        if (preset.id === 'mat') { off.add('facon'); expKeys.forEach(k => off.add(k)); }
-                        if (preset.id === 'exp') { off.add('facon'); matKeys.forEach(k => off.add(k)); }
-                        setCostInvoiceOff(off);
-                      }}
-                      className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-dk-border text-[10px] font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
+                {/* Groupes cumulables : chaque bouton ALLUME ou ÉTEINT sa famille de
+                    lignes, au lieu de repartir d'une sélection unique. On facture
+                    ainsi « façon + frais » sans les matières, et tout reste
+                    ajustable ligne à ligne ensuite. */}
+                {(() => {
+                  const matKeys = inv.allMaterials.map(m => `mat-${m.id}`);
+                  const expKeys = inv.allExpenses.map(e => `exp-${e.expense.id}`);
+                  const groups = [
+                    { id: 'facon', keys: ['facon'], label: tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}) },
+                    { id: 'mat', keys: matKeys, label: tx(lang,{fr:'Matières',ar:'المواد',en:'Materials',es:'Materias',pt:'Matérias',tr:'Malzemeler'}) },
+                    { id: 'exp', keys: expKeys, label: tx(lang,{fr:'Frais',ar:'المصاريف',en:'Expenses',es:'Gastos',pt:'Encargos',tr:'Masraflar'}) },
+                  ].filter(g => g.keys.length > 0);
+
+                  const allKeys = groups.flatMap(g => g.keys);
+                  const allOn = allKeys.every(k => !costInvoiceOff.has(k));
+
+                  return (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-dk-muted">
+                        {tx(lang,{fr:'Facturer',ar:'فوترة',en:'Invoice',es:'Facturar',pt:'Faturar',tr:'Faturala'})}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => setCostInvoiceOff(allOn ? new Set(allKeys) : new Set())}
+                        className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold transition-colors ${
+                          allOn
+                            ? 'bg-indigo-600 dark:bg-dk-accent border-indigo-600 dark:border-dk-accent text-white'
+                            : 'border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                        }`}
+                      >
+                        {tx(lang,{fr:'Tout',ar:'الكل',en:'Everything',es:'Todo',pt:'Tudo',tr:'Hepsi'})}
+                      </button>
+
+                      {groups.map(g => {
+                        const on = g.keys.every(k => !costInvoiceOff.has(k));
+                        const partial = !on && g.keys.some(k => !costInvoiceOff.has(k));
+                        return (
+                          <button
+                            key={g.id}
+                            type="button"
+                            onClick={() => setCostInvoiceOff(prev => {
+                              const next = new Set(prev);
+                              // Un groupe partiellement coché s'aligne d'abord sur « tout coché » :
+                              // c'est le geste attendu quand on clique dessus.
+                              if (on) g.keys.forEach(k => next.add(k));
+                              else g.keys.forEach(k => next.delete(k));
+                              return next;
+                            })}
+                            className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold transition-colors flex items-center gap-1 ${
+                              on
+                                ? 'bg-indigo-50 dark:bg-dk-accent/20 border-indigo-300 dark:border-dk-accent/60 text-indigo-700 dark:text-dk-accent'
+                                : partial
+                                  ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800/60 text-amber-700 dark:text-amber-400'
+                                  : 'border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                            }`}
+                          >
+                            {on && <Check className="w-3 h-3" />}
+                            {g.label}
+                            {g.keys.length > 1 && <span className="opacity-60">({g.keys.length})</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
 
                 <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
                   <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
@@ -6379,7 +6453,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               />
                               <MaterialPriceBadge source={m.priceSource} lang={lang} />
                             </td>
-                            <td className="px-4 py-2 text-right">{fmt(m.buyQty)} {m.unit}</td>
+                            <td className="px-4 py-2 text-right">
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                value={m.qty}
+                                onChange={e => editCostLine(`mat-${m.id}`, { qty: e.target.value === '' ? undefined : Math.max(0, parseFloat(e.target.value) || 0) })}
+                                className={`w-16 text-right bg-transparent border-b border-dashed outline-none px-0.5 ${m.qtyEdited ? 'border-indigo-400 text-indigo-700 dark:text-dk-accent font-bold' : 'border-slate-300 dark:border-dk-border'}`}
+                              />
+                              <span className="ml-1 text-slate-400 dark:text-dk-muted">{m.unit}</span>
+                            </td>
                             <td className="px-4 py-2 text-right">{fmt(m.unitPrice)} {currency}</td>
                             <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">
                               <MoneyCell
@@ -6603,81 +6687,39 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   </div>
                 </div>
 
-                {/* Identité du BÉNÉFICIAIRE — reprise de sa fiche sous-traitant.
-                    Une facture d'achat sans ICE ni RC du bénéficiaire n'est pas
-                    exploitable comptablement : on l'affiche donc ici, et on la
-                    transmet telle quelle à la facture enregistrée. */}
-                {(() => {
-                  const profile = subcontractorProfiles.find(p => p.name === order.subcontractorName);
-                  const missing = !profile?.ice || !profile?.rc;
-                  return (
-                    <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
-                      <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
-                        <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
-                          {tx(lang,{fr:'Infos sous-traitant (bénéficiaire)',ar:'معلومات السوطراطور (المستفيد)',en:'Subcontractor info (payee)',es:'Datos del subcontratista (beneficiario)',pt:'Dados do subcontratado (beneficiário)',tr:'Taşeron bilgileri (alacaklı)'})}
-                        </h4>
-                      </div>
-                      <div className="p-4 space-y-1.5">
-                        <p className="font-bold text-slate-800 dark:text-dk-text">{order.subcontractorName}</p>
-                        <p className="text-[11px] text-slate-500 dark:text-dk-muted">
-                          {[profile?.ice && `ICE : ${profile.ice}`, profile?.rc && `RC : ${profile.rc}`].filter(Boolean).join(' · ') || '—'}
-                        </p>
-                        <p className="text-[11px] text-slate-500 dark:text-dk-muted">
-                          {[profile?.address, profile?.phone || order.subcontractorPhone].filter(Boolean).join(' · ') || '—'}
-                        </p>
-                        {missing && (
-                          <p className="text-[10px] text-amber-700 dark:text-amber-400 italic pt-1">
-                            {tx(lang,{
-                              fr:"ICE / RC manquants — complétez la fiche du sous-traitant (onglet Sous-traitants) pour qu'ils figurent sur la facture.",
-                              ar:'ICE / RC ناقصين — كمّل بطاقة السوطراطور (تبويب Sous-traitants) باش يبانو فالفاتورة.',
-                              en:'Missing ICE / RC — complete the subcontractor profile (Subcontractors tab) so they appear on the invoice.',
-                              es:'Faltan ICE / RC — complete la ficha del subcontratista (pestaña Subcontratistas) para que aparezcan en la factura.',
-                              pt:'ICE / RC em falta — complete a ficha do subcontratado (separador Subcontratados) para que constem na fatura.',
-                              tr:'ICE / RC eksik — faturada görünmesi için taşeron kartını (Taşeronlar sekmesi) tamamlayın.',
-                            })}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Visuels imprimés sur la facture. */}
+                {/* Identité du BÉNÉFICIAIRE — pré-remplie depuis sa fiche, corrigible
+                    ici : une facture d'achat sans ICE ni RC n'est pas exploitable
+                    comptablement, et l'information arrive parfois au dernier moment.
+                    La correction vaut pour CETTE facture ; la fiche reste la source. */}
                 <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
                   <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
                     <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
-                      {tx(lang,{fr:'Images sur la facture',ar:'الصور فالفاتورة',en:'Images on the invoice',es:'Imágenes en la factura',pt:'Imagens na fatura',tr:'Faturadaki görseller'})}
+                      {tx(lang,{fr:'Infos sous-traitant (bénéficiaire)',ar:'معلومات السوطراطور (المستفيد)',en:'Subcontractor info (payee)',es:'Datos del subcontratista (beneficiario)',pt:'Dados do subcontratado (beneficiário)',tr:'Taşeron bilgileri (alacaklı)'})}
                     </h4>
                   </div>
-                  <div className="p-4 flex flex-wrap gap-4">
+                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {([
-                      { key: 'logo' as const, label: tx(lang,{fr:'Logo entreprise',ar:'شعار الشركة',en:'Company logo',es:'Logo de la empresa',pt:'Logótipo da empresa',tr:'Şirket logosu'}), src: companyIdentity.logo },
-                      { key: 'model' as const, label: tx(lang,{fr:'Photo du modèle',ar:'صورة الموديل',en:'Model photo',es:'Foto del modelo',pt:'Foto do modelo',tr:'Model fotoğrafı'}), src: models.find(m => m.id === order.modelId)?.image || '' },
-                      { key: 'subcontractor' as const, label: tx(lang,{fr:'Photo sous-traitant',ar:'صورة السوطراطور',en:'Subcontractor photo',es:'Foto del subcontratista',pt:'Foto do subcontratado',tr:'Taşeron fotoğrafı'}), src: subcontractorProfiles.find(p => p.name === order.subcontractorName)?.photo || '' },
-                    ]).map(img => (
-                      <label key={img.key} className={`flex items-center gap-2 ${img.src ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}>
+                      { k: 'nom' as const, label: tx(lang,{fr:'Raison sociale',ar:'الاسم التجاري',en:'Company name',es:'Razón social',pt:'Razão social',tr:'Ticari unvan'}) },
+                      { k: 'ice' as const, label: 'ICE' },
+                      { k: 'rc' as const, label: 'RC' },
+                      { k: 'tel' as const, label: tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'}) },
+                      { k: 'adresse' as const, label: tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'}) },
+                    ]).map(f => (
+                      <div key={f.k} className={f.k === 'adresse' ? 'sm:col-span-2' : ''}>
+                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">{f.label}</label>
                         <input
-                          type="checkbox"
-                          disabled={!img.src}
-                          checked={!!img.src && costInvoiceShow[img.key]}
-                          onChange={() => setCostInvoiceShow(prev => ({ ...prev, [img.key]: !prev[img.key] }))}
-                          className="w-3.5 h-3.5 accent-indigo-600"
+                          type="text"
+                          value={costInvoiceTiers[f.k]}
+                          onChange={e => setCostInvoiceTiers(prev => ({ ...prev, [f.k]: e.target.value }))}
+                          className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
                         />
-                        <span className="w-9 h-9 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg overflow-hidden flex items-center justify-center shrink-0">
-                          {img.src
-                            ? <img src={img.src} alt="" className="w-full h-full object-cover" />
-                            : <Package className="w-4 h-4 text-slate-300 dark:text-dk-muted" />}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-600 dark:text-dk-text-soft">
-                          {img.label}
-                          {!img.src && (
-                            <span className="block font-semibold text-slate-400 dark:text-dk-muted">
-                              {tx(lang,{fr:'aucune image',ar:'ما كاينة صورة',en:'no image',es:'sin imagen',pt:'sem imagem',tr:'görsel yok'})}
-                            </span>
-                          )}
-                        </span>
-                      </label>
+                      </div>
                     ))}
+                    {(!costInvoiceTiers.ice || !costInvoiceTiers.rc) && (
+                      <p className="sm:col-span-2 text-[10px] text-amber-700 dark:text-amber-400 italic">
+                        {tx(lang,{fr:'ICE / RC manquants — la facture partira sans eux.',ar:'ICE / RC ناقصين — الفاتورة غادي تمشي بلاهم.',en:'Missing ICE / RC — the invoice will go out without them.',es:'Faltan ICE / RC — la factura saldrá sin ellos.',pt:'ICE / RC em falta — a fatura seguirá sem eles.',tr:'ICE / RC eksik — fatura bunlarsız çıkacak.'})}
+                      </p>
+                    )}
                   </div>
                 </div>
 
