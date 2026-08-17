@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Package, Plus, Trash2, Info, Building2, Search, Palette, Ruler, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { Material, FicheData } from '../types';
 import { useLang } from '../src/context/LanguageContext';
@@ -387,6 +388,32 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
     const isBobine = item.unit === 'bobine';
     const bobineOpen = expandedBobine === item.id;
 
+    // La liste déroulante est rendue dans un PORTAIL, ancré sur l'input.
+    // Le tableau desktop vit dans un conteneur `overflow-x-auto`, et un overflow
+    // sur un axe rend l'autre axe « auto » : la liste en position absolue était
+    // donc rognée sous la ligne, ce qui masquait le bouton « Ajouter … » quand
+    // aucune matière ne correspondait. En `position: fixed` hors du tableau,
+    // plus rien ne peut la couper.
+    const anchorRef = useRef<HTMLDivElement>(null);
+    const [anchorBox, setAnchorBox] = useState<{ top: number; left: number; width: number } | null>(null);
+
+    useLayoutEffect(() => {
+        if (focusedRow !== item.id) { setAnchorBox(null); return; }
+        const measure = () => {
+            const r = anchorRef.current?.getBoundingClientRect();
+            if (r) setAnchorBox({ top: r.bottom + 4, left: r.left, width: r.width });
+        };
+        measure();
+        // Le tableau défile horizontalement et la page verticalement : sans ce
+        // suivi, la liste resterait figée à sa position d'ouverture.
+        window.addEventListener('scroll', measure, true);
+        window.addEventListener('resize', measure);
+        return () => {
+            window.removeEventListener('scroll', measure, true);
+            window.removeEventListener('resize', measure);
+        };
+    }, [focusedRow, item.id]);
+
     // Lien vers l'article du magasin : `magasinId` fait foi (lien fort posé à
     // l'import) ; le nom n'est qu'un repli, et il est comparé de façon tolérante —
     // une majuscule ou un espace de différence faisait disparaître la photo, la
@@ -612,7 +639,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                             <Palette className="w-3.5 h-3.5" />
                         </button>
                     )}
-                    <div className="relative flex-1">
+                    <div className="relative flex-1" ref={anchorRef}>
                         <input type="text" value={item.name}
                             onChange={(e) => updateMaterial(item.id, 'name', e.target.value)}
                             onFocus={() => setFocusedRow(item.id)}
@@ -623,8 +650,10 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                     </div>
                 </div>
                 {/* Autocomplete Desktop */}
-                {focusedRow === item.id && (filteredMagasin.length > 0 || (item.name && filteredMagasin.length === 0)) && (
-                    <div className="absolute z-[100] left-0 right-0 top-[34px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg shadow-lg dark:shadow-dk-lg max-h-48 overflow-y-auto animate-in fade-in">
+                {focusedRow === item.id && anchorBox && (filteredMagasin.length > 0 || (item.name && filteredMagasin.length === 0)) && createPortal(
+                    <div
+                        style={{ position: 'fixed', top: anchorBox.top, left: anchorBox.left, width: Math.max(anchorBox.width, 240) }}
+                        className="z-[9999] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg shadow-lg dark:shadow-dk-lg max-h-60 overflow-y-auto animate-in fade-in">
                         {filteredMagasin.length > 0 ? filteredMagasin.slice(0, 6).map(m => (
                             <div key={m.id}
                                 className={`p-2 border-b border-slate-50 cursor-pointer hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex justify-between items-center ${!m.stockActuel ? 'opacity-70' : ''}`}
@@ -655,7 +684,8 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                 )}
                             </div>
                         )}
-                    </div>
+                    </div>,
+                    document.body
                 )}
                 {/* Magasin info line */}
                 {mMatch && !focusedRow && (
