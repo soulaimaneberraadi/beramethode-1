@@ -5,6 +5,7 @@ import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { resolveStock, MagasinItem } from '../lib/magasinMatch';
 import { fmt } from '../app/constants';
+import { diffOrderVsModelGrid } from '../utils/subcontractGrid';
 import InlineInvoiceList from './InlineInvoiceList';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
@@ -559,6 +560,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [newMilestoneLabel, setNewMilestoneLabel] = useState('');
   const [milestoneSaving, setMilestoneSaving] = useState(false);
   const [milestoneError, setMilestoneError] = useState<string | null>(null);
+  /** Alignement de la grille du modèle sur celle de la commande (action manuelle). */
+  const [gridAligning, setGridAligning] = useState(false);
+  const [gridAlignError, setGridAlignError] = useState<string | null>(null);
   /** Jalon libre en cours de renommage — id du chip + valeur éditée localement. */
   const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
   const [editingMilestoneLabel, setEditingMilestoneLabel] = useState('');
@@ -813,6 +817,58 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
     } catch (err) {
       console.error('[SousTraitance] sync soustraitance → modèle', err);
+    }
+  };
+
+  /** Écrit la grille couleur × taille d'une commande dans la fiche de coût du
+   *  modèle. Même précaution que `writeModelSoustraitance` : on relit la version
+   *  fraîche avant d'écrire pour ne pas écraser le travail de l'ingénierie, et on
+   *  ne touche QUE `gridQuantities` (+ `quantity`, qui en est le total et sert de
+   *  base à plusieurs calculs).
+   *
+   *  Jamais automatique : la grille pilote le prix de revient, donc seul un clic
+   *  explicite de l'utilisateur déclenche l'alignement. */
+  const writeModelGrid = async (modelId: string, gridQuantities: Record<string, number>): Promise<boolean> => {
+    if (!modelId || modelId === 'MANUAL') return false;
+    const local = models.find(m => m.id === modelId);
+    if (!local) return false;
+
+    try {
+      let base: ModelData = local;
+      if (!IS_STATIC) {
+        const fresh = await fetch('/api/models', { credentials: 'include' });
+        if (!fresh.ok) return false;
+        const list = await fresh.json();
+        const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
+        if (!found) return false;
+        base = found;
+      }
+
+      const total = Object.values(gridQuantities).reduce((a, v) => a + (Number(v) || 0), 0);
+      const updated: ModelData = {
+        ...base,
+        ficheData: {
+          ...(base.ficheData as any),
+          gridQuantities,
+          ...(total > 0 ? { quantity: total } : {}),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (!IS_STATIC) {
+        const res = await fetch('/api/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(updated),
+        });
+        if (!res.ok) return false;
+      }
+      setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+      return true;
+    } catch (err) {
+      console.error('[SousTraitance] sync grille → modèle', err);
+      return false;
     }
   };
 
@@ -4452,6 +4508,85 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <span className="font-bold text-slate-800 dark:text-dk-text">{new Date(detailOrder.deliveryDate).toLocaleDateString('fr-FR')}</span>
                 </div>
               </div>
+
+              {/* Grille couleur × taille : commande vs fiche de coût du modèle.
+                  Une grille modèle différente de ce qui est réellement commandé
+                  fausse le prix de revient (base de répartition des frais et des
+                  matières). On CHIFFRE l'écart et on propose l'alignement, mais on
+                  n'écrit jamais tout seul dans la fiche. */}
+              {(() => {
+                const matchedModel = models.find(m => m.id === detailOrder.modelId);
+                const orderGrid = parseJsonSafe(detailOrder.grid_json, null as any);
+                if (!matchedModel || !orderGrid || Object.keys(orderGrid).length === 0) return null;
+
+                const fiche: any = matchedModel.ficheData || {};
+                const diff = diffOrderVsModelGrid(
+                  orderGrid,
+                  fiche.gridQuantities || {},
+                  fiche.colors || [],
+                  fiche.sizes || [],
+                );
+                if (!diff.differs) return null;
+
+                return (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 space-y-2.5">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-bold text-amber-900 dark:text-amber-300 block">
+                          {tx(lang,{fr:'Grille différente de la fiche de coût',ar:'الشبكة مختلفة عن بطاقة التكلفة',en:'Grid differs from the cost sheet',es:'Rejilla distinta de la ficha de coste',pt:'Grelha diferente da ficha de custo',tr:'Izgara maliyet kartından farklı'})}
+                        </span>
+                        <span className="text-[10px] font-semibold text-amber-800 dark:text-amber-400/90 block mt-0.5">
+                          {tx(lang,{fr:'Commande',ar:'الأمر',en:'Order',es:'Pedido',pt:'Encomenda',tr:'Sipariş'})}: {diff.orderTotal.toLocaleString()} pcs
+                          {' · '}
+                          {tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}: {diff.modelTotal.toLocaleString()} pcs
+                          {diff.delta !== 0 && (
+                            <span className={diff.delta < 0 ? 'text-rose-700 dark:text-rose-400' : 'text-amber-900 dark:text-amber-300'}>
+                              {' '}({diff.delta > 0 ? '+' : ''}{diff.delta.toLocaleString()})
+                            </span>
+                          )}
+                        </span>
+                        {diff.delta < 0 && (
+                          <span className="text-[10px] font-semibold text-rose-700 dark:text-rose-400 block mt-0.5">
+                            {tx(lang,{fr:'Le prix de revient est calculé sur moins de pièces que commandé.',ar:'ثمن التكلفة محسوب على قطع أقلّ من المطلوبة.',en:'Cost price is computed on fewer pieces than ordered.',es:'El coste se calcula sobre menos piezas que las pedidas.',pt:'O custo é calculado sobre menos peças que as encomendadas.',tr:'Maliyet, sipariş edilenden az parça üzerinden hesaplanıyor.'})}
+                          </span>
+                        )}
+                        {(diff.unmatchedColors.length > 0 || diff.unmatchedSizes.length > 0) && (
+                          <span className="text-[10px] font-semibold text-amber-800 dark:text-amber-400/90 block mt-0.5">
+                            {tx(lang,{fr:'Absent du modèle',ar:'غير موجود في الموديل',en:'Missing from the model',es:'Ausente del modelo',pt:'Ausente do modelo',tr:'Modelde yok'})}
+                            {': '}
+                            {[...diff.unmatchedColors, ...diff.unmatchedSizes].join(', ')}
+                            {' — '}
+                            {tx(lang,{fr:'ces quantités ne seront pas reportées.',ar:'هاد الكميات ما غاديش تُنقل.',en:'these quantities will not be transferred.',es:'estas cantidades no se transferirán.',pt:'estas quantidades não serão transferidas.',tr:'bu miktarlar aktarılmayacak.'})}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={gridAligning}
+                        onClick={async () => {
+                          setGridAligning(true);
+                          setGridAlignError(null);
+                          const ok = await writeModelGrid(detailOrder.modelId, diff.proposed);
+                          if (!ok) setGridAlignError(tx(lang,{fr:"L'alignement a échoué.",ar:'فشلت المطابقة.',en:'Alignment failed.',es:'La alineación falló.',pt:'O alinhamento falhou.',tr:'Hizalama başarısız oldu.'}));
+                          setGridAligning(false);
+                        }}
+                        className="bg-white dark:bg-dk-surface border border-amber-300 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-300 px-3 py-1.5 rounded-lg font-bold text-[10px] transition-colors flex items-center gap-1.5 disabled:opacity-40"
+                      >
+                        {gridAligning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Layers className="w-3 h-3" />}
+                        {tx(lang,{fr:'Aligner la fiche de coût sur la commande',ar:'مطابقة بطاقة التكلفة مع الأمر',en:'Align the cost sheet with the order',es:'Alinear la ficha de coste con el pedido',pt:'Alinhar a ficha de custo com a encomenda',tr:'Maliyet kartını siparişle hizala'})}
+                      </button>
+                    </div>
+
+                    {gridAlignError && (
+                      <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{gridAlignError}</p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Jalons — mêmes contrôles que sur la carte, en plus grand */}
               <div className="bg-slate-50 dark:bg-dk-bg/75 border border-slate-200 dark:border-dk-border rounded-xl p-4 space-y-2.5">
