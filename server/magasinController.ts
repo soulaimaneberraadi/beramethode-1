@@ -249,13 +249,22 @@ export const saveMagasinCommande = (req: Request, res: Response) => {
     const c = req.body;
     try {
         const stmt = db.prepare(`
-            INSERT INTO magasin_commandes (id, owner_id, numero, fournisseurNom, dateCreation, dateLivraisonPrevue, total, statut, lignes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO magasin_commandes (id, owner_id, numero, fournisseurNom, dateCreation, dateLivraisonPrevue, total, statut, lignes, notes, tvaTaux, conditionsPaiement, adresseLivraison)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
             numero=excluded.numero, fournisseurNom=excluded.fournisseurNom, dateCreation=excluded.dateCreation,
-            dateLivraisonPrevue=excluded.dateLivraisonPrevue, total=excluded.total, statut=excluded.statut, lignes=excluded.lignes
+            dateLivraisonPrevue=excluded.dateLivraisonPrevue, total=excluded.total, statut=excluded.statut, lignes=excluded.lignes,
+            notes=excluded.notes, tvaTaux=excluded.tvaTaux, conditionsPaiement=excluded.conditionsPaiement, adresseLivraison=excluded.adresseLivraison
         `);
-        stmt.run(c.id, userId, c.numero, c.fournisseurNom, c.dateCreation, c.dateLivraisonPrevue || null, c.total || 0, c.statut, JSON.stringify(c.lignes || []));
+        // `total` reste le montant HT : les BC déjà enregistrés gardent leur sens.
+        stmt.run(
+            c.id, userId, c.numero, c.fournisseurNom, c.dateCreation, c.dateLivraisonPrevue || null,
+            c.total || 0, c.statut, JSON.stringify(c.lignes || []),
+            c.notes || null,
+            typeof c.tvaTaux === 'number' ? c.tvaTaux : null,
+            c.conditionsPaiement || null,
+            c.adresseLivraison || null,
+        );
         res.json({ message: 'Commande saved successfully' });
     } catch (error) {
         console.error('Save commande error:', error);

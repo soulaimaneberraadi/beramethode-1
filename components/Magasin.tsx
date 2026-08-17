@@ -75,6 +75,13 @@ export interface BonCommandeLigne {
     productNom: string;
     quantite: number;
     prixUnitaire?: number;
+    /** Copiés depuis la fiche produit au moment de l'ajout : un bon de commande
+     *  imprimé doit rester lisible même si le produit est renommé ou supprimé
+     *  plus tard (valeur juridique du document envoyé au fournisseur). */
+    reference?: string;
+    unite?: string;
+    /** Suivi de réception ligne par ligne — permet le statut « reçu partiellement ». */
+    quantiteRecue?: number;
 }
 
 export interface BonCommande {
@@ -84,9 +91,17 @@ export interface BonCommande {
     dateCreation: string;
     dateLivraisonPrevue?: string;
     lignes: BonCommandeLigne[];
-    statut: 'brouillon' | 'envoye' | 'valide' | 'livre';
+    /** `recu_partiel` intercalé entre l'envoi et la livraison complète : le
+     *  textile reçoit rarement un rouleau de tissu en une seule fois. */
+    statut: 'brouillon' | 'envoye' | 'valide' | 'recu_partiel' | 'livre';
+    /** Total HT (conservé tel quel pour ne pas casser les BC déjà enregistrés). */
     total?: number;
     notes?: string;
+    /** Taux de TVA en % — au Maroc 20 % sur les matières textiles, mais 14/10 %
+     *  existent selon la fourniture, donc paramétrable par bon. */
+    tvaTaux?: number;
+    conditionsPaiement?: string;
+    adresseLivraison?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -264,6 +279,32 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
 // ══════════════════════════════════════════════════════════════════════════════
 //  BON DE COMMANDE MODAL
 // ══════════════════════════════════════════════════════════════════════════════
+
+/** Échappement obligatoire : le bon de commande imprimé est construit par
+ *  concaténation de chaînes dans `window.open`, donc toute donnée saisie
+ *  (désignation, notes fournisseur...) doit être neutralisée avant injection. */
+const esc = (v: unknown) => String(v ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+/** Montants en dirhams : 2 décimales et séparateur de milliers, format FR
+ *  (celui attendu par les fournisseurs et l'administration fiscale marocaine). */
+const money = (n: number) => (Number.isFinite(n) ? n : 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Identité légale de l'entreprise émettrice, en lecture seule
+ *  (édition dans Admin > Entreprise). */
+/** Libellés de statut partagés entre la liste des BC et la modale d'édition. */
+const BC_STATUT_LABEL = (lang: Lang): Record<BonCommande['statut'], string> => ({
+    brouillon: tx(lang,{fr:'Brouillon',ar:'مسودة',en:'Draft',es:'Borrador',pt:'Rascunho',tr:'Taslak'}),
+    envoye: tx(lang,{fr:'Envoyé',ar:'مرسل',en:'Sent',es:'Enviado',pt:'Enviado',tr:'Gönderildi'}),
+    valide: tx(lang,{fr:'Validé/Approuvé',ar:'مُعتمد',en:'Approved',es:'Aprobado',pt:'Aprovado',tr:'Onaylandı'}),
+    recu_partiel: tx(lang,{fr:'Reçu partiellement',ar:'مستلم جزئياً',en:'Partially received',es:'Recibido parcialmente',pt:'Recebido parcialmente',tr:'Kısmen teslim alındı'}),
+    livre: tx(lang,{fr:'Reçu totalement',ar:'تم الاستلام كلياً',en:'Fully received',es:'Recibido totalmente',pt:'Totalmente recebido',tr:'Tam teslim alındı'}),
+});
+
+interface CompanyIdentity { nom: string; ice: string; rc: string; if_: string; adresse: string; tel: string; email: string; logo: string; }
+const EMPTY_COMPANY: CompanyIdentity = { nom: '', ice: '', rc: '', if_: '', adresse: '', tel: '', email: '', logo: '' };
+
 function BonCommandeModal({
     bc: initial,
     products,
@@ -278,24 +319,235 @@ function BonCommandeModal({
     onClose: () => void;
 }) {
     const { lang } = useLang();
-    const [bc, setBc] = useState<BonCommande>({ ...initial });
+    const [bc, setBc] = useState<BonCommande>({ tvaTaux: 20, ...initial });
     const [addPid, setAddPid] = useState('');
     const [addQty, setAddQty] = useState('');
+    const [company, setCompany] = useState<CompanyIdentity>(EMPTY_COMPANY);
+
+    // L'en-tête d'un bon de commande engage l'entreprise : on récupère son
+    // identité légale à l'ouverture. Un échec n'empêche pas de travailler,
+    // l'en-tête est simplement moins complet (et la modale le signale).
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            try {
+                const res = await fetch('/api/permissions/company', { credentials: 'include' });
+                if (!res.ok) return;
+                const data = await res.json();
+                const meta = (data?.profileMeta && typeof data.profileMeta === 'object') ? data.profileMeta : {};
+                if (!alive) return;
+                setCompany({
+                    nom: String(meta.raisonSociale ?? '').trim() || String(data?.name ?? '').trim(),
+                    ice: String(meta.ice ?? '').trim(),
+                    rc: String(meta.rc ?? '').trim(),
+                    if_: String(meta.if ?? meta.identifiantFiscal ?? '').trim(),
+                    adresse: [String(meta.adresse ?? '').trim(), String(meta.ville ?? '').trim()].filter(Boolean).join(', '),
+                    tel: String(meta.companyPhone ?? meta.adminPhone ?? '').trim(),
+                    email: String(meta.companyEmail ?? meta.adminEmail ?? '').trim(),
+                    logo: typeof data?.logo === 'string' ? data.logo : '',
+                });
+            } catch (err) {
+                console.error('[Magasin/BC] company identity', err);
+            }
+        })();
+        return () => { alive = false; };
+    }, []);
+
+    // Le fournisseur n'a pas de table dédiée : ses coordonnées vivent sur les
+    // fiches produit. On reconstitue donc sa fiche à partir du premier produit
+    // qui porte ce nom (les fiches d'un même fournisseur sont saisies à l'identique).
+    const supplier = React.useMemo(
+        () => products.find(p => p.fournisseurNom && norm(p.fournisseurNom) === norm(bc.fournisseurNom)),
+        [products, bc.fournisseurNom]
+    );
+    const suppliers = React.useMemo(
+        () => Array.from(new Set(products.map(p => (p.fournisseurNom || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+        [products]
+    );
+    // Un BC s'adresse à UN fournisseur : on ne propose que ses articles dès
+    // qu'il est renseigné, pour éviter les bons mixtes impossibles à envoyer.
+    const selectableProducts = React.useMemo(
+        () => (bc.fournisseurNom && supplier ? products.filter(p => norm(p.fournisseurNom) === norm(bc.fournisseurNom)) : products),
+        [products, bc.fournisseurNom, supplier]
+    );
 
     const calcTotal = (lignes: BonCommandeLigne[]) => lignes.reduce((s, l) => s + (l.quantite * (l.prixUnitaire || 0)), 0);
+    const totalHT = calcTotal(bc.lignes);
+    const tauxTva = bc.tvaTaux ?? 20;
+    const montantTva = totalHT * tauxTva / 100;
+    const totalTTC = totalHT + montantTva;
+
+    /** MOQ : quantité minimale imposée par le fournisseur. En dessous, la
+     *  commande est généralement refusée ou surfacturée — on alerte avant envoi. */
+    const moqOf = (pid: string) => products.find(p => p.id === pid)?.fournisseurMoq;
+    const lignesSousMoq = bc.lignes.filter(l => { const m = moqOf(l.productId); return typeof m === 'number' && m > 0 && l.quantite < m; });
+
+    const updateLignes = (nl: BonCommandeLigne[]) => setBc(prev => ({ ...prev, lignes: nl, total: calcTotal(nl) }));
+
+    // La colonne « reçu » n'a de sens qu'une fois le bon parti chez le
+    // fournisseur : inutile d'encombrer un brouillon avec.
+    const showReception = bc.statut !== 'brouillon';
+    /** Statut déduit des quantités réellement réceptionnées — la saisie terrain
+     *  fait foi, l'opérateur n'a pas à repositionner la liste déroulante. */
+    const statutSelonReceptions = (): BonCommande['statut'] | null => {
+        if (!bc.lignes.length) return null;
+        const recu = bc.lignes.reduce((s, l) => s + (l.quantiteRecue || 0), 0);
+        if (recu <= 0) return null;
+        const complet = bc.lignes.every(l => (l.quantiteRecue || 0) >= l.quantite);
+        return complet ? 'livre' : 'recu_partiel';
+    };
+
+    /** Date de livraison déduite du délai fournisseur : évite de promettre une
+     *  date que le fournisseur ne tiendra pas. */
+    const applyDelaiFournisseur = () => {
+        const j = supplier?.fournisseurDelaiLivraisonJours;
+        if (!j || j <= 0) return;
+        const d = new Date();
+        d.setDate(d.getDate() + j);
+        setBc(prev => ({ ...prev, dateLivraisonPrevue: d.toISOString().split('T')[0] }));
+    };
 
     const handleAdd = () => {
         if (!addPid || !addQty) return alert(tx(lang, {fr: 'Sélectionner un produit et une quantité', ar: 'اختر منتجًا وكمية', en: 'Select a product and a quantity', es: 'Seleccione un producto y una cantidad', pt: 'Selecione um produto e uma quantidade', tr: 'Bir ürün ve miktar seçin'}));
         const p = products.find(x => x.id === addPid);
         if (!p) return;
-        const nl = [...bc.lignes, { id: uid(), productId: p.id, productNom: p.designation, quantite: parseFloat(addQty), prixUnitaire: p.cump || p.prixUnitaire }];
-        setBc({ ...bc, lignes: nl, total: calcTotal(nl) });
+        const nl = [...bc.lignes, { id: uid(), productId: p.id, productNom: p.designation, reference: p.reference, unite: p.unite, quantite: parseFloat(addQty), prixUnitaire: p.cump || p.prixUnitaire }];
+        // Premier article ajouté sur un BC vierge : on adopte son fournisseur et
+        // ses conditions plutôt que de laisser l'utilisateur les retaper.
+        const patch: Partial<BonCommande> = {};
+        if (!supplier && p.fournisseurNom) patch.fournisseurNom = p.fournisseurNom;
+        if (!bc.conditionsPaiement && p.fournisseurConditionsPaiement) patch.conditionsPaiement = p.fournisseurConditionsPaiement;
+        setBc(prev => ({ ...prev, ...patch, lignes: nl, total: calcTotal(nl) }));
         setAddPid(''); setAddQty('');
     };
 
-    const rmLine = (id: string) => {
-        const nl = bc.lignes.filter(x => x.id !== id);
-        setBc({ ...bc, lignes: nl, total: calcTotal(nl) });
+    const rmLine = (id: string) => updateLignes(bc.lignes.filter(x => x.id !== id));
+
+    const STATUT_LABEL = BC_STATUT_LABEL(lang);
+
+    /** Impression A4 — HTML échappé, aucune dépendance : le document doit
+     *  pouvoir être signé, cacheté et faxé/envoyé tel quel au fournisseur. */
+    const printBC = () => {
+        const L_BC = tx(lang,{fr:'BON DE COMMANDE',ar:'أمر شراء',en:'PURCHASE ORDER',es:'ORDEN DE COMPRA',pt:'PEDIDO DE COMPRA',tr:'SATIN ALMA SİPARİŞİ'});
+        const L = {
+            fournisseur: tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'}),
+            emetteur: tx(lang,{fr:'Émetteur',ar:'المُصدِر',en:'Issuer',es:'Emisor',pt:'Emissor',tr:'Düzenleyen'}),
+            numero: tx(lang,{fr:'N°',ar:'رقم',en:'No.',es:'N.º',pt:'N.º',tr:'No'}),
+            date: tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'}),
+            livraison: tx(lang,{fr:'Livraison souhaitée',ar:'التسليم المطلوب',en:'Requested delivery',es:'Entrega solicitada',pt:'Entrega solicitada',tr:'İstenen teslimat'}),
+            statut: tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Status',tr:'Durum'}),
+            ref: tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'}),
+            designation: tx(lang,{fr:'Désignation',ar:'التسمية',en:'Designation',es:'Designación',pt:'Designação',tr:'Tanım'}),
+            qte: tx(lang,{fr:'Qté',ar:'الكمية',en:'Qty',es:'Cant.',pt:'Qtd',tr:'Miktar'}),
+            unite: tx(lang,{fr:'Unité',ar:'الوحدة',en:'Unit',es:'Unidad',pt:'Unidade',tr:'Birim'}),
+            pu: tx(lang,{fr:'P.U. HT',ar:'سعر الوحدة',en:'Unit price',es:'P. unitario',pt:'Preço unit.',tr:'Birim fiyat'}),
+            montant: tx(lang,{fr:'Montant HT',ar:'المبلغ',en:'Amount',es:'Importe',pt:'Montante',tr:'Tutar'}),
+            totalHT: tx(lang,{fr:'Total HT',ar:'المجموع بدون ضريبة',en:'Subtotal',es:'Total sin IVA',pt:'Total s/ imposto',tr:'Ara toplam'}),
+            tva: tx(lang,{fr:'TVA',ar:'الضريبة',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'}),
+            totalTTC: tx(lang,{fr:'Total TTC',ar:'المجموع مع الضريبة',en:'Total incl. VAT',es:'Total con IVA',pt:'Total c/ imposto',tr:'Toplam (KDV dahil)'}),
+            paiement: tx(lang,{fr:'Conditions de paiement',ar:'شروط الدفع',en:'Payment terms',es:'Condiciones de pago',pt:'Condições de pagamento',tr:'Ödeme koşulları'}),
+            adresseLiv: tx(lang,{fr:'Adresse de livraison',ar:'عنوان التسليم',en:'Delivery address',es:'Dirección de entrega',pt:'Endereço de entrega',tr:'Teslimat adresi'}),
+            notes: tx(lang,{fr:'Observations',ar:'ملاحظات',en:'Notes',es:'Observaciones',pt:'Observações',tr:'Notlar'}),
+            cachet: tx(lang,{fr:'Cachet & signature — Acheteur',ar:'الختم والتوقيع — المشتري',en:'Stamp & signature — Buyer',es:'Sello y firma — Comprador',pt:'Carimbo e assinatura — Comprador',tr:'Kaşe ve imza — Alıcı'}),
+            cachetF: tx(lang,{fr:'Bon pour accord — Fournisseur',ar:'موافقة — المورد',en:'Agreed — Supplier',es:'Conforme — Proveedor',pt:'De acordo — Fornecedor',tr:'Onaylandı — Tedarikçi'}),
+        };
+        const dt = (s?: string) => (s ? new Date(s).toLocaleDateString('fr-FR') : '—');
+        const rows = bc.lignes.map((l, i) => `<tr>
+            <td class="c">${i + 1}</td>
+            <td>${esc(l.reference || products.find(p => p.id === l.productId)?.reference || '')}</td>
+            <td>${esc(l.productNom)}</td>
+            <td class="r">${esc(l.quantite.toLocaleString('fr-FR'))}</td>
+            <td class="c">${esc(l.unite || products.find(p => p.id === l.productId)?.unite || '')}</td>
+            <td class="r">${money(l.prixUnitaire || 0)}</td>
+            <td class="r b">${money(l.quantite * (l.prixUnitaire || 0))}</td>
+        </tr>`).join('');
+        // Lignes vides : empêchent l'ajout manuscrit d'articles après signature.
+        const fillers = Array.from({ length: Math.max(0, 8 - bc.lignes.length) })
+            .map(() => '<tr class="f"><td colspan="7">&nbsp;</td></tr>').join('');
+
+        const infoLine = (label: string, val?: string) => (val ? `<div><span class="k">${esc(label)} :</span> ${esc(val)}</div>` : '');
+
+        const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${esc(bc.numero)}</title><style>
+@page { size: A4; margin: 14mm 12mm; }
+* { box-sizing: border-box; }
+body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; font-size: 11px; margin: 0; }
+.head { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1e293b; padding-bottom: 8px; }
+.logo { max-height: 56px; max-width: 150px; object-fit: contain; }
+.co { font-size: 15px; font-weight: 800; letter-spacing: .3px; }
+.k { color: #64748b; font-weight: 700; }
+.title { text-align: center; font-size: 17px; font-weight: 800; letter-spacing: 3px; margin: 12px 0 4px; }
+.meta { text-align: center; color: #475569; margin-bottom: 12px; }
+.parties { display: flex; gap: 10px; margin-bottom: 12px; }
+.box { flex: 1; border: 1px solid #cbd5e1; border-radius: 4px; padding: 8px 10px; }
+.box h3 { margin: 0 0 5px; font-size: 9px; text-transform: uppercase; letter-spacing: 1.4px; color: #64748b; }
+table { width: 100%; border-collapse: collapse; }
+th { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 5px 6px; font-size: 9px; text-transform: uppercase; letter-spacing: .6px; }
+td { border: 1px solid #e2e8f0; padding: 5px 6px; }
+td.r, th.r { text-align: right; } td.c, th.c { text-align: center; } .b { font-weight: 700; }
+tr.f td { height: 18px; }
+.tot { margin-top: 8px; margin-left: auto; width: 46%; }
+.tot td { border: none; padding: 3px 6px; }
+.tot tr.g td { border-top: 2px solid #1e293b; font-weight: 800; font-size: 13px; padding-top: 6px; }
+.cond { margin-top: 10px; display: flex; gap: 10px; }
+.sign { display: flex; gap: 10px; margin-top: 22px; }
+.sign .box { height: 70px; }
+.foot { margin-top: 14px; border-top: 1px solid #e2e8f0; padding-top: 6px; text-align: center; color: #94a3b8; font-size: 8.5px; }
+</style></head><body>
+<div class="head">
+  <div>
+    ${company.logo ? `<img class="logo" src="${esc(company.logo)}" alt="">` : ''}
+    <div class="co">${esc(company.nom || '—')}</div>
+    ${company.adresse ? `<div>${esc(company.adresse)}</div>` : ''}
+    <div>${[company.tel && 'Tél: ' + company.tel, company.email].filter(Boolean).map(esc).join(' · ')}</div>
+    <div>${[company.ice && 'ICE: ' + company.ice, company.rc && 'RC: ' + company.rc, company.if_ && 'IF: ' + company.if_].filter(Boolean).map(esc).join(' · ')}</div>
+  </div>
+  <div style="text-align:right">
+    <div><span class="k">${esc(L.numero)}</span> <strong>${esc(bc.numero)}</strong></div>
+    <div><span class="k">${esc(L.date)}</span> ${esc(dt(bc.dateCreation))}</div>
+    <div><span class="k">${esc(L.livraison)}</span> <strong>${esc(dt(bc.dateLivraisonPrevue))}</strong></div>
+    <div><span class="k">${esc(L.statut)}</span> ${esc(STATUT_LABEL[bc.statut] || bc.statut)}</div>
+  </div>
+</div>
+<div class="title">${esc(L_BC)}</div>
+<div class="meta">${esc(L.numero)} ${esc(bc.numero)}</div>
+<div class="parties">
+  <div class="box"><h3>${esc(L.emetteur)}</h3>
+    <div class="b">${esc(company.nom || '—')}</div>
+    ${infoLine('ICE', company.ice)}${infoLine('RC', company.rc)}${infoLine(tx(lang,{fr:'Tél',ar:'الهاتف',en:'Phone',es:'Tel',pt:'Tel',tr:'Tel'}), company.tel)}
+  </div>
+  <div class="box"><h3>${esc(L.fournisseur)}</h3>
+    <div class="b">${esc(bc.fournisseurNom || '—')}</div>
+    ${infoLine(tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Endereço',tr:'Adres'}), supplier?.fournisseurAdresse)}
+    ${infoLine(tx(lang,{fr:'Tél',ar:'الهاتف',en:'Phone',es:'Tel',pt:'Tel',tr:'Tel'}), supplier?.fournisseurTel)}
+    ${infoLine('Email', supplier?.fournisseurEmail)}
+    ${infoLine('ICE', supplier?.fournisseurIce)}${infoLine('RC', supplier?.fournisseurRc)}
+  </div>
+</div>
+<table>
+  <thead><tr><th class="c" style="width:5%">#</th><th style="width:16%">${esc(L.ref)}</th><th>${esc(L.designation)}</th><th class="r" style="width:10%">${esc(L.qte)}</th><th class="c" style="width:9%">${esc(L.unite)}</th><th class="r" style="width:13%">${esc(L.pu)}</th><th class="r" style="width:15%">${esc(L.montant)}</th></tr></thead>
+  <tbody>${rows}${fillers}</tbody>
+</table>
+<table class="tot">
+  <tr><td class="k">${esc(L.totalHT)}</td><td class="r b">${money(totalHT)} MAD</td></tr>
+  <tr><td class="k">${esc(L.tva)} ${esc(String(tauxTva))} %</td><td class="r b">${money(montantTva)} MAD</td></tr>
+  <tr class="g"><td>${esc(L.totalTTC)}</td><td class="r">${money(totalTTC)} MAD</td></tr>
+</table>
+<div class="cond">
+  <div class="box"><h3>${esc(L.paiement)}</h3>${esc(bc.conditionsPaiement || supplier?.fournisseurConditionsPaiement || '—')}</div>
+  <div class="box"><h3>${esc(L.adresseLiv)}</h3>${esc(bc.adresseLivraison || company.adresse || '—')}</div>
+</div>
+${bc.notes ? `<div class="box" style="margin-top:10px"><h3>${esc(L.notes)}</h3>${esc(bc.notes)}</div>` : ''}
+<div class="sign">
+  <div class="box"><h3>${esc(L.cachet)}</h3></div>
+  <div class="box"><h3>${esc(L.cachetF)}</h3></div>
+</div>
+<div class="foot">${esc(company.nom || '')} — ${esc(L_BC)} ${esc(bc.numero)}</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+        const w = window.open('', '_blank');
+        if (!w) return alert(tx(lang, {fr: "Autorisez les fenêtres pop-up pour imprimer.", ar: 'اسمح بالنوافذ المنبثقة للطباعة.', en: 'Allow pop-ups to print.', es: 'Permita las ventanas emergentes para imprimir.', pt: 'Permita pop-ups para imprimir.', tr: 'Yazdırmak için açılır pencerelere izin verin.'}));
+        w.document.write(html);
+        w.document.close();
     };
 
     return (
@@ -307,10 +559,45 @@ function BonCommandeModal({
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1 space-y-6 bg-slate-50 dark:bg-dk-bg/50">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white dark:bg-dk-surface p-4 border rounded-2xl shadow-sm dark:shadow-dk-sm">
-                        <div><Lbl t={tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})} /><input className={inp} value={bc.fournisseurNom} onChange={e => setBc({ ...bc, fournisseurNom: e.target.value })} /></div>
+                    {/* En-tête légal : émetteur (lecture seule) vs fournisseur */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white dark:bg-dk-surface p-4 border rounded-2xl shadow-sm dark:shadow-dk-sm">
+                            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted mb-2 flex items-center gap-1"><Building2 className="w-3 h-3" /> {tx(lang,{fr:'Émetteur',ar:'المُصدِر',en:'Issuer',es:'Emisor',pt:'Emissor',tr:'Düzenleyen'})}</div>
+                            {company.nom ? (
+                                <div className="flex items-start gap-3">
+                                    {company.logo && <img src={company.logo} alt="" className="w-12 h-12 object-contain rounded-lg border border-slate-100 dark:border-dk-border/60" />}
+                                    <div className="text-xs font-bold text-slate-600 dark:text-dk-text-soft space-y-0.5">
+                                        <div className="text-sm font-black text-slate-800 dark:text-dk-text">{company.nom}</div>
+                                        {company.adresse && <div>{company.adresse}</div>}
+                                        <div className="text-slate-400 dark:text-dk-muted">{[company.ice && `ICE: ${company.ice}`, company.rc && `RC: ${company.rc}`].filter(Boolean).join(' · ')}</div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-xs font-bold text-amber-600 dark:text-amber-300 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" /> {tx(lang,{fr:"Identité entreprise incomplète — complétez Admin > Entreprise.",ar:'هوية الشركة غير مكتملة — أكملها في الإدارة > الشركة.',en:'Company identity incomplete — fill in Admin > Company.',es:'Identidad de la empresa incompleta — complete Admin > Empresa.',pt:'Identidade da empresa incompleta — preencha Admin > Empresa.',tr:'Şirket kimliği eksik — Yönetim > Şirket bölümünü doldurun.'})}</div>
+                            )}
+                        </div>
+                        <div className="bg-white dark:bg-dk-surface p-4 border rounded-2xl shadow-sm dark:shadow-dk-sm space-y-2">
+                            <Lbl t={tx(lang,{fr:'Fournisseur',ar:'المورد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})} />
+                            <input className={inp} list="bc-fournisseurs" value={bc.fournisseurNom} onChange={e => setBc({ ...bc, fournisseurNom: e.target.value })} />
+                            <datalist id="bc-fournisseurs">{suppliers.map(s => <option key={s} value={s} />)}</datalist>
+                            {supplier ? (
+                                <div className="text-xs font-bold text-slate-500 dark:text-dk-muted space-y-0.5">
+                                    {supplier.fournisseurAdresse && <div>{supplier.fournisseurAdresse}</div>}
+                                    <div>{[supplier.fournisseurTel, supplier.fournisseurEmail].filter(Boolean).join(' · ')}</div>
+                                    <div className="text-slate-400 dark:text-dk-muted">{[supplier.fournisseurIce && `ICE: ${supplier.fournisseurIce}`, supplier.fournisseurRc && `RC: ${supplier.fournisseurRc}`].filter(Boolean).join(' · ')}</div>
+                                    {typeof supplier.fournisseurDelaiLivraisonJours === 'number' && (
+                                        <div className="text-indigo-600 dark:text-indigo-300">{tx(lang,{fr:'Délai',ar:'المهلة',en:'Lead time',es:'Plazo',pt:'Prazo',tr:'Süre'})}: {supplier.fournisseurDelaiLivraisonJours} {tx(lang,{fr:'j',ar:'ي',en:'d',es:'d',pt:'d',tr:'g'})}</div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="text-xs font-bold text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Fournisseur inconnu du magasin — coordonnées absentes du bon.',ar:'مورد غير معروف في المخزن — بياناته غائبة عن الأمر.',en:'Supplier unknown to the store — contact details missing from the order.',es:'Proveedor desconocido en el almacén — faltan datos de contacto.',pt:'Fornecedor desconhecido no armazém — dados de contacto ausentes.',tr:'Depoda tanımsız tedarikçi — iletişim bilgileri siparişte yok.'})}</div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-white dark:bg-dk-surface p-4 border rounded-2xl shadow-sm dark:shadow-dk-sm">
                         <div>
-                            <Lbl t={tx(lang,{fr:'Date Prévue',ar:'التاريخ المتوقع',en:'Expected Date',es:'Fecha Prevista',pt:'Data Prevista',tr:'Beklenen Tarih'})} />
+                            <Lbl t={tx(lang,{fr:'Livraison souhaitée',ar:'التسليم المطلوب',en:'Requested delivery',es:'Entrega solicitada',pt:'Entrega solicitada',tr:'İstenen teslimat'})} />
                             <DateTimePicker
                                 value={bc.dateLivraisonPrevue || ''}
                                 onChange={(iso) => setBc({ ...bc, dateLivraisonPrevue: iso.split('T')[0] })}
@@ -318,36 +605,93 @@ function BonCommandeModal({
                                 settings={settings}
                                 inputClassName={inp}
                             />
+                            {!!supplier?.fournisseurDelaiLivraisonJours && (
+                                <button type="button" onClick={applyDelaiFournisseur} className="mt-1 text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-300 hover:underline">
+                                    {tx(lang,{fr:'Appliquer le délai fournisseur',ar:'تطبيق مهلة المورد',en:'Apply supplier lead time',es:'Aplicar plazo del proveedor',pt:'Aplicar prazo do fornecedor',tr:'Tedarikçi süresini uygula'})}
+                                </button>
+                            )}
                         </div>
-                        <div><Lbl t={tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})} /><select className={inp} value={bc.statut} onChange={e => setBc({ ...bc, statut: e.target.value as any })}><option value="brouillon">{tx(lang,{fr:'Brouillon',ar:'مسودة',en:'Draft',es:'Borrador',pt:'Rascunho',tr:'Taslak'})}</option><option value="envoye">{tx(lang,{fr:'Envoyé',ar:'مرسل',en:'Sent',es:'Enviado',pt:'Enviado',tr:'Gönderildi'})}</option><option value="valide">{tx(lang,{fr:'Validé/Approuvé',ar:'مُعتمد',en:'Approved',es:'Aprobado',pt:'Aprovado',tr:'Onaylandı'})}</option><option value="livre">{tx(lang,{fr:'Livré totalement',ar:'تم التسليم كلياً',en:'Fully Delivered',es:'Entregado totalmente',pt:'Totalmente Entregue',tr:'Tam Teslim Edildi'})}</option></select></div>
+                        <div>
+                            <Lbl t={tx(lang,{fr:'Statut',ar:'الحالة',en:'Status',es:'Estado',pt:'Status',tr:'Durum'})} />
+                            <select className={inp} value={bc.statut} onChange={e => setBc({ ...bc, statut: e.target.value as BonCommande['statut'] })}>{(['brouillon','envoye','valide','recu_partiel','livre'] as const).map(s => <option key={s} value={s}>{STATUT_LABEL[s]}</option>)}</select>
+                            {(() => { const sugg = statutSelonReceptions(); return sugg && sugg !== bc.statut ? (
+                                <button type="button" onClick={() => setBc(prev => ({ ...prev, statut: sugg }))} className="mt-1 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-300 hover:underline">
+                                    {tx(lang,{fr:'Passer à',ar:'التحويل إلى',en:'Switch to',es:'Cambiar a',pt:'Mudar para',tr:'Şuna geç'})} « {STATUT_LABEL[sugg]} »
+                                </button>
+                            ) : null; })()}
+                        </div>
+                        <div><Lbl t={tx(lang,{fr:'Conditions de paiement',ar:'شروط الدفع',en:'Payment terms',es:'Condiciones de pago',pt:'Condições de pagamento',tr:'Ödeme koşulları'})} /><input className={inp} placeholder={supplier?.fournisseurConditionsPaiement || tx(lang,{fr:'Ex: 30j fin de mois',ar:'مثال: 30 يوماً نهاية الشهر',en:'e.g. 30 days end of month',es:'Ej: 30d fin de mes',pt:'Ex: 30d fim do mês',tr:'Örn: ay sonu 30 gün'})} value={bc.conditionsPaiement ?? ''} onChange={e => setBc({ ...bc, conditionsPaiement: e.target.value })} /></div>
+                        <div><Lbl t={tx(lang,{fr:'TVA (%)',ar:'الضريبة (%)',en:'VAT (%)',es:'IVA (%)',pt:'IVA (%)',tr:'KDV (%)'})} /><input className={inp} type="number" min="0" max="100" step="0.1" value={bc.tvaTaux ?? 20} onChange={e => setBc({ ...bc, tvaTaux: Math.max(0, parseFloat(e.target.value) || 0) })} /></div>
+                        <div className="md:col-span-2"><Lbl t={tx(lang,{fr:'Adresse de livraison',ar:'عنوان التسليم',en:'Delivery address',es:'Dirección de entrega',pt:'Endereço de entrega',tr:'Teslimat adresi'})} /><input className={inp} placeholder={company.adresse} value={bc.adresseLivraison ?? ''} onChange={e => setBc({ ...bc, adresseLivraison: e.target.value })} /></div>
+                        <div className="md:col-span-2"><Lbl t={tx(lang,{fr:'Observations',ar:'ملاحظات',en:'Notes',es:'Observaciones',pt:'Observações',tr:'Notlar'})} /><input className={inp} value={bc.notes ?? ''} onChange={e => setBc({ ...bc, notes: e.target.value })} /></div>
                     </div>
+
+                    {lignesSousMoq.length > 0 && (
+                        <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 rounded-2xl px-4 py-3 text-xs font-bold">
+                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <div>
+                                <div>{tx(lang,{fr:'Quantité sous le minimum de commande (MOQ) du fournisseur :',ar:'الكمية أقل من الحد الأدنى للطلب لدى المورد :',en:'Quantity below the supplier minimum order (MOQ):',es:'Cantidad por debajo del pedido mínimo (MOQ) del proveedor:',pt:'Quantidade abaixo do pedido mínimo (MOQ) do fornecedor:',tr:'Miktar tedarikçinin minimum sipariş miktarının (MOQ) altında:'})}</div>
+                                <ul className="mt-1 list-disc list-inside">
+                                    {lignesSousMoq.map(l => <li key={l.id}>{l.productNom} — {l.quantite} / {tx(lang,{fr:'MOQ',ar:'الحد الأدنى',en:'MOQ',es:'MOQ',pt:'MOQ',tr:'MOQ'})} {moqOf(l.productId)}</li>)}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="bg-white dark:bg-dk-surface border rounded-2xl shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col">
                         <div className="p-4 bg-slate-50 dark:bg-dk-bg border-b flex flex-wrap gap-4 items-end">
-                            <div className="flex-1 min-w-[200px]"><Lbl t={tx(lang,{fr:'Ajouter un Produit',ar:'إضافة منتج',en:'Add a Product',es:'Agregar un Producto',pt:'Adicionar um Produto',tr:'Ürün Ekle'})} /><select className={inp} value={addPid} onChange={e => setAddPid(e.target.value)}><option value="">{tx(lang, {fr: '-- Sélectionner --', ar: '-- اختر --', en: '-- Select --', es: '-- Seleccionar --', pt: '-- Selecionar --', tr: '-- Seçin --'})}</option>{products.map(p => <option key={p.id} value={p.id}>{p.reference} - {p.designation} (Frs: {p.fournisseurNom || '?'})</option>)}</select></div>
+                            <div className="flex-1 min-w-[200px]"><Lbl t={tx(lang,{fr:'Ajouter un Produit',ar:'إضافة منتج',en:'Add a Product',es:'Agregar un Producto',pt:'Adicionar um Produto',tr:'Ürün Ekle'})} /><select className={inp} value={addPid} onChange={e => setAddPid(e.target.value)}><option value="">{tx(lang, {fr: '-- Sélectionner --', ar: '-- اختر --', en: '-- Select --', es: '-- Seleccionar --', pt: '-- Selecionar --', tr: '-- Seçin --'})}</option>{selectableProducts.map(p => <option key={p.id} value={p.id}>{p.reference} - {p.designation}{typeof p.fournisseurMoq === 'number' ? ` · MOQ ${p.fournisseurMoq}` : ''} (Frs: {p.fournisseurNom || '?'})</option>)}</select></div>
                             <div className="w-32"><Lbl t={tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})} /><input type="number" min="0" className={inp} value={addQty} onChange={e => setAddQty(e.target.value.replace(/-/g, ''))} /></div>
                             <button onClick={handleAdd} className="bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white px-4 py-2 h-[38px] rounded-xl font-bold text-sm hover:bg-indigo-700 dark:hover:bg-dk-accent-hover">{tx(lang, {fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Agregar', pt: 'Adicionar', tr: 'Ekle'})}</button>
                         </div>
 
                         <div className="p-0 overflow-x-auto max-h-[300px]">
                             <table className="w-full text-left text-sm whitespace-nowrap">
-                                <thead className="bg-slate-50 dark:bg-dk-bg sticky top-0 border-b"><tr className="text-slate-500 dark:text-dk-muted"><th className="p-3 font-bold">{tx(lang,{fr:'Produit',ar:'المنتج',en:'Product',es:'Producto',pt:'Produto',tr:'Ürün'})}</th><th className="p-3 font-bold text-right">{tx(lang,{fr:'Qté',ar:'الكمية',en:'Qty',es:'Cant.',pt:'Qtd',tr:'Miktar'})}</th><th className="p-3 font-bold text-right">{tx(lang,{fr:'Prix Unitaire',ar:'السعر للوحدة',en:'Unit Price',es:'Precio Unitario',pt:'Preço Unitário',tr:'Birim Fiyat'})}</th><th className="p-3 font-bold text-right">{tx(lang,{fr:'Sous-total',ar:'المجموع الجزئي',en:'Subtotal',es:'Subtotal',pt:'Subtotal',tr:'Ara Toplam'})}</th><th className="p-3 pr-4"></th></tr></thead>
+                                <thead className="bg-slate-50 dark:bg-dk-bg sticky top-0 border-b"><tr className="text-slate-500 dark:text-dk-muted">
+                                    <th className="p-3 font-bold">{tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'})}</th>
+                                    <th className="p-3 font-bold">{tx(lang,{fr:'Désignation',ar:'التسمية',en:'Designation',es:'Designación',pt:'Designação',tr:'Tanım'})}</th>
+                                    <th className="p-3 font-bold text-right">{tx(lang,{fr:'Qté',ar:'الكمية',en:'Qty',es:'Cant.',pt:'Qtd',tr:'Miktar'})}</th>
+                                    <th className="p-3 font-bold text-center">{tx(lang,{fr:'Unité',ar:'الوحدة',en:'Unit',es:'Unidad',pt:'Unidade',tr:'Birim'})}</th>
+                                    {showReception && <th className="p-3 font-bold text-right">{tx(lang,{fr:'Reçu',ar:'المستلَم',en:'Received',es:'Recibido',pt:'Recebido',tr:'Teslim alınan'})}</th>}
+                                    <th className="p-3 font-bold text-right">{tx(lang,{fr:'Prix Unitaire',ar:'السعر للوحدة',en:'Unit Price',es:'Precio Unitario',pt:'Preço Unitário',tr:'Birim Fiyat'})}</th>
+                                    <th className="p-3 font-bold text-right">{tx(lang,{fr:'Sous-total',ar:'المجموع الجزئي',en:'Subtotal',es:'Subtotal',pt:'Subtotal',tr:'Ara Toplam'})}</th>
+                                    <th className="p-3 pr-4"></th>
+                                </tr></thead>
                                 <tbody>
-                                    {bc.lignes.length === 0 ? <tr><td colSpan={5} className="p-8 text-center text-slate-400 dark:text-dk-muted font-bold bg-white dark:bg-dk-surface">{tx(lang,{fr:'Aucun produit dans cette commande.',ar:'لا توجد منتجات في هذا الأمر.',en:'No products in this order.',es:'No hay productos en esta orden.',pt:'Nenhum produto neste pedido.',tr:'Bu siparişte ürün yok.'})}</td></tr> : bc.lignes.map(l => (
+                                    {bc.lignes.length === 0 ? <tr><td colSpan={showReception ? 8 : 7} className="p-8 text-center text-slate-400 dark:text-dk-muted font-bold bg-white dark:bg-dk-surface">{tx(lang,{fr:'Aucun produit dans cette commande.',ar:'لا توجد منتجات في هذا الأمر.',en:'No products in this order.',es:'No hay productos en esta orden.',pt:'Nenhum produto neste pedido.',tr:'Bu siparişte ürün yok.'})}</td></tr> : bc.lignes.map(l => {
+                                        const p = products.find(x => x.id === l.productId);
+                                        const moq = moqOf(l.productId);
+                                        const sousMoq = typeof moq === 'number' && moq > 0 && l.quantite < moq;
+                                        return (
                                         <tr key={l.id} className="border-b border-slate-50 dark:border-dk-border/40 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 bg-white dark:bg-dk-surface">
+                                            <td className="p-3 font-mono text-xs text-slate-500 dark:text-dk-muted">{l.reference || p?.reference || '—'}</td>
                                             <td className="p-3 font-bold text-slate-700 dark:text-dk-text">{l.productNom}</td>
-                                            <td className="p-3 text-right"><input type="number" min="0" className="w-20 border rounded px-2 py-1 text-right text-sm font-bold bg-slate-50 dark:bg-dk-bg" value={l.quantite} onChange={e => { const val = parseFloat(e.target.value.replace(/-/g, '')) || 0; const mathMaxVal = Math.max(0, val); const nl = bc.lignes.map(x => x.id === l.id ? { ...x, quantite: mathMaxVal } : x); setBc({ ...bc, lignes: nl, total: calcTotal(nl) }); }} /></td>
-                                            <td className="p-3 text-right"><input type="number" min="0" className="w-24 border rounded px-2 py-1 text-right text-sm font-bold bg-slate-50 dark:bg-dk-bg" value={l.prixUnitaire || 0} onChange={e => { const val = parseFloat(e.target.value.replace(/-/g, '')) || 0; const mathMaxVal = Math.max(0, val); const nl = bc.lignes.map(x => x.id === l.id ? { ...x, prixUnitaire: mathMaxVal } : x); setBc({ ...bc, lignes: nl, total: calcTotal(nl) }); }} /> DH</td>
-                                            <td className="p-3 text-right font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300">{(l.quantite * (l.prixUnitaire || 0)).toLocaleString()} DH</td>
+                                            <td className="p-3 text-right">
+                                                <input type="number" min="0" title={sousMoq ? `MOQ ${moq}` : undefined} className={`w-20 border rounded px-2 py-1 text-right text-sm font-bold bg-slate-50 dark:bg-dk-bg ${sousMoq ? 'border-amber-400 text-amber-700 dark:text-amber-300' : ''}`} value={l.quantite} onChange={e => { const val = Math.max(0, parseFloat(e.target.value.replace(/-/g, '')) || 0); updateLignes(bc.lignes.map(x => x.id === l.id ? { ...x, quantite: val } : x)); }} />
+                                                {sousMoq && <AlertTriangle className="w-3.5 h-3.5 inline ml-1 text-amber-500 dark:text-amber-300" />}
+                                            </td>
+                                            <td className="p-3 text-center text-xs font-bold text-slate-500 dark:text-dk-muted">{l.unite || p?.unite || '—'}</td>
+                                            {showReception && (
+                                                <td className="p-3 text-right"><input type="number" min="0" className="w-20 border rounded px-2 py-1 text-right text-sm font-bold bg-emerald-50 dark:bg-emerald-900/20" value={l.quantiteRecue ?? ''} placeholder="0" onChange={e => { const raw = e.target.value.replace(/-/g, ''); const val = raw === '' ? undefined : Math.max(0, parseFloat(raw) || 0); updateLignes(bc.lignes.map(x => x.id === l.id ? { ...x, quantiteRecue: val } : x)); }} /></td>
+                                            )}
+                                            <td className="p-3 text-right"><input type="number" min="0" className="w-24 border rounded px-2 py-1 text-right text-sm font-bold bg-slate-50 dark:bg-dk-bg" value={l.prixUnitaire || 0} onChange={e => { const val = Math.max(0, parseFloat(e.target.value.replace(/-/g, '')) || 0); updateLignes(bc.lignes.map(x => x.id === l.id ? { ...x, prixUnitaire: val } : x)); }} /> DH</td>
+                                            <td className="p-3 text-right font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300">{money(l.quantite * (l.prixUnitaire || 0))} DH</td>
                                             <td className="p-3 pr-4 text-right"><button onClick={() => rmLine(l.id)} className="text-slate-400 dark:text-dk-muted hover:text-rose-500 dark:text-rose-300 p-1"><Trash2 className="w-4 h-4" /></button></td>
                                         </tr>
-                                    ))}
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
-                        <div className="p-4 bg-slate-100 dark:bg-dk-elevated/60 border-t flex justify-end items-center gap-4">
-                            <span className="text-sm font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang,{fr:'Total Estimé HT',ar:'الإجمالي التقديري غير شامل الضريبة',en:'Estimated Total (excl. tax)',es:'Total Estimado (sin IVA)',pt:'Total Estimado (s/ imposto)',tr:'Tahmini Toplam (vergisiz)'})}</span>
-                            <span className="text-2xl font-black text-slate-800 dark:text-dk-text">{(bc.total || 0).toLocaleString()} <span className="text-sm">DH</span></span>
+                        <div className="p-4 bg-slate-100 dark:bg-dk-elevated/60 border-t flex justify-end">
+                            <div className="w-full max-w-xs space-y-1 text-sm font-bold text-slate-600 dark:text-dk-text-soft">
+                                <div className="flex justify-between"><span className="uppercase text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Total HT',ar:'المجموع بدون ضريبة',en:'Subtotal',es:'Total sin IVA',pt:'Total s/ imposto',tr:'Ara toplam'})}</span><span>{money(totalHT)} DH</span></div>
+                                <div className="flex justify-between"><span className="uppercase text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'TVA',ar:'الضريبة',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'})} {tauxTva} %</span><span>{money(montantTva)} DH</span></div>
+                                <div className="flex justify-between items-baseline pt-2 border-t border-slate-300 dark:border-dk-border">
+                                    <span className="uppercase text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Total TTC',ar:'المجموع مع الضريبة',en:'Total incl. VAT',es:'Total con IVA',pt:'Total c/ imposto',tr:'Toplam (KDV dahil)'})}</span>
+                                    <span className="text-2xl font-black text-slate-800 dark:text-dk-text">{money(totalTTC)} <span className="text-sm">DH</span></span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -356,6 +700,7 @@ function BonCommandeModal({
                     <div className="text-xs text-slate-400 dark:text-dk-muted font-bold"><Activity className="w-3 h-3 inline mr-1" /> {tx(lang,{fr:'Sauvegarde automatique locale',ar:'حفظ تلقائي محلي',en:'Local auto-save',es:'Guardado automático local',pt:'Salvamento automático local',tr:'Otomatik yerel kaydetme'})}</div>
                     <div className="flex gap-3">
                         <button onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 rounded-xl transition-colors">{tx(lang, {fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat'})}</button>
+                        <button onClick={printBC} className="px-5 py-2.5 text-sm font-black border border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2"><Printer className="w-4 h-4" /> {tx(lang, {fr: 'Imprimer A4', ar: 'طباعة A4', en: 'Print A4', es: 'Imprimir A4', pt: 'Imprimir A4', tr: 'A4 Yazdır'})}</button>
                         <button onClick={() => onSave(bc)} className="px-8 py-2.5 text-sm font-black bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white rounded-xl hover:bg-indigo-700 dark:hover:bg-dk-accent-hover flex items-center gap-2"><CheckCircle className="w-4 h-4" /> {tx(lang, {fr: 'Enregistrer BC', ar: 'حفظ أمر الشراء', en: 'Save PO', es: 'Guardar BC', pt: 'Salvar BC', tr: 'BC Kaydet'})}</button>
                     </div>
                 </div>
@@ -2551,25 +2896,30 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {commandes.map(c => (
                                     <div key={c.id} className="bg-white dark:bg-dk-surface rounded-2xl border shadow-sm dark:shadow-dk-sm overflow-hidden flex flex-col relative group">
-                                        <div className={`h-1.5 w-full ${c.statut === 'brouillon' ? 'bg-slate-300 dark:bg-dk-elevated' : c.statut === 'envoye' ? 'bg-amber-400 dark:bg-amber-800' : c.statut === 'valide' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/300' : 'bg-emerald-50 dark:bg-emerald-900/300'}`} />
+                                        <div className={`h-1.5 w-full ${c.statut === 'brouillon' ? 'bg-slate-300 dark:bg-dk-elevated' : c.statut === 'envoye' ? 'bg-amber-400 dark:bg-amber-800' : c.statut === 'valide' ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/300' : c.statut === 'recu_partiel' ? 'bg-teal-400 dark:bg-teal-800' : 'bg-emerald-50 dark:bg-emerald-900/300'}`} />
                                         <div className="p-5 flex-1 space-y-4">
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <div className="font-black text-slate-800 dark:text-dk-text text-lg">{c.numero}</div>
                                                     <div className="text-xs font-bold text-slate-400 dark:text-dk-muted flex items-center gap-1 mt-1"><Building2 className="w-3 h-3" /> {c.fournisseurNom}</div>
                                                 </div>
-                                                <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg ${c.statut === 'brouillon' ? 'bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft' : c.statut === 'envoye' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' : c.statut === 'valide' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'}`}>{c.statut}</span>
+                                                <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg ${c.statut === 'brouillon' ? 'bg-slate-100 dark:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft' : c.statut === 'envoye' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' : c.statut === 'valide' ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300' : c.statut === 'recu_partiel' ? 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'}`}>{BC_STATUT_LABEL(lang)[c.statut] || c.statut}</span>
                                             </div>
 
                                             <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-3 border border-slate-100 dark:border-dk-border/60 space-y-2">
                                                 <div className="flex justify-between text-xs font-bold"><span className="text-slate-400 dark:text-dk-muted">{t('Date de création')}</span><span className="text-slate-700 dark:text-dk-text">{new Date(c.dateCreation).toLocaleDateString()}</span></div>
-                                                <div className="flex justify-between text-xs font-bold"><span className="text-slate-400 dark:text-dk-muted">{t('Total estimé')}</span><span className="text-slate-800 dark:text-dk-text font-black">{(c.total || 0).toLocaleString()} DH</span></div>
+                                                <div className="flex justify-between text-xs font-bold"><span className="text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Livraison souhaitée',ar:'التسليم المطلوب',en:'Requested delivery',es:'Entrega solicitada',pt:'Entrega solicitada',tr:'İstenen teslimat'})}</span><span className="text-slate-700 dark:text-dk-text">{c.dateLivraisonPrevue ? new Date(c.dateLivraisonPrevue).toLocaleDateString() : '—'}</span></div>
+                                                <div className="flex justify-between text-xs font-bold"><span className="text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Total HT',ar:'المجموع بدون ضريبة',en:'Subtotal',es:'Total sin IVA',pt:'Total s/ imposto',tr:'Ara toplam'})}</span><span className="text-slate-700 dark:text-dk-text">{money(c.total || 0)} DH</span></div>
+                                                <div className="flex justify-between text-xs font-bold"><span className="text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Total TTC',ar:'المجموع مع الضريبة',en:'Total incl. VAT',es:'Total con IVA',pt:'Total c/ imposto',tr:'Toplam (KDV dahil)'})}</span><span className="text-slate-800 dark:text-dk-text font-black">{money((c.total || 0) * (1 + (c.tvaTaux ?? 20) / 100))} DH</span></div>
                                                 <div className="text-xs font-bold text-slate-500 dark:text-dk-muted pt-2 border-t border-slate-200 dark:border-dk-border">{c.lignes.length} {c.lignes.length === 1 ? t('article') : t('articles')} {t('dans ce bon')}</div>
                                             </div>
                                         </div>
                                         <div className="p-3 border-t bg-slate-50 dark:bg-dk-bg flex gap-2">
                                             <button onClick={() => setBcModal({ open: true, item: c })} className="flex-1 py-2 bg-white dark:bg-dk-surface border rounded-lg text-xs font-black text-slate-700 dark:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex justify-center items-center gap-2 transition-colors"><Edit2 className="w-3 h-3" /> {t('Éditer')}</button>
-                                            <button onClick={() => window.print()} className="py-2 px-3 bg-white dark:bg-dk-surface border rounded-lg text-xs font-black text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex justify-center items-center transition-colors"><Printer className="w-4 h-4" /></button>
+                                            {/* L'impression A4 vit dans la modale (elle a besoin de l'identité
+                                                société chargée depuis le serveur) : on y renvoie plutôt que
+                                                d'imprimer toute l'application comme avant. */}
+                                            <button title={t('Imprimer')} onClick={() => setBcModal({ open: true, item: c })} className="py-2 px-3 bg-white dark:bg-dk-surface border rounded-lg text-xs font-black text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text dark:text-indigo-300 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex justify-center items-center transition-colors"><Printer className="w-4 h-4" /></button>
                                             <button className="py-2 px-3 bg-white dark:bg-dk-surface border rounded-lg text-xs font-black text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:bg-rose-900/30 flex justify-center items-center transition-colors" onClick={() => { if (confirm(t('Supprimer ce Bon ?'))) deleteCommande(c.id); }}><Trash2 className="w-4 h-4" /></button>
                                         </div>
                                     </div>
@@ -4058,7 +4408,13 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                     bc={bcModal.item}
                     products={products}
                     settings={dtpSettings}
-                    onSave={bc => { setCommandes(prev => prev.find(x => x.id === bc.id) ? prev.map(x => x.id === bc.id ? bc : x) : [bc, ...prev]); setBcModal({ open: false }); }}
+                    /* Le BC doit partir au serveur : l'ancienne version ne mettait à jour
+                       que l'état local, les modifications étaient perdues au rechargement. */
+                    onSave={async bc => {
+                        const ok = await saveCommande(bc);
+                        if (!ok) return alert(tx(lang, {fr: 'Erreur Serveur : bon de commande non enregistré.', ar: 'خطأ في الخادم: لم يُحفظ أمر الشراء.', en: 'Server error: purchase order not saved.', es: 'Error del servidor: orden de compra no guardada.', pt: 'Erro do servidor: pedido de compra não salvo.', tr: 'Sunucu hatası: satın alma siparişi kaydedilmedi.'}));
+                        setBcModal({ open: false });
+                    }}
                     onClose={() => setBcModal({ open: false })}
                 />
             )}

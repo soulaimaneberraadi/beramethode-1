@@ -239,6 +239,18 @@ db.exec(`
   )
 `);
 
+// Bon de commande : en-tête commercial complet (TVA, conditions de paiement,
+// adresse de livraison, observations). Colonnes ajoutées après coup, donc en
+// ALTER idempotent pour ne pas casser les bases déjà remplies.
+for (const col of [
+  'notes TEXT',
+  'tvaTaux REAL',
+  'conditionsPaiement TEXT',
+  'adresseLivraison TEXT',
+]) {
+  try { db.exec(`ALTER TABLE magasin_commandes ADD COLUMN ${col}`); } catch { /* colonne déjà présente */ }
+}
+
 // Create Magasin: Demandes Atelier Table
 db.exec(`
   CREATE TABLE IF NOT EXISTS magasin_demandes (
