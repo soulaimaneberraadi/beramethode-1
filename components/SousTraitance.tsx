@@ -640,6 +640,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [costInvoiceOrder, setCostInvoiceOrder] = useState<SubcontractOrder | null>(null);
   const [costInvoiceQty, setCostInvoiceQty] = useState<number | ''>('');
   const [costInvoiceTva, setCostInvoiceTva] = useState<number>(20);
+  /** Exonération de TVA. `null` = automatique : un modèle en marché Export part
+   *  exonéré, ce qui est le cas courant chez les façonniers marocains. Un choix
+   *  explicite de l'utilisateur prime toujours sur cette déduction. */
+  const [costInvoiceExo, setCostInvoiceExo] = useState<boolean | null>(null);
+  /** Remise commerciale : en POURCENTAGE du total HT ou en MONTANT fixe, jamais
+   *  les deux — deux champs simultanés finiraient tôt ou tard cumulés par erreur
+   *  et fausseraient le prix de revient. */
+  const [costInvoiceDiscountMode, setCostInvoiceDiscountMode] = useState<'PCT' | 'AMOUNT'>('PCT');
+  const [costInvoiceDiscount, setCostInvoiceDiscount] = useState<number | ''>('');
+  /** Acompte DÉJÀ versé. Il ne diminue pas le montant de la facture (le TTC
+   *  reste dû au sens comptable) : il ne réduit que le reste à payer, et part
+   *  en `montant_paye` côté facturation. */
+  const [costInvoiceAcompte, setCostInvoiceAcompte] = useState<number | ''>('');
+  /** Dates au format ISO. Vide = valeur déduite (aujourd'hui pour la facture,
+   *  conditions de paiement de la commande pour l'échéance). */
+  const [costInvoiceDate, setCostInvoiceDate] = useState<string>('');
+  const [costInvoiceDueDate, setCostInvoiceDueDate] = useState<string>('');
   const [costInvoiceSaving, setCostInvoiceSaving] = useState(false);
   const [costInvoiceSaveError, setCostInvoiceSaveError] = useState<string | null>(null);
   const [costInvoiceSavedNumber, setCostInvoiceSavedNumber] = useState<string | null>(null);
@@ -1567,11 +1584,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       remainingStock: number;
       /** Prix de revient réel du modèle, ou `null` si aucune donnée fiable. */
       price: number | null;
+      /** Prix de vente unitaire du modèle (fiche de coût), ou null. */
+      salePrice: number | null;
       startDate: string;
       status: string;
     }> = [];
 
     models.forEach(model => {
+      // Cet onglet est le stock de CE module : il ne doit montrer que les
+      // modèles réellement passés par la sous-traitance. Lister toute la
+      // bibliothèque noyait les quelques modèles concernés sous des lignes à
+      // zéro qui ne sortiront jamais d'ici.
+      const hasOrder = orders.some(o => o.modelId === model.id);
+      if (!hasOrder) return;
+
       // 1. Calculate produced/delivered quantity from subcontract orders
       let produced = 0;
       let oldestDate = '';
@@ -1612,12 +1638,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       // aucun montant, le champ de la facture restera vide et obligatoire.
       const price = computeModelCostPrice(model, settings);
 
+      // Prix de VENTE saisi dans la fiche de coût : c'est lui qui doit être
+      // proposé à la sortie, le prix de revient ne servant qu'à mesurer la marge.
+      const salePrice = Number((model.ficheData as any)?.clientPrice) || null;
+
       list.push({
         model,
         producedQty: produced,
         soldQty: sold,
         remainingStock: remaining,
         price,
+        salePrice,
         startDate: oldestDate ? fmtDate(oldestDate) : tx(lang,{fr:'Non commencée',ar:'لم تبدأ',en:'Not started',es:'No iniciado',pt:'Não iniciado',tr:'Başlamadı'}),
         status: activeStatus
       });
@@ -2290,7 +2321,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   };
 
   // Open Sale Invoice Modal for a model (Tab 3)
-  const openSaleModal = async (item: { model: ModelData, remainingStock: number, price: number | null }) => {
+  const openSaleModal = async (item: { model: ModelData, remainingStock: number, price: number | null, salePrice?: number | null }) => {
     setSelectedModelForSale(item.model);
     setSaleClient(item.model.ficheData?.client || '');
     setSaleClientIce('');
@@ -2299,8 +2330,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setSaleClientTel('');
     setSaleClientEmail('');
     setSaleQuantity(item.remainingStock);
-    // Prix de revient réel s'il existe, sinon champ VIDE (et `required`).
-    setSalePrice(item.price != null ? Number(item.price.toFixed(2)) : '');
+    // Prix de VENTE de la fiche de coût. L'écran proposait auparavant le prix de
+    // REVIENT : accepter la proposition telle quelle revenait à vendre à prix
+    // coûtant, marge nulle, sans que rien ne l'indique. À défaut de prix de
+    // vente saisi, le champ reste VIDE et obligatoire.
+    setSalePrice(item.salePrice != null && item.salePrice > 0 ? Number(item.salePrice.toFixed(2)) : '');
     setSaleTvaRate(20);
     setSaleNotes(tx(lang,{fr:'Sortie de stock sous-traitance pour le modele',ar:'إخراج من مخزون المقاولة من الباطن للموديل',en:'Subcontract stock exit for model',es:'Salida de stock de subcontratación para el modelo',pt:'Saída de stock de subcontratação para o modelo',tr:'Taşeron stok çıkışı model için'}) + ` ${item.model.meta_data.nom_modele}`);
     setSaleStatus('BROUILLON');
@@ -2708,6 +2742,108 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   // C — FACTURE DE SOUS-TRAITANCE : construction des lignes
   // ======================================================================
 
+  /** Arrondi comptable à 2 décimales. Appliqué à CHAQUE agrégat monétaire :
+   *  laisser filer les flottants finit par afficher un « reste à payer » de
+   *  0,004 DH que personne ne peut solder. */
+  const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+
+  const toIsoDay = (d: Date) => d.toISOString().split('T')[0];
+  const addDays = (iso: string, days: number) => {
+    const d = new Date(`${iso}T00:00:00`);
+    d.setDate(d.getDate() + days);
+    return toIsoDay(d);
+  };
+
+  /** Délai d'échéance déduit des conditions de paiement de la commande.
+   *  Ce ne sont que des valeurs de départ : la date reste modifiable. */
+  const dueDelayFromTerms = (terms?: SubcontractOrder['paymentTerms']) =>
+    terms === 'APRES_LIVRAISON' ? 30 : terms === 'ECHEANCES' ? 60 : 0;
+
+  /** Montant en toutes lettres — mention OBLIGATOIRE sur une facture au Maroc.
+   *  Rendu en français et en arabe car les deux ont cours devant l'administration.
+   *  La partie décimale est traitée en centimes entiers (arrondi à 2 décimales
+   *  déjà fait en amont) pour ne jamais écrire « virgule cinq » au lieu de
+   *  « cinquante centimes ». */
+  const frenchWords = (n: number): string => {
+    const u = ['zéro','un','deux','trois','quatre','cinq','six','sept','huit','neuf','dix','onze','douze','treize','quatorze','quinze','seize','dix-sept','dix-huit','dix-neuf'];
+    const t = ['','','vingt','trente','quarante','cinquante','soixante','soixante','quatre-vingt','quatre-vingt'];
+    const below100 = (v: number): string => {
+      if (v < 20) return u[v];
+      const d = Math.floor(v / 10), r = v % 10;
+      if (d === 7 || d === 9) return `${t[d]}-${d === 7 && r === 1 ? 'et-' : ''}${u[10 + r]}`;
+      if (d === 8) return r === 0 ? 'quatre-vingts' : `quatre-vingt-${u[r]}`;
+      return r === 0 ? t[d] : `${t[d]}-${r === 1 ? 'et-' : ''}${u[r]}`;
+    };
+    const below1000 = (v: number): string => {
+      const c = Math.floor(v / 100), r = v % 100;
+      if (c === 0) return below100(r);
+      const head = c === 1 ? 'cent' : `${u[c]}-cent`;
+      return r === 0 ? `${head}${c > 1 ? 's' : ''}` : `${head}-${below100(r)}`;
+    };
+    if (n === 0) return 'zéro';
+    const parts: string[] = [];
+    const scales: [number, string, string][] = [[1e9, 'milliard', 'milliards'], [1e6, 'million', 'millions'], [1e3, 'mille', 'mille']];
+    let rest = n;
+    scales.forEach(([value, one, many]) => {
+      const count = Math.floor(rest / value);
+      if (count > 0) {
+        // « mille » est invariable et ne se dit jamais « un mille ».
+        parts.push(value === 1e3
+          ? (count === 1 ? 'mille' : `${below1000(count)} mille`)
+          : `${below1000(count)} ${count === 1 ? one : many}`);
+        rest -= count * value;
+      }
+    });
+    if (rest > 0) parts.push(below1000(rest));
+    return parts.join(' ');
+  };
+
+  const arabicWords = (n: number): string => {
+    const ones = ['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة'];
+    const tens = ['','عشرة','عشرون','ثلاثون','أربعون','خمسون','ستون','سبعون','ثمانون','تسعون'];
+    const hundreds = ['','مائة','مائتان','ثلاثمائة','أربعمائة','خمسمائة','ستمائة','سبعمائة','ثمانمائة','تسعمائة'];
+    const below100 = (v: number): string => {
+      if (v === 0) return '';
+      if (v < 10) return ones[v];
+      if (v === 10) return 'عشرة';
+      if (v < 20) return v === 11 ? 'أحد عشر' : v === 12 ? 'اثنا عشر' : `${ones[v - 10]} عشر`;
+      const d = Math.floor(v / 10), r = v % 10;
+      return r === 0 ? tens[d] : `${ones[r]} و${tens[d]}`;
+    };
+    const below1000 = (v: number): string => {
+      const c = Math.floor(v / 100), r = v % 100;
+      return [hundreds[c], below100(r)].filter(Boolean).join(' و');
+    };
+    if (n === 0) return 'صفر';
+    const parts: string[] = [];
+    let rest = n;
+    const million = Math.floor(rest / 1e6);
+    if (million > 0) {
+      parts.push(million === 1 ? 'مليون' : million === 2 ? 'مليونان' : `${below1000(million)} ملايين`);
+      rest -= million * 1e6;
+    }
+    const thousand = Math.floor(rest / 1e3);
+    if (thousand > 0) {
+      parts.push(thousand === 1 ? 'ألف' : thousand === 2 ? 'ألفان' : thousand <= 10 ? `${ones[thousand]} آلاف` : `${below1000(thousand)} ألفاً`);
+      rest -= thousand * 1e3;
+    }
+    if (rest > 0) parts.push(below1000(rest));
+    return parts.join(' و');
+  };
+
+  /** Phrase complète « X dirhams et Y centimes », dans les deux langues. */
+  const amountInWords = (amount: number, code: string) => {
+    const safe = Math.max(0, round2(amount));
+    const whole = Math.floor(safe);
+    const cents = Math.round((safe - whole) * 100);
+    const unitFr = code === 'MAD' ? 'dirhams' : code;
+    const unitAr = code === 'MAD' ? 'درهم' : code;
+    return {
+      fr: `${frenchWords(whole)} ${unitFr}${cents > 0 ? ` et ${frenchWords(cents)} centimes` : ''}`,
+      ar: `${arabicWords(whole)} ${unitAr}${cents > 0 ? ` و${arabicWords(cents)} سنتيم` : ''}`,
+    };
+  };
+
   /** Lignes de la facture pour une quantité facturée donnée.
    *  - Façon : quantité × tarif unitaire de la commande.
    *  - Matières : uniquement en mode Façon (le sous-traitant ne fournit pas la
@@ -2779,6 +2915,31 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const keptExpensesTotal = keptExpenses.reduce((a, e) => a + e.amount, 0);
     const keptFaconTotal = faconOn ? faconView.amount : 0;
 
+    // ---- Pied de facture : remise → net HT → TVA → TTC → reste à payer.
+    // L'ordre est celui de la réglementation : la remise se déduit AVANT la TVA
+    // (sinon on paierait de la TVA sur un montant jamais facturé), et l'acompte
+    // se déduit APRÈS le TTC (c'est un règlement, pas une réduction de prix).
+    const totalBrut = round2(keptFaconTotal + keptMaterialsTotal + keptExpensesTotal);
+    const discountInput = Math.max(0, Number(costInvoiceDiscount) || 0);
+    const discount = Math.min(
+      totalBrut,
+      round2(costInvoiceDiscountMode === 'PCT' ? (totalBrut * Math.min(100, discountInput)) / 100 : discountInput)
+    );
+    const netHT = round2(totalBrut - discount);
+
+    // Exonération : déduite du marché du modèle (Export) sauf choix explicite.
+    const isExport = models.find(m => m.id === order.modelId)?.ficheData?.typeMarche === 'Export';
+    const exonerated = costInvoiceExo ?? isExport;
+    const tvaRate = exonerated ? 0 : costInvoiceTva;
+    const tvaAmount = round2((netHT * tvaRate) / 100);
+    const totalTTC = round2(netHT + tvaAmount);
+
+    const acompte = Math.min(totalTTC, Math.max(0, round2(Number(costInvoiceAcompte) || 0)));
+    const resteAPayer = round2(totalTTC - acompte);
+
+    const dateFacture = costInvoiceDate || toIsoDay(new Date());
+    const dueDate = costInvoiceDueDate || addDays(dateFacture, dueDelayFromTerms(order.paymentTerms));
+
     return {
       qty,
       isPartial,
@@ -2793,7 +2954,21 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       materialsTotal: keptMaterialsTotal,
       expenses: keptExpenses,
       expensesTotal: keptExpensesTotal,
-      total: keptFaconTotal + keptMaterialsTotal + keptExpensesTotal,
+      /** Total HT AVANT remise — conservé sous le même nom qu'avant pour ne rien
+       *  casser de ce qui l'affichait déjà. */
+      total: totalBrut,
+      totalBrut,
+      discount,
+      netHT,
+      exonerated,
+      tvaRate,
+      tvaAmount,
+      totalTTC,
+      acompte,
+      resteAPayer,
+      dateFacture,
+      dueDate,
+      words: amountInWords(totalTTC, currency),
       /** Nombre de lignes volontairement exclues — sert à l'avertir clairement. */
       excludedCount:
         (faconOn ? 0 : 1) + (materialsView.length - keptMaterials.length) + (expensesView.length - keptExpenses.length),
@@ -2835,8 +3010,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           total: e.amount,
         })),
       ];
-      const totalHT = lignes.reduce((s, l) => s + l.total, 0);
-      const totalTVA = totalHT * (costInvoiceTva / 100);
+      // La remise part comme LIGNE NÉGATIVE : c'est la seule façon que la somme
+      // des lignes stockées redonne exactement le total HT enregistré (le
+      // serveur recalcule depuis les lignes quand aucun total ne lui est fourni).
+      if (inv.discount > 0) {
+        lignes.push({
+          product_id: order.modelId,
+          designation: tx(lang,{fr:'Remise commerciale',ar:'تخفيض تجاري',en:'Commercial discount',es:'Descuento comercial',pt:'Desconto comercial',tr:'Ticari indirim'}),
+          quantite: 1,
+          prix_unitaire: -inv.discount,
+          total: -inv.discount,
+        });
+      }
+      const totalHT = inv.netHT;
+      const totalTVA = inv.tvaAmount;
       const res = await fetch('/api/facturation/factures', {
         method: 'POST',
         credentials: 'include',
@@ -2850,17 +3037,29 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           tiers_rc: stProfile?.rc || null,
           tiers_adresse: stProfile?.address || null,
           tiers_tel: stProfile?.phone || order.subcontractorPhone || null,
-          date_facture: new Date().toISOString().split('T')[0],
-          taux_tva: costInvoiceTva,
-          notes: inv.isPartial
-            ? `${tx(lang,{fr:'Facturation partielle',ar:'فوترة جزئية',en:'Partial invoicing',es:'Facturación parcial',pt:'Faturação parcial',tr:'Kısmi faturalama'})} : ${inv.qty}/${order.totalQuantity} pcs`
-            : '',
+          date_facture: inv.dateFacture,
+          date_echeance: inv.dueDate,
+          taux_tva: inv.tvaRate,
+          // L'acompte déjà versé est un RÈGLEMENT : il alimente montant_paye et
+          // laisse le TTC intact, sinon la facture serait sous-évaluée.
+          montant_paye: inv.acompte,
+          notes: [
+            inv.isPartial
+              ? `${tx(lang,{fr:'Facturation partielle',ar:'فوترة جزئية',en:'Partial invoicing',es:'Facturación parcial',pt:'Faturação parcial',tr:'Kısmi faturalama'})} : ${inv.qty}/${order.totalQuantity} pcs`
+              : '',
+            inv.exonerated
+              ? tx(lang,{fr:'Exonérée de TVA (marché export)',ar:'معفاة من الضريبة على القيمة المضافة (سوق التصدير)',en:'VAT exempt (export market)',es:'Exenta de IVA (mercado de exportación)',pt:'Isenta de IVA (mercado de exportação)',tr:'KDV muaf (ihracat pazarı)'})
+              : '',
+            inv.acompte > 0
+              ? `${tx(lang,{fr:'Acompte déjà versé',ar:'تسبيق مؤدى',en:'Advance already paid',es:'Anticipo ya pagado',pt:'Adiantamento já pago',tr:'Ödenen avans'})} : ${fmt(inv.acompte)} ${currency}`
+              : '',
+          ].filter(Boolean).join(' · '),
           source_module: 'SOUSTRAITANCE',
           source_id: order.id,
           lignes,
           total_ht: totalHT,
           total_tva: totalTVA,
-          total_ttc: totalHT + totalTVA,
+          total_ttc: inv.totalTTC,
         }),
       });
       if (!res.ok) {
@@ -2968,6 +3167,30 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       [profile?.ice ? `ICE : ${profile.ice}` : '', profile?.rc ? `RC : ${profile.rc}` : ''].filter(Boolean).join(' · '),
     ].filter(Boolean).map(l => `<div style="font-size: 11px; color: #475569; margin-top: 3px;">${esc(l)}</div>`).join('');
 
+    // Le numéro définitif est attribué par le serveur à l'enregistrement. Tant
+    // qu'il n'existe pas, on imprime une référence provisoire clairement
+    // identifiée comme telle : une facture ne doit jamais laisser croire qu'elle
+    // porte un numéro séquentiel légal alors qu'elle n'en a pas.
+    const numeroLabel = costInvoiceSavedNumber
+      ? `${tx(lang,{fr:'Facture n°',ar:'فاتورة رقم',en:'Invoice no.',es:'Factura n.º',pt:'Fatura n.º',tr:'Fatura no'})} ${costInvoiceSavedNumber}`
+      : `${tx(lang,{fr:'Référence provisoire',ar:'مرجع مؤقت',en:'Provisional reference',es:'Referencia provisional',pt:'Referência provisória',tr:'Geçici referans'})} : FS-${order.id.slice(0, 8).toUpperCase()}`;
+
+    const paymentTermsLabel = order.paymentTerms === 'APRES_LIVRAISON'
+      ? tx(lang,{fr:'Paiement après livraison (30 jours)',ar:'الأداء بعد التسليم (30 يوماً)',en:'Payment after delivery (30 days)',es:'Pago tras la entrega (30 días)',pt:'Pagamento após entrega (30 dias)',tr:'Teslimat sonrası ödeme (30 gün)'})
+      : order.paymentTerms === 'ECHEANCES'
+        ? tx(lang,{fr:'Paiement échelonné (60 jours)',ar:'أداء بالتقسيط (60 يوماً)',en:'Instalment payment (60 days)',es:'Pago fraccionado (60 días)',pt:'Pagamento faseado (60 dias)',tr:'Taksitli ödeme (60 gün)'})
+        : tx(lang,{fr:'Avance à la réception',ar:'تسبيق عند الاستلام',en:'Advance on receipt',es:'Anticipo a la recepción',pt:'Adiantamento na receção',tr:'Teslimde peşinat'});
+
+    // Mentions légales minimales d'une facture marocaine : identifiants du
+    // vendeur, conditions de règlement et, le cas échéant, le motif d'exonération.
+    const legalLines = [
+      `${tx(lang,{fr:'Conditions de paiement',ar:'شروط الأداء',en:'Payment terms',es:'Condiciones de pago',pt:'Condições de pagamento',tr:'Ödeme koşulları'})} : ${paymentTermsLabel}`,
+      inv.exonerated
+        ? tx(lang,{fr:'Opération exonérée de TVA (marché export) — article 92 du Code Général des Impôts.',ar:'عملية معفاة من الضريبة على القيمة المضافة (سوق التصدير) — المادة 92 من المدونة العامة للضرائب.',en:'VAT-exempt transaction (export market) — article 92 of the Moroccan General Tax Code.',es:'Operación exenta de IVA (mercado de exportación) — artículo 92 del Código General de Impuestos.',pt:'Operação isenta de IVA (mercado de exportação) — artigo 92.º do Código Geral dos Impostos.',tr:'KDV\'den muaf işlem (ihracat pazarı) — Genel Vergi Kanunu madde 92.'})
+        : '',
+      tx(lang,{fr:'Tout retard de paiement au-delà de la date d\'échéance peut donner lieu à des pénalités de retard conformément à la loi 32-10.',ar:'كل تأخير في الأداء بعد تاريخ الاستحقاق قد يترتب عنه غرامات تأخير طبقاً للقانون 32-10.',en:'Any payment delay beyond the due date may incur late penalties under Moroccan law 32-10.',es:'Cualquier retraso en el pago tras el vencimiento puede generar penalizaciones según la ley 32-10.',pt:'Qualquer atraso no pagamento após o vencimento pode gerar penalidades nos termos da lei 32-10.',tr:'Vade tarihinden sonraki gecikmeler 32-10 sayılı kanun uyarınca gecikme cezasına tabi olabilir.'}),
+    ].filter(Boolean).map(l => `<div>• ${esc(l)}</div>`).join('');
+
     printWindow.document.write(`
       <html>
         <head>
@@ -2990,7 +3213,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             .signatures { display: flex; justify-content: space-between; margin-top: 70px; }
             .sig-box { width: 240px; border-top: 2px dashed #cbd5e1; text-align: center; padding-top: 10px; font-size: 11px; color: #475569; font-weight: 800; }
             .footer { margin-top: 40px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 16px; }
-            @media print { body { padding: 0; } }
+            .words { border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; margin: 18px 0; background: #fafafa; }
+            .words-ar { direction: rtl; font-size: 13px; margin-top: 6px; }
+            .legal { font-size: 10px; color: #64748b; line-height: 1.6; margin-top: 18px; }
+            /* Papier A4 : marges typographiques raisonnables, en-tête de tableau
+               répété sur chaque page et lignes jamais coupées en deux — sans quoi
+               une facture de 30 lignes devient illisible à l'impression. */
+            @page { size: A4; margin: 14mm 12mm; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+            tr, .box, .words, .signatures { break-inside: avoid; page-break-inside: avoid; }
+            @media print {
+              body { padding: 0; font-size: 12px; }
+              .invoice-box { max-width: none; }
+            }
           </style>
         </head>
         <body onload="window.print()">
@@ -3007,8 +3243,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </div>
               <div style="text-align: right;">
                 <div style="font-size: 18px; font-weight: 900; color: #4f46e5;">${esc(tx(lang,{fr:'FACTURE SOUS-TRAITANCE',ar:'فاتورة المقاولة من الباطن',en:'SUBCONTRACT INVOICE',es:'FACTURA DE SUBCONTRATACIÓN',pt:'FATURA DE SUBCONTRATAÇÃO',tr:'TAŞERON FATURASI'}))}</div>
-                <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-top: 4px;">REF: FS-${esc(order.id.slice(0, 8).toUpperCase())}</div>
-                <div style="font-size: 11px; font-weight: 700; color: #64748b;">${esc(new Date().toLocaleDateString(dateLocale))}</div>
+                <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-top: 4px;">${esc(numeroLabel)}</div>
+                <div style="font-size: 11px; font-weight: 700; color: #64748b;">${esc(tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'}))} : ${esc(fmtDate(inv.dateFacture))}</div>
+                <div style="font-size: 11px; font-weight: 700; color: #64748b;">${esc(tx(lang,{fr:'Échéance',ar:'تاريخ الاستحقاق',en:'Due date',es:'Vencimiento',pt:'Vencimento',tr:'Vade'}))} : ${esc(fmtDate(inv.dueDate))}</div>
               </div>
             </div>
 
@@ -3057,11 +3294,45 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <td style="color: #64748b;">${esc(tx(lang,{fr:'Frais additionnels',ar:'مصاريف إضافية',en:'Additional expenses',es:'Gastos adicionales',pt:'Despesas adicionais',tr:'Ek masraflar'}))}</td>
                 <td style="text-align: right; font-weight: 700;">${money(inv.expensesTotal)}</td>
               </tr>
-              <tr class="total-row">
-                <td>${esc(tx(lang,{fr:'TOTAL À PAYER',ar:'المجموع الواجب أداؤه',en:'TOTAL DUE',es:'TOTAL A PAGAR',pt:'TOTAL A PAGAR',tr:'ÖDENECEK TOPLAM'}))}</td>
-                <td style="text-align: right;">${money(inv.total)}</td>
+              <tr>
+                <td style="color: #64748b;">${esc(tx(lang,{fr:'Total HT brut',ar:'المجموع دون احتساب الضريبة',en:'Gross net-of-tax total',es:'Total sin IVA bruto',pt:'Total sem IVA bruto',tr:'Brüt KDV hariç toplam'}))}</td>
+                <td style="text-align: right; font-weight: 700;">${money(inv.totalBrut)}</td>
               </tr>
+              ${inv.discount > 0 ? `
+              <tr>
+                <td style="color: #b45309;">${esc(tx(lang,{fr:'Remise',ar:'التخفيض',en:'Discount',es:'Descuento',pt:'Desconto',tr:'İndirim'}))}</td>
+                <td style="text-align: right; font-weight: 700; color: #b45309;">- ${money(inv.discount)}</td>
+              </tr>
+              <tr>
+                <td style="color: #64748b;">${esc(tx(lang,{fr:'Net HT',ar:'الصافي دون الضريبة',en:'Net excl. tax',es:'Neto sin IVA',pt:'Líquido sem IVA',tr:'Net KDV hariç'}))}</td>
+                <td style="text-align: right; font-weight: 700;">${money(inv.netHT)}</td>
+              </tr>` : ''}
+              <tr>
+                <td style="color: #64748b;">${esc(tx(lang,{fr:'TVA',ar:'الضريبة على القيمة المضافة',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'}))} ${esc(inv.tvaRate)}%${inv.exonerated ? ` (${esc(tx(lang,{fr:'exonéré',ar:'معفى',en:'exempt',es:'exento',pt:'isento',tr:'muaf'}))})` : ''}</td>
+                <td style="text-align: right; font-weight: 700;">${money(inv.tvaAmount)}</td>
+              </tr>
+              <tr class="total-row">
+                <td>${esc(tx(lang,{fr:'TOTAL TTC',ar:'المجموع مع الضريبة',en:'TOTAL INCL. TAX',es:'TOTAL CON IVA',pt:'TOTAL COM IVA',tr:'TOPLAM (KDV DAHİL)'}))}</td>
+                <td style="text-align: right;">${money(inv.totalTTC)}</td>
+              </tr>
+              ${inv.acompte > 0 ? `
+              <tr>
+                <td style="color: #047857;">${esc(tx(lang,{fr:'Acompte déjà versé',ar:'تسبيق مؤدى',en:'Advance already paid',es:'Anticipo ya pagado',pt:'Adiantamento já pago',tr:'Ödenmiş avans'}))}</td>
+                <td style="text-align: right; font-weight: 700; color: #047857;">- ${money(inv.acompte)}</td>
+              </tr>
+              <tr class="total-row">
+                <td>${esc(tx(lang,{fr:'RESTE À PAYER',ar:'الباقي للأداء',en:'BALANCE DUE',es:'RESTO A PAGAR',pt:'RESTANTE A PAGAR',tr:'KALAN BORÇ'}))}</td>
+                <td style="text-align: right;">${money(inv.resteAPayer)}</td>
+              </tr>` : ''}
             </table>
+
+            <div class="words">
+              <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:800;">${esc(tx(lang,{fr:'Arrêtée la présente facture à la somme de',ar:'حُررت هذه الفاتورة بمبلغ',en:'This invoice is settled at the sum of',es:'La presente factura asciende a la suma de',pt:'A presente fatura ascende à quantia de',tr:'İşbu fatura şu tutar üzerinden düzenlenmiştir'}))} :</div>
+              <div style="font-weight:700;margin-top:4px;">${esc(inv.words.fr)}</div>
+              <div class="words-ar" style="font-weight:700;">${esc(inv.words.ar)}</div>
+            </div>
+
+            <div class="legal">${legalLines}</div>
 
             <div class="signatures">
               <div class="sig-box">${esc(tx(lang,{fr:'Atelier donneur d\'ordre',ar:'الورشة صاحبة الطلب',en:'Ordering workshop',es:'Taller ordenante',pt:'Oficina mandante',tr:'Sipariş veren atölye'}))}</div>
@@ -3069,6 +3340,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             </div>
 
             <div class="footer">
+              <div style="font-weight:700;color:#64748b;margin-bottom:4px;">${esc([companyIdentity.nom, companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : '', companyIdentity.tel].filter(Boolean).join(' · '))}</div>
               ${esc(tx(lang,{fr:'Document généré électroniquement et valable sans signature.',ar:'مستند تم إنشاؤه إلكترونياً وصالح بدون توقيع.',en:'Electronically generated document valid without signature.',es:'Documento generado electrónicamente y válido sin firma.',pt:'Documento gerado eletronicamente e válido sem assinatura.',tr:'Elektronik olarak oluşturulmuş, imzasız geçerli belge.'}))}
             </div>
           </div>
@@ -3796,7 +4068,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </div>
                       <div className="text-right">
                         <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Prix estimé',ar:'السعر التقديري',en:'Estimated price',es:'Precio estimado',pt:'Preço estimado',tr:'Tahmini fiyat'})}</span>
-                        <span className="font-semibold text-slate-800 dark:text-dk-text text-[11px]">{item.price} MAD</span>
+                        <span className="font-semibold text-slate-800 dark:text-dk-text text-[11px]">{item.price == null ? '—' : `${fmt(item.price)} MAD`}</span>
                       </div>
                     </div>
 
@@ -3872,7 +4144,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             {item.remainingStock.toLocaleString()} pcs
                           </td>
                           <td className="px-6 py-4 font-semibold text-slate-800 dark:text-dk-text">
-                            {item.price} MAD
+                            <span className="block font-semibold text-slate-800 dark:text-dk-text">
+                              {item.salePrice != null && item.salePrice > 0
+                                ? `${fmt(item.salePrice)} MAD`
+                                : <span className="text-slate-400 dark:text-dk-muted italic">{tx(lang,{fr:'prix de vente non saisi',ar:'ثمن البيع غير مُدخَل',en:'sale price not set',es:'precio de venta no indicado',pt:'preço de venda não definido',tr:'satış fiyatı girilmedi'})}</span>}
+                            </span>
+                            <span className="block text-[10px] text-slate-400 dark:text-dk-muted">
+                              {tx(lang,{fr:'revient',ar:'التكلفة',en:'cost',es:'coste',pt:'custo',tr:'maliyet'})} : {item.price == null ? '—' : `${fmt(item.price)} MAD`}
+                              {item.salePrice != null && item.salePrice > 0 && item.price != null && item.price > 0 && (
+                                <span className={item.salePrice > item.price ? ' text-emerald-600 dark:text-emerald-400' : ' text-rose-600 dark:text-rose-400'}>
+                                  {' · '}{tx(lang,{fr:'marge',ar:'الهامش',en:'margin',es:'margen',pt:'margem',tr:'marj'})} {fmt(item.salePrice - item.price)} MAD
+                                </span>
+                              )}
+                            </span>
                           </td>
                           <td className="px-6 py-4 text-right">
                             <button
@@ -5563,9 +5847,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       <tfoot className="bg-slate-50 dark:bg-dk-bg/60 border-t border-slate-200 dark:border-dk-border">
                         <tr>
                           <td colSpan={4} className="px-4 py-3 font-bold uppercase tracking-wide text-[10px] text-slate-600 dark:text-dk-text-soft">
-                            {tx(lang,{fr:'Total à payer',ar:'المجموع الواجب أداؤه',en:'Total due',es:'Total a pagar',pt:'Total a pagar',tr:'Ödenecek toplam'})}
+                            {tx(lang,{fr:'Total HT brut',ar:'المجموع الخام دون الضريبة',en:'Gross total excl. tax',es:'Total bruto sin IVA',pt:'Total bruto sem IVA',tr:'Brüt KDV hariç toplam'})}
                           </td>
-                          <td className="px-4 py-3 text-right font-extrabold text-indigo-600 dark:text-dk-accent text-sm">{fmt(inv.total)} {currency}</td>
+                          <td className="px-4 py-3 text-right font-extrabold text-indigo-600 dark:text-dk-accent text-sm">{fmt(inv.totalBrut)} {currency}</td>
                         </tr>
                       </tfoot>
                     </table>
@@ -5582,6 +5866,151 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       })}
                     </div>
                   )}
+                </div>
+
+                {/* Conditions de facturation : dates, remise, TVA et acompte.
+                    Tout est visible AVANT d'enregistrer ou d'imprimer, parce
+                    qu'une facture corrigée après coup n'existe pas — il faut un
+                    avoir. */}
+                <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
+                    <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
+                      {tx(lang,{fr:'Conditions & montants',ar:'الشروط والمبالغ',en:'Terms & amounts',es:'Condiciones e importes',pt:'Condições e montantes',tr:'Koşullar ve tutarlar'})}
+                    </h4>
+                  </div>
+                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                        {tx(lang,{fr:'Date de facture',ar:'تاريخ الفاتورة',en:'Invoice date',es:'Fecha de factura',pt:'Data da fatura',tr:'Fatura tarihi'})}
+                      </label>
+                      <input
+                        type="date"
+                        value={inv.dateFacture}
+                        onChange={e => setCostInvoiceDate(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                        {tx(lang,{fr:'Date d\'échéance',ar:'تاريخ الاستحقاق',en:'Due date',es:'Fecha de vencimiento',pt:'Data de vencimento',tr:'Vade tarihi'})}
+                      </label>
+                      <input
+                        type="date"
+                        value={inv.dueDate}
+                        onChange={e => setCostInvoiceDueDate(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                      />
+                      <p className="text-[9px] text-slate-400 dark:text-dk-muted">
+                        {tx(lang,{fr:'Déduite des conditions de paiement de la commande.',ar:'مستنتجة من شروط أداء الطلبية.',en:'Derived from the order payment terms.',es:'Deducida de las condiciones de pago del pedido.',pt:'Deduzida das condições de pagamento da encomenda.',tr:'Siparişin ödeme koşullarından türetilmiştir.'})}
+                      </p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                        {tx(lang,{fr:'Remise',ar:'التخفيض',en:'Discount',es:'Descuento',pt:'Desconto',tr:'İndirim'})}
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={costInvoiceDiscount}
+                          onChange={e => setCostInvoiceDiscount(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                          className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        />
+                        <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border shrink-0">
+                          {(['PCT', 'AMOUNT'] as const).map(mode => (
+                            <button
+                              key={mode}
+                              type="button"
+                              onClick={() => setCostInvoiceDiscountMode(mode)}
+                              className={`px-2 py-1.5 text-[10px] font-bold transition-colors ${costInvoiceDiscountMode === mode ? 'bg-indigo-600 dark:bg-dk-accent text-white' : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted'}`}
+                            >
+                              {mode === 'PCT' ? '%' : currency}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {inv.discount > 0 && (
+                        <p className="text-[9px] font-semibold text-amber-700 dark:text-amber-400">
+                          - {fmt(inv.discount)} {currency}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                        {tx(lang,{fr:'Acompte déjà versé',ar:'تسبيق مؤدى',en:'Advance already paid',es:'Anticipo ya pagado',pt:'Adiantamento já pago',tr:'Ödenmiş avans'})}
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={costInvoiceAcompte}
+                        onChange={e => setCostInvoiceAcompte(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                      />
+                      <p className="text-[9px] text-slate-400 dark:text-dk-muted">
+                        {tx(lang,{fr:'Ne diminue pas la facture : seulement le reste à payer.',ar:'ما كيّنقصش الفاتورة: غير الباقي للأداء.',en:'Does not reduce the invoice: only the balance due.',es:'No reduce la factura: solo el resto a pagar.',pt:'Não reduz a fatura: apenas o saldo em dívida.',tr:'Faturayı değil, yalnızca kalan borcu azaltır.'})}
+                      </p>
+                    </div>
+
+                    <label className="sm:col-span-2 flex items-start gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={inv.exonerated}
+                        onChange={e => setCostInvoiceExo(e.target.checked)}
+                        className="w-3.5 h-3.5 accent-indigo-600 mt-0.5"
+                      />
+                      <span className="text-[10px] font-bold text-slate-600 dark:text-dk-text-soft">
+                        {tx(lang,{fr:'Exonéré de TVA (marché export — art. 92 CGI)',ar:'معفى من الضريبة على القيمة المضافة (سوق التصدير — المادة 92)',en:'VAT exempt (export market — art. 92)',es:'Exento de IVA (mercado de exportación — art. 92)',pt:'Isento de IVA (mercado de exportação — art. 92)',tr:'KDV muaf (ihracat pazarı — madde 92)'})}
+                        <span className="block font-semibold text-slate-400 dark:text-dk-muted">
+                          {tx(lang,{fr:'Coché automatiquement si le modèle est en marché Export.',ar:'كيتشيك أوتوماتيكياً إلا كان الموديل ديال التصدير.',en:'Ticked automatically when the model is an export order.',es:'Marcado automáticamente si el modelo es de exportación.',pt:'Marcado automaticamente se o modelo for de exportação.',tr:'Model ihracat pazarındaysa otomatik işaretlenir.'})}
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Récapitulatif « ce que je paie » — un seul endroit où lire le
+                      chemin brut → remise → TVA → acompte → reste. */}
+                  <div className="border-t border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 p-4 space-y-1.5 text-[11px]">
+                    {([
+                      { label: tx(lang,{fr:'Total HT brut',ar:'المجموع الخام دون الضريبة',en:'Gross total excl. tax',es:'Total bruto sin IVA',pt:'Total bruto sem IVA',tr:'Brüt KDV hariç toplam'}), value: inv.totalBrut },
+                      ...(inv.discount > 0 ? [{ label: tx(lang,{fr:'Remise',ar:'التخفيض',en:'Discount',es:'Descuento',pt:'Desconto',tr:'İndirim'}), value: -inv.discount }] : []),
+                      ...(inv.discount > 0 ? [{ label: tx(lang,{fr:'Net HT',ar:'الصافي دون الضريبة',en:'Net excl. tax',es:'Neto sin IVA',pt:'Líquido sem IVA',tr:'Net KDV hariç'}), value: inv.netHT }] : []),
+                      { label: `${tx(lang,{fr:'TVA',ar:'الضريبة',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'})} ${inv.tvaRate}%`, value: inv.tvaAmount },
+                    ]).map((row, i) => (
+                      <div key={i} className="flex items-center justify-between">
+                        <span className="text-slate-500 dark:text-dk-muted font-semibold">{row.label}</span>
+                        <span className="font-bold text-slate-700 dark:text-dk-text-soft">{fmt(row.value)} {currency}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 dark:border-dk-border">
+                      <span className="font-black uppercase tracking-wide text-[10px] text-slate-600 dark:text-dk-text-soft">
+                        {tx(lang,{fr:'Total TTC',ar:'المجموع مع الضريبة',en:'Total incl. tax',es:'Total con IVA',pt:'Total com IVA',tr:'Toplam (KDV dahil)'})}
+                      </span>
+                      <span className="font-extrabold text-indigo-600 dark:text-dk-accent text-sm">{fmt(inv.totalTTC)} {currency}</span>
+                    </div>
+                    {inv.acompte > 0 && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
+                            {tx(lang,{fr:'Déjà payé',ar:'المؤدى سابقاً',en:'Already paid',es:'Ya pagado',pt:'Já pago',tr:'Ödenmiş'})}
+                          </span>
+                          <span className="font-bold text-emerald-700 dark:text-emerald-400">- {fmt(inv.acompte)} {currency}</span>
+                        </div>
+                        <div className="flex items-center justify-between pt-1.5 border-t border-slate-200 dark:border-dk-border">
+                          <span className="font-black uppercase tracking-wide text-[10px] text-slate-600 dark:text-dk-text-soft">
+                            {tx(lang,{fr:'Reste à payer',ar:'الباقي للأداء',en:'Balance due',es:'Resto a pagar',pt:'Restante a pagar',tr:'Kalan borç'})}
+                          </span>
+                          <span className="font-extrabold text-indigo-600 dark:text-dk-accent text-sm">{fmt(inv.resteAPayer)} {currency}</span>
+                        </div>
+                      </>
+                    )}
+                    <p className="pt-2 text-[10px] text-slate-500 dark:text-dk-muted leading-relaxed">
+                      <span className="font-bold">{tx(lang,{fr:'En toutes lettres',ar:'بالحروف',en:'In words',es:'En letras',pt:'Por extenso',tr:'Yazıyla'})} : </span>
+                      {inv.words.fr}
+                      <span className="block" dir="rtl">{inv.words.ar}</span>
+                    </p>
+                  </div>
                 </div>
 
                 {/* Identité du BÉNÉFICIAIRE — reprise de sa fiche sous-traitant.
@@ -5724,15 +6153,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <label className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">
                     {tx(lang,{fr:'TVA',ar:'الضريبة',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'})}
                   </label>
+                  {/* Champ neutralisé quand la facture est exonérée : afficher un
+                      taux saisissable qui ne s'applique pas serait trompeur. */}
                   <input
                     type="number"
                     min={0}
                     max={100}
-                    value={costInvoiceTva}
+                    disabled={inv.exonerated}
+                    value={inv.exonerated ? 0 : costInvoiceTva}
                     onChange={(e) => setCostInvoiceTva(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
-                    className="w-16 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                    className="w-16 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent disabled:opacity-50"
                   />
                   <span className="text-[10px] text-slate-400 dark:text-dk-muted">%</span>
+                  {inv.exonerated && (
+                    <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 uppercase">
+                      {tx(lang,{fr:'exonéré',ar:'معفى',en:'exempt',es:'exento',pt:'isento',tr:'muaf'})}
+                    </span>
+                  )}
                 </div>
                 <button
                   type="button"
