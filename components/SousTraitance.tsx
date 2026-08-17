@@ -487,6 +487,12 @@ const computeModelCostPrice = (model: ModelData, settings: any): number | null =
 const autoFitScript = (marginMm: number) => `
     <script>
       (function () {
+        // On attend le chargement COMPLET (images comprises) avant de mesurer et
+        // d'imprimer. Le script s'exécutant à l'analyse du document, les photos en
+        // data-URL n'étaient pas encore décodées : elles sortaient en cadres vides,
+        // et la hauteur mesurée était fausse. L'ancien body onload attendait ces
+        // ressources ; il fallait rétablir cette garantie.
+        function run() {
         var root = document.querySelector('.invoice-box') || document.body;
         var usablePx = (297 - ${marginMm}) / 25.4 * 96;
         var scale = 1;
@@ -499,6 +505,9 @@ const autoFitScript = (marginMm: number) => `
           document.body.style.zoom = scale;
         }
         window.print();
+        }
+        if (document.readyState === 'complete') run();
+        else window.addEventListener('load', run);
       })();
     <\/script>`;
 
@@ -2957,7 +2966,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       adresse: prev.adresse || companyIdentity.adresse,
       tel: prev.tel || companyIdentity.tel,
     }));
-  }, [isBonEnvoiModalOpen, companyIdentity]);
+    // Dépendances PRIMITIVES : `companyIdentity` est un objet recréé à chaque
+    // chargement, ce qui relançait l'effet — et donc un rendu — sans qu'aucune
+    // valeur n'ait changé.
+  }, [isBonEnvoiModalOpen, companyIdentity.nom, companyIdentity.ice, companyIdentity.rc, companyIdentity.adresse, companyIdentity.tel]);
 
   // Helper to print subcontractor delivery bon/slip (Tab 1 action)
   const handlePrintDeliveryNote = (order: SubcontractOrder) => {
@@ -3002,16 +3014,44 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const intentional = bonEnvoiOff.size > 0 || Object.keys(bonEnvoiEdits).length > 0;
     const mismatch = rowsTotal !== order.totalQuantity;
 
-    const rowsHtml = rows.map(r => `
+    // Colonnes de tailles, dans l'ordre du modèle quand il est connu — le
+    // magasinier lit une grille, pas une phrase : « [s]: 30 | [m]: 40 | … »
+    // obligeait à décoder chaque ligne pour vérifier un carton.
+    const modelSizes: string[] = ((models.find(m => m.id === order.modelId)?.ficheData as any)?.sizes || []) as string[];
+    const seenSizes = new Set<string>();
+    rows.forEach(r => r.detail.forEach(([sz]) => seenSizes.add(sz)));
+    const sizeCols = [
+      ...modelSizes.filter(sz => seenSizes.has(sz)),
+      ...[...seenSizes].filter(sz => !modelSizes.includes(sz)),
+    ];
+    const showSizes = bonEnvoiShow.sizeDetail && sizeCols.length > 0;
+
+    const sizeHeadHtml = showSizes
+      ? sizeCols.map(sz => `<th style="text-align:center;">${esc(sz)}</th>`).join('')
+      : '';
+
+    const rowsHtml = rows.map(r => {
+      const bySize: Record<string, number> = {};
+      r.detail.forEach(([sz, q]) => { bySize[sz] = (bySize[sz] || 0) + q; });
+      const cells = showSizes
+        ? sizeCols.map(sz => `<td style="text-align:center;">${bySize[sz] ? bySize[sz].toLocaleString(dateLocale) : '&mdash;'}</td>`).join('')
+        : '';
+      return `
                 <tr>
                   <td style="font-weight: 800; color: #1e1b4b;">${esc(r.color)}</td>
-                  ${bonEnvoiShow.sizeDetail ? `<td style="font-weight: 600;">
-                    ${r.detail.length > 0
-                      ? r.detail.map(([sz, q]) => `[${esc(sz)}]: ${q.toLocaleString(dateLocale)} pcs`).join(' | ')
-                      : '&mdash;'}
-                  </td>` : ''}
+                  ${cells}
                   <td style="text-align: right; font-weight: 800; color: #4f46e5;">${r.total.toLocaleString(dateLocale)} pcs</td>
-                </tr>`).join('');
+                </tr>`;
+    }).join('');
+
+    // Pied de tableau : total par taille. C'est le chiffre qu'on recompte à la
+    // réception, taille par taille.
+    const sizeFootHtml = showSizes
+      ? sizeCols.map(sz => {
+          const t = rows.reduce((a, r) => a + r.detail.filter(([s2]) => s2 === sz).reduce((b, [, q]) => b + q, 0), 0);
+          return `<td style="text-align:center; font-weight:800;">${t ? t.toLocaleString(dateLocale) : '&mdash;'}</td>`;
+        }).join('')
+      : '';
 
     const mismatchHtml = !mismatch ? '' : `
             <div style="background:${intentional ? '#f8fafc' : '#fffbeb'};border:1px solid ${intentional ? '#e2e8f0' : '#fde68a'};border-radius:8px;padding:6px 9px;margin-bottom:8px;font-size:9.5px;color:${intentional ? '#475569' : '#92400e'};font-weight:700;">
@@ -3172,14 +3212,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             <thead>
               <tr>
                 <th>${esc(tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'}))}</th>
-                ${bonEnvoiShow.sizeDetail ? `<th>${esc(tx(lang,{fr:'Détail des Tailles',ar:'تفصيل المقاسات',en:'Size Details',es:'Detalle de Tallas',pt:'Detalhe dos Tamanhos',tr:'Beden Detayları'}))}</th>` : ''}
+                ${sizeHeadHtml}
                 <th style="text-align: right;">${esc(tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'}))}</th>
               </tr>
             </thead>
             <tbody>
               ${rowsHtml}
               <tr style="background: #f8fafc; font-weight: 900; font-size: 12px; border-top: 2px solid #cbd5e1;">
-                <td colspan="${bonEnvoiShow.sizeDetail ? 2 : 1}">${esc(totalRowLabel)}</td>
+                <td>${esc(totalRowLabel)}</td>
+                ${sizeFootHtml}
                 <td style="text-align: right; font-weight: 900; color: #4f46e5; font-size: 14px;">${rowsTotal.toLocaleString(dateLocale)} pcs</td>
               </tr>
             </tbody>
@@ -7182,6 +7223,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         const order = bonEnvoiOrder;
         const baseRows = buildBonEnvoiRows(order);
         const milestones = buildBonEnvoiMilestones(order);
+        // Colonnes de tailles, dans l'ordre du modèle : la préparation doit se
+        // lire comme la grille de la fiche, pas comme une phrase à décoder.
+        const beModelSizes: string[] = (((models.find(m => m.id === order.modelId)?.ficheData as any)?.sizes) || []) as string[];
+        const beSeen = new Set<string>();
+        baseRows.forEach(r => r.detail.forEach(([sz]) => beSeen.add(sz)));
+        const beSizeCols = [
+          ...beModelSizes.filter(sz => beSeen.has(sz)),
+          ...[...beSeen].filter(sz => !beModelSizes.includes(sz)),
+        ];
         const shippedTotal = baseRows
           .filter(r => !bonEnvoiOff.has(r.key))
           .reduce((a, r) => a + (bonEnvoiEdits[r.key]?.qty ?? r.total), 0);
@@ -7299,7 +7349,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         <tr>
                           <th className="pl-4 pr-1 py-2 text-left font-medium w-8">{tx(lang,{fr:'Incl.',ar:'ضمّ',en:'Incl.',es:'Incl.',pt:'Incl.',tr:'Dahil'})}</th>
                           <th className="px-4 py-2 text-left font-medium">{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
-                          <th className="px-4 py-2 text-left font-medium">{tx(lang,{fr:'Détail des Tailles',ar:'تفصيل المقاسات',en:'Size Details',es:'Detalle de Tallas',pt:'Detalhe dos Tamanhos',tr:'Beden Detayları'})}</th>
+                          {beSizeCols.map(sz => (
+                            <th key={sz} className="px-2 py-2 text-center font-medium">{sz}</th>
+                          ))}
                           <th className="px-4 py-2 text-right font-medium">{tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
                         </tr>
                       </thead>
@@ -7326,11 +7378,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                   className="bg-transparent border-b border-dashed border-slate-300 dark:border-dk-border focus:border-indigo-500 outline-none px-0.5 min-w-0 w-28"
                                 />
                               </td>
-                              <td className="px-4 py-2 text-slate-500 dark:text-dk-muted">
-                                {r.detail.length > 0
-                                  ? r.detail.map(([sz, q]) => `${sz}: ${q}`).join(' | ')
-                                  : '—'}
-                              </td>
+                              {beSizeCols.map(sz => {
+                                const q = r.detail.filter(([s2]) => s2 === sz).reduce((a, [, v]) => a + v, 0);
+                                return (
+                                  <td key={sz} className={`px-2 py-2 text-center ${q ? 'font-semibold text-slate-700 dark:text-dk-text-soft' : 'text-slate-300 dark:text-dk-muted'}`}>
+                                    {q || '—'}
+                                  </td>
+                                );
+                              })}
                               <td className="px-4 py-2 text-right">
                                 <div className="flex items-center justify-end gap-1">
                                   <input
@@ -7357,9 +7412,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           );
                         })}
                         <tr className="bg-slate-50 dark:bg-dk-bg/60">
-                          <td colSpan={3} className="px-4 py-2 font-black uppercase tracking-wide text-[10px] text-slate-600 dark:text-dk-text-soft">
+                          <td colSpan={2} className="px-4 py-2 font-black uppercase tracking-wide text-[10px] text-slate-600 dark:text-dk-text-soft">
                             {tx(lang,{fr:'Total envoyé',ar:'مجموع المرسل',en:'Total sent',es:'Total enviado',pt:'Total enviado',tr:'Gönderilen toplam'})}
                           </td>
+                          {beSizeCols.map(sz => {
+                            // Total par taille des seules lignes cochées : c'est ce
+                            // qu'on recomptera carton par carton à la réception.
+                            const t = baseRows
+                              .filter(r => !bonEnvoiOff.has(r.key))
+                              .reduce((a, r) => a + r.detail.filter(([s2]) => s2 === sz).reduce((b, [, v]) => b + v, 0), 0);
+                            return (
+                              <td key={sz} className="px-2 py-2 text-center font-bold text-slate-600 dark:text-dk-text-soft">{t || '—'}</td>
+                            );
+                          })}
                           <td className="px-4 py-2 text-right font-extrabold text-indigo-600 dark:text-dk-accent">
                             {shippedTotal.toLocaleString(dateLocale)} pcs
                           </td>
