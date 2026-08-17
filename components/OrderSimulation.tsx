@@ -678,7 +678,11 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                         </div>
                         <div className="mt-3 pt-3 border-t border-white/10 flex justify-between items-center text-[11px] text-slate-300 dark:text-dk-muted">
                             <span>Coût de revient / pièce</span>
-                            <span className="bg-white dark:bg-dk-surface/10 px-2 py-0.5 rounded font-medium tabular-nums">{fmt(totalProjectCost / orderQty)} {currency}</span>
+                            {/* La carte est TOUJOURS sombre (bg-slate-900) : la pastille doit
+                                rester un voile blanc translucide, pas un aplat blanc. Un
+                                `bg-white` opaque avec du texte clair rendait le chiffre
+                                illisible. Pas de variante `dark:` ici, le fond ne change pas. */}
+                            <span className="bg-white/10 text-white px-2 py-0.5 rounded font-medium tabular-nums">{fmt(totalProjectCost / orderQty)} {currency}</span>
                         </div>
                     </div>
 
