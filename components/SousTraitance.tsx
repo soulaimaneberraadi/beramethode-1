@@ -4367,7 +4367,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 <button onClick={() => { setDetailOrder(order); setIsDetailModalOpen(true); }} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-lg">
                                   <Eye className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => handlePrintDeliveryNote(order)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-lg" title={tx(lang,{fr:"Bon d'envoi",ar:'مذكرة إرسال',en:'Delivery Note',es:'Nota de Envío',pt:'Nota de Remessa',tr:'Sevk İrsaliyesi'})}>
+                                <button onClick={() => openBonEnvoiModal(order)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-lg" title={tx(lang,{fr:"Bon d'envoi",ar:'مذكرة إرسال',en:'Delivery Note',es:'Nota de Envío',pt:'Nota de Remessa',tr:'Sevk İrsaliyesi'})}>
                                   <Printer className="w-4 h-4" />
                                 </button>
                                 <button onClick={() => openEditModal(order)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-lg">
@@ -6557,8 +6557,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <span>{tx(lang,{fr:'Entrer en stock',ar:'إدخال للمخزون',en:'Add to stock',es:'Entrar en stock',pt:'Entrar em stock',tr:'Stoğa gir'})}</span>
               </button>
               <button 
-                onClick={() => handlePrintDeliveryNote(detailOrder)} 
+                onClick={() => openBonEnvoiModal(detailOrder)}
                 className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-none transition-all"
+                title={tx(lang,{fr:"Préparer le bon avant impression",ar:'تحضير المذكرة قبل الطباعة',en:'Prepare the note before printing',es:'Preparar el bono antes de imprimir',pt:'Preparar a nota antes de imprimir',tr:'Yazdırmadan önce irsaliyeyi hazırla'})}
               >
                 <Printer className="w-4 h-4" />
                 <span>{tx(lang,{fr:"Imprimer Bon d'Envoi",ar:'طباعة مذكرة الإرسال',en:'Print Delivery Note',es:'Imprimir Nota de Envío',pt:'Imprimir Nota de Remessa',tr:'Sevk İrsaliyesi Yazdır'})}</span>
@@ -7163,6 +7164,329 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <button
                   type="button"
                   onClick={() => handlePrintCostInvoice(order, inv.qty)}
+                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>{tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ======================================= */}
+      {/* BON D'ENVOI — PRÉPARATION AVANT IMPRESSION */}
+      {/* ======================================= */}
+      {isBonEnvoiModalOpen && bonEnvoiOrder && (() => {
+        const order = bonEnvoiOrder;
+        const baseRows = buildBonEnvoiRows(order);
+        const milestones = buildBonEnvoiMilestones(order);
+        const shippedTotal = baseRows
+          .filter(r => !bonEnvoiOff.has(r.key))
+          .reduce((a, r) => a + (bonEnvoiEdits[r.key]?.qty ?? r.total), 0);
+        const modelPhoto = models.find(m => m.id === order.modelId)?.image || '';
+        const stPhoto = subcontractorProfiles.find(p => p.name === order.subcontractorName)?.photo || '';
+        // Bascules d'affichage : libellé + disponibilité réelle du visuel. Une
+        // case cochée sans image derrière donnerait un document vide sans le dire.
+        const showToggles: { k: keyof typeof bonEnvoiShow; label: string; missing?: boolean }[] = [
+          { k: 'logo', label: tx(lang,{fr:'Logo entreprise',ar:'شعار الشركة',en:'Company logo',es:'Logotipo de la empresa',pt:'Logótipo da empresa',tr:'Şirket logosu'}), missing: !companyIdentity.logo },
+          { k: 'model', label: tx(lang,{fr:'Photo du modèle',ar:'صورة الموديل',en:'Model photo',es:'Foto del modelo',pt:'Foto do modelo',tr:'Model fotoğrafı'}), missing: !modelPhoto },
+          { k: 'subcontractor', label: tx(lang,{fr:'Photo du sous-traitant',ar:'صورة المقاول من الباطن',en:'Subcontractor photo',es:'Foto del subcontratista',pt:'Foto do subcontratado',tr:'Taşeron fotoğrafı'}), missing: !stPhoto },
+          { k: 'sizeDetail', label: tx(lang,{fr:'Détail par taille',ar:'التفصيل حسب المقاس',en:'Detail by size',es:'Detalle por talla',pt:'Detalhe por tamanho',tr:'Beden detayı'}) },
+          { k: 'milestones', label: tx(lang,{fr:'Jalons',ar:'المراحل',en:'Milestones',es:'Hitos',pt:'Marcos',tr:'Kilometre taşları'}) },
+          { k: 'materials', label: tx(lang,{fr:'Matières à prévoir',ar:'المواد الواجب توفيرها',en:'Materials to provide',es:'Materias a prever',pt:'Matérias a prever',tr:'Sağlanacak malzemeler'}) },
+          { k: 'notes', label: tx(lang,{fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'}) },
+        ];
+        const identityFields = ([
+          { k: 'nom' as const, label: tx(lang,{fr:'Raison sociale',ar:'الاسم التجاري',en:'Company name',es:'Razón social',pt:'Razão social',tr:'Ticari unvan'}) },
+          { k: 'ice' as const, label: 'ICE' },
+          { k: 'rc' as const, label: 'RC' },
+          { k: 'tel' as const, label: tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'}) },
+          { k: 'adresse' as const, label: tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'}) },
+        ]);
+        return (
+          <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-4 overflow-y-auto">
+            <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
+                <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
+                  <Truck className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
+                  <span>{tx(lang,{fr:"Bon d'envoi — préparation",ar:'مذكرة الإرسال — التحضير',en:'Delivery note — preparation',es:'Nota de envío — preparación',pt:'Nota de remessa — preparação',tr:'Sevk irsaliyesi — hazırlık'})}</span>
+                </h2>
+                <button onClick={() => setIsBonEnvoiModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
+                  <div className="min-w-0">
+                    <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'})}</span>
+                    <span className="font-bold text-slate-800 dark:text-dk-text block truncate">{order.subcontractorName}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}</span>
+                    <span className="font-bold text-slate-800 dark:text-dk-text block truncate">{order.modelName || order.modelId}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Quantité commandée',ar:'الكمية المطلوبة',en:'Ordered quantity',es:'Cantidad pedida',pt:'Quantidade encomendada',tr:'Sipariş miktarı'})}</span>
+                    <span className="font-bold text-slate-800 dark:text-dk-text">{order.totalQuantity.toLocaleString(dateLocale)} pcs</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                    {tx(lang,{fr:"Date d'expédition",ar:'تاريخ الإرسال',en:'Shipping date',es:'Fecha de envío',pt:'Data de expedição',tr:'Sevk tarihi'})}
+                  </label>
+                  <input
+                    type="date"
+                    value={bonEnvoiDate}
+                    onChange={e => setBonEnvoiDate(e.target.value)}
+                    className="w-full sm:w-56 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                  />
+                  <p className="text-[10px] text-slate-400 dark:text-dk-muted italic">
+                    {tx(lang,{fr:"Vide = date du jour.",ar:'فارغ = تاريخ اليوم.',en:'Empty = today’s date.',es:'Vacío = fecha de hoy.',pt:'Vazio = data de hoje.',tr:'Boş = bugünün tarihi.'})}
+                  </p>
+                </div>
+
+                {/* Ce qui figure sur le document. Chaque bascule est un choix
+                    d'impression : elle ne modifie jamais la commande. */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-dk-muted">
+                    {tx(lang,{fr:'Afficher',ar:'إظهار',en:'Show',es:'Mostrar',pt:'Mostrar',tr:'Göster'})}
+                  </span>
+                  {showToggles.map(t => {
+                    const on = bonEnvoiShow[t.k];
+                    return (
+                      <button
+                        key={t.k}
+                        type="button"
+                        disabled={t.missing}
+                        title={t.missing ? tx(lang,{fr:'Visuel indisponible pour cette commande.',ar:'الصورة غير متوفرة لهذه الطلبية.',en:'Visual unavailable for this order.',es:'Visual no disponible para este pedido.',pt:'Visual indisponível para esta encomenda.',tr:'Bu sipariş için görsel yok.'}) : undefined}
+                        onClick={() => setBonEnvoiShow(prev => ({ ...prev, [t.k]: !prev[t.k] }))}
+                        className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold transition-colors flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed ${
+                          on && !t.missing
+                            ? 'bg-indigo-50 dark:bg-dk-accent/20 border-indigo-300 dark:border-dk-accent/60 text-indigo-700 dark:text-dk-accent'
+                            : 'border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                        }`}
+                      >
+                        {on && !t.missing && <Check className="w-3 h-3" />}
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Lignes du bon : ce qui part réellement dans le camion. Une
+                    ligne décochée ou corrigée disparaît / change AUSSI dans le
+                    total imprimé — le bon ne peut pas se contredire lui-même. */}
+                <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border flex items-center justify-between gap-2">
+                    <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
+                      {tx(lang,{fr:'Pièces envoyées',ar:'القطع المرسلة',en:'Pieces sent',es:'Piezas enviadas',pt:'Peças enviadas',tr:'Gönderilen parçalar'})}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setBonEnvoiOff(prev => (prev.size > 0 ? new Set() : new Set(baseRows.map(r => r.key))))}
+                      className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-dk-border text-[10px] font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                    >
+                      {tx(lang,{fr:'Tout',ar:'الكل',en:'Everything',es:'Todo',pt:'Tudo',tr:'Hepsi'})}
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[11px]">
+                      <thead className="bg-white dark:bg-dk-surface text-slate-400 dark:text-dk-muted uppercase tracking-wide text-[9px] border-b border-slate-100 dark:border-dk-border">
+                        <tr>
+                          <th className="pl-4 pr-1 py-2 text-left font-medium w-8">{tx(lang,{fr:'Incl.',ar:'ضمّ',en:'Incl.',es:'Incl.',pt:'Incl.',tr:'Dahil'})}</th>
+                          <th className="px-4 py-2 text-left font-medium">{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
+                          <th className="px-4 py-2 text-left font-medium">{tx(lang,{fr:'Détail des Tailles',ar:'تفصيل المقاسات',en:'Size Details',es:'Detalle de Tallas',pt:'Detalhe dos Tamanhos',tr:'Beden Detayları'})}</th>
+                          <th className="px-4 py-2 text-right font-medium">{tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                        {baseRows.map(r => {
+                          const on = !bonEnvoiOff.has(r.key);
+                          const edit = bonEnvoiEdits[r.key] || {};
+                          const edited = edit.label != null || edit.qty != null;
+                          return (
+                            <tr key={r.key} className={on ? '' : 'opacity-45 line-through'}>
+                              <td className="pl-4 pr-1 py-2">
+                                <input
+                                  type="checkbox"
+                                  checked={on}
+                                  onChange={() => toggleBonEnvoiKey(r.key)}
+                                  className="w-3.5 h-3.5 accent-indigo-600 cursor-pointer align-middle"
+                                />
+                              </td>
+                              <td className="px-4 py-2 font-semibold text-slate-700 dark:text-dk-text-soft">
+                                <input
+                                  type="text"
+                                  value={edit.label ?? r.color}
+                                  onChange={e => editBonEnvoiRow(r.key, { label: e.target.value })}
+                                  className="bg-transparent border-b border-dashed border-slate-300 dark:border-dk-border focus:border-indigo-500 outline-none px-0.5 min-w-0 w-28"
+                                />
+                              </td>
+                              <td className="px-4 py-2 text-slate-500 dark:text-dk-muted">
+                                {r.detail.length > 0
+                                  ? r.detail.map(([sz, q]) => `${sz}: ${q}`).join(' | ')
+                                  : '—'}
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={edit.qty ?? r.total}
+                                    onChange={e => editBonEnvoiRow(r.key, { qty: Math.max(0, parseInt(e.target.value) || 0) })}
+                                    className="w-20 text-right bg-transparent border-b border-dashed border-slate-300 dark:border-dk-border focus:border-indigo-500 outline-none px-0.5 font-bold text-slate-700 dark:text-dk-text-soft"
+                                  />
+                                  <span className="text-slate-400 dark:text-dk-muted">pcs</span>
+                                  {edited && (
+                                    <button
+                                      type="button"
+                                      onClick={() => resetBonEnvoiRow(r.key)}
+                                      title={tx(lang,{fr:'Revenir à la valeur de la commande',ar:'الرجوع لقيمة الطلبية',en:'Back to the order value',es:'Volver al valor del pedido',pt:'Voltar ao valor da encomenda',tr:'Sipariş değerine dön'})}
+                                      className="text-[9px] font-bold text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent"
+                                    >
+                                      ↺
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-slate-50 dark:bg-dk-bg/60">
+                          <td colSpan={3} className="px-4 py-2 font-black uppercase tracking-wide text-[10px] text-slate-600 dark:text-dk-text-soft">
+                            {tx(lang,{fr:'Total envoyé',ar:'مجموع المرسل',en:'Total sent',es:'Total enviado',pt:'Total enviado',tr:'Gönderilen toplam'})}
+                          </td>
+                          <td className="px-4 py-2 text-right font-extrabold text-indigo-600 dark:text-dk-accent">
+                            {shippedTotal.toLocaleString(dateLocale)} pcs
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  {shippedTotal !== order.totalQuantity && (
+                    <p className="px-4 py-2 text-[10px] font-semibold text-amber-700 dark:text-amber-400 border-t border-slate-100 dark:border-dk-border">
+                      {tx(lang,{
+                        fr:`Envoi partiel : ${shippedTotal} pièces sur ${order.totalQuantity} enregistrées.`,
+                        ar:`إرسال جزئي: ${shippedTotal} قطعة من أصل ${order.totalQuantity} مسجّلة.`,
+                        en:`Partial shipment: ${shippedTotal} pieces out of ${order.totalQuantity} recorded.`,
+                        es:`Envío parcial: ${shippedTotal} piezas de ${order.totalQuantity} registradas.`,
+                        pt:`Remessa parcial: ${shippedTotal} peças de ${order.totalQuantity} registadas.`,
+                        tr:`Kısmi sevkiyat: kayıtlı ${order.totalQuantity} adetten ${shippedTotal} adet.`,
+                      })}
+                    </p>
+                  )}
+                </div>
+
+                {/* Jalons : cochés à l'écran = imprimés sur le bon. L'état
+                    (fait / à faire) reste celui de la commande, il ne se
+                    modifie pas depuis ce document. */}
+                {bonEnvoiShow.milestones && milestones.length > 0 && (
+                  <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
+                      <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
+                        {tx(lang,{fr:'Jalons à faire figurer',ar:'المراحل المراد إظهارها',en:'Milestones to display',es:'Hitos a mostrar',pt:'Marcos a exibir',tr:'Gösterilecek kilometre taşları'})}
+                      </h4>
+                    </div>
+                    <div className="p-4 flex flex-wrap gap-2">
+                      {milestones.map(m => {
+                        const on = !bonEnvoiOff.has(m.key);
+                        return (
+                          <label
+                            key={m.key}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer transition-colors ${
+                              on
+                                ? 'bg-indigo-50 dark:bg-dk-accent/20 border-indigo-300 dark:border-dk-accent/60 text-indigo-700 dark:text-dk-accent'
+                                : 'border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={on}
+                              onChange={() => toggleBonEnvoiKey(m.key)}
+                              className="w-3 h-3 accent-indigo-600 cursor-pointer"
+                            />
+                            <span>{m.label}</span>
+                            <span className="opacity-60">{m.done ? '✓' : '·'}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {bonEnvoiShow.materials && (
+                  <div className="space-y-1.5">
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                      {tx(lang,{fr:'Matières / fournitures à prévoir',ar:'المواد واللوازم الواجب توفيرها',en:'Materials / supplies to provide',es:'Materias / fornituras a prever',pt:'Matérias / acessórios a prever',tr:'Sağlanacak malzemeler'})}
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={bonEnvoiMaterials}
+                      onChange={e => setBonEnvoiMaterials(e.target.value)}
+                      placeholder={tx(lang,{fr:'Une par ligne : fil noir 120, boutons 4 trous…',ar:'واحدة في كل سطر: خيط أسود 120، أزرار 4 ثقوب…',en:'One per line: black thread 120, 4-hole buttons…',es:'Una por línea: hilo negro 120, botones de 4 agujeros…',pt:'Uma por linha: linha preta 120, botões de 4 furos…',tr:'Her satıra bir tane: siyah iplik 120, 4 delikli düğme…'})}
+                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                    />
+                  </div>
+                )}
+
+                {bonEnvoiShow.notes && (
+                  <div className="space-y-1.5">
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
+                      {tx(lang,{fr:'Notes du bon',ar:'ملاحظات المذكرة',en:'Delivery note remarks',es:'Notas del bono',pt:'Notas da nota',tr:'İrsaliye notları'})}
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={bonEnvoiNotes}
+                      onChange={e => setBonEnvoiNotes(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                    />
+                    <p className="text-[10px] text-slate-400 dark:text-dk-muted italic">
+                      {tx(lang,{fr:"Ces notes ne concernent que ce bon — la commande n'est pas modifiée.",ar:'هاد الملاحظات تخص هاد المذكرة فقط — الطلبية ما كتتبدلش.',en:'These remarks apply to this note only — the order is unchanged.',es:'Estas notas solo afectan a este bono — el pedido no se modifica.',pt:'Estas notas dizem respeito apenas a esta nota — a encomenda não é alterada.',tr:'Bu notlar yalnızca bu irsaliye içindir — sipariş değişmez.'})}
+                    </p>
+                  </div>
+                )}
+
+                {/* Identités imprimées — corrigibles avant remise du document. */}
+                {([
+                  { title: tx(lang,{fr:"Expéditeur (en-tête du bon)",ar:'المرسِل (رأس المذكرة)',en:'Sender (note header)',es:'Expedidor (encabezado)',pt:'Expedidor (cabeçalho)',tr:'Gönderen (irsaliye başlığı)'}), value: bonEnvoiIssuer, set: setBonEnvoiIssuer },
+                  { title: tx(lang,{fr:'Destinataire (sous-traitant)',ar:'المرسَل إليه (المقاول من الباطن)',en:'Recipient (subcontractor)',es:'Destinatario (subcontratista)',pt:'Destinatário (subcontratado)',tr:'Alıcı (taşeron)'}), value: bonEnvoiTiers, set: setBonEnvoiTiers },
+                ]).map(party => (
+                  <div key={party.title} className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
+                      <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">{party.title}</h4>
+                    </div>
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {identityFields.map(f => (
+                        <div key={f.k} className={f.k === 'adresse' ? 'sm:col-span-2' : ''}>
+                          <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">{f.label}</label>
+                          <input
+                            type="text"
+                            value={party.value[f.k]}
+                            onChange={e => party.set(prev => ({ ...prev, [f.k]: e.target.value }))}
+                            className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-6 py-4 flex items-center gap-3 justify-end text-xs font-bold flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsBonEnvoiModalOpen(false)}
+                  className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                >
+                  {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePrintDeliveryNote(order)}
                   className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent"
                 >
                   <Printer className="w-4 h-4" />
