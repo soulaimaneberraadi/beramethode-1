@@ -600,59 +600,112 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [newMilestoneLabel, setNewMilestoneLabel] = useState('');
   const [milestoneSaving, setMilestoneSaving] = useState(false);
   const [milestoneError, setMilestoneError] = useState<string | null>(null);
-  /** Réception de pièces finies dans la fiche : quantités acceptées / à retoucher
-   *  / rejetées. Elles alimentent le stock de l'onglet Stock & Ventes, qui vaut
-   *  « acceptées − vendues ». On écrit dans CES champs plutôt que de créer un
-   *  second stock parallèle : deux compteurs pour la même réalité finissent
-   *  toujours par diverger. */
-  const [receptionForm, setReceptionForm] = useState<{
-    order: SubcontractOrder;
-    accepted: number | '';
-    toRepair: number | '';
-    rejected: number | '';
-  } | null>(null);
-  const [receptionSaving, setReceptionSaving] = useState(false);
-  const [receptionError, setReceptionError] = useState<string | null>(null);
+  /** Entrées en stock d'une commande : lignes datées (couleur × taille × qualité).
+   *  Les compteurs qtyAccepted/qtyToRepair/qtyRejected de la commande sont la
+   *  SOMME de ces lignes, recalculée par le serveur à chaque écriture — d'où un
+   *  historique corrigeable, là où un total saisi à la main ne l'était pas. */
+  interface StockEntry {
+    id: string;
+    order_id: string;
+    couleur: string | null;
+    taille: string | null;
+    quantite: number;
+    qualite: 'ACCEPTED' | 'REPAIR' | 'REJECTED';
+    note: string | null;
+    date_entree: string | null;
+  }
 
-  const saveReception = async () => {
-    if (!receptionForm) return;
-    const { order } = receptionForm;
-    const accepted = Number(receptionForm.accepted) || 0;
-    const toRepair = Number(receptionForm.toRepair) || 0;
-    const rejected = Number(receptionForm.rejected) || 0;
+  const [stockEntryOrder, setStockEntryOrder] = useState<SubcontractOrder | null>(null);
+  const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
+  const [stockEntriesLoading, setStockEntriesLoading] = useState(false);
+  const [stockEntrySaving, setStockEntrySaving] = useState(false);
+  const [stockEntryError, setStockEntryError] = useState<string | null>(null);
+  const [entryForm, setEntryForm] = useState<{
+    couleur: string; taille: string; quantite: number | ''; qualite: 'ACCEPTED' | 'REPAIR' | 'REJECTED'; date: string;
+  }>({ couleur: '', taille: '', quantite: '', qualite: 'ACCEPTED', date: new Date().toISOString().split('T')[0] });
 
-    // Recevoir plus que ce qui a été commandé trahit une erreur de saisie, et
-    // gonflerait un stock qui sert ensuite de base aux ventes.
-    if (accepted + toRepair + rejected > order.totalQuantity) {
-      setReceptionError(tx(lang,{
-        fr:`Le total reçu (${accepted + toRepair + rejected}) dépasse la quantité commandée (${order.totalQuantity}).`,
-        ar:`مجموع المستلَم (${accepted + toRepair + rejected}) كيفوت الكمية المطلوبة (${order.totalQuantity}).`,
-        en:`Total received (${accepted + toRepair + rejected}) exceeds the ordered quantity (${order.totalQuantity}).`,
-        es:`El total recibido (${accepted + toRepair + rejected}) supera la cantidad pedida (${order.totalQuantity}).`,
-        pt:`O total recebido (${accepted + toRepair + rejected}) excede a quantidade encomendada (${order.totalQuantity}).`,
-        tr:`Alınan toplam (${accepted + toRepair + rejected}) sipariş miktarını (${order.totalQuantity}) aşıyor.`,
-      }));
+  const loadStockEntries = async (orderId: string) => {
+    setStockEntriesLoading(true);
+    try {
+      const res = await fetch(`/api/subcontract/stock-entries?orderId=${encodeURIComponent(orderId)}`, { credentials: 'include' });
+      setStockEntries(res.ok ? await res.json() : []);
+    } catch {
+      setStockEntries([]);
+    } finally {
+      setStockEntriesLoading(false);
+    }
+  };
+
+  const openStockEntries = (order: SubcontractOrder) => {
+    setStockEntryOrder(order);
+    setStockEntryError(null);
+    setEntryForm({ couleur: '', taille: '', quantite: '', qualite: 'ACCEPTED', date: new Date().toISOString().split('T')[0] });
+    loadStockEntries(order.id);
+  };
+
+  /** Applique les totaux renvoyés par le serveur — lui seul fait foi, puisque
+   *  c'est lui qui les recalcule depuis les lignes. */
+  const applyOrderTotals = (orderId: string, totals: any) => {
+    if (!totals) return;
+    const patch = {
+      qtyAccepted: Number(totals.qtyAccepted) || 0,
+      qtyToRepair: Number(totals.qtyToRepair) || 0,
+      qtyRejected: Number(totals.qtyRejected) || 0,
+    };
+    setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, ...patch } : o)));
+    setDetailOrder(prev => (prev && prev.id === orderId ? { ...prev, ...patch } : prev));
+    setStockEntryOrder(prev => (prev && prev.id === orderId ? { ...prev, ...patch } : prev));
+  };
+
+  const addStockEntry = async () => {
+    if (!stockEntryOrder) return;
+    const qty = Number(entryForm.quantite) || 0;
+    if (qty <= 0) {
+      setStockEntryError(tx(lang,{fr:'Indiquez une quantité supérieure à zéro.',ar:'دخّل كمية أكبر من صفر.',en:'Enter a quantity above zero.',es:'Indique una cantidad mayor que cero.',pt:'Indique uma quantidade maior que zero.',tr:'Sıfırdan büyük bir miktar girin.'}));
       return;
     }
-
-    setReceptionSaving(true);
-    setReceptionError(null);
-    const patch = { qtyAccepted: accepted, qtyToRepair: toRepair, qtyRejected: rejected };
+    setStockEntrySaving(true);
+    setStockEntryError(null);
     try {
-      const res = await fetch(`/api/subcontract/${order.id}`, {
-        method: 'PUT',
+      const res = await fetch('/api/subcontract/stock-entries', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(patch),
+        body: JSON.stringify({
+          order_id: stockEntryOrder.id,
+          couleur: entryForm.couleur || null,
+          taille: entryForm.taille || null,
+          quantite: qty,
+          qualite: entryForm.qualite,
+          date_entree: entryForm.date,
+        }),
       });
-      if (!res.ok) throw new Error(tx(lang,{fr:"Échec de l'enregistrement",ar:'فشل الحفظ',en:'Saving failed',es:'Error al guardar',pt:'Falha ao guardar',tr:'Kaydetme başarısız'}));
-      setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, ...patch } : o)));
-      setDetailOrder(prev => (prev && prev.id === order.id ? { ...prev, ...patch } : prev));
-      setReceptionForm(null);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || tx(lang,{fr:"L'entrée a été refusée.",ar:'تم رفض الإدخال.',en:'The entry was rejected.',es:'La entrada fue rechazada.',pt:'A entrada foi recusada.',tr:'Giriş reddedildi.'}));
+      applyOrderTotals(stockEntryOrder.id, body.totals);
+      setEntryForm(prev => ({ ...prev, quantite: '' }));
+      await loadStockEntries(stockEntryOrder.id);
     } catch (err: any) {
-      setReceptionError(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
+      setStockEntryError(err.message);
     } finally {
-      setReceptionSaving(false);
+      setStockEntrySaving(false);
+    }
+  };
+
+  const removeStockEntry = async (entry: StockEntry) => {
+    if (!stockEntryOrder) return;
+    setStockEntrySaving(true);
+    setStockEntryError(null);
+    try {
+      const res = await fetch(`/api/subcontract/stock-entries/${entry.id}`, { method: 'DELETE', credentials: 'include' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || tx(lang,{fr:'La suppression a échoué.',ar:'فشل الحذف.',en:'Deletion failed.',es:'Error al eliminar.',pt:'Falha ao eliminar.',tr:'Silme başarısız.'}));
+      applyOrderTotals(stockEntryOrder.id, body.totals);
+      await loadStockEntries(stockEntryOrder.id);
+    } catch (err: any) {
+      setStockEntryError(err.message);
+    } finally {
+      setStockEntrySaving(false);
     }
   };
 
@@ -5013,77 +5066,173 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         );
       })()}
 
-      {/* Réception de pièces finies — alimente le stock de l'onglet Stock & Ventes. */}
-      {receptionForm && createPortal(
-        <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setReceptionForm(null)}>
-          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-md p-5 space-y-4" onClick={e => e.stopPropagation()}>
-            <div className="flex items-start gap-2.5">
-              <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <p className="text-[13px] font-bold text-slate-800 dark:text-dk-text">
-                  {tx(lang,{fr:'Entrer les pièces en stock',ar:'إدخال القطع للمخزون',en:'Add pieces to stock',es:'Entrar las piezas en stock',pt:'Entrar as peças em stock',tr:'Parçaları stoğa gir'})}
-                </p>
-                <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-0.5">
-                  {receptionForm.order.modelName || receptionForm.order.modelId} — {receptionForm.order.totalQuantity.toLocaleString()} pcs {tx(lang,{fr:'commandées',ar:'مطلوبة',en:'ordered',es:'pedidas',pt:'encomendadas',tr:'sipariş'})}
-                </p>
+      {/* Entrées en stock : saisie couleur x taille x quantité et historique daté. */}
+      {stockEntryOrder && createPortal(
+        <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setStockEntryOrder(null)}>
+          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-2xl max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between sticky top-0 bg-white dark:bg-dk-surface z-10">
+              <h3 className="text-[13px] font-bold text-slate-900 dark:text-dk-text flex items-center gap-2 min-w-0">
+                <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="truncate">
+                  {tx(lang,{fr:'Entrées en stock',ar:'إدخالات المخزون',en:'Stock entries',es:'Entradas en stock',pt:'Entradas em stock',tr:'Stok girişleri'})}
+                  {' — '}{stockEntryOrder.modelName || stockEntryOrder.modelId}
+                </span>
+              </h3>
+              <button onClick={() => setStockEntryOrder(null)} className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Reste à recevoir : le chiffre qui dit s'il faut encore entrer des pièces. */}
+              {(() => {
+                const entered = (stockEntryOrder.qtyAccepted || 0) + (stockEntryOrder.qtyToRepair || 0) + (stockEntryOrder.qtyRejected || 0);
+                const rest = Math.max(0, stockEntryOrder.totalQuantity - entered);
+                return (
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-xl py-2">
+                      <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-bold">{tx(lang,{fr:'Commandé',ar:'المطلوب',en:'Ordered',es:'Pedido',pt:'Encomendado',tr:'Sipariş'})}</span>
+                      <span className="block font-extrabold text-slate-800 dark:text-dk-text">{stockEntryOrder.totalQuantity.toLocaleString()}</span>
+                    </div>
+                    <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl py-2">
+                      <span className="block text-[9px] uppercase text-emerald-700 dark:text-emerald-400 font-bold">{tx(lang,{fr:'Entré',ar:'المُدخَل',en:'Entered',es:'Entrado',pt:'Entrado',tr:'Girilen'})}</span>
+                      <span className="block font-extrabold text-emerald-700 dark:text-emerald-400">{entered.toLocaleString()}</span>
+                    </div>
+                    <div className="bg-amber-50 dark:bg-amber-950/30 rounded-xl py-2">
+                      <span className="block text-[9px] uppercase text-amber-700 dark:text-amber-400 font-bold">{tx(lang,{fr:'Reste',ar:'المتبقي',en:'Remaining',es:'Resta',pt:'Resta',tr:'Kalan'})}</span>
+                      <span className="block font-extrabold text-amber-700 dark:text-amber-400">{rest.toLocaleString()}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Formulaire d'entrée. Couleurs et tailles viennent du modèle : les
+                  retaper à la main créerait des libellés qui ne correspondent à
+                  aucune ligne de la grille. */}
+              {(() => {
+                const fiche: any = models.find(m => m.id === stockEntryOrder.modelId)?.ficheData || {};
+                const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+                const sizes: string[] = fiche.sizes || [];
+                const inputCls = 'w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent';
+                const labelCls = 'block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1';
+                return (
+                  <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      <div>
+                        <label className={labelCls}>{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</label>
+                        {colors.length > 0 ? (
+                          <select value={entryForm.couleur} onChange={e => setEntryForm({ ...entryForm, couleur: e.target.value })} className={inputCls}>
+                            <option value="">{tx(lang,{fr:'Toutes',ar:'الكل',en:'All',es:'Todas',pt:'Todas',tr:'Tümü'})}</option>
+                            {colors.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                          </select>
+                        ) : (
+                          <input type="text" value={entryForm.couleur} onChange={e => setEntryForm({ ...entryForm, couleur: e.target.value })} className={inputCls} />
+                        )}
+                      </div>
+                      <div>
+                        <label className={labelCls}>{tx(lang,{fr:'Taille',ar:'المقاس',en:'Size',es:'Talla',pt:'Tamanho',tr:'Beden'})}</label>
+                        {sizes.length > 0 ? (
+                          <select value={entryForm.taille} onChange={e => setEntryForm({ ...entryForm, taille: e.target.value })} className={inputCls}>
+                            <option value="">{tx(lang,{fr:'Toutes',ar:'الكل',en:'All',es:'Todas',pt:'Todos',tr:'Tümü'})}</option>
+                            {sizes.map(sz => <option key={sz} value={sz}>{sz}</option>)}
+                          </select>
+                        ) : (
+                          <input type="text" value={entryForm.taille} onChange={e => setEntryForm({ ...entryForm, taille: e.target.value })} className={inputCls} />
+                        )}
+                      </div>
+                      <div>
+                        <label className={labelCls}>{tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={entryForm.quantite}
+                          onChange={e => setEntryForm({ ...entryForm, quantite: e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1) })}
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelCls}>{tx(lang,{fr:'Qualité',ar:'الجودة',en:'Quality',es:'Calidad',pt:'Qualidade',tr:'Kalite'})}</label>
+                        <select value={entryForm.qualite} onChange={e => setEntryForm({ ...entryForm, qualite: e.target.value as any })} className={inputCls}>
+                          <option value="ACCEPTED">{tx(lang,{fr:'Acceptée',ar:'مقبولة',en:'Accepted',es:'Aceptada',pt:'Aceite',tr:'Kabul'})}</option>
+                          <option value="REPAIR">{tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rötuş'})}</option>
+                          <option value="REJECTED">{tx(lang,{fr:'Rejetée',ar:'مرفوضة',en:'Rejected',es:'Rechazada',pt:'Rejeitada',tr:'Red'})}</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>{tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'})}</label>
+                        <input type="date" value={entryForm.date} onChange={e => setEntryForm({ ...entryForm, date: e.target.value })} className={inputCls} />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <p className="text-[10px] text-slate-500 dark:text-dk-muted">
+                        {tx(lang,{fr:'Seules les pièces ACCEPTÉES entrent au stock vendable.',ar:'غير القطع المقبولة كتدخل للمخزون القابل للبيع.',en:'Only ACCEPTED pieces enter sellable stock.',es:'Solo las piezas ACEPTADAS entran en el stock vendible.',pt:'Só as peças ACEITES entram no stock vendável.',tr:'Yalnızca KABUL edilen parçalar satılabilir stoğa girer.'})}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={addStockEntry}
+                        disabled={stockEntrySaving}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition-colors disabled:opacity-40"
+                      >
+                        {stockEntrySaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                        {tx(lang,{fr:"Ajouter l'entrée",ar:'إضافة الإدخال',en:'Add entry',es:'Añadir entrada',pt:'Adicionar entrada',tr:'Giriş ekle'})}
+                      </button>
+                    </div>
+
+                    {stockEntryError && (
+                      <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{stockEntryError}</p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Historique : chaque entrée reste supprimable, et les totaux de la
+                  commande sont recalculés par le serveur après chaque suppression. */}
+              <div>
+                <h4 className="font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide text-[10px] mb-2">
+                  {tx(lang,{fr:'Historique des entrées',ar:'سجلّ الإدخالات',en:'Entry history',es:'Historial de entradas',pt:'Histórico de entradas',tr:'Giriş geçmişi'})}
+                </h4>
+                {stockEntriesLoading ? (
+                  <div className="flex items-center gap-2 text-slate-400 dark:text-dk-muted text-[11px] font-semibold py-3">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>{tx(lang,{fr:'Chargement…',ar:'جارٍ التحميل…',en:'Loading…',es:'Cargando…',pt:'A carregar…',tr:'Yükleniyor…'})}</span>
+                  </div>
+                ) : stockEntries.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 dark:text-dk-muted italic py-2">
+                    {tx(lang,{fr:'Aucune entrée enregistrée pour cette commande.',ar:'ما كاين حتى إدخال مسجّل لهاد الأمر.',en:'No entry recorded for this order.',es:'Ninguna entrada registrada para este pedido.',pt:'Nenhuma entrada registada para esta encomenda.',tr:'Bu sipariş için kayıtlı giriş yok.'})}
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-slate-100 dark:divide-dk-border border border-slate-200 dark:border-dk-border rounded-xl overflow-hidden">
+                    {stockEntries.map(en => (
+                      <li key={en.id} className="flex items-center gap-3 px-3 py-2">
+                        <span className={`px-1.5 py-0.5 rounded border text-[9px] font-bold shrink-0 ${
+                          en.qualite === 'ACCEPTED' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50'
+                          : en.qualite === 'REPAIR' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50'
+                          : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900/50'
+                        }`}>
+                          {en.qualite === 'ACCEPTED' ? tx(lang,{fr:'Acceptée',ar:'مقبولة',en:'Accepted',es:'Aceptada',pt:'Aceite',tr:'Kabul'})
+                            : en.qualite === 'REPAIR' ? tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rötuş'})
+                            : tx(lang,{fr:'Rejetée',ar:'مرفوضة',en:'Rejected',es:'Rechazada',pt:'Rejeitada',tr:'Red'})}
+                        </span>
+                        <span className="font-bold text-slate-800 dark:text-dk-text shrink-0">{en.quantite.toLocaleString()} pcs</span>
+                        <span className="text-[11px] text-slate-500 dark:text-dk-muted truncate flex-1">
+                          {[en.couleur, en.taille].filter(Boolean).join(' · ') || tx(lang,{fr:'toutes couleurs / tailles',ar:'كل الألوان / المقاسات',en:'all colors / sizes',es:'todos los colores / tallas',pt:'todas as cores / tamanhos',tr:'tüm renkler / bedenler'})}
+                        </span>
+                        <span className="text-[10px] text-slate-400 dark:text-dk-muted shrink-0">{en.date_entree ? fmtDate(en.date_entree) : '—'}</span>
+                        <button
+                          type="button"
+                          disabled={stockEntrySaving}
+                          onClick={() => removeStockEntry(en)}
+                          title={tx(lang,{fr:'Supprimer cette entrée',ar:'حذف هاد الإدخال',en:'Delete this entry',es:'Eliminar esta entrada',pt:'Eliminar esta entrada',tr:'Bu girişi sil'})}
+                          className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40 shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              {([
-                { key: 'accepted' as const, label: tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul'}), tone: 'text-emerald-700 dark:text-emerald-400' },
-                { key: 'toRepair' as const, label: tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rötuş'}), tone: 'text-amber-700 dark:text-amber-400' },
-                { key: 'rejected' as const, label: tx(lang,{fr:'Rejetées',ar:'مرفوضة',en:'Rejected',es:'Rechazadas',pt:'Rejeitadas',tr:'Red'}), tone: 'text-rose-700 dark:text-rose-400' },
-              ]).map(f => (
-                <div key={f.key} className="space-y-1">
-                  <label className={`block font-bold uppercase tracking-widest text-[9px] ${f.tone}`}>{f.label}</label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={receptionForm.order.totalQuantity}
-                    value={receptionForm[f.key]}
-                    onChange={e => setReceptionForm(prev => prev && ({
-                      ...prev,
-                      [f.key]: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0),
-                    }))}
-                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
-                  />
-                </div>
-              ))}
-            </div>
-
-            <p className="text-[10px] text-slate-500 dark:text-dk-muted">
-              {tx(lang,{
-                fr:'Seules les pièces ACCEPTÉES entrent au stock vendable (onglet Stock & Ventes).',
-                ar:'غير القطع المقبولة كتدخل للمخزون القابل للبيع (تبويب Stock & Ventes).',
-                en:'Only ACCEPTED pieces enter sellable stock (Stock & Sales tab).',
-                es:'Solo las piezas ACEPTADAS entran en el stock vendible (pestaña Stock & Ventas).',
-                pt:'Só as peças ACEITES entram no stock vendável (separador Stock & Vendas).',
-                tr:'Yalnızca KABUL edilen parçalar satılabilir stoğa girer (Stok & Satışlar sekmesi).',
-              })}
-            </p>
-
-            {receptionError && (
-              <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{receptionError}</p>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setReceptionForm(null)}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
-              >
-                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
-              </button>
-              <button
-                type="button"
-                onClick={saveReception}
-                disabled={receptionSaving}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition-colors disabled:opacity-40"
-              >
-                {receptionSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
-              </button>
             </div>
           </div>
         </div>,
@@ -5704,22 +5853,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
               {/* Quantity analysis details */}
               <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-3 bg-slate-50 dark:bg-dk-surface/50">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide">{tx(lang,{fr:'État des pièces livrées',ar:'حالة القطع المسلَّمة',en:'Status of delivered pieces',es:'Estado de las piezas entregadas',pt:'Estado das peças entregues',tr:'Teslim edilen parçaların durumu'})}</h4>
-                  <button
-                    type="button"
-                    onClick={() => setReceptionForm({
-                      order: detailOrder,
-                      accepted: detailOrder.qtyAccepted || 0,
-                      toRepair: detailOrder.qtyToRepair || 0,
-                      rejected: detailOrder.qtyRejected || 0,
-                    })}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-[10px] hover:bg-emerald-700 transition-colors"
-                  >
-                    <Package className="w-3.5 h-3.5" />
-                    {tx(lang,{fr:'Entrer en stock',ar:'إدخال للمخزون',en:'Add to stock',es:'Entrar en stock',pt:'Entrar em stock',tr:'Stoğa gir'})}
-                  </button>
-                </div>
+                <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide">{tx(lang,{fr:'État des pièces livrées',ar:'حالة القطع المسلَّمة',en:'Status of delivered pieces',es:'Estado de las piezas entregadas',pt:'Estado das peças entregues',tr:'Teslim edilen parçaların durumu'})}</h4>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="bg-emerald-50 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
                     <span className="text-emerald-800 dark:text-emerald-300 font-bold block text-[9px] uppercase tracking-wide">{tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul Edilen'})}</span>
@@ -5755,7 +5889,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               )}
             </div>
 
-            <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-6 py-4 flex gap-3 justify-end text-xs font-bold">
+            <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-6 py-4 flex flex-wrap gap-3 items-center text-xs font-bold">
+              {/* L'entrée en stock est une opération de production, pas un
+                  document : elle reste à gauche, séparée des actions
+                  d'impression et de facturation. */}
+              <button
+                onClick={() => openStockEntries(detailOrder)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-none transition-all mr-auto"
+              >
+                <Package className="w-4 h-4" />
+                <span>{tx(lang,{fr:'Entrer en stock',ar:'إدخال للمخزون',en:'Add to stock',es:'Entrar en stock',pt:'Entrar em stock',tr:'Stoğa gir'})}</span>
+              </button>
               <button 
                 onClick={() => handlePrintDeliveryNote(detailOrder)} 
                 className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-none transition-all"

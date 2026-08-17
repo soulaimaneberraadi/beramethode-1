@@ -850,6 +850,29 @@ db.exec(`
   )
 `);
 
+// Entrées en stock des pièces finies, ligne par ligne (couleur × taille × date).
+// Les compteurs qtyAccepted/qtyToRepair/qtyRejected de la commande n'en sont que
+// la somme : sans ce détail, impossible de savoir QUAND et QUOI est entré, ni de
+// corriger une erreur autrement qu'en retapant un total.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_stock_entries (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    order_id TEXT NOT NULL,
+    modelId TEXT,
+    couleur TEXT,
+    taille TEXT,
+    quantite INTEGER NOT NULL,
+    -- ACCEPTED entre au stock vendable ; REPAIR et REJECTED sont tracés mais
+    -- ne sont pas vendables.
+    qualite TEXT DEFAULT 'ACCEPTED',
+    note TEXT,
+    date_entree TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+
 // Clients de l'atelier — acheteurs des pièces finies. Ils étaient jusqu'ici
 // saisis à la main sur chaque facture de vente : le même client se retrouvait
 // écrit de trois façons, sans historique ni ICE réutilisable. Une fiche par
