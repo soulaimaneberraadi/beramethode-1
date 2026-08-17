@@ -468,6 +468,40 @@ const computeModelCostPrice = (model: ModelData, settings: any): number | null =
   return cost > 0 ? cost : null;
 };
 
+/**
+ * Script d'auto-ajustement injecté dans les documents imprimés.
+ *
+ * Le contenu d'une facture varie du simple au triple : 3 lignes pour une façon
+ * seule, 30 pour une commande multi-matières. Une mise en page figée finit donc
+ * toujours par déborder sur une 2e page, où atterrissent les totaux et les
+ * signatures — c'est-à-dire l'essentiel. Plutôt que de deviner, le document se
+ * mesure lui-même juste avant l'impression et se réduit d'un cran jusqu'à tenir.
+ *
+ * `zoom` est préféré à `transform: scale()` : il réduit AUSSI la hauteur de mise
+ * en page, alors qu'un `scale` laisse la place d'origine réservée et continue de
+ * provoquer un saut de page. Plancher à 55 % : en dessous, le document devient
+ * illisible et mieux vaut une seconde page qu'une facture qu'on ne peut pas lire.
+ *
+ * @param marginMm marge verticale TOTALE de la règle `@page` (haut + bas).
+ */
+const autoFitScript = (marginMm: number) => `
+    <script>
+      (function () {
+        var root = document.querySelector('.invoice-box') || document.body;
+        var usablePx = (297 - ${marginMm}) / 25.4 * 96;
+        var scale = 1;
+        // Descente par paliers de 2 % : plus fin qu'un calcul direct, car
+        // réduire le zoom fait aussi retomber des lignes qui bouclaient.
+        for (var i = 0; i < 24; i++) {
+          if (root.getBoundingClientRect().height <= usablePx) break;
+          scale -= 0.02;
+          if (scale < 0.55) { scale = 0.55; document.body.style.zoom = scale; break; }
+          document.body.style.zoom = scale;
+        }
+        window.print();
+      })();
+    <\/script>`;
+
 /** Total d'une grille couleur × taille. */
 const sumGrid = (grid: Record<string, Record<string, number>> | undefined): number =>
   Object.values(grid || {}).reduce(
@@ -2707,7 +2741,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             }
           </style>
         </head>
-        <body onload="window.print()">
+        <body>
           <div class="invoice-box">
             <div class="header">
               <div>
@@ -2783,7 +2817,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               ${tx(lang,{fr:'Document généré électroniquement et valable sans signature.',ar:'مستند تم إنشاؤه إلكترونياً وصالح بدون توقيع.',en:'Electronically generated document valid without signature.',es:'Documento generado electrónicamente y válido sin firma.',pt:'Documento gerado eletronicamente e válido sem assinatura.',tr:'Elektronik olarak oluşturulmuş, imzasız geçerli belge.'})}
             </div>
           </div>
-        </body>
+                  ${autoFitScript(20)}
+</body>
       </html>
     `);
     printWindow.document.close();
@@ -2887,7 +2922,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             }
           </style>
         </head>
-        <body onload="window.print()">
+        <body>
           <div class="header">
             <div>
               <div class="title">${esc(companyIdentity.nom || '')}</div>
@@ -2955,7 +2990,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             <div class="sig-box">${tx(lang,{fr:'Réception Sous-traitant',ar:'استلام المقاول من الباطن',en:'Subcontractor Receipt',es:'Recepción Subcontratista',pt:'Recepção Subcontratado',tr:'Taşeron Teslim Alma'})}</div>
             <div class="sig-box">${tx(lang,{fr:'Contrôle Production',ar:'مراقبة الإنتاج',en:'Production Control',es:'Control de Producción',pt:'Controlo de Produção',tr:'Üretim Kontrolü'})}</div>
           </div>
-        </body>
+                  ${autoFitScript(20)}
+</body>
       </html>
     `);
     printWindow.document.close();
@@ -3470,7 +3506,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             }
           </style>
         </head>
-        <body onload="window.print()">
+        <body>
           <div class="invoice-box">
             <div class="header">
               <div>
@@ -3585,7 +3621,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               ${esc(tx(lang,{fr:'Document généré électroniquement et valable sans signature.',ar:'مستند تم إنشاؤه إلكترونياً وصالح بدون توقيع.',en:'Electronically generated document valid without signature.',es:'Documento generado electrónicamente y válido sin firma.',pt:'Documento gerado eletronicamente e válido sem assinatura.',tr:'Elektronik olarak oluşturulmuş, imzasız geçerli belge.'}))}
             </div>
           </div>
-        </body>
+                  ${autoFitScript(20)}
+</body>
       </html>
     `);
     printWindow.document.close();
