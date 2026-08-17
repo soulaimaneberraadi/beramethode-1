@@ -168,12 +168,23 @@ function GanttRow({
         const topOffset = lane * rowHeight + (rowHeight - barHeight) / 2;
 
         const isRtl = lang === 'ar';
-        const offsetPx = Math.max(0, offsetDays * dayWidth) + 4;
+
+        // Hors de la plage affichée → ne rien dessiner (sinon la barre se collait
+        // au bord gauche et donnait une fausse date).
+        const dayCount = timelineDates.length;
+        if (offsetDays + durationDays <= 0 || offsetDays >= dayCount) return { display: 'none' };
+
+        // Marge latérale proportionnelle : à fort dézoom, 8px effaçait la barre entière.
+        const gap = Math.min(8, dayWidth * 0.25);
+        const visStart = Math.max(0, offsetDays);
+        const visEnd = Math.min(dayCount, offsetDays + durationDays);
+        const offsetPx = visStart * dayWidth + gap / 2;
+        const widthPx = Math.max(6, (visEnd - visStart) * dayWidth - gap);
 
         return {
             left: isRtl ? 'auto' : `${offsetPx}px`,
             right: isRtl ? `${offsetPx}px` : 'auto',
-            width: `${durationDays * dayWidth - 8}px`,
+            width: `${widthPx}px`,
             top: `${topOffset}px`,
             transform: 'none',
         };

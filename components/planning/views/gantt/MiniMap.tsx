@@ -17,13 +17,15 @@ interface Props {
     scrollLeft: number;
     viewportWidth: number;
     contentWidth: number;
+    /** Largeur de la colonne latérale sticky (exclue de la piste temporelle). */
+    sidebarWidth?: number;
     onJumpTo: (scrollLeft: number) => void;
 }
 
 /** Mini-map en bas du Gantt — vue d'oiseau du planning. */
 export default function MiniMap({
     chains, events, models, timelineDates, dayWidth,
-    scrollLeft, viewportWidth, contentWidth, onJumpTo,
+    scrollLeft, viewportWidth, contentWidth, sidebarWidth = 0, onJumpTo,
 }: Props) {
     const { lang } = useLang();
     const isRtl = lang === 'ar';
@@ -31,22 +33,26 @@ export default function MiniMap({
     const MAP_HEIGHT = 36;
 
     const first = timelineDates[0];
-    const last = timelineDates[timelineDates.length - 1];
-    const totalMs = (last && first) ? (last.getTime() - first.getTime()) : 1;
+    const dayCount = timelineDates.length || 1;
 
-    // Position relative de la fenêtre visible (sur 100%)
-    const viewportRatio = contentWidth > 0 ? viewportWidth / contentWidth : 1;
-    const scrollRatio = contentWidth > 0 ? scrollLeft / contentWidth : 0;
+    // ── Repère unique : la piste temporelle (hors colonne latérale sticky).
+    // Tout (barres, ligne du jour, fenêtre) est exprimé en "jours / dayCount".
+    const timelineWidth = dayCount * dayWidth;
+    // La colonne latérale est sticky : elle masque les `sidebarWidth` premiers px du viewport.
+    const visibleTimelinePx = Math.max(0, viewportWidth - sidebarWidth);
+    const viewportRatio = timelineWidth > 0 ? visibleTimelinePx / timelineWidth : 1;
+    const rawScrollRatio = timelineWidth > 0 ? scrollLeft / timelineWidth : 0;
+    const scrollRatio = Math.max(0, Math.min(1 - Math.min(1, viewportRatio), rawScrollRatio));
 
     const todayKey = planningLocalDateKey(new Date());
     const todayPos = useMemo(() => {
         for (let i = 0; i < timelineDates.length; i++) {
             if (planningLocalDateKey(timelineDates[i]) === todayKey) {
-                return i / timelineDates.length;
+                return (i + 0.5) / dayCount;
             }
         }
         return -1;
-    }, [timelineDates, todayKey]);
+    }, [timelineDates, todayKey, dayCount]);
 
     const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
         if (!ref.current) return;
@@ -55,7 +61,9 @@ export default function MiniMap({
         const baseRatio = x / rect.width;
         const ratio = isRtl ? 1 - baseRatio : baseRatio;
         // centrer la vue sur ce point
-        onJumpTo(Math.max(0, ratio * contentWidth - viewportWidth / 2));
+        const maxScroll = Math.max(0, contentWidth - viewportWidth);
+        const target = ratio * timelineWidth - visibleTimelinePx / 2;
+        onJumpTo(Math.max(0, Math.min(maxScroll, target)));
     };
 
     return (
@@ -84,13 +92,18 @@ export default function MiniMap({
                     {events.map(ev => {
                         const start = evStartYmd(ev);
                         const end = evEndYmd(ev) || start;
-                        if (!start || !first || !last) return null;
+                        if (!start || !first) return null;
+                        const origin = new Date(first.getFullYear(), first.getMonth(), first.getDate(), 12, 0, 0, 0).getTime();
                         const s = parsePlanningDateAtNoon(start).getTime();
                         const e = parsePlanningDateAtNoon(end).getTime();
-                        if (e < first.getTime() || s > last.getTime()) return null;
-                        const leftRatio = Math.max(0, (s - first.getTime()) / totalMs);
-                        const widthRatio = Math.max(0.005, (e - s) / totalMs);
-                        
+                        const startDay = (s - origin) / 86400000;
+                        const endDay = (e - origin) / 86400000 + 1; // fin inclusive
+                        if (endDay <= 0 || startDay >= dayCount) return null;
+                        const clampedStart = Math.max(0, startDay);
+                        const clampedEnd = Math.min(dayCount, endDay);
+                        const leftRatio = clampedStart / dayCount;
+                        const widthRatio = Math.max(0.004, (clampedEnd - clampedStart) / dayCount);
+
                         const chainIndex = chains.findIndex(c => c.id === ev.chaineId);
                         if (chainIndex === -1) return null;
                         

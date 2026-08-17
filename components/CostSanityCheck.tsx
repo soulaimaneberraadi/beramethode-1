@@ -39,11 +39,22 @@ const CostSanityCheck: React.FC<CostSanityCheckProps> = ({
     const checks = useMemo<CheckRow[]>(() => {
         const rows: CheckRow[] = [];
 
-        const expectedPR = isExport ? laborCost : totalMaterials + laborCost;
+        // Les frais additionnels remontés de la sous-traitance font partie du prix
+        // de revient (même formule que CostCalculator : moyenne sur la commande).
+        // Les omettre ici signalait à tort une erreur sur un calcul juste.
+        const fraisTotal = ((ficheData as any)?.soustraitance?.frais || [])
+            .reduce((acc: number, f: any) => acc + (Number(f?.amount) || 0), 0);
+        const fraisPerPiece = commandeQty > 0 ? fraisTotal / commandeQty : 0;
+
+        const expectedPR = (isExport ? laborCost : totalMaterials + laborCost) + fraisPerPiece;
         rows.push({
             status: Math.abs(costPrice - expectedPR) < 0.01 ? 'ok' : 'warn',
-            label: tx(lang, {fr:'Prix de Revient = Matières + Main d\'œuvre', ar:'سعر التكلفة = المواد + الأجور', en:'Cost price = Materials + Labor', es:'Precio de costo = Materiales + Mano de obra', pt:'Preço de custo = Materiais + Mão de obra', tr:'Maliyet fiyatı = Malzemeler + İşçilik'}),
-            detail: `${fmt(costPrice)} = ${fmt(totalMaterials)} + ${fmt(laborCost)} ${currency}`,
+            label: fraisPerPiece > 0
+                ? tx(lang, {fr:'Prix de Revient = Matières + Main d\'œuvre + Frais', ar:'سعر التكلفة = المواد + الأجور + المصاريف', en:'Cost price = Materials + Labor + Fees', es:'Precio de costo = Materiales + Mano de obra + Gastos', pt:'Preço de custo = Materiais + Mão de obra + Encargos', tr:'Maliyet fiyatı = Malzemeler + İşçilik + Masraflar'})
+                : tx(lang, {fr:'Prix de Revient = Matières + Main d\'œuvre', ar:'سعر التكلفة = المواد + الأجور', en:'Cost price = Materials + Labor', es:'Precio de costo = Materiales + Mano de obra', pt:'Preço de custo = Materiais + Mão de obra', tr:'Maliyet fiyatı = Malzemeler + İşçilik'}),
+            detail: fraisPerPiece > 0
+                ? `${fmt(costPrice)} = ${fmt(totalMaterials)} + ${fmt(laborCost)} + ${fmt(fraisPerPiece)} ${currency}`
+                : `${fmt(costPrice)} = ${fmt(totalMaterials)} + ${fmt(laborCost)} ${currency}`,
         });
 
         rows.push({

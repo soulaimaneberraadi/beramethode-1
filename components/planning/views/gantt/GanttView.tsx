@@ -20,6 +20,20 @@ import { ZOOM_MIN, ZOOM_MAX } from '../../header/ZoomSwitcher';
 const SIDEBAR_W_DESKTOP = 192; // w-48
 const SIDEBAR_W_MOBILE = 96;   // w-24
 
+/**
+ * En RTL, Chrome/Firefox renvoient un scrollLeft NÉGATIF (0 = bord droit).
+ * Tous les calculs du Gantt raisonnent en "distance depuis le début de la frise",
+ * donc toujours positive. Ces deux helpers font la traduction.
+ */
+const readScroll = (el: HTMLElement) => Math.abs(el.scrollLeft);
+const writeScroll = (el: HTMLElement, value: number, smooth = false) => {
+    const max = Math.max(0, el.scrollWidth - el.clientWidth);
+    const clamped = Math.max(0, Math.min(max, value));
+    const signed = el.scrollLeft < 0 || getComputedStyle(el).direction === 'rtl' ? -clamped : clamped;
+    if (smooth) el.scrollTo({ left: signed, behavior: 'smooth' });
+    else el.scrollLeft = signed;
+};
+
 interface Props {
     chains: PlanningChain[];
     events: PlanningEvent[];
@@ -84,6 +98,15 @@ export default function GanttView({
         }
         return out;
     }, [currentDate, dayWidth]);
+    // Hauteur réelle de l'en-tête temporel : les bandes affichées dépendent du zoom
+    // (années si très dézoomé, jours si assez zoomé, heures si très zoomé).
+    // Doit rester synchronisé avec GanttTimeline, sinon la colonne latérale se décale.
+    const headerHeight =
+        (dayWidth < 20 ? 20 : 0) +   // bande années (h-5)
+        28 +                          // bande mois (h-7)
+        (dayWidth >= 18 ? 36 : 0) +   // bande jours (h-9)
+        (dayWidth >= 400 ? 20 : 0);   // bande heures (h-5)
+
     const scrollRef = useRef<HTMLDivElement>(null);
     const [dragging, setDragging] = useState<string | null>(null);
     const [dragOver, setDragOver] = useState<{ chaineId: string; dateKey: string } | null>(null);
@@ -101,14 +124,16 @@ export default function GanttView({
             if (raf) return;
             raf = requestAnimationFrame(() => {
                 raf = 0;
-                setScrollState({ left: el.scrollLeft, width: el.clientWidth, content: el.scrollWidth });
+                const sl = readScroll(el);
+                setScrollState({ left: sl, width: el.clientWidth, content: el.scrollWidth });
                 // Update arrow indicators directly via DOM (no re-render)
                 const t = todayOffsetRef.current;
                 if (arrowLeftRef.current) {
-                    arrowLeftRef.current.style.opacity = t < el.scrollLeft - 10 ? '1' : '0';
+                    // La colonne latérale sticky masque les SIDEBAR_W premiers px
+                    arrowLeftRef.current.style.opacity = t < sl + SIDEBAR_W ? '1' : '0';
                 }
                 if (arrowRightRef.current) {
-                    arrowRightRef.current.style.opacity = t > el.scrollLeft + el.clientWidth + 10 ? '1' : '0';
+                    arrowRightRef.current.style.opacity = t > sl + el.clientWidth + 10 ? '1' : '0';
                 }
             });
         };
@@ -121,7 +146,7 @@ export default function GanttView({
             ro.disconnect();
             if (raf) cancelAnimationFrame(raf);
         };
-    }, [dates, chains.length, dayWidth]);
+    }, [dates, chains.length, dayWidth, SIDEBAR_W]);
 
     // Track cursor during drag (browser native dragOver gives coords)
     useEffect(() => {
@@ -201,13 +226,13 @@ export default function GanttView({
                 if (Math.abs(newZoom - dayWidth) > 0.5) {
                     // Garder le point sous le curseur stable
                     const rect = el.getBoundingClientRect();
-                    const cursorX = e.clientX - rect.left + el.scrollLeft;
+                    const cursorX = e.clientX - rect.left + readScroll(el);
                     const ratio = cursorX / (el.scrollWidth);
                     onZoomChange(newZoom);
                     // Le re-render ajustera scrollLeft via useEffect plus bas
                     requestAnimationFrame(() => {
                         if (el && Number.isFinite(ratio)) {
-                            el.scrollLeft = el.scrollWidth * ratio - (e.clientX - rect.left);
+                            writeScroll(el, el.scrollWidth * ratio - (e.clientX - rect.left));
                         }
                     });
                 }
@@ -221,10 +246,11 @@ export default function GanttView({
                 if (Math.abs(e.deltaX) >= Math.abs(e.deltaY) && Math.abs(e.deltaX) > 0) return;
                 if (e.deltaY === 0) return;
                 const maxL = el.scrollWidth - el.clientWidth;
-                const next = Math.max(0, Math.min(maxL, el.scrollLeft + e.deltaY));
-                if (next === el.scrollLeft) return;
+                const cur = readScroll(el);
+                const next = Math.max(0, Math.min(maxL, cur + e.deltaY));
+                if (next === cur) return;
                 e.preventDefault();
-                el.scrollLeft = next;
+                writeScroll(el, next);
             }
         };
         el.addEventListener('wheel', onWheel, { passive: false });
@@ -236,7 +262,7 @@ export default function GanttView({
         const el = scrollRef.current;
         if (!el) return;
         const t = setTimeout(() => {
-            el.scrollLeft = Math.max(0, todayOffset - el.clientWidth / 3);
+            writeScroll(el, todayOffset - el.clientWidth / 3);
         }, 50);
         return () => clearTimeout(t);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -247,7 +273,7 @@ export default function GanttView({
         if (!pulseToday) return;
         const el = scrollRef.current;
         if (!el) return;
-        el.scrollTo({ left: Math.max(0, todayOffset - el.clientWidth / 3), behavior: 'smooth' });
+        writeScroll(el, todayOffset - el.clientWidth / 3, true);
     }, [pulseToday, todayOffset]);
 
     const isMountedRef = useRef(false);
@@ -268,7 +294,7 @@ export default function GanttView({
 
         const el = scrollRef.current;
         if (!el) return;
-        el.scrollTo({ left: Math.max(0, currentDateOffset), behavior: 'smooth' });
+        writeScroll(el, currentDateOffset, true);
     }, [currentDate, currentDateOffset]);
 
     const handleDrop = useCallback((chaineId: string, dateKey: string) => {
@@ -296,7 +322,7 @@ export default function GanttView({
     }, []);
 
     const totalHeight = useMemo(() => {
-        let h = 36 + 36; // timeline height
+        let h = headerHeight; // hauteur réelle de l'en-tête temporel
         for (const chain of visibleChains) {
             const chainEvents = events.filter(e => e.chaineId === chain.id);
             const sorted = [...chainEvents].sort((a, b) => {
@@ -329,7 +355,7 @@ export default function GanttView({
             h += rowHeight * laneCount;
         }
         return h + 24;
-    }, [visibleChains, events, rowHeight]);
+    }, [visibleChains, events, rowHeight, headerHeight]);
 
     if (events.length === 0) {
         if (totalEvents === 0) {
@@ -359,7 +385,7 @@ export default function GanttView({
                 {/* Header timeline */}
                 <div className="flex">
                     <div className="shrink-0 sticky left-0 z-[31] bg-white dark:bg-dk-surface border-r border-slate-100 dark:border-dk-border relative" style={{ width: SIDEBAR_W }}>
-                        <div className="h-[64px] flex items-center justify-between border-b border-slate-100 dark:border-dk-border overflow-hidden">
+                        <div className="sticky top-0 z-[32] bg-white dark:bg-dk-surface flex items-center justify-between border-b border-slate-100 dark:border-dk-border overflow-hidden" style={{ height: headerHeight }}>
                             {!sidebarCollapsed && (
                                 <span className="text-[10px] font-medium text-slate-400 dark:text-dk-muted uppercase tracking-wider px-3 whitespace-nowrap">
                                     {tx(lang, {fr: 'Chaînes · ', ar: 'السلاسل · ', en: 'Chains · ', es: 'Cadenas · ', pt: 'Cadeias · ', tr: 'Zincirler · '})}{chains.length}
@@ -438,7 +464,7 @@ export default function GanttView({
             type="button"
             onClick={() => {
                 const el = scrollRef.current;
-                if (el) el.scrollTo({ left: Math.max(0, todayOffset - el.clientWidth / 3), behavior: 'smooth' });
+                if (el) writeScroll(el, todayOffset - el.clientWidth / 3, true);
             }}
             style={{ opacity: 0, transition: 'opacity 0.15s' }}
             className="absolute top-1/2 -translate-y-1/2 left-2 z-[35] flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 dark:bg-red-700 text-white dark:text-dk-text text-[10px] font-bold uppercase tracking-wider shadow-lg hover:bg-red-600 dark:hover:bg-red-600 cursor-pointer"
@@ -451,7 +477,7 @@ export default function GanttView({
             type="button"
             onClick={() => {
                 const el = scrollRef.current;
-                if (el) el.scrollTo({ left: Math.max(0, todayOffset - el.clientWidth / 3), behavior: 'smooth' });
+                if (el) writeScroll(el, todayOffset - el.clientWidth / 3, true);
             }}
             style={{ opacity: 0, transition: 'opacity 0.15s' }}
             className="absolute top-1/2 -translate-y-1/2 right-2 z-[35] flex items-center gap-1 px-2 py-1 rounded-full bg-red-500 dark:bg-red-700 text-white dark:text-dk-text text-[10px] font-bold uppercase tracking-wider shadow-lg hover:bg-red-600 dark:hover:bg-red-600 cursor-pointer"
@@ -470,9 +496,10 @@ export default function GanttView({
                 scrollLeft={scrollState.left}
                 viewportWidth={scrollState.width}
                 contentWidth={scrollState.content}
+                sidebarWidth={SIDEBAR_W}
                 onJumpTo={(left) => {
                     const el = scrollRef.current;
-                    if (el) el.scrollTo({ left, behavior: 'smooth' });
+                    if (el) writeScroll(el, left, true);
                 }}
             />
         )}

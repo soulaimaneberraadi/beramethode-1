@@ -2617,7 +2617,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const unitPrice = Number(order.pricePerPiece) || 0;
     const faconTotal = qty * unitPrice;
 
-    const isFacon = inferSubcontractMode(order) === 'facon';
+    // Le mode EXPLICITE de la fiche de coût prime sur celui déduit des
+    // fournisseurs : c'est lui qui pilote déjà le prix de revient. Les faire
+    // diverger produirait une facture et un coût de revient qui ne parlent pas
+    // des mêmes matières. L'inférence ne sert que de repli (modèle non lié).
+    const modelMode = (models.find(m => m.id === order.modelId)?.ficheData as any)?.soustraitance;
+    const isFacon = (modelMode?.active ? modelMode.mode : inferSubcontractMode(order)) === 'facon';
     const materials = isFacon
       ? getFaconMaterialsNeeds(
           { modelId: order.modelId, totalQuantity: qty },
@@ -4508,6 +4513,88 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <span className="font-bold text-slate-800 dark:text-dk-text">{new Date(detailOrder.deliveryDate).toLocaleDateString('fr-FR')}</span>
                 </div>
               </div>
+
+              {/* Fournisseurs des matières vs mode de calcul du coût.
+                  Le prix de revient ne connaît que `soustraitance.mode` : Façon =
+                  matières + prix, Tout compris = prix seul. Si les fournisseurs
+                  saisis sur la commande disent autre chose, le modèle facture des
+                  matières qu'il ne paie pas (ou l'inverse, bien plus grave). On
+                  affiche l'écart et on laisse l'utilisateur trancher. */}
+              {(() => {
+                const matchedModel = models.find(m => m.id === detailOrder.modelId);
+                if (!matchedModel) return null;
+                const st: any = (matchedModel.ficheData as any)?.soustraitance;
+                if (!st?.active) return null;
+
+                const inferred = inferSubcontractMode(detailOrder);
+                const current: StMode = st.mode === 'complet' ? 'complet' : 'facon';
+                // Cas partiel : le sous-traitant fournit une partie des matières
+                // seulement. Aucun mode ne le représente exactement — on le signale
+                // sans rien recalculer, faute de catégorie tissu/fourniture fiable.
+                const subCount = [
+                  detailOrder.tissuFournisseur,
+                  detailOrder.fournituresFournisseur,
+                  detailOrder.conditionnementFournisseur,
+                ].filter(v => v === 'SUBCONTRACTOR').length;
+                const partial = subCount > 0 && subCount < 3 && current === 'facon';
+                if (inferred === current && !partial) return null;
+
+                const labelOf = (m: StMode) => m === 'complet'
+                  ? tx(lang,{fr:'Tout compris',ar:'شامل',en:'All-inclusive',es:'Todo incluido',pt:'Tudo incluído',tr:'Her şey dahil'})
+                  : tx(lang,{fr:'Façon',ar:'فاصون',en:'CMT',es:'Confección',pt:'Confecção',tr:'Fason'});
+
+                return (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 space-y-2.5">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <span className="text-[11px] font-bold text-amber-900 dark:text-amber-300 block">
+                          {tx(lang,{fr:'Fournisseurs des matières et mode de coût divergent',ar:'موفّرو المواد ووضع الحساب غير متطابقين',en:'Material suppliers and cost mode diverge',es:'Proveedores de materias y modo de coste divergen',pt:'Fornecedores de materiais e modo de custo divergem',tr:'Malzeme tedarikçileri ve maliyet modu uyuşmuyor'})}
+                        </span>
+                        <span className="text-[10px] font-semibold text-amber-800 dark:text-amber-400/90 block mt-0.5">
+                          {tx(lang,{fr:'Tissu',ar:'التيسو',en:'Fabric',es:'Tejido',pt:'Tecido',tr:'Kumaş'})}: {detailOrder.tissuFournisseur === 'SUBCONTRACTOR' ? tx(lang,{fr:'sous-traitant',ar:'السوطراطور',en:'subcontractor',es:'subcontratista',pt:'subcontratado',tr:'fasoncu'}) : tx(lang,{fr:'nous',ar:'نحن',en:'us',es:'nosotros',pt:'nós',tr:'biz'})}
+                          {' · '}
+                          {tx(lang,{fr:'Fournitures',ar:'اللوازم',en:'Trims',es:'Avíos',pt:'Aviamentos',tr:'Aksesuar'})}: {detailOrder.fournituresFournisseur === 'SUBCONTRACTOR' ? tx(lang,{fr:'sous-traitant',ar:'السوطراطور',en:'subcontractor',es:'subcontratista',pt:'subcontratado',tr:'fasoncu'}) : tx(lang,{fr:'nous',ar:'نحن',en:'us',es:'nosotros',pt:'nós',tr:'biz'})}
+                        </span>
+                        {inferred !== current && (
+                          <span className="text-[10px] font-semibold text-amber-900 dark:text-amber-300 block mt-0.5">
+                            {tx(lang,{fr:'Mode appliqué au coût',ar:'الوضع المطبَّق على التكلفة',en:'Mode applied to cost',es:'Modo aplicado al coste',pt:'Modo aplicado ao custo',tr:'Maliyete uygulanan mod'})}: <b>{labelOf(current)}</b>
+                            {' → '}
+                            {tx(lang,{fr:'attendu',ar:'المتوقَّع',en:'expected',es:'esperado',pt:'esperado',tr:'beklenen'})}: <b>{labelOf(inferred)}</b>
+                          </span>
+                        )}
+                        {inferred === 'facon' && current === 'complet' && (
+                          <span className="text-[10px] font-semibold text-rose-700 dark:text-rose-400 block mt-0.5">
+                            {tx(lang,{fr:'Les matières que vous payez ne sont PAS dans le prix de revient.',ar:'المواد اللي كتخلّص ما داخلاش في ثمن التكلفة.',en:'The materials you pay for are NOT in the cost price.',es:'Las materias que pagas NO están en el coste.',pt:'As matérias que paga NÃO estão no custo.',tr:'Ödediğiniz malzemeler maliyete dahil DEĞİL.'})}
+                          </span>
+                        )}
+                        {partial && (
+                          <span className="text-[10px] font-semibold text-amber-800 dark:text-amber-400/90 block mt-0.5">
+                            {tx(lang,{fr:'Partage partiel : le coût compte TOUTES les matières, y compris celles fournies par le sous-traitant. Corrigez les prix concernés dans la fiche de coût.',ar:'تقسيم جزئي: التكلفة كتحسب كل المواد، حتى اللي كيوفّرها السوطراطور. صحّح الأثمنة المعنية في بطاقة التكلفة.',en:'Partial split: the cost counts ALL materials, including those supplied by the subcontractor. Fix the affected prices in the cost sheet.',es:'Reparto parcial: el coste cuenta TODAS las materias, incluidas las del subcontratista. Corrige esos precios en la ficha de coste.',pt:'Partilha parcial: o custo conta TODAS as matérias, incluindo as do subcontratado. Corrija esses preços na ficha de custo.',tr:'Kısmi paylaşım: maliyet TÜM malzemeleri sayar, fasoncunun verdikleri dahil. İlgili fiyatları maliyet kartında düzeltin.'})}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {inferred !== current && (
+                      <button
+                        type="button"
+                        disabled={gridAligning}
+                        onClick={async () => {
+                          setGridAligning(true);
+                          setGridAlignError(null);
+                          await writeModelSoustraitance(detailOrder.modelId, { mode: inferred });
+                          setGridAligning(false);
+                        }}
+                        className="bg-white dark:bg-dk-surface border border-amber-300 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-300 px-3 py-1.5 rounded-lg font-bold text-[10px] transition-colors flex items-center gap-1.5 disabled:opacity-40"
+                      >
+                        {gridAligning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Coins className="w-3 h-3" />}
+                        {tx(lang,{fr:'Passer le coût en',ar:'حوّل الحساب إلى',en:'Switch cost mode to',es:'Cambiar el coste a',pt:'Mudar o custo para',tr:'Maliyet modunu şuna al'})} {labelOf(inferred)}
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Grille couleur × taille : commande vs fiche de coût du modèle.
                   Une grille modèle différente de ce qui est réellement commandé
