@@ -610,8 +610,11 @@ export const getCompanyInfo = (req: Request, res: Response) => {
     const store = resolveCompanyStore(meta.ownerId);
     let row: any;
     if (store === 'workspace') {
+      // `profile_meta` existe aussi sur workspaces (colonne + rattrapage dans
+      // db.ts) : ne pas la lire privait les espaces de travail de leurs
+      // identifiants légaux, alors qu'ils sont écrits sans problème.
       row = db
-        .prepare('SELECT name, logo, specialty, account_type FROM workspaces WHERE owner_id = ?')
+        .prepare('SELECT name, logo, specialty, account_type, profile_meta FROM workspaces WHERE owner_id = ?')
         .get(meta.ownerId);
     } else {
       row = db

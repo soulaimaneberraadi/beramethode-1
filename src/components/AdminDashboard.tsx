@@ -301,7 +301,9 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
           logo: company.logo,
           specialty: company.specialty,
           accountType: company.accountType,
-          profileMeta: company.store === 'company_settings' ? (company.profileMeta || null) : undefined,
+          // Les deux stores savent stocker `profile_meta` : conditionner l'envoi
+          // au store revenait à jeter la saisie des espaces de travail.
+          profileMeta: company.profileMeta || null,
         }),
       });
       if (!d?.ok) throw new Error(d?.error || 'fail');
@@ -551,29 +553,26 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                     <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                     <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Identifiants légaux', ar: 'المعرّفات القانونية', en: 'Legal identifiers', es: 'Identificadores legales', pt: 'Identificadores legais', tr: 'Yasal kimlikler' })}</h2>
                   </div>
-                  {company.store !== 'company_settings' && (
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400">{tx(lang, { fr: 'Ces informations seront disponibles pour cet espace de travail prochainement.', ar: 'ستكون هذه المعلومات متاحة لمساحة العمل هذه قريبًا.', en: 'This information will be available for this workspace soon.', es: 'Esta información estará disponible para este espacio de trabajo próximamente.', pt: 'Esta informação estará disponível para este espaço de trabalho brevemente.', tr: 'Bu bilgiler bu çalışma alanı için yakında kullanılabilir olacak.' })}</p>
-                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">ICE</label>
-                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.ice || ''} onChange={e => setMeta('ice', e.target.value)} />
+                      <input className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.ice || ''} onChange={e => setMeta('ice', e.target.value)} />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">RC</label>
-                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.rc || ''} onChange={e => setMeta('rc', e.target.value)} />
+                      <input className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.rc || ''} onChange={e => setMeta('rc', e.target.value)} />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">IF</label>
-                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.if || ''} onChange={e => setMeta('if', e.target.value)} />
+                      <input className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.if || ''} onChange={e => setMeta('if', e.target.value)} />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">CNSS</label>
-                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.cnss || ''} onChange={e => setMeta('cnss', e.target.value)} />
+                      <input className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.cnss || ''} onChange={e => setMeta('cnss', e.target.value)} />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Patente', ar: 'الباتنتة', en: 'Business license', es: 'Patente', pt: 'Patente', tr: 'Patent' })}</label>
-                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.patente || ''} onChange={e => setMeta('patente', e.target.value)} />
+                      <input className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.patente || ''} onChange={e => setMeta('patente', e.target.value)} />
                     </div>
                   </div>
                 </div>
@@ -584,25 +583,22 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                     <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                     <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Contact', ar: 'التواصل', en: 'Contact', es: 'Contacto', pt: 'Contacto', tr: 'İletişim' })}</h2>
                   </div>
-                  {company.store !== 'company_settings' && (
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400">{tx(lang, { fr: 'Ces informations seront disponibles pour cet espace de travail prochainement.', ar: 'ستكون هذه المعلومات متاحة لمساحة العمل هذه قريبًا.', en: 'This information will be available for this workspace soon.', es: 'Esta información estará disponible para este espacio de trabajo próximamente.', pt: 'Esta informação estará disponível para este espaço de trabalho brevemente.', tr: 'Bu bilgiler bu çalışma alanı için yakında kullanılabilir olacak.' })}</p>
-                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Adresse', ar: 'العنوان', en: 'Address', es: 'Dirección', pt: 'Morada', tr: 'Adres' })}</label>
-                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.adresse || ''} onChange={e => setMeta('adresse', e.target.value)} />
+                      <input className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.adresse || ''} onChange={e => setMeta('adresse', e.target.value)} />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Ville', ar: 'المدينة', en: 'City', es: 'Ciudad', pt: 'Cidade', tr: 'Şehir' })}</label>
-                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.ville || ''} onChange={e => setMeta('ville', e.target.value)} />
+                      <input className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.ville || ''} onChange={e => setMeta('ville', e.target.value)} />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Email', ar: 'البريد الإلكتروني', en: 'Email', es: 'Correo', pt: 'E-mail', tr: 'E-posta' })}</label>
-                      <input type="email" className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.companyEmail || ''} onChange={e => setMeta('companyEmail', e.target.value)} />
+                      <input type="email" className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.companyEmail || ''} onChange={e => setMeta('companyEmail', e.target.value)} />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Site web', ar: 'الموقع الإلكتروني', en: 'Website', es: 'Sitio web', pt: 'Site', tr: 'Web sitesi' })}</label>
-                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.siteWeb || ''} onChange={e => setMeta('siteWeb', e.target.value)} />
+                      <input className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.siteWeb || ''} onChange={e => setMeta('siteWeb', e.target.value)} />
                     </div>
                   </div>
                 </div>
@@ -613,17 +609,14 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                     <Landmark className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
                     <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Banque', ar: 'البنك', en: 'Bank', es: 'Banco', pt: 'Banco', tr: 'Banka' })}</h2>
                   </div>
-                  {company.store !== 'company_settings' && (
-                    <p className="text-[11px] text-amber-600 dark:text-amber-400">{tx(lang, { fr: 'Ces informations seront disponibles pour cet espace de travail prochainement.', ar: 'ستكون هذه المعلومات متاحة لمساحة العمل هذه قريبًا.', en: 'This information will be available for this workspace soon.', es: 'Esta información estará disponible para este espacio de trabajo próximamente.', pt: 'Esta informação estará disponível para este espaço de trabalho brevemente.', tr: 'Bu bilgiler bu çalışma alanı için yakında kullanılabilir olacak.' })}</p>
-                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Banque', ar: 'البنك', en: 'Bank', es: 'Banco', pt: 'Banco', tr: 'Banka' })}</label>
-                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.banque || ''} onChange={e => setMeta('banque', e.target.value)} />
+                      <input className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.banque || ''} onChange={e => setMeta('banque', e.target.value)} />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">RIB</label>
-                      <input className={inputCls} disabled={!company.canEdit || company.store !== 'company_settings'} value={company.profileMeta?.rib || ''} onChange={e => setMeta('rib', e.target.value)} />
+                      <input className={inputCls} disabled={!company.canEdit} value={company.profileMeta?.rib || ''} onChange={e => setMeta('rib', e.target.value)} />
                     </div>
                   </div>
                 </div>
