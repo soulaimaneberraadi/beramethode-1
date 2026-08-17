@@ -2824,6 +2824,141 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     printWindow.document.close();
   };
 
+  // ======================================================================
+  // BON D'ENVOI — préparation avant impression
+  // Le bon partait autrefois directement à l'imprimante avec les données
+  // brutes de la commande. Or c'est le document que le sous-traitant SIGNE :
+  // il doit pouvoir être relu et corrigé (libellés, quantités réellement
+  // chargées dans le camion, identités légales) avant d'être remis. D'où la
+  // même mécanique que la facture : une modale de préparation.
+  // ======================================================================
+
+  /** Ligne « couleur » du bon, clé stable pour cocher / éditer. */
+  interface BonEnvoiRow { key: string; color: string; detail: [string, number][]; total: number }
+
+  /** B2 : les quantités réelles viennent de `grid_json` (matrice couleur × taille).
+   *  Un rendu naïf ferait un produit cartésien : pour CHAQUE couleur il répéterait
+   *  le détail des tailles toutes couleurs confondues — le bon remis au
+   *  sous-traitant annoncerait donc des quantités fausses. */
+  const buildBonEnvoiRows = (order: SubcontractOrder): BonEnvoiRow[] => {
+    const parsedGrid = parseJsonSafe(order.grid_json, null as any);
+    const grid: Record<string, Record<string, number>> | null =
+      parsedGrid && typeof parsedGrid === 'object' && Object.keys(parsedGrid).length > 0 ? parsedGrid : null;
+    const sizeTotals: Record<string, number> = parseJsonSafe(order.sizes_json);
+
+    if (grid) {
+      return Object.entries(grid)
+        .map(([color, sizesObj]) => {
+          const detail = Object.entries(sizesObj || {})
+            .map(([sz, q]) => [sz, Number(q) || 0] as [string, number])
+            .filter(([, q]) => q > 0);
+          return { key: `row-${color}`, color, detail, total: detail.reduce((a, [, q]) => a + q, 0) };
+        })
+        .filter(r => r.total > 0);
+    }
+    return [{
+      key: 'row-standard',
+      color: tx(lang,{fr:'Standard',ar:'قياسي',en:'Standard',es:'Estándar',pt:'Padrão',tr:'Standart'}),
+      detail: Object.entries(sizeTotals)
+        .map(([sz, q]) => [sz, Number(q) || 0] as [string, number])
+        .filter(([, q]) => q > 0),
+      total: order.totalQuantity,
+    }];
+  };
+
+  /** Jalons imprimables : les 4 jalons fixes + la checklist libre de la commande. */
+  const buildBonEnvoiMilestones = (order: SubcontractOrder) => ([
+    { key: 'ms-tissu', label: tx(lang,{fr:'Tissu expédié',ar:'القماش مُرسَل',en:'Fabric shipped',es:'Tejido enviado',pt:'Tecido expedido',tr:'Kumaş sevk edildi'}), done: order.tissuStatus === 'SENT' },
+    { key: 'ms-fournitures', label: tx(lang,{fr:'Fournitures livrées',ar:'اللوازم مُسلَّمة',en:'Supplies delivered',es:'Fornituras entregadas',pt:'Acessórios entregues',tr:'Malzemeler teslim edildi'}), done: order.fournituresStatus === 'DELIVERED' },
+    { key: 'ms-ft', label: tx(lang,{fr:'Fiche technique envoyée',ar:'البطاقة الفنية مُرسَلة',en:'Tech sheet sent',es:'Ficha técnica enviada',pt:'Ficha técnica enviada',tr:'Teknik föy gönderildi'}), done: order.ficheTechniqueSent === 1 },
+    { key: 'ms-proto', label: tx(lang,{fr:'Prototype validé',ar:'النموذج الأولي معتمد',en:'Prototype approved',es:'Prototipo validado',pt:'Protótipo validado',tr:'Prototip onaylandı'}), done: order.protoStatus === 'APPROVED' },
+    ...readCustomMilestones(order).map(m => ({ key: `ms-${m.id}`, label: m.label, done: m.done })),
+  ]);
+
+  const [isBonEnvoiModalOpen, setIsBonEnvoiModalOpen] = useState(false);
+  const [bonEnvoiOrder, setBonEnvoiOrder] = useState<SubcontractOrder | null>(null);
+  /** Éléments DÉCOCHÉS (clés `row-…` et `ms-…`). Par défaut tout est coché :
+   *  un bon complet reste le cas normal, retirer une ligne est un geste
+   *  conscient. Ce qui est décoché disparaît du document ET du total imprimé. */
+  const [bonEnvoiOff, setBonEnvoiOff] = useState<Set<string>>(new Set());
+  /** Réécritures manuelles d'une ligne (libellé couleur / quantité chargée).
+   *  La ligne garde sa valeur d'origine tant que rien n'est saisi : on n'écrase
+   *  jamais la donnée de la commande en silence, et un bouton revient dessus. */
+  const [bonEnvoiEdits, setBonEnvoiEdits] = useState<Record<string, { label?: string; qty?: number }>>({});
+  const editBonEnvoiRow = (key: string, patch: { label?: string; qty?: number }) =>
+    setBonEnvoiEdits(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }));
+  const resetBonEnvoiRow = (key: string) =>
+    setBonEnvoiEdits(prev => { const n = { ...prev }; delete n[key]; return n; });
+  const toggleBonEnvoiKey = (key: string) => setBonEnvoiOff(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
+  /** Blocs et visuels à faire figurer sur le document imprimé. */
+  const [bonEnvoiShow, setBonEnvoiShow] = useState<{
+    logo: boolean; model: boolean; subcontractor: boolean;
+    sizeDetail: boolean; milestones: boolean; notes: boolean; materials: boolean;
+  }>({ logo: true, model: true, subcontractor: false, sizeDetail: true, milestones: false, notes: true, materials: false });
+  /** Notes du bon : pré-remplies depuis la commande mais propres au document —
+   *  une consigne de transport n'a pas à polluer la fiche de la commande. */
+  const [bonEnvoiNotes, setBonEnvoiNotes] = useState('');
+  /** « Matières à prévoir » : liste libre, une par ligne. Elle sert au
+   *  sous-traitant qui doit approvisionner lui-même certaines fournitures. */
+  const [bonEnvoiMaterials, setBonEnvoiMaterials] = useState('');
+  /** Identités imprimées. Pré-remplies (entreprise + fiche sous-traitant) et
+   *  corrigibles ICI : un ICE communiqué à la dernière minute ne doit pas
+   *  obliger à quitter le bon. Les fiches restent les sources, on ne les
+   *  réécrit pas en douce. */
+  const [bonEnvoiIssuer, setBonEnvoiIssuer] = useState<{ nom: string; ice: string; rc: string; adresse: string; tel: string }>(
+    { nom: '', ice: '', rc: '', adresse: '', tel: '' }
+  );
+  const [bonEnvoiTiers, setBonEnvoiTiers] = useState<{ nom: string; ice: string; rc: string; adresse: string; tel: string }>(
+    { nom: '', ice: '', rc: '', adresse: '', tel: '' }
+  );
+  /** Date d'expédition portée sur le bon (ISO). Vide = date du jour. */
+  const [bonEnvoiDate, setBonEnvoiDate] = useState('');
+
+  /** Ouvre la préparation du bon d'envoi : tout est remis à l'état de la
+   *  commande, pour qu'un bon précédent ne laisse jamais traîner ses
+   *  corrections sur la commande suivante. */
+  const openBonEnvoiModal = (order: SubcontractOrder) => {
+    setBonEnvoiOrder(order);
+    setBonEnvoiOff(new Set());
+    setBonEnvoiEdits({});
+    setBonEnvoiShow({ logo: true, model: true, subcontractor: false, sizeDetail: true, milestones: false, notes: true, materials: false });
+    setBonEnvoiNotes(order.notes || '');
+    setBonEnvoiMaterials('');
+    setBonEnvoiDate('');
+    {
+      const prof = subcontractorProfiles.find(p => p.name === order.subcontractorName);
+      setBonEnvoiTiers({
+        nom: order.subcontractorName || '',
+        ice: prof?.ice || '',
+        rc: prof?.rc || '',
+        adresse: prof?.address || '',
+        tel: prof?.phone || order.subcontractorPhone || '',
+      });
+    }
+    setIsBonEnvoiModalOpen(true);
+    // L'identité légale n'est pas forcément déjà chargée si l'utilisateur n'a
+    // ouvert aucune facture dans cette session : on la demande maintenant.
+    loadCompanyIdentity();
+  };
+
+  /** L'identité de l'entreprise arrive de façon asynchrone : on ne pré-remplit
+   *  l'émetteur que sur les champs encore vides, pour ne jamais écraser une
+   *  correction que l'utilisateur vient de saisir dans la modale. */
+  useEffect(() => {
+    if (!isBonEnvoiModalOpen) return;
+    setBonEnvoiIssuer(prev => ({
+      nom: prev.nom || companyIdentity.nom,
+      ice: prev.ice || companyIdentity.ice,
+      rc: prev.rc || companyIdentity.rc,
+      adresse: prev.adresse || companyIdentity.adresse,
+      tel: prev.tel || companyIdentity.tel,
+    }));
+  }, [isBonEnvoiModalOpen, companyIdentity]);
+
   // Helper to print subcontractor delivery bon/slip (Tab 1 action)
   const handlePrintDeliveryNote = (order: SubcontractOrder) => {
     const printWindow = window.open('', '_blank');
@@ -2832,31 +2967,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const esc = (v: unknown) => String(v ?? '')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-    // B2 : les quantités réelles viennent de `grid_json` (matrice couleur × taille).
-    // L'ancien rendu faisait un produit cartésien : pour CHAQUE couleur il répétait
-    // le détail des tailles toutes couleurs confondues — le bon remis au
-    // sous-traitant annonçait donc des quantités fausses.
-    const parsedGrid = parseJsonSafe(order.grid_json, null as any);
-    const grid: Record<string, Record<string, number>> | null =
-      parsedGrid && typeof parsedGrid === 'object' && Object.keys(parsedGrid).length > 0 ? parsedGrid : null;
-    const sizeTotals: Record<string, number> = parseJsonSafe(order.sizes_json);
-
-    const rows = grid
-      ? Object.entries(grid)
-          .map(([color, sizesObj]) => {
-            const detail = Object.entries(sizesObj || {})
-              .map(([sz, q]) => [sz, Number(q) || 0] as const)
-              .filter(([, q]) => q > 0);
-            return { color, detail, total: detail.reduce((a, [, q]) => a + q, 0) };
-          })
-          .filter(r => r.total > 0)
-      : [{
-          color: tx(lang,{fr:'Standard',ar:'قياسي',en:'Standard',es:'Estándar',pt:'Padrão',tr:'Standart'}),
-          detail: Object.entries(sizeTotals)
-            .map(([sz, q]) => [sz, Number(q) || 0] as const)
-            .filter(([, q]) => q > 0),
-          total: order.totalQuantity,
-        }];
+    // Seules les lignes cochées partent à l'impression, avec le libellé et la
+    // quantité éventuellement corrigés dans la modale de préparation.
+    const rows = buildBonEnvoiRows(order)
+      .filter(r => !bonEnvoiOff.has(r.key))
+      .map(r => {
+        const edit = bonEnvoiEdits[r.key] || {};
+        return {
+          color: edit.label ?? r.color,
+          detail: r.detail,
+          total: edit.qty ?? r.total,
+          edited: edit.qty != null && edit.qty !== r.total,
+        };
+      });
 
     // A : le parcours de coupe ne change AUCUN calcul, seulement les libellés.
     // En coupe interne ce sont des pièces déjà coupées qui partent, pas du tissu.
@@ -2872,123 +2995,213 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       : tx(lang,{fr:'QUANTITÉ TOTALE ENVOYÉE',ar:'الكمية الإجمالية المرسلة',en:'TOTAL QUANTITY SENT',es:'CANTIDAD TOTAL ENVIADA',pt:'QUANTIDADE TOTAL ENVIADA',tr:'GÖNDERİLEN TOPLAM MİKTAR'});
 
     const rowsTotal = rows.reduce((a, r) => a + r.total, 0);
-    // Si la matrice et la quantité enregistrée divergent, on le DIT sur le bon
-    // plutôt que de laisser le sous-traitant arbitrer seul.
-    const mismatch = grid && rowsTotal !== order.totalQuantity;
+    // Écart entre ce qui part réellement et ce que la commande enregistre : on le
+    // DIT sur le bon plutôt que de laisser le sous-traitant arbitrer seul. Le ton
+    // change selon l'origine : un retrait volontaire (ligne décochée ou quantité
+    // corrigée) est un envoi partiel assumé, un écart non voulu est une alerte.
+    const intentional = bonEnvoiOff.size > 0 || Object.keys(bonEnvoiEdits).length > 0;
+    const mismatch = rowsTotal !== order.totalQuantity;
 
     const rowsHtml = rows.map(r => `
                 <tr>
                   <td style="font-weight: 800; color: #1e1b4b;">${esc(r.color)}</td>
-                  <td style="font-weight: 600;">
+                  ${bonEnvoiShow.sizeDetail ? `<td style="font-weight: 600;">
                     ${r.detail.length > 0
                       ? r.detail.map(([sz, q]) => `[${esc(sz)}]: ${q.toLocaleString(dateLocale)} pcs`).join(' | ')
                       : '&mdash;'}
-                  </td>
+                  </td>` : ''}
                   <td style="text-align: right; font-weight: 800; color: #4f46e5;">${r.total.toLocaleString(dateLocale)} pcs</td>
                 </tr>`).join('');
 
-    const mismatchHtml = mismatch ? `
-            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:6px 9px;margin-bottom:8px;font-size:9.5px;color:#92400e;font-weight:700;">
-              ${esc(tx(lang,{
-                fr:`Attention : le détail par couleur totalise ${rowsTotal} pièces alors que la commande en enregistre ${order.totalQuantity}. Vérifier avant expédition.`,
-                ar:`تنبيه: التفصيل حسب اللون مجموعه ${rowsTotal} قطعة بينما الطلبية مسجّلة بـ ${order.totalQuantity}. تحقّق قبل الإرسال.`,
-                en:`Warning: the per-color detail totals ${rowsTotal} pieces while the order records ${order.totalQuantity}. Check before shipping.`,
-                es:`Atención: el detalle por color suma ${rowsTotal} piezas mientras el pedido registra ${order.totalQuantity}. Verifique antes del envío.`,
-                pt:`Atenção: o detalhe por cor totaliza ${rowsTotal} peças enquanto a encomenda regista ${order.totalQuantity}. Verifique antes da expedição.`,
-                tr:`Uyarı: renk detayı ${rowsTotal} adet toplarken sipariş ${order.totalQuantity} kaydediyor. Sevkiyattan önce kontrol edin.`,
-              }))}
+    const mismatchHtml = !mismatch ? '' : `
+            <div style="background:${intentional ? '#f8fafc' : '#fffbeb'};border:1px solid ${intentional ? '#e2e8f0' : '#fde68a'};border-radius:8px;padding:6px 9px;margin-bottom:8px;font-size:9.5px;color:${intentional ? '#475569' : '#92400e'};font-weight:700;">
+              ${esc(intentional
+                ? tx(lang,{
+                    fr:`Envoi partiel : ${rowsTotal} pièces expédiées sur ${order.totalQuantity} enregistrées pour cette commande.`,
+                    ar:`إرسال جزئي: ${rowsTotal} قطعة مرسلة من أصل ${order.totalQuantity} مسجّلة في هذه الطلبية.`,
+                    en:`Partial shipment: ${rowsTotal} pieces sent out of ${order.totalQuantity} recorded for this order.`,
+                    es:`Envío parcial: ${rowsTotal} piezas enviadas de ${order.totalQuantity} registradas en este pedido.`,
+                    pt:`Remessa parcial: ${rowsTotal} peças expedidas de ${order.totalQuantity} registadas nesta encomenda.`,
+                    tr:`Kısmi sevkiyat: bu siparişte kayıtlı ${order.totalQuantity} adetten ${rowsTotal} adet gönderildi.`,
+                  })
+                : tx(lang,{
+                    fr:`Attention : le détail par couleur totalise ${rowsTotal} pièces alors que la commande en enregistre ${order.totalQuantity}. Vérifier avant expédition.`,
+                    ar:`تنبيه: التفصيل حسب اللون مجموعه ${rowsTotal} قطعة بينما الطلبية مسجّلة بـ ${order.totalQuantity}. تحقّق قبل الإرسال.`,
+                    en:`Warning: the per-color detail totals ${rowsTotal} pieces while the order records ${order.totalQuantity}. Check before shipping.`,
+                    es:`Atención: el detalle por color suma ${rowsTotal} piezas mientras el pedido registra ${order.totalQuantity}. Verifique antes del envío.`,
+                    pt:`Atenção: o detalhe por cor totaliza ${rowsTotal} peças enquanto a encomenda regista ${order.totalQuantity}. Verifique antes da expedição.`,
+                    tr:`Uyarı: renk detayı ${rowsTotal} adet toplarken sipariş ${order.totalQuantity} kaydediyor. Sevkiyattan önce kontrol edin.`,
+                  }))}
+            </div>`;
+
+    // Visuels optionnels : logo en en-tête, vignettes modèle / sous-traitant.
+    // Ils ne sont imprimés que si l'utilisateur les a cochés ET qu'ils existent.
+    const modelPhoto = models.find(m => m.id === order.modelId)?.image || '';
+    const stPhoto = subcontractorProfiles.find(p => p.name === order.subcontractorName)?.photo || '';
+    const visuals: string[] = [];
+    if (bonEnvoiShow.model && modelPhoto) {
+      visuals.push(`<div class="thumb"><img src="${esc(modelPhoto)}" alt="" /><div>${esc(order.modelName || order.modelId)}</div></div>`);
+    }
+    if (bonEnvoiShow.subcontractor && stPhoto) {
+      visuals.push(`<div class="thumb"><img src="${esc(stPhoto)}" alt="" /><div>${esc(order.subcontractorName)}</div></div>`);
+    }
+    const visualsBlock = visuals.length ? `<div class="thumbs">${visuals.join('')}</div>` : '';
+
+    // Jalons : cases à cocher imprimées, l'état venant de la commande. Sur le
+    // papier, la case cochée vaut engagement de ce qui a déjà été fourni.
+    const milestones = buildBonEnvoiMilestones(order).filter(m => !bonEnvoiOff.has(m.key));
+    const milestonesBlock = (bonEnvoiShow.milestones && milestones.length > 0) ? `
+            <div class="block">
+              <div class="block-title">${esc(tx(lang,{fr:'Jalons logistiques',ar:'المراحل اللوجستية',en:'Logistics milestones',es:'Hitos logísticos',pt:'Marcos logísticos',tr:'Lojistik kilometre taşları'}))}</div>
+              <div class="chips">
+                ${milestones.map(m => `<span class="chip">${m.done ? '&#10003;' : '&#9744;'} ${esc(m.label)}</span>`).join('')}
+              </div>
             </div>` : '';
+
+    // Matières à prévoir : saisie libre, une par ligne.
+    const materialLines = bonEnvoiMaterials.split('\n').map(l => l.trim()).filter(Boolean);
+    const materialsBlock = (bonEnvoiShow.materials && materialLines.length > 0) ? `
+            <div class="block">
+              <div class="block-title">${esc(tx(lang,{fr:'Matières / fournitures à prévoir',ar:'المواد واللوازم الواجب توفيرها',en:'Materials / supplies to provide',es:'Materias / fornituras a prever',pt:'Matérias / acessórios a prever',tr:'Sağlanacak malzemeler'}))}</div>
+              <ul class="mat-list">${materialLines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
+            </div>` : '';
+
+    const notesBlock = (bonEnvoiShow.notes && bonEnvoiNotes.trim()) ? `
+            <div class="block notes">
+              <div class="block-title" style="color:#a21caf;">${esc(tx(lang,{fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'}))}</div>
+              <div style="font-size:11px;color:#581c87;font-weight:600;white-space:pre-line;">${esc(bonEnvoiNotes.trim())}</div>
+            </div>` : '';
+
+    const partyLines = (p: { adresse: string; tel: string; ice: string; rc: string }) => [
+      p.adresse,
+      p.tel ? `${tx(lang,{fr:'Tél',ar:'الهاتف',en:'Tel',es:'Tel',pt:'Tel',tr:'Tel'})} : ${p.tel}` : '',
+      [p.ice ? `ICE : ${p.ice}` : '', p.rc ? `RC : ${p.rc}` : ''].filter(Boolean).join(' · '),
+    ].filter(Boolean).map(l => `<div class="party-line">${esc(l)}</div>`).join('');
+
+    const shipDate = bonEnvoiDate || new Date().toISOString().slice(0, 10);
 
     printWindow.document.write(`
       <html>
         <head>
           <title>${tx(lang,{fr:"Bon d'Envoi en Sous-traitance",ar:'مذكرة إرسال للمقاولة من الباطن',en:'Subcontract Delivery Note',es:'Nota de Envío de Subcontratación',pt:'Nota de Remessa de Subcontratação',tr:'Taşeron Sevk İrsaliyesi'})} - ${order.modelName}</title>
           <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #334155; padding: 40px; line-height: 1.5; }
-            .header { display: flex; justify-content: space-between; border-bottom: 3px solid #6366f1; padding-bottom: 20px; margin-bottom: 30px; }
-            .title { font-size: 28px; font-weight: 900; color: #1e1b4b; text-transform: uppercase; }
-            .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-            .meta-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 12px; }
-            .meta-title { font-size: 10px; text-transform: uppercase; color: #64748b; font-weight: 800; }
-            .meta-val { font-size: 14px; font-weight: 700; color: #0f172a; margin-top: 4px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 40px; }
-            th { background: #f1f5f9; padding: 12px; text-align: left; font-size: 11px; border-bottom: 2px solid #cbd5e1; color: #475569; font-weight: 800; }
-            td { padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #334155; }
-            .signatures { display: flex; justify-content: space-between; margin-top: 80px; }
-            .sig-box { width: 230px; border-top: 2px dashed #cbd5e1; text-align: center; padding-top: 10px; font-size: 11px; color: #475569; font-weight: 800; }
+            /* Bon d'atelier : il doit tenir sur UNE feuille A4 — un bon à deux
+               pages se signe sur la première et la seconde se perd. Tout est
+               donc calibré serré, comme la facture de sous-traitance. */
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; padding: 16px; line-height: 1.35; font-size: 11px; }
+            .invoice-box { max-width: 820px; margin: auto; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #6366f1; padding-bottom: 10px; margin-bottom: 12px; }
+            .title { font-size: 18px; font-weight: 900; color: #1e1b4b; }
+            .meta-section { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+            .box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 10px; border-radius: 8px; }
+            .box-title { font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: .04em; }
+            .box-val { font-size: 12px; font-weight: 800; color: #0f172a; margin-top: 2px; }
+            .party-line { font-size: 9.5px; color: #475569; font-weight: 600; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+            th { background: #f1f5f9; padding: 6px 8px; text-align: left; font-size: 9px; color: #475569; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; }
+            td { padding: 5px 8px; border-bottom: 1px solid #eef2f7; font-size: 11px; }
+            .block { border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 10px; margin-bottom: 8px; background: #fafafa; }
+            .block.notes { background: #faf5ff; border-color: #f3e8ff; }
+            .block-title { font-size: 8.5px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: .04em; margin-bottom: 4px; }
+            .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+            .chip { border: 1px solid #cbd5e1; border-radius: 999px; padding: 2px 8px; font-size: 9.5px; font-weight: 700; color: #334155; }
+            .mat-list { margin: 0; padding-left: 16px; font-size: 10.5px; font-weight: 600; color: #334155; }
+            /* Les vignettes sont des repères d'identification, pas des
+               illustrations : au-delà de cette taille elles mangent une ligne. */
+            .thumbs { display: flex; gap: 10px; margin-bottom: 10px; }
+            .thumb { text-align: center; font-size: 8.5px; font-weight: 700; color: #64748b; }
+            .thumb img { height: 52px; width: auto; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 6px; display: block; margin-bottom: 2px; }
+            .signatures { display: flex; justify-content: space-between; margin-top: 22px; }
+            .sig-box { width: 220px; border-top: 1px dashed #cbd5e1; text-align: center; padding-top: 6px; font-size: 9px; color: #475569; font-weight: 800; }
+            .footer { margin-top: 12px; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+            @page { size: A4; margin: 10mm 10mm; }
+            thead { display: table-header-group; }
+            tr, .box, .block, .signatures { break-inside: avoid; page-break-inside: avoid; }
             @media print {
-              body { padding: 0; }
+              body { padding: 0; font-size: 10.5px; }
+              .invoice-box { max-width: none; }
+              .signatures { margin-top: 16px; }
               button { display: none; }
             }
           </style>
         </head>
         <body>
+          <div class="invoice-box">
           <div class="header">
-            <div>
-              <div class="title">${esc(companyIdentity.nom || '')}</div>
-              <div style="font-size: 12px; color: #64748b; font-weight: 600;">${esc([companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : ''].filter(Boolean).join(' · '))}</div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              ${bonEnvoiShow.logo && companyIdentity.logo ? `<img src="${esc(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
+              <div>
+                <div class="title">${esc(bonEnvoiIssuer.nom || '')}</div>
+                <div style="font-size: 10px; color: #64748b; font-weight: 600;">${esc([bonEnvoiIssuer.ice ? `ICE : ${bonEnvoiIssuer.ice}` : '', bonEnvoiIssuer.rc ? `RC : ${bonEnvoiIssuer.rc}` : ''].filter(Boolean).join(' · '))}</div>
+              </div>
             </div>
             <div style="text-align: right;">
-              <div style="font-size: 18px; font-weight: 900; color: #4f46e5;">${tx(lang,{fr:"BON D'ENVOI DE SOUS-TRAITANCE",ar:'مذكرة إرسال المقاولة من الباطن',en:'SUBCONTRACT DELIVERY NOTE',es:'NOTA DE ENVÍO DE SUBCONTRATACIÓN',pt:'NOTA DE REMESSA DE SUBCONTRATAÇÃO',tr:'TAŞERON SEVK İRSALİYESİ'})}</div>
-              <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-top: 4px;">REF: BS-${order.id.slice(0, 8).toUpperCase()}</div>
+              <div style="font-size: 18px; font-weight: 900; color: #4f46e5;">${esc(tx(lang,{fr:"BON D'ENVOI DE SOUS-TRAITANCE",ar:'مذكرة إرسال المقاولة من الباطن',en:'SUBCONTRACT DELIVERY NOTE',es:'NOTA DE ENVÍO DE SUBCONTRATACIÓN',pt:'NOTA DE REMESSA DE SUBCONTRATAÇÃO',tr:'TAŞERON SEVK İRSALİYESİ'}))}</div>
+              <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-top: 4px;">REF: BS-${esc(order.id.slice(0, 8).toUpperCase())}</div>
+              <div style="font-size: 11px; font-weight: 700; color: #64748b;">${esc(tx(lang,{fr:"Date d'expédition",ar:'تاريخ الإرسال',en:'Shipping date',es:'Fecha de envío',pt:'Data de expedição',tr:'Sevk tarihi'}))} : ${esc(fmtDate(shipDate))}</div>
             </div>
           </div>
 
-          <div class="meta">
-            <div class="meta-box">
-              <div class="meta-title">${tx(lang,{fr:'Atelier de Sous-traitance',ar:'ورشة المقاولة من الباطن',en:'Subcontract Workshop',es:'Taller de Subcontratación',pt:'Oficina de Subcontratação',tr:'Taşeron Atölyesi'})}</div>
-              <div class="meta-val">${order.subcontractorName}</div>
+          <div class="meta-section">
+            <div class="box">
+              <div class="box-title">${esc(tx(lang,{fr:"Expéditeur (donneur d'ordre)",ar:'المرسِل (صاحب الطلب)',en:'Sender (ordering party)',es:'Expedidor (ordenante)',pt:'Expedidor (mandante)',tr:'Gönderen (sipariş veren)'}))}</div>
+              <div class="box-val">${esc(bonEnvoiIssuer.nom || tx(lang,{fr:'Entreprise non renseignée',ar:'الشركة غير محدَّدة',en:'Company not set',es:'Empresa no indicada',pt:'Empresa não indicada',tr:'Şirket belirtilmedi'}))}</div>
+              ${partyLines(bonEnvoiIssuer)}
             </div>
-            <div class="meta-box">
-              <div class="meta-title">${tx(lang,{fr:"Client / Donneur d'Ordre",ar:'العميل / صاحب الطلب',en:'Client / Ordering Party',es:'Cliente / Ordenante',pt:'Cliente / Mandante',tr:'Müşteri / Sipariş Veren'})}</div>
-              <div class="meta-val">${order.clientName || 'N/A'}</div>
+            <div class="box">
+              <div class="box-title">${esc(tx(lang,{fr:'Destinataire (sous-traitant)',ar:'المرسَل إليه (المقاول من الباطن)',en:'Recipient (subcontractor)',es:'Destinatario (subcontratista)',pt:'Destinatário (subcontratado)',tr:'Alıcı (taşeron)'}))}</div>
+              <div class="box-val">${esc(bonEnvoiTiers.nom || order.subcontractorName)}</div>
+              ${partyLines(bonEnvoiTiers)}
             </div>
-            <div class="meta-box">
-              <div class="meta-title">${tx(lang,{fr:'Modèle & Réf',ar:'الموديل والمرجع',en:'Model & Ref',es:'Modelo y Ref',pt:'Modelo e Ref',tr:'Model ve Referans'})}</div>
-              <div class="meta-val">${order.modelName}</div>
+            <div class="box">
+              <div class="box-title">${esc(tx(lang,{fr:'Modèle & Réf',ar:'الموديل والمرجع',en:'Model & Ref',es:'Modelo y Ref',pt:'Modelo e Ref',tr:'Model ve Referans'}))}</div>
+              <div class="box-val">${esc(order.modelName || order.modelId)}</div>
+              <div class="party-line">${esc(tx(lang,{fr:"Client / Donneur d'Ordre",ar:'العميل / صاحب الطلب',en:'Client / Ordering Party',es:'Cliente / Ordenante',pt:'Cliente / Mandante',tr:'Müşteri / Sipariş Veren'}))} : ${esc(order.clientName || '—')}</div>
+              <div class="party-line">${esc(tx(lang,{fr:'Livraison prévue',ar:'التسليم المتوقع',en:'Expected delivery',es:'Entrega prevista',pt:'Entrega prevista',tr:'Beklenen teslimat'}))} : ${esc(fmtDate(order.deliveryDate))}</div>
             </div>
-            <div class="meta-box">
-              <div class="meta-title">${tx(lang,{fr:'Date de Livraison Prévue',ar:'تاريخ التسليم المتوقع',en:'Expected Delivery Date',es:'Fecha de Entrega Prevista',pt:'Data de Entrega Prevista',tr:'Beklenen Teslimat Tarihi'})}</div>
-              <div class="meta-val">${order.deliveryDate}</div>
-            </div>
-            <div class="meta-box" style="grid-column: 1 / -1;">
-              <div class="meta-title">${esc(tx(lang,{fr:"Nature de l'envoi",ar:'طبيعة الإرسالية',en:'Nature of the shipment',es:'Naturaleza del envío',pt:'Natureza da remessa',tr:'Sevkiyatın niteliği'}))}</div>
-              <div class="meta-val">${esc(shipmentNature)}</div>
-              <div style="font-size: 11px; color: #64748b; font-weight: 600; margin-top: 2px;">${esc(shipmentNatureHint)}</div>
+            <div class="box">
+              <div class="box-title">${esc(tx(lang,{fr:"Nature de l'envoi",ar:'طبيعة الإرسالية',en:'Nature of the shipment',es:'Naturaleza del envío',pt:'Natureza da remessa',tr:'Sevkiyatın niteliği'}))}</div>
+              <div class="box-val">${esc(shipmentNature)}</div>
+              <div class="party-line">${esc(shipmentNatureHint)}</div>
             </div>
           </div>
 
-          <h3 style="font-size: 15px; margin-bottom: 10px; color: #1e1b4b; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; font-weight: 800;">${tx(lang,{fr:'DETAILS DES PIECES',ar:'تفاصيل القطع',en:'PIECE DETAILS',es:'DETALLES DE LAS PIEZAS',pt:'DETALHES DAS PEÇAS',tr:'PARÇA DETAYLARI'})}</h3>
+          ${visualsBlock}
+
           <table>
             <thead>
               <tr>
-                <th>${tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
-                <th>${tx(lang,{fr:'Détail des Tailles',ar:'تفصيل المقاسات',en:'Size Details',es:'Detalle de Tallas',pt:'Detalhe dos Tamanhos',tr:'Beden Detayları'})}</th>
-                <th style="text-align: right;">${tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
+                <th>${esc(tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'}))}</th>
+                ${bonEnvoiShow.sizeDetail ? `<th>${esc(tx(lang,{fr:'Détail des Tailles',ar:'تفصيل المقاسات',en:'Size Details',es:'Detalle de Tallas',pt:'Detalhe dos Tamanhos',tr:'Beden Detayları'}))}</th>` : ''}
+                <th style="text-align: right;">${esc(tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'}))}</th>
               </tr>
             </thead>
             <tbody>
               ${rowsHtml}
-              <tr style="background: #f8fafc; font-weight: 900; font-size: 14px; border-top: 2px solid #cbd5e1;">
-                <td colspan="2">${esc(totalRowLabel)}</td>
-                <td style="text-align: right; font-weight: 900; color: #4f46e5; font-size: 16px;">${rowsTotal.toLocaleString(dateLocale)} pcs</td>
+              <tr style="background: #f8fafc; font-weight: 900; font-size: 12px; border-top: 2px solid #cbd5e1;">
+                <td colspan="${bonEnvoiShow.sizeDetail ? 2 : 1}">${esc(totalRowLabel)}</td>
+                <td style="text-align: right; font-weight: 900; color: #4f46e5; font-size: 14px;">${rowsTotal.toLocaleString(dateLocale)} pcs</td>
               </tr>
             </tbody>
           </table>
 
           ${mismatchHtml}
 
-          ${order.notes ? `
-            <div style="background: #faf5ff; border: 1px solid #f3e8ff; border-radius: 12px; padding: 15px; margin-bottom: 30px;">
-              <div style="font-size: 10px; font-weight: 800; color: #a21caf; text-transform: uppercase;">${tx(lang,{fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'})}</div>
-              <div style="font-size: 13px; margin-top: 6px; font-style: italic; color: #581c87; font-weight: 600;">${order.notes}</div>
-            </div>
-          ` : ''}
+          ${milestonesBlock}
+
+          ${materialsBlock}
+
+          ${notesBlock}
 
           <div class="signatures">
-            <div class="sig-box">${tx(lang,{fr:'Livreur / Transporteur',ar:'المسلم / الناقل',en:'Delivery Person / Carrier',es:'Repartidor / Transportista',pt:'Entregador / Transportador',tr:'Teslim Eden / Nakliyeci'})}</div>
-            <div class="sig-box">${tx(lang,{fr:'Réception Sous-traitant',ar:'استلام المقاول من الباطن',en:'Subcontractor Receipt',es:'Recepción Subcontratista',pt:'Recepção Subcontratado',tr:'Taşeron Teslim Alma'})}</div>
-            <div class="sig-box">${tx(lang,{fr:'Contrôle Production',ar:'مراقبة الإنتاج',en:'Production Control',es:'Control de Producción',pt:'Controlo de Produção',tr:'Üretim Kontrolü'})}</div>
+            <div class="sig-box">${esc(tx(lang,{fr:'Livreur / Transporteur',ar:'المسلم / الناقل',en:'Delivery Person / Carrier',es:'Repartidor / Transportista',pt:'Entregador / Transportador',tr:'Teslim Eden / Nakliyeci'}))}</div>
+            <div class="sig-box">${esc(tx(lang,{fr:'Réception Sous-traitant',ar:'استلام المقاول من الباطن',en:'Subcontractor Receipt',es:'Recepción Subcontratista',pt:'Recepção Subcontratado',tr:'Taşeron Teslim Alma'}))}</div>
+            <div class="sig-box">${esc(tx(lang,{fr:'Contrôle Production',ar:'مراقبة الإنتاج',en:'Production Control',es:'Control de Producción',pt:'Controlo de Produção',tr:'Üretim Kontrolü'}))}</div>
+          </div>
+
+          <div class="footer">
+            ${esc([bonEnvoiIssuer.nom, bonEnvoiIssuer.ice ? `ICE : ${bonEnvoiIssuer.ice}` : '', bonEnvoiIssuer.tel].filter(Boolean).join(' · '))}
+          </div>
           </div>
                   ${autoFitScript(20)}
 </body>
@@ -3361,21 +3574,31 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const lineRows: string[] = [];
     // Ligne Façon décochée : elle ne doit pas apparaître sur le document imprimé,
     // sinon celui-ci contredirait le total (déjà calculé sans elle).
+    // Chaque ligne porte un « type » en petites capitales au-dessus de son
+    // libellé : le lecteur distingue façon / matière / frais d'un coup d'œil
+    // sans avoir besoin de la couleur, ce qui compte en photocopie noir et blanc.
+    const lineCell = (kind: string, label: string, note = '') => `
+                <td class="c-desc">
+                  <span class="kind">${esc(kind)}</span>
+                  <span class="label">${esc(label)}</span>
+                  ${note ? `<div class="note">${note}</div>` : ''}
+                </td>`;
+
     if (inv.faconOn) lineRows.push(`
               <tr>
-                <td style="font-weight: 600;">${esc(tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}))} — ${esc(inv.faconView.label)}</td>
-                <td style="text-align: right;">${esc(inv.qty.toLocaleString(dateLocale))} pcs</td>
-                <td style="text-align: right;">${money(inv.unitPrice)}</td>
-                <td style="text-align: right; font-weight: 700;">${money(inv.faconTotal)}</td>
+                ${lineCell(tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}), inv.faconView.label)}
+                <td class="num">${esc(inv.qty.toLocaleString(dateLocale))} pcs</td>
+                <td class="num">${money(inv.unitPrice)}</td>
+                <td class="num strong">${money(inv.faconTotal)}</td>
               </tr>`);
 
     inv.materials.forEach(m => {
       lineRows.push(`
               <tr>
-                <td>${esc(tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'}))} — ${esc(m.label)}</td>
-                <td style="text-align: right;">${esc(fmt(m.buyQty))} ${esc(m.unit)}</td>
-                <td style="text-align: right;">${money(m.unitPrice)}</td>
-                <td style="text-align: right; font-weight: 700;">${money(m.amount)}</td>
+                ${lineCell(tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'}), m.label)}
+                <td class="num">${esc(fmt(m.buyQty))} ${esc(m.unit)}</td>
+                <td class="num">${money(m.unitPrice)}</td>
+                <td class="num strong">${money(m.amount)}</td>
               </tr>`);
     });
 
@@ -3388,12 +3611,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         : '';
       lineRows.push(`
               <tr>
-                <td>${esc(tx(lang,{fr:'Frais',ar:'مصروف',en:'Expense',es:'Gasto',pt:'Despesa',tr:'Masraf'}))} — ${esc(label)}
-                  <div style="font-size: 11px; color: #64748b;">${esc(scopeLabel)}${prorata}</div>
-                </td>
-                <td style="text-align: right;">&mdash;</td>
-                <td style="text-align: right;">&mdash;</td>
-                <td style="text-align: right; font-weight: 700;">${money(amount)}</td>
+                ${lineCell(tx(lang,{fr:'Frais',ar:'مصروف',en:'Expense',es:'Gasto',pt:'Despesa',tr:'Masraf'}), label, `${esc(scopeLabel)}${prorata}`)}
+                <td class="num muted">&mdash;</td>
+                <td class="num muted">&mdash;</td>
+                <td class="num strong">${money(amount)}</td>
               </tr>`);
     });
 
@@ -3403,17 +3624,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const stPhoto = profile?.photo || '';
     const visuals: string[] = [];
     if (costInvoiceShow.model && modelPhoto) {
-      visuals.push(`<div style="text-align:center;"><img src="${esc(modelPhoto)}" alt="" style="height:42px;width:42px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" /><div style="font-size:8px;color:#64748b;margin-top:2px;">${esc(order.modelName || order.modelId)}</div></div>`);
+      visuals.push(`<div class="thumb"><img src="${esc(modelPhoto)}" alt="" /><div>${esc(order.modelName || order.modelId)}</div></div>`);
     }
     if (costInvoiceShow.subcontractor && stPhoto) {
-      visuals.push(`<div style="text-align:center;"><img src="${esc(stPhoto)}" alt="" style="height:42px;width:42px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;" /><div style="font-size:8px;color:#64748b;margin-top:2px;">${esc(order.subcontractorName)}</div></div>`);
+      visuals.push(`<div class="thumb"><img src="${esc(stPhoto)}" alt="" /><div>${esc(order.subcontractorName)}</div></div>`);
     }
     const visualsBlock = visuals.length
-      ? `<div style="display:flex;gap:10px;margin-bottom:8px;">${visuals.join('')}</div>`
+      ? `<div class="thumbs">${visuals.join('')}</div>`
       : '';
 
+    // Avis de facturation partielle : encadré sobre et surtout signalé par un
+    // filet épais à gauche, lisible même sans la teinte ambre à l'impression N&B.
     const partialNotice = inv.isPartial ? `
-          <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:20px;font-size:12px;color:#92400e;font-weight:700;">
+          <div class="notice">
             ${esc(tx(lang,{
               fr:`Facturation partielle : ${inv.qty} pièces facturées sur ${order.totalQuantity} commandées.`,
               ar:`فوترة جزئية: ${inv.qty} قطعة مفوترة من ${order.totalQuantity} مطلوبة.`,
@@ -3428,13 +3651,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       companyIdentity.adresse,
       companyIdentity.tel ? `${tx(lang,{fr:'Tél',ar:'الهاتف',en:'Tel',es:'Tel',pt:'Tel',tr:'Tel'})} : ${companyIdentity.tel}` : '',
       [companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : ''].filter(Boolean).join(' · '),
-    ].filter(Boolean).map(l => `<div style="font-size: 11px; color: #475569; margin-top: 3px;">${esc(l)}</div>`).join('');
+    ].filter(Boolean).map(l => `<div class="party-line">${esc(l)}</div>`).join('');
 
     const recipientLines = [
       costInvoiceTiers.adresse || profile?.address || '',
       costInvoiceTiers.tel || profile?.phone || order.subcontractorPhone || '',
       [(costInvoiceTiers.ice || profile?.ice) ? `ICE : ${costInvoiceTiers.ice || profile?.ice}` : '', (costInvoiceTiers.rc || profile?.rc) ? `RC : ${costInvoiceTiers.rc || profile?.rc}` : ''].filter(Boolean).join(' · '),
-    ].filter(Boolean).map(l => `<div style="font-size: 11px; color: #475569; margin-top: 3px;">${esc(l)}</div>`).join('');
+    ].filter(Boolean).map(l => `<div class="party-line">${esc(l)}</div>`).join('');
 
     // Le numéro définitif est attribué par le serveur à l'enregistrement. Tant
     // qu'il n'existe pas, on imprime une référence provisoire clairement
@@ -3458,7 +3681,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         ? tx(lang,{fr:'Opération exonérée de TVA (marché export) — article 92 du Code Général des Impôts.',ar:'عملية معفاة من الضريبة على القيمة المضافة (سوق التصدير) — المادة 92 من المدونة العامة للضرائب.',en:'VAT-exempt transaction (export market) — article 92 of the Moroccan General Tax Code.',es:'Operación exenta de IVA (mercado de exportación) — artículo 92 del Código General de Impuestos.',pt:'Operação isenta de IVA (mercado de exportação) — artigo 92.º do Código Geral dos Impostos.',tr:'KDV\'den muaf işlem (ihracat pazarı) — Genel Vergi Kanunu madde 92.'})
         : '',
       tx(lang,{fr:'Tout retard de paiement au-delà de la date d\'échéance peut donner lieu à des pénalités de retard conformément à la loi 32-10.',ar:'كل تأخير في الأداء بعد تاريخ الاستحقاق قد يترتب عنه غرامات تأخير طبقاً للقانون 32-10.',en:'Any payment delay beyond the due date may incur late penalties under Moroccan law 32-10.',es:'Cualquier retraso en el pago tras el vencimiento puede generar penalizaciones según la ley 32-10.',pt:'Qualquer atraso no pagamento após o vencimento pode gerar penalidades nos termos da lei 32-10.',tr:'Vade tarihinden sonraki gecikmeler 32-10 sayılı kanun uyarınca gecikme cezasına tabi olabilir.'}),
-    ].filter(Boolean).map(l => `<div>• ${esc(l)}</div>`).join('');
+    ].filter(Boolean).map(l => `<li>${esc(l)}</li>`).join('');
 
     printWindow.document.write(`
       <html>
@@ -3467,42 +3690,109 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           <style>
             /* Facture d'atelier : elle doit tenir sur UNE feuille A4. Tout est
                donc calibré serré — une facture qui déborde sur une seconde page
-               oblige à agrafer, et la page 2 finit par se perdre. */
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; padding: 16px; line-height: 1.35; font-size: 11px; }
+               oblige à agrafer, et la page 2 finit par se perdre.
+
+               Parti pris graphique : document comptable, pas plaquette. Aucun
+               aplat de couleur décoratif, la hiérarchie repose sur la graisse,
+               la casse et l'épaisseur des filets — donc elle survit intacte à
+               une photocopie noir et blanc. Les seuls aplats restants (bandeau
+               TOTAL TTC, en-tête de tableau) sont des gris/noirs neutres. */
+            * { box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #16202e; padding: 16px; line-height: 1.35; font-size: 11px; }
             .invoice-box { max-width: 820px; margin: auto; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #6366f1; padding-bottom: 10px; margin-bottom: 12px; }
-            .logo { font-size: 18px; font-weight: 900; color: #1e1b4b; }
-            .meta-section { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-            .box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 10px; border-radius: 8px; }
-            .box-title { font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: .04em; }
-            .box-val { font-size: 12px; font-weight: 800; color: #0f172a; margin-top: 2px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-            th { background: #f1f5f9; padding: 6px 8px; text-align: left; font-size: 9px; color: #475569; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; }
-            td { padding: 5px 8px; border-bottom: 1px solid #eef2f7; }
-            .total-table { width: 280px; margin-left: auto; }
-            .total-table td { padding: 3px 8px; border: none; }
-            .total-row { font-weight: 900; color: #4f46e5; font-size: 13px; border-top: 1px solid #cbd5e1 !important; }
-            .signatures { display: flex; justify-content: space-between; margin-top: 22px; }
-            .sig-box { width: 220px; border-top: 1px dashed #cbd5e1; text-align: center; padding-top: 6px; font-size: 9px; color: #475569; font-weight: 800; }
-            .footer { margin-top: 12px; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
-            .words { border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 10px; margin: 10px 0; background: #fafafa; }
-            .words-ar { direction: rtl; font-size: 11px; margin-top: 3px; }
-            .legal { font-size: 8.5px; color: #64748b; line-height: 1.45; margin-top: 10px; }
-            /* La vignette du modèle est un repère visuel, pas une illustration :
-               au-delà de cette taille elle mange une ligne du tableau. */
-            .model-thumb img { height: 40px !important; }
+
+            /* Chiffres : chasse fixe pour que les colonnes de montants s'alignent
+               à la virgule près, comme sur une facture d'imprimeur. */
+            .num, .amount { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; white-space: nowrap; }
+
+            /* --- En-tête --- */
+            .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 1.5px solid #16202e; padding-bottom: 8px; }
+            .header-rule { border-bottom: 0.5px solid #16202e; margin-bottom: 12px; padding-top: 1.5px; }
+            .logo { font-size: 17px; font-weight: 800; letter-spacing: -.01em; color: #16202e; }
+            .doc-title { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .10em; color: #16202e; }
+            .doc-meta { margin-top: 5px; font-size: 10px; color: #16202e; }
+            .doc-meta div { margin-top: 1px; }
+            .doc-meta .k { color: #667085; }
+            .doc-meta .v { font-weight: 700; }
+
+            /* --- Émetteur / bénéficiaire : deux colonnes séparées par un filet
+                   discret plutôt que deux cartouches grises qui alourdissent. --- */
+            .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 12px; }
+            .party { padding: 0 14px; }
+            .party:first-child { padding-left: 0; }
+            .party:last-child { border-left: 0.5px solid #ccd3dc; }
+            .party-title { font-size: 7.5px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: .12em; }
+            .party-name { font-size: 12px; font-weight: 800; color: #16202e; margin-top: 3px; }
+            .party-line { font-size: 10px; color: #4a5568; margin-top: 2px; }
+
+            /* --- Tableau des lignes --- */
+            table { width: 100%; border-collapse: collapse; }
+            .lines { margin-bottom: 10px; }
+            .lines th { padding: 5px 8px; text-align: left; font-size: 8px; color: #16202e; font-weight: 700; text-transform: uppercase; letter-spacing: .09em;
+                        border-top: 0.75px solid #16202e; border-bottom: 0.75px solid #16202e; }
+            .lines th.num { text-align: right; }
+            .lines td { padding: 5px 8px; border-bottom: 0.5px solid #e3e8ee; vertical-align: top; }
+            .lines tr:last-child td { border-bottom: 0.75px solid #16202e; }
+            .lines .c-desc { padding-left: 0; }
+            .lines td.num:last-child, .lines th.num:last-child { padding-right: 0; }
+            .kind { font-size: 7.5px; text-transform: uppercase; letter-spacing: .10em; color: #667085; font-weight: 700; display: block; }
+            .label { font-weight: 600; color: #16202e; }
+            .note { font-size: 9px; color: #667085; margin-top: 1px; }
+            .strong { font-weight: 700; }
+            .muted { color: #98a2b3; }
+
+            /* --- Pied : mentions à gauche, totaux à droite. Le lecteur cherche
+                   toujours le montant en bas à droite : on l'y met. --- */
+            .summary { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+            .total-table { width: 100%; }
+            .total-table td { padding: 3px 0; border: none; font-size: 10.5px; }
+            .total-table td:first-child { color: #4a5568; }
+            .total-table td:last-child { font-weight: 700; }
+            .sub-rule td { border-top: 0.5px solid #ccd3dc !important; }
+            /* TOTAL TTC : bandeau plein noir. C'est l'information que l'œil doit
+               atteindre en premier, et un aplat reste dominant en N&B. */
+            .total-row td { background: #16202e; color: #ffffff; font-weight: 800; font-size: 12.5px; padding: 6px 8px; letter-spacing: .02em; }
+            .total-row td:first-child { color: #ffffff; text-transform: uppercase; font-size: 10px; letter-spacing: .09em; }
+            .balance-row td { border-top: 0.75px solid #16202e !important; font-weight: 800; font-size: 11.5px; padding-top: 5px; }
+            .balance-row td:first-child { color: #16202e; text-transform: uppercase; font-size: 9px; letter-spacing: .09em; }
+
+            .words { border-left: 2px solid #16202e; padding: 2px 0 2px 9px; }
+            .words-title { font-size: 7.5px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: .10em; }
+            .words-fr { font-weight: 700; margin-top: 2px; font-size: 10.5px; }
+            .words-ar { direction: rtl; font-size: 10.5px; font-weight: 700; margin-top: 1px; }
+
+            .notice { border-left: 2.5px solid #16202e; background: #f4f6f8; padding: 6px 10px; margin-bottom: 10px; font-size: 10px; font-weight: 700; }
+
+            .legal { font-size: 8.5px; color: #4a5568; line-height: 1.5; margin-top: 12px; padding: 0; }
+            .legal ul { margin: 3px 0 0; padding-left: 12px; }
+            .legal li { margin-top: 1px; }
+            .legal-title { font-size: 7.5px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: .10em; }
+
+            .signatures { display: flex; justify-content: space-between; gap: 24px; margin-top: 26px; }
+            .sig-box { width: 210px; border-top: 0.5px solid #16202e; text-align: center; padding-top: 4px; font-size: 8.5px; color: #4a5568; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+            .footer { margin-top: 12px; text-align: center; font-size: 8.5px; color: #667085; border-top: 0.5px solid #e3e8ee; padding-top: 6px; }
+
+            /* Les vignettes sont des repères d'identification, pas des
+               illustrations : au-delà de cette taille elles mangent une ligne
+               du tableau, ce qui coûte une page. */
+            .thumbs { display: flex; gap: 10px; margin-bottom: 8px; }
+            .thumb img { height: 40px; width: 40px; object-fit: cover; border: 0.5px solid #ccd3dc; }
+            .thumb div { font-size: 7.5px; color: #667085; margin-top: 2px; text-align: center; max-width: 56px; }
             /* Papier A4 : marges typographiques raisonnables, en-tête de tableau
                répété sur chaque page et lignes jamais coupées en deux — sans quoi
                une facture de 30 lignes devient illisible à l'impression. */
             @page { size: A4; margin: 10mm 10mm; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
-            tr, .box, .words, .signatures { break-inside: avoid; page-break-inside: avoid; }
+            tr, .party, .words, .signatures, .summary { break-inside: avoid; page-break-inside: avoid; }
             @media print {
               body { padding: 0; font-size: 10.5px; }
               .invoice-box { max-width: none; }
               /* Rien ne doit provoquer de saut : la facture tient sur une page. */
-              .signatures { margin-top: 16px; }
+              .signatures { margin-top: 18px; }
+              /* Le bandeau TOTAL TTC perd tout son sens si le navigateur
+                 supprime les aplats : on les force à l'impression. */
+              .total-row td, .notice { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             }
           </style>
         </head>
@@ -3514,27 +3804,32 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   ${costInvoiceShow.logo && companyIdentity.logo ? `<img src="${esc(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
                   <div>
                     <div class="logo">${esc(companyIdentity.nom || '')}</div>
-                    <div style="font-size: 10px; color: #64748b; font-weight: 600;">${esc([companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : ''].filter(Boolean).join(' · '))}</div>
+                    <div class="party-line">${esc([companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : ''].filter(Boolean).join(' · '))}</div>
                   </div>
                 </div>
               </div>
               <div style="text-align: right;">
-                <div style="font-size: 18px; font-weight: 900; color: #4f46e5;">${esc(tx(lang,{fr:'FACTURE SOUS-TRAITANCE',ar:'فاتورة المقاولة من الباطن',en:'SUBCONTRACT INVOICE',es:'FACTURA DE SUBCONTRATACIÓN',pt:'FATURA DE SUBCONTRATAÇÃO',tr:'TAŞERON FATURASI'}))}</div>
-                <div style="font-size: 11px; font-weight: 700; color: #64748b; margin-top: 4px;">${esc(numeroLabel)}</div>
-                <div style="font-size: 11px; font-weight: 700; color: #64748b;">${esc(tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'}))} : ${esc(fmtDate(inv.dateFacture))}</div>
-                <div style="font-size: 11px; font-weight: 700; color: #64748b;">${esc(tx(lang,{fr:'Échéance',ar:'تاريخ الاستحقاق',en:'Due date',es:'Vencimiento',pt:'Vencimento',tr:'Vade'}))} : ${esc(fmtDate(inv.dueDate))}</div>
+                <div class="doc-title">${esc(tx(lang,{fr:'FACTURE SOUS-TRAITANCE',ar:'فاتورة المقاولة من الباطن',en:'SUBCONTRACT INVOICE',es:'FACTURA DE SUBCONTRATACIÓN',pt:'FATURA DE SUBCONTRATAÇÃO',tr:'TAŞERON FATURASI'}))}</div>
+                <div class="doc-meta">
+                  <div class="v">${esc(numeroLabel)}</div>
+                  <div><span class="k">${esc(tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'}))} :</span> <span class="v">${esc(fmtDate(inv.dateFacture))}</span></div>
+                  <div><span class="k">${esc(tx(lang,{fr:'Échéance',ar:'تاريخ الاستحقاق',en:'Due date',es:'Vencimiento',pt:'Vencimento',tr:'Vade'}))} :</span> <span class="v">${esc(fmtDate(inv.dueDate))}</span></div>
+                </div>
               </div>
             </div>
+            <!-- Double filet : la ligne fine sous le trait épais donne au
+                 document sa signature « papier à en-tête » sans coûter de place. -->
+            <div class="header-rule"></div>
 
-            <div class="meta-section">
-              <div class="box">
-                <div class="box-title">${esc(tx(lang,{fr:'Émetteur',ar:'المصدر',en:'Issuer',es:'Emisor',pt:'Emitente',tr:'Düzenleyen'}))}</div>
-                <div class="box-val">${esc(companyIdentity.nom || tx(lang,{fr:'Entreprise non renseignée',ar:'الشركة غير محدَّدة',en:'Company not set',es:'Empresa no indicada',pt:'Empresa não indicada',tr:'Şirket belirtilmedi'}))}</div>
+            <div class="parties">
+              <div class="party">
+                <div class="party-title">${esc(tx(lang,{fr:'Émetteur',ar:'المصدر',en:'Issuer',es:'Emisor',pt:'Emitente',tr:'Düzenleyen'}))}</div>
+                <div class="party-name">${esc(companyIdentity.nom || tx(lang,{fr:'Entreprise non renseignée',ar:'الشركة غير محدَّدة',en:'Company not set',es:'Empresa no indicada',pt:'Empresa não indicada',tr:'Şirket belirtilmedi'}))}</div>
                 ${issuerLines}
               </div>
-              <div class="box">
-                <div class="box-title">${esc(tx(lang,{fr:'Sous-traitant (bénéficiaire)',ar:'المقاول من الباطن (المستفيد)',en:'Subcontractor (payee)',es:'Subcontratista (beneficiario)',pt:'Subcontratado (beneficiário)',tr:'Taşeron (alacaklı)'}))}</div>
-                <div class="box-val">${esc(order.subcontractorName)}</div>
+              <div class="party">
+                <div class="party-title">${esc(tx(lang,{fr:'Sous-traitant (bénéficiaire)',ar:'المقاول من الباطن (المستفيد)',en:'Subcontractor (payee)',es:'Subcontratista (beneficiario)',pt:'Subcontratado (beneficiário)',tr:'Taşeron (alacaklı)'}))}</div>
+                <div class="party-name">${esc(order.subcontractorName)}</div>
                 ${recipientLines}
               </div>
             </div>
@@ -3543,13 +3838,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
             ${partialNotice}
 
-            <table>
+            <table class="lines">
               <thead>
                 <tr>
                   <th>${esc(tx(lang,{fr:'Désignation',ar:'البيان',en:'Description',es:'Designación',pt:'Designação',tr:'Açıklama'}))}</th>
-                  <th style="text-align: right;">${esc(tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'}))}</th>
-                  <th style="text-align: right;">${esc(tx(lang,{fr:'Prix Unitaire',ar:'السعر الوحدة',en:'Unit Price',es:'Precio Unitario',pt:'Preço Unitário',tr:'Birim Fiyat'}))}</th>
-                  <th style="text-align: right;">${esc(tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'}))}</th>
+                  <th class="num">${esc(tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'}))}</th>
+                  <th class="num">${esc(tx(lang,{fr:'Prix Unitaire',ar:'السعر الوحدة',en:'Unit Price',es:'Precio Unitario',pt:'Preço Unitário',tr:'Birim Fiyat'}))}</th>
+                  <th class="num">${esc(tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'}))}</th>
                 </tr>
               </thead>
               <tbody>
@@ -3557,59 +3852,68 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </tbody>
             </table>
 
-            <table class="total-table">
-              <tr>
-                <td style="color: #64748b;">${esc(tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}))}</td>
-                <td style="text-align: right; font-weight: 700;">${money(inv.faconTotal)}</td>
-              </tr>
-              ${inv.isFacon ? `
-              <tr>
-                <td style="color: #64748b;">${esc(tx(lang,{fr:'Matières',ar:'المواد',en:'Materials',es:'Materiales',pt:'Materiais',tr:'Malzemeler'}))}</td>
-                <td style="text-align: right; font-weight: 700;">${money(inv.materialsTotal)}</td>
-              </tr>` : ''}
-              <tr>
-                <td style="color: #64748b;">${esc(tx(lang,{fr:'Frais additionnels',ar:'مصاريف إضافية',en:'Additional expenses',es:'Gastos adicionales',pt:'Despesas adicionais',tr:'Ek masraflar'}))}</td>
-                <td style="text-align: right; font-weight: 700;">${money(inv.expensesTotal)}</td>
-              </tr>
-              <tr>
-                <td style="color: #64748b;">${esc(tx(lang,{fr:'Total HT brut',ar:'المجموع دون احتساب الضريبة',en:'Gross net-of-tax total',es:'Total sin IVA bruto',pt:'Total sem IVA bruto',tr:'Brüt KDV hariç toplam'}))}</td>
-                <td style="text-align: right; font-weight: 700;">${money(inv.totalBrut)}</td>
-              </tr>
-              ${inv.discount > 0 ? `
-              <tr>
-                <td style="color: #b45309;">${esc(tx(lang,{fr:'Remise',ar:'التخفيض',en:'Discount',es:'Descuento',pt:'Desconto',tr:'İndirim'}))}</td>
-                <td style="text-align: right; font-weight: 700; color: #b45309;">- ${money(inv.discount)}</td>
-              </tr>
-              <tr>
-                <td style="color: #64748b;">${esc(tx(lang,{fr:'Net HT',ar:'الصافي دون الضريبة',en:'Net excl. tax',es:'Neto sin IVA',pt:'Líquido sem IVA',tr:'Net KDV hariç'}))}</td>
-                <td style="text-align: right; font-weight: 700;">${money(inv.netHT)}</td>
-              </tr>` : ''}
-              <tr>
-                <td style="color: #64748b;">${esc(tx(lang,{fr:'TVA',ar:'الضريبة على القيمة المضافة',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'}))} ${esc(inv.tvaRate)}%${inv.exonerated ? ` (${esc(tx(lang,{fr:'exonéré',ar:'معفى',en:'exempt',es:'exento',pt:'isento',tr:'muaf'}))})` : ''}</td>
-                <td style="text-align: right; font-weight: 700;">${money(inv.tvaAmount)}</td>
-              </tr>
-              <tr class="total-row">
-                <td>${esc(tx(lang,{fr:'TOTAL TTC',ar:'المجموع مع الضريبة',en:'TOTAL INCL. TAX',es:'TOTAL CON IVA',pt:'TOTAL COM IVA',tr:'TOPLAM (KDV DAHİL)'}))}</td>
-                <td style="text-align: right;">${money(inv.totalTTC)}</td>
-              </tr>
-              ${inv.acompte > 0 ? `
-              <tr>
-                <td style="color: #047857;">${esc(tx(lang,{fr:'Acompte déjà versé',ar:'تسبيق مؤدى',en:'Advance already paid',es:'Anticipo ya pagado',pt:'Adiantamento já pago',tr:'Ödenmiş avans'}))}</td>
-                <td style="text-align: right; font-weight: 700; color: #047857;">- ${money(inv.acompte)}</td>
-              </tr>
-              <tr class="total-row">
-                <td>${esc(tx(lang,{fr:'RESTE À PAYER',ar:'الباقي للأداء',en:'BALANCE DUE',es:'RESTO A PAGAR',pt:'RESTANTE A PAGAR',tr:'KALAN BORÇ'}))}</td>
-                <td style="text-align: right;">${money(inv.resteAPayer)}</td>
-              </tr>` : ''}
-            </table>
+            <!-- Deux colonnes : montant en toutes lettres à gauche (obligation
+                 marocaine) et cascade des totaux à droite, là où l'œil la cherche. -->
+            <div class="summary">
+              <div>
+                <div class="words">
+                  <div class="words-title">${esc(tx(lang,{fr:'Arrêtée la présente facture à la somme de',ar:'حُررت هذه الفاتورة بمبلغ',en:'This invoice is settled at the sum of',es:'La presente factura asciende a la suma de',pt:'A presente fatura ascende à quantia de',tr:'İşbu fatura şu tutar üzerinden düzenlenmiştir'}))}</div>
+                  <div class="words-fr">${esc(inv.words.fr)}</div>
+                  <div class="words-ar">${esc(inv.words.ar)}</div>
+                </div>
+              </div>
 
-            <div class="words">
-              <div style="font-size:10px;text-transform:uppercase;color:#64748b;font-weight:800;">${esc(tx(lang,{fr:'Arrêtée la présente facture à la somme de',ar:'حُررت هذه الفاتورة بمبلغ',en:'This invoice is settled at the sum of',es:'La presente factura asciende a la suma de',pt:'A presente fatura ascende à quantia de',tr:'İşbu fatura şu tutar üzerinden düzenlenmiştir'}))} :</div>
-              <div style="font-weight:700;margin-top:4px;">${esc(inv.words.fr)}</div>
-              <div class="words-ar" style="font-weight:700;">${esc(inv.words.ar)}</div>
+              <table class="total-table">
+                <tr>
+                  <td>${esc(tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}))}</td>
+                  <td class="num">${money(inv.faconTotal)}</td>
+                </tr>
+                ${inv.isFacon ? `
+                <tr>
+                  <td>${esc(tx(lang,{fr:'Matières',ar:'المواد',en:'Materials',es:'Materiales',pt:'Materiais',tr:'Malzemeler'}))}</td>
+                  <td class="num">${money(inv.materialsTotal)}</td>
+                </tr>` : ''}
+                <tr>
+                  <td>${esc(tx(lang,{fr:'Frais additionnels',ar:'مصاريف إضافية',en:'Additional expenses',es:'Gastos adicionales',pt:'Despesas adicionais',tr:'Ek masraflar'}))}</td>
+                  <td class="num">${money(inv.expensesTotal)}</td>
+                </tr>
+                <tr class="sub-rule">
+                  <td>${esc(tx(lang,{fr:'Total HT brut',ar:'المجموع دون احتساب الضريبة',en:'Gross net-of-tax total',es:'Total sin IVA bruto',pt:'Total sem IVA bruto',tr:'Brüt KDV hariç toplam'}))}</td>
+                  <td class="num">${money(inv.totalBrut)}</td>
+                </tr>
+                ${inv.discount > 0 ? `
+                <tr>
+                  <td>${esc(tx(lang,{fr:'Remise',ar:'التخفيض',en:'Discount',es:'Descuento',pt:'Desconto',tr:'İndirim'}))}</td>
+                  <td class="num">&minus; ${money(inv.discount)}</td>
+                </tr>
+                <tr class="sub-rule">
+                  <td>${esc(tx(lang,{fr:'Net HT',ar:'الصافي دون الضريبة',en:'Net excl. tax',es:'Neto sin IVA',pt:'Líquido sem IVA',tr:'Net KDV hariç'}))}</td>
+                  <td class="num">${money(inv.netHT)}</td>
+                </tr>` : ''}
+                <tr>
+                  <td>${esc(tx(lang,{fr:'TVA',ar:'الضريبة على القيمة المضافة',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'}))} ${esc(inv.tvaRate)}%${inv.exonerated ? ` (${esc(tx(lang,{fr:'exonéré',ar:'معفى',en:'exempt',es:'exento',pt:'isento',tr:'muaf'}))})` : ''}</td>
+                  <td class="num">${money(inv.tvaAmount)}</td>
+                </tr>
+                <tr class="total-row">
+                  <td>${esc(tx(lang,{fr:'TOTAL TTC',ar:'المجموع مع الضريبة',en:'TOTAL INCL. TAX',es:'TOTAL CON IVA',pt:'TOTAL COM IVA',tr:'TOPLAM (KDV DAHİL)'}))}</td>
+                  <td class="num">${money(inv.totalTTC)}</td>
+                </tr>
+                ${inv.acompte > 0 ? `
+                <tr>
+                  <td>${esc(tx(lang,{fr:'Acompte déjà versé',ar:'تسبيق مؤدى',en:'Advance already paid',es:'Anticipo ya pagado',pt:'Adiantamento já pago',tr:'Ödenmiş avans'}))}</td>
+                  <td class="num">&minus; ${money(inv.acompte)}</td>
+                </tr>
+                <tr class="balance-row">
+                  <td>${esc(tx(lang,{fr:'Reste à payer',ar:'الباقي للأداء',en:'Balance due',es:'Resto a pagar',pt:'Restante a pagar',tr:'Kalan borç'}))}</td>
+                  <td class="num">${money(inv.resteAPayer)}</td>
+                </tr>` : ''}
+              </table>
             </div>
 
-            <div class="legal">${legalLines}</div>
+            <div class="legal">
+              <div class="legal-title">${esc(tx(lang,{fr:'Mentions légales',ar:'البيانات القانونية',en:'Legal notices',es:'Menciones legales',pt:'Menções legais',tr:'Yasal bilgiler'}))}</div>
+              <ul>${legalLines}</ul>
+            </div>
 
             <div class="signatures">
               <div class="sig-box">${esc(tx(lang,{fr:'Atelier donneur d\'ordre',ar:'الورشة صاحبة الطلب',en:'Ordering workshop',es:'Taller ordenante',pt:'Oficina mandante',tr:'Sipariş veren atölye'}))}</div>
@@ -3617,7 +3921,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             </div>
 
             <div class="footer">
-              <div style="font-weight:700;color:#64748b;margin-bottom:4px;">${esc([companyIdentity.nom, companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : '', companyIdentity.tel].filter(Boolean).join(' · '))}</div>
+              <div style="font-weight:700;color:#16202e;margin-bottom:3px;">${esc([companyIdentity.nom, companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : '', companyIdentity.tel].filter(Boolean).join(' · '))}</div>
               ${esc(tx(lang,{fr:'Document généré électroniquement et valable sans signature.',ar:'مستند تم إنشاؤه إلكترونياً وصالح بدون توقيع.',en:'Electronically generated document valid without signature.',es:'Documento generado electrónicamente y válido sin firma.',pt:'Documento gerado eletronicamente e válido sem assinatura.',tr:'Elektronik olarak oluşturulmuş, imzasız geçerli belge.'}))}
             </div>
           </div>
