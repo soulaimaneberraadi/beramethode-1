@@ -129,48 +129,91 @@ export const getStockEntries = (req: Request, res: Response) => {
     }
 };
 
+/**
+ * Enregistre UNE saisie = une grille entière (plusieurs cellules couleur ×
+ * taille). Les cellules partagent un `batch_id` : c'est ce qui permet de
+ * réafficher l'entrée sous la forme du tableau qu'elle était, et de la
+ * supprimer d'un seul geste au lieu de ligne à ligne.
+ */
 export const createStockEntry = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
-    const e = req.body || {};
-    const quantite = Math.floor(Number(e.quantite) || 0);
+    const body = req.body || {};
+    const orderId = body.order_id;
 
-    if (!e.order_id) return res.status(400).json({ message: 'order_id est obligatoire' });
-    // Une entrée nulle ou négative ne veut rien dire : pour retirer des pièces,
-    // on supprime la ligne fautive, ce qui laisse une trace lisible.
-    if (quantite <= 0) return res.status(400).json({ message: 'La quantité doit être supérieure à zéro' });
+    // Format historique (une seule cellule) accepté tel quel : il devient un lot
+    // d'une ligne, pour que tout passe par le même chemin.
+    const rawLines: any[] = Array.isArray(body.lignes) && body.lignes.length > 0
+        ? body.lignes
+        : [{ couleur: body.couleur, taille: body.taille, quantite: body.quantite }];
+
+    if (!orderId) return res.status(400).json({ message: 'order_id est obligatoire' });
+
+    const lignes = rawLines
+        .map(l => ({
+            couleur: l.couleur || null,
+            taille: l.taille || null,
+            quantite: Math.floor(Number(l.quantite) || 0),
+        }))
+        .filter(l => l.quantite > 0);
+
+    // Une saisie entièrement vide ne veut rien dire : pour retirer des pièces on
+    // supprime l'entrée fautive, ce qui laisse une trace lisible.
+    if (lignes.length === 0) return res.status(400).json({ message: 'Aucune quantité saisie' });
 
     try {
         const order = db.prepare('SELECT id, modelId, totalQuantity FROM subcontract_orders WHERE id = ? AND owner_id = ?')
-            .get(e.order_id, companyId) as any;
+            .get(orderId, companyId) as any;
         if (!order) return res.status(404).json({ message: 'Commande introuvable' });
 
         const already = db.prepare('SELECT COALESCE(SUM(quantite), 0) AS total FROM st_stock_entries WHERE owner_id = ? AND order_id = ?')
-            .get(companyId, e.order_id) as any;
+            .get(companyId, orderId) as any;
+        const ajout = lignes.reduce((a, l) => a + l.quantite, 0);
         // Recevoir plus que commandé trahit une erreur de saisie, et gonflerait
         // un stock qui sert ensuite de base aux ventes.
-        if ((already.total || 0) + quantite > order.totalQuantity) {
+        if ((already.total || 0) + ajout > order.totalQuantity) {
             return res.status(400).json({
-                message: `Total reçu (${(already.total || 0) + quantite}) supérieur à la quantité commandée (${order.totalQuantity})`,
+                message: `Total reçu (${(already.total || 0) + ajout}) supérieur à la quantité commandée (${order.totalQuantity})`,
             });
         }
 
-        const id = randomUUID();
-        db.prepare(`
-            INSERT INTO st_stock_entries (id, owner_id, order_id, modelId, couleur, taille, quantite, qualite, note, date_entree)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            id, companyId, e.order_id, order.modelId,
-            e.couleur || null, e.taille || null, quantite,
-            QUALITES.has(e.qualite) ? e.qualite : 'ACCEPTED',
-            e.note || null,
-            e.date_entree || new Date().toISOString().split('T')[0],
-        );
+        const batchId = randomUUID();
+        const qualite = QUALITES.has(body.qualite) ? body.qualite : 'ACCEPTED';
+        const date = body.date_entree || new Date().toISOString().split('T')[0];
 
-        const totals = syncOrderTotals(companyId, e.order_id);
-        res.json({ entry: db.prepare('SELECT * FROM st_stock_entries WHERE id = ?').get(id), totals });
+        const insert = db.prepare(`
+            INSERT INTO st_stock_entries (id, owner_id, order_id, modelId, couleur, taille, quantite, qualite, note, date_entree, batch_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        // Transaction : une grille est un tout. La moitié des cellules écrites
+        // laisserait un stock faux sans que rien ne le signale.
+        db.transaction(() => {
+            for (const l of lignes) {
+                insert.run(randomUUID(), companyId, orderId, order.modelId, l.couleur, l.taille, l.quantite, qualite, body.note || null, date, batchId);
+            }
+        })();
+
+        const totals = syncOrderTotals(companyId, orderId);
+        res.json({ batch_id: batchId, count: lignes.length, totals });
     } catch (error) {
         console.error('Create stock entry error:', error);
         res.status(500).json({ message: 'Error creating stock entry' });
+    }
+};
+
+/** Supprime tout un lot (la grille saisie d'un coup). */
+export const deleteStockBatch = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    try {
+        const row = db.prepare('SELECT order_id FROM st_stock_entries WHERE batch_id = ? AND owner_id = ? LIMIT 1')
+            .get(req.params.batchId, companyId) as any;
+        if (!row) return res.status(404).json({ message: 'Entrée introuvable' });
+
+        db.prepare('DELETE FROM st_stock_entries WHERE batch_id = ? AND owner_id = ?').run(req.params.batchId, companyId);
+        const totals = syncOrderTotals(companyId, row.order_id);
+        res.json({ message: 'Entrée supprimée', totals });
+    } catch (error) {
+        console.error('Delete stock batch error:', error);
+        res.status(500).json({ message: 'Error deleting stock batch' });
     }
 };
 

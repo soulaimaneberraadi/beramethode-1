@@ -615,22 +615,30 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     date_entree: string | null;
   }
 
+  /** Entrées de la commande ouverte dans la fiche — alimente « Reçu vs commandé ». */
+  const [detailEntries, setDetailEntries] = useState<StockEntry[]>([]);
   const [stockEntryOrder, setStockEntryOrder] = useState<SubcontractOrder | null>(null);
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [stockEntriesLoading, setStockEntriesLoading] = useState(false);
   const [stockEntrySaving, setStockEntrySaving] = useState(false);
   const [stockEntryError, setStockEntryError] = useState<string | null>(null);
-  const [entryForm, setEntryForm] = useState<{
-    couleur: string; taille: string; quantite: number | ''; qualite: 'ACCEPTED' | 'REPAIR' | 'REJECTED'; date: string;
-  }>({ couleur: '', taille: '', quantite: '', qualite: 'ACCEPTED', date: new Date().toISOString().split('T')[0] });
+  /** Grille en cours de saisie : `${couleur}|${taille}` -> quantité. */
+  const [entryGrid, setEntryGrid] = useState<Record<string, number | ''>>({});
+  const [entryQualite, setEntryQualite] = useState<'ACCEPTED' | 'REPAIR' | 'REJECTED'>('ACCEPTED');
+  const [entryDate, setEntryDate] = useState<string>(new Date().toISOString().split('T')[0]);
+
+  const gridKey = (couleur: string, taille: string) => `${couleur}|${taille}`;
 
   const loadStockEntries = async (orderId: string) => {
     setStockEntriesLoading(true);
     try {
       const res = await fetch(`/api/subcontract/stock-entries?orderId=${encodeURIComponent(orderId)}`, { credentials: 'include' });
-      setStockEntries(res.ok ? await res.json() : []);
+      const list: StockEntry[] = res.ok ? await res.json() : [];
+      setStockEntries(list);
+      return list;
     } catch {
       setStockEntries([]);
+      return [] as StockEntry[];
     } finally {
       setStockEntriesLoading(false);
     }
@@ -639,7 +647,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const openStockEntries = (order: SubcontractOrder) => {
     setStockEntryOrder(order);
     setStockEntryError(null);
-    setEntryForm({ couleur: '', taille: '', quantite: '', qualite: 'ACCEPTED', date: new Date().toISOString().split('T')[0] });
+    setEntryGrid({});
+    setEntryQualite('ACCEPTED');
+    setEntryDate(new Date().toISOString().split('T')[0]);
     loadStockEntries(order.id);
   };
 
@@ -659,11 +669,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   const addStockEntry = async () => {
     if (!stockEntryOrder) return;
-    const qty = Number(entryForm.quantite) || 0;
-    if (qty <= 0) {
-      setStockEntryError(tx(lang,{fr:'Indiquez une quantité supérieure à zéro.',ar:'دخّل كمية أكبر من صفر.',en:'Enter a quantity above zero.',es:'Indique una cantidad mayor que cero.',pt:'Indique uma quantidade maior que zero.',tr:'Sıfırdan büyük bir miktar girin.'}));
+    const lignes = Object.entries(entryGrid)
+      .map(([k, v]) => {
+        const [couleur, taille] = k.split('|');
+        return { couleur, taille, quantite: Number(v) || 0 };
+      })
+      .filter(l => l.quantite > 0);
+
+    if (lignes.length === 0) {
+      setStockEntryError(tx(lang,{fr:'Saisissez au moins une quantité dans la grille.',ar:'دخّل على الأقل كمية وحدة فالجدول.',en:'Enter at least one quantity in the grid.',es:'Introduzca al menos una cantidad en la rejilla.',pt:'Introduza pelo menos uma quantidade na grelha.',tr:'Izgaraya en az bir miktar girin.'}));
       return;
     }
+
     setStockEntrySaving(true);
     setStockEntryError(null);
     try {
@@ -673,18 +690,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         credentials: 'include',
         body: JSON.stringify({
           order_id: stockEntryOrder.id,
-          couleur: entryForm.couleur || null,
-          taille: entryForm.taille || null,
-          quantite: qty,
-          qualite: entryForm.qualite,
-          date_entree: entryForm.date,
+          lignes,
+          qualite: entryQualite,
+          date_entree: entryDate,
         }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.message || tx(lang,{fr:"L'entrée a été refusée.",ar:'تم رفض الإدخال.',en:'The entry was rejected.',es:'La entrada fue rechazada.',pt:'A entrada foi recusada.',tr:'Giriş reddedildi.'}));
+      if (!res.ok) throw new Error(body.message || tx(lang,{fr:"L'entree a ete refusee.",ar:'تم رفض الإدخال.',en:'The entry was rejected.',es:'La entrada fue rechazada.',pt:'A entrada foi recusada.',tr:'Giris reddedildi.'}));
       applyOrderTotals(stockEntryOrder.id, body.totals);
-      setEntryForm(prev => ({ ...prev, quantite: '' }));
-      await loadStockEntries(stockEntryOrder.id);
+      setEntryGrid({});
+      const fresh = await loadStockEntries(stockEntryOrder.id);
+      setDetailEntries(fresh);
     } catch (err: any) {
       setStockEntryError(err.message);
     } finally {
@@ -692,22 +708,63 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     }
   };
 
-  const removeStockEntry = async (entry: StockEntry) => {
+  /** Supprime une saisie entière (le lot), pas une cellule : c'est le geste que
+   *  l'utilisateur a fait, donc celui qu'il doit pouvoir défaire. */
+  const removeStockBatch = async (batchId: string) => {
     if (!stockEntryOrder) return;
     setStockEntrySaving(true);
     setStockEntryError(null);
     try {
-      const res = await fetch(`/api/subcontract/stock-entries/${entry.id}`, { method: 'DELETE', credentials: 'include' });
+      const res = await fetch(`/api/subcontract/stock-entries/batch/${batchId}`, { method: 'DELETE', credentials: 'include' });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.message || tx(lang,{fr:'La suppression a échoué.',ar:'فشل الحذف.',en:'Deletion failed.',es:'Error al eliminar.',pt:'Falha ao eliminar.',tr:'Silme başarısız.'}));
+      if (!res.ok) throw new Error(body.message || tx(lang,{fr:'La suppression a echoue.',ar:'فشل الحذف.',en:'Deletion failed.',es:'Error al eliminar.',pt:'Falha ao eliminar.',tr:'Silme basarisiz.'}));
       applyOrderTotals(stockEntryOrder.id, body.totals);
-      await loadStockEntries(stockEntryOrder.id);
+      const fresh = await loadStockEntries(stockEntryOrder.id);
+      setDetailEntries(fresh);
     } catch (err: any) {
       setStockEntryError(err.message);
     } finally {
       setStockEntrySaving(false);
     }
   };
+
+  /** Grille commandée du modèle, sous forme couleur × taille, et ce qui a déjà
+   *  été entré : c'est la comparaison des deux qui dit ce qu'il reste à recevoir. */
+  const stockEntryMatrix = useMemo(() => {
+    if (!stockEntryOrder) return null;
+    const fiche: any = models.find(m => m.id === stockEntryOrder.modelId)?.ficheData || {};
+    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+    const sizes: string[] = fiche.sizes || [];
+    const gq: Record<string, number> = fiche.gridQuantities || {};
+
+    const commande: Record<string, number> = {};
+    colors.forEach(c => sizes.forEach((sz, i) => {
+      const q = Number(gq[`${c.id}_${i}`]) || 0;
+      if (q > 0) commande[gridKey(c.name, sz)] = q;
+    }));
+
+    const entre: Record<string, number> = {};
+    stockEntries.forEach(en => {
+      const k = gridKey(en.couleur || '', en.taille || '');
+      entre[k] = (entre[k] || 0) + (Number(en.quantite) || 0);
+    });
+
+    return { colors, sizes, commande, entre };
+  }, [stockEntryOrder, models, stockEntries]);
+
+  /** Regroupe l'historique par saisie (batch) pour le réafficher en tableaux. */
+  const stockEntryBatches = useMemo(() => {
+    const map = new Map<string, { id: string; date: string; qualite: string; lignes: StockEntry[]; total: number }>();
+    stockEntries.forEach(en => {
+      // Les entrées d'avant le regroupement n'ont pas de lot : chacune forme le sien.
+      const key = (en as any).batch_id || en.id;
+      const cur = map.get(key) || { id: key, date: en.date_entree || '', qualite: en.qualite, lignes: [], total: 0 };
+      cur.lignes.push(en);
+      cur.total += Number(en.quantite) || 0;
+      map.set(key, cur);
+    });
+    return [...map.values()];
+  }, [stockEntries]);
 
   /** Jalon LIBRE en attente de confirmation : bascule ou suppression. Même
    *  exigence que les 4 jalons fixes — une checklist se coche volontairement. */
@@ -1144,6 +1201,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setExpenseAmount('');
     setExpenseScopeMode('ALL');
     setExpenseQuantityScope('');
+    // Le tableau « Reçu vs commandé » a besoin du détail des entrées, pas
+    // seulement des totaux portés par la commande.
+    fetch(`/api/subcontract/stock-entries?orderId=${encodeURIComponent(detailOrder.id)}`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : []))
+      .then(d => setDetailEntries(Array.isArray(d) ? d : []))
+      .catch(() => setDetailEntries([]));
     setCustomMilestones(readCustomMilestones(detailOrder));
     setNewMilestoneLabel('');
     // Une erreur de jalon appartient à la fiche où elle s'est produite : elle ne
@@ -5066,15 +5129,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         );
       })()}
 
-      {/* Entrées en stock : saisie couleur x taille x quantité et historique daté. */}
-      {stockEntryOrder && createPortal(
+      {/* Entrées en stock : la saisie se fait sur la MÊME grille couleur x taille
+          que la fiche du modèle, et chaque saisie reste consultable telle quelle. */}
+      {stockEntryOrder && stockEntryMatrix && createPortal(
         <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setStockEntryOrder(null)}>
-          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-2xl max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-3xl max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between sticky top-0 bg-white dark:bg-dk-surface z-10">
               <h3 className="text-[13px] font-bold text-slate-900 dark:text-dk-text flex items-center gap-2 min-w-0">
                 <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span className="truncate">
-                  {tx(lang,{fr:'Entrées en stock',ar:'إدخالات المخزون',en:'Stock entries',es:'Entradas en stock',pt:'Entradas em stock',tr:'Stok girişleri'})}
+                  {tx(lang,{fr:'Entrées en stock',ar:'إدخالات المخزون',en:'Stock entries',es:'Entradas en stock',pt:'Entradas em stock',tr:'Stok girisleri'})}
                   {' — '}{stockEntryOrder.modelName || stockEntryOrder.modelId}
                 </span>
               </h3>
@@ -5083,154 +5147,208 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
-              {/* Reste à recevoir : le chiffre qui dit s'il faut encore entrer des pièces. */}
-              {(() => {
-                const entered = (stockEntryOrder.qtyAccepted || 0) + (stockEntryOrder.qtyToRepair || 0) + (stockEntryOrder.qtyRejected || 0);
-                const rest = Math.max(0, stockEntryOrder.totalQuantity - entered);
-                return (
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-xl py-2">
-                      <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-bold">{tx(lang,{fr:'Commandé',ar:'المطلوب',en:'Ordered',es:'Pedido',pt:'Encomendado',tr:'Sipariş'})}</span>
-                      <span className="block font-extrabold text-slate-800 dark:text-dk-text">{stockEntryOrder.totalQuantity.toLocaleString()}</span>
-                    </div>
-                    <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl py-2">
-                      <span className="block text-[9px] uppercase text-emerald-700 dark:text-emerald-400 font-bold">{tx(lang,{fr:'Entré',ar:'المُدخَل',en:'Entered',es:'Entrado',pt:'Entrado',tr:'Girilen'})}</span>
-                      <span className="block font-extrabold text-emerald-700 dark:text-emerald-400">{entered.toLocaleString()}</span>
-                    </div>
-                    <div className="bg-amber-50 dark:bg-amber-950/30 rounded-xl py-2">
-                      <span className="block text-[9px] uppercase text-amber-700 dark:text-amber-400 font-bold">{tx(lang,{fr:'Reste',ar:'المتبقي',en:'Remaining',es:'Resta',pt:'Resta',tr:'Kalan'})}</span>
-                      <span className="block font-extrabold text-amber-700 dark:text-amber-400">{rest.toLocaleString()}</span>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Formulaire d'entrée. Couleurs et tailles viennent du modèle : les
-                  retaper à la main créerait des libellés qui ne correspondent à
-                  aucune ligne de la grille. */}
-              {(() => {
-                const fiche: any = models.find(m => m.id === stockEntryOrder.modelId)?.ficheData || {};
-                const colors: Array<{ id: string; name: string }> = fiche.colors || [];
-                const sizes: string[] = fiche.sizes || [];
-                const inputCls = 'w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent';
-                const labelCls = 'block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1';
-                return (
-                  <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-3">
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                      <div>
-                        <label className={labelCls}>{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</label>
-                        {colors.length > 0 ? (
-                          <select value={entryForm.couleur} onChange={e => setEntryForm({ ...entryForm, couleur: e.target.value })} className={inputCls}>
-                            <option value="">{tx(lang,{fr:'Toutes',ar:'الكل',en:'All',es:'Todas',pt:'Todas',tr:'Tümü'})}</option>
-                            {colors.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                          </select>
-                        ) : (
-                          <input type="text" value={entryForm.couleur} onChange={e => setEntryForm({ ...entryForm, couleur: e.target.value })} className={inputCls} />
-                        )}
-                      </div>
-                      <div>
-                        <label className={labelCls}>{tx(lang,{fr:'Taille',ar:'المقاس',en:'Size',es:'Talla',pt:'Tamanho',tr:'Beden'})}</label>
-                        {sizes.length > 0 ? (
-                          <select value={entryForm.taille} onChange={e => setEntryForm({ ...entryForm, taille: e.target.value })} className={inputCls}>
-                            <option value="">{tx(lang,{fr:'Toutes',ar:'الكل',en:'All',es:'Todas',pt:'Todos',tr:'Tümü'})}</option>
-                            {sizes.map(sz => <option key={sz} value={sz}>{sz}</option>)}
-                          </select>
-                        ) : (
-                          <input type="text" value={entryForm.taille} onChange={e => setEntryForm({ ...entryForm, taille: e.target.value })} className={inputCls} />
-                        )}
-                      </div>
-                      <div>
-                        <label className={labelCls}>{tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</label>
-                        <input
-                          type="number"
-                          min={1}
-                          value={entryForm.quantite}
-                          onChange={e => setEntryForm({ ...entryForm, quantite: e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1) })}
-                          className={inputCls}
-                        />
-                      </div>
-                      <div>
-                        <label className={labelCls}>{tx(lang,{fr:'Qualité',ar:'الجودة',en:'Quality',es:'Calidad',pt:'Qualidade',tr:'Kalite'})}</label>
-                        <select value={entryForm.qualite} onChange={e => setEntryForm({ ...entryForm, qualite: e.target.value as any })} className={inputCls}>
-                          <option value="ACCEPTED">{tx(lang,{fr:'Acceptée',ar:'مقبولة',en:'Accepted',es:'Aceptada',pt:'Aceite',tr:'Kabul'})}</option>
-                          <option value="REPAIR">{tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rötuş'})}</option>
-                          <option value="REJECTED">{tx(lang,{fr:'Rejetée',ar:'مرفوضة',en:'Rejected',es:'Rechazada',pt:'Rejeitada',tr:'Red'})}</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className={labelCls}>{tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'})}</label>
-                        <input type="date" value={entryForm.date} onChange={e => setEntryForm({ ...entryForm, date: e.target.value })} className={inputCls} />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <p className="text-[10px] text-slate-500 dark:text-dk-muted">
-                        {tx(lang,{fr:'Seules les pièces ACCEPTÉES entrent au stock vendable.',ar:'غير القطع المقبولة كتدخل للمخزون القابل للبيع.',en:'Only ACCEPTED pieces enter sellable stock.',es:'Solo las piezas ACEPTADAS entran en el stock vendible.',pt:'Só as peças ACEITES entram no stock vendável.',tr:'Yalnızca KABUL edilen parçalar satılabilir stoğa girer.'})}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={addStockEntry}
-                        disabled={stockEntrySaving}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition-colors disabled:opacity-40"
+            <div className="p-5 space-y-5">
+              {/* Grille de saisie : chaque cellule affiche ce qu'il RESTE à recevoir
+                  pour cette couleur et cette taille. Saisir en aveugle un total
+                  global ne permettait pas de savoir quelles pièces manquaient. */}
+              {stockEntryMatrix.colors.length === 0 || stockEntryMatrix.sizes.length === 0 ? (
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold">
+                  {tx(lang,{fr:"Ce modèle n'a ni couleurs ni tailles : complétez sa grille dans la fiche de coût pour saisir le détail.",ar:'هاد الموديل ما عندو لا ألوان لا مقاسات: كمّل الشبكة ديالو ف بطاقة التكلفة باش تدخّل التفصيل.',en:'This model has no colors or sizes: complete its grid in the cost sheet to record details.',es:'Este modelo no tiene colores ni tallas: complete su rejilla en la ficha de coste.',pt:'Este modelo não tem cores nem tamanhos: complete a grelha na ficha de custo.',tr:'Bu modelin rengi veya bedeni yok: ayrinti girmek icin maliyet kartindaki izgarayi tamamlayin.'})}
+                </p>
+              ) : (
+                <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border flex items-center justify-between gap-2 flex-wrap">
+                    <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
+                      {tx(lang,{fr:'Nouvelle entrée',ar:'إدخال جديد',en:'New entry',es:'Nueva entrada',pt:'Nova entrada',tr:'Yeni giris'})}
+                    </h4>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={entryQualite}
+                        onChange={e => setEntryQualite(e.target.value as any)}
+                        className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1 text-[10px] font-bold text-slate-700 dark:text-dk-text-soft outline-none"
                       >
-                        {stockEntrySaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                        {tx(lang,{fr:"Ajouter l'entrée",ar:'إضافة الإدخال',en:'Add entry',es:'Añadir entrada',pt:'Adicionar entrada',tr:'Giriş ekle'})}
-                      </button>
+                        <option value="ACCEPTED">{tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul'})}</option>
+                        <option value="REPAIR">{tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rotus'})}</option>
+                        <option value="REJECTED">{tx(lang,{fr:'Rejetées',ar:'مرفوضة',en:'Rejected',es:'Rechazadas',pt:'Rejeitadas',tr:'Red'})}</option>
+                      </select>
+                      <input
+                        type="date"
+                        value={entryDate}
+                        onChange={e => setEntryDate(e.target.value)}
+                        className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1 text-[10px] font-bold text-slate-700 dark:text-dk-text-soft outline-none"
+                      />
                     </div>
-
-                    {stockEntryError && (
-                      <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{stockEntryError}</p>
-                    )}
                   </div>
-                );
-              })()}
 
-              {/* Historique : chaque entrée reste supprimable, et les totaux de la
-                  commande sont recalculés par le serveur après chaque suppression. */}
-              <div>
-                <h4 className="font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide text-[10px] mb-2">
-                  {tx(lang,{fr:'Historique des entrées',ar:'سجلّ الإدخالات',en:'Entry history',es:'Historial de entradas',pt:'Histórico de entradas',tr:'Giriş geçmişi'})}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[11px]">
+                      <thead className="bg-white dark:bg-dk-surface text-slate-400 dark:text-dk-muted uppercase text-[9px] border-b border-slate-100 dark:border-dk-border">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-medium">{tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}</th>
+                          {stockEntryMatrix.sizes.map(sz => (
+                            <th key={sz} className="px-2 py-2 text-center font-medium">{sz}</th>
+                          ))}
+                          <th className="px-3 py-2 text-right font-medium">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                        {stockEntryMatrix.colors.map(c => {
+                          const rowTotal = stockEntryMatrix.sizes.reduce((a, sz) => a + (Number(entryGrid[gridKey(c.name, sz)]) || 0), 0);
+                          return (
+                            <tr key={c.id}>
+                              <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">{c.name}</td>
+                              {stockEntryMatrix.sizes.map(sz => {
+                                const k = gridKey(c.name, sz);
+                                const commande = stockEntryMatrix.commande[k] || 0;
+                                const entre = stockEntryMatrix.entre[k] || 0;
+                                const reste = Math.max(0, commande - entre);
+                                return (
+                                  <td key={sz} className="px-1 py-1.5 text-center">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={reste || undefined}
+                                      value={entryGrid[k] ?? ''}
+                                      placeholder={commande > 0 ? String(reste) : '—'}
+                                      disabled={commande === 0}
+                                      onChange={e => setEntryGrid(prev => ({
+                                        ...prev,
+                                        [k]: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0),
+                                      }))}
+                                      title={commande > 0
+                                        ? `${tx(lang,{fr:'Commandé',ar:'المطلوب',en:'Ordered',es:'Pedido',pt:'Encomendado',tr:'Siparis'})} ${commande} · ${tx(lang,{fr:'entré',ar:'مُدخَل',en:'entered',es:'entrado',pt:'entrado',tr:'girilen'})} ${entre} · ${tx(lang,{fr:'reste',ar:'المتبقي',en:'remaining',es:'resta',pt:'resta',tr:'kalan'})} ${reste}`
+                                        : tx(lang,{fr:'Non commandé dans cette taille',ar:'ما مطلوبش ف هاد المقاس',en:'Not ordered in this size',es:'No pedido en esta talla',pt:'Nao encomendado neste tamanho',tr:'Bu bedende siparis edilmedi'})}
+                                      className={`w-14 text-center rounded-lg px-1 py-1 text-[11px] outline-none border ${
+                                        commande === 0
+                                          ? 'bg-slate-50 dark:bg-dk-bg/40 border-transparent text-slate-300 dark:text-dk-muted'
+                                          : reste === 0
+                                            ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400'
+                                            : 'bg-slate-50 dark:bg-dk-bg border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent'
+                                      }`}
+                                    />
+                                  </td>
+                                );
+                              })}
+                              <td className="px-3 py-1.5 text-right font-bold text-slate-700 dark:text-dk-text-soft">{rowTotal || '—'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="bg-slate-50 dark:bg-dk-bg/60 border-t border-slate-200 dark:border-dk-border">
+                        <tr>
+                          <td className="px-3 py-2 font-bold uppercase text-[9px] text-slate-500 dark:text-dk-muted">Total</td>
+                          {stockEntryMatrix.sizes.map(sz => {
+                            const colTotal = stockEntryMatrix.colors.reduce((a, c) => a + (Number(entryGrid[gridKey(c.name, sz)]) || 0), 0);
+                            return <td key={sz} className="px-2 py-2 text-center font-bold text-slate-600 dark:text-dk-text-soft">{colTotal || '—'}</td>;
+                          })}
+                          <td className="px-3 py-2 text-right font-extrabold text-indigo-600 dark:text-dk-accent">
+                            {Object.values(entryGrid).reduce((a: number, v) => a + (Number(v) || 0), 0) || '—'}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+
+                  <div className="px-4 py-3 border-t border-slate-100 dark:border-dk-border flex items-center justify-between gap-2 flex-wrap">
+                    <p className="text-[10px] text-slate-500 dark:text-dk-muted">
+                      {tx(lang,{fr:'Le gris clair dans chaque case indique ce qui reste à recevoir. Seules les pièces ACCEPTÉES entrent au stock vendable.',ar:'الرقم الرمادي ف كل خانة كيبيّن المتبقي. غير القطع المقبولة كتدخل للمخزون القابل للبيع.',en:'The grey number in each cell shows what remains to receive. Only ACCEPTED pieces enter sellable stock.',es:'El numero gris de cada celda indica lo que falta recibir. Solo las piezas ACEPTADAS entran en el stock vendible.',pt:'O numero cinzento em cada celula mostra o que falta receber. So as pecas ACEITES entram no stock vendavel.',tr:'Her hucredeki gri sayi alinacak kalani gosterir. Yalnizca KABUL edilen parcalar satilabilir stoga girer.'})}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={addStockEntry}
+                      disabled={stockEntrySaving}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition-colors disabled:opacity-40"
+                    >
+                      {stockEntrySaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                      {tx(lang,{fr:"Ajouter l'entrée",ar:'إضافة الإدخال',en:'Add entry',es:'Anadir entrada',pt:'Adicionar entrada',tr:'Giris ekle'})}
+                    </button>
+                  </div>
+
+                  {stockEntryError && (
+                    <p className="px-4 pb-3 text-[10px] font-semibold text-rose-600 dark:text-rose-400">{stockEntryError}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Historique : chaque saisie est réaffichée sous la forme du tableau
+                  qu'elle était, et se supprime d'un bloc. */}
+              <div className="space-y-3">
+                <h4 className="font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide text-[10px]">
+                  {tx(lang,{fr:'Historique des entrées',ar:'سجلّ الإدخالات',en:'Entry history',es:'Historial de entradas',pt:'Historico de entradas',tr:'Giris gecmisi'})}
                 </h4>
+
                 {stockEntriesLoading ? (
                   <div className="flex items-center gap-2 text-slate-400 dark:text-dk-muted text-[11px] font-semibold py-3">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>{tx(lang,{fr:'Chargement…',ar:'جارٍ التحميل…',en:'Loading…',es:'Cargando…',pt:'A carregar…',tr:'Yükleniyor…'})}</span>
+                    <span>{tx(lang,{fr:'Chargement…',ar:'جارٍ التحميل…',en:'Loading…',es:'Cargando…',pt:'A carregar…',tr:'Yukleniyor…'})}</span>
                   </div>
-                ) : stockEntries.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 dark:text-dk-muted italic py-2">
-                    {tx(lang,{fr:'Aucune entrée enregistrée pour cette commande.',ar:'ما كاين حتى إدخال مسجّل لهاد الأمر.',en:'No entry recorded for this order.',es:'Ninguna entrada registrada para este pedido.',pt:'Nenhuma entrada registada para esta encomenda.',tr:'Bu sipariş için kayıtlı giriş yok.'})}
+                ) : stockEntryBatches.length === 0 ? (
+                  <p className="text-[11px] text-slate-400 dark:text-dk-muted italic">
+                    {tx(lang,{fr:'Aucune entrée enregistrée pour cette commande.',ar:'ما كاين حتى إدخال مسجّل لهاد الأمر.',en:'No entry recorded for this order.',es:'Ninguna entrada registrada para este pedido.',pt:'Nenhuma entrada registada para esta encomenda.',tr:'Bu siparis icin kayitli giris yok.'})}
                   </p>
                 ) : (
-                  <ul className="divide-y divide-slate-100 dark:divide-dk-border border border-slate-200 dark:border-dk-border rounded-xl overflow-hidden">
-                    {stockEntries.map(en => (
-                      <li key={en.id} className="flex items-center gap-3 px-3 py-2">
-                        <span className={`px-1.5 py-0.5 rounded border text-[9px] font-bold shrink-0 ${
-                          en.qualite === 'ACCEPTED' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50'
-                          : en.qualite === 'REPAIR' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50'
-                          : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900/50'
-                        }`}>
-                          {en.qualite === 'ACCEPTED' ? tx(lang,{fr:'Acceptée',ar:'مقبولة',en:'Accepted',es:'Aceptada',pt:'Aceite',tr:'Kabul'})
-                            : en.qualite === 'REPAIR' ? tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rötuş'})
-                            : tx(lang,{fr:'Rejetée',ar:'مرفوضة',en:'Rejected',es:'Rechazada',pt:'Rejeitada',tr:'Red'})}
-                        </span>
-                        <span className="font-bold text-slate-800 dark:text-dk-text shrink-0">{en.quantite.toLocaleString()} pcs</span>
-                        <span className="text-[11px] text-slate-500 dark:text-dk-muted truncate flex-1">
-                          {[en.couleur, en.taille].filter(Boolean).join(' · ') || tx(lang,{fr:'toutes couleurs / tailles',ar:'كل الألوان / المقاسات',en:'all colors / sizes',es:'todos los colores / tallas',pt:'todas as cores / tamanhos',tr:'tüm renkler / bedenler'})}
-                        </span>
-                        <span className="text-[10px] text-slate-400 dark:text-dk-muted shrink-0">{en.date_entree ? fmtDate(en.date_entree) : '—'}</span>
-                        <button
-                          type="button"
-                          disabled={stockEntrySaving}
-                          onClick={() => removeStockEntry(en)}
-                          title={tx(lang,{fr:'Supprimer cette entrée',ar:'حذف هاد الإدخال',en:'Delete this entry',es:'Eliminar esta entrada',pt:'Eliminar esta entrada',tr:'Bu girişi sil'})}
-                          className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40 shrink-0"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                  stockEntryBatches.map(batch => {
+                    const couleurs = [...new Set(batch.lignes.map(l => l.couleur || '—'))];
+                    const tailles = stockEntryMatrix.sizes.length > 0
+                      ? stockEntryMatrix.sizes.filter(sz => batch.lignes.some(l => (l.taille || '—') === sz))
+                      : [...new Set(batch.lignes.map(l => l.taille || '—'))];
+                    const cell = (c: string, sz: string) =>
+                      batch.lignes.filter(l => (l.couleur || '—') === c && (l.taille || '—') === sz)
+                        .reduce((a, l) => a + (Number(l.quantite) || 0), 0);
+                    return (
+                      <div key={batch.id} className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                        <div className="px-4 py-2 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border flex items-center justify-between gap-2 flex-wrap">
+                          <span className="flex items-center gap-2 min-w-0">
+                            <span className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${
+                              batch.qualite === 'ACCEPTED' ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50'
+                              : batch.qualite === 'REPAIR' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50'
+                              : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900/50'
+                            }`}>
+                              {batch.qualite === 'ACCEPTED' ? tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul'})
+                                : batch.qualite === 'REPAIR' ? tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rotus'})
+                                : tx(lang,{fr:'Rejetées',ar:'مرفوضة',en:'Rejected',es:'Rechazadas',pt:'Rejeitadas',tr:'Red'})}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-600 dark:text-dk-text-soft">{batch.total.toLocaleString()} pcs</span>
+                            <span className="text-[10px] text-slate-400 dark:text-dk-muted">{batch.date ? fmtDate(batch.date) : '—'}</span>
+                          </span>
+                          <button
+                            type="button"
+                            disabled={stockEntrySaving}
+                            onClick={() => removeStockBatch(batch.id)}
+                            title={tx(lang,{fr:'Supprimer cette entrée',ar:'حذف هاد الإدخال',en:'Delete this entry',es:'Eliminar esta entrada',pt:'Eliminar esta entrada',tr:'Bu girisi sil'})}
+                            className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-[11px]">
+                            <thead className="text-slate-400 dark:text-dk-muted uppercase text-[9px] border-b border-slate-100 dark:border-dk-border">
+                              <tr>
+                                <th className="px-3 py-1.5 text-left font-medium">{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
+                                {tailles.map(sz => <th key={sz} className="px-2 py-1.5 text-center font-medium">{sz}</th>)}
+                                <th className="px-3 py-1.5 text-right font-medium">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                              {couleurs.map(c => (
+                                <tr key={c}>
+                                  <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">{c}</td>
+                                  {tailles.map(sz => {
+                                    const v = cell(c, sz);
+                                    return <td key={sz} className={`px-2 py-1.5 text-center ${v ? 'font-bold text-slate-700 dark:text-dk-text-soft' : 'text-slate-300 dark:text-dk-muted'}`}>{v || '—'}</td>;
+                                  })}
+                                  <td className="px-3 py-1.5 text-right font-bold text-slate-700 dark:text-dk-text-soft">
+                                    {tailles.reduce((a, sz) => a + cell(c, sz), 0).toLocaleString()}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -5850,6 +5968,91 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   </div>
                 </div>
               </div>
+
+              {/* Reçu vs commandé, cellule par cellule. Les trois compteurs
+                  ci-dessous ne disent QUE des totaux : ils ne permettent pas de
+                  voir quelle couleur et quelle taille manquent encore. */}
+              {(() => {
+                const fiche: any = models.find(m => m.id === detailOrder.modelId)?.ficheData || {};
+                const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+                const sizes: string[] = fiche.sizes || [];
+                const gq: Record<string, number> = fiche.gridQuantities || {};
+                if (colors.length === 0 || sizes.length === 0) return null;
+
+                const entre: Record<string, number> = {};
+                detailEntries.forEach(en => {
+                  const k = `${en.couleur || ''}|${en.taille || ''}`;
+                  entre[k] = (entre[k] || 0) + (Number(en.quantite) || 0);
+                });
+
+                let totalCmd = 0;
+                let totalEntre = 0;
+                colors.forEach(c => sizes.forEach((sz, i) => {
+                  totalCmd += Number(gq[`${c.id}_${i}`]) || 0;
+                  totalEntre += entre[`${c.name}|${sz}`] || 0;
+                }));
+
+                return (
+                  <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border flex items-center justify-between gap-2 flex-wrap">
+                      <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
+                        {tx(lang,{fr:'Reçu vs commandé',ar:'المُستلَم مقابل المطلوب',en:'Received vs ordered',es:'Recibido vs pedido',pt:'Recebido vs encomendado',tr:'Alinan / siparis'})}
+                      </h4>
+                      <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted">
+                        {totalEntre.toLocaleString()} / {totalCmd.toLocaleString()} pcs
+                        {totalCmd > totalEntre && (
+                          <span className="text-amber-700 dark:text-amber-400">
+                            {' · '}{tx(lang,{fr:'reste',ar:'المتبقي',en:'remaining',es:'resta',pt:'resta',tr:'kalan'})} {(totalCmd - totalEntre).toLocaleString()}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px]">
+                        <thead className="text-slate-400 dark:text-dk-muted uppercase text-[9px] border-b border-slate-100 dark:border-dk-border">
+                          <tr>
+                            <th className="px-3 py-1.5 text-left font-medium">{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
+                            {sizes.map(sz => <th key={sz} className="px-2 py-1.5 text-center font-medium">{sz}</th>)}
+                            <th className="px-3 py-1.5 text-right font-medium">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                          {colors.map(c => {
+                            let rowCmd = 0;
+                            let rowEntre = 0;
+                            return (
+                              <tr key={c.id}>
+                                <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">{c.name}</td>
+                                {sizes.map((sz, i) => {
+                                  const cmd = Number(gq[`${c.id}_${i}`]) || 0;
+                                  const got = entre[`${c.name}|${sz}`] || 0;
+                                  rowCmd += cmd;
+                                  rowEntre += got;
+                                  if (cmd === 0 && got === 0) {
+                                    return <td key={sz} className="px-2 py-1.5 text-center text-slate-300 dark:text-dk-muted">—</td>;
+                                  }
+                                  // Vert = complet, ambre = partiel, rose = rien reçu.
+                                  const tone = got >= cmd
+                                    ? 'text-emerald-700 dark:text-emerald-400'
+                                    : got > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400';
+                                  return (
+                                    <td key={sz} className={`px-2 py-1.5 text-center font-bold ${tone}`}>
+                                      {got}<span className="text-slate-300 dark:text-dk-muted font-normal">/{cmd}</span>
+                                    </td>
+                                  );
+                                })}
+                                <td className="px-3 py-1.5 text-right font-bold text-slate-700 dark:text-dk-text-soft">
+                                  {rowEntre}<span className="text-slate-300 dark:text-dk-muted font-normal">/{rowCmd}</span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Quantity analysis details */}
               <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-3 bg-slate-50 dark:bg-dk-surface/50">

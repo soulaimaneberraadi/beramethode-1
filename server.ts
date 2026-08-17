@@ -80,7 +80,7 @@ import {
   updateSubcontractExpense,
   deleteSubcontractExpense,
 } from './server/subcontractController';
-import { getClients, saveClient, deleteClient, getStockEntries, createStockEntry, deleteStockEntry } from './server/clientsController';
+import { getClients, saveClient, deleteClient, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch } from './server/clientsController';
 import { getSuiviData, saveSuiviData } from './server/suiviController';
 import { getPosteSuivi, savePosteSuivi } from './server/posteSuiviController';
 import { getDemandesAppro, saveDemandesAppro } from './server/demandesApproController';
@@ -655,6 +655,12 @@ async function startServer() {
   // Subcontracting Routes
   app.get('/api/subcontract', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractOrders);
   app.post('/api/subcontract', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createSubcontractOrder);
+  // ⚠️ déclarées AVANT /api/subcontract/:id : sinon « stock-entries » serait pris
+  // pour un identifiant de commande.
+  app.get('/api/subcontract/stock-entries', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStockEntries);
+  app.post('/api/subcontract/stock-entries', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createStockEntry);
+  app.delete('/api/subcontract/stock-entries/batch/:batchId', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteStockBatch);
+  app.delete('/api/subcontract/stock-entries/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_stock_entries', 'owner_id'), deleteStockEntry);
   app.put('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), updateSubcontractOrder);
   app.delete('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontract_orders', 'owner_id'), deleteSubcontractOrder);
   // ⚠️ doit être déclarée avant toute route paramétrée /api/subcontract/:id
@@ -664,10 +670,6 @@ async function startServer() {
   app.get('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getClients);
   app.post('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveClient);
   app.delete('/api/subcontract/clients/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_clients', 'owner_id'), deleteClient);
-  // Entrées en stock des pièces finies (détail daté par couleur / taille).
-  app.get('/api/subcontract/stock-entries', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStockEntries);
-  app.post('/api/subcontract/stock-entries', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createStockEntry);
-  app.delete('/api/subcontract/stock-entries/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_stock_entries', 'owner_id'), deleteStockEntry);
   app.get('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractorGroups);
   app.post('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveSubcontractorGroup);
   app.delete('/api/subcontract/groups/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontractor_groups', 'owner_id'), deleteSubcontractorGroup);

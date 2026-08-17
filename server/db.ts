@@ -873,6 +873,11 @@ db.exec(`
   )
 `);
 
+// Une saisie porte sur toute une grille couleur x taille : les cellules d'un
+// même geste partagent un `batch_id`, ce qui permet de réafficher chaque entrée
+// comme le tableau qu'elle était, et de la supprimer d'un bloc.
+try { db.exec('ALTER TABLE st_stock_entries ADD COLUMN batch_id TEXT'); } catch { /* colonne déjà présente */ }
+
 // Clients de l'atelier — acheteurs des pièces finies. Ils étaient jusqu'ici
 // saisis à la main sur chaque facture de vente : le même client se retrouvait
 // écrit de trois façons, sans historique ni ICE réutilisable. Une fiche par
