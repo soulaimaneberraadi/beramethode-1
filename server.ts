@@ -80,6 +80,7 @@ import {
   updateSubcontractExpense,
   deleteSubcontractExpense,
 } from './server/subcontractController';
+import { getClients, saveClient, deleteClient } from './server/clientsController';
 import { getSuiviData, saveSuiviData } from './server/suiviController';
 import { getPosteSuivi, savePosteSuivi } from './server/posteSuiviController';
 import { getDemandesAppro, saveDemandesAppro } from './server/demandesApproController';
@@ -658,6 +659,11 @@ async function startServer() {
   app.delete('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontract_orders', 'owner_id'), deleteSubcontractOrder);
   // ⚠️ doit être déclarée avant toute route paramétrée /api/subcontract/:id
   app.get('/api/subcontract/next-invoice-number', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getNextSubcontractInvoiceNumber);
+  // Clients de l'atelier — rattachés à la page Sous-traitance, qui porte les
+  // sorties de stock et les factures de vente.
+  app.get('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getClients);
+  app.post('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveClient);
+  app.delete('/api/subcontract/clients/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_clients', 'owner_id'), deleteClient);
   app.get('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractorGroups);
   app.post('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveSubcontractorGroup);
   app.delete('/api/subcontract/groups/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontractor_groups', 'owner_id'), deleteSubcontractorGroup);

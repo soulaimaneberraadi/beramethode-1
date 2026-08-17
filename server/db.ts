@@ -850,6 +850,31 @@ db.exec(`
   )
 `);
 
+// Clients de l'atelier — acheteurs des pièces finies. Ils étaient jusqu'ici
+// saisis à la main sur chaque facture de vente : le même client se retrouvait
+// écrit de trois façons, sans historique ni ICE réutilisable. Une fiche par
+// client, réutilisée à chaque sortie de stock.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_clients (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    nom TEXT NOT NULL,
+    -- GROS = revendeur au carton, DETAIL = client final, BOUTIQUE = point de
+    -- vente. Le type conditionne le prix proposé à la sortie, pas les droits.
+    type TEXT DEFAULT 'DETAIL',
+    ice TEXT,
+    rc TEXT,
+    tel TEXT,
+    email TEXT,
+    adresse TEXT,
+    ville TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS subcontractor_profiles (
     id TEXT PRIMARY KEY,

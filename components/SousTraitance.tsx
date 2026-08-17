@@ -8,6 +8,7 @@ import { fmt } from '../app/constants';
 import { diffOrderVsModelGrid } from '../utils/subcontractGrid';
 import InlineInvoiceList from './InlineInvoiceList';
 import FactureUploader from './FactureUploader';
+import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
@@ -476,7 +477,7 @@ const sumGrid = (grid: Record<string, Record<string, number>> | undefined): numb
 
 export default function SousTraitance({ models, setModels, settings, onLoadModel, onNavigate, onCreateNewProject }: SousTraitanceProps) {
   // Navigation Tabs
-  const [activeTab, setActiveTab] = useState<'orders' | 'subcontractors' | 'stock'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'subcontractors' | 'stock' | 'clients'>('orders');
   const [selectedSubcontractorName, setSelectedSubcontractorName] = useState<string | null>(null);
   const [subSearchQuery, setSubSearchQuery] = useState('');
   const [modelInfoTarget, setModelInfoTarget] = useState<ModelData | null>(null);
@@ -689,6 +690,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [invoiceListKey, setInvoiceListKey] = useState(0);
   /** Lecture seule : renseignée par `GET /api/permissions/company`. */
   const [companyIdentity, setCompanyIdentity] = useState<CompanyIdentity>(EMPTY_COMPANY_IDENTITY);
+  /** Clients enregistrés — remontés par l'onglet Clients pour être proposés
+   *  telles quelles à la sortie de stock (plus de ressaisie d'ICE / RC). */
+  const [atelierClients, setAtelierClients] = useState<AtelierClient[]>([]);
 
   // Tab 4 (Groups) States
   const { lang } = useLang();
@@ -1150,6 +1154,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     // CETTE commande, on les demande avant d'afficher un total incomplet.
     if (expensesOrderId !== order.id) loadExpenses(order.id);
     loadCompanyIdentity();
+    // Le registre doit être disponible dès la sortie de stock, même si l'onglet
+    // Clients n'a jamais été ouvert dans cette session.
+    fetch('/api/subcontract/clients', { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : []))
+      .then(d => setAtelierClients(Array.isArray(d) ? d : []))
+      .catch(() => { /* hors-ligne : la saisie libre reste possible */ });
   };
 
   /** LECTURE SEULE de l'identité légale de l'entreprise. Aucune édition ici :
@@ -3397,6 +3407,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           <Coins className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Stock & Ventes',ar:'المخزون والمبيعات',en:'Stock & Sales',es:'Stock & Ventas',pt:'Stock & Vendas',tr:'Stok & Satışlar'})}</span>
         </button>
+        <button
+          onClick={() => setActiveTab('clients')}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'clients' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+        >
+          <Users className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
+          <span>{tx(lang,{fr:'Clients',ar:'الزبناء',en:'Clients',es:'Clientes',pt:'Clientes',tr:'Müşteriler'})}</span>
+        </button>
       </div>
 
       {/* ERROR BANNER */}
@@ -4017,6 +4034,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           {/* ======================================= */}
           {/* TAB 3: STOCK & VENTES (STOCK & SALES) */}
           {/* ======================================= */}
+          {activeTab === 'clients' && (
+            <ClientsPanel onChanged={setAtelierClients} />
+          )}
+
           {activeTab === 'stock' && (
             <div className="space-y-6">
               {/* Vue mobile : cartes (le tableau ci-dessous devient illisible sous md) */}
@@ -6232,6 +6253,45 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       required
                     />
                   </div>
+                  {/* Reprise d'un client enregistré : le nom, l'ICE, le RC, l'adresse
+                      et le téléphone sont recopiés d'un coup. Sans cela, chaque vente
+                      re-saisissait ces champs à la main — d'où des ICE oubliés et un
+                      même client écrit de plusieurs façons d'une facture à l'autre.
+                      Les champs restent modifiables : le registre propose, il n'impose pas. */}
+                  {atelierClients.length > 0 && (
+                    <div className="space-y-1 sm:col-span-2">
+                      <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase">
+                        {tx(lang,{fr:'Client enregistré',ar:'زبون مسجَّل',en:'Registered client',es:'Cliente registrado',pt:'Cliente registado',tr:'Kayıtlı müşteri'})}
+                      </label>
+                      <select
+                        value={atelierClients.find(c => c.nom === saleClient)?.id || ''}
+                        onChange={(e) => {
+                          const c = atelierClients.find(x => x.id === e.target.value);
+                          if (!c) return;
+                          setSaleClient(c.nom);
+                          setSaleClientIce(c.ice || '');
+                          setSaleClientRc(c.rc || '');
+                          setSaleClientAdresse([c.adresse, c.ville].filter(Boolean).join(', '));
+                          setSaleClientTel(c.tel || '');
+                          setSaleClientEmail(c.email || '');
+                        }}
+                        className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                      >
+                        <option value="">
+                          {tx(lang,{fr:'— Saisie libre —',ar:'— إدخال حرّ —',en:'— Free entry —',es:'— Entrada libre —',pt:'— Entrada livre —',tr:'— Serbest giriş —'})}
+                        </option>
+                        {atelierClients.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.nom}
+                            {c.type === 'GROS' ? ` · ${tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})}` : ''}
+                            {c.type === 'BOUTIQUE' ? ` · ${tx(lang,{fr:'Boutique',ar:'محلّ',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'})}` : ''}
+                            {c.ice ? ` · ICE ${c.ice}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <div className="space-y-1">
                     <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang,{fr:'Nom du client *',ar:'اسم العميل *',en:'Client Name *',es:'Nombre del Cliente *',pt:'Nome do Cliente *',tr:'Müşteri Adı *'})}</label>
                     <input 
