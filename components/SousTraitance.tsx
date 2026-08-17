@@ -317,9 +317,11 @@ interface CompanyIdentity {
   rc: string;
   adresse: string;
   tel: string;
+  /** Logo de l'entreprise (data-URL), tel qu'enregistré dans Admin > Entreprise. */
+  logo: string;
 }
 
-const EMPTY_COMPANY_IDENTITY: CompanyIdentity = { nom: '', ice: '', rc: '', adresse: '', tel: '' };
+const EMPTY_COMPANY_IDENTITY: CompanyIdentity = { nom: '', ice: '', rc: '', adresse: '', tel: '', logo: '' };
 
 const KNOWN_COLOR_KEYWORDS: Record<string, string> = {
   'blanc': '#ffffff', 'white': '#ffffff', 'noir': '#1e1e1e', 'black': '#1e1e1e',
@@ -351,6 +353,42 @@ function colorNameToHex(name: string): string {
 const DATE_LOCALES: Record<string, string> = {
   fr: 'fr-FR', ar: 'ar-MA', en: 'en-GB', es: 'es-ES', pt: 'pt-PT', tr: 'tr-TR',
 };
+
+/** Montant d'une ligne de facture : saisissable, avec retour possible à la
+ *  valeur calculée. Le point-clé est de ne JAMAIS perdre le calcul d'origine :
+ *  tant que l'utilisateur n'a rien tapé, la cellule affiche ce que l'application
+ *  a calculé ; dès qu'il tape, un point coloré et un bouton « ↺ » disent que la
+ *  valeur est manuelle et permettent de revenir en arrière. */
+const MoneyCell: React.FC<{
+  value: number;
+  edited: boolean;
+  currency: string;
+  onChange: (v: number) => void;
+  onReset: () => void;
+}> = ({ value, edited, currency, onChange, onReset }) => (
+  <span className="inline-flex items-center gap-1 justify-end">
+    {edited && (
+      <button
+        type="button"
+        onClick={onReset}
+        title="Revenir à la valeur calculée"
+        className="text-[9px] text-amber-600 dark:text-amber-400 hover:text-amber-700"
+      >
+        ↺
+      </button>
+    )}
+    <input
+      type="number"
+      step="0.01"
+      value={Number.isFinite(value) ? value : 0}
+      onChange={e => onChange(parseFloat(e.target.value) || 0)}
+      className={`w-20 text-right bg-transparent border-b border-dashed outline-none px-0.5 ${
+        edited ? 'border-amber-400 text-amber-700 dark:text-amber-400' : 'border-slate-300 dark:border-dk-border focus:border-indigo-500'
+      }`}
+    />
+    <span className="text-slate-400 dark:text-dk-muted">{currency}</span>
+  </span>
+);
 
 /** Mode de sous-traitance. `facon` = le sous-traitant coud seulement (coût =
  *  matières + prix) ; `complet` = il fournit tout (coût = prix seul). */
@@ -610,6 +648,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  exclure une ligne doit être un geste conscient. Ce qui est décoché
    *  disparaît des totaux, de l'impression ET de la facture enregistrée. */
   const [costInvoiceOff, setCostInvoiceOff] = useState<Set<string>>(new Set());
+  /** Réécritures manuelles d'une ligne : libellé et/ou montant. La ligne garde
+   *  sa valeur CALCULÉE tant que rien n'est saisi — on n'écrase jamais le calcul
+   *  en silence, et un bouton permet de revenir dessus. */
+  const [costInvoiceEdits, setCostInvoiceEdits] = useState<Record<string, { label?: string; amount?: number }>>({});
+  const editCostLine = (key: string, patch: { label?: string; amount?: number }) =>
+    setCostInvoiceEdits(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }));
+  const resetCostLine = (key: string) =>
+    setCostInvoiceEdits(prev => { const n = { ...prev }; delete n[key]; return n; });
+
+  /** Éléments visuels à imprimer sur la facture. */
+  const [costInvoiceShow, setCostInvoiceShow] = useState<{ logo: boolean; model: boolean; subcontractor: boolean }>(
+    { logo: true, model: true, subcontractor: false }
+  );
+
   const toggleCostLine = (key: string) => setCostInvoiceOff(prev => {
     const next = new Set(prev);
     if (next.has(key)) next.delete(key); else next.add(key);
@@ -1074,6 +1126,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setCostInvoiceSaveError(null);
     setCostInvoiceSavedNumber(null);
     setCostInvoiceOff(new Set());
+    setCostInvoiceEdits({});
+    setCostInvoiceShow({ logo: true, model: true, subcontractor: false });
     setIsCostInvoiceModalOpen(true);
     // Filet de sécurité : si la fiche n'a pas (ou plus) chargé les frais de
     // CETTE commande, on les demande avant d'afficher un total incomplet.
@@ -1099,6 +1153,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         rc: String(meta.rc ?? '').trim(),
         adresse: [adresse, ville].filter(Boolean).join(', '),
         tel: String(meta.companyPhone ?? meta.adminPhone ?? '').trim(),
+        logo: typeof data?.logo === 'string' ? data.logo : '',
       });
     } catch (err) {
       console.error('[SousTraitance] company identity', err);
@@ -2692,19 +2747,46 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     // (une ligne décochée reste visible, barrée), tandis que les champs sans
     // préfixe ne portent QUE ce qui sera réellement facturé.
     const faconOn = !costInvoiceOff.has('facon');
-    const keptMaterials = materials.filter(m => !costInvoiceOff.has(`mat-${m.id}`));
-    const keptExpenses = expenses.filter(e => !costInvoiceOff.has(`exp-${e.expense.id}`));
-    const keptMaterialsTotal = keptMaterials.reduce((a, r) => a + r.cost, 0);
-    const keptExpensesTotal = keptExpenses.reduce((a, e) => a + e.applied, 0);
-    const keptFaconTotal = faconOn ? faconTotal : 0;
+
+    // Réécritures manuelles : un libellé et/ou un montant saisis remplacent la
+    // valeur calculée. `edited` permet de le signaler à l'écran.
+    const applyEdit = <T extends { label: string; amount: number }>(key: string, base: T) => {
+      const e = costInvoiceEdits[key];
+      return {
+        ...base,
+        label: e?.label != null && e.label !== '' ? e.label : base.label,
+        amount: e?.amount != null && Number.isFinite(e.amount) ? e.amount : base.amount,
+        edited: !!e && (e.label != null || e.amount != null),
+      };
+    };
+
+    const materialsView = materials.map(m => ({
+      ...m,
+      ...applyEdit(`mat-${m.id}`, { label: m.name, amount: m.cost }),
+    }));
+    const expensesView = expenses.map(e => ({
+      ...e,
+      ...applyEdit(`exp-${e.expense.id}`, { label: e.expense.label, amount: e.applied }),
+    }));
+    const faconView = applyEdit('facon', {
+      label: `${order.modelName || order.modelId}`,
+      amount: faconTotal,
+    });
+
+    const keptMaterials = materialsView.filter(m => !costInvoiceOff.has(`mat-${m.id}`));
+    const keptExpenses = expensesView.filter(e => !costInvoiceOff.has(`exp-${e.expense.id}`));
+    const keptMaterialsTotal = keptMaterials.reduce((a, r) => a + r.amount, 0);
+    const keptExpensesTotal = keptExpenses.reduce((a, e) => a + e.amount, 0);
+    const keptFaconTotal = faconOn ? faconView.amount : 0;
 
     return {
       qty,
       isPartial,
       unitPrice,
       faconOn,
-      allMaterials: materials,
-      allExpenses: expenses,
+      faconView,
+      allMaterials: materialsView,
+      allExpenses: expensesView,
       faconTotal: keptFaconTotal,
       isFacon,
       materials: keptMaterials,
@@ -2714,7 +2796,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       total: keptFaconTotal + keptMaterialsTotal + keptExpensesTotal,
       /** Nombre de lignes volontairement exclues — sert à l'avertir clairement. */
       excludedCount:
-        (faconOn ? 0 : 1) + (materials.length - keptMaterials.length) + (expenses.length - keptExpenses.length),
+        (faconOn ? 0 : 1) + (materialsView.length - keptMaterials.length) + (expensesView.length - keptExpenses.length),
+      /** Vrai si au moins une ligne a été réécrite à la main. */
+      hasEdits: faconView.edited || materialsView.some(m => m.edited) || expensesView.some(e => e.edited),
     };
   };
 
@@ -2731,24 +2815,24 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       const lignes: any[] = [
         ...(inv.faconOn ? [{
           product_id: order.modelId,
-          designation: `${tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'})} — ${order.modelName || order.modelId}`,
+          designation: `${tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'})} — ${inv.faconView.label}`,
           quantite: inv.qty,
-          prix_unitaire: inv.unitPrice,
+          prix_unitaire: inv.qty > 0 ? inv.faconTotal / inv.qty : inv.unitPrice,
           total: inv.faconTotal,
         }] : []),
         ...inv.materials.map(m => ({
           product_id: order.modelId,
-          designation: `${tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'})} — ${m.name}`,
+          designation: `${tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'})} — ${m.label}`,
           quantite: 1,
-          prix_unitaire: m.cost,
-          total: m.cost,
+          prix_unitaire: m.amount,
+          total: m.amount,
         })),
         ...inv.expenses.map(e => ({
           product_id: order.modelId,
-          designation: `${tx(lang,{fr:'Frais',ar:'مصروف',en:'Expense',es:'Gasto',pt:'Despesa',tr:'Masraf'})} — ${e.expense.label}`,
+          designation: `${tx(lang,{fr:'Frais',ar:'مصروف',en:'Expense',es:'Gasto',pt:'Despesa',tr:'Masraf'})} — ${e.label}`,
           quantite: 1,
-          prix_unitaire: e.applied,
-          total: e.applied,
+          prix_unitaire: e.amount,
+          total: e.amount,
         })),
       ];
       const totalHT = lignes.reduce((s, l) => s + l.total, 0);
@@ -2811,7 +2895,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     // sinon celui-ci contredirait le total (déjà calculé sans elle).
     if (inv.faconOn) lineRows.push(`
               <tr>
-                <td style="font-weight: 600;">${esc(tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}))} — ${esc(order.modelName || order.modelId)}</td>
+                <td style="font-weight: 600;">${esc(tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}))} — ${esc(inv.faconView.label)}</td>
                 <td style="text-align: right;">${esc(inv.qty.toLocaleString(dateLocale))} pcs</td>
                 <td style="text-align: right;">${money(inv.unitPrice)}</td>
                 <td style="text-align: right; font-weight: 700;">${money(inv.faconTotal)}</td>
@@ -2820,14 +2904,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     inv.materials.forEach(m => {
       lineRows.push(`
               <tr>
-                <td>${esc(tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'}))} — ${esc(m.name)}</td>
+                <td>${esc(tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'}))} — ${esc(m.label)}</td>
                 <td style="text-align: right;">${esc(fmt(m.buyQty))} ${esc(m.unit)}</td>
                 <td style="text-align: right;">${money(m.unitPrice)}</td>
-                <td style="text-align: right; font-weight: 700;">${money(m.cost)}</td>
+                <td style="text-align: right; font-weight: 700;">${money(m.amount)}</td>
               </tr>`);
     });
 
-    inv.expenses.forEach(({ expense, applied }) => {
+    inv.expenses.forEach(({ expense, applied, label, amount }) => {
       const scopeLabel = expense.quantity_scope == null
         ? tx(lang,{fr:'Toute la commande',ar:'الطلبية كاملة',en:'Whole order',es:'Todo el pedido',pt:'Toda a encomenda',tr:'Tüm sipariş'})
         : `${expense.quantity_scope.toLocaleString(dateLocale)} pcs`;
@@ -2836,14 +2920,29 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         : '';
       lineRows.push(`
               <tr>
-                <td>${esc(tx(lang,{fr:'Frais',ar:'مصروف',en:'Expense',es:'Gasto',pt:'Despesa',tr:'Masraf'}))} — ${esc(expense.label)}
+                <td>${esc(tx(lang,{fr:'Frais',ar:'مصروف',en:'Expense',es:'Gasto',pt:'Despesa',tr:'Masraf'}))} — ${esc(label)}
                   <div style="font-size: 11px; color: #64748b;">${esc(scopeLabel)}${prorata}</div>
                 </td>
                 <td style="text-align: right;">&mdash;</td>
                 <td style="text-align: right;">&mdash;</td>
-                <td style="text-align: right; font-weight: 700;">${money(applied)}</td>
+                <td style="text-align: right; font-weight: 700;">${money(amount)}</td>
               </tr>`);
     });
+
+    // Visuels optionnels : photo du modèle et/ou photo du sous-traitant. Ils ne
+    // sont imprimés que si l'utilisateur les a cochés ET qu'ils existent.
+    const modelPhoto = models.find(m => m.id === order.modelId)?.image || '';
+    const stPhoto = profile?.photo || '';
+    const visuals: string[] = [];
+    if (costInvoiceShow.model && modelPhoto) {
+      visuals.push(`<div style="text-align:center;"><img src="${esc(modelPhoto)}" alt="" style="height:70px;width:70px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;" /><div style="font-size:10px;color:#64748b;margin-top:4px;">${esc(order.modelName || order.modelId)}</div></div>`);
+    }
+    if (costInvoiceShow.subcontractor && stPhoto) {
+      visuals.push(`<div style="text-align:center;"><img src="${esc(stPhoto)}" alt="" style="height:70px;width:70px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;" /><div style="font-size:10px;color:#64748b;margin-top:4px;">${esc(order.subcontractorName)}</div></div>`);
+    }
+    const visualsBlock = visuals.length
+      ? `<div style="display:flex;gap:16px;margin-bottom:18px;">${visuals.join('')}</div>`
+      : '';
 
     const partialNotice = inv.isPartial ? `
           <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:12px;margin-bottom:20px;font-size:12px;color:#92400e;font-weight:700;">
@@ -2898,8 +2997,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           <div class="invoice-box">
             <div class="header">
               <div>
-                <div class="logo">BeraMéthode</div>
-                <div style="font-size: 12px; color: #64748b; font-weight: 600;">${esc(tx(lang,{fr:'ERP de Production & Confection Textile',ar:'ERP للإنتاج وصناعة الخياطة النسيجية',en:'ERP for Textile Production & Garment Manufacturing',es:'ERP de Producción y Confección Textil',pt:'ERP de Produção e Confecção Têxtil',tr:'Tekstil Üretimi ve Konfeksiyon için ERP'}))}</div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  ${costInvoiceShow.logo && companyIdentity.logo ? `<img src="${esc(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
+                  <div>
+                    <div class="logo">${esc(companyIdentity.nom || 'BeraMéthode')}</div>
+                    <div style="font-size: 11px; color: #94a3b8; font-weight: 600;">${esc(tx(lang,{fr:'Édité avec BeraMéthode',ar:'مُحرَّر بواسطة BeraMéthode',en:'Issued with BeraMéthode',es:'Emitido con BeraMéthode',pt:'Emitido com BeraMéthode',tr:'BeraMéthode ile düzenlendi'}))}</div>
+                  </div>
+                </div>
               </div>
               <div style="text-align: right;">
                 <div style="font-size: 18px; font-weight: 900; color: #4f46e5;">${esc(tx(lang,{fr:'FACTURE SOUS-TRAITANCE',ar:'فاتورة المقاولة من الباطن',en:'SUBCONTRACT INVOICE',es:'FACTURA DE SUBCONTRATACIÓN',pt:'FATURA DE SUBCONTRATAÇÃO',tr:'TAŞERON FATURASI'}))}</div>
@@ -2920,6 +3024,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 ${recipientLines}
               </div>
             </div>
+
+            ${visualsBlock}
 
             ${partialNotice}
 
@@ -5299,6 +5405,37 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   </div>
                 )}
 
+                {/* Préréglages : facturer un TYPE de ligne en un clic. Ils ne font que
+                    cocher/décocher, donc tout reste ajustable ligne à ligne ensuite. */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-dk-muted">
+                    {tx(lang,{fr:'Facturer',ar:'فوترة',en:'Invoice',es:'Facturar',pt:'Faturar',tr:'Faturala'})}
+                  </span>
+                  {([
+                    { id: 'all', label: tx(lang,{fr:'Tout',ar:'الكل',en:'Everything',es:'Todo',pt:'Tudo',tr:'Hepsi'}) },
+                    { id: 'facon', label: tx(lang,{fr:'Façon seule',ar:'الخياطة فقط',en:'Making only',es:'Solo confección',pt:'Só confeção',tr:'Sadece fason'}) },
+                    { id: 'mat', label: tx(lang,{fr:'Matières seules',ar:'المواد فقط',en:'Materials only',es:'Solo materias',pt:'Só matérias',tr:'Sadece malzemeler'}) },
+                    { id: 'exp', label: tx(lang,{fr:'Frais seuls',ar:'المصاريف فقط',en:'Expenses only',es:'Solo gastos',pt:'Só encargos',tr:'Sadece masraflar'}) },
+                  ] as const).map(preset => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => {
+                        const off = new Set<string>();
+                        const matKeys = inv.allMaterials.map(m => `mat-${m.id}`);
+                        const expKeys = inv.allExpenses.map(e => `exp-${e.expense.id}`);
+                        if (preset.id === 'facon') { matKeys.forEach(k => off.add(k)); expKeys.forEach(k => off.add(k)); }
+                        if (preset.id === 'mat') { off.add('facon'); expKeys.forEach(k => off.add(k)); }
+                        if (preset.id === 'exp') { off.add('facon'); matKeys.forEach(k => off.add(k)); }
+                        setCostInvoiceOff(off);
+                      }}
+                      className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-dk-border text-[10px] font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
                   <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
                     <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
@@ -5327,11 +5464,25 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             />
                           </td>
                           <td className="px-4 py-2 font-semibold text-slate-700 dark:text-dk-text-soft">
-                            {tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'})} — {order.modelName || order.modelId}
+                            <span className="text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'})} — </span>
+                            <input
+                              type="text"
+                              value={inv.faconView.label}
+                              onChange={e => editCostLine('facon', { label: e.target.value })}
+                              className="bg-transparent border-b border-dashed border-slate-300 dark:border-dk-border focus:border-indigo-500 outline-none px-0.5 min-w-0 w-40"
+                            />
                           </td>
                           <td className="px-4 py-2 text-right">{inv.qty.toLocaleString()} pcs</td>
                           <td className="px-4 py-2 text-right">{fmt(inv.unitPrice)} {currency}</td>
-                          <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(inv.qty * inv.unitPrice)} {currency}</td>
+                          <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">
+                            <MoneyCell
+                              value={inv.faconView.amount}
+                              edited={inv.faconView.edited}
+                              currency={currency}
+                              onChange={v => editCostLine('facon', { amount: v })}
+                              onReset={() => resetCostLine('facon')}
+                            />
+                          </td>
                         </tr>
 
                         {inv.allMaterials.map(m => (
@@ -5345,16 +5496,30 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               />
                             </td>
                             <td className="px-4 py-2 text-slate-600 dark:text-dk-text-soft">
-                              {tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'})} — {m.name}
+                              <span className="text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'})} — </span>
+                              <input
+                                type="text"
+                                value={m.label}
+                                onChange={e => editCostLine(`mat-${m.id}`, { label: e.target.value })}
+                                className="bg-transparent border-b border-dashed border-slate-300 dark:border-dk-border focus:border-indigo-500 outline-none px-0.5 min-w-0 w-36"
+                              />
                               <MaterialPriceBadge source={m.priceSource} lang={lang} />
                             </td>
                             <td className="px-4 py-2 text-right">{fmt(m.buyQty)} {m.unit}</td>
                             <td className="px-4 py-2 text-right">{fmt(m.unitPrice)} {currency}</td>
-                            <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(m.cost)} {currency}</td>
+                            <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">
+                              <MoneyCell
+                                value={m.amount}
+                                edited={m.edited}
+                                currency={currency}
+                                onChange={v => editCostLine(`mat-${m.id}`, { amount: v })}
+                                onReset={() => resetCostLine(`mat-${m.id}`)}
+                              />
+                            </td>
                           </tr>
                         ))}
 
-                        {inv.allExpenses.map(({ expense, applied }) => (
+                        {inv.allExpenses.map(({ expense, applied, label, amount, edited }) => (
                           <tr key={`exp-${expense.id}`} className={costInvoiceOff.has(`exp-${expense.id}`) ? 'opacity-45 line-through' : ''}>
                             <td className="pl-4 pr-1 py-2">
                               <input
@@ -5365,7 +5530,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               />
                             </td>
                             <td className="px-4 py-2 text-slate-600 dark:text-dk-text-soft">
-                              {tx(lang,{fr:'Frais',ar:'مصروف',en:'Expense',es:'Gasto',pt:'Despesa',tr:'Masraf'})} — {expense.label}
+                              <span className="text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Frais',ar:'مصروف',en:'Expense',es:'Gasto',pt:'Despesa',tr:'Masraf'})} — </span>
+                              <input
+                                type="text"
+                                value={label}
+                                onChange={e => editCostLine(`exp-${expense.id}`, { label: e.target.value })}
+                                className="bg-transparent border-b border-dashed border-slate-300 dark:border-dk-border focus:border-indigo-500 outline-none px-0.5 min-w-0 w-36"
+                              />
                               <span className="block text-[9px] text-slate-400 dark:text-dk-muted">
                                 {expense.quantity_scope == null
                                   ? tx(lang,{fr:'Toute la commande',ar:'الطلبية كاملة',en:'Whole order',es:'Todo el pedido',pt:'Toda a encomenda',tr:'Tüm sipariş'})
@@ -5377,7 +5548,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             </td>
                             <td className="px-4 py-2 text-right text-slate-300 dark:text-dk-muted">—</td>
                             <td className="px-4 py-2 text-right text-slate-300 dark:text-dk-muted">—</td>
-                            <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(applied)} {currency}</td>
+                            <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">
+                              <MoneyCell
+                                value={amount}
+                                edited={edited}
+                                currency={currency}
+                                onChange={v => editCostLine(`exp-${expense.id}`, { amount: v })}
+                                onReset={() => resetCostLine(`exp-${expense.id}`)}
+                              />
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -5443,6 +5622,45 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     </div>
                   );
                 })()}
+
+                {/* Visuels imprimés sur la facture. */}
+                <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
+                    <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
+                      {tx(lang,{fr:'Images sur la facture',ar:'الصور فالفاتورة',en:'Images on the invoice',es:'Imágenes en la factura',pt:'Imagens na fatura',tr:'Faturadaki görseller'})}
+                    </h4>
+                  </div>
+                  <div className="p-4 flex flex-wrap gap-4">
+                    {([
+                      { key: 'logo' as const, label: tx(lang,{fr:'Logo entreprise',ar:'شعار الشركة',en:'Company logo',es:'Logo de la empresa',pt:'Logótipo da empresa',tr:'Şirket logosu'}), src: companyIdentity.logo },
+                      { key: 'model' as const, label: tx(lang,{fr:'Photo du modèle',ar:'صورة الموديل',en:'Model photo',es:'Foto del modelo',pt:'Foto do modelo',tr:'Model fotoğrafı'}), src: models.find(m => m.id === order.modelId)?.image || '' },
+                      { key: 'subcontractor' as const, label: tx(lang,{fr:'Photo sous-traitant',ar:'صورة السوطراطور',en:'Subcontractor photo',es:'Foto del subcontratista',pt:'Foto do subcontratado',tr:'Taşeron fotoğrafı'}), src: subcontractorProfiles.find(p => p.name === order.subcontractorName)?.photo || '' },
+                    ]).map(img => (
+                      <label key={img.key} className={`flex items-center gap-2 ${img.src ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}>
+                        <input
+                          type="checkbox"
+                          disabled={!img.src}
+                          checked={!!img.src && costInvoiceShow[img.key]}
+                          onChange={() => setCostInvoiceShow(prev => ({ ...prev, [img.key]: !prev[img.key] }))}
+                          className="w-3.5 h-3.5 accent-indigo-600"
+                        />
+                        <span className="w-9 h-9 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg overflow-hidden flex items-center justify-center shrink-0">
+                          {img.src
+                            ? <img src={img.src} alt="" className="w-full h-full object-cover" />
+                            : <Package className="w-4 h-4 text-slate-300 dark:text-dk-muted" />}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-600 dark:text-dk-text-soft">
+                          {img.label}
+                          {!img.src && (
+                            <span className="block font-semibold text-slate-400 dark:text-dk-muted">
+                              {tx(lang,{fr:'aucune image',ar:'ما كاينة صورة',en:'no image',es:'sin imagen',pt:'sem imagem',tr:'görsel yok'})}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Identité de l'entreprise — LECTURE SEULE. L'édition vit dans
                     Admin > Entreprise : une seconde saisie ici ferait diverger
