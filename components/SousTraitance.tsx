@@ -600,6 +600,62 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [newMilestoneLabel, setNewMilestoneLabel] = useState('');
   const [milestoneSaving, setMilestoneSaving] = useState(false);
   const [milestoneError, setMilestoneError] = useState<string | null>(null);
+  /** Réception de pièces finies dans la fiche : quantités acceptées / à retoucher
+   *  / rejetées. Elles alimentent le stock de l'onglet Stock & Ventes, qui vaut
+   *  « acceptées − vendues ». On écrit dans CES champs plutôt que de créer un
+   *  second stock parallèle : deux compteurs pour la même réalité finissent
+   *  toujours par diverger. */
+  const [receptionForm, setReceptionForm] = useState<{
+    order: SubcontractOrder;
+    accepted: number | '';
+    toRepair: number | '';
+    rejected: number | '';
+  } | null>(null);
+  const [receptionSaving, setReceptionSaving] = useState(false);
+  const [receptionError, setReceptionError] = useState<string | null>(null);
+
+  const saveReception = async () => {
+    if (!receptionForm) return;
+    const { order } = receptionForm;
+    const accepted = Number(receptionForm.accepted) || 0;
+    const toRepair = Number(receptionForm.toRepair) || 0;
+    const rejected = Number(receptionForm.rejected) || 0;
+
+    // Recevoir plus que ce qui a été commandé trahit une erreur de saisie, et
+    // gonflerait un stock qui sert ensuite de base aux ventes.
+    if (accepted + toRepair + rejected > order.totalQuantity) {
+      setReceptionError(tx(lang,{
+        fr:`Le total reçu (${accepted + toRepair + rejected}) dépasse la quantité commandée (${order.totalQuantity}).`,
+        ar:`مجموع المستلَم (${accepted + toRepair + rejected}) كيفوت الكمية المطلوبة (${order.totalQuantity}).`,
+        en:`Total received (${accepted + toRepair + rejected}) exceeds the ordered quantity (${order.totalQuantity}).`,
+        es:`El total recibido (${accepted + toRepair + rejected}) supera la cantidad pedida (${order.totalQuantity}).`,
+        pt:`O total recebido (${accepted + toRepair + rejected}) excede a quantidade encomendada (${order.totalQuantity}).`,
+        tr:`Alınan toplam (${accepted + toRepair + rejected}) sipariş miktarını (${order.totalQuantity}) aşıyor.`,
+      }));
+      return;
+    }
+
+    setReceptionSaving(true);
+    setReceptionError(null);
+    const patch = { qtyAccepted: accepted, qtyToRepair: toRepair, qtyRejected: rejected };
+    try {
+      const res = await fetch(`/api/subcontract/${order.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error(tx(lang,{fr:"Échec de l'enregistrement",ar:'فشل الحفظ',en:'Saving failed',es:'Error al guardar',pt:'Falha ao guardar',tr:'Kaydetme başarısız'}));
+      setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, ...patch } : o)));
+      setDetailOrder(prev => (prev && prev.id === order.id ? { ...prev, ...patch } : prev));
+      setReceptionForm(null);
+    } catch (err: any) {
+      setReceptionError(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
+    } finally {
+      setReceptionSaving(false);
+    }
+  };
+
   /** Jalon LIBRE en attente de confirmation : bascule ou suppression. Même
    *  exigence que les 4 jalons fixes — une checklist se coche volontairement. */
   const [customConfirm, setCustomConfirm] = useState<{
@@ -4957,6 +5013,83 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         );
       })()}
 
+      {/* Réception de pièces finies — alimente le stock de l'onglet Stock & Ventes. */}
+      {receptionForm && createPortal(
+        <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setReceptionForm(null)}>
+          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-md p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-2.5">
+              <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-slate-800 dark:text-dk-text">
+                  {tx(lang,{fr:'Entrer les pièces en stock',ar:'إدخال القطع للمخزون',en:'Add pieces to stock',es:'Entrar las piezas en stock',pt:'Entrar as peças em stock',tr:'Parçaları stoğa gir'})}
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-0.5">
+                  {receptionForm.order.modelName || receptionForm.order.modelId} — {receptionForm.order.totalQuantity.toLocaleString()} pcs {tx(lang,{fr:'commandées',ar:'مطلوبة',en:'ordered',es:'pedidas',pt:'encomendadas',tr:'sipariş'})}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {([
+                { key: 'accepted' as const, label: tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul'}), tone: 'text-emerald-700 dark:text-emerald-400' },
+                { key: 'toRepair' as const, label: tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rötuş'}), tone: 'text-amber-700 dark:text-amber-400' },
+                { key: 'rejected' as const, label: tx(lang,{fr:'Rejetées',ar:'مرفوضة',en:'Rejected',es:'Rechazadas',pt:'Rejeitadas',tr:'Red'}), tone: 'text-rose-700 dark:text-rose-400' },
+              ]).map(f => (
+                <div key={f.key} className="space-y-1">
+                  <label className={`block font-bold uppercase tracking-widest text-[9px] ${f.tone}`}>{f.label}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={receptionForm.order.totalQuantity}
+                    value={receptionForm[f.key]}
+                    onChange={e => setReceptionForm(prev => prev && ({
+                      ...prev,
+                      [f.key]: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value) || 0),
+                    }))}
+                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[10px] text-slate-500 dark:text-dk-muted">
+              {tx(lang,{
+                fr:'Seules les pièces ACCEPTÉES entrent au stock vendable (onglet Stock & Ventes).',
+                ar:'غير القطع المقبولة كتدخل للمخزون القابل للبيع (تبويب Stock & Ventes).',
+                en:'Only ACCEPTED pieces enter sellable stock (Stock & Sales tab).',
+                es:'Solo las piezas ACEPTADAS entran en el stock vendible (pestaña Stock & Ventas).',
+                pt:'Só as peças ACEITES entram no stock vendável (separador Stock & Vendas).',
+                tr:'Yalnızca KABUL edilen parçalar satılabilir stoğa girer (Stok & Satışlar sekmesi).',
+              })}
+            </p>
+
+            {receptionError && (
+              <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{receptionError}</p>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setReceptionForm(null)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+              >
+                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+              </button>
+              <button
+                type="button"
+                onClick={saveReception}
+                disabled={receptionSaving}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition-colors disabled:opacity-40"
+              >
+                {receptionSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Confirmation d'un jalon libre (bascule ou suppression). */}
       {customConfirm && createPortal(
         <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setCustomConfirm(null)}>
@@ -5571,7 +5704,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
               {/* Quantity analysis details */}
               <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-3 bg-slate-50 dark:bg-dk-surface/50">
-                <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide">{tx(lang,{fr:'État des pièces livrées',ar:'حالة القطع المسلَّمة',en:'Status of delivered pieces',es:'Estado de las piezas entregadas',pt:'Estado das peças entregues',tr:'Teslim edilen parçaların durumu'})}</h4>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide">{tx(lang,{fr:'État des pièces livrées',ar:'حالة القطع المسلَّمة',en:'Status of delivered pieces',es:'Estado de las piezas entregadas',pt:'Estado das peças entregues',tr:'Teslim edilen parçaların durumu'})}</h4>
+                  <button
+                    type="button"
+                    onClick={() => setReceptionForm({
+                      order: detailOrder,
+                      accepted: detailOrder.qtyAccepted || 0,
+                      toRepair: detailOrder.qtyToRepair || 0,
+                      rejected: detailOrder.qtyRejected || 0,
+                    })}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-[10px] hover:bg-emerald-700 transition-colors"
+                  >
+                    <Package className="w-3.5 h-3.5" />
+                    {tx(lang,{fr:'Entrer en stock',ar:'إدخال للمخزون',en:'Add to stock',es:'Entrar en stock',pt:'Entrar em stock',tr:'Stoğa gir'})}
+                  </button>
+                </div>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="bg-emerald-50 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
                     <span className="text-emerald-800 dark:text-emerald-300 font-bold block text-[9px] uppercase tracking-wide">{tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul Edilen'})}</span>
