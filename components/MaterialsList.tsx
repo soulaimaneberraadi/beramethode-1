@@ -109,7 +109,15 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
         fetch('/api/magasin/products', {
             method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...newItem, reference: newItem.reference || newItem.id, designation: newItem.nom }),
+            // Le serveur stocke la colonne `photo` ; le client manipule `image`.
+            // Sans ce renommage la photo choisie ici n'était jamais persistée :
+            // elle ne survivait pas au rechargement (seul localStorage la gardait).
+            body: JSON.stringify({
+                ...newItem,
+                reference: newItem.reference || newItem.id,
+                designation: newItem.nom,
+                photo: newItem.image || null,
+            }),
         }).catch(() => {});
         if (quickAddTargetRow !== null) {
             updateMaterial(quickAddTargetRow, 'IMPORT_MAGASIN', { ...newItem, prix: newItem.prixUnitaire });
@@ -349,20 +357,42 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
     expandedBobine, setExpandedBobine, view, setMaterialScope
 }) => {
     const { lang } = useLang();
+    // Recherche tolérante : la casse, les accents et les espaces multiples ne
+    // doivent pas faire disparaître un article du magasin. « Tissu  Denim » et
+    // « tissu denim » désignent le même article.
+    const norm = (s: any) => String(s ?? '')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .trim().toLowerCase().replace(/\s+/g, ' ');
+
     const filteredMagasin = focusedRow === item.id
-        ? magasinData.filter(m => {
-            const q = (item.name || '').toLowerCase();
-            return (m.nom || m.designation || '').toLowerCase().includes(q)
-                || (m.reference || '').toLowerCase().includes(q)
-                || (m.categorie || '').toLowerCase().includes(q);
-        })
+        ? (() => {
+            const q = norm(item.name);
+            const hit = magasinData.filter(m =>
+                norm(m.nom || m.designation).includes(q)
+                || norm(m.reference).includes(q)
+                || norm(m.categorie).includes(q)
+                || norm(m.fournisseurNom || m.fournisseur).includes(q)
+            );
+            // Les correspondances par DÉBUT de nom d'abord : en tapant « ti », on
+            // veut « Tissu » avant un article dont la référence contient « ti ».
+            return hit.sort((a, b) => {
+                const aStart = norm(a.nom || a.designation).startsWith(q) ? 0 : 1;
+                const bStart = norm(b.nom || b.designation).startsWith(q) ? 0 : 1;
+                return aStart - bStart;
+            });
+        })()
         : [];
 
     const isMobile = view === 'mobile';
     const isBobine = item.unit === 'bobine';
     const bobineOpen = expandedBobine === item.id;
 
-    const mMatch = magasinData.find(m => (m.nom || m.designation) === item.name);
+    // Lien vers l'article du magasin : `magasinId` fait foi (lien fort posé à
+    // l'import) ; le nom n'est qu'un repli, et il est comparé de façon tolérante —
+    // une majuscule ou un espace de différence faisait disparaître la photo, la
+    // référence et le stock sans rien dire.
+    const mMatch = magasinData.find(m => item.magasinId && String(m.id) === String(item.magasinId))
+        || magasinData.find(m => norm(m.nom || m.designation) === norm(item.name) && norm(item.name) !== '');
 
     if (isMobile) {
         return (
@@ -387,7 +417,14 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                             className={`p-2.5 border-b border-slate-50 cursor-pointer hover:bg-slate-50 dark:hover:bg-dk-elevated/60 ${!m.stockActuel ? 'opacity-70' : ''}`}
                                             onMouseDown={(e) => { e.preventDefault(); updateMaterial(item.id, 'IMPORT_MAGASIN', { ...m, prix: m.prixUnitaire || 0 }); setFocusedRow(null); }}>
                                             <div className="flex justify-between items-start">
-                                                <span className="font-bold text-[12px] text-slate-800 dark:text-dk-text">{m.nom || m.designation}</span>
+                                                <span className="flex items-center gap-1.5 min-w-0">
+                                                    <span className="w-6 h-6 rounded bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border flex items-center justify-center shrink-0 overflow-hidden">
+                                                        {m.image
+                                                            ? <img src={m.image} alt="" className="w-full h-full object-cover" />
+                                                            : <Package className="w-3 h-3 text-slate-400 dark:text-dk-muted" />}
+                                                    </span>
+                                                    <span className="font-bold text-[12px] text-slate-800 dark:text-dk-text truncate">{m.nom || m.designation}</span>
+                                                </span>
                                                 <span className="font-bold text-[10px] text-[#2149C1] bg-slate-100 dark:bg-dk-elevated px-1.5 py-0.5 rounded">{(m.prixUnitaire || 0).toFixed(2)} {currency}</span>
                                             </div>
                                             <div className="flex justify-between items-center mt-0.5">
@@ -592,6 +629,12 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                             <div key={m.id}
                                 className={`p-2 border-b border-slate-50 cursor-pointer hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex justify-between items-center ${!m.stockActuel ? 'opacity-70' : ''}`}
                                 onMouseDown={(e) => { e.preventDefault(); updateMaterial(item.id, 'IMPORT_MAGASIN', { ...m, prix: m.prixUnitaire || 0 }); setFocusedRow(null); }}>
+                                {/* Vignette : reconnaître un tissu à l'œil est plus rapide qu'à la référence. */}
+                                <div className="w-7 h-7 rounded bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-400 dark:text-dk-muted shrink-0 mr-2 overflow-hidden">
+                                    {m.image
+                                        ? <img src={m.image} alt="" className="w-full h-full object-cover" />
+                                        : <Package className="w-3.5 h-3.5" />}
+                                </div>
                                 <div className="flex-1 min-w-0">
                                     <span className="font-bold text-[12px] text-slate-800 dark:text-dk-text block truncate">{m.nom || m.designation}</span>
                                     <span className="text-[9px] text-slate-400 dark:text-dk-muted">{m.reference || '—'}</span>
@@ -617,6 +660,11 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                 {/* Magasin info line */}
                 {mMatch && !focusedRow && (
                     <div className="mt-1 flex items-center gap-1.5 text-[9px] text-slate-500 dark:text-dk-muted">
+                        <span className="w-6 h-6 rounded bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border flex items-center justify-center shrink-0 overflow-hidden">
+                            {mMatch.image
+                                ? <img src={mMatch.image} alt="" className="w-full h-full object-cover" />
+                                : <Package className="w-3 h-3 text-slate-400 dark:text-dk-muted" />}
+                        </span>
                         <span className="px-1 py-0.5 rounded bg-slate-100 dark:bg-dk-elevated font-bold">{mMatch.reference || '—'}</span>
                         <span className={`px-1 py-0.5 rounded font-bold ${(mMatch.stockActuel || 0) === 0 ? 'bg-red-100 text-red-600 dark:text-red-400' : 'bg-emerald-100 text-emerald-600 dark:text-emerald-400'}`}>
                             Stock: {mMatch.stockActuel || 0} {mMatch.unite}
