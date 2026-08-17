@@ -938,6 +938,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setExpenseQuantityScope('');
     setCustomMilestones(readCustomMilestones(detailOrder));
     setNewMilestoneLabel('');
+    // Une erreur de jalon appartient à la fiche où elle s'est produite : elle ne
+    // doit pas accueillir la commande suivante.
+    setMilestoneError(null);
+    setGridAlignError(null);
     return () => controller.abort();
   }, [isDetailModalOpen, detailOrder?.id]);
 
@@ -2070,6 +2074,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   const handleAddCustomMilestone = (order: SubcontractOrder) => {
     const label = newMilestoneLabel.trim();
+    // Le message de saisie n'était effacé que par un enregistrement réussi : une
+    // fois « Indiquez un nom » affiché, il restait à l'écran même après avoir
+    // tapé un nom, et survivait à la fermeture de la fiche. On repart propre à
+    // chaque tentative.
+    setMilestoneError(null);
     if (!label) {
       setMilestoneError(tx(lang,{fr:'Indiquez un nom pour le jalon.',ar:'حدّد اسماً للمرحلة.',en:'Enter a name for the milestone.',es:'Indique un nombre para el hito.',pt:'Indique um nome para o marco.',tr:'Kilometre taşı için bir ad girin.'}));
       return;
