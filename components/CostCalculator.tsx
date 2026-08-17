@@ -195,7 +195,13 @@ export default function CostCalculator({
         }
     }, []);
 
+    /** Empêche une seconde déduction pendant que la première est en cours ou
+     *  vient d'aboutir : l'opération est irréversible, un double clic viderait le
+     *  magasin deux fois pour la même commande. */
+    const deductingRef = useRef(false);
+
     const deductStock = () => {
+        if (deductingRef.current) return;
         // Garde-fou : une quantité à acheter absurde trahit des données de fil
         // obsolètes (consommation calculée pour TOUTE la commande au lieu d'UNE pièce).
         // On bloque la déduction pour ne pas vider le magasin par erreur.
@@ -219,28 +225,67 @@ export default function CostCalculator({
             confirmText: tx(lang, {fr: "Déduire", ar: "خصم", en: "Deduct", es: "Deducir", pt: "Deduzir", tr: "Kes"}),
             onConfirm: () => {
                 setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                deductingRef.current = true;
+                // Réarmement après un court délai : on protège du double clic, pas
+                // d'une seconde déduction volontaire plus tard.
+                setTimeout(() => { deductingRef.current = false; }, 3000);
                 try {
                     const magasinStr = localStorage.getItem('beramethode_magasin');
-                    if (!magasinStr) return;
+                    // Sans magasin chargé, l'ancien code sortait EN SILENCE : le clic
+                    // n'avait aucun effet et rien ne le disait.
+                    if (!magasinStr) {
+                        setConfirmDialog({
+                            isOpen: true,
+                            title: tx(lang, {fr: "Magasin vide", ar: "المخزن فارغ", en: "Empty store", es: "Almacén vacío", pt: "Armazém vazio", tr: "Depo boş"}),
+                            message: tx(lang, {fr: "Aucun magasin chargé sur ce poste : rien n'a été déduit.", ar: "ما كاين حتى مخزن محمّل ف هاد الجهاز: ما تخصم والو.", en: "No store loaded on this device: nothing was deducted.", es: "Ningún almacén cargado en este equipo: no se dedujo nada.", pt: "Nenhum armazém carregado neste posto: nada foi deduzido.", tr: "Bu cihazda yüklü depo yok: hiçbir şey düşülmedi."}),
+                            type: 'warning',
+                            hideCancel: true,
+                            onConfirm: () => setConfirmDialog(prev => ({ ...prev, isOpen: false })),
+                        });
+                        return;
+                    }
 
                     let magasinData = JSON.parse(magasinStr);
-                    let updated = false;
+                    // On suit CHAQUE matière séparément : annoncer « Succès » alors
+                    // qu'une seule ligne sur deux a été déduite laissait croire que le
+                    // magasin était à jour, et faisait acheter deux fois.
+                    const done: string[] = [];
+                    const missing: string[] = [];
 
                     purchasingData.forEach(mat => {
                         const magItem = findMagasinItem(mat, magasinData);
                         if (magItem) {
                             magItem.stockActuel = Math.max(0, (magItem.stockActuel || 0) - mat.qtyToBuy);
-                            updated = true;
+                            done.push(`${mat.name} (−${fmt(mat.qtyToBuy)} ${mat.unit})`);
+                        } else {
+                            missing.push(mat.name);
                         }
                     });
 
-                    if (updated) {
+                    if (done.length > 0) {
                         localStorage.setItem('beramethode_magasin', JSON.stringify(magasinData));
+                        // Trace locale du geste : la déduction est irréversible, il faut
+                        // au moins pouvoir dire qui a retiré quoi et quand.
+                        try {
+                            const key = 'beramethode_stock_deductions';
+                            const log = JSON.parse(localStorage.getItem(key) || '[]');
+                            log.unshift({
+                                date: new Date().toISOString(),
+                                modelName: ficheData.designation || '',
+                                lines: purchasingData.map(m => ({ name: m.name, qty: m.qtyToBuy, unit: m.unit, deducted: !missing.includes(m.name) })),
+                            });
+                            localStorage.setItem(key, JSON.stringify(log.slice(0, 200)));
+                        } catch { /* la trace ne doit jamais bloquer la déduction */ }
                         setConfirmDialog({
                             isOpen: true,
-                            title: tx(lang, {fr: "Succès", ar: "نجاح", en: "Success", es: "Éxito", pt: "Sucesso", tr: "Başarı"}),
-                            message: "Stock déduit avec succès !",
-                            type: 'success',
+                            title: missing.length === 0
+                                ? tx(lang, {fr: "Succès", ar: "نجاح", en: "Success", es: "Éxito", pt: "Sucesso", tr: "Başarı"})
+                                : tx(lang, {fr: "Déduction partielle", ar: "خصم جزئي", en: "Partial deduction", es: "Deducción parcial", pt: "Dedução parcial", tr: "Kısmi kesinti"}),
+                            message: missing.length === 0
+                                ? `${tx(lang, {fr: "Stock déduit", ar: "تم خصم المخزون", en: "Stock deducted", es: "Stock deducido", pt: "Stock deduzido", tr: "Stok düşüldü"})} : ${done.join(' · ')}`
+                                : `${tx(lang, {fr: "Déduit", ar: "تم الخصم", en: "Deducted", es: "Deducido", pt: "Deduzido", tr: "Düşülen"})} : ${done.join(' · ')}
+${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير موجود في المخزن)", en: "NOT deducted (missing from store)", es: "NO deducido (ausente del almacén)", pt: "NÃO deduzido (ausente do armazém)", tr: "Düşülmedi (depoda yok)"})} : ${missing.join(', ')}`,
+                            type: missing.length === 0 ? 'success' : 'warning',
                             hideCancel: true,
                             onConfirm: () => setConfirmDialog(prev => ({ ...prev, isOpen: false })),
                         });
