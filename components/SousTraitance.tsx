@@ -511,6 +511,21 @@ const autoFitScript = (marginMm: number) => `
       })();
     <\/script>`;
 
+/** Pastille de couleur affichée à côté d'un nom de teinte.
+ *
+ *  Déclarée AU NIVEAU MODULE : définie à l'intérieur du composant, elle était
+ *  recréée à chaque rendu, donc vue par React comme un type de composant
+ *  différent à chaque fois. React démontait puis remontait le nœud, ce qui
+ *  finissait par lever « insertBefore … is not a child of this node » et figeait
+ *  l'écran. Un composant ne doit jamais être défini dans le corps d'un autre. */
+const ColorDot = ({ hex }: { hex?: string }) => (
+  <span
+    className="inline-block w-2.5 h-2.5 rounded-full border border-black/10 dark:border-white/20 shrink-0"
+    style={hex ? { backgroundColor: hex } : undefined}
+    aria-hidden="true"
+  />
+);
+
 /** Total d'une grille couleur × taille. */
 const sumGrid = (grid: Record<string, Record<string, number>> | undefined): number =>
   Object.values(grid || {}).reduce(
@@ -672,22 +687,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   const gridKey = (couleur: string, taille: string) => `${couleur}|${taille}`;
 
-  /** Pastille de la couleur, à côté de son nom. Deux teintes proches se
-   *  distinguent à l'œil bien plus vite qu'à la lecture de leur libellé.
-   *  La teinte n'existe que si l'identifiant de la couleur EST un code hex
-   *  (convention du modèle) ; sinon on n'invente aucune couleur. */
-  const ColorDot = ({ name }: { name: string }) => {
-    const hex = models
-      .flatMap(m => ((m.ficheData as any)?.colors || []) as Array<{ id: string; name: string }>)
-      .find(c => c.name === name && typeof c.id === 'string' && c.id.startsWith('#'))?.id;
-    return (
-      <span
-        className="inline-block w-2.5 h-2.5 rounded-full border border-black/10 dark:border-white/20 shrink-0"
-        style={hex ? { backgroundColor: hex } : undefined}
-        aria-hidden="true"
-      />
-    );
-  };
+  /** Teinte enregistrée pour ce nom de couleur, ou undefined si le modèle ne
+   *  porte pas de code hex : on n'invente aucune couleur. */
+  const colorHexOf = (name: string) => models
+    .flatMap(m => ((m.ficheData as any)?.colors || []) as Array<{ id: string; name: string }>)
+    .find(c => c.name === name && typeof c.id === 'string' && c.id.startsWith('#'))?.id;
+
 
   const loadStockEntries = async (orderId: string) => {
     setStockEntriesLoading(true);
@@ -5646,7 +5651,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           const rowTotal = stockEntryMatrix.sizes.reduce((a, sz) => a + (Number(entryGrid[gridKey(c.name, sz)]) || 0), 0);
                           return (
                             <tr key={c.id}>
-                              <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap"><span className="inline-flex items-center gap-1.5"><ColorDot name={c.name} />{c.name}</span></td>
+                              <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap"><span className="inline-flex items-center gap-1.5"><ColorDot hex={colorHexOf(c.name)} />{c.name}</span></td>
                               {stockEntryMatrix.sizes.map(sz => {
                                 const k = gridKey(c.name, sz);
                                 const commande = stockEntryMatrix.commande[k] || 0;
@@ -5783,7 +5788,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                               {couleurs.map(c => (
                                 <tr key={c}>
-                                  <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap"><span className="inline-flex items-center gap-1.5"><ColorDot name={c} />{c}</span></td>
+                                  <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap"><span className="inline-flex items-center gap-1.5"><ColorDot hex={colorHexOf(c)} />{c}</span></td>
                                   {tailles.map(sz => {
                                     const v = cell(c, sz);
                                     return <td key={sz} className={`px-2 py-1.5 text-center ${v ? 'font-bold text-slate-700 dark:text-dk-text-soft' : 'text-slate-300 dark:text-dk-muted'}`}>{v || '—'}</td>;
@@ -6535,7 +6540,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             let rowEntre = 0;
                             return (
                               <tr key={c.id}>
-                                <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap"><span className="inline-flex items-center gap-1.5"><ColorDot name={c.name} />{c.name}</span></td>
+                                <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap"><span className="inline-flex items-center gap-1.5"><ColorDot hex={colorHexOf(c.name)} />{c.name}</span></td>
                                 {sizes.map((sz, i) => {
                                   const cmd = Number(gq[`${c.id}_${i}`]) || 0;
                                   const got = entre[`${c.name}|${sz}`] || 0;
