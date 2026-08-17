@@ -116,6 +116,29 @@ const CostSanityCheck: React.FC<CostSanityCheckProps> = ({
                 : `${absurd.length} ${tx(lang, {fr:'matière(s) >', ar:'مادة/مواد >', en:'material(s) >', es:'material(es) >', pt:'material(is) >', tr:'malzeme(ler) >'})} ${fmt(ABSURD_BUY)} (${tx(lang, {fr:'ex:', ar:'مثال:', en:'e.g.', es:'ej:', pt:'ex:', tr:'örn:'})} ${absurd[0].name} = ${fmt(absurd[0].qtyToBuy)})`,
         });
 
+        // Frais additionnels de la sous-traitance : on vérifie que ce qui pèse sur
+        // le prix de revient (la moyenne par pièce) redonne bien, multiplié par la
+        // quantité de la commande, la dépense réellement engagée. Un frais sans
+        // montant ou une quantité nulle rendraient la répartition muette : dans les
+        // deux cas le frais disparaîtrait du coût sans que rien ne le signale.
+        const fraisList: any[] = (ficheData as any)?.soustraitance?.frais || [];
+        if (fraisList.length > 0) {
+            const total = fraisList.reduce((acc, f) => acc + (Number(f?.amount) || 0), 0);
+            const perPiece = commandeQty > 0 ? total / commandeQty : 0;
+            const emptyFrais = fraisList.filter(f => !(Number(f?.amount) > 0)).length;
+            const spreadOk = commandeQty > 0 && Math.abs(perPiece * commandeQty - total) < 0.5;
+            const ok = spreadOk && emptyFrais === 0;
+            rows.push({
+                status: ok ? 'ok' : 'warn',
+                label: tx(lang, {fr:'Frais additionnels répartis', ar:'المصاريف الإضافية موزّعة', en:'Additional fees spread', es:'Gastos adicionales repartidos', pt:'Encargos adicionais repartidos', tr:'Ek masraflar dağıtılmış'}),
+                detail: commandeQty <= 0
+                    ? tx(lang, {fr:'Quantité de commande = 0 → les frais ne pèsent sur aucune pièce', ar:'كمية الأمر = 0 → المصاريف ما كتثقل على حتى قطعة', en:'Order quantity = 0 → fees weigh on no piece', es:'Cantidad del pedido = 0 → los gastos no pesan sobre ninguna pieza', pt:'Quantidade da encomenda = 0 → os encargos não pesam em nenhuma peça', tr:'Sipariş miktarı = 0 → masraflar hiçbir parçaya yüklenmiyor'})
+                    : emptyFrais > 0
+                        ? `${emptyFrais} ${tx(lang, {fr:'frais à montant 0 → ignoré(s) dans le coût', ar:'مصروف بمبلغ 0 → متجاهَل في التكلفة', en:'fee(s) at amount 0 → ignored in the cost', es:'gasto(s) con importe 0 → ignorado(s) en el coste', pt:'encargo(s) com montante 0 → ignorado(s) no custo', tr:'tutarı 0 olan masraf → maliyette yok sayıldı'})}`
+                        : `${fmt(total)} ${currency} / ${commandeQty} ${tx(lang, {fr:'pcs', ar:'قطعة', en:'pcs', es:'pzs', pt:'pçs', tr:'adet'})} = ${fmt(perPiece)} ${currency}/${tx(lang, {fr:'pièce', ar:'قطعة', en:'piece', es:'pieza', pt:'peça', tr:'parça'})}`,
+            });
+        }
+
         const sumLine = purchasingData.reduce((a, m) => a + m.lineCost, 0);
         rows.push({
             status: Math.abs(totalPurchasingMatCost - sumLine) < 0.5 ? 'ok' : 'warn',
