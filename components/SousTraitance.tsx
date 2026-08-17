@@ -605,6 +605,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [costInvoiceSaving, setCostInvoiceSaving] = useState(false);
   const [costInvoiceSaveError, setCostInvoiceSaveError] = useState<string | null>(null);
   const [costInvoiceSavedNumber, setCostInvoiceSavedNumber] = useState<string | null>(null);
+  /** Lignes DÉCOCHÉES de la facture (clés : 'facon', 'mat-<id>', 'exp-<id>').
+   *  Par défaut tout est coché : une facture complète reste le cas normal, et
+   *  exclure une ligne doit être un geste conscient. Ce qui est décoché
+   *  disparaît des totaux, de l'impression ET de la facture enregistrée. */
+  const [costInvoiceOff, setCostInvoiceOff] = useState<Set<string>>(new Set());
+  const toggleCostLine = (key: string) => setCostInvoiceOff(prev => {
+    const next = new Set(prev);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
   /** Remonte <InlineInvoiceList> ("Factures liées") après enregistrement pour
    *  qu'elle recharge sans dépendre d'un callback exposé par ce composant tiers. */
   const [invoiceListKey, setInvoiceListKey] = useState(0);
@@ -1063,6 +1073,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setCostInvoiceTva(20);
     setCostInvoiceSaveError(null);
     setCostInvoiceSavedNumber(null);
+    setCostInvoiceOff(new Set());
     setIsCostInvoiceModalOpen(true);
     // Filet de sécurité : si la fiche n'a pas (ou plus) chargé les frais de
     // CETTE commande, on les demande avant d'afficher un total incomplet.
@@ -2677,17 +2688,33 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       .filter(e => e.applied > 0);
     const expensesTotal = expenses.reduce((a, e) => a + e.applied, 0);
 
+    // Sélection ligne à ligne. `all*` garde la liste complète pour l'affichage
+    // (une ligne décochée reste visible, barrée), tandis que les champs sans
+    // préfixe ne portent QUE ce qui sera réellement facturé.
+    const faconOn = !costInvoiceOff.has('facon');
+    const keptMaterials = materials.filter(m => !costInvoiceOff.has(`mat-${m.id}`));
+    const keptExpenses = expenses.filter(e => !costInvoiceOff.has(`exp-${e.expense.id}`));
+    const keptMaterialsTotal = keptMaterials.reduce((a, r) => a + r.cost, 0);
+    const keptExpensesTotal = keptExpenses.reduce((a, e) => a + e.applied, 0);
+    const keptFaconTotal = faconOn ? faconTotal : 0;
+
     return {
       qty,
       isPartial,
       unitPrice,
-      faconTotal,
+      faconOn,
+      allMaterials: materials,
+      allExpenses: expenses,
+      faconTotal: keptFaconTotal,
       isFacon,
-      materials,
-      materialsTotal,
-      expenses,
-      expensesTotal,
-      total: faconTotal + materialsTotal + expensesTotal,
+      materials: keptMaterials,
+      materialsTotal: keptMaterialsTotal,
+      expenses: keptExpenses,
+      expensesTotal: keptExpensesTotal,
+      total: keptFaconTotal + keptMaterialsTotal + keptExpensesTotal,
+      /** Nombre de lignes volontairement exclues — sert à l'avertir clairement. */
+      excludedCount:
+        (faconOn ? 0 : 1) + (materials.length - keptMaterials.length) + (expenses.length - keptExpenses.length),
     };
   };
 
@@ -2697,17 +2724,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  voir saveFacture/generateNumero). Aucune table ni route dédiée : on
    *  réutilise l'existant plutôt que de dupliquer un mécanisme qui marche déjà. */
   const handleSaveCostInvoice = async (order: SubcontractOrder, inv: ReturnType<typeof buildCostInvoice>) => {
+    const stProfile = subcontractorProfiles.find(p => p.name === order.subcontractorName);
     setCostInvoiceSaving(true);
     setCostInvoiceSaveError(null);
     try {
       const lignes: any[] = [
-        {
+        ...(inv.faconOn ? [{
           product_id: order.modelId,
           designation: `${tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'})} — ${order.modelName || order.modelId}`,
           quantite: inv.qty,
           prix_unitaire: inv.unitPrice,
           total: inv.faconTotal,
-        },
+        }] : []),
         ...inv.materials.map(m => ({
           product_id: order.modelId,
           designation: `${tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'})} — ${m.name}`,
@@ -2732,6 +2760,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         body: JSON.stringify({
           type: 'ACHAT',
           tiers_nom: order.subcontractorName,
+          // Identifiants légaux du bénéficiaire, repris de sa fiche : sans eux la
+          // facture d'achat n'est pas exploitable comptablement.
+          tiers_ice: stProfile?.ice || null,
+          tiers_rc: stProfile?.rc || null,
+          tiers_adresse: stProfile?.address || null,
+          tiers_tel: stProfile?.phone || order.subcontractorPhone || null,
           date_facture: new Date().toISOString().split('T')[0],
           taux_tva: costInvoiceTva,
           notes: inv.isPartial
@@ -2773,7 +2807,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const profile = subcontractorProfiles.find(p => p.name === order.subcontractorName);
 
     const lineRows: string[] = [];
-    lineRows.push(`
+    // Ligne Façon décochée : elle ne doit pas apparaître sur le document imprimé,
+    // sinon celui-ci contredirait le total (déjà calculé sans elle).
+    if (inv.faconOn) lineRows.push(`
               <tr>
                 <td style="font-weight: 600;">${esc(tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}))} — ${esc(order.modelName || order.modelId)}</td>
                 <td style="text-align: right;">${esc(inv.qty.toLocaleString(dateLocale))} pcs</td>
@@ -5273,6 +5309,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <table className="w-full text-[11px]">
                       <thead className="bg-white dark:bg-dk-surface text-slate-400 dark:text-dk-muted uppercase tracking-wide text-[9px] border-b border-slate-100 dark:border-dk-border">
                         <tr>
+                          <th className="pl-4 pr-1 py-2 text-left font-medium w-8">{tx(lang,{fr:'Incl.',ar:'ضمّ',en:'Incl.',es:'Incl.',pt:'Incl.',tr:'Dahil'})}</th>
                           <th className="px-4 py-2 text-left font-medium">{tx(lang,{fr:'Désignation',ar:'البيان',en:'Description',es:'Designación',pt:'Designação',tr:'Açıklama'})}</th>
                           <th className="px-4 py-2 text-right font-medium">{tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
                           <th className="px-4 py-2 text-right font-medium">{tx(lang,{fr:'P.U.',ar:'س.و.',en:'Unit',es:'P.U.',pt:'P.U.',tr:'B.F.'})}</th>
@@ -5280,17 +5317,33 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
-                        <tr>
+                        <tr className={inv.faconOn ? '' : 'opacity-45 line-through'}>
+                          <td className="pl-4 pr-1 py-2">
+                            <input
+                              type="checkbox"
+                              checked={inv.faconOn}
+                              onChange={() => toggleCostLine('facon')}
+                              className="w-3.5 h-3.5 accent-indigo-600 cursor-pointer align-middle"
+                            />
+                          </td>
                           <td className="px-4 py-2 font-semibold text-slate-700 dark:text-dk-text-soft">
                             {tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'})} — {order.modelName || order.modelId}
                           </td>
                           <td className="px-4 py-2 text-right">{inv.qty.toLocaleString()} pcs</td>
                           <td className="px-4 py-2 text-right">{fmt(inv.unitPrice)} {currency}</td>
-                          <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(inv.faconTotal)} {currency}</td>
+                          <td className="px-4 py-2 text-right font-bold text-slate-700 dark:text-dk-text-soft">{fmt(inv.qty * inv.unitPrice)} {currency}</td>
                         </tr>
 
-                        {inv.materials.map(m => (
-                          <tr key={`mat-${m.id}`}>
+                        {inv.allMaterials.map(m => (
+                          <tr key={`mat-${m.id}`} className={costInvoiceOff.has(`mat-${m.id}`) ? 'opacity-45 line-through' : ''}>
+                            <td className="pl-4 pr-1 py-2">
+                              <input
+                                type="checkbox"
+                                checked={!costInvoiceOff.has(`mat-${m.id}`)}
+                                onChange={() => toggleCostLine(`mat-${m.id}`)}
+                                className="w-3.5 h-3.5 accent-indigo-600 cursor-pointer align-middle"
+                              />
+                            </td>
                             <td className="px-4 py-2 text-slate-600 dark:text-dk-text-soft">
                               {tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'})} — {m.name}
                               <MaterialPriceBadge source={m.priceSource} lang={lang} />
@@ -5301,8 +5354,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           </tr>
                         ))}
 
-                        {inv.expenses.map(({ expense, applied }) => (
-                          <tr key={`exp-${expense.id}`}>
+                        {inv.allExpenses.map(({ expense, applied }) => (
+                          <tr key={`exp-${expense.id}`} className={costInvoiceOff.has(`exp-${expense.id}`) ? 'opacity-45 line-through' : ''}>
+                            <td className="pl-4 pr-1 py-2">
+                              <input
+                                type="checkbox"
+                                checked={!costInvoiceOff.has(`exp-${expense.id}`)}
+                                onChange={() => toggleCostLine(`exp-${expense.id}`)}
+                                className="w-3.5 h-3.5 accent-indigo-600 cursor-pointer align-middle"
+                              />
+                            </td>
                             <td className="px-4 py-2 text-slate-600 dark:text-dk-text-soft">
                               {tx(lang,{fr:'Frais',ar:'مصروف',en:'Expense',es:'Gasto',pt:'Despesa',tr:'Masraf'})} — {expense.label}
                               <span className="block text-[9px] text-slate-400 dark:text-dk-muted">
@@ -5322,7 +5383,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </tbody>
                       <tfoot className="bg-slate-50 dark:bg-dk-bg/60 border-t border-slate-200 dark:border-dk-border">
                         <tr>
-                          <td colSpan={3} className="px-4 py-3 font-bold uppercase tracking-wide text-[10px] text-slate-600 dark:text-dk-text-soft">
+                          <td colSpan={4} className="px-4 py-3 font-bold uppercase tracking-wide text-[10px] text-slate-600 dark:text-dk-text-soft">
                             {tx(lang,{fr:'Total à payer',ar:'المجموع الواجب أداؤه',en:'Total due',es:'Total a pagar',pt:'Total a pagar',tr:'Ödenecek toplam'})}
                           </td>
                           <td className="px-4 py-3 text-right font-extrabold text-indigo-600 dark:text-dk-accent text-sm">{fmt(inv.total)} {currency}</td>
@@ -5330,7 +5391,58 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </tfoot>
                     </table>
                   </div>
+                  {inv.excludedCount > 0 && (
+                    <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-800/50 text-[10px] font-semibold text-amber-800 dark:text-amber-400">
+                      {tx(lang,{
+                        fr:`${inv.excludedCount} ligne(s) exclue(s) : elles n'apparaîtront ni sur la facture imprimée ni sur la facture enregistrée.`,
+                        ar:`${inv.excludedCount} سطر مُستثنى: ما غاديش يبان لا فالفاتورة المطبوعة لا فالمسجّلة.`,
+                        en:`${inv.excludedCount} excluded line(s): they will appear neither on the printed nor on the saved invoice.`,
+                        es:`${inv.excludedCount} línea(s) excluida(s): no aparecerán ni en la factura impresa ni en la guardada.`,
+                        pt:`${inv.excludedCount} linha(s) excluída(s): não aparecerão nem na fatura impressa nem na guardada.`,
+                        tr:`${inv.excludedCount} satır hariç tutuldu: ne yazdırılan ne de kaydedilen faturada görünecek.`,
+                      })}
+                    </div>
+                  )}
                 </div>
+
+                {/* Identité du BÉNÉFICIAIRE — reprise de sa fiche sous-traitant.
+                    Une facture d'achat sans ICE ni RC du bénéficiaire n'est pas
+                    exploitable comptablement : on l'affiche donc ici, et on la
+                    transmet telle quelle à la facture enregistrée. */}
+                {(() => {
+                  const profile = subcontractorProfiles.find(p => p.name === order.subcontractorName);
+                  const missing = !profile?.ice || !profile?.rc;
+                  return (
+                    <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                      <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
+                        <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
+                          {tx(lang,{fr:'Infos sous-traitant (bénéficiaire)',ar:'معلومات السوطراطور (المستفيد)',en:'Subcontractor info (payee)',es:'Datos del subcontratista (beneficiario)',pt:'Dados do subcontratado (beneficiário)',tr:'Taşeron bilgileri (alacaklı)'})}
+                        </h4>
+                      </div>
+                      <div className="p-4 space-y-1.5">
+                        <p className="font-bold text-slate-800 dark:text-dk-text">{order.subcontractorName}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-dk-muted">
+                          {[profile?.ice && `ICE : ${profile.ice}`, profile?.rc && `RC : ${profile.rc}`].filter(Boolean).join(' · ') || '—'}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-dk-muted">
+                          {[profile?.address, profile?.phone || order.subcontractorPhone].filter(Boolean).join(' · ') || '—'}
+                        </p>
+                        {missing && (
+                          <p className="text-[10px] text-amber-700 dark:text-amber-400 italic pt-1">
+                            {tx(lang,{
+                              fr:"ICE / RC manquants — complétez la fiche du sous-traitant (onglet Sous-traitants) pour qu'ils figurent sur la facture.",
+                              ar:'ICE / RC ناقصين — كمّل بطاقة السوطراطور (تبويب Sous-traitants) باش يبانو فالفاتورة.',
+                              en:'Missing ICE / RC — complete the subcontractor profile (Subcontractors tab) so they appear on the invoice.',
+                              es:'Faltan ICE / RC — complete la ficha del subcontratista (pestaña Subcontratistas) para que aparezcan en la factura.',
+                              pt:'ICE / RC em falta — complete a ficha do subcontratado (separador Subcontratados) para que constem na fatura.',
+                              tr:'ICE / RC eksik — faturada görünmesi için taşeron kartını (Taşeronlar sekmesi) tamamlayın.',
+                            })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Identité de l'entreprise — LECTURE SEULE. L'édition vit dans
                     Admin > Entreprise : une seconde saisie ici ferait diverger
