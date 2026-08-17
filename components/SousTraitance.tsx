@@ -629,6 +629,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   const gridKey = (couleur: string, taille: string) => `${couleur}|${taille}`;
 
+  /** Pastille de la couleur, à côté de son nom. Deux teintes proches se
+   *  distinguent à l'œil bien plus vite qu'à la lecture de leur libellé.
+   *  La teinte n'existe que si l'identifiant de la couleur EST un code hex
+   *  (convention du modèle) ; sinon on n'invente aucune couleur. */
+  const ColorDot = ({ name }: { name: string }) => {
+    const hex = models
+      .flatMap(m => ((m.ficheData as any)?.colors || []) as Array<{ id: string; name: string }>)
+      .find(c => c.name === name && typeof c.id === 'string' && c.id.startsWith('#'))?.id;
+    return (
+      <span
+        className="inline-block w-2.5 h-2.5 rounded-full border border-black/10 dark:border-white/20 shrink-0"
+        style={hex ? { backgroundColor: hex } : undefined}
+        aria-hidden="true"
+      />
+    );
+  };
+
   const loadStockEntries = async (orderId: string) => {
     setStockEntriesLoading(true);
     try {
@@ -707,6 +724,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setStockEntrySaving(false);
     }
   };
+
+  /** Lot en attente de confirmation : une entrée en stock est une écriture
+   *  comptable de production, elle ne disparaît pas sur un clic. */
+  const [batchPendingDelete, setBatchPendingDelete] = useState<{ id: string; total: number; date: string } | null>(null);
 
   /** Supprime une saisie entière (le lot), pas une cellule : c'est le geste que
    *  l'utilisateur a fait, donc celui qu'il doit pouvoir défaire. */
@@ -5162,14 +5183,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       {tx(lang,{fr:'Nouvelle entrée',ar:'إدخال جديد',en:'New entry',es:'Nueva entrada',pt:'Nova entrada',tr:'Yeni giris'})}
                     </h4>
                     <div className="flex items-center gap-2">
+                      {/* Le sélecteur porte la couleur de la qualité choisie : c'est
+                          elle qui décide si les pièces entrent au stock vendable,
+                          et un mauvais choix passait inaperçu sur un menu neutre. */}
                       <select
                         value={entryQualite}
                         onChange={e => setEntryQualite(e.target.value as any)}
-                        className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1 text-[10px] font-bold text-slate-700 dark:text-dk-text-soft outline-none"
+                        className={`border rounded-lg px-2 py-1 text-[10px] font-bold outline-none transition-colors ${
+                          entryQualite === 'ACCEPTED'
+                            ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-400'
+                            : entryQualite === 'REPAIR'
+                              ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800/60 text-amber-700 dark:text-amber-400'
+                              : 'bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-900/60 text-rose-700 dark:text-rose-400'
+                        }`}
                       >
-                        <option value="ACCEPTED">{tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul'})}</option>
-                        <option value="REPAIR">{tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rotus'})}</option>
-                        <option value="REJECTED">{tx(lang,{fr:'Rejetées',ar:'مرفوضة',en:'Rejected',es:'Rechazadas',pt:'Rejeitadas',tr:'Red'})}</option>
+                        <option value="ACCEPTED" style={{ color: '#047857' }}>{tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul'})}</option>
+                        <option value="REPAIR" style={{ color: '#b45309' }}>{tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rotus'})}</option>
+                        <option value="REJECTED" style={{ color: '#be123c' }}>{tx(lang,{fr:'Rejetées',ar:'مرفوضة',en:'Rejected',es:'Rechazadas',pt:'Rejeitadas',tr:'Red'})}</option>
                       </select>
                       <input
                         type="date"
@@ -5196,7 +5226,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           const rowTotal = stockEntryMatrix.sizes.reduce((a, sz) => a + (Number(entryGrid[gridKey(c.name, sz)]) || 0), 0);
                           return (
                             <tr key={c.id}>
-                              <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">{c.name}</td>
+                              <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap"><span className="inline-flex items-center gap-1.5"><ColorDot name={c.name} />{c.name}</span></td>
                               {stockEntryMatrix.sizes.map(sz => {
                                 const k = gridKey(c.name, sz);
                                 const commande = stockEntryMatrix.commande[k] || 0;
@@ -5314,7 +5344,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           <button
                             type="button"
                             disabled={stockEntrySaving}
-                            onClick={() => removeStockBatch(batch.id)}
+                            onClick={() => setBatchPendingDelete({ id: batch.id, total: batch.total, date: batch.date })}
                             title={tx(lang,{fr:'Supprimer cette entrée',ar:'حذف هاد الإدخال',en:'Delete this entry',es:'Eliminar esta entrada',pt:'Eliminar esta entrada',tr:'Bu girisi sil'})}
                             className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40"
                           >
@@ -5333,7 +5363,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                               {couleurs.map(c => (
                                 <tr key={c}>
-                                  <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">{c}</td>
+                                  <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap"><span className="inline-flex items-center gap-1.5"><ColorDot name={c} />{c}</span></td>
                                   {tailles.map(sz => {
                                     const v = cell(c, sz);
                                     return <td key={sz} className={`px-2 py-1.5 text-center ${v ? 'font-bold text-slate-700 dark:text-dk-text-soft' : 'text-slate-300 dark:text-dk-muted'}`}>{v || '—'}</td>;
@@ -5351,6 +5381,52 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   })
                 )}
               </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Confirmation de suppression d'une entrée en stock. */}
+      {batchPendingDelete && createPortal(
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setBatchPendingDelete(null)}>
+          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-2.5">
+              <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-slate-800 dark:text-dk-text">
+                  {tx(lang,{
+                    fr:`Supprimer cette entrée de ${batchPendingDelete.total} pcs ?`,
+                    ar:`حذف هاد الإدخال ديال ${batchPendingDelete.total} قطعة؟`,
+                    en:`Delete this entry of ${batchPendingDelete.total} pcs?`,
+                    es:`¿Eliminar esta entrada de ${batchPendingDelete.total} pzs?`,
+                    pt:`Eliminar esta entrada de ${batchPendingDelete.total} pçs?`,
+                    tr:`${batchPendingDelete.total} adetlik bu giriş silinsin mi?`,
+                  })}
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-1">
+                  {batchPendingDelete.date ? fmtDate(batchPendingDelete.date) : '—'}
+                  {' · '}
+                  {tx(lang,{fr:'le stock de la commande sera recalculé.',ar:'مخزون الأمر غادي يتعاود حسابو.',en:'the order stock will be recalculated.',es:'el stock del pedido se recalculará.',pt:'o stock da encomenda será recalculado.',tr:'siparişin stoğu yeniden hesaplanacak.'})}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBatchPendingDelete(null)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+              >
+                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+              </button>
+              <button
+                type="button"
+                disabled={stockEntrySaving}
+                onClick={() => { const id = batchPendingDelete.id; setBatchPendingDelete(null); removeStockBatch(id); }}
+                className="px-3 py-1.5 rounded-lg bg-rose-600 text-white font-bold text-[11px] hover:bg-rose-700 transition-colors disabled:opacity-40"
+              >
+                {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}
+              </button>
             </div>
           </div>
         </div>,
@@ -5996,7 +6072,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
                     <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border flex items-center justify-between gap-2 flex-wrap">
                       <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
-                        {tx(lang,{fr:'Reçu vs commandé',ar:'المُستلَم مقابل المطلوب',en:'Received vs ordered',es:'Recibido vs pedido',pt:'Recebido vs encomendado',tr:'Alinan / siparis'})}
+                        {tx(lang,{fr:'Pièces livrées — reçu vs commandé',ar:'القطع المسلَّمة — المُستلَم مقابل المطلوب',en:'Delivered pieces — received vs ordered',es:'Piezas entregadas — recibido vs pedido',pt:'Peças entregues — recebido vs encomendado',tr:'Teslim edilen parçalar — alınan / sipariş'})}
                       </h4>
                       <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted">
                         {totalEntre.toLocaleString()} / {totalCmd.toLocaleString()} pcs
@@ -6006,6 +6082,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           </span>
                         )}
                       </span>
+                    </div>
+
+                    {/* Les trois qualités, en bandeau plutôt qu'en cartes séparées :
+                        elles répondent à la même question que le tableau ci-dessous
+                        et n'ont plus à occuper un bloc entier. */}
+                    <div className="px-4 py-2 border-b border-slate-100 dark:border-dk-border flex flex-wrap items-center gap-2">
+                      {([
+                        { k: 'a', v: detailOrder.qtyAccepted || 0, label: tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul'}), cls: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50' },
+                        { k: 'r', v: detailOrder.qtyToRepair || 0, label: tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rötuş'}), cls: 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50' },
+                        { k: 'x', v: detailOrder.qtyRejected || 0, label: tx(lang,{fr:'Rejetées',ar:'مرفوضة',en:'Rejected',es:'Rechazadas',pt:'Rejeitadas',tr:'Red'}), cls: 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900/50' },
+                      ]).map(q => (
+                        <span key={q.k} className={`inline-flex items-baseline gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold ${q.cls}`}>
+                          <span className="uppercase tracking-wide opacity-80">{q.label}</span>
+                          <span className="text-[12px] font-extrabold">{q.v.toLocaleString()}</span>
+                          <span className="opacity-70">pcs</span>
+                        </span>
+                      ))}
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-[11px]">
@@ -6022,7 +6115,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             let rowEntre = 0;
                             return (
                               <tr key={c.id}>
-                                <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">{c.name}</td>
+                                <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap"><span className="inline-flex items-center gap-1.5"><ColorDot name={c.name} />{c.name}</span></td>
                                 {sizes.map((sz, i) => {
                                   const cmd = Number(gq[`${c.id}_${i}`]) || 0;
                                   const got = entre[`${c.name}|${sz}`] || 0;
@@ -6053,25 +6146,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   </div>
                 );
               })()}
-
-              {/* Quantity analysis details */}
-              <div className="border border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-3 bg-slate-50 dark:bg-dk-surface/50">
-                <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide">{tx(lang,{fr:'État des pièces livrées',ar:'حالة القطع المسلَّمة',en:'Status of delivered pieces',es:'Estado de las piezas entregadas',pt:'Estado das peças entregues',tr:'Teslim edilen parçaların durumu'})}</h4>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="bg-emerald-50 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
-                    <span className="text-emerald-800 dark:text-emerald-300 font-bold block text-[9px] uppercase tracking-wide">{tx(lang,{fr:'Acceptées',ar:'مقبولة',en:'Accepted',es:'Aceptadas',pt:'Aceites',tr:'Kabul Edilen'})}</span>
-                    <span className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 mt-1 block">{(detailOrder.qtyAccepted || 0).toLocaleString()} pcs</span>
-                  </div>
-                  <div className="bg-amber-50 dark:bg-amber-950/30 p-2.5 rounded-xl border border-amber-100 dark:border-amber-900/50">
-                    <span className="text-amber-800 dark:text-amber-300 font-bold block text-[9px] uppercase tracking-wide">{tx(lang,{fr:'À retoucher',ar:'قيد التعديل',en:'To rework',es:'Por retocar',pt:'Por retocar',tr:'Rötus yapılacak'})}</span>
-                    <span className="text-base font-extrabold text-amber-600 dark:text-amber-400 mt-1 block">{(detailOrder.qtyToRepair || 0).toLocaleString()} pcs</span>
-                  </div>
-                  <div className="bg-rose-50 dark:bg-rose-950/30 p-2.5 rounded-xl border border-rose-100">
-                    <span className="text-rose-800 dark:text-rose-400 font-bold block text-[9px] uppercase tracking-wide">{tx(lang,{fr:'Rejetées',ar:'مرفوضة',en:'Rejected',es:'Rechazadas',pt:'Rejeitadas',tr:'Reddedilen'})}</span>
-                    <span className="text-base font-extrabold text-rose-600 dark:text-rose-400 mt-1 block">{(detailOrder.qtyRejected || 0).toLocaleString()} pcs</span>
-                  </div>
-                </div>
-              </div>
 
               {detailOrder.notes && (
                 <div className="bg-indigo-50 dark:bg-dk-elevated/70 p-3.5 border border-indigo-100 rounded-xl">
