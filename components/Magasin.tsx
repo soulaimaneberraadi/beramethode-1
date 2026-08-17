@@ -100,6 +100,15 @@ const CAT_CLR: Record<string, string> = {
 };
 const inp = "w-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-300 dark:ring-indigo-800 focus:border-indigo-400 transition-all shadow-sm";
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+/** Normalisation des libellés pour la recherche et l'appariement avec les
+ *  matières d'un modèle : accents, casse et espaces multiples ne doivent pas
+ *  faire disparaître un article. Tolère aussi `null` / `undefined`, qui
+ *  faisaient planter la page dès qu'un produit n'avait ni désignation ni
+ *  référence (`.toLowerCase()` sur `undefined`). */
+const norm = (s: any) => String(s ?? '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .trim().toLowerCase().replace(/\s+/g, ' ');
 function ld<T>(k: string, fb: T): T { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : fb; } catch { return fb; } }
 function sv(k: string, v: unknown) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { } }
 
@@ -1923,14 +1932,14 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
     const handleScan = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value.trim();
         if (val.length > 3) {
-            const p = products.find(x => x.reference.toLowerCase() === val.toLowerCase());
+            const p = products.find(x => norm(x.reference) === norm(val));
             if (p) { setBPid(p.id); setScannerMode(false); }
         }
     };
 
     const filtered = products.filter(p => {
-        const q = search.toLowerCase();
-        return (!q || p.designation.toLowerCase().includes(q) || p.reference.toLowerCase().includes(q) || (p.fournisseurNom || '').toLowerCase().includes(q) || (p.emplacement || '').toLowerCase().includes(q))
+        const q = norm(search);
+        return (!q || norm(p.designation).includes(q) || norm(p.reference).includes(q) || norm(p.fournisseurNom).includes(q) || norm(p.emplacement).includes(q))
             && (catFilter === 'all' || p.categorie === catFilter);
     });
     const alertes = products.filter(p => stockQty(lots, p.id) <= p.stockAlerte);
@@ -2671,7 +2680,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         const shortages = m.ficheData!.materials!.map((mat: any) => {
                             const rawNeeded = mat.qty * targetQty;
                             const needed = (mat.unit === 'bobine' || mat.unit === 'pc') ? Math.ceil(rawNeeded * 1.05) : parseFloat((rawNeeded * 1.05).toFixed(2));
-                            const inMagasin = products.find(p => p.designation.toLowerCase() === mat.name.toLowerCase() || p.reference === mat.name);
+                            const inMagasin = products.find(p => norm(p.designation) === norm(mat.name) || norm(p.reference) === norm(mat.name));
                             const stock = inMagasin ? stockQty(lots, inMagasin.id) : 0;
                             return { ...mat, needed, stock, inMagasin, isSufficient: stock >= needed };
                         }).filter((x: any) => !x.isSufficient);
@@ -3406,7 +3415,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                     <h3 className="text-sm font-black text-slate-800 dark:text-dk-text mb-4 flex items-center gap-2"><Search className="w-4 h-4 text-indigo-500 dark:text-indigo-300" /> {t('Détails Emplacements')}</h3>
                                     <input placeholder={t("Filtrer... (ex: ^A pour Rayon A)")} value={search} onChange={e => setSearch(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-4 py-2 text-sm font-bold mb-4 outline-none focus:border-indigo-500 dark:border-indigo-800" />
                                     <div className="flex-1 overflow-y-auto pr-2 space-y-3">
-                                        {products.filter(p => search.startsWith('^') ? (p.emplacement || '?').toUpperCase().startsWith(search.substring(1).toUpperCase()) : (p.emplacement?.toLowerCase().includes(search.toLowerCase()) || p.designation.toLowerCase().includes(search.toLowerCase()))).map(p => {
+                                        {products.filter(p => search.startsWith('^') ? (p.emplacement || '?').toUpperCase().startsWith(search.substring(1).toUpperCase()) : (norm(p.emplacement).includes(norm(search)) || norm(p.designation).includes(norm(search)))).map(p => {
                                             const st = stockQty(lots, p.id);
                                             return (
                                                 <div key={p.id} className="p-3 bg-slate-50 dark:bg-dk-bg rounded-xl border border-slate-100 dark:border-dk-border/60 hover:border-indigo-200 dark:border-indigo-800 transition-colors">
@@ -3541,7 +3550,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                         // 2. Automatically register a stock movement if checked
                         if (brAutoAddStock) {
-                            const matchedProduct = products.find(p => p.designation.toLowerCase() === brSelectedMaterial.toLowerCase());
+                            const matchedProduct = products.find(p => norm(p.designation) === norm(brSelectedMaterial));
                             if (matchedProduct) {
                                 const newMvt: MouvementStock = {
                                     id: uid(),
@@ -3793,7 +3802,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                     };
 
                     const handleAbsorbSurplus = async (r: MaterialReceipt, valuation: number) => {
-                        const matchedProduct = products.find(p => p.designation.toLowerCase() === r.materialName.toLowerCase());
+                        const matchedProduct = products.find(p => norm(p.designation) === norm(r.materialName));
                         if (!matchedProduct) {
                             alert("Le produit correspondant doit exister dans la base produits du magasin avant d'être absorbé.");
                             return;
