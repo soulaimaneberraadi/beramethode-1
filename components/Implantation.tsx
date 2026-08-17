@@ -533,9 +533,9 @@ const LinkOverlay = ({
                                 {p.label ? (
                                     <div onClick={() => onEditLabel(p.id, p.label)} className="bg-white/90  text-slate-700 dark:text-dk-text-soft text-[10px] font-bold px-2 py-1 rounded-lg shadow-md dark:shadow-dk-md border border-slate-200 dark:border-dk-border whitespace-nowrap cursor-pointer hover:bg-indigo-50 dark:bg-dk-accent/20 hover:border-indigo-200 max-w-[100px] truncate relative z-50" title={p.label}>{p.label}</div>
                                 ) : (
-                                    <button onClick={() => onEditLabel(p.id)} className="bg-white dark:bg-dk-surface/90  p-1 rounded-full border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 dark:text-dk-muted hover:text-indigo-500 relative z-50"><MessageSquare className="w-3 h-3" /></button>
+                                    <button onClick={() => onEditLabel(p.id)} className="bg-white/90 dark:bg-dk-surface/90  p-1 rounded-full border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 dark:text-dk-muted hover:text-indigo-500 relative z-50"><MessageSquare className="w-3 h-3" /></button>
                                 )}
-                                <button onClick={() => onRemoveLink(p.id)} className="bg-white dark:bg-dk-surface/90  text-slate-300 dark:text-dk-muted p-1 rounded-full border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity relative z-50"><X className="w-3 h-3" /></button>
+                                <button onClick={() => onRemoveLink(p.id)} className="bg-white/90 dark:bg-dk-surface/90  text-slate-300 dark:text-dk-muted p-1 rounded-full border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-opacity relative z-50"><X className="w-3 h-3" /></button>
                             </div>
                         </foreignObject>
                     </g>
@@ -2607,7 +2607,7 @@ export default function Implantation({
 
     const renderStationCard = (station: Workstation, isGrid = false, isMini = false) => {
         const color = station.color; const isVide = station.machine === 'VIDE'; const timeInSeconds = Math.round(station.totalTime * 60); const hasNotes = station.notes && station.notes.trim().length > 0; const hasOperator = station.operatorName && station.operatorName.trim().length > 0; const isOverridden = station.timeOverride !== undefined; const mySimIndex = station.index - 1; const isActive = !isMini && simStep === mySimIndex; const isPassed = simStep > mySimIndex; const isControl = station.machine.toUpperCase().includes('CONTROLE'); const isFer = station.machine.toUpperCase().includes('FER') || station.machine.toUpperCase().includes('REPASSAGE'); const isFinition = station.machine.toUpperCase().includes('FINITION'); const isBroken = station.notes?.includes('#PANNE');
-        let bodyBgClass = 'bg-white dark:bg-dk-surface/10 backdrop-blur-sm'; if (isControl) bodyBgClass = 'bg-orange-50 dark:bg-orange-900/30 backdrop-blur-sm'; if (isFer) bodyBgClass = 'bg-rose-50 dark:bg-rose-900/30 backdrop-blur-sm'; if (isFinition) bodyBgClass = 'bg-purple-50 dark:bg-purple-900/30 backdrop-blur-sm'; const isSpecial = isControl || isFer || isFinition;
+        let bodyBgClass = 'bg-white/10 dark:bg-dk-surface/10 backdrop-blur-sm'; if (isControl) bodyBgClass = 'bg-orange-50 dark:bg-orange-900/30 backdrop-blur-sm'; if (isFer) bodyBgClass = 'bg-rose-50 dark:bg-rose-900/30 backdrop-blur-sm'; if (isFinition) bodyBgClass = 'bg-purple-50 dark:bg-purple-900/30 backdrop-blur-sm'; const isSpecial = isControl || isFer || isFinition;
         const isFeeder = station.isFeeder; if (isFeeder) bodyBgClass = 'bg-blue-50 dark:bg-blue-900/60';
         const isSwapSource = swapSourceId === station.id; const isSwapTarget = swapSourceId && swapSourceId !== station.id; const isLinkSource = linkSource === station.id; const isLinkTargetCandidate = isLinking && linkSource && linkSource !== station.id;
         const cardHeightClass = isGrid ? 'min-h-[140px]' : (isMini ? 'min-h-[80px]' : 'h-full min-h-[140px]'); const cardWidthClass = isMini ? 'w-full' : (isGrid ? 'w-full' : 'w-44 sm:w-48 shrink-0');
@@ -2641,7 +2641,7 @@ export default function Implantation({
             }
         }
 
-        const miniCardStyle = isMini ? `${color.bg} ${color.border} border-2` : `bg-white dark:bg-dk-surface/40 backdrop-blur-md border-2 ${color.border}`; const cursorClass = (canEdit && isManualMode && !swapSourceId && !isLinking && !isSpacePressed) ? 'cursor-move' : 'cursor-default';
+        const miniCardStyle = isMini ? `${color.bg} ${color.border} border-2` : `bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md border-2 ${color.border}`; const cursorClass = (canEdit && isManualMode && !swapSourceId && !isLinking && !isSpacePressed) ? 'cursor-move' : 'cursor-default';
 
         if (isVide && !isMini) {
             return (
@@ -2706,7 +2706,7 @@ export default function Implantation({
                                 #{station.index}
                             </span>
                         )}
-                        <span className={`text-[10px] font-black ${isActive ? 'text-emerald-600 dark:text-emerald-400 bg-white dark:bg-dk-surface/60' : color.text} w-5 h-5 flex items-center justify-center bg-white dark:bg-dk-surface/40 rounded-md shadow-sm dark:shadow-dk-sm border border-black/5`}> {station.name.replace('P', '').split('.')[0]} </span>
+                        <span className={`text-[10px] font-black ${isActive ? 'text-emerald-600 dark:text-emerald-400 bg-white/60 dark:bg-dk-surface/60' : color.text} w-5 h-5 flex items-center justify-center bg-white/40 dark:bg-dk-surface/40 rounded-md shadow-sm dark:shadow-dk-sm border border-black/5`}> {station.name.replace('P', '').split('.')[0]} </span>
                         <span className={`text-[9px] font-black uppercase truncate max-w-[80px] ${isActive ? 'text-white' : color.text}`} title={station.name}> {station.machine} </span>
                     </div>
 
@@ -2742,7 +2742,7 @@ export default function Implantation({
                                 <button
                                     onMouseDown={(e) => e.stopPropagation()}
                                     onClick={(e) => { e.stopPropagation(); handleRemoveFromCanvas(station.id); }}
-                                    className="p-1 rounded-md bg-white dark:bg-dk-surface/20 hover:bg-rose-100 hover:text-rose-600 text-current transition-colors opacity-0 group-hover:opacity-100 z-50"
+                                    className="p-1 rounded-md bg-white/20 dark:bg-dk-surface/20 hover:bg-rose-100 hover:text-rose-600 text-current transition-colors opacity-0 group-hover:opacity-100 z-50"
                                     title={tx(lang,{fr:'Retirer du plan',ar:'إزالة من الخطة',en:'Remove from Plan',es:'Quitar del Plan',pt:'Remover do Plano',tr:'Plandan Kaldır'})}
                                 >
                                     <X className="w-3 h-3" />
@@ -3031,7 +3031,7 @@ export default function Implantation({
                                     </div>
                                     <button
                                         onClick={() => { setIsLinking(false); setLinkSource(null); }}
-                                        className="bg-white dark:bg-dk-surface/20 hover:bg-white text-white px-3 py-1 rounded-md text-[10px] transition-colors"
+                                        className="bg-white/20 dark:bg-dk-surface/20 hover:bg-white text-white px-3 py-1 rounded-md text-[10px] transition-colors"
                                     >
                                         {tx(lang,{fr:'Terminer',ar:'إنهاء',en:'Finish',es:'Terminar',pt:'Terminar',tr:'Bitir'})}
                                     </button>
@@ -3047,7 +3047,7 @@ export default function Implantation({
                                     </div>
                                     <button
                                         onClick={() => setSwapSourceId(null)}
-                                        className="bg-white dark:bg-dk-surface/20 hover:bg-white text-white px-3 py-1 rounded-md text-[10px] transition-colors"
+                                        className="bg-white/20 dark:bg-dk-surface/20 hover:bg-white text-white px-3 py-1 rounded-md text-[10px] transition-colors"
                                     >
                                         {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
                                     </button>
@@ -3340,7 +3340,7 @@ export default function Implantation({
                                                     <div key={section.id} className="relative w-full border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl p-8 bg-slate-50 dark:bg-dk-bg/50 mb-6 shadow-sm dark:shadow-dk-sm flex flex-col items-center">
                                                         <div className={`absolute -top-4 left-6 ${bgClass} backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg dark:shadow-dk-lg uppercase tracking-widest border border-white/20 z-20 flex gap-2 items-center`}>
                                                             {section.name}
-                                                            {section.hourly && <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
+                                                            {section.hourly && <span className="bg-white/20 dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
                                                         </div>
 
                                                         <div className="flex flex-col gap-6 pt-4 w-full">
@@ -3474,7 +3474,7 @@ export default function Implantation({
                                                     <div key={section.id} className="relative mt-4 flex flex-col w-full border-2 border-dashed border-slate-200 dark:border-dk-border rounded-3xl p-6 bg-slate-50 dark:bg-dk-bg/50 mb-6 shadow-sm dark:shadow-dk-sm">
                                                         <div className={`absolute -top-4 left-6 ${bgClass} backdrop-blur-md text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg dark:shadow-dk-lg uppercase tracking-widest border border-white/20 z-20 flex gap-2 items-center`}>
                                                             {section.name}
-                                                            {section.hourly && <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
+                                                            {section.hourly && <span className="bg-white/20 dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
                                                         </div>
 
                                                         <div className="flex flex-col gap-24 relative w-full pt-8">
@@ -3593,7 +3593,7 @@ export default function Implantation({
                                                     <div key={section.id} className="relative mt-4 flex flex-col bg-slate-50 dark:bg-dk-bg/80 rounded-3xl border-2 border-slate-200 dark:border-dk-border p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] mb-6">
                                                         <div className={`absolute -top-4 left-6 ${bgClass} text-white px-5 py-1.5 rounded-xl text-xs font-black shadow-lg dark:shadow-dk-lg uppercase tracking-widest border border-white/20 flex gap-2 items-center z-20`}>
                                                             {section.name}
-                                                            {section.hourly && <span className="bg-white dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
+                                                            {section.hourly && <span className="bg-white/20 dark:bg-dk-surface/20 px-2 py-0.5 rounded text-[10px]">Obj: {section.hourly} p/h</span>}
                                                         </div>
 
                                                         <div className="flex flex-col gap-20 pt-8 w-full">
@@ -3735,7 +3735,7 @@ export default function Implantation({
                 {isFullScreen && (
                     <button
                         onClick={toggleFullScreen}
-                        className="absolute top-6 right-6 z-50 p-3 bg-white dark:bg-dk-surface/60 backdrop-blur-xl rounded-full shadow-lg dark:shadow-dk-lg border border-slate-200 dark:border-dk-border/50 text-slate-500 dark:text-dk-muted hover:text-rose-600 hover:bg-white hover:scale-110 active:scale-95 transition-all duration-300 animate-in slide-in-from-top-8 fade-in"
+                        className="absolute top-6 right-6 z-50 p-3 bg-white/60 dark:bg-dk-surface/60 backdrop-blur-xl rounded-full shadow-lg dark:shadow-dk-lg border border-slate-200 dark:border-dk-border/50 text-slate-500 dark:text-dk-muted hover:text-rose-600 hover:bg-white hover:scale-110 active:scale-95 transition-all duration-300 animate-in slide-in-from-top-8 fade-in"
                         title={tx(lang,{fr:'Quitter plein écran (Esc)',ar:'إنهاء ملء الشاشة (Esc)',en:'Exit Fullscreen (Esc)',es:'Salir de pantalla completa (Esc)',pt:'Sair de tela cheia (Esc)',tr:'Tam ekrandan çık (Esc)'})}
                     >
                         <X className="w-5 h-5" />
@@ -3846,7 +3846,7 @@ export default function Implantation({
                                         placeholder={tx(lang,{fr:'Opérateur...',ar:'المشغل...',en:'Operator...',es:'Operador...',pt:'Operador...',tr:'Operatör...'})}
                                         value={editModal.data.operatorName || ''}
                                         onChange={(e) => saveStationMetadata({ operatorName: e.target.value })}
-                                        className="pl-7 pr-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface/80 focus:bg-white focus:border-indigo-400 outline-none w-32"
+                                        className="pl-7 pr-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-dk-border bg-white/80 dark:bg-dk-surface/80 focus:bg-white focus:border-indigo-400 outline-none w-32"
                                     />
                                 </div>
                                 <div className="relative group">
@@ -3856,7 +3856,7 @@ export default function Implantation({
                                         placeholder={tx(lang,{fr:'T. Forcé',ar:'وقت إجباري',en:'Forced Time',es:'T. Forzado',pt:'T. Forçado',tr:'Zorunlu Süre'})}
                                         value={editModal.data.timeOverride !== undefined ? Math.round(editModal.data.timeOverride * 60) : ''}
                                         onChange={(e) => { const val = e.target.value === '' ? undefined : Number(e.target.value); saveStationMetadata({ timeOverride: val !== undefined ? val / 60 : undefined }); }}
-                                        className="pl-7 pr-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface/80 focus:bg-white focus:border-purple-400 outline-none w-24 text-purple-600 dark:text-purple-400 placeholder:text-slate-400"
+                                        className="pl-7 pr-2 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-dk-border bg-white/80 dark:bg-dk-surface/80 focus:bg-white focus:border-purple-400 outline-none w-24 text-purple-600 dark:text-purple-400 placeholder:text-slate-400"
                                         title={tx(lang,{fr:'Forcer temps poste (sec)',ar:'فرض وقت المحطة (ثانية)',en:'Force station time (sec)',es:'Forzar tiempo de puesto (seg)',pt:'Forçar tempo de posto (seg)',tr:'İstasyon süresini zorla (sn)'})}
                                     />
                                 </div>

@@ -1549,7 +1549,7 @@ function InstanceEditorModal({
                    <img src={photos[0]} className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-30 transition-opacity" />
                  )}
                  <Printer className="w-4 h-4 text-slate-400 dark:text-dk-muted group-hover:text-indigo-500 mb-0.5 z-10 transition-colors" />
-                  <span className="text-[8px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest z-10 bg-white dark:bg-dk-surface/80 px-2 py-0.5 rounded-full">{photos.length > 0 ? tx(lang,{fr:'Modifier',ar:'تعديل',en:'Edit',es:'Editar',pt:'Editar',tr:'Düzenle'}) : tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}</span>
+                  <span className="text-[8px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest z-10 bg-white/80 dark:bg-dk-surface/80 px-2 py-0.5 rounded-full">{photos.length > 0 ? tx(lang,{fr:'Modifier',ar:'تعديل',en:'Edit',es:'Editar',pt:'Editar',tr:'Düzenle'}) : tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}</span>
               </div>
             </div>
             <div>
@@ -1557,7 +1557,7 @@ function InstanceEditorModal({
               <div className="relative border-2 border-dashed border-slate-200 dark:border-dk-border/60 rounded-xl p-2.5 flex flex-col items-center justify-center bg-slate-50 dark:bg-dk-bg/50 hover:bg-slate-100/50 transition-colors cursor-pointer group h-[72px] overflow-hidden">
                  <input type="file" accept=".pdf,.xls,.xlsx,.doc,.docx" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={handleManualUpload} />
                  <Layers className="w-4 h-4 text-slate-400 dark:text-dk-muted group-hover:text-indigo-500 mb-0.5 z-10 transition-colors" />
-                 <span className="text-[8px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest text-center truncate w-full px-2 z-10 bg-white dark:bg-dk-surface/80 rounded-full py-0.5">
+                 <span className="text-[8px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest text-center truncate w-full px-2 z-10 bg-white/80 dark:bg-dk-surface/80 rounded-full py-0.5">
                     {manuals.length > 0 ? manuals[0].name : tx(lang,{fr:'Joindre',ar:'إرفاق',en:'Attach',es:'Adjuntar',pt:'Anexar',tr:'Ekle'})}
                  </span>
               </div>

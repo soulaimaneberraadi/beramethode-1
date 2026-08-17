@@ -379,7 +379,7 @@ export default function EventDetailPanel({
                         <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">{tx(lang, { fr: 'Progression', ar: 'التقدم', en: 'Progress', es: 'Progreso', pt: 'Progresso', tr: 'İlerleme' })}</span>
                         <span className="text-[18px] font-extrabold text-slate-900 dark:text-dk-text tabular-nums tracking-tight">{progress}<span className="text-[12px] text-slate-400 dark:text-dk-muted ml-0.5">%</span></span>
                     </div>
-                    <div className="h-1.5 bg-white dark:bg-dk-surface/40 rounded-full overflow-hidden mb-2 border border-white/20 shadow-inner">
+                    <div className="h-1.5 bg-white/40 dark:bg-dk-surface/40 rounded-full overflow-hidden mb-2 border border-white/20 shadow-inner">
                         <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${progress}%`, background: accent }} />
                     </div>
                     <div className="text-[12px] text-slate-550 tabular-nums mb-3 font-medium">
@@ -579,7 +579,7 @@ export default function EventDetailPanel({
                                             : 'bg-slate-100/50 dark:bg-dk-elevated/30 text-slate-700 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-surface border border-transparent hover:border-slate-200 dark:hover:border-dk-border/30'
                                     }`}
                                 >
-                                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white dark:bg-dk-surface/80' : meta.dot}`} />
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white/80 dark:bg-dk-surface/80' : meta.dot}`} />
                                     {meta.label}
                                 </button>
                             );

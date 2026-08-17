@@ -613,7 +613,7 @@ const PdfSettingsModal: React.FC<PdfSettingsModalProps> = ({
 
                 <div className={`order-1 md:order-2 flex-shrink-0 h-[52vh] md:h-auto md:flex-1 relative overflow-hidden flex flex-col ${darkMode ? 'bg-gray-950' : 'bg-slate-100 dark:bg-dk-elevated'}`}>
 
-                    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 px-1.5 py-1 rounded-full shadow-md dark:shadow-dk-md border bg-white dark:bg-dk-surface/90 backdrop-blur-sm border-slate-200 dark:border-dk-border">
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 px-1.5 py-1 rounded-full shadow-md dark:shadow-dk-md border bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm border-slate-200 dark:border-dk-border">
                         <div className="px-2 py-0.5 text-[10px] font-bold flex items-center gap-1.5 border-r border-slate-200 dark:border-dk-border">
                             <Layout className="w-3 h-3 text-blue-500" />
                             <span className="text-slate-700 dark:text-dk-text-soft">{isTicket ? _({fr:'Ticket',ar:'تذكرة',en:'Ticket',es:'Ticket',pt:'Ticket',tr:'Bilet'}) : isCompact ? _({fr:'Compact',ar:'مضغوط',en:'Compact',es:'Compacto',pt:'Compacto',tr:'Kompakt'}) : isInvoice ? pdfSettings.format ?? 'A4' : 'A4'}</span>

@@ -3093,7 +3093,7 @@ export default function Chronometrage({
             <div
                 className={`rounded-xl border border-slate-200 dark:border-dk-border shadow-sm p-2 sm:p-4 flex flex-col gap-2.5 sm:gap-4 xl:flex-row xl:items-start xl:justify-between xl:gap-6 min-w-0 ${
                     stickyToolbar
-                        ? 'sticky top-[1px] z-40 bg-white dark:bg-dk-surface/95 backdrop-blur-sm'
+                        ? 'sticky top-[1px] z-40 bg-white/95 dark:bg-dk-surface/95 backdrop-blur-sm'
                         : 'relative z-auto bg-white dark:bg-dk-surface'
                 }`}
             >
@@ -3792,7 +3792,7 @@ export default function Chronometrage({
                                                                                 aria-label={`${tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })} TR ${trNum}`}
                                                                                 onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
                                                                                 onClick={(e) => handleClearTRClick(e, op.id, trNum)}
-                                                                                className="absolute right-0.5 top-1/2 -translate-y-1/2 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-md border border-rose-200 bg-white dark:bg-dk-surface/95 text-rose-500 shadow-sm dark:shadow-dk-sm opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 group-hover/cell:pointer-events-auto group-focus-within/cell:opacity-100 group-focus-within/cell:scale-100 group-focus-within/cell:pointer-events-auto hover:bg-rose-50 hover:text-rose-600 hover:shadow active:scale-95"
+                                                                                className="absolute right-0.5 top-1/2 -translate-y-1/2 z-10 flex h-[18px] w-[18px] items-center justify-center rounded-md border border-rose-200 bg-white/95 dark:bg-dk-surface/95 text-rose-500 shadow-sm dark:shadow-dk-sm opacity-0 scale-90 pointer-events-none transition-all duration-200 group-hover/cell:opacity-100 group-hover/cell:scale-100 group-hover/cell:pointer-events-auto group-focus-within/cell:opacity-100 group-focus-within/cell:scale-100 group-focus-within/cell:pointer-events-auto hover:bg-rose-50 hover:text-rose-600 hover:shadow active:scale-95"
                                                                                 title={tx(lang, { fr: 'Supprimer ce relevé', ar: 'حذف هذا التسجيل', en: 'Delete this reading', es: 'Eliminar esta lectura', pt: 'Excluir esta leitura', tr: 'Bu ölçümü sil' })}
                                                                             >
                                                                                 <X className="w-2.5 h-2.5" />

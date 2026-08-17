@@ -1134,7 +1134,7 @@ export default function ThreadCalculator({
 
                         <div className="hidden md:flex bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="bg-white dark:bg-dk-surface/20 p-2 rounded-xl">
+                                <div className="bg-white/20 dark:bg-dk-surface/20 p-2 rounded-xl">
                                     <Scissors className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <div>
@@ -1658,7 +1658,7 @@ export default function ThreadCalculator({
             <div className={`fixed inset-0 z-[100] flex flex-col ${isDark ? 'bg-dk-bg' : 'bg-white dark:bg-dk-surface'}`}>
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="bg-white dark:bg-dk-surface/20 p-2 rounded-xl">
+                        <div className="bg-white/20 dark:bg-dk-surface/20 p-2 rounded-xl">
                             <Scissors className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
@@ -1670,7 +1670,7 @@ export default function ThreadCalculator({
                         <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-indigo-500 hover:bg-indigo-400 rounded-lg transition-colors text-xs sm:text-sm font-bold shadow-md dark:shadow-dk-md">
                             <Printer className="w-4 h-4" /> <span className="hidden sm:inline">{_({ fr: 'Imprimer', ar: 'طباعة', en: 'Print', es: 'Imprimir', pt: 'Imprimir', tr: 'Yazdır' })}</span>
                         </button>
-                        <button onClick={() => setIsExpanded(false)} className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white dark:bg-dk-surface/20 hover:bg-white rounded-lg transition-colors text-xs sm:text-sm font-bold">
+                        <button onClick={() => setIsExpanded(false)} className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white/20 dark:bg-dk-surface/20 hover:bg-white rounded-lg transition-colors text-xs sm:text-sm font-bold">
                             <ArrowLeft className="w-4 h-4" /> <span className="hidden sm:inline">{_({ fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}</span>
                         </button>
                         <button onClick={onClose} className="p-2 hover:bg-white rounded-lg transition-colors">

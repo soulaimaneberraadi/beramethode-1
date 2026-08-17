@@ -1524,7 +1524,7 @@ export default function Balancing({
                             </tbody>
                             <tfoot className={`bg-slate-50 dark:bg-dk-bg border-t-2 border-slate-300 shadow-[0_-4px_12px_-4px_rgba(0,0,0,0.05)] ${isHeaderSticky ? 'sticky bottom-0 z-30' : ''}`}>
                                 <tr>
-                                    <td className={`p-2 border-r border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface/95 backdrop-blur ${isSticky ? 'sticky left-0 z-40' : ''}`}>
+                                    <td className={`p-2 border-r border-b border-slate-200 dark:border-dk-border bg-white/95 dark:bg-dk-surface/95 backdrop-blur ${isSticky ? 'sticky left-0 z-40' : ''}`}>
                                         <div className="flex flex-col items-start"><span className="text-[10px] font-black text-slate-700 dark:text-dk-text-soft uppercase tracking-widest flex items-center gap-2"><Activity className="w-3.5 h-3.5 text-indigo-500" /> {tx(lang,{fr:'Saturation %',ar:'% التشبع',en:'Saturation %',es:'Saturación %',pt:'Saturação %',tr:'Doygunluk %'})}</span></div>
                                     </td>
                                     {postes.map(p => {
@@ -1537,9 +1537,9 @@ export default function Balancing({
                                         let colorClass = "text-emerald-700 bg-emerald-100 border-emerald-200";
                                         if (isOver) colorClass = "text-rose-700 bg-rose-100 border-rose-200";
                                         else if (isUnder) colorClass = "text-amber-700 bg-amber-100 border-amber-200";
-                                        return <td key={p.id} className="text-center px-1 py-2 border-r border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface/50"><span className={`inline-block px-1.5 py-0.5 rounded border font-black text-[10px] ${colorClass}`}>{saturation}%</span></td>
+                                        return <td key={p.id} className="text-center px-1 py-2 border-r border-b border-slate-200 dark:border-dk-border bg-white/50 dark:bg-dk-surface/50"><span className={`inline-block px-1.5 py-0.5 rounded border font-black text-[10px] ${colorClass}`}>{saturation}%</span></td>
                                     })}
-                                    <td className="text-center px-1 py-2 border-l border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface/50"><span className="text-[10px] text-slate-300 dark:text-dk-muted">-</span></td>
+                                    <td className="text-center px-1 py-2 border-l border-b border-slate-200 dark:border-dk-border bg-white/50 dark:bg-dk-surface/50"><span className="text-[10px] text-slate-300 dark:text-dk-muted">-</span></td>
                                 </tr>
                                 <tr>
                                     <td className={`p-2 border-r border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/95 backdrop-blur ${isSticky ? 'sticky left-0 z-40' : ''}`}>

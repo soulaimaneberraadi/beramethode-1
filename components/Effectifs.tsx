@@ -874,7 +874,7 @@ export default function Effectifs({
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white dark:bg-dk-surface/95 backdrop-blur-md border border-slate-200 dark:border-dk-border shadow-xl dark:shadow-dk-elevated rounded-xl p-4">
+        <div className="bg-white/95 dark:bg-dk-surface/95 backdrop-blur-md border border-slate-200 dark:border-dk-border shadow-xl dark:shadow-dk-elevated rounded-xl p-4">
           <p className="text-slate-500 dark:text-dk-muted font-bold mb-2 pb-2 border-b border-slate-100 dark:border-dk-border">{label}</p>
           <div className="flex items-center gap-3">
             <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
@@ -1714,7 +1714,7 @@ export default function Effectifs({
                     </div>
                   </div>
 
-                  <div className="mb-3 rounded-lg border border-indigo-100/90 bg-white dark:bg-dk-surface/75 px-2.5 py-2 text-[10px] font-medium leading-snug text-slate-600 dark:text-dk-text-soft shadow-inner shadow-indigo-500/[0.04] backdrop-blur-sm sm:mb-5 sm:rounded-xl sm:px-4 sm:py-3 sm:text-xs sm:leading-relaxed">
+                  <div className="mb-3 rounded-lg border border-indigo-100/90 bg-white/75 dark:bg-dk-surface/75 px-2.5 py-2 text-[10px] font-medium leading-snug text-slate-600 dark:text-dk-text-soft shadow-inner shadow-indigo-500/[0.04] backdrop-blur-sm sm:mb-5 sm:rounded-xl sm:px-4 sm:py-3 sm:text-xs sm:leading-relaxed">
                     <span className="font-bold text-indigo-800">{tx(lang,{fr:'Astuce :',ar:'نصيحة:',en:'Tip:',es:'Consejo:',pt:'Dica:',tr:'İpucu:'})}</span>{' '}
                     {tx(lang,{fr:`clic droit sur une colonne en « Saisie », ou sur un point du graphique, pour ancrer une note. Elle s'affiche ici pour la période couverte.`,ar:`انقر يميناً على عمود في «إدخال»، أو على نقطة في الرسم البياني، لإرفاق ملاحظة. تظهر هنا للفترة المشمولة.`,en:`right-click on a column in "Entry", or on a chart point, to attach a note. It appears here for the covered period.`,es:`clic derecho en una columna de "Ingreso", o en un punto del gráfico, para anclar una nota. Se muestra aquí para el período cubierto.`,pt:`clique direito numa coluna em "Entrada", ou num ponto do gráfico, para anexar uma nota. Aparece aqui para o período abrangido.`,tr:`"Giriş"teki bir sütuna veya grafikteki bir noktaya sağ tıklayarak not ekleyin. Kapsanan dönem için burada görünür.`})} s’affiche ici pour la période couverte.
                   </div>
@@ -1753,7 +1753,7 @@ export default function Effectifs({
                                 className={`group relative overflow-hidden rounded-xl border border-slate-200 dark:border-dk-border/80 border-l-[3px] bg-gradient-to-r ${accent} p-3.5 pl-4 shadow-sm dark:shadow-dk-sm transition-all duration-200 hover:-translate-y-px hover:shadow-md`}
                               >
                                 <div className="flex items-start gap-3">
-                                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-dk-surface/90 shadow-sm dark:shadow-dk-sm ring-1 ring-slate-200/60 transition-transform group-hover:scale-[1.03]">
+                                  <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/90 dark:bg-dk-surface/90 shadow-sm dark:shadow-dk-sm ring-1 ring-slate-200/60 transition-transform group-hover:scale-[1.03]">
                                     {obs.icon}
                                   </div>
                                   <p className={`min-w-0 flex-1 line-clamp-5 text-sm font-semibold leading-snug ${text}`} title={obs.text}>{obs.text}</p>
@@ -1819,7 +1819,7 @@ export default function Effectifs({
                     )}
 
                     {analyticsData.observations.length === 0 && userNotesForAnalyticsPanel.length === 0 && (
-                      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface/50 py-10 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 dark:border-dk-border bg-white/50 dark:bg-dk-surface/50 py-10 text-center">
                         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted ring-4 ring-slate-50">
                           <MessageSquare className="h-7 w-7" strokeWidth={1.5} />
                         </div>

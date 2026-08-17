@@ -229,7 +229,7 @@ export default function MaterialArrivalTimeline({
     return (
         <div className={`space-y-3 ${className}`}>
             {/* Stock Reservation card */}
-            <div className="rounded-xl border border-white/20 bg-white dark:bg-dk-surface/50 backdrop-blur-md p-4 shadow-sm dark:shadow-dk-sm space-y-3">
+            <div className="rounded-xl border border-white/20 bg-white/50 dark:bg-dk-surface/50 backdrop-blur-md p-4 shadow-sm dark:shadow-dk-sm space-y-3">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Package className="h-4 w-4 text-slate-700 dark:text-dk-text-soft" />
@@ -255,10 +255,10 @@ export default function MaterialArrivalTimeline({
                             </div>
                         </div>
 
-                        <div className="overflow-hidden rounded-lg border border-white/20 bg-white dark:bg-dk-surface/30 backdrop-blur-md text-[11px] shadow-sm dark:shadow-dk-sm">
+                        <div className="overflow-hidden rounded-lg border border-white/20 bg-white/30 dark:bg-dk-surface/30 backdrop-blur-md text-[11px] shadow-sm dark:shadow-dk-sm">
                             <table className="w-full text-left">
                                 <thead>
-                                    <tr className="border-b border-white/20 bg-white dark:bg-dk-surface/40 font-semibold text-slate-600 dark:text-dk-text-soft backdrop-blur-sm">
+                                    <tr className="border-b border-white/20 bg-white/40 dark:bg-dk-surface/40 font-semibold text-slate-600 dark:text-dk-text-soft backdrop-blur-sm">
                                         <th className="px-2.5 py-1.5">{tx(lang, {fr:"Matière",ar:"المادة",en:"Material",es:"Material",pt:"Material",tr:"Malzeme"})}</th>
                                         <th className="px-2.5 py-1.5">{tx(lang, {fr:"Bain / Var.",ar:"حمام / متغير",en:"Batch / Var.",es:"Baño / Var.",pt:"Banho / Var.",tr:"Parti / Değişken"})}</th>
                                         <th className="px-2.5 py-1.5 text-right">{tx(lang, {fr:"Qté Rés.",ar:"الكمية المحجوزة",en:"Res. Qty",es:"Cant. Res.",pt:"Qtde Res.",tr:"Rez. Miktar"})}</th>
@@ -367,7 +367,7 @@ export default function MaterialArrivalTimeline({
             )}
 
             {plan.worstArrivalYmd && plan.criticalMaterialName && (
-                <div className="rounded-xl border border-white/20 bg-white dark:bg-dk-surface/40 backdrop-blur-md px-3 py-2 text-[11px] text-slate-800 dark:text-dk-text shadow-xs">
+                <div className="rounded-xl border border-white/20 bg-white/40 dark:bg-dk-surface/40 backdrop-blur-md px-3 py-2 text-[11px] text-slate-800 dark:text-dk-text shadow-xs">
                     <span className="font-black uppercase tracking-wide text-slate-600 dark:text-dk-text-soft">{tx(lang, {fr:"Chemin critique (estim.)",ar:"المسار الحرج (تقديري)",en:"Critical path (est.)",es:"Ruta crítica (est.)",pt:"Caminho crítico (est.)",tr:"Kritik yol (tah.)"})}</span>
                     <p className="mt-1">
                         Matière la plus tardive : <span className="font-bold">{plan.criticalMaterialName}</span> →{' '}
@@ -422,8 +422,8 @@ export default function MaterialArrivalTimeline({
                 </p>
             )}
 
-            <div className="overflow-hidden rounded-xl border border-white/20 bg-white dark:bg-dk-surface/30 backdrop-blur-md shadow-sm dark:shadow-dk-sm">
-                <div className="flex items-center gap-2 border-b border-white/10 bg-white dark:bg-dk-surface/40 px-3 py-2 backdrop-blur-sm">
+            <div className="overflow-hidden rounded-xl border border-white/20 bg-white/30 dark:bg-dk-surface/30 backdrop-blur-md shadow-sm dark:shadow-dk-sm">
+                <div className="flex items-center gap-2 border-b border-white/10 bg-white/40 dark:bg-dk-surface/40 px-3 py-2 backdrop-blur-sm">
                     <Package className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" aria-hidden />
                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">
                         ETA par matière ({launchYmd ? plan.rows.length : lines.length})
@@ -432,7 +432,7 @@ export default function MaterialArrivalTimeline({
                 <div className="overflow-x-auto">
                     <table className="w-full min-w-[320px] text-left text-xs">
                         <thead>
-                            <tr className="border-b border-white/10 bg-white dark:bg-dk-surface/20 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted backdrop-blur-xs">
+                            <tr className="border-b border-white/10 bg-white/20 dark:bg-dk-surface/20 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted backdrop-blur-xs">
                                 <th className="px-3 py-2">{tx(lang, {fr:"Matière",ar:"المادة",en:"Material",es:"Material",pt:"Material",tr:"Malzeme"})}</th>
                                 <th className="px-3 py-2 text-right">{tx(lang, {fr:"Qté",ar:"الكمية",en:"Qty",es:"Cant",pt:"Qtde",tr:"Miktar"})}</th>
                                 <th className="px-3 py-2">{tx(lang, {fr:"Fournisseur",ar:"المورد",en:"Supplier",es:"Proveedor",pt:"Fornecedor",tr:"Tedarikçi"})}</th>
@@ -449,7 +449,7 @@ export default function MaterialArrivalTimeline({
                                 </tr>
                             ) : (
                                 plan.rows.map((row, i) => (
-                                    <tr key={`${row.name}-${i}`} className="border-t border-white/10 first:border-t-0 bg-white dark:bg-dk-surface/20 hover:bg-white transition-colors">
+                                    <tr key={`${row.name}-${i}`} className="border-t border-white/10 first:border-t-0 bg-white/20 dark:bg-dk-surface/20 hover:bg-white transition-colors">
                                         <td className="max-w-[140px] truncate px-3 py-2 font-semibold text-slate-800 dark:text-dk-text">
                                             {row.name}
                                             {!row.matched && catalogProducts.length > 0 && (

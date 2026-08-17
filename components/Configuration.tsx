@@ -334,7 +334,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     </div>
                 </div>
                 <button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 sm:px-8 py-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all shadow-lg dark:shadow-dk-lg shadow-indigo-600/30 active:scale-95 group relative overflow-hidden">
-                    <span className="absolute inset-0 w-full h-full bg-white dark:bg-dk-surface/20 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></span>
+                    <span className="absolute inset-0 w-full h-full bg-white/20 dark:bg-dk-surface/20 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></span>
                     {isSaving ? (
                         <Loader2 className="w-5 h-5 relative z-10 animate-spin" />
                     ) : (

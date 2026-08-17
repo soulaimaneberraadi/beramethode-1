@@ -3079,7 +3079,7 @@ function BoardView({
                                                 <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); onQuickAction(m.id, e.clientX, e.clientY); }}
-                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-dk-surface/90 backdrop-blur-sm text-slate-500 hover:text-slate-800 shadow-sm dark:shadow-dk-sm"
+                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm text-slate-500 hover:text-slate-800 shadow-sm dark:shadow-dk-sm"
                                                     >
                                                         <MoreVertical className="w-3.5 h-3.5" />
                                                     </button>

@@ -171,7 +171,7 @@ const CostSanityCheck: React.FC<CostSanityCheckProps> = ({
             </button>
 
             {open && (
-                <div className={`px-3 pb-3 pt-1 space-y-1 border-t ${isDark ? 'bg-dk-bg/60 border-dk-border' : 'bg-white dark:bg-dk-surface/60 border-slate-200 dark:border-dk-border/60'}`}>
+                <div className={`px-3 pb-3 pt-1 space-y-1 border-t ${isDark ? 'bg-dk-bg/60 border-dk-border' : 'bg-white/60 dark:bg-dk-surface/60 border-slate-200 dark:border-dk-border/60'}`}>
                     {checks.map((c, i) => (
                         <div key={i} className="flex items-start gap-2 px-2 py-1.5 rounded-md">
                             <span className="mt-0.5 shrink-0">

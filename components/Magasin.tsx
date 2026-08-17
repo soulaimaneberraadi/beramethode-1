@@ -455,7 +455,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
         if (file) { const url = await uploadImageToStorage(file); setS(prev => ({ ...prev, logo: url })); }
     };
 
-    const invInp = 'w-full bg-white dark:bg-dk-surface/90 border border-slate-200 dark:border-dk-border/80 rounded-xl px-4 py-2.5 mt-1.5 text-sm font-medium text-slate-700 dark:text-dk-text placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all duration-200 hover:border-slate-300 dark:border-dk-border';
+    const invInp = 'w-full bg-white/90 dark:bg-dk-surface/90 border border-slate-200 dark:border-dk-border/80 rounded-xl px-4 py-2.5 mt-1.5 text-sm font-medium text-slate-700 dark:text-dk-text placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 transition-all duration-200 hover:border-slate-300 dark:border-dk-border';
 
     // Toggle component — amber/warm theme
     const Toggle = ({ k, label, icon: Ic }: { k: keyof InvoiceTemplate; label: string; icon?: React.FC<any> }) => {
@@ -597,7 +597,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                 <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl" onClick={handleClose} />
 
                 {/* Modal — wider for split panel */}
-                <div className={`relative bg-white dark:bg-dk-surface/95 backdrop-blur-2xl rounded-[24px] shadow-2xl dark:shadow-dk-elevated w-full max-w-[1200px] max-h-[92vh] overflow-hidden flex flex-col border border-white/40 ${isClosing ? 'inv-modal-exit' : 'inv-modal-enter'}`}
+                <div className={`relative bg-white/95 dark:bg-dk-surface/95 backdrop-blur-2xl rounded-[24px] shadow-2xl dark:shadow-dk-elevated w-full max-w-[1200px] max-h-[92vh] overflow-hidden flex flex-col border border-white/40 ${isClosing ? 'inv-modal-exit' : 'inv-modal-enter'}`}
                      style={{ boxShadow: '0 32px 64px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.1) inset' }}>
 
                     {/* ─ HEADER ─ warm amber/charcoal */}
@@ -616,7 +616,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                     <p className="text-amber-200/50 text-xs font-semibold mt-0.5 tracking-wide">{tx(lang,{fr:'Personnalisez vos Factures & Bons de Livraison',ar:'تخصيص فواتيركم وإيصالات التسليم',en:'Customize your Invoices & Delivery Notes',es:'Personalice sus Facturas y Albaranes',pt:'Personalize suas Faturas e Guias de Remessa',tr:'Faturalarınızı ve Teslimat Notlarınızı Özelleştirin'})}</p>
                                 </div>
                             </div>
-                            <button onClick={handleClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-dk-surface/10 hover:bg-white text-white/60 hover:text-white transition-all duration-200 border border-white/5">
+                            <button onClick={handleClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/10 dark:bg-dk-surface/10 hover:bg-white text-white/60 hover:text-white transition-all duration-200 border border-white/5">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
@@ -769,7 +769,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                             </div>
                                             <div className="relative">
                                                 <textarea
-                                                    className="w-full bg-white dark:bg-dk-surface/90 border border-slate-200 dark:border-dk-border/80 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 dark:text-dk-text placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all duration-200 resize-none"
+                                                    className="w-full bg-white/90 dark:bg-dk-surface/90 border border-slate-200 dark:border-dk-border/80 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 dark:text-dk-text placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-400 transition-all duration-200 resize-none"
                                                     rows={4}
                                                     value={s.piedDePage}
                                                     onChange={e => setS(p => ({ ...p, piedDePage: e.target.value }))}
@@ -1341,7 +1341,7 @@ function ImageMagnifier({ src, onClose }: { src: string, onClose: () => void }) 
             onClick={onClose}
         >
             <button 
-                className="absolute top-6 right-6 p-2 bg-white dark:bg-dk-surface/10 hover:bg-white rounded-full text-white transition-colors"
+                className="absolute top-6 right-6 p-2 bg-white/10 dark:bg-dk-surface/10 hover:bg-white rounded-full text-white transition-colors"
                 onClick={onClose}
             >
                 <X className="w-6 h-6" />
@@ -3033,7 +3033,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                                 )}
                                                                 {/* Overlay on hover */}
                                                                 <div className="absolute inset-0 bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700/0 group-hover:bg-indigo-600 dark:hover:bg-dk-accent dark:bg-indigo-700/10 transition-colors flex items-center justify-center">
-                                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-dk-surface/90 backdrop-blur rounded-xl px-3 py-2 shadow-lg dark:shadow-dk-lg flex items-center gap-2">
+                                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-dk-surface/90 backdrop-blur rounded-xl px-3 py-2 shadow-lg dark:shadow-dk-lg flex items-center gap-2">
                                                                         <Printer className="w-4 h-4 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300" />
                                                                         <span className="text-xs font-black text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300">{t('Imprimer')}</span>
                                                                     </div>

@@ -1611,7 +1611,7 @@ export default function Pedido({
                                                                             const cHex = cg.colorId && cg.colorId.startsWith('#') ? cg.colorId : null;
                                                                             return (
                                                                                 <div key={cg.colorId} className={`${cgIdx > 0 ? 'border-t border-amber-100/50' : ''}`}>
-                                                                                    <div className="px-3 py-2 bg-white dark:bg-dk-surface/60 flex items-center justify-between">
+                                                                                    <div className="px-3 py-2 bg-white/60 dark:bg-dk-surface/60 flex items-center justify-between">
                                                                                         <div className="flex items-center gap-2">
                                                                                             <div className={`w-2 h-2 rounded-full shadow-sm dark:shadow-dk-sm ${cHex ? '' : 'bg-slate-300'}`} style={cHex ? { backgroundColor: cHex } : undefined} />
                                                                                             <span className="text-[11px] font-bold text-slate-700 dark:text-dk-text-soft">{cg.colorName}</span>
@@ -1921,7 +1921,7 @@ export default function Pedido({
                                                     <span className="text-[9px] opacity-75 font-semibold font-sans">{targetGrandTotal}</span>
                                                     <span className="text-sm font-black">{plannedGrandTotal}</span>
                                                     {grandDiff !== 0 && (
-                                                        <span className="text-[9px] font-black bg-white dark:bg-dk-surface/20 px-1.5 py-0.5 rounded-md mt-0.5 border border-white/10">
+                                                        <span className="text-[9px] font-black bg-white/20 dark:bg-dk-surface/20 px-1.5 py-0.5 rounded-md mt-0.5 border border-white/10">
                                                             {grandDiff > 0 ? `+${grandDiff}` : grandDiff}
                                                         </span>
                                                     )}
