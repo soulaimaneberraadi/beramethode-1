@@ -7,6 +7,7 @@ import { resolveStock, MagasinItem } from '../lib/magasinMatch';
 import { fmt } from '../app/constants';
 import { diffOrderVsModelGrid } from '../utils/subcontractGrid';
 import InlineInvoiceList from './InlineInvoiceList';
+import FactureUploader from './FactureUploader';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
@@ -555,11 +556,26 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [saleNumberError, setSaleNumberError] = useState<string | null>(null);
   /** Jalons libres de la fiche ouverte — synchronisés depuis detailOrder à
    *  l'ouverture, puis modifiés localement + PUT optimiste (même patron que
-   *  handleToggleMilestone pour les 4 jalons fixes). */
+   *  requestToggleMilestone pour les 4 jalons fixes). */
   const [customMilestones, setCustomMilestones] = useState<CustomMilestone[]>([]);
   const [newMilestoneLabel, setNewMilestoneLabel] = useState('');
   const [milestoneSaving, setMilestoneSaving] = useState(false);
   const [milestoneError, setMilestoneError] = useState<string | null>(null);
+  /** Jalon LIBRE en attente de confirmation : bascule ou suppression. Même
+   *  exigence que les 4 jalons fixes — une checklist se coche volontairement. */
+  const [customConfirm, setCustomConfirm] = useState<{
+    order: SubcontractOrder;
+    id: string;
+    label: string;
+    action: 'toggle' | 'remove';
+    done: boolean;
+  } | null>(null);
+  /** Jalon en attente de confirmation (voir requestToggleMilestone). */
+  const [milestoneConfirm, setMilestoneConfirm] = useState<{
+    order: SubcontractOrder;
+    field: 'tissuStatus' | 'fournituresStatus' | 'ficheTechniqueSent' | 'protoStatus';
+    isOn: boolean;
+  } | null>(null);
   /** Alignement de la grille du modèle sur celle de la commande (action manuelle). */
   const [gridAligning, setGridAligning] = useState(false);
   const [gridAlignError, setGridAlignError] = useState<string | null>(null);
@@ -2005,7 +2021,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  Ces champs n'ont plus d'onglet dédié dans le formulaire : la pastille EST
    *  le contrôle. Mise à jour optimiste pour que le clic réponde tout de suite,
    *  avec retour à l'état précédent si le serveur refuse. */
-  const handleToggleMilestone = async (
+  const applyToggleMilestone = async (
     order: SubcontractOrder,
     field: 'tissuStatus' | 'fournituresStatus' | 'ficheTechniqueSent' | 'protoStatus'
   ) => {
@@ -2042,6 +2058,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setDetailOrder(prev => (prev && prev.id === order.id ? order : prev));
       setError(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
     }
+  };
+
+  /** Un jalon dit « le tissu est parti », « la FT est envoyée » : c'est une
+   *  déclaration engageante, lue ailleurs dans l'application. Un clic par
+   *  inadvertance ne doit pas la produire, ni l'effacer — d'où la confirmation.
+   *  Le libellé rappelle le sens EXACT du basculement demandé. */
+  const requestToggleMilestone = (
+    order: SubcontractOrder,
+    field: 'tissuStatus' | 'fournituresStatus' | 'ficheTechniqueSent' | 'protoStatus'
+  ) => {
+    const isOn =
+      field === 'tissuStatus' ? order.tissuStatus === 'SENT'
+      : field === 'fournituresStatus' ? order.fournituresStatus === 'DELIVERED'
+      : field === 'ficheTechniqueSent' ? order.ficheTechniqueSent === 1
+      : order.protoStatus === 'APPROVED';
+    setMilestoneConfirm({ order, field, isOn });
   };
 
   /** Persiste la liste de jalons libres après une opération locale (ajout,
@@ -3240,7 +3272,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           {/* Jalons logistiques — cliquables, ils remplacent l'ancien onglet « Logistique » */}
                           <div className="flex flex-wrap gap-1 pt-1.5 border-t border-slate-100 dark:border-dk-border">
                             {milestoneChips(order).map(chip => (
-                              <MilestoneChip key={chip.field} {...chip} onToggle={() => handleToggleMilestone(order, chip.field)} />
+                              <MilestoneChip key={chip.field} {...chip} onToggle={() => requestToggleMilestone(order, chip.field)} />
                             ))}
                             {readCustomMilestones(order).map(m => (
                               <button
@@ -4432,6 +4464,105 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* ======================================= */}
       {/* DETAILED VIEW MODAL */}
       {/* ======================================= */}
+      {/* Confirmation d'un jalon logistique — la pastille reste le contrôle, mais
+          le basculement n'est plus produit par le seul clic. */}
+      {milestoneConfirm && (() => {
+        const { order, field, isOn } = milestoneConfirm;
+        const name =
+          field === 'tissuStatus' ? tx(lang,{fr:'Tissu',ar:'القماش',en:'Fabric',es:'Tejido',pt:'Tecido',tr:'Kumaş'})
+          : field === 'fournituresStatus' ? tx(lang,{fr:'Fournitures',ar:'اللوازم',en:'Trims',es:'Avíos',pt:'Aviamentos',tr:'Aksesuar'})
+          : field === 'ficheTechniqueSent' ? tx(lang,{fr:'Fiche technique',ar:'البطاقة التقنية',en:'Tech pack',es:'Ficha técnica',pt:'Ficha técnica',tr:'Teknik föy'})
+          : tx(lang,{fr:'Prototype',ar:'النموذج الأولي',en:'Prototype',es:'Prototipo',pt:'Protótipo',tr:'Prototip'});
+        const question = isOn
+          ? tx(lang,{fr:`Repasser « ${name} » en attente ?`,ar:`ترجاع «${name}» للانتظار؟`,en:`Set “${name}” back to pending?`,es:`¿Volver a poner «${name}» en espera?`,pt:`Voltar “${name}” a pendente?`,tr:`“${name}” tekrar beklemeye alınsın mı?`})
+          : tx(lang,{fr:`Confirmer « ${name} » comme fait ?`,ar:`تأكيد «${name}» كمُنجَز؟`,en:`Confirm “${name}” as done?`,es:`¿Confirmar «${name}» como hecho?`,pt:`Confirmar “${name}” como feito?`,tr:`“${name}” tamamlandı olarak onaylansın mı?`});
+        return createPortal(
+          <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setMilestoneConfirm(null)}>
+            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+              <div className="flex items-start gap-2.5">
+                <ClipboardCheck className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-slate-800 dark:text-dk-text">{question}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-1">
+                    {order.modelName || order.modelId} — {order.subcontractorName}
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMilestoneConfirm(null)}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                >
+                  {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMilestoneConfirm(null); applyToggleMilestone(order, field); }}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors"
+                >
+                  {tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
+
+      {/* Confirmation d'un jalon libre (bascule ou suppression). */}
+      {customConfirm && createPortal(
+        <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setCustomConfirm(null)}>
+          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-2.5">
+              {customConfirm.action === 'remove'
+                ? <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
+                : <ClipboardCheck className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0 mt-0.5" />}
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-slate-800 dark:text-dk-text">
+                  {customConfirm.action === 'remove'
+                    ? tx(lang,{fr:`Supprimer le jalon « ${customConfirm.label} » ?`,ar:`حذف المرحلة «${customConfirm.label}»؟`,en:`Delete the milestone “${customConfirm.label}”?`,es:`¿Eliminar el hito «${customConfirm.label}»?`,pt:`Eliminar o marco “${customConfirm.label}”?`,tr:`“${customConfirm.label}” kilometre taşı silinsin mi?`})
+                    : customConfirm.done
+                      ? tx(lang,{fr:`Décocher « ${customConfirm.label} » ?`,ar:`إلغاء تعليم «${customConfirm.label}»؟`,en:`Uncheck “${customConfirm.label}”?`,es:`¿Desmarcar «${customConfirm.label}»?`,pt:`Desmarcar “${customConfirm.label}”?`,tr:`“${customConfirm.label}” işareti kaldırılsın mı?`})
+                      : tx(lang,{fr:`Confirmer « ${customConfirm.label} » comme fait ?`,ar:`تأكيد «${customConfirm.label}» كمُنجَز؟`,en:`Confirm “${customConfirm.label}” as done?`,es:`¿Confirmar «${customConfirm.label}» como hecho?`,pt:`Confirmar “${customConfirm.label}” como feito?`,tr:`“${customConfirm.label}” tamamlandı olarak onaylansın mı?`})}
+                </p>
+                {customConfirm.action === 'remove' && (
+                  <p className="text-[10px] text-rose-600 dark:text-rose-400 mt-1">
+                    {tx(lang,{fr:'Action définitive.',ar:'إجراء نهائي.',en:'This cannot be undone.',es:'Acción definitiva.',pt:'Ação definitiva.',tr:'Bu geri alınamaz.'})}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCustomConfirm(null)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+              >
+                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const c = customConfirm;
+                  setCustomConfirm(null);
+                  if (c.action === 'remove') handleRemoveCustomMilestone(c.order, c.id);
+                  else handleToggleCustomMilestone(c.order, c.id);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-white font-bold text-[11px] transition-colors ${
+                  customConfirm.action === 'remove' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700'
+                }`}
+              >
+                {customConfirm.action === 'remove'
+                  ? tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})
+                  : tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {isDetailModalOpen && detailOrder && (
         <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] text-slate-700 dark:text-dk-text">
@@ -4691,7 +4822,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </span>
                 <div className="flex flex-wrap gap-2">
                   {milestoneChips(detailOrder, 'md').map(chip => (
-                    <MilestoneChip key={chip.field} {...chip} onToggle={() => handleToggleMilestone(detailOrder, chip.field)} />
+                    <MilestoneChip key={chip.field} {...chip} onToggle={() => requestToggleMilestone(detailOrder, chip.field)} />
                   ))}
                   {customMilestones.map(m => (
                     editingMilestoneId === m.id ? (
@@ -4718,7 +4849,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       >
                         <button
                           type="button"
-                          onClick={() => handleToggleCustomMilestone(detailOrder, m.id)}
+                          onClick={() => setCustomConfirm({ order: detailOrder, id: m.id, label: m.label, action: 'toggle', done: m.done })}
                           title={tx(lang,{fr:'Cliquer pour basculer',ar:'انقر للتبديل',en:'Click to toggle',es:'Clic para alternar',pt:'Clique para alternar',tr:'Değiştirmek için tıklayın'})}
                           className="flex items-center gap-1 hover:brightness-95 dark:hover:brightness-125 transition-colors"
                         >
@@ -4735,7 +4866,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleRemoveCustomMilestone(detailOrder, m.id)}
+                          onClick={() => setCustomConfirm({ order: detailOrder, id: m.id, label: m.label, action: 'remove', done: m.done })}
                           title={tx(lang,{fr:'Supprimer ce jalon',ar:'حذف هاد المرحلة',en:'Remove this milestone',es:'Eliminar este hito',pt:'Remover este marco',tr:'Bu kilometre taşını kaldır'})}
                           className="text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400"
                         >
@@ -4884,6 +5015,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             </p>
                           </div>
                           <span className="font-bold text-slate-700 dark:text-dk-text-soft shrink-0">{fmt(exp.amount)} {currency}</span>
+                          {/* Justificatif du frais, même mécanique que les factures
+                              matière du Pedido. La CLÉ est l'identifiant du frais et
+                              non son libellé : renommer « Transport » ne doit pas
+                              détacher la facture déjà jointe. */}
+                          <div className="shrink-0">
+                            <FactureUploader
+                              modelId={detailOrder.modelId && detailOrder.modelId !== 'MANUAL' ? detailOrder.modelId : detailOrder.id}
+                              materialName={`FRAIS#${exp.id}`}
+                              displayName={exp.label}
+                            />
+                          </div>
                           <button
                             type="button"
                             disabled={expenseSaving}

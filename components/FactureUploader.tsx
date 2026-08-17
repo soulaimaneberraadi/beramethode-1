@@ -1,13 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Upload, Trash2, X, Receipt, Loader2, Camera } from 'lucide-react';
+import { FileText, Upload, Trash2, X, Receipt, Loader2, Camera, Download } from 'lucide-react';
 import { addFacture, listFactures, getFactureBlob, deleteFacture, FactureMeta } from '../lib/factureStore';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 
 interface FactureUploaderProps {
     modelId?: string;
+    /** CLÉ de stockage des factures. Doit rester stable dans le temps : c'est
+     *  elle qui relie un fichier déjà enregistré à sa ligne. */
     materialName: string;
+    /** Texte du bouton. */
     label?: string;
+    /** Titre affiché dans la fenêtre, quand la clé n'est pas lisible par un
+     *  humain (frais de sous-traitance : la clé est un identifiant, le libellé
+     *  reste modifiable sans perdre les factures déjà jointes). */
+    displayName?: string;
 }
 
 function compressImage(file: File): Promise<Blob | File> {
@@ -66,7 +73,7 @@ function compressImage(file: File): Promise<Blob | File> {
     });
 }
 
-const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName, label = '' }) => {
+const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName, label = '', displayName }) => {
     const { lang } = useLang();
     const [open, setOpen] = useState(false);
     const [items, setItems] = useState<FactureMeta[]>([]);
@@ -76,6 +83,8 @@ const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName
     const fileRef = useRef<HTMLInputElement>(null);
     const cameraRef = useRef<HTMLInputElement>(null);
     const urlsRef = useRef<Record<string, string>>({});
+    /** Facture en attente de confirmation de suppression. */
+    const [pendingDelete, setPendingDelete] = useState<FactureMeta | null>(null);
 
     const btnLabel = label || tx(lang, {fr:'Facture', ar:'فاتورة', en:'Invoice', es:'Factura', pt:'Fatura', tr:'Fatura'});
 
@@ -162,7 +171,7 @@ const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName
                                 <Receipt className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" strokeWidth={1.75} />
                                 <div className="min-w-0">
                                     <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, {fr:'Factures', ar:'الفواتير', en:'Invoices', es:'Facturas', pt:'Faturas', tr:'Faturalar'})}</h3>
-                                    <p className="text-[11px] text-slate-400 dark:text-dk-muted truncate">{materialName}</p>
+                                    <p className="text-[11px] text-slate-400 dark:text-dk-muted truncate">{displayName || materialName}</p>
                                 </div>
                             </div>
                             <button onClick={() => setOpen(false)} className="p-1.5 rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0">
@@ -234,15 +243,63 @@ const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName
                                                 </a>
                                                 <div className="px-2 py-1.5 flex items-center justify-between gap-1 border-t border-slate-100 dark:border-dk-border">
                                                     <span className="text-[10px] text-slate-600 dark:text-dk-text-soft truncate" title={it.fileName}>{it.fileName}</span>
-                                                    <button onClick={() => del(it.id)} className="shrink-0 p-1 rounded text-slate-400 dark:text-dk-muted hover:text-rose-600 hover:bg-rose-50 transition-colors" title={tx(lang, {fr:'Supprimer', ar:'حذف', en:'Delete', es:'Eliminar', pt:'Excluir', tr:'Sil'})}>
-                                                        <Trash2 className="w-3 h-3" />
-                                                    </button>
+                                                    <span className="flex items-center gap-0.5 shrink-0">
+                                                        {/* Téléchargement : `download` porte le vrai nom du fichier, sinon
+                                                            le navigateur enregistrerait l'URL blob sous un nom aléatoire. */}
+                                                        <a
+                                                            href={url}
+                                                            download={it.fileName}
+                                                            onClick={e => { if (!url) e.preventDefault(); }}
+                                                            className={`p-1 rounded transition-colors ${url ? 'text-slate-400 dark:text-dk-muted hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-dk-accent/20' : 'text-slate-200 dark:text-dk-border pointer-events-none'}`}
+                                                            title={tx(lang, {fr:'Télécharger', ar:'تحميل', en:'Download', es:'Descargar', pt:'Baixar', tr:'İndir'})}
+                                                        >
+                                                            <Download className="w-3 h-3" />
+                                                        </a>
+                                                        {/* Suppression définitive : elle passe par une confirmation, un
+                                                            justificatif comptable ne doit pas partir sur un clic. */}
+                                                        <button onClick={() => setPendingDelete(it)} className="p-1 rounded text-slate-400 dark:text-dk-muted hover:text-rose-600 hover:bg-rose-50 transition-colors" title={tx(lang, {fr:'Supprimer', ar:'حذف', en:'Delete', es:'Eliminar', pt:'Excluir', tr:'Sil'})}>
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    </span>
                                                 </div>
                                             </div>
                                         );
                                     })}
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {pendingDelete && (
+                <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" dir="ltr" onClick={() => setPendingDelete(null)}>
+                    <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-start gap-2.5">
+                            <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                                <p className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">
+                                    {tx(lang, {fr:'Supprimer cette facture ?', ar:'حذف هذه الفاتورة؟', en:'Delete this invoice?', es:'¿Eliminar esta factura?', pt:'Eliminar esta fatura?', tr:'Bu fatura silinsin mi?'})}
+                                </p>
+                                <p className="text-[11px] text-slate-500 dark:text-dk-muted mt-1 truncate">{pendingDelete.fileName}</p>
+                                <p className="text-[10px] text-rose-600 dark:text-rose-400 mt-1">
+                                    {tx(lang, {fr:'Action définitive.', ar:'إجراء نهائي.', en:'This cannot be undone.', es:'Acción definitiva.', pt:'Ação definitiva.', tr:'Bu geri alınamaz.'})}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => setPendingDelete(null)}
+                                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-semibold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                            >
+                                {tx(lang, {fr:'Annuler', ar:'إلغاء', en:'Cancel', es:'Cancelar', pt:'Cancelar', tr:'İptal'})}
+                            </button>
+                            <button
+                                onClick={() => { const id = pendingDelete.id; setPendingDelete(null); del(id); }}
+                                className="px-3 py-1.5 rounded-lg bg-rose-600 text-white font-semibold text-[11px] hover:bg-rose-700 transition-colors"
+                            >
+                                {tx(lang, {fr:'Supprimer', ar:'حذف', en:'Delete', es:'Eliminar', pt:'Excluir', tr:'Sil'})}
+                            </button>
                         </div>
                     </div>
                 </div>
