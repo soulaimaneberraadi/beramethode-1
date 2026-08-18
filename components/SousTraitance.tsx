@@ -697,6 +697,39 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   /** Entrées de la commande ouverte dans la fiche — alimente « Reçu vs commandé ». */
   const [detailEntries, setDetailEntries] = useState<StockEntry[]>([]);
   const [stockEntryOrder, setStockEntryOrder] = useState<SubcontractOrder | null>(null);
+  /** Clôture d'une commande depuis l'écran des entrées : le modèle est
+   *  entièrement rentré en stock et le travail du sous-traitant est fini.
+   *  On profite du moment pour recueillir l'évaluation : c'est là qu'on sait
+   *  enfin si la livraison a été conforme, et une note posée à froid des mois
+   *  plus tard ne vaut rien. */
+  const [finishForm, setFinishForm] = useState<{ order: SubcontractOrder; rating: number } | null>(null);
+  const [finishSaving, setFinishSaving] = useState(false);
+
+  const confirmFinishOrder = async () => {
+    if (!finishForm) return;
+    const { order, rating } = finishForm;
+    setFinishSaving(true);
+    try {
+      const patch = { status: 'COMPLETED' as const, subcontractorRating: rating };
+      const res = await fetch(`/api/subcontract/${order.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error();
+      setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, ...patch } : o)));
+      setDetailOrder(prev => (prev && prev.id === order.id ? { ...prev, ...patch } : prev));
+      setStockEntryOrder(prev => (prev && prev.id === order.id ? { ...prev, ...patch } : prev));
+      setFinishForm(null);
+      setStockEntryOrder(null);
+    } catch {
+      setStockEntryError(tx(lang,{fr:'La clôture a échoué.',ar:'فشل الإغلاق.',en:'Closing failed.',es:'El cierre falló.',pt:'O encerramento falhou.',tr:'Kapatma başarısız.'}));
+    } finally {
+      setFinishSaving(false);
+    }
+  };
+
   const [stockEntries, setStockEntries] = useState<StockEntry[]>([]);
   const [stockEntriesLoading, setStockEntriesLoading] = useState(false);
   const [stockEntrySaving, setStockEntrySaving] = useState(false);
@@ -905,6 +938,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [costInvoiceOrder, setCostInvoiceOrder] = useState<SubcontractOrder | null>(null);
   const [costInvoiceQty, setCostInvoiceQty] = useState<number | ''>('');
   const [costInvoiceTva, setCostInvoiceTva] = useState<number>(20);
+  /** Lignes ajoutées à la main sur la facture (transport, retouche, pénalité…). */
+  const [costInvoiceExtras, setCostInvoiceExtras] = useState<{ id: string; label: string; qty: number; price: number }[]>([]);
+  /** Observations libres imprimées en bas de facture (référence client, réserve…). */
+  const [costInvoiceNotes, setCostInvoiceNotes] = useState('');
   /** Exonération de TVA. `null` = automatique : un modèle en marché Export part
    *  exonéré, ce qui est le cas courant chez les façonniers marocains. Un choix
    *  explicite de l'utilisateur prime toujours sur cette déduction. */
@@ -1418,12 +1455,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   const openCostInvoiceModal = (order: SubcontractOrder) => {
     setCostInvoiceOrder(order);
-    setCostInvoiceQty(order.totalQuantity > 0 ? order.totalQuantity : '');
+    // Le sous-traitant livre rarement au chiffre exact : c'est ce qui a été REÇU
+    // et accepté qui se facture, pas ce qui avait été commandé. À défaut de
+    // réception saisie, on retombe sur la quantité commandée.
+    const recu = Number(order.qtyAccepted) || 0;
+    setCostInvoiceQty(recu > 0 ? recu : (order.totalQuantity > 0 ? order.totalQuantity : ''));
     setCostInvoiceTva(20);
     setCostInvoiceSaveError(null);
     setCostInvoiceSavedNumber(null);
     setCostInvoiceOff(new Set());
     setCostInvoiceEdits({});
+    setCostInvoiceExtras([]);
+    setCostInvoiceNotes('');
     {
       const prof = subcontractorProfiles.find(p => p.name === order.subcontractorName);
       setCostInvoiceTiers({
@@ -3514,9 +3557,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  - Frais : voir `expenseShare` pour la règle de prorata.
    *  Aucune valeur n'est inventée : un tarif absent vaut 0 et se voit. */
   const buildCostInvoice = (order: SubcontractOrder, billedQty: number) => {
-    const maxQty = Math.max(1, order.totalQuantity);
-    const qty = Math.min(Math.max(1, Math.floor(billedQty) || 0), maxQty);
-    const isPartial = qty !== order.totalQuantity;
+    // Référence de comparaison : ce qui a été REÇU s'il y en a, sinon la commande.
+    // C'est elle qui dit si la facturation est partielle, pas la commande seule.
+    const refQty = (Number(order.qtyAccepted) || 0) > 0 ? Number(order.qtyAccepted) : order.totalQuantity;
+    const qty = Math.max(1, Math.floor(billedQty) || 0);
+    const isPartial = qty !== refQty;
 
     const unitPrice = Number(order.pricePerPiece) || 0;
     const faconTotal = qty * unitPrice;
@@ -3586,11 +3631,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const keptExpensesTotal = keptExpenses.reduce((a, e) => a + e.amount, 0);
     const keptFaconTotal = faconOn ? faconView.amount : 0;
 
+    // Lignes libres (transport, retouche, pénalité…) : mêmes règles que les
+    // autres — décochées, elles disparaissent du total, de l'impression et de
+    // l'enregistrement. Sans elles, toute prestation hors modèle obligeait à
+    // détourner le libellé d'une ligne existante.
+    const extrasView = costInvoiceExtras.map(e => ({
+      ...e,
+      amount: (Number(e.qty) || 0) * (Number(e.price) || 0),
+    }));
+    const keptExtras = extrasView.filter(e => !costInvoiceOff.has(`extra-${e.id}`));
+    const keptExtrasTotal = keptExtras.reduce((a, e) => a + e.amount, 0);
+
     // ---- Pied de facture : remise → net HT → TVA → TTC → reste à payer.
     // L'ordre est celui de la réglementation : la remise se déduit AVANT la TVA
     // (sinon on paierait de la TVA sur un montant jamais facturé), et l'acompte
     // se déduit APRÈS le TTC (c'est un règlement, pas une réduction de prix).
-    const totalBrut = round2(keptFaconTotal + keptMaterialsTotal + keptExpensesTotal);
+    const totalBrut = round2(keptFaconTotal + keptMaterialsTotal + keptExpensesTotal + keptExtrasTotal);
     const discountInput = Math.max(0, Number(costInvoiceDiscount) || 0);
     const discount = Math.min(
       totalBrut,
@@ -3625,6 +3681,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       materialsTotal: keptMaterialsTotal,
       expenses: keptExpenses,
       expensesTotal: keptExpensesTotal,
+      allExtras: extrasView,
+      extras: keptExtras,
+      extrasTotal: keptExtrasTotal,
       /** Total HT AVANT remise — conservé sous le même nom qu'avant pour ne rien
        *  casser de ce qui l'affichait déjà. */
       total: totalBrut,
@@ -5916,6 +5975,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <p className="text-[10px] text-slate-500 dark:text-dk-muted">
                       {tx(lang,{fr:'Le gris clair dans chaque case indique ce qui reste à recevoir. Seules les pièces ACCEPTÉES entrent au stock vendable.',ar:'الرقم الرمادي ف كل خانة كيبيّن المتبقي. غير القطع المقبولة كتدخل للمخزون القابل للبيع.',en:'The grey number in each cell shows what remains to receive. Only ACCEPTED pieces enter sellable stock.',es:'El numero gris de cada celda indica lo que falta recibir. Solo las piezas ACEPTADAS entran en el stock vendible.',pt:'O numero cinzento em cada celula mostra o que falta receber. So as pecas ACEITES entram no stock vendavel.',tr:'Her hucredeki gri sayi alinacak kalani gosterir. Yalnizca KABUL edilen parcalar satilabilir stoga girer.'})}
                     </p>
+                    {/* Clôture : le stock est complet et la prestation finie. */}
+                    <button
+                      type="button"
+                      onClick={() => setFinishForm({ order: stockEntryOrder, rating: stockEntryOrder.subcontractorRating || 5 })}
+                      disabled={stockEntrySaving || stockEntryOrder.status === 'COMPLETED'}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors disabled:opacity-40"
+                        title={stockEntryOrder.status === 'COMPLETED'
+                          ? tx(lang,{fr:'Commande déjà clôturée',ar:'الأمر مُغلق سلفاً',en:'Order already closed',es:'Pedido ya cerrado',pt:'Encomenda já fechada',tr:'Sipariş zaten kapatıldı'})
+                          : tx(lang,{fr:'Tout est entré en stock, le sous-traitant a fini',ar:'كلشي دخل للمخزون، السوطراطور سالا',en:'Everything is in stock, the subcontractor is done',es:'Todo está en stock, el subcontratista terminó',pt:'Tudo em stock, o subcontratado terminou',tr:'Her şey stokta, taşeron bitirdi'})}
+                      >
+                        <CheckSquare className="w-3.5 h-3.5" />
+                        {tx(lang,{fr:'Terminer la commande',ar:'إنهاء الأمر',en:'Close the order',es:'Cerrar el pedido',pt:'Fechar a encomenda',tr:'Siparişi kapat'})}
+                    </button>
                     <button
                       type="button"
                       onClick={addStockEntry}
@@ -6014,6 +6086,77 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   })
                 )}
               </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Clôture de commande + évaluation du sous-traitant. */}
+      {finishForm && createPortal(
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setFinishForm(null)}>
+          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start gap-2.5">
+              <CheckSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-[13px] font-bold text-slate-800 dark:text-dk-text">
+                  {tx(lang,{fr:'Terminer cette commande ?',ar:'إنهاء هاد الأمر؟',en:'Close this order?',es:'¿Cerrar este pedido?',pt:'Fechar esta encomenda?',tr:'Bu sipariş kapatılsın mı?'})}
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-1">
+                  {finishForm.order.modelName || finishForm.order.modelId} — {finishForm.order.subcontractorName}
+                  {' · '}
+                  {(finishForm.order.qtyAccepted || 0).toLocaleString(dateLocale)} / {finishForm.order.totalQuantity.toLocaleString(dateLocale)} pcs
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                {tx(lang,{fr:'Évaluation du sous-traitant',ar:'تقييم السوطراطور',en:'Subcontractor rating',es:'Evaluación del subcontratista',pt:'Avaliação do subcontratado',tr:'Taşeron değerlendirmesi'})}
+              </label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setFinishForm(prev => prev && ({ ...prev, rating: n }))}
+                    className="p-0.5"
+                    title={`${n}/5`}
+                  >
+                    <Star className={`w-5 h-5 ${n <= finishForm.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-dk-muted'}`} />
+                  </button>
+                ))}
+                <span className="ml-2 text-[11px] font-bold text-slate-500 dark:text-dk-muted">{finishForm.rating}/5</span>
+              </div>
+              <p className="text-[10px] text-slate-400 dark:text-dk-muted mt-1.5">
+                {tx(lang,{
+                  fr:"Notée maintenant, tant que la livraison est fraîche : l'évaluation reste attachée à cette commande.",
+                  ar:'تُسجَّل الآن والتسليم قريب: التقييم يبقى مرتبطاً بهاد الأمر.',
+                  en:'Rated now, while the delivery is fresh: the rating stays attached to this order.',
+                  es:'Evaluado ahora, con la entrega reciente: la nota queda ligada a este pedido.',
+                  pt:'Avaliado agora, com a entrega recente: a nota fica ligada a esta encomenda.',
+                  tr:'Teslimat tazeyken şimdi puanlanır: puan bu siparişe bağlı kalır.',
+                })}
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setFinishForm(null)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+              >
+                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+              </button>
+              <button
+                type="button"
+                disabled={finishSaving}
+                onClick={confirmFinishOrder}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition-colors disabled:opacity-40"
+              >
+                {finishSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckSquare className="w-3.5 h-3.5" />}
+                {tx(lang,{fr:'Terminer',ar:'إنهاء',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
+              </button>
             </div>
           </div>
         </div>,
@@ -6890,12 +7033,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <input
                     type="number"
                     min={1}
-                    max={order.totalQuantity}
                     value={costInvoiceQty}
                     onChange={(e) => setCostInvoiceQty(
-                      e.target.value === ''
-                        ? ''
-                        : Math.min(order.totalQuantity, Math.max(1, parseInt(e.target.value) || 1))
+                      // Plus de plafond à la quantité commandée : une livraison
+                      // excédentaire se facture aussi.
+                      e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 1)
                     )}
                     className="w-full sm:w-56 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white"
                   />

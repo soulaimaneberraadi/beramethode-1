@@ -168,11 +168,19 @@ export const createStockEntry = (req: Request, res: Response) => {
         const already = db.prepare('SELECT COALESCE(SUM(quantite), 0) AS total FROM st_stock_entries WHERE owner_id = ? AND order_id = ?')
             .get(companyId, orderId) as any;
         const ajout = lignes.reduce((a, l) => a + l.quantite, 0);
-        // Recevoir plus que commandé trahit une erreur de saisie, et gonflerait
-        // un stock qui sert ensuite de base aux ventes.
-        if ((already.total || 0) + ajout > order.totalQuantity) {
+        const cumul = (already.total || 0) + ajout;
+
+        // Un sous-traitant livre rarement au chiffre exact : il rend parfois
+        // quelques pièces de plus, parfois moins. Refuser l'écart obligeait à
+        // mentir sur la saisie — or c'est le REÇU qui doit servir de base à la
+        // facture et au stock, pas la commande. On accepte donc l'écart.
+        //
+        // Seul garde-fou conservé : un cumul supérieur au TRIPLE de la commande
+        // ne peut être qu'une faute de frappe (un zéro en trop), et gonflerait un
+        // stock qui sert ensuite de base aux ventes.
+        if (order.totalQuantity > 0 && cumul > order.totalQuantity * 3) {
             return res.status(400).json({
-                message: `Total reçu (${(already.total || 0) + ajout}) supérieur à la quantité commandée (${order.totalQuantity})`,
+                message: `Total reçu (${cumul}) plus de trois fois supérieur à la quantité commandée (${order.totalQuantity}) — vérifiez la saisie`,
             });
         }
 
