@@ -710,6 +710,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   /** Teinte enregistrée pour ce nom de couleur, ou undefined si le modèle ne
    *  porte pas de code hex : on n'invente aucune couleur. */
+  /** Photo de la matière, reprise de sa fiche Magasin : reconnaître un tissu à
+   *  l'œil est plus rapide que lire sa désignation. */
+  const materialPhotoOf = (name: string) => {
+    const n = (v: any) => String(v ?? '').trim().toLowerCase();
+    const item = magasinData.find((m: any) => n(m.nom || m.designation) === n(name));
+    return (item as any)?.photo || (item as any)?.image || '';
+  };
+
   const colorHexOf = (name: string) => models
     .flatMap(m => ((m.ficheData as any)?.colors || []) as Array<{ id: string; name: string }>)
     .find(c => c.name === name && typeof c.id === 'string' && c.id.startsWith('#'))?.id;
@@ -1447,21 +1455,24 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const loadCompanyIdentity = async () => {
     try {
       const res = await fetch('/api/permissions/company', { credentials: 'include' });
-      if (!res.ok) return;
+      if (!res.ok) return null;
       const data = await res.json();
       const meta = (data?.profileMeta && typeof data.profileMeta === 'object') ? data.profileMeta : {};
       const ville = String(meta.ville ?? '').trim();
       const adresse = String(meta.adresse ?? '').trim();
-      setCompanyIdentity({
+      const identity = {
         nom: String(meta.raisonSociale ?? '').trim() || String(data?.name ?? '').trim(),
         ice: String(meta.ice ?? '').trim(),
         rc: String(meta.rc ?? '').trim(),
         adresse: [adresse, ville].filter(Boolean).join(', '),
         tel: String(meta.companyPhone ?? meta.adminPhone ?? '').trim(),
         logo: typeof data?.logo === 'string' ? data.logo : '',
-      });
+      };
+      setCompanyIdentity(identity);
+      return identity;
     } catch (err) {
       console.error('[SousTraitance] company identity', err);
+      return null;
     }
   };
 
@@ -3030,10 +3041,26 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         tel: prof?.phone || order.subcontractorPhone || '',
       });
     }
+    // L'émetteur repart TOUJOURS de la fiche Admin > Entreprise : un bon
+    // précédent ne doit pas laisser traîner ses corrections sur le suivant.
+    setBonEnvoiIssuer({
+      nom: companyIdentity.nom, ice: companyIdentity.ice, rc: companyIdentity.rc,
+      adresse: companyIdentity.adresse, tel: companyIdentity.tel,
+    });
     setIsBonEnvoiModalOpen(true);
-    // L'identité légale n'est pas forcément déjà chargée si l'utilisateur n'a
-    // ouvert aucune facture dans cette session : on la demande maintenant.
-    loadCompanyIdentity();
+    // L'identité légale n'est pas forcément déjà chargée — ou l'utilisateur
+    // vient de la compléter dans Admin : on la relit maintenant et on applique
+    // ce qui arrive, sans écraser une correction déjà saisie ici.
+    loadCompanyIdentity().then(id => {
+      if (!id) return;
+      setBonEnvoiIssuer(prev => ({
+        nom: prev.nom || id.nom,
+        ice: prev.ice || id.ice,
+        rc: prev.rc || id.rc,
+        adresse: prev.adresse || id.adresse,
+        tel: prev.tel || id.tel,
+      }));
+    });
   };
 
   /** L'identité de l'entreprise arrive de façon asynchrone : on ne pré-remplit
@@ -3733,22 +3760,38 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const inv = buildCostInvoice(order, billedQty);
     const profile = subcontractorProfiles.find(p => p.name === order.subcontractorName);
 
+    const modelPhoto = models.find(m => m.id === order.modelId)?.image || '';
+    const stPhoto = profile?.photo || '';
+    // Vignettes COLLÉES aux libellés plutôt qu'en bande isolée : une photo posée
+    // en haut du document n'aide pas à identifier la ligne qu'elle illustre.
+    const visualsBlock = '';
+    const modelThumb = costInvoiceShow.model ? inlineThumbHtml(modelPhoto, 18) : '';
+    const stThumb = costInvoiceShow.subcontractor ? inlineThumbHtml(stPhoto, 18) : '';
+    const logoThumbInv = costInvoiceShow.logo ? inlineThumbHtml(companyIdentity.logo, 22) : '';
+    // Photo de la matière : reprise de sa fiche Magasin, appariée par nom
+    // normalisé (casse et espaces indifférents).
+    const materialPhotoInv = (name: string) => {
+      const n = (v: any) => String(v ?? '').trim().toLowerCase();
+      const item = magasinData.find((m: any) => n(m.nom || m.designation) === n(name));
+      return (item as any)?.photo || (item as any)?.image || '';
+    };
+
     const lineRows: string[] = [];
     // Ligne Façon décochée : elle ne doit pas apparaître sur le document imprimé,
     // sinon celui-ci contredirait le total (déjà calculé sans elle).
     // Chaque ligne porte un « type » en petites capitales au-dessus de son
     // libellé : le lecteur distingue façon / matière / frais d'un coup d'œil
     // sans avoir besoin de la couleur, ce qui compte en photocopie noir et blanc.
-    const lineCell = (kind: string, label: string, note = '') => `
+    const lineCell = (kind: string, label: string, note = '', thumb = '') => `
                 <td class="c-desc">
                   <span class="kind">${esc(kind)}</span>
-                  <span class="label">${esc(label)}</span>
+                  <span class="label">${thumb}${esc(label)}</span>
                   ${note ? `<div class="note">${note}</div>` : ''}
                 </td>`;
 
     if (inv.faconOn) lineRows.push(`
               <tr>
-                ${lineCell(tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}), inv.faconView.label)}
+                ${lineCell(tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}), inv.faconView.label, '', modelThumb)}
                 <td class="num">${esc(inv.qty.toLocaleString(dateLocale))} pcs</td>
                 <td class="num">${money(inv.unitPrice)}</td>
                 <td class="num strong">${money(inv.faconTotal)}</td>
@@ -3757,7 +3800,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     inv.materials.forEach(m => {
       lineRows.push(`
               <tr>
-                ${lineCell(tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'}), m.label)}
+                ${lineCell(tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'}), m.label, '', inlineThumbHtml(materialPhotoInv(m.label), 16))}
                 <td class="num">${esc(fmt(m.buyQty))} ${esc(m.unit)}</td>
                 <td class="num">${money(m.unitPrice)}</td>
                 <td class="num strong">${money(m.amount)}</td>
@@ -3782,18 +3825,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
     // Visuels optionnels : photo du modèle et/ou photo du sous-traitant. Ils ne
     // sont imprimés que si l'utilisateur les a cochés ET qu'ils existent.
-    const modelPhoto = models.find(m => m.id === order.modelId)?.image || '';
-    const stPhoto = profile?.photo || '';
-    const visuals: string[] = [];
-    if (costInvoiceShow.model && modelPhoto) {
-      visuals.push(`<div class="thumb"><img src="${esc(modelPhoto)}" alt="" /><div>${esc(order.modelName || order.modelId)}</div></div>`);
-    }
-    if (costInvoiceShow.subcontractor && stPhoto) {
-      visuals.push(`<div class="thumb"><img src="${esc(stPhoto)}" alt="" /><div>${esc(order.subcontractorName)}</div></div>`);
-    }
-    const visualsBlock = visuals.length
-      ? `<div class="thumbs">${visuals.join('')}</div>`
-      : '';
 
     // Avis de facturation partielle : encadré sobre et surtout signalé par un
     // filet épais à gauche, lisible même sans la teinte ambre à l'impression N&B.
@@ -3965,7 +3996,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <div style="display:flex;align-items:center;gap:12px;">
                   ${costInvoiceShow.logo && companyIdentity.logo ? `<img src="${esc(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
                   <div>
-                    <div class="logo">${esc(companyIdentity.nom || '')}</div>
+                    <div class="logo">${logoThumbInv}${esc(companyIdentity.nom || '')}</div>
                     <div class="party-line">${esc([companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : ''].filter(Boolean).join(' · '))}</div>
                   </div>
                 </div>
@@ -3991,7 +4022,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </div>
               <div class="party">
                 <div class="party-title">${esc(tx(lang,{fr:'Sous-traitant (bénéficiaire)',ar:'المقاول من الباطن (المستفيد)',en:'Subcontractor (payee)',es:'Subcontratista (beneficiario)',pt:'Subcontratado (beneficiário)',tr:'Taşeron (alacaklı)'}))}</div>
-                <div class="party-name">${esc(order.subcontractorName)}</div>
+                <div class="party-name">${stThumb}${esc(costInvoiceTiers.nom || order.subcontractorName)}</div>
                 ${recipientLines}
               </div>
             </div>
@@ -5591,7 +5622,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                           {rows.map(r => (
                             <tr key={r.id}>
-                              <td className="px-4 py-2 font-semibold text-slate-700 dark:text-dk-text-soft">{r.name}</td>
+                              <td className="px-4 py-2 font-semibold text-slate-700 dark:text-dk-text-soft">
+                                <span className="inline-flex items-center gap-1.5">
+                                  {materialPhotoOf(r.name)
+                                    ? <img src={materialPhotoOf(r.name)} alt="" className="w-5 h-5 rounded object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                                    : <Package className="w-3.5 h-3.5 text-slate-300 dark:text-dk-muted shrink-0" />}
+                                  {r.name}
+                                </span>
+                              </td>
                               <td className="px-4 py-2 text-center">{fmt(r.buyQty)} {r.unit}</td>
                               <td className={`px-4 py-2 text-center font-bold ${r.manque > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-300 dark:text-dk-muted'}`}>{fmt(r.manque)} {r.unit}</td>
                               <td className="px-4 py-1.5">
@@ -6467,7 +6505,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                           {rows.map(r => (
                             <tr key={r.id}>
-                              <td className="px-4 py-2 font-semibold text-slate-700 dark:text-dk-text-soft">{r.name}</td>
+                              <td className="px-4 py-2 font-semibold text-slate-700 dark:text-dk-text-soft">
+                                <span className="inline-flex items-center gap-1.5">
+                                  {materialPhotoOf(r.name)
+                                    ? <img src={materialPhotoOf(r.name)} alt="" className="w-5 h-5 rounded object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                                    : <Package className="w-3.5 h-3.5 text-slate-300 dark:text-dk-muted shrink-0" />}
+                                  {r.name}
+                                </span>
+                              </td>
                               <td className="px-4 py-2 text-center">{fmt(r.buyQty)} {r.unit}</td>
                               <td className="px-4 py-2 text-center text-slate-500 dark:text-dk-muted">{fmt(r.stockActuel)} {r.unit}</td>
                               <td className={`px-4 py-2 text-center font-bold ${r.manque > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-300 dark:text-dk-muted'}`}>{fmt(r.manque)} {r.unit}</td>
@@ -7700,12 +7745,30 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
                 {/* Identités imprimées — corrigibles avant remise du document. */}
                 {([
-                  { title: tx(lang,{fr:"Expéditeur (en-tête du bon)",ar:'المرسِل (رأس المذكرة)',en:'Sender (note header)',es:'Expedidor (encabezado)',pt:'Expedidor (cabeçalho)',tr:'Gönderen (irsaliye başlığı)'}), value: bonEnvoiIssuer, set: setBonEnvoiIssuer },
-                  { title: tx(lang,{fr:'Destinataire (sous-traitant)',ar:'المرسَل إليه (المقاول من الباطن)',en:'Recipient (subcontractor)',es:'Destinatario (subcontratista)',pt:'Destinatário (subcontratado)',tr:'Alıcı (taşeron)'}), value: bonEnvoiTiers, set: setBonEnvoiTiers },
+                  { title: tx(lang,{fr:"Expéditeur (en-tête du bon)",ar:'المرسِل (رأس المذكرة)',en:'Sender (note header)',es:'Expedidor (encabezado)',pt:'Expedidor (cabeçalho)',tr:'Gönderen (irsaliye başlığı)'}), value: bonEnvoiIssuer, set: setBonEnvoiIssuer, isIssuer: true },
+                  { title: tx(lang,{fr:'Destinataire (sous-traitant)',ar:'المرسَل إليه (المقاول من الباطن)',en:'Recipient (subcontractor)',es:'Destinatario (subcontratista)',pt:'Destinatário (subcontratado)',tr:'Alıcı (taşeron)'}), value: bonEnvoiTiers, set: setBonEnvoiTiers, isIssuer: false },
                 ]).map(party => (
                   <div key={party.title} className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
-                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
+                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border flex items-center justify-between gap-2">
                       <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">{party.title}</h4>
+                      {party.isIssuer && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            loadCompanyIdentity().then(id => {
+                              if (!id) return;
+                              // Rechargement EXPLICITE : ici on écrase, c'est ce
+                              // qui est demandé par le clic.
+                              setBonEnvoiIssuer({ nom: id.nom, ice: id.ice, rc: id.rc, adresse: id.adresse, tel: id.tel });
+                            });
+                          }}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-dk-accent-text hover:underline whitespace-nowrap"
+                          title={tx(lang,{fr:'Recharger depuis Admin > Entreprise',ar:'إعادة التحميل من Admin > الشركة',en:'Reload from Admin > Company',es:'Recargar desde Admin > Empresa',pt:'Recarregar de Admin > Empresa',tr:"Admin > Şirket'ten yeniden yükle"})}
+                        >
+                          <Building2 className="w-3 h-3" />
+                          <span>{tx(lang,{fr:'Depuis Admin',ar:'من Admin',en:'From Admin',es:'Desde Admin',pt:'De Admin',tr:'Adminden'})}</span>
+                        </button>
+                      )}
                     </div>
                     <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {identityFields.map(f => (
