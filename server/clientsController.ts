@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import db from './db';
+import { verifierVenteSousCout } from './commercialPolicy';
 
 /**
  * Clients de l'atelier (acheteurs des pièces finies).
@@ -338,6 +339,14 @@ export const createStockSortie = (req: Request, res: Response) => {
         .filter((l: any) => l.quantite > 0);
 
     if (lignes.length === 0) return res.status(400).json({ message: 'Aucune quantité saisie' });
+
+    // Garde-fou « vente à perte », rejoué ici parce que celui de l'écran est
+    // contournable par un appel direct à cette route. Même formule de coût et
+    // mêmes réglages que l'interface ; silencieux si le coût est incalculable.
+    const verdict = verifierVenteSousCout(companyId, modelId, lignes, body.note);
+    if (verdict.refuse) {
+        return res.status(400).json({ message: verdict.message, code: 'VENTE_SOUS_COUT', policy: verdict.policy });
+    }
 
     try {
         // Stock disponible, cellule par cellule : on refuse de sortir ce qui

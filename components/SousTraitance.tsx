@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { ModelData, SubcontractOrder, PlanningEvent, SubcontractorProfile } from '../types';
+import { ModelData, SubcontractOrder, PlanningEvent, SubcontractorProfile, DEFAULT_COMMERCIAL_SETTINGS } from '../types';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { resolveStock, MagasinItem } from '../lib/magasinMatch';
 import { fmt } from '../app/constants';
+import { computeModelCostPrice, prixPlancher, estSousPlancher, SOUS_COUT_NOTE_PREFIX } from '../lib/costPrice';
+import { resolveCommercialAccess } from '../app/accessControl';
+import { useAuth } from '../src/context/AuthContext';
+import { usePermissions } from '../src/context/PermissionsContext';
 import { diffOrderVsModelGrid } from '../utils/subcontractGrid';
 import InlineInvoiceList from './InlineInvoiceList';
 import FactureUploader from './FactureUploader';
@@ -416,58 +420,9 @@ const inferSubcontractMode = (o: {
   return allSub ? 'complet' : 'facon';
 };
 
-/** Base de répartition des frais additionnels d'un modèle : la grille couleur ×
- *  taille si elle est remplie, sinon la quantité de la commande de sous-traitance
- *  liée, sinon la quantité du modèle. Même ordre de priorité que `commandeQty`
- *  dans CostCalculator.tsx — les deux doivent donner le même prix de revient. */
-const modelCommandeQty = (fiche: any): number => {
-  const gq = fiche?.gridQuantities || {};
-  const total = Object.values(gq).reduce<number>((acc, v: any) => acc + (Number(v) || 0), 0);
-  if (total > 0) return total;
-  return Number(fiche?.soustraitance?.orderQty) || Number(fiche?.quantity) || 0;
-};
-
-/** Prix de revient d'un modèle — MÊME formule que CostCalculator.tsx (~l.380) et
- *  CompactCostSheet.tsx : coût = matières + main d'œuvre + frais additionnels, la
- *  main d'œuvre étant le prix du sous-traitant quand `ficheData.soustraitance` est
- *  active, sinon temps total (base + coupe + emballage) × coût minute.
- *  Retourne `null` dès qu'aucune donnée fiable n'existe : on n'invente pas un prix. */
-const computeModelCostPrice = (model: ModelData, settings: any): number | null => {
-  const fiche: any = model.ficheData || {};
-  const st = fiche.soustraitance;
-  const stActive = !!st?.active;
-  const stPrix = Number(st?.prix) || 0;
-  const stComplet = stActive && st?.mode === 'complet';
-  // Matières exclues du coût en Export OU en sous-traitance « tout compris ».
-  const materialsExcluded = fiche.typeMarche === 'Export' || stComplet;
-  const materials: any[] = fiche.materials || [];
-  const totalMaterials = materialsExcluded
-    ? 0
-    : materials.reduce((acc: number, m: any) => acc + (Number(m?.unitPrice) || 0) * (Number(m?.qty) || 0), 0);
-
-  let laborCost: number;
-  if (stActive) {
-    if (stPrix <= 0) return null;
-    laborCost = stPrix;
-  } else {
-    const baseTime = Number(model.meta_data?.total_temps) || 0;
-    const costMinute = Number(settings?.costMinute) || 0;
-    if (baseTime <= 0 || costMinute <= 0) return null;
-    const cutRate = Number(settings?.cutRate) || 0;
-    const packRate = Number(settings?.packRate) || 0;
-    laborCost = baseTime * (1 + cutRate / 100 + packRate / 100) * costMinute;
-  }
-
-  // Frais additionnels de la commande, répartis sur la quantité commandée. Comme
-  // dans CostCalculator, c'est la MOYENNE qui entre dans le prix de revient : elle
-  // seule, multipliée par la quantité, redonne exactement la dépense engagée.
-  const qty = modelCommandeQty(fiche);
-  const fraisTotal = (st?.frais || []).reduce((acc: number, f: any) => acc + (Number(f?.amount) || 0), 0);
-  const fraisPerPiece = qty > 0 ? fraisTotal / qty : 0;
-
-  const cost = totalMaterials + laborCost + fraisPerPiece;
-  return cost > 0 ? cost : null;
-};
+/* `modelCommandeQty` et `computeModelCostPrice` vivent désormais dans
+   `lib/costPrice.ts` : le serveur applique le MÊME garde-fou de vente à perte,
+   et deux copies d'une formule financière finissent toujours par diverger. */
 
 /**
  * Script d'auto-ajustement injecté dans les documents imprimés.
@@ -1036,9 +991,101 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     prix: number | '';
     date: string;
     grid: Record<string, number | ''>;
+    /** Vrai dès que l'opérateur a touché le champ prix : le serveur PROPOSE,
+     *  l'opérateur DÉCIDE — un tarif résolu ne doit jamais écraser sa saisie. */
+    prixTouched: boolean;
   } | null>(null);
   const [sortieSaving, setSortieSaving] = useState(false);
   const [sortieError, setSortieError] = useState<string | null>(null);
+  /** Tarif résolu par le serveur pour (modèle, client, quantité). `source` dit
+   *  D'OÙ vient le prix : un montant qui apparaît sans qu'on sache pourquoi
+   *  n'est pas utilisable en confiance devant un client. */
+  const [sortieTarif, setSortieTarif] = useState<
+    { prix: number | null; source: 'CLIENT' | 'TYPE' | 'CATALOGUE' | 'NONE'; qty_min: number | null; type_client: string | null } | null
+  >(null);
+  const [sortieTarifLoading, setSortieTarifLoading] = useState(false);
+  /** Motif obligatoire d'une vente sous le prix plancher (politique 'CONFIRM').
+   *  Il part dans la note de la sortie, préfixé, pour rester retrouvable. */
+  const [sortieMotif, setSortieMotif] = useState('');
+  /** Étape de confirmation « vente à perte » : le premier clic sur Enregistrer
+   *  ouvre la demande de motif, le second enregistre réellement. */
+  const [sortieConfirmSousCout, setSortieConfirmSousCout] = useState(false);
+  /** Compteur de requêtes : chaque frappe dans la grille change la quantité et
+   *  relance une résolution. Sans ce garde, une réponse lente écraserait une
+   *  réponse plus récente et proposerait le tarif d'une autre quantité. */
+  const sortieTarifSeq = useRef(0);
+
+  // ── Politique commerciale : TOUJOURS lue via `?? DEFAULT_COMMERCIAL_SETTINGS`,
+  //    jamais en dur — c'est tout l'intérêt d'avoir sorti ces règles du code.
+  const margeMinimale: number = Number(settings?.margeMinimale ?? DEFAULT_COMMERCIAL_SETTINGS.margeMinimale);
+  const venteSousCoutPolicy = (settings?.venteSousCoutPolicy ?? DEFAULT_COMMERCIAL_SETTINGS.venteSousCoutPolicy) as 'BLOCK' | 'CONFIRM' | 'ALLOW';
+  const prixParClientEnabled: boolean = !!(settings?.prixParClientEnabled ?? DEFAULT_COMMERCIAL_SETTINGS.prixParClientEnabled);
+  const clientTypeLabels: Record<string, string> = {
+    ...DEFAULT_COMMERCIAL_SETTINGS.clientTypeLabels,
+    ...(settings?.clientTypeLabels || {}),
+  };
+
+  /** Quantité totale saisie dans la grille : c'est elle qui décide du palier
+   *  tarifaire, donc chaque modification relance la résolution du prix. */
+  const sortieTotalQty: number = useMemo(
+    () => (sortieForm ? Object.values(sortieForm.grid).reduce<number>((a, v) => a + (Number(v) || 0), 0) : 0),
+    [sortieForm]
+  );
+
+  /** Prix de revient du modèle en cours de sortie, et prix plancher qui en
+   *  découle. `null` = modèle sans gamme chiffrée : AUCUN garde-fou ne peut
+   *  s'appliquer, et l'écran doit l'avouer plutôt que de laisser croire à un
+   *  contrôle qui n'a pas eu lieu. */
+  const sortieCout: number | null = useMemo(
+    () => (sortieForm ? computeModelCostPrice(sortieForm.model, settings) : null),
+    [sortieForm, settings]
+  );
+  const sortiePlancher: number | null = useMemo(
+    () => prixPlancher(sortieCout, margeMinimale),
+    [sortieCout, margeMinimale]
+  );
+  const sortieSousPlancher: boolean = sortieForm
+    ? estSousPlancher(Number(sortieForm.prix) || 0, sortiePlancher)
+    : false;
+
+  const sortieModelId = sortieForm?.model.id ?? null;
+  const sortieClientId = sortieForm?.clientId ?? '';
+
+  /** Résolution du tarif (client → type de client → catalogue). Debounce parce
+   *  que la quantité change à chaque frappe, et compteur de séquence + abort
+   *  parce que sans eux une réponse en retard viendrait écraser la bonne. */
+  useEffect(() => {
+    if (!sortieModelId || IS_STATIC) { setSortieTarif(null); return; }
+    const seq = ++sortieTarifSeq.current;
+    const ctrl = new AbortController();
+    setSortieTarifLoading(true);
+    const timer = setTimeout(() => {
+      const qs = new URLSearchParams({ modelId: sortieModelId, qty: String(sortieTotalQty) });
+      if (sortieClientId) qs.set('clientId', sortieClientId);
+      fetch(`/api/prix/resolve?${qs.toString()}`, { credentials: 'include', signal: ctrl.signal })
+        .then(r => (r.ok ? r.json() : null))
+        .then((d: any) => {
+          if (seq !== sortieTarifSeq.current) return; // réponse périmée : on l'ignore
+          if (!d) { setSortieTarif(null); return; }
+          setSortieTarif({
+            prix: d.prix == null ? null : Number(d.prix),
+            source: (d.source || 'NONE') as 'CLIENT' | 'TYPE' | 'CATALOGUE' | 'NONE',
+            qty_min: d.qty_min == null ? null : Number(d.qty_min),
+            type_client: d.type_client ?? null,
+          });
+          // Pré-remplissage UNIQUEMENT tant que l'opérateur n'a pas saisi le
+          // prix lui-même : le serveur propose, l'opérateur décide.
+          if (d.prix != null) {
+            setSortieForm(prev => (prev && !prev.prixTouched
+              ? { ...prev, prix: Number(Number(d.prix).toFixed(2)) }
+              : prev));
+          }
+        })
+        .catch(() => { if (seq === sortieTarifSeq.current) setSortieTarif(null); })
+        .finally(() => { if (seq === sortieTarifSeq.current) setSortieTarifLoading(false); });
+    }, 350);
+    return () => { ctrl.abort(); clearTimeout(timer); };
+  }, [sortieModelId, sortieClientId, sortieTotalQty]);
 
   const openSortieModal = (model: ModelData, salePrice: number | null) => {
     setSortieForm({
@@ -1047,8 +1094,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       prix: salePrice != null && salePrice > 0 ? Number(salePrice.toFixed(2)) : '',
       date: new Date().toISOString().split('T')[0],
       grid: {},
+      prixTouched: false,
     });
     setSortieError(null);
+    setSortieTarif(null);
+    setSortieMotif('');
+    setSortieConfirmSousCout(false);
   };
 
   const submitSortie = async () => {
@@ -1065,6 +1116,34 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       return;
     }
 
+    // Garde-fou « vente à perte ». La MÊME règle est rejouée côté serveur
+    // (server/commercialPolicy.ts) : celle-ci est le confort, celle-là la loi.
+    if (sortieSousPlancher) {
+      if (venteSousCoutPolicy === 'BLOCK') {
+        setSortieError(tx(lang,{fr:`Vente sous le prix plancher refusée par les réglages de l'entreprise.`,ar:'البيع تحت الثمن الأدنى مرفوض حسب إعدادات الشركة.',en:'Sale below the floor price is refused by the company settings.',es:'La venta por debajo del precio mínimo esta rechazada por los ajustes de la empresa.',pt:'A venda abaixo do preco minimo e recusada pelas definicoes da empresa.',tr:'Taban fiyatin altinda satis sirket ayarlarinca reddedildi.'}));
+        return;
+      }
+      if (venteSousCoutPolicy === 'CONFIRM') {
+        // Premier clic : on ouvre la demande de motif au lieu d'enregistrer.
+        if (!sortieConfirmSousCout) {
+          setSortieConfirmSousCout(true);
+          setSortieError(null);
+          return;
+        }
+        if (!sortieMotif.trim()) {
+          setSortieError(tx(lang,{fr:'Motif obligatoire pour vendre sous le prix plancher.',ar:'السبب إجباري باش تبيع تحت الثمن الأدنى.',en:'A reason is required to sell below the floor price.',es:'Motivo obligatorio para vender por debajo del precio minimo.',pt:'Motivo obrigatorio para vender abaixo do preco minimo.',tr:'Taban fiyatin altinda satis icin gerekce zorunlu.'}));
+          return;
+        }
+      }
+    }
+
+    // Le motif est préfixé pour rester retrouvable plus tard dans les notes
+    // (`note LIKE 'VENTE_SOUS_COUT:%'`), et c'est ce préfixe que le serveur
+    // cherche pour vérifier qu'une dérogation a bien été motivée.
+    const note = sortieSousPlancher && venteSousCoutPolicy === 'CONFIRM' && sortieMotif.trim()
+      ? `${SOUS_COUT_NOTE_PREFIX} ${sortieMotif.trim()}`
+      : null;
+
     const client = atelierClients.find(c => c.id === sortieForm.clientId);
     setSortieSaving(true);
     setSortieError(null);
@@ -1079,6 +1158,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           client_nom: client?.nom || null,
           prix_unitaire: Number(sortieForm.prix) || 0,
           date_sortie: sortieForm.date,
+          note,
           lignes,
         }),
       });
@@ -1086,6 +1166,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       if (!res.ok) throw new Error(body.message || tx(lang,{fr:'La sortie a été refusée.',ar:'تم رفض الإخراج.',en:'The exit was rejected.',es:'La salida fue rechazada.',pt:'A saida foi recusada.',tr:'Cikis reddedildi.'}));
       await loadStockMovements();
       setSortieForm(null);
+      setSortieMotif('');
+      setSortieConfirmSousCout(false);
     } catch (err: any) {
       setSortieError(err.message);
     } finally {
@@ -1160,6 +1242,29 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   // Tab 4 (Groups) States
   const { lang } = useLang();
+
+  /** Confidentialité du coût. Un vendeur ne doit pas connaitre la marge de son
+   *  patron : `canSeeCost` masque prix de revient / marge / valorisation, et
+   *  `canSetPrice` verrouille l'écriture des prix de vente et des tarifs.
+   *  Les sources sont celles qui existent déjà (auth + permissions), aucune
+   *  nouvelle notion d'identité n'est introduite ici. */
+  const { user } = useAuth();
+  const perms = usePermissions();
+  const commercialAccess = useMemo(() => resolveCommercialAccess({
+    isOwner: perms.isSuper,
+    isAdmin: user?.role === 'admin',
+    // `roleId` est un UUID : la clé lisible d'un rôle, c'est son NOM.
+    roleKey: perms.roleName,
+    masquerCoutRevient: !!(settings?.masquerCoutRevient ?? DEFAULT_COMMERCIAL_SETTINGS.masquerCoutRevient),
+    // Le champ témoin est déjà géré par les 4 couches de permissions : on le
+    // relit tel quel au lieu d'ouvrir un second système parallèle.
+    // On ne retient qu'un refus EXPLICITE : `canField` répond « non » pour tout
+    // champ inconnu (deny par défaut), et s'appuyer dessus ferait brutalement
+    // disparaître le coût chez des ateliers qui le voyaient hier.
+    hiddenFields: perms.fields['model.prix_revient']?.view === false ? ['model.prix_revient'] : [],
+  }), [perms, user, settings]);
+  const canSeeCostHere = commercialAccess.canSeeCost;
+  const canSetPriceHere = commercialAccess.canSetPrice;
 
   /** Devise et locale issues des réglages — plus de 'MAD' ni de 'fr-FR' en dur. */
   const currency: string = settings?.currency || 'MAD';
@@ -5238,12 +5343,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               {/* Barre d'indicateurs : un stock fini se pilote d'abord par sa
                   VALEUR immobilisée, pas par le nombre de lignes du tableau. */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-                <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">
-                    {tx(lang,{fr:'Valeur du stock (revient)',ar:'قيمة المخزون (بالتكلفة)',en:'Stock value (cost)',es:'Valor del stock (coste)',pt:'Valor do stock (custo)',tr:'Stok degeri (maliyet)'})}
-                  </span>
-                  <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm">{fmt(stockKpis.value)} {currency}</span>
-                </div>
+                {/* Valorisation au cout : masquee en bloc quand le cloisonnement
+                    commercial est actif. Afficher 0 serait une information FAUSSE. */}
+                {canSeeCostHere && (
+                  <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
+                    <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">
+                      {tx(lang,{fr:'Valeur du stock (revient)',ar:'قيمة المخزون (بالتكلفة)',en:'Stock value (cost)',es:'Valor del stock (coste)',pt:'Valor do stock (custo)',tr:'Stok degeri (maliyet)'})}
+                    </span>
+                    <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm">{fmt(stockKpis.value)} {currency}</span>
+                  </div>
+                )}
                 <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
                   <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">
                     {tx(lang,{fr:'Pièces disponibles',ar:'القطع المتوفّرة',en:'Available pieces',es:'Piezas disponibles',pt:'Pecas disponiveis',tr:'Mevcut parca'})}
@@ -5409,7 +5518,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             }}
                             className="w-24 text-right bg-slate-50 dark:bg-dk-bg border border-indigo-500 dark:border-dk-accent rounded-lg px-2 py-1 text-[11px] text-slate-800 dark:text-dk-text outline-none"
                           />
-                        ) : (
+                        ) : canSetPriceHere ? (
                           <button
                             type="button"
                             onClick={() => { setEditingPriceModelId(item.model.id); setEditingPriceValue(item.salePrice != null && item.salePrice > 0 ? String(item.salePrice) : ''); }}
@@ -5418,10 +5527,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             {item.salePrice != null && item.salePrice > 0 ? `${fmt(item.salePrice)} ${currency}` : '—'}
                             {savingPriceModelId === item.model.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pencil className="w-3 h-3" />}
                           </button>
+                        ) : (
+                          /* Sans droit de fixer les prix : lecture seule, pas de leurre cliquable. */
+                          <span className="font-semibold text-slate-800 dark:text-dk-text text-[11px]">
+                            {item.salePrice != null && item.salePrice > 0 ? `${fmt(item.salePrice)} ${currency}` : '—'}
+                          </span>
                         )}
-                        <span className="block text-[9px] text-slate-400 dark:text-dk-muted">
-                          {tx(lang,{fr:'revient',ar:'التكلفة',en:'cost',es:'coste',pt:'custo',tr:'maliyet'})} : {item.price == null ? '—' : `${fmt(item.price)} ${currency}`}
-                        </span>
+                        {canSeeCostHere && (
+                          <span className="block text-[9px] text-slate-400 dark:text-dk-muted">
+                            {tx(lang,{fr:'revient',ar:'التكلفة',en:'cost',es:'coste',pt:'custo',tr:'maliyet'})} : {item.price == null ? '—' : `${fmt(item.price)} ${currency}`}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -5582,7 +5698,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 }}
                                 className="w-28 bg-slate-50 dark:bg-dk-bg border border-indigo-500 dark:border-dk-accent rounded-lg px-2 py-1 text-[12px] text-slate-800 dark:text-dk-text outline-none"
                               />
-                            ) : (
+                            ) : canSetPriceHere ? (
                               <button
                                 type="button"
                                 onClick={() => { setEditingPriceModelId(item.model.id); setEditingPriceValue(item.salePrice != null && item.salePrice > 0 ? String(item.salePrice) : ''); }}
@@ -5594,7 +5710,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                   : <span className="text-slate-400 dark:text-dk-muted italic">{tx(lang,{fr:'prix de vente non saisi',ar:'ثمن البيع غير مُدخَل',en:'sale price not set',es:'precio de venta no indicado',pt:'preço de venda não definido',tr:'satış fiyatı girilmedi'})}</span>}
                                 {savingPriceModelId === item.model.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pencil className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />}
                               </button>
+                            ) : (
+                              <span className="font-semibold text-slate-800 dark:text-dk-text">
+                                {item.salePrice != null && item.salePrice > 0
+                                  ? `${fmt(item.salePrice)} ${currency}`
+                                  : <span className="text-slate-400 dark:text-dk-muted italic">{tx(lang,{fr:'prix de vente non saisi',ar:'ثمن البيع غير مُدخَل',en:'sale price not set',es:'precio de venta no indicado',pt:'preço de venda não definido',tr:'satış fiyatı girilmedi'})}</span>}
+                              </span>
                             )}
+                            {canSeeCostHere && (
                             <span className="block text-[10px] text-slate-400 dark:text-dk-muted">
                               {tx(lang,{fr:'revient',ar:'التكلفة',en:'cost',es:'coste',pt:'custo',tr:'maliyet'})} : {item.price == null ? '—' : `${fmt(item.price)} ${currency}`}
                               {item.salePrice != null && item.salePrice > 0 && item.price != null && item.price > 0 && (
@@ -5604,6 +5727,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 </span>
                               )}
                             </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 text-right whitespace-nowrap">
                             {/* Le détail par couleur x taille répond à « me reste-t-il
@@ -5734,7 +5858,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           <td className="px-6 py-3">{stockTotals.invoiced.toLocaleString(dateLocale)} pcs</td>
                           <td className="px-6 py-3">{stockTotals.remaining.toLocaleString(dateLocale)} pcs</td>
                           <td className="px-6 py-3" colSpan={2}>
-                            {tx(lang,{fr:'Valeur (revient)',ar:'القيمة (بالتكلفة)',en:'Value (cost)',es:'Valor (coste)',pt:'Valor (custo)',tr:'Deger (maliyet)'})} : {fmt(stockTotals.value)} {currency}
+                            {canSeeCostHere
+                              ? `${tx(lang,{fr:'Valeur (revient)',ar:'القيمة (بالتكلفة)',en:'Value (cost)',es:'Valor (coste)',pt:'Valor (custo)',tr:'Deger (maliyet)'})} : ${fmt(stockTotals.value)} ${currency}`
+                              : '—'}
                           </td>
                         </tr>
                       </tfoot>
@@ -6808,9 +6934,41 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     min={0}
                     step="any"
                     value={sortieForm.prix}
-                    onChange={e => setSortieForm(prev => prev && ({ ...prev, prix: e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0) }))}
+                    onChange={e => setSortieForm(prev => prev && ({
+                      ...prev,
+                      prix: e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0),
+                      // Dès la première frappe, le tarif résolu cesse de s'imposer.
+                      prixTouched: true,
+                    }))}
                     className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
                   />
+                  {/* PROVENANCE du prix. Un montant qui apparait sans qu'on sache
+                      d'ou il vient n'est pas defendable devant un client. */}
+                  <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-1 leading-snug">
+                    {sortieTarifLoading
+                      ? tx(lang,{fr:'Recherche du tarif…',ar:'كنقلّبو على التعريفة…',en:'Looking up the tariff…',es:'Buscando la tarifa…',pt:'A procurar o tarifario…',tr:'Tarife araniyor…'})
+                      : sortieTarif?.source === 'CLIENT'
+                        ? tx(lang,{fr:'Tarif négocié de ce client',ar:'تعريفة متفاوض عليها مع هاد الزبون',en:'Negotiated tariff for this client',es:'Tarifa negociada de este cliente',pt:'Tarifario negociado deste cliente',tr:'Bu musteriyle anlasilan tarife'})
+                        : sortieTarif?.source === 'TYPE'
+                          ? `${tx(lang,{fr:'Tarif',ar:'تعريفة',en:'Tariff',es:'Tarifa',pt:'Tarifario',tr:'Tarife'})} ${clientTypeLabels[String(sortieTarif?.type_client || '')] || String(sortieTarif?.type_client || '')}`
+                          : sortieTarif?.source === 'CATALOGUE'
+                            ? tx(lang,{fr:'Tarif catalogue',ar:'تعريفة الكاطالوݣ',en:'Catalogue tariff',es:'Tarifa de catálogo',pt:'Tarifario de catalogo',tr:'Katalog tarifesi'})
+                            : tx(lang,{fr:'Aucun tarif — saisissez le prix',ar:'ما كاينة حتى تعريفة — دخّل الثمن',en:'No tariff — enter the price',es:'Ninguna tarifa — introduzca el precio',pt:'Sem tarifario — introduza o preco',tr:'Tarife yok — fiyati girin'})}
+                    {sortieTarif?.qty_min != null && sortieTarif.qty_min > 0 && sortieTarif.source !== 'NONE' && (
+                      <span>{' · '}{tx(lang,{fr:'palier',ar:'العتبة',en:'tier',es:'tramo',pt:'escalao',tr:'kademe'})} ≥ {sortieTarif.qty_min}</span>
+                    )}
+                  </p>
+                  {/* Le tarif reste une PROPOSITION dès que l'opérateur a saisi
+                      son propre prix : on l'offre, on ne l'impose pas. */}
+                  {sortieForm.prixTouched && sortieTarif?.prix != null && Number(sortieForm.prix) !== sortieTarif.prix && (
+                    <button
+                      type="button"
+                      onClick={() => setSortieForm(prev => prev && ({ ...prev, prix: Number((sortieTarif.prix as number).toFixed(2)) }))}
+                      className="mt-1 inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-indigo-200 dark:border-dk-accent/50 text-indigo-600 dark:text-dk-accent text-[10px] font-bold hover:bg-indigo-50 dark:hover:bg-dk-elevated transition-colors"
+                    >
+                      {tx(lang,{fr:'Appliquer le tarif',ar:'طبّق التعريفة',en:'Apply the tariff',es:'Aplicar la tarifa',pt:'Aplicar o tarifario',tr:'Tarifeyi uygula'})} : {fmt(sortieTarif.prix)} {currency}
+                    </button>
+                  )}
                 </div>
                 <div>
                   <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
@@ -6912,6 +7070,81 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 );
               })()}
 
+              {/* GARDE-FOU VENTE A PERTE.
+                  Trois cas, jamais melanges : (1) cout inconnu -> on dit
+                  franchement qu'AUCUN controle n'a eu lieu ; (2) prix sous le
+                  plancher -> alerte selon la politique de l'entreprise ;
+                  (3) rien a signaler -> rien n'est affiche. */}
+              {sortieCout == null ? (
+                <div className="flex items-start gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50">
+                  <Info className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-slate-500 dark:text-dk-muted leading-snug">
+                    {tx(lang,{fr:"Prix de revient inconnu pour ce modele : aucun controle de marge n'a ete effectue sur ce prix.",ar:'ثمن التكلفة ديال هاد الموديل غير معروف: ما تدارت حتى مراقبة للهامش على هاد الثمن.',en:'Cost price unknown for this model: no margin check was performed on this price.',es:'Precio de coste desconocido para este modelo: no se ha realizado ningun control de margen sobre este precio.',pt:'Preco de custo desconhecido para este modelo: nenhum controlo de margem foi efetuado sobre este preco.',tr:'Bu model icin maliyet fiyati bilinmiyor: bu fiyat uzerinde marj kontrolu yapilmadi.'})}
+                  </p>
+                </div>
+              ) : sortieSousPlancher ? (
+                <div className={
+                  venteSousCoutPolicy === 'BLOCK'
+                    ? 'px-3 py-2.5 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30'
+                    : venteSousCoutPolicy === 'CONFIRM'
+                      ? 'px-3 py-2.5 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/30'
+                      : 'px-3 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50'
+                }>
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className={
+                      venteSousCoutPolicy === 'BLOCK'
+                        ? 'w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5'
+                        : venteSousCoutPolicy === 'CONFIRM'
+                          ? 'w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5'
+                          : 'w-3.5 h-3.5 text-slate-400 dark:text-dk-muted shrink-0 mt-0.5'
+                    } />
+                    <div className="min-w-0">
+                      <p className={
+                        venteSousCoutPolicy === 'BLOCK'
+                          ? 'text-[11px] font-bold text-rose-700 dark:text-rose-400'
+                          : venteSousCoutPolicy === 'CONFIRM'
+                            ? 'text-[11px] font-bold text-amber-700 dark:text-amber-400'
+                            : 'text-[11px] font-bold text-slate-600 dark:text-dk-text-soft'
+                      }>
+                        {venteSousCoutPolicy === 'BLOCK'
+                          ? tx(lang,{fr:'Vente sous le prix plancher : enregistrement bloque.',ar:'بيع تحت الثمن الأدنى: التسجيل محجور.',en:'Sale below the floor price: saving is blocked.',es:'Venta por debajo del precio minimo: registro bloqueado.',pt:'Venda abaixo do preco minimo: registo bloqueado.',tr:'Taban fiyatin altinda satis: kayit engellendi.'})
+                          : venteSousCoutPolicy === 'CONFIRM'
+                            ? tx(lang,{fr:'Vente sous le prix plancher : confirmation et motif requis.',ar:'بيع تحت الثمن الأدنى: خاص التأكيد والسبب.',en:'Sale below the floor price: confirmation and reason required.',es:'Venta por debajo del precio minimo: se requiere confirmacion y motivo.',pt:'Venda abaixo do preco minimo: confirmacao e motivo obrigatorios.',tr:'Taban fiyatin altinda satis: onay ve gerekce gerekli.'})
+                            : tx(lang,{fr:'Information : ce prix est sous le prix plancher.',ar:'إخبار: هاد الثمن تحت الثمن الأدنى.',en:'For information: this price is below the floor price.',es:'Informacion: este precio esta por debajo del precio minimo.',pt:'Informacao: este preco esta abaixo do preco minimo.',tr:'Bilgi: bu fiyat taban fiyatin altinda.'})}
+                      </p>
+                      {/* Le plancher revele le cout : il n'est chiffre que pour
+                          qui a le droit de voir le prix de revient. */}
+                      {canSeeCostHere && sortiePlancher != null && (
+                        <p className="text-[10px] text-slate-600 dark:text-dk-text-soft mt-0.5">
+                          {tx(lang,{fr:'Plancher',ar:'الثمن الأدنى',en:'Floor price',es:'Precio minimo',pt:'Preco minimo',tr:'Taban fiyat'})} : {fmt(sortiePlancher)} {currency}
+                          {' · '}{tx(lang,{fr:'revient',ar:'التكلفة',en:'cost',es:'coste',pt:'custo',tr:'maliyet'})} {fmt(sortieCout)} {currency}
+                          {' · '}{tx(lang,{fr:'marge minimale',ar:'الهامش الأدنى',en:'minimum margin',es:'margen minimo',pt:'margem minima',tr:'asgari marj'})} {margeMinimale} %
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {venteSousCoutPolicy === 'CONFIRM' && sortieConfirmSousCout && (
+                    <div className="mt-2.5">
+                      <label className="block font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest text-[9px] mb-1">
+                        {tx(lang,{fr:'Motif (obligatoire)',ar:'السبب (إجباري)',en:'Reason (required)',es:'Motivo (obligatorio)',pt:'Motivo (obrigatorio)',tr:'Gerekce (zorunlu)'})}
+                      </label>
+                      <input
+                        type="text"
+                        autoFocus
+                        value={sortieMotif}
+                        onChange={e => setSortieMotif(e.target.value)}
+                        placeholder={tx(lang,{fr:'Ex. : ecoulement de fin de serie, geste commercial…',ar:'مثلا: تصفية آخر السلسلة، لفتة تجارية…',en:'E.g. end-of-run clearance, commercial gesture…',es:'Ej.: liquidacion de fin de serie, gesto comercial…',pt:'Ex.: escoamento de fim de serie, gesto comercial…',tr:'Or. seri sonu tasfiyesi, ticari jest…'})}
+                        className="w-full bg-white dark:bg-dk-bg border border-amber-300 dark:border-amber-800/50 rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-amber-500 dark:focus:border-amber-500"
+                      />
+                      <p className="text-[9px] text-amber-700 dark:text-amber-400 mt-1">
+                        {tx(lang,{fr:'Ce motif est conserve dans la note de la sortie et restera consultable.',ar:'هاد السبب كيتسجّل ف ملاحظة الإخراج وكيبقى قابل للمراجعة.',en:'This reason is stored in the exit note and stays auditable.',es:'Este motivo se guarda en la nota de la salida y sigue siendo consultable.',pt:'Este motivo fica guardado na nota da saida e permanece consultavel.',tr:'Bu gerekce cikis notunda saklanir ve incelenebilir kalir.'})}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
               {sortieError && (
                 <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{sortieError}</p>
               )}
@@ -6927,12 +7160,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </button>
               <button
                 type="button"
-                disabled={sortieSaving}
+                disabled={sortieSaving || (sortieSousPlancher && venteSousCoutPolicy === 'BLOCK')}
                 onClick={submitSortie}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                className={
+                  sortieSousPlancher && venteSousCoutPolicy === 'CONFIRM'
+                    ? 'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-600 dark:bg-amber-600 text-white font-bold text-[11px] hover:bg-amber-700 transition-colors disabled:opacity-40'
+                    : 'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors disabled:opacity-40'
+                }
               >
                 {sortieSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                {tx(lang,{fr:'Enregistrer la sortie',ar:'حفظ الإخراج',en:'Save the exit',es:'Guardar la salida',pt:'Guardar a saida',tr:'Cikisi kaydet'})}
+                {sortieSousPlancher && venteSousCoutPolicy === 'CONFIRM' && !sortieConfirmSousCout
+                  ? tx(lang,{fr:'Vendre sous le plancher…',ar:'البيع تحت الثمن الأدنى…',en:'Sell below the floor…',es:'Vender por debajo del minimo…',pt:'Vender abaixo do minimo…',tr:'Taban altinda sat…'})
+                  : tx(lang,{fr:'Enregistrer la sortie',ar:'حفظ الإخراج',en:'Save the exit',es:'Guardar la salida',pt:'Guardar a saida',tr:'Cikisi kaydet'})}
               </button>
             </div>
           </div>
@@ -7126,6 +7365,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           currency={currency}
           dateLocale={dateLocale}
           onEditClient={editClientFromSheet}
+          prixParClientEnabled={prixParClientEnabled}
+          canSeeCost={canSeeCostHere}
+          canSetPrice={canSetPriceHere}
+          clientTypeLabels={clientTypeLabels}
         />
       )}
 
