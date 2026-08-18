@@ -15,7 +15,7 @@ import {
   ChevronDown, ChevronUp, Loader2, Info, Eye, Layers, Palette,
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
-  AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen
+  AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
@@ -1007,6 +1007,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [allStockSorties, setAllStockSorties] = useState<any[]>([]);
   /** Modèle dont la grille de stock est dépliée dans l'onglet Stock & Ventes. */
   const [expandedStockModel, setExpandedStockModel] = useState<string | null>(null);
+  /** Vrai dès que l'utilisateur a lui-même plié/déplié une ligne : son choix
+   *  prime alors sur le dépliage automatique des listes très courtes. */
+  const [stockDetailTouched, setStockDetailTouched] = useState(false);
+  /** Recherche et filtre de l'onglet Stock & Ventes. Le filtre « non ventilé »
+   *  existe parce que c'est exactement la population qui bloque une vente. */
+  const [stockSearch, setStockSearch] = useState('');
+  const [stockFilter, setStockFilter] = useState<'all' | 'inStock' | 'noPrice' | 'unventilated'>('all');
+  /** Édition en ligne du prix de vente : id du modèle en cours d'édition. */
+  const [editingPriceModelId, setEditingPriceModelId] = useState<string | null>(null);
+  const [editingPriceValue, setEditingPriceValue] = useState<string>('');
+  const [savingPriceModelId, setSavingPriceModelId] = useState<string | null>(null);
 
   /** Sortie de stock en préparation : un client du registre, une grille de
    *  quantités par couleur × taille, un prix. On sort des pièces PRÉCISES, pas
@@ -1386,6 +1397,64 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       console.error('[SousTraitance] sync grille → modèle', err);
       return false;
     }
+  };
+
+  /** Écrit le prix de VENTE (`ficheData.clientPrice`) depuis l'onglet Stock.
+   *
+   *  Même précaution que `writeModelGrid` — `POST /api/models` remplace le modèle
+   *  entier, donc on relit la version fraîche avant d'écrire. On ne touche QU'AU
+   *  prix de vente : aucune formule de coût n'est recalculée ici, le prix de
+   *  revient reste celui de la fiche. */
+  const writeModelClientPrice = async (modelId: string, clientPrice: number): Promise<boolean> => {
+    if (!modelId || modelId === 'MANUAL') return false;
+    const local = models.find(m => m.id === modelId);
+    if (!local) return false;
+
+    try {
+      let base: ModelData = local;
+      if (!IS_STATIC) {
+        const fresh = await fetch('/api/models', { credentials: 'include' });
+        if (!fresh.ok) return false;
+        const list = await fresh.json();
+        const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
+        if (!found) return false;
+        base = found;
+      }
+
+      const updated: ModelData = {
+        ...base,
+        ficheData: { ...(base.ficheData as any), clientPrice },
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (!IS_STATIC) {
+        const res = await fetch('/api/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(updated),
+        });
+        if (!res.ok) return false;
+      }
+      setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+      return true;
+    } catch (err) {
+      console.error('[SousTraitance] sync prix de vente → modèle', err);
+      return false;
+    }
+  };
+
+  /** Valide l'édition en ligne du prix de vente (Entrée ou perte de focus). */
+  const commitInlinePrice = async (modelId: string) => {
+    const raw = editingPriceValue.trim();
+    const parsed = raw === '' ? 0 : Number(raw.replace(',', '.'));
+    setEditingPriceModelId(null);
+    if (!isFinite(parsed) || parsed < 0) return;
+    const current = Number((models.find(m => m.id === modelId)?.ficheData as any)?.clientPrice) || 0;
+    if (Math.abs(current - parsed) < 0.0001) return;
+    setSavingPriceModelId(modelId);
+    await writeModelClientPrice(modelId, parsed);
+    setSavingPriceModelId(null);
   };
 
   /** Répercute les frais additionnels d'une commande sur la fiche de coût du
@@ -2034,7 +2103,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       model: ModelData;
       producedQty: number;
       soldQty: number;
+      /** Pièces physiquement SORTIES du stock (st_stock_sorties). */
+      exitedQty: number;
+      /** Pièces FACTURÉES (lignes de factures VENTE). Les deux notions divergent
+       *  légitimement — une sortie non encore facturée, une facture d'avance —
+       *  et les confondre rendait l'écart invisible donc introuvable. */
+      invoicedQty: number;
       remainingStock: number;
+      /** Vrai s'il existe au moins une réception détaillée couleur × taille. */
+      isVentile: boolean;
+      /** D'où vient `remainingStock` : du détail des mouvements, ou du repli sur
+       *  les compteurs de commande (auquel cas aucune vente n'est possible). */
+      stockSource: 'DETAIL' | 'FALLBACK';
       /** Prix de revient réel du modèle, ou `null` si aucune donnée fiable. */
       price: number | null;
       /** Prix de vente unitaire du modèle (fiche de coût), ou null. */
@@ -2093,9 +2173,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       const exited = allStockSorties
         .filter(so => so.modelId === model.id)
         .reduce((a, so) => a + (Number(so.quantite) || 0), 0);
-      const remaining = entered > 0 || exited > 0
+      const isVentile = entered > 0 || exited > 0;
+      const remaining = isVentile
         ? Math.max(0, entered - exited)
         : Math.max(0, produced - sold);
+      // Le repli n'est pas un détail cosmétique : sans entrée ventilée, la grille
+      // de sortie est vide et la vente est IMPOSSIBLE. L'écran doit donc l'avouer
+      // au lieu d'afficher un stock vert qui ne peut pas être vendu.
+      const stockSource: 'DETAIL' | 'FALLBACK' = isVentile ? 'DETAIL' : 'FALLBACK';
 
       // Prix de revient réel (même formule que la fiche de coût). `null` quand
       // le modèle n'a ni gamme chiffrée ni prix de sous-traitance : on n'invente
@@ -2110,7 +2195,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         model,
         producedQty: produced,
         soldQty: exited > 0 ? exited : sold,
+        exitedQty: exited,
+        invoicedQty: sold,
         remainingStock: remaining,
+        isVentile,
+        stockSource,
         price,
         salePrice,
         startDate: oldestDate ? fmtDate(oldestDate) : tx(lang,{fr:'Non commencée',ar:'لم تبدأ',en:'Not started',es:'No iniciado',pt:'Não iniciado',tr:'Başlamadı'}),
@@ -2120,6 +2209,63 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
     return list;
   }, [models, orders, invoices, settings, lang, dateLocale, allStockEntries, allStockSorties]);
+
+  /** Liste réellement affichée : recherche libre (modèle ou client) + un filtre
+   *  par intention. « Non ventilé » isole les lignes qui bloquent une vente. */
+  const filteredStockStats = useMemo(() => {
+    const q = stockSearch.trim().toLowerCase();
+    return modelStockStats.filter(it => {
+      if (q) {
+        const nom = (it.model.meta_data?.nom_modele || '').toLowerCase();
+        const client = (it.model.ficheData?.client || '').toLowerCase();
+        if (!nom.includes(q) && !client.includes(q)) return false;
+      }
+      if (stockFilter === 'inStock') return it.remainingStock > 0;
+      if (stockFilter === 'noPrice') return !(it.salePrice != null && it.salePrice > 0);
+      if (stockFilter === 'unventilated') return it.stockSource === 'FALLBACK';
+      return true;
+    });
+  }, [modelStockStats, stockSearch, stockFilter]);
+
+  /** Indicateurs de tête. La valeur est calculée au prix de REVIENT (valorisation
+   *  comptable du stock) et ignore les modèles sans prix fiable plutôt que de
+   *  leur inventer un montant. */
+  const stockKpis = useMemo(() => {
+    let value = 0, available = 0, exited = 0, noPrice = 0;
+    filteredStockStats.forEach(it => {
+      available += it.remainingStock;
+      exited += it.exitedQty;
+      if (it.price != null) value += it.remainingStock * it.price;
+      if (!(it.salePrice != null && it.salePrice > 0)) noPrice += 1;
+    });
+    return { value, available, exited, noPrice };
+  }, [filteredStockStats]);
+
+  /** Totaux du pied de tableau — un stock ne se lit pas ligne à ligne. */
+  const stockTotals = useMemo(() => {
+    return filteredStockStats.reduce(
+      (a, it) => ({
+        produced: a.produced + it.producedQty,
+        exited: a.exited + it.exitedQty,
+        invoiced: a.invoiced + it.invoicedQty,
+        remaining: a.remaining + it.remainingStock,
+        value: a.value + (it.price != null ? it.remainingStock * it.price : 0),
+      }),
+      { produced: 0, exited: 0, invoiced: 0, remaining: 0, value: 0 }
+    );
+  }, [filteredStockStats]);
+
+  /** Dépliage : quand la liste tient en une ou deux lignes, le détail couleur ×
+   *  taille est l'information utile — on l'ouvre d'office tant que l'utilisateur
+   *  n'a pas exprimé son propre choix. */
+  const autoExpandStockDetail = filteredStockStats.length > 0 && filteredStockStats.length <= 2;
+  const isStockDetailOpen = (id: string) =>
+    expandedStockModel === id || (!stockDetailTouched && autoExpandStockDetail);
+  const toggleStockDetail = (id: string) => {
+    const wasOpen = isStockDetailOpen(id);
+    setStockDetailTouched(true);
+    setExpandedStockModel(wasOpen ? null : id);
+  };
 
   // Initialize form for adding order
   const openAddModal = () => {
@@ -5039,10 +5185,80 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           )}
 
           {activeTab === 'stock' && (
-            <div className="space-y-6">
+            <div className="space-y-4">
+              {/* Barre d'indicateurs : un stock fini se pilote d'abord par sa
+                  VALEUR immobilisée, pas par le nombre de lignes du tableau. */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
+                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">
+                    {tx(lang,{fr:'Valeur du stock (revient)',ar:'قيمة المخزون (بالتكلفة)',en:'Stock value (cost)',es:'Valor del stock (coste)',pt:'Valor do stock (custo)',tr:'Stok degeri (maliyet)'})}
+                  </span>
+                  <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm">{fmt(stockKpis.value)} {currency}</span>
+                </div>
+                <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
+                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">
+                    {tx(lang,{fr:'Pièces disponibles',ar:'القطع المتوفّرة',en:'Available pieces',es:'Piezas disponibles',pt:'Pecas disponiveis',tr:'Mevcut parca'})}
+                  </span>
+                  <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm">{stockKpis.available.toLocaleString(dateLocale)}</span>
+                </div>
+                <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
+                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">
+                    {tx(lang,{fr:'Pièces sorties',ar:'القطع المخرَجة',en:'Pieces exited',es:'Piezas salidas',pt:'Pecas saidas',tr:'Cikan parca'})}
+                  </span>
+                  <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm">{stockKpis.exited.toLocaleString(dateLocale)}</span>
+                </div>
+                <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
+                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">
+                    {tx(lang,{fr:'Modèles sans prix de vente',ar:'موديلات بلا ثمن بيع',en:'Models without sale price',es:'Modelos sin precio de venta',pt:'Modelos sem preco de venda',tr:'Satis fiyati olmayan model'})}
+                  </span>
+                  <span className={`block mt-1 font-bold text-sm ${stockKpis.noPrice > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-dk-text'}`}>
+                    {stockKpis.noPrice.toLocaleString(dateLocale)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Recherche + filtres d'intention */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+                <div className="relative flex-1 min-w-0">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted pointer-events-none" />
+                  <input
+                    type="text"
+                    value={stockSearch}
+                    onChange={e => setStockSearch(e.target.value)}
+                    placeholder={tx(lang,{fr:'Rechercher un modèle ou un client…',ar:'قلّب على موديل ولا عميل…',en:'Search a model or a client…',es:'Buscar un modelo o un cliente…',pt:'Procurar um modelo ou cliente…',tr:'Model veya musteri ara…'})}
+                    className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl pl-9 pr-3 py-2 text-[12px] text-slate-800 dark:text-dk-text placeholder:text-slate-400 dark:placeholder:text-dk-muted outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {([
+                    { id: 'all', label: tx(lang,{fr:'Tous',ar:'الكل',en:'All',es:'Todos',pt:'Todos',tr:'Tumu'}) },
+                    { id: 'inStock', label: tx(lang,{fr:'En stock',ar:'ف المخزون',en:'In stock',es:'En stock',pt:'Em stock',tr:'Stokta'}) },
+                    { id: 'noPrice', label: tx(lang,{fr:'Sans prix de vente',ar:'بلا ثمن بيع',en:'No sale price',es:'Sin precio de venta',pt:'Sem preco de venda',tr:'Satis fiyati yok'}) },
+                    { id: 'unventilated', label: tx(lang,{fr:'Non ventilé',ar:'غير مفصّل',en:'Not itemised',es:'Sin desglose',pt:'Sem desdobramento',tr:'Ayrintisiz'}) },
+                  ] as const).map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setStockFilter(p.id)}
+                      className={stockFilter === p.id
+                        ? 'px-3 py-1.5 rounded-lg text-[11px] font-bold border bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent transition-colors'
+                        : 'px-3 py-1.5 rounded-lg text-[11px] font-bold border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors'}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {filteredStockStats.length === 0 && (
+                <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl px-4 py-8 text-center text-[12px] text-slate-500 dark:text-dk-muted">
+                  {tx(lang,{fr:'Aucun modèle ne correspond à cette recherche.',ar:'ما كاين حتّى موديل كيوافق هاد البحث.',en:'No model matches this search.',es:'Ningún modelo coincide con esta búsqueda.',pt:'Nenhum modelo corresponde a esta pesquisa.',tr:'Bu aramaya uyan model yok.'})}
+                </div>
+              )}
+
               {/* Vue mobile : cartes (le tableau ci-dessous devient illisible sous md) */}
               <div className="md:hidden space-y-3">
-                {modelStockStats.map(item => (
+                {filteredStockStats.map(item => (
                   <div key={item.model.id} className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none p-4 space-y-3">
                     <div className="flex items-center gap-3">
                       <div className="w-11 h-11 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
@@ -5067,20 +5283,41 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="grid grid-cols-4 gap-1.5 text-center">
                       <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
                         <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Produit',ar:'المنتج',en:'Produced',es:'Producido',pt:'Produzido',tr:'Üretilen'})}</span>
-                        <span className="block font-bold text-slate-800 dark:text-dk-text text-xs">{item.producedQty.toLocaleString()}</span>
+                        <span className="block font-bold text-slate-800 dark:text-dk-text text-xs">{item.producedQty.toLocaleString(dateLocale)}</span>
                       </div>
                       <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Vendu',ar:'المباع',en:'Sold',es:'Vendido',pt:'Vendido',tr:'Satılan'})}</span>
-                        <span className="block font-bold text-indigo-600 dark:text-dk-accent text-xs">{item.soldQty.toLocaleString()}</span>
+                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Sorti',ar:'مخرَج',en:'Exited',es:'Salido',pt:'Saido',tr:'Cikan'})}</span>
+                        <span className="block font-bold text-slate-700 dark:text-dk-text-soft text-xs">{item.exitedQty.toLocaleString(dateLocale)}</span>
+                      </div>
+                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
+                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Facturé',ar:'مفوتر',en:'Invoiced',es:'Facturado',pt:'Faturado',tr:'Faturali'})}</span>
+                        <span
+                          title={item.exitedQty !== item.invoicedQty ? tx(lang,{fr:"Écart entre les pièces sorties du stock et les pièces facturées.",ar:'فرق بين القطع المخرَجة من المخزون والقطع المفوترة.',en:'Gap between pieces exited from stock and pieces invoiced.',es:'Diferencia entre las piezas salidas y las facturadas.',pt:'Diferenca entre as pecas saidas e as faturadas.',tr:'Stoktan cikan ile faturalanan parca arasindaki fark.'}) : undefined}
+                          className={`block font-bold text-xs ${item.exitedQty !== item.invoicedQty ? 'text-rose-600 dark:text-rose-400' : 'text-indigo-600 dark:text-dk-accent'}`}
+                        >
+                          {item.invoicedQty.toLocaleString(dateLocale)}
+                        </span>
                       </div>
                       <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
                         <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Restant',ar:'المتبقي',en:'Remaining',es:'Restante',pt:'Restante',tr:'Kalan'})}</span>
-                        <span className="block font-bold text-emerald-600 dark:text-emerald-400 text-xs">{item.remainingStock.toLocaleString()}</span>
+                        <span
+                          title={item.stockSource === 'FALLBACK' ? tx(lang,{fr:"Stock non détaillé par couleur et taille : ce total vient des compteurs de la commande.",ar:'المخزون غير مفصّل باللون والمقاس: هاد المجموع جاي من عدّادات الطلبية.',en:'Stock not itemised by color and size: this total comes from the order counters.',es:'Stock sin desglose por color y talla: este total viene de los contadores del pedido.',pt:'Stock sem desdobramento por cor e tamanho: este total vem dos contadores da encomenda.',tr:'Stok renk ve bedene gore ayrilmamis: bu toplam siparis sayaclarindan geliyor.'}) : undefined}
+                          className={`block font-bold text-xs ${item.stockSource === 'FALLBACK' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                        >
+                          {item.remainingStock.toLocaleString(dateLocale)}
+                        </span>
                       </div>
                     </div>
+
+                    {item.stockSource === 'FALLBACK' && (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
+                        <AlertTriangle className="w-3 h-3" />
+                        {tx(lang,{fr:'non ventilé',ar:'غير مفصّل',en:'not itemised',es:'sin desglose',pt:'sem desdobramento',tr:'ayrintisiz'})}
+                      </span>
+                    )}
 
                     <div className="flex items-center justify-between pt-1">
                       <div>
@@ -5088,22 +5325,73 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         <span className="text-slate-600 dark:text-dk-text-soft text-[11px]">{item.startDate}</span>
                       </div>
                       <div className="text-right">
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Prix estimé',ar:'السعر التقديري',en:'Estimated price',es:'Precio estimado',pt:'Preço estimado',tr:'Tahmini fiyat'})}</span>
-                        <span className="font-semibold text-slate-800 dark:text-dk-text text-[11px]">{item.price == null ? '—' : `${fmt(item.price)} MAD`}</span>
+                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Prix de vente',ar:'ثمن البيع',en:'Sale price',es:'Precio de venta',pt:'Preço de venda',tr:'Satis fiyati'})}</span>
+                        {editingPriceModelId === item.model.id ? (
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            autoFocus
+                            value={editingPriceValue}
+                            onChange={e => setEditingPriceValue(e.target.value)}
+                            onBlur={() => commitInlinePrice(item.model.id)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                              if (e.key === 'Escape') setEditingPriceModelId(null);
+                            }}
+                            className="w-24 text-right bg-slate-50 dark:bg-dk-bg border border-indigo-500 dark:border-dk-accent rounded-lg px-2 py-1 text-[11px] text-slate-800 dark:text-dk-text outline-none"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setEditingPriceModelId(item.model.id); setEditingPriceValue(item.salePrice != null && item.salePrice > 0 ? String(item.salePrice) : ''); }}
+                            className="inline-flex items-center gap-1 font-semibold text-slate-800 dark:text-dk-text text-[11px] hover:text-indigo-600 dark:hover:text-dk-accent transition-colors"
+                          >
+                            {item.salePrice != null && item.salePrice > 0 ? `${fmt(item.salePrice)} ${currency}` : '—'}
+                            {savingPriceModelId === item.model.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pencil className="w-3 h-3" />}
+                          </button>
+                        )}
+                        <span className="block text-[9px] text-slate-400 dark:text-dk-muted">
+                          {tx(lang,{fr:'revient',ar:'التكلفة',en:'cost',es:'coste',pt:'custo',tr:'maliyet'})} : {item.price == null ? '—' : `${fmt(item.price)} ${currency}`}
+                        </span>
                       </div>
                     </div>
 
-                    <button
-                      disabled={item.remainingStock <= 0}
-                      onClick={() => openSortieModal(item.model, item.salePrice)}
-                      className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
-                        item.remainingStock > 0
-                          ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white'
-                          : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
-                      }`}
-                    >
-                      {tx(lang,{fr:'Sortie Facture',ar:'إخراج فاتورة',en:'Issue Invoice',es:'Emitir Factura',pt:'Emitir Fatura',tr:'Fatura Kes'})}
-                    </button>
+                    {/* Un bouton qui ouvre un cul-de-sac est pire qu'un bouton absent :
+                        sans réception ventilée, la grille de sortie est vide. */}
+                    {item.stockSource === 'FALLBACK' ? (
+                      <button
+                        onClick={() => { setStockDetailTouched(true); setExpandedStockModel(item.model.id); }}
+                        className="w-full px-4 py-2.5 rounded-xl text-xs font-bold transition-all border bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-950/50"
+                      >
+                        {tx(lang,{fr:'Ventiler',ar:'فصّل',en:'Itemise',es:'Desglosar',pt:'Desdobrar',tr:'Ayrintila'})}
+                      </button>
+                    ) : (
+                      <button
+                        disabled={item.remainingStock <= 0}
+                        onClick={() => openSortieModal(item.model, item.salePrice)}
+                        className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
+                          item.remainingStock > 0
+                            ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white'
+                            : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
+                        }`}
+                      >
+                        {tx(lang,{fr:'Sortie Facture',ar:'إخراج فاتورة',en:'Issue Invoice',es:'Emitir Factura',pt:'Emitir Fatura',tr:'Fatura Kes'})}
+                      </button>
+                    )}
+
+                    {item.stockSource === 'FALLBACK' && expandedStockModel === item.model.id && (
+                      <p className="text-[10px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                        {tx(lang,{
+                          fr:`Les ${item.remainingStock} pièces ont été comptabilisées globalement. Saisissez la réception détaillée par couleur et taille dans l'onglet Commandes pour pouvoir vendre.`,
+                          ar:`${item.remainingStock} قطعة تسجّلات بشكل إجمالي. دخّل الاستلام المفصّل باللون والمقاس ف علامة الطلبيات باش تقدر تبيع.`,
+                          en:`The ${item.remainingStock} pieces were counted globally. Enter the detailed reception by color and size in the Orders tab to be able to sell.`,
+                          es:`Las ${item.remainingStock} piezas se contabilizaron globalmente. Introduzca la recepción detallada por color y talla en la pestaña Pedidos para poder vender.`,
+                          pt:`As ${item.remainingStock} pecas foram contabilizadas globalmente. Introduza a rececao detalhada por cor e tamanho no separador Encomendas para poder vender.`,
+                          tr:`${item.remainingStock} parca toplu olarak sayildi. Satis yapabilmek icin Siparisler sekmesinde renk ve bedene gore detayli kabulu girin.`
+                        })}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -5117,7 +5405,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         <th className="px-6 py-4">{tx(lang,{fr:'Date Lancement',ar:'تاريخ الإطلاق',en:'Launch Date',es:'Fecha de Inicio',pt:'Data de Lançamento',tr:'Başlangıç Tarihi'})}</th>
                         <th className="px-6 py-4">{tx(lang,{fr:'État de production',ar:'حالة الإنتاج',en:'Production Status',es:'Estado de Producción',pt:'Estado de Produção',tr:'Üretim Durumu'})}</th>
                         <th className="px-6 py-4">{tx(lang,{fr:'Produit (réalisé)',ar:'المنتج (المنجز)',en:'Produced',es:'Producido',pt:'Produzido',tr:'Üretilen'})}</th>
-                        <th className="px-6 py-4">{tx(lang,{fr:'Vendu (sorti)',ar:'المباع (المخرج)',en:'Sold',es:'Vendido',pt:'Vendido',tr:'Satılan'})}</th>
+                        <th className="px-6 py-4">{tx(lang,{fr:'Sorti (stock)',ar:'مخرَج (من المخزون)',en:'Exited (stock)',es:'Salido (stock)',pt:'Saido (stock)',tr:'Cikan (stok)'})}</th>
+                        <th className="px-6 py-4">{tx(lang,{fr:'Facturé',ar:'مفوتر',en:'Invoiced',es:'Facturado',pt:'Faturado',tr:'Faturali'})}</th>
                         <th className="px-6 py-4">{tx(lang,{fr:'Stock Restant',ar:'المخزون المتبقي',en:'Remaining Stock',es:'Stock Restante',pt:'Stock Restante',tr:'Kalan Stok'})}</th>
                         <th className="px-6 py-4">{tx(lang,{fr:'Prix Estimé',ar:'السعر التقديري',en:'Estimated Price',es:'Precio Estimado',pt:'Preço Estimado',tr:'Tahmini Fiyat'})}</th>
                         <th className="px-6 py-4 text-right">{tx(lang,{fr:'Actions',ar:'الإجراءات',en:'Actions',es:'Acciones',pt:'Ações',tr:'İşlemler'})}</th>
@@ -5126,7 +5415,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface">
                       {/* Fragment : chaque modèle produit DEUX lignes — la ligne
                           principale et, dépliée, sa grille couleur x taille. */}
-                      {modelStockStats.map(item => (
+                      {filteredStockStats.map(item => (
                         <React.Fragment key={item.model.id}>
                         <tr className="hover:bg-slate-50 dark:hover:bg-dk-elevated/50 transition-colors">
                           <td className="px-6 py-4">
@@ -5159,25 +5448,72 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             </span>
                           </td>
                           <td className="px-6 py-4 font-semibold text-slate-800 dark:text-dk-text">
-                            {item.producedQty.toLocaleString()} pcs
+                            {item.producedQty.toLocaleString(dateLocale)} pcs
                           </td>
-                          <td className="px-6 py-4 font-semibold text-indigo-600 dark:text-dk-accent">
-                            {item.soldQty.toLocaleString()} pcs
+                          {/* « Sorti » et « Facturé » sont deux faits distincts : les
+                              confondre masquait les sorties non encore facturées. */}
+                          <td className="px-6 py-4 font-semibold text-slate-700 dark:text-dk-text-soft">
+                            {item.exitedQty.toLocaleString(dateLocale)} pcs
                           </td>
-                          <td className="px-6 py-4 font-bold text-emerald-600 dark:text-emerald-400">
-                            {item.remainingStock.toLocaleString()} pcs
+                          <td
+                            className={`px-6 py-4 font-semibold ${item.exitedQty !== item.invoicedQty ? 'text-rose-600 dark:text-rose-400' : 'text-indigo-600 dark:text-dk-accent'}`}
+                            title={item.exitedQty !== item.invoicedQty
+                              ? `${tx(lang,{fr:'Écart sorti / facturé',ar:'فرق بين المخرَج والمفوتر',en:'Exited / invoiced gap',es:'Diferencia salido / facturado',pt:'Diferenca saido / faturado',tr:'Cikan / faturali farki'})} : ${(item.exitedQty - item.invoicedQty).toLocaleString(dateLocale)} pcs`
+                              : undefined}
+                          >
+                            {item.invoicedQty.toLocaleString(dateLocale)} pcs
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`font-bold ${item.stockSource === 'FALLBACK' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                              title={item.stockSource === 'FALLBACK' ? tx(lang,{fr:"Stock non détaillé par couleur et taille : ce total vient des compteurs de la commande, aucune vente n'est possible en l'état.",ar:'المخزون غير مفصّل باللون والمقاس: هاد المجموع جاي من عدّادات الطلبية، والبيع مستحيل هكّاك.',en:'Stock not itemised by color and size: this total comes from the order counters, no sale is possible as is.',es:'Stock sin desglose por color y talla: este total viene de los contadores del pedido, no es posible vender así.',pt:'Stock sem desdobramento por cor e tamanho: este total vem dos contadores da encomenda, nao e possivel vender assim.',tr:'Stok renk ve bedene gore ayrilmamis: bu toplam siparis sayaclarindan geliyor, bu haliyle satis mumkun degil.'}) : undefined}
+                            >
+                              {item.remainingStock.toLocaleString(dateLocale)} pcs
+                            </span>
+                            {item.stockSource === 'FALLBACK' && (
+                              <span className="ml-2 inline-flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 align-middle">
+                                <AlertTriangle className="w-2.5 h-2.5" />
+                                {tx(lang,{fr:'non ventilé',ar:'غير مفصّل',en:'not itemised',es:'sin desglose',pt:'sem desdobramento',tr:'ayrintisiz'})}
+                              </span>
+                            )}
                           </td>
                           <td className="px-6 py-4 font-semibold text-slate-800 dark:text-dk-text">
-                            <span className="block font-semibold text-slate-800 dark:text-dk-text">
-                              {item.salePrice != null && item.salePrice > 0
-                                ? `${fmt(item.salePrice)} MAD`
-                                : <span className="text-slate-400 dark:text-dk-muted italic">{tx(lang,{fr:'prix de vente non saisi',ar:'ثمن البيع غير مُدخَل',en:'sale price not set',es:'precio de venta no indicado',pt:'preço de venda não definido',tr:'satış fiyatı girilmedi'})}</span>}
-                            </span>
+                            {/* Prix de VENTE éditable : c'est la seule donnée saisie ici,
+                                le prix de revient reste calculé par la fiche de coût. */}
+                            {editingPriceModelId === item.model.id ? (
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                autoFocus
+                                value={editingPriceValue}
+                                onChange={e => setEditingPriceValue(e.target.value)}
+                                onBlur={() => commitInlinePrice(item.model.id)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                  if (e.key === 'Escape') setEditingPriceModelId(null);
+                                }}
+                                className="w-28 bg-slate-50 dark:bg-dk-bg border border-indigo-500 dark:border-dk-accent rounded-lg px-2 py-1 text-[12px] text-slate-800 dark:text-dk-text outline-none"
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => { setEditingPriceModelId(item.model.id); setEditingPriceValue(item.salePrice != null && item.salePrice > 0 ? String(item.salePrice) : ''); }}
+                                title={tx(lang,{fr:'Modifier le prix de vente',ar:'عدّل ثمن البيع',en:'Edit the sale price',es:'Modificar el precio de venta',pt:'Alterar o preco de venda',tr:'Satis fiyatini duzenle'})}
+                                className="inline-flex items-center gap-1.5 font-semibold text-slate-800 dark:text-dk-text hover:text-indigo-600 dark:hover:text-dk-accent transition-colors"
+                              >
+                                {item.salePrice != null && item.salePrice > 0
+                                  ? `${fmt(item.salePrice)} ${currency}`
+                                  : <span className="text-slate-400 dark:text-dk-muted italic">{tx(lang,{fr:'prix de vente non saisi',ar:'ثمن البيع غير مُدخَل',en:'sale price not set',es:'precio de venta no indicado',pt:'preço de venda não definido',tr:'satış fiyatı girilmedi'})}</span>}
+                                {savingPriceModelId === item.model.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pencil className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />}
+                              </button>
+                            )}
                             <span className="block text-[10px] text-slate-400 dark:text-dk-muted">
-                              {tx(lang,{fr:'revient',ar:'التكلفة',en:'cost',es:'coste',pt:'custo',tr:'maliyet'})} : {item.price == null ? '—' : `${fmt(item.price)} MAD`}
+                              {tx(lang,{fr:'revient',ar:'التكلفة',en:'cost',es:'coste',pt:'custo',tr:'maliyet'})} : {item.price == null ? '—' : `${fmt(item.price)} ${currency}`}
                               {item.salePrice != null && item.salePrice > 0 && item.price != null && item.price > 0 && (
                                 <span className={item.salePrice > item.price ? ' text-emerald-600 dark:text-emerald-400' : ' text-rose-600 dark:text-rose-400'}>
-                                  {' · '}{tx(lang,{fr:'marge',ar:'الهامش',en:'margin',es:'margen',pt:'margem',tr:'marj'})} {fmt(item.salePrice - item.price)} MAD
+                                  {' · '}{tx(lang,{fr:'marge',ar:'الهامش',en:'margin',es:'margen',pt:'margem',tr:'marj'})} {fmt(item.salePrice - item.price)} {currency}
+                                  {' ('}{(((item.salePrice - item.price) / item.salePrice) * 100).toFixed(1)}{'%)'}
                                 </span>
                               )}
                             </span>
@@ -5186,27 +5522,37 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             {/* Le détail par couleur x taille répond à « me reste-t-il
                                 des XL bleus ? » ; le total seul ne le dit pas. */}
                             <button
-                              onClick={() => setExpandedStockModel(prev => prev === item.model.id ? null : item.model.id)}
+                              onClick={() => toggleStockDetail(item.model.id)}
                               className="mr-2 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
                             >
-                              {expandedStockModel === item.model.id
+                              {isStockDetailOpen(item.model.id)
                                 ? tx(lang,{fr:'Masquer',ar:'إخفاء',en:'Hide',es:'Ocultar',pt:'Ocultar',tr:'Gizle'})
                                 : tx(lang,{fr:'Détail',ar:'التفصيل',en:'Detail',es:'Detalle',pt:'Detalhe',tr:'Detay'})}
                             </button>
-                            <button
-                              disabled={item.remainingStock <= 0}
-                              onClick={() => openSortieModal(item.model, item.salePrice)}
-                              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
-                                item.remainingStock > 0 
-                                  ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white hover:scale-[1.02]' 
-                                  : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
-                              }`}
-                            >
-                              {tx(lang,{fr:'Sortie Facture',ar:'إخراج فاتورة',en:'Issue Invoice',es:'Emitir Factura',pt:'Emitir Fatura',tr:'Fatura Kes'})}
-                            </button>
+                            {item.stockSource === 'FALLBACK' ? (
+                              <button
+                                onClick={() => { setStockDetailTouched(true); setExpandedStockModel(item.model.id); }}
+                                title={tx(lang,{fr:"Détaillez d'abord la réception par couleur et taille.",ar:'فصّل الاستلام باللون والمقاس أولاً.',en:'First itemise the reception by color and size.',es:'Detalle primero la recepción por color y talla.',pt:'Detalhe primeiro a rececao por cor e tamanho.',tr:'Once kabulu renk ve bedene gore ayrintilayin.'})}
+                                className="px-4 py-2 rounded-xl text-xs font-bold transition-all border bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-950/50"
+                              >
+                                {tx(lang,{fr:'Ventiler',ar:'فصّل',en:'Itemise',es:'Desglosar',pt:'Desdobrar',tr:'Ayrintila'})}
+                              </button>
+                            ) : (
+                              <button
+                                disabled={item.remainingStock <= 0}
+                                onClick={() => openSortieModal(item.model, item.salePrice)}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
+                                  item.remainingStock > 0
+                                    ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white hover:scale-[1.02]'
+                                    : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
+                                }`}
+                              >
+                                {tx(lang,{fr:'Sortie Facture',ar:'إخراج فاتورة',en:'Issue Invoice',es:'Emitir Factura',pt:'Emitir Fatura',tr:'Fatura Kes'})}
+                              </button>
+                            )}
                           </td>
                         </tr>
-                        {expandedStockModel === item.model.id && (() => {
+                        {isStockDetailOpen(item.model.id) && (() => {
                           const fiche: any = item.model.ficheData || {};
                           const colors: Array<{ id: string; name: string }> = fiche.colors || [];
                           const sizes: string[] = fiche.sizes || [];
@@ -5215,11 +5561,28 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           const hasGrid = colors.length > 0 && sizes.length > 0;
                           return (
                             <tr key={`${item.model.id}-detail`} className="bg-slate-50/60 dark:bg-dk-bg/40">
-                              <td colSpan={8} className="px-6 py-4">
+                              <td colSpan={9} className="px-6 py-4">
+                                {/* Deux impasses différentes, deux messages différents :
+                                    « pas de grille » se règle dans la fiche de coût,
+                                    « grille vide » se règle par la réception détaillée. */}
                                 {!hasGrid ? (
                                   <p className="text-[11px] text-slate-400 dark:text-dk-muted italic">
                                     {tx(lang,{fr:"Ce modèle n'a ni couleurs ni tailles : le stock reste un total global.",ar:'هاد الموديل ما عندو لا ألوان لا مقاسات: المخزون يبقى مجموعاً عامّاً.',en:'This model has no colors or sizes: stock stays a global total.',es:'Este modelo no tiene colores ni tallas: el stock es un total global.',pt:'Este modelo nao tem cores nem tamanhos: o stock e um total global.',tr:'Bu modelin rengi veya bedeni yok: stok genel toplam kalir.'})}
                                   </p>
+                                ) : item.stockSource === 'FALLBACK' ? (
+                                  <div className="flex items-start gap-2 text-[11px] text-amber-700 dark:text-amber-400 font-semibold leading-relaxed">
+                                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                                    <span>
+                                      {tx(lang,{
+                                        fr:`Les ${item.remainingStock} pièces ont été comptabilisées globalement, sans détail par couleur ni taille. Saisissez la réception détaillée dans l'onglet Commandes : sans elle, aucune sortie de stock n'est possible.`,
+                                        ar:`${item.remainingStock} قطعة تسجّلات بشكل إجمالي، بلا تفصيل باللون ولا المقاس. دخّل الاستلام المفصّل ف علامة الطلبيات: بلاه، ما يمكن حتّى إخراج من المخزون.`,
+                                        en:`The ${item.remainingStock} pieces were counted globally, with no breakdown by color or size. Enter the detailed reception in the Orders tab: without it, no stock exit is possible.`,
+                                        es:`Las ${item.remainingStock} piezas se contabilizaron globalmente, sin desglose por color ni talla. Introduzca la recepción detallada en la pestaña Pedidos: sin ella, no es posible ninguna salida de stock.`,
+                                        pt:`As ${item.remainingStock} pecas foram contabilizadas globalmente, sem desdobramento por cor ou tamanho. Introduza a rececao detalhada no separador Encomendas: sem ela, nenhuma saida de stock e possivel.`,
+                                        tr:`${item.remainingStock} parca renk veya beden ayrimi olmadan toplu sayildi. Detayli kabulu Siparisler sekmesinde girin: onsuz hicbir stok cikisi mumkun degil.`
+                                      })}
+                                    </span>
+                                  </div>
                                 ) : (
                                   <div className="overflow-x-auto">
                                     <table className="w-full text-[11px]">
@@ -5273,6 +5636,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         </React.Fragment>
                       ))}
                     </tbody>
+                    {filteredStockStats.length > 0 && (
+                      <tfoot className="bg-slate-50 dark:bg-dk-bg border-t border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text">
+                        <tr className="font-bold text-xs">
+                          <td className="px-6 py-3 uppercase text-[10px] text-slate-500 dark:text-dk-muted" colSpan={3}>
+                            {tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})} ({filteredStockStats.length})
+                          </td>
+                          <td className="px-6 py-3">{stockTotals.produced.toLocaleString(dateLocale)} pcs</td>
+                          <td className="px-6 py-3">{stockTotals.exited.toLocaleString(dateLocale)} pcs</td>
+                          <td className="px-6 py-3">{stockTotals.invoiced.toLocaleString(dateLocale)} pcs</td>
+                          <td className="px-6 py-3">{stockTotals.remaining.toLocaleString(dateLocale)} pcs</td>
+                          <td className="px-6 py-3" colSpan={2}>
+                            {tx(lang,{fr:'Valeur (revient)',ar:'القيمة (بالتكلفة)',en:'Value (cost)',es:'Valor (coste)',pt:'Valor (custo)',tr:'Deger (maliyet)'})} : {fmt(stockTotals.value)} {currency}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </div>
               </div>
