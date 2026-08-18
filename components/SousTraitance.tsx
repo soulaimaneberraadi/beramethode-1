@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ModelData, SubcontractOrder, PlanningEvent, SubcontractorProfile } from '../types';
 import { tx } from '../lib/i18n';
@@ -15,7 +15,7 @@ import {
   ChevronDown, ChevronUp, Loader2, Info, Eye, Layers, Palette,
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
-  AlertTriangle, Scissors, Lock
+  AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
@@ -518,6 +518,14 @@ const autoFitScript = (marginMm: number) => `
  *  différent à chaque fois. React démontait puis remontait le nœud, ce qui
  *  finissait par lever « insertBefore … is not a child of this node » et figeait
  *  l'écran. Un composant ne doit jamais être défini dans le corps d'un autre. */
+/** Vignette carrée collée à un libellé, dans les documents imprimés.
+ *  Renvoie une chaîne vide si l'image manque : aucun cadre vide sur le papier. */
+const inlineThumbHtml = (src: string | undefined | null, size = 18) => {
+  if (!src) return '';
+  const safe = String(src).replace(/"/g, '&quot;');
+  return `<img src="${safe}" alt="" style="height:${size}px;width:${size}px;object-fit:cover;border-radius:3px;border:0.5px solid #d7dce3;vertical-align:middle;margin-right:5px;" />`;
+};
+
 const ColorDot = ({ hex }: { hex?: string }) => (
   <span
     className="inline-block w-2.5 h-2.5 rounded-full border border-black/10 dark:border-white/20 shrink-0"
@@ -538,6 +546,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [activeTab, setActiveTab] = useState<'orders' | 'subcontractors' | 'stock' | 'clients'>('orders');
   const [selectedSubcontractorName, setSelectedSubcontractorName] = useState<string | null>(null);
   const [subSearchQuery, setSubSearchQuery] = useState('');
+  const [subListCollapsed, setSubListCollapsed] = useState(() => {
+    try { return localStorage.getItem('bera_st_list_collapsed') === '1'; } catch { return false; }
+  });
+  const toggleSubListCollapsed = useCallback(() => {
+    setSubListCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem('bera_st_list_collapsed', next ? '1' : '0'); } catch {}
+      return next;
+    });
+  }, []);
   const [modelInfoTarget, setModelInfoTarget] = useState<ModelData | null>(null);
 
   // Core Data States
@@ -3050,6 +3068,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const intentional = bonEnvoiOff.size > 0 || Object.keys(bonEnvoiEdits).length > 0;
     const mismatch = rowsTotal !== order.totalQuantity;
 
+    // Pastille de teinte sur le papier : le magasinier reconnaît la couleur sans
+    // lire, exactement comme à l'écran.
+    const colorDotHtml = (name: string) => {
+      const hex = colorHexOf(name);
+      return hex
+        ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${esc(hex)};border:0.5px solid rgba(0,0,0,.2);margin-right:5px;vertical-align:middle;"></span>`
+        : '';
+    };
+
     // Colonnes de tailles, dans l'ordre du modèle quand il est connu — le
     // magasinier lit une grille, pas une phrase : « [s]: 30 | [m]: 40 | … »
     // obligeait à décoder chaque ligne pour vérifier un carton.
@@ -3074,7 +3101,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         : '';
       return `
                 <tr>
-                  <td style="font-weight: 800; color: #1e1b4b;">${esc(r.color)}</td>
+                  <td style="font-weight: 800; color: #1e1b4b;">${colorDotHtml(r.color)}${esc(r.color)}</td>
                   ${cells}
                   <td style="text-align: right; font-weight: 800; color: #4f46e5;">${r.total.toLocaleString(dateLocale)} pcs</td>
                 </tr>`;
@@ -3105,7 +3132,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 const qty = edit.qty ?? l.qty;
                 return `
                 <tr>
-                  <td><span style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">${esc(l.type)}</span><br/><span style="font-weight:700;">${esc(edit.label ?? l.label)}</span></td>
+                  <td><span style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">${esc(l.type)}</span><br/><span style="font-weight:700;">${l.key === 'det-facon' ? modelThumb : inlineThumbHtml(materialPhoto(l.label), 18)}${esc(edit.label ?? l.label)}</span></td>
                   <td style="text-align: right; font-weight: 700;">${esc(fmt(qty))} ${esc(l.unit)}</td>
                 </tr>`;
               }).join('')}
@@ -3145,7 +3172,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     if (bonEnvoiShow.subcontractor && stPhoto) {
       visuals.push(`<div class="thumb"><img src="${esc(stPhoto)}" alt="" /><div>${esc(order.subcontractorName)}</div></div>`);
     }
-    const visualsBlock = visuals.length ? `<div class="thumbs">${visuals.join('')}</div>` : '';
+    // Vignettes en ligne : le visuel colle au nom qu'il illustre.
+    const visualsBlock = '';
+    const modelThumb = bonEnvoiShow.model ? inlineThumbHtml(modelPhoto, 20) : '';
+    const stThumb = bonEnvoiShow.subcontractor ? inlineThumbHtml(stPhoto, 20) : '';
+    const logoThumb = bonEnvoiShow.logo ? inlineThumbHtml(companyIdentity.logo, 22) : '';
+    // Photo de la matière : elle vit dans la fiche Magasin, reliée par magasinId
+    // puis, à défaut, par le nom normalisé.
+    const materialPhoto = (name: string) => {
+      const norm = (v: any) => String(v ?? '').trim().toLowerCase();
+      const item = magasinData.find((m: any) => norm(m.nom || m.designation) === norm(name));
+      return (item as any)?.photo || (item as any)?.image || '';
+    };
 
     // Jalons : cases à cocher imprimées, l'état venant de la commande. Sur le
     // papier, la case cochée vaut engagement de ce qui a déjà été fourni.
@@ -4501,8 +4539,31 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           {/* TAB 2: SOUS-TRAITANTS (SUBCONTRACTORS) */}
           {/* ======================================= */}
           {activeTab === 'subcontractors' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
-              <div className={`lg:col-span-1 space-y-2 ${selectedSubcontractor ? 'hidden lg:block' : ''}`}>
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-start">
+              {/* Rail replié — visible seulement quand la liste est masquée */}
+              {subListCollapsed && (
+                <button
+                  type="button"
+                  onClick={toggleSubListCollapsed}
+                  className="hidden lg:flex shrink-0 w-8 self-stretch min-h-[120px] items-center justify-center rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent-text hover:border-indigo-300 dark:hover:border-dk-accent/50 transition-colors"
+                  title={tx(lang,{fr:'Afficher la liste',ar:'إظهار القائمة',en:'Show list',es:'Mostrar lista',pt:'Mostrar lista',tr:'Listeyi göster'})}
+                >
+                  <PanelLeftOpen className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+              )}
+
+              <div className={`w-full lg:w-[300px] xl:w-[330px] shrink-0 space-y-2 ${selectedSubcontractor ? 'hidden lg:block' : ''} ${subListCollapsed ? 'lg:hidden' : ''}`}>
+                <div className="hidden lg:flex justify-end">
+                  <button
+                    type="button"
+                    onClick={toggleSubListCollapsed}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent-text hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
+                    title={tx(lang,{fr:'Masquer la liste',ar:'إخفاء القائمة',en:'Hide list',es:'Ocultar lista',pt:'Ocultar lista',tr:'Listeyi gizle'})}
+                  >
+                    <PanelLeftClose className="w-3.5 h-3.5" strokeWidth={1.75} />
+                    <span>{tx(lang,{fr:'Masquer',ar:'إخفاء',en:'Hide',es:'Ocultar',pt:'Ocultar',tr:'Gizle'})}</span>
+                  </button>
+                </div>
                 <button
                   onClick={openNewProfileModal}
                   className="w-full flex items-center justify-center gap-2 p-2.5 rounded-2xl border border-dashed border-indigo-300 dark:border-dk-accent/50 text-indigo-600 dark:text-dk-accent-text font-bold text-xs hover:bg-indigo-50 dark:hover:bg-dk-accent/10 transition-colors"
@@ -4559,7 +4620,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
 
-              <div className={`lg:col-span-2 ${selectedSubcontractor ? '' : 'hidden lg:block'}`}>
+              <div className={`w-full flex-1 min-w-0 ${selectedSubcontractor ? '' : 'hidden lg:block'}`}>
                 {!selectedSubcontractor ? (
                   <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-3xl p-16 text-center text-slate-400 dark:text-dk-muted h-full flex flex-col justify-center items-center shadow-sm dark:shadow-none">
                     <Users className="w-12 h-12 mb-3 opacity-20" />
@@ -4575,34 +4636,35 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       <ChevronRight className="w-3.5 h-3.5 rotate-180" />
                       <span>{tx(lang,{fr:'Retour',ar:'رجوع',en:'Back',es:'Volver',pt:'Voltar',tr:'Geri'})}</span>
                     </button>
-                    <div className="p-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dk-border flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         {selectedSubcontractor.profile?.photo ? (
                           <button type="button" onClick={() => setImagePreviewSrc(selectedSubcontractor.profile!.photo!)} className="shrink-0">
-                            <img src={selectedSubcontractor.profile.photo} alt={selectedSubcontractor.name} className="w-11 h-11 rounded-full object-cover border border-slate-200 dark:border-dk-border" />
+                            <img src={selectedSubcontractor.profile.photo} alt={selectedSubcontractor.name} className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-dk-border" />
                           </button>
                         ) : (
-                          <div className="w-11 h-11 rounded-full bg-slate-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
-                            <Users className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
+                          <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                            <Users className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
                           </div>
                         )}
-                        <div className="min-w-0">
-                          <h3 className="font-bold text-slate-800 dark:text-dk-text truncate">{selectedSubcontractor.name}</h3>
-                          {selectedSubcontractor.profile?.contactName && <p className="text-[11px] text-slate-500 dark:text-dk-text-soft truncate">{selectedSubcontractor.profile.contactName}</p>}
-                          {selectedSubcontractor.phone && <p className="text-[11px] text-slate-400 dark:text-dk-muted">{selectedSubcontractor.phone}</p>}
+                        <div className="min-w-0 leading-tight">
+                          <h3 className="font-bold text-[13px] text-slate-800 dark:text-dk-text truncate">{selectedSubcontractor.name}</h3>
+                          <p className="text-[10px] text-slate-400 dark:text-dk-muted truncate">
+                            {[selectedSubcontractor.profile?.contactName, selectedSubcontractor.phone].filter(Boolean).join(' · ')}
+                          </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <p className="text-[10px] text-slate-400 dark:text-dk-muted uppercase font-bold">{tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</p>
-                          <p className="font-bold text-slate-800 dark:text-dk-text">{selectedSubcontractor.totalAmount.toLocaleString()} MAD</p>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="text-right leading-tight mr-1">
+                          <p className="text-[9px] text-slate-400 dark:text-dk-muted uppercase font-bold">{tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</p>
+                          <p className="font-bold text-[13px] text-slate-800 dark:text-dk-text whitespace-nowrap">{selectedSubcontractor.totalAmount.toLocaleString()} MAD</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => selectedSubcontractor.profile
                             ? openEditProfileModal(selectedSubcontractor.profile)
                             : openNewProfileModal()}
-                          className="p-2 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated hover:text-slate-600 dark:hover:text-dk-text-soft transition-colors"
+                          className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated hover:text-slate-600 dark:hover:text-dk-text-soft transition-colors"
                           title={tx(lang,{fr:'Modifier le profil',ar:'تعديل الملف',en:'Edit profile',es:'Editar perfil',pt:'Editar perfil',tr:'Profili düzenle'})}
                         >
                           <Edit2 className="w-4 h-4" />
@@ -4611,7 +4673,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           <button
                             type="button"
                             onClick={() => handleDeleteProfile(selectedSubcontractor.profile!.id)}
-                            className="p-2 rounded-lg text-rose-400 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                            className="p-1.5 rounded-lg text-rose-400 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                             title={tx(lang,{fr:'Supprimer le profil',ar:'حذف الملف',en:'Delete profile',es:'Eliminar perfil',pt:'Eliminar perfil',tr:'Profili sil'})}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -4621,35 +4683,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     </div>
 
                     {selectedSubcontractor.profile ? (
-                      <div className="p-4 border-b border-slate-100 dark:border-dk-border grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50/60 dark:bg-dk-bg/40">
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'CIN',ar:'البطاقة الوطنية',en:'National ID',es:'CIN',pt:'CIN',tr:'Kimlik No'})}</p>
-                          <p className="font-semibold text-slate-700 dark:text-dk-text-soft">{selectedSubcontractor.profile.cin || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'ICE',ar:'ICE',en:'ICE',es:'ICE',pt:'ICE',tr:'ICE'})}</p>
-                          <p className="font-semibold text-slate-700 dark:text-dk-text-soft">{selectedSubcontractor.profile.ice || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">RC</p>
-                          <p className="font-semibold text-slate-700 dark:text-dk-text-soft">{selectedSubcontractor.profile.rc || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Évaluation',ar:'التقييم',en:'Rating',es:'Evaluación',pt:'Avaliação',tr:'Değerlendirme'})}</p>
-                          <p className="font-semibold text-amber-500">{'★'.repeat(Math.round(selectedSubcontractor.profile.rating || 5))}</p>
-                        </div>
-                        {selectedSubcontractor.profile.address && (
-                          <div className="col-span-2 md:col-span-2">
-                            <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'})}</p>
-                            <p className="font-semibold text-slate-700 dark:text-dk-text-soft">{selectedSubcontractor.profile.address}</p>
+                      <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dk-border grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-x-4 gap-y-2 bg-slate-50/60 dark:bg-dk-bg/40">
+                        {[
+                          { label: tx(lang,{fr:'CIN',ar:'البطاقة الوطنية',en:'National ID',es:'CIN',pt:'CIN',tr:'Kimlik No'}), value: selectedSubcontractor.profile.cin || '—' },
+                          { label: 'ICE', value: selectedSubcontractor.profile.ice || '—' },
+                          { label: 'RC', value: selectedSubcontractor.profile.rc || '—' },
+                          { label: tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'}), value: selectedSubcontractor.profile.address || '—' },
+                          { label: tx(lang,{fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'}), value: selectedSubcontractor.profile.notes || '—' },
+                        ].map(f => (
+                          <div key={f.label} className="min-w-0 leading-tight">
+                            <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">{f.label}</p>
+                            <p className="text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft truncate" title={f.value}>{f.value}</p>
                           </div>
-                        )}
-                        {selectedSubcontractor.profile.notes && (
-                          <div className="col-span-2 md:col-span-2">
-                            <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Notes',ar:'ملاحظات',en:'Notes',es:'Notas',pt:'Notas',tr:'Notlar'})}</p>
-                            <p className="font-semibold text-slate-700 dark:text-dk-text-soft">{selectedSubcontractor.profile.notes}</p>
-                          </div>
-                        )}
+                        ))}
+                        <div className="min-w-0 leading-tight">
+                          <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">{tx(lang,{fr:'Évaluation',ar:'التقييم',en:'Rating',es:'Evaluación',pt:'Avaliação',tr:'Değerlendirme'})}</p>
+                          <p className="text-[12px] font-semibold text-amber-500">{'★'.repeat(Math.round(selectedSubcontractor.profile.rating || 5))}</p>
+                        </div>
                       </div>
                     ) : (
                       <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dk-border bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-[11px] font-semibold">
@@ -4955,7 +5005,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       , document.body)}
       {/* ======================================= */}
           {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
           <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/50">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
@@ -5261,7 +5311,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* EDIT ORDER MODAL */}
       {/* ======================================= */}
       {isEditModalOpen && selectedOrder && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
           <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/50">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
@@ -5970,7 +6020,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
       {isDetailModalOpen && detailOrder && (
         <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] text-slate-700 dark:text-dk-text">
+          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[85vh] text-slate-700 dark:text-dk-text">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base">{tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}</h2>
               <button onClick={() => setIsDetailModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
@@ -6648,7 +6698,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               )}
             </div>
 
-            <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-6 py-4 flex flex-wrap gap-3 items-center text-xs font-bold">
+            <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap gap-2 sm:gap-3 items-center text-xs font-bold sticky bottom-0">
               {/* L'entrée en stock est une opération de production, pas un
                   document : elle reste à gauche, séparée des actions
                   d'impression et de facturation. */}
@@ -6697,8 +6747,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         const inv = buildCostInvoice(order, Number(costInvoiceQty) || 0);
         const identityIncomplete = !companyIdentity.nom || !companyIdentity.ice;
         return (
-          <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-4 overflow-y-auto">
-            <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text">
+          <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
+            <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[90vh] text-slate-800 dark:text-dk-text">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
                 <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
                   <Coins className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
@@ -7225,7 +7275,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 )}
               </div>
 
-              <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-6 py-4 flex items-center gap-3 justify-end text-xs font-bold flex-wrap">
+              <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-2 sm:gap-3 justify-end text-xs font-bold flex-wrap sticky bottom-0">
                 <div className="flex items-center gap-1.5 mr-auto">
                   <label className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">
                     {tx(lang,{fr:'TVA',ar:'الضريبة',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'})}
@@ -7320,8 +7370,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           { k: 'adresse' as const, label: tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'}) },
         ]);
         return (
-          <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-4 overflow-y-auto">
-            <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text">
+          <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
+            <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[90vh] text-slate-800 dark:text-dk-text">
               <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
                 <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
                   <Truck className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
@@ -7346,21 +7396,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Quantité commandée',ar:'الكمية المطلوبة',en:'Ordered quantity',es:'Cantidad pedida',pt:'Quantidade encomendada',tr:'Sipariş miktarı'})}</span>
                     <span className="font-bold text-slate-800 dark:text-dk-text">{order.totalQuantity.toLocaleString(dateLocale)} pcs</span>
                   </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
-                    {tx(lang,{fr:"Date d'expédition",ar:'تاريخ الإرسال',en:'Shipping date',es:'Fecha de envío',pt:'Data de expedição',tr:'Sevk tarihi'})}
-                  </label>
-                  <input
-                    type="date"
-                    value={bonEnvoiDate}
-                    onChange={e => setBonEnvoiDate(e.target.value)}
-                    className="w-full sm:w-56 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
-                  />
-                  <p className="text-[10px] text-slate-400 dark:text-dk-muted italic">
-                    {tx(lang,{fr:"Vide = date du jour.",ar:'فارغ = تاريخ اليوم.',en:'Empty = today’s date.',es:'Vacío = fecha de hoy.',pt:'Vazio = data de hoje.',tr:'Boş = bugünün tarihi.'})}
-                  </p>
                 </div>
 
                 {/* Ce qui figure sur le document. Chaque bascule est un choix
@@ -7570,43 +7605,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   )}
                 </div>
 
-                {/* Jalons : cochés à l'écran = imprimés sur le bon. L'état
-                    (fait / à faire) reste celui de la commande, il ne se
-                    modifie pas depuis ce document. */}
-                {bonEnvoiShow.milestones && milestones.length > 0 && (
-                  <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
-                    <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border">
-                      <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
-                        {tx(lang,{fr:'Jalons à faire figurer',ar:'المراحل المراد إظهارها',en:'Milestones to display',es:'Hitos a mostrar',pt:'Marcos a exibir',tr:'Gösterilecek kilometre taşları'})}
-                      </h4>
-                    </div>
-                    <div className="p-4 flex flex-wrap gap-2">
-                      {milestones.map(m => {
-                        const on = !bonEnvoiOff.has(m.key);
-                        return (
-                          <label
-                            key={m.key}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer transition-colors ${
-                              on
-                                ? 'bg-indigo-50 dark:bg-dk-accent/20 border-indigo-300 dark:border-dk-accent/60 text-indigo-700 dark:text-dk-accent'
-                                : 'border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={on}
-                              onChange={() => toggleBonEnvoiKey(m.key)}
-                              className="w-3 h-3 accent-indigo-600 cursor-pointer"
-                            />
-                            <span>{m.label}</span>
-                            <span className="opacity-60">{m.done ? '✓' : '·'}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
                 {bonEnvoiShow.materials && (
                   <div className="space-y-1.5">
                     <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[10px]">
@@ -7665,7 +7663,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 ))}
               </div>
 
-              <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-6 py-4 flex items-center gap-3 justify-end text-xs font-bold flex-wrap">
+              <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-2 sm:gap-3 justify-end text-xs font-bold flex-wrap sticky bottom-0">
                 <button
                   type="button"
                   onClick={() => setIsBonEnvoiModalOpen(false)}
@@ -7692,7 +7690,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* ======================================= */}
       {isSaleModalOpen && selectedModelForSale && (
         <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text">
+          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-4xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[90vh] text-slate-800 dark:text-dk-text">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
               <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
                 <FileText className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
