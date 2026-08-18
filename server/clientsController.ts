@@ -88,6 +88,64 @@ export const deleteClient = (req: Request, res: Response) => {
 };
 
 /**
+ * Dossier complet d'un client : sa fiche, ce qu'il a acheté, et à quel prix.
+ *
+ * Un commercial qui reçoit un client au téléphone a besoin de trois choses en un
+ * seul écran : combien il pèse (CA, volume), ce qu'il achète habituellement, et
+ * quels prix ont été négociés avec lui. Éclatés sur trois écrans, ces chiffres
+ * ne sont jamais regardés — d'où cet agrégat unique.
+ */
+export const getClientDossier = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    const clientId = req.params.id;
+    try {
+        const client = db.prepare('SELECT * FROM st_clients WHERE id = ? AND owner_id = ?').get(clientId, companyId);
+        if (!client) return res.status(404).json({ message: 'Client introuvable' });
+
+        // Le nom du modèle vit dans le JSON de `models` : la jointure est LEFT,
+        // un modèle supprimé ne doit pas faire disparaître ses ventes passées.
+        const sorties = db.prepare(`
+            SELECT s.*,
+                   COALESCE(json_extract(m.data, '$.meta_data.nom_modele'), json_extract(m.data, '$.filename')) AS model_nom
+            FROM st_stock_sorties s
+            LEFT JOIN models m ON m.id = s.modelId AND m.user_id = s.owner_id
+            WHERE s.owner_id = ? AND s.client_id = ?
+            ORDER BY s.date_sortie DESC, s.created_at DESC
+        `).all(companyId, clientId) as any[];
+
+        // Les lignes à prix 0 (échantillons, gestes commerciaux) comptent en
+        // pièces mais pas en chiffre d'affaires : mélanger les deux ferait
+        // croire à une remise généralisée.
+        const caTotal = sorties.reduce((a, s) => a + (Number(s.prix_unitaire) || 0) * (Number(s.quantite) || 0), 0);
+        const piecesAchetees = sorties.reduce((a, s) => a + (Number(s.quantite) || 0), 0);
+        const dernierAchat = sorties[0]?.date_sortie ?? null;
+
+        const parModeleMap = new Map<string, { modelId: string; model_nom: string | null; qte: number; caTotal: number }>();
+        for (const s of sorties) {
+            const key = String(s.modelId ?? '');
+            const cur = parModeleMap.get(key) || { modelId: key, model_nom: s.model_nom ?? null, qte: 0, caTotal: 0 };
+            cur.qte += Number(s.quantite) || 0;
+            cur.caTotal += (Number(s.prix_unitaire) || 0) * (Number(s.quantite) || 0);
+            parModeleMap.set(key, cur);
+        }
+        const parModele = Array.from(parModeleMap.values()).sort((a, b) => b.caTotal - a.caTotal);
+
+        // Tarifs négociés : ceux qui visent nommément ce client, plus ceux de son
+        // segment — les deux s'appliquent à lui lors d'une vente.
+        const tarifs = db.prepare(`
+            SELECT * FROM st_prix
+            WHERE owner_id = ? AND (client_id = ? OR (client_id IS NULL AND type_client = ?))
+            ORDER BY (client_id IS NULL), qty_min DESC, created_at DESC
+        `).all(companyId, clientId, (client as any).type ?? null);
+
+        res.json({ client, sorties, caTotal, piecesAchetees, dernierAchat, parModele, tarifs });
+    } catch (error) {
+        console.error('Get client dossier error:', error);
+        res.status(500).json({ message: 'Error fetching client dossier' });
+    }
+};
+
+/**
  * Entrées en stock des pièces finies d'une commande de sous-traitance.
  *
  * Une entrée = une ligne datée (couleur, taille, quantité, qualité). Les

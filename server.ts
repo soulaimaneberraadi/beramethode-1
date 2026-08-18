@@ -80,7 +80,8 @@ import {
   updateSubcontractExpense,
   deleteSubcontractExpense,
 } from './server/subcontractController';
-import { getClients, saveClient, deleteClient, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch } from './server/clientsController';
+import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch } from './server/clientsController';
+import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
 import { getSuiviData, saveSuiviData } from './server/suiviController';
 import { getPosteSuivi, savePosteSuivi } from './server/posteSuiviController';
 import { getDemandesAppro, saveDemandesAppro } from './server/demandesApproController';
@@ -674,6 +675,18 @@ async function startServer() {
   app.get('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getClients);
   app.post('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveClient);
   app.delete('/api/subcontract/clients/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_clients', 'owner_id'), deleteClient);
+  // Fiche client agrégée (ventes, CA, tarifs négociés).
+  app.get('/api/clients/:id/dossier', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getClientDossier);
+
+  // Tarifs de vente et intelligence prix.
+  // ⚠️ « resolve » et « stats » sont déclarées AVANT toute route paramétrée
+  // /api/prix/:id, sinon elles seraient prises pour des identifiants de tarif.
+  app.get('/api/prix/resolve', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), resolvePrix);
+  app.get('/api/prix/stats', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getPrixStats);
+  app.get('/api/prix', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getPrix);
+  app.post('/api/prix', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), savePrix);
+  app.delete('/api/prix/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_prix', 'owner_id'), deletePrix);
+
   app.get('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractorGroups);
   app.post('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveSubcontractorGroup);
   app.delete('/api/subcontract/groups/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontractor_groups', 'owner_id'), deleteSubcontractorGroup);

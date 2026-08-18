@@ -928,6 +928,44 @@ db.exec(`
   )
 `);
 
+// Tarifs de VENTE d'un modèle. Jusqu'ici un modèle n'avait qu'un seul prix
+// (`ficheData.clientPrice`) : dans un atelier réel le même article part à un prix
+// au grossiste, à un autre à la boutique, et à un prix négocié pour un client
+// historique — sans compter les paliers (« à partir de 100 pièces »). Une ligne
+// par tarif permet de garder ces prix côte à côte au lieu d'en écraser un à
+// chaque vente, et de retrouver POURQUOI un prix a été proposé.
+//
+// Trois niveaux de portée, du plus précis au plus général :
+//   client_id renseigné  → prix négocié avec CE client
+//   type_client renseigné → prix du segment (GROS / DETAIL / BOUTIQUE)
+//   les deux NULL         → tarif catalogue, prix par défaut
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_prix (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    modelId TEXT NOT NULL,
+    -- NULL = ne vise pas un client en particulier.
+    client_id TEXT,
+    -- NULL = tous types ; sinon GROS / DETAIL / BOUTIQUE (cf. st_clients.type).
+    type_client TEXT,
+    -- Palier quantitatif : le tarif s'applique à partir de cette quantité.
+    -- 0 = pas de condition de volume.
+    qty_min INTEGER DEFAULT 0,
+    prix REAL NOT NULL,
+    devise TEXT,
+    -- Une hausse de tarif se décide à l'avance : un tarif daté dans le futur
+    -- reste inactif jusqu'à sa date, au lieu d'obliger à le saisir le jour même.
+    valid_from TEXT,
+    note TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+// La lecture se fait toujours « les tarifs de CE modèle pour CETTE entreprise » :
+// c'est le seul accès qui mérite un index.
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_prix_owner_model ON st_prix (owner_id, modelId)'); } catch { /* index déjà présent */ }
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS subcontractor_profiles (
     id TEXT PRIMARY KEY,
