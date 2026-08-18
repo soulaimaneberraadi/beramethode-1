@@ -93,17 +93,27 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                     <div className="flex-1 space-y-0">
                         <input
                             type="text"
-                            placeholder={tx(lang, {fr:'BERAMETHODE SARL', ar:'BERAMETHODE SARL', en:'BERAMETHODE SARL', es:'BERAMETHODE SARL', pt:'BERAMETHODE SARL', tr:'BERAMETHODE SARL'})}
+                            placeholder={tx(lang, {fr:'Raison sociale', ar:'الاسم التجاري', en:'Company name', es:'Razón social', pt:'Razão social', tr:'Şirket adı'})}
                             value={companyName}
                             onChange={(e) => setCompanyName(e.target.value)}
                             className={`font-black tracking-tight text-xs uppercase ${inputClasses} placeholder:text-slate-300`}
                         />
                         <input
                             type="text"
-                            placeholder={tx(lang, {fr:'123 Zone Industrielle', ar:'123 Zone Industrielle', en:'123 Zone Industrielle', es:'123 Zone Industrielle', pt:'123 Zone Industrielle', tr:'123 Zone Industrielle'})}
+                            placeholder={tx(lang, {fr:'Adresse et ville', ar:'العنوان والمدينة', en:'Address and city', es:'Dirección y ciudad', pt:'Endereço e cidade', tr:'Adres ve şehir'})}
                             value={companyAddress}
                             onChange={(e) => setCompanyAddress(e.target.value)}
                             className={`text-[8px] text-slate-500 ${inputClasses} placeholder:text-slate-300`}
+                        />
+                        {/* Identifiants légaux : une facture/fiche sans ICE ni RC
+                            n'est pas opposable au client. Le champ existait déjà
+                            dans les props mais n'était jamais rendu. */}
+                        <input
+                            type="text"
+                            placeholder={tx(lang, {fr:'ICE / RC / IF', ar:'ICE / RC / IF', en:'ICE / RC / IF', es:'ICE / RC / IF', pt:'ICE / RC / IF', tr:'ICE / RC / IF'})}
+                            value={companyLegal}
+                            onChange={(e) => setCompanyLegal(e.target.value)}
+                            className={`text-[8px] text-slate-400 font-mono ${inputClasses} placeholder:text-slate-300`}
                         />
                     </div>
                 </div>
@@ -292,8 +302,10 @@ const A4DocumentView = forwardRef<HTMLDivElement, A4DocumentViewProps>(({
                 <div className="w-[45%] border-t border-slate-200 pt-1 text-center">{tx(lang, {fr:'Signature', ar:'التوقيع', en:'Signature', es:'Firma', pt:'Assinatura', tr:'İmza'})}</div>
             </div>
 
+            {/* Pied de page : l'entreprise émettrice, jamais le nom du logiciel —
+                ce document circule chez les clients. */}
             <div className="mt-2 text-center text-[7px] font-bold tracking-widest text-slate-300 uppercase pb-1">
-                BeraMethode ERP
+                {[companyName, companyLegal].filter(Boolean).join(' — ')}
             </div>
         </div>
     );

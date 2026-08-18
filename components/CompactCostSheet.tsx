@@ -14,6 +14,10 @@ interface CompactCostSheetProps {
     docRef: string;
     companyName: string;
     companyAddress: string;
+    /** Identifiants légaux prêts à imprimer (« ICE: … · RC: … »). */
+    companyLegal?: string;
+    /** Logo de l'entreprise (data-URL) — remplace l'icône générique. */
+    companyLogo?: string;
     baseTime: number;
     cutTime: number;
     packTime: number;
@@ -50,7 +54,7 @@ interface CompactCostSheetProps {
 
 const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
     t, currency, productName, displayDate, docRef,
-    companyName, companyAddress,
+    companyName, companyAddress, companyLegal = '', companyLogo = '',
     baseTime, cutTime, packTime, totalTime, settings,
     materials, laborCost, costPrice, sellPriceHT, sellPriceTTC, boutiquePrice,
     orderQty, wasteRate, purchasingData, totalPurchasingMatCost,
@@ -101,15 +105,24 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
     const renderHeader = () => (
         <div className="flex justify-between items-start pb-4 mb-4 border-b-4 border-slate-900">
             <div className="flex gap-3 items-start">
-                <div className="w-10 h-10 bg-slate-900 flex items-center justify-center rounded shrink-0">
-                    <Building2 className="w-5 h-5 text-white" />
-                </div>
+                {/* Logo réel de l'entreprise s'il existe ; sinon un bloc neutre —
+                    jamais le nom du logiciel : ce document part chez le client. */}
+                {companyLogo ? (
+                    <img src={companyLogo} alt="" className="w-10 h-10 object-contain shrink-0" />
+                ) : (
+                    <div className="w-10 h-10 bg-slate-900 flex items-center justify-center rounded shrink-0">
+                        <Building2 className="w-5 h-5 text-white" />
+                    </div>
+                )}
                 <div>
                     <h1 className="text-md font-black text-slate-900 tracking-tight uppercase">
-                        {companyName || 'BERAMETHODE SARL'}
+                        {companyName}
                     </h1>
                     {companyAddress && (
                         <p className="text-[9px] text-slate-500 mt-0.5">{companyAddress}</p>
+                    )}
+                    {companyLegal && (
+                        <p className="text-[8px] text-slate-400 mt-0.5 font-mono">{companyLegal}</p>
                     )}
                 </div>
             </div>
@@ -346,7 +359,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
 
     const renderPageFooter = (pageStr: string) => (
         <div className="mt-auto pt-2 border-t border-slate-100 flex justify-between items-center text-[8px] font-bold tracking-widest text-slate-300 uppercase">
-            <span>BeraMethode ERP — {displayDate}</span>
+            <span>{[companyName, companyLegal].filter(Boolean).join(' — ') || displayDate}</span>
             <span>{pageStr}</span>
         </div>
     );
@@ -423,7 +436,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
                             <div className="flex justify-between items-center pb-2 mb-4 border-b border-slate-200">
                                 <div className="flex items-center gap-1">
                                     <Building2 className="w-3 h-3 text-slate-400" />
-                                    <span className="font-black text-[8px] uppercase tracking-wider text-slate-400">{companyName || 'BERAMETHODE SARL'}</span>
+                                    <span className="font-black text-[8px] uppercase tracking-wider text-slate-400">{companyName}</span>
                                 </div>
                                 <span className="font-bold text-slate-700 text-[9px] uppercase">{_({fr:'Fiche de Coût — Détails d\'Achat',ar:'بطاقة التكلفة — تفاصيل الشراء',en:'Cost Sheet — Purchase Details',es:'Hoja de Costo — Detalles de Compra',pt:'Ficha de Custo — Detalhes de Compra',tr:'Maliyet Tablosu — Satın Alma Detayları'})} ({docRef})</span>
                                 <span className="font-mono text-slate-500 text-[8px]">{displayDate}</span>

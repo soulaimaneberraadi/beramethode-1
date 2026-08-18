@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Plus, Printer, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { Invoice, InvoiceLine } from '../types';
 import InvoiceModalInvoice from './InvoiceModalInvoice';
+import { loadCompanyIdentity, companyHeaderHtml, escHtml } from '../lib/companyIdentity';
 
 interface InlineInvoiceListProps {
     productId: string;
@@ -68,14 +69,20 @@ export default function InlineInvoiceList({ productId, productLabel, sourceModul
         loadLines(invoiceId);
     };
 
-    const handlePrint = (inv: Invoice) => {
+    // Une facture imprimée engage l'entreprise : on charge son identité légale
+    // AVANT d'ouvrir la fenêtre d'impression (l'en-tête ne peut pas être ajouté
+    // après coup, le document part tel quel chez le client).
+    const handlePrint = async (inv: Invoice) => {
+        const company = await loadCompanyIdentity();
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
         printWindow.document.write(`
-            <html><head><title>Facture ${inv.numero}</title>
+            <html><head><title>Facture ${escHtml(inv.numero)}</title>
             <style>body{font-family:sans-serif;padding:40px}table{width:100%;border-collapse:collapse}th,td{padding:8px 12px;border:1px solid #ddd;text-align:left}</style>
             </head><body>
-            <h2>Facture ${inv.numero}</h2>
+            ${companyHeaderHtml(company)}
+            <hr style="margin:16px 0;border:0;border-top:2px solid #0f172a" />
+            <h2>Facture ${escHtml(inv.numero)}</h2>
             <p>Type: ${inv.type} | Date: ${inv.date_facture} | Statut: ${inv.statut}</p>
             <p>Client: ${inv.tiers_nom || '-'}</p>
             <table><thead><tr><th>Désignation</th><th>Qté</th><th>Prix unit.</th><th>Total</th></tr></thead><tbody>

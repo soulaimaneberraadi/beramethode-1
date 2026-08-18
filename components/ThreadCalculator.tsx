@@ -6,6 +6,7 @@ import { STITCH_TYPES, MACHINE_THREAD_CONFIG, BOBBIN_SIZES, GARMENT_INDICES, fin
 import { suggestClasseFromFamilyInput } from '../lib/machineCategoryClasseLink';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { useCompanyIdentity, legalLine } from '../lib/companyIdentity';
 import { useIsDark } from '../src/context/ThemeContext';
 import type { TxMap } from '../lib/i18n';
 
@@ -2540,6 +2541,7 @@ function ThreadPrintView({
 }: ThreadPrintViewProps) {
     const { lang } = useLang();
     const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
+    const company = useCompanyIdentity();
     return (
         <div className="thread-print-root p-8">
             <style dangerouslySetInnerHTML={{ __html: `
@@ -2598,7 +2600,10 @@ function ThreadPrintView({
                     <p className="text-sm text-slate-500 dark:text-dk-muted font-medium mt-1">{_({ fr: 'Généré le', ar: 'تم الإنشاء في', en: 'Generated on', es: 'Generado el', pt: 'Gerado em', tr: 'Oluşturulma' })} {new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
                 <div className="text-right text-xs text-slate-500 dark:text-dk-muted space-y-1">
-                    <p><span className="font-bold">BERAMETHODE</span></p>
+                    {/* Le rapport de fil est transmis au fournisseur de fil et au
+                        client : il porte l'identité de l'entreprise. */}
+                    {company.nom && <p><span className="font-bold">{company.nom}</span></p>}
+                    {legalLine(company) && <p className="font-mono text-[10px]">{legalLine(company)}</p>}
                     <p>{_({ fr: 'Atelier Méthodes', ar: 'ورشة الطرق', en: 'Methods Workshop', es: 'Taller de Métodos', pt: 'Oficina de Métodos', tr: 'Metot Atölyesi' })}</p>
                 </div>
             </div>

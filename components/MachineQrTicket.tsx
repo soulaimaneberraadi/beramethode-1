@@ -6,6 +6,7 @@ import { buildMachineQrPayload } from '../lib/machineQrPayload';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
+import { useCompanyIdentity } from '../lib/companyIdentity';
 
 function formatAddress(p: CompanyProfile): string | null {
   const parts = [
@@ -181,9 +182,14 @@ export function MachineQrTicket({
   const qrRef  = useRef<HTMLDivElement>(null);
   const { lang } = useLang();
   const isDark = useIsDark();
-  const displayName = (companyProfile.companyName || companyProfile.legalName || '').trim() || 'BERAMETHODE';
-  const addressLine  = formatAddress(companyProfile);
-  const phone        = (companyProfile.phone || '').trim();
+  // L'étiquette est collée sur la machine, dans l'atelier de l'entreprise :
+  // elle doit porter SON nom. `settings.companyProfile` est rarement rempli,
+  // on retombe donc sur l'identité légale d'Admin > Entreprise plutôt que sur
+  // le nom du logiciel.
+  const company = useCompanyIdentity();
+  const displayName = (companyProfile.companyName || companyProfile.legalName || '').trim() || company.nom;
+  const addressLine  = formatAddress(companyProfile) || company.adresse || null;
+  const phone        = (companyProfile.phone || '').trim() || company.tel;
   const st           = getStatus(machine.status, lang);
 
   const qrValue = useMemo(

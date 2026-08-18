@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { Operation, Poste, Machine, ComplexityFactor, StandardTime, SavedLayout, ManualLink, FicheData } from '../types';
 import ExcelInput from './ExcelInput';
 import { tx } from '../lib/i18n';
+import { loadCompanyIdentity, getCachedCompanyIdentity } from '../lib/companyIdentity';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
 import {
@@ -984,6 +985,10 @@ export default function Implantation({
     };
 
     // --- EXPORT FUNCTION ---
+    // Préchargement de l'identité : l'impression du tableau est synchrone et
+    // ne peut pas attendre le réseau au moment du clic.
+    useEffect(() => { void loadCompanyIdentity(); }, []);
+
     const handleExportPlan = () => {
         if (!contentRef.current) return;
         setShowExportOptions(true); // Open settings modal instead of direct export
@@ -993,6 +998,9 @@ export default function Implantation({
         if (isExporting || !contentRef.current) return;
         setIsExporting(true);
         setShowExportOptions(false);
+        // Le plan d'implantation est diffusé (direction, client, audit) : il porte
+        // l'identité de l'entreprise et non le nom du logiciel.
+        const company = await loadCompanyIdentity();
 
         try {
             // Load html2pdf dynamically if not present
@@ -1097,8 +1105,8 @@ export default function Implantation({
                 header.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px;">
                         <div style="display: flex; align-items: center; gap: 15px;">
-                            <div style="background-color: #1e293b; color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 24px; font-family: sans-serif;">
-                                BERAMETHODE
+                            <div style="background-color: #1e293b; color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 20px; font-family: sans-serif;">
+                                ${company.nom || ''}
                             </div>
                             <div>
                                 <h1 style="margin: 0; color: #334155; font-family: sans-serif; font-size: 28px;">${tx(lang,{fr:"Plan d'Implantation",ar:'خطة التخطيط',en:'Layout Plan',es:'Plano de Implantación',pt:'Plano de Implantação',tr:'Düzen Planı'})}</h1>
@@ -1280,6 +1288,9 @@ export default function Implantation({
     //  au format PDF" depuis la boîte de dialogue du navigateur.
     // ════════════════════════════════════════════════════════════════════
     const printPlanTable = (printOrientation: 'landscape' | 'portrait') => {
+        // Impression synchrone (déclenchée par un clic) : on se contente de
+        // l'identité déjà en cache, chargée à l'ouverture de l'écran.
+        const company = getCachedCompanyIdentity() || { nom: '', ice: '', rc: '', if_: '' } as any;
         const esc = (s: any) => String(s ?? '')
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -1500,7 +1511,7 @@ export default function Implantation({
 <body>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #e2e8f0;padding-bottom:14px;">
         <div style="display:flex;align-items:center;gap:14px;">
-            <span class="badge">BERAMETHODE</span>
+            <span class="badge">${esc(company.nom)}</span>
             <div>
                 <h1>${tx(lang,{fr:"Plan d'Implantation",ar:'خطة التخطيط',en:'Layout Plan',es:'Plano de Implantación',pt:'Plano de Implantação',tr:'Düzen Planı'})}</h1>
                 <div style="color:#64748b;margin-top:3px;">${tx(lang,{fr:'Modèle',ar:'النموذج',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})} : <b style="color:#334155;">${esc(articleName || tx(lang,{fr:'Générique',ar:'عام',en:'Generic',es:'Genérico',pt:'Genérico',tr:'Genel'}))}</b></div>

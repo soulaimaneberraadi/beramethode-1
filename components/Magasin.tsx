@@ -12,6 +12,7 @@ import { tx, pickT } from '../lib/i18n';
 import type { Lang } from '../app/constants';
 import { useLang } from '../src/context/LanguageContext';
 import { uploadImageToStorage } from '../utils';
+import { loadCompanyIdentity } from '../lib/companyIdentity';
 
 export interface MagasinProps {
     models?: ModelData[];
@@ -743,16 +744,20 @@ interface InvoiceTemplate {
     showFillerRows: boolean;
 }
 
+// L'identité part VIDE : elle est renseignée à l'ouverture depuis
+// Admin > Entreprise (voir `useEffect` d'hydratation plus bas). Des valeurs
+// d'exemple ici finissaient imprimées telles quelles sur de vrais bons —
+// un faux ICE sur un document opposable est une faute grave.
 const DEFAULT_TEMPLATE: InvoiceTemplate = {
-    raisonSociale: 'MON ENTREPRISE SARL',
-    adresse: '123 Rue du Commerce, Casablanca 20000, Maroc',
-    telephone: '+212 5XX-XXXXXX',
-    email: 'contact@monentreprise.ma',
-    ice: '000234567890001',
-    rc: 'CS 12345',
-    if_number: '12345678',
+    raisonSociale: '',
+    adresse: '',
+    telephone: '',
+    email: '',
+    ice: '',
+    rc: '',
+    if_number: '',
     logo: '',
-    piedDePage: 'Règlement à 30 jours · Banque : Attijariwafa · RIB: 007 780 0000000000000000 67',
+    piedDePage: '',
     showLogo: true,
     showAdresse: true,
     showTelephone: true,
@@ -1051,7 +1056,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                                             <div className="space-y-3">
                                                  <div>
                                                     <label className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-widest flex items-center gap-1"><Briefcase className="w-3 h-3" /> {tx(lang,{fr:'Raison Sociale',ar:'الاسم التجاري',en:'Company Name',es:'Razón Social',pt:'Razão Social',tr:'Şirket Adı'})} <span className="text-rose-400 dark:text-rose-200">*</span></label>
-                                                    <input className={invInp} value={s.raisonSociale} onChange={e => setS(p => ({ ...p, raisonSociale: e.target.value }))} placeholder="Ex: BERAMETHODE SARL" />
+                                                    <input className={invInp} value={s.raisonSociale} onChange={e => setS(p => ({ ...p, raisonSociale: e.target.value }))} placeholder="Ex: MON ENTREPRISE SARL" />
                                                 </div>
                                                 <div>
                                                     <label className="text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-widest flex items-center gap-1"><MapPin className="w-3 h-3" /> {tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Endereço',tr:'Adres'})}</label>
@@ -1430,7 +1435,7 @@ function InvoicePrinter({ mvt, product, template, onClose, t, lang }: { mvt: Mou
                         {template.showPiedDePage && (
                             <div className="mt-10 pt-6 border-t border-slate-200 dark:border-dk-border text-center">
                                 <p className="text-xs text-slate-400 dark:text-dk-muted font-medium leading-relaxed">{template.piedDePage}</p>
-                                <p className="text-[9px] text-slate-300 dark:text-dk-muted mt-2 font-mono">{tx(lang,{fr:'Généré le',ar:'تم الإنشاء في',en:'Generated on',es:'Generado el',pt:'Gerado em',tr:'Oluşturulma'})} {new Date().toLocaleString('fr-MA')} · BERAMETHODE {tx(lang,{fr:'Magasin',ar:'المستودع',en:'Warehouse',es:'Almacén',pt:'Armazém',tr:'Depo'})}</p>
+                                <p className="text-[9px] text-slate-300 dark:text-dk-muted mt-2 font-mono">{tx(lang,{fr:'Généré le',ar:'تم الإنشاء في',en:'Generated on',es:'Generado el',pt:'Gerado em',tr:'Oluşturulma'})} {new Date().toLocaleString('fr-MA')}{template.raisonSociale ? ` · ${template.raisonSociale}` : ''}</p>
                             </div>
                         )}
 
@@ -1928,6 +1933,30 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
         if (selectedMovement) setMovementEditDraft({ ...selectedMovement });
         else setMovementEditDraft(null);
     }, [selectedMovement]);
+
+    // Les bons de livraison/réception sortent du magasin et vont chez des tiers :
+    // leur en-tête doit venir de l'identité légale enregistrée dans
+    // Admin > Entreprise. On ne remplit QUE les champs encore vides, pour ne
+    // jamais écraser une personnalisation faite dans « Réglages facture ».
+    useEffect(() => {
+        let alive = true;
+        loadCompanyIdentity().then(c => {
+            if (!alive) return;
+            setInvoiceTemplate(prev => ({
+                ...prev,
+                raisonSociale: prev.raisonSociale || c.nom,
+                adresse: prev.adresse || c.adresse,
+                telephone: prev.telephone || c.tel,
+                email: prev.email || c.email,
+                ice: prev.ice || c.ice,
+                rc: prev.rc || c.rc,
+                if_number: prev.if_number || c.if_,
+                logo: prev.logo || c.logo,
+                piedDePage: prev.piedDePage || [c.banque && `Banque : ${c.banque}`, c.rib && `RIB : ${c.rib}`].filter(Boolean).join(' · '),
+            }));
+        });
+        return () => { alive = false; };
+    }, []);
 
     const saveInvoiceTemplate = (tpl: InvoiceTemplate) => {
         sv('mg_invoice_template', tpl);

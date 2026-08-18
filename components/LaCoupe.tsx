@@ -11,6 +11,7 @@ import {
     PanelLeftClose, PanelLeftOpen, Library, ChevronDown
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
+import { loadCompanyIdentity } from '../lib/companyIdentity';
 import { useLang } from '../src/context/LanguageContext';
 import ExcelInput from './ExcelInput';
 import { TEXTILE_COLORS } from '../data/textileData';
@@ -1083,7 +1084,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     };
 
     /** Ticket individuel d'un matelas, au format étiquette 80 mm, pour accompagner le paquet coupé. */
-    const handlePrintMatelasTicket = (lineId: string) => {
+    const handlePrintMatelasTicket = async (lineId: string) => {
         const idx = (ordre.matelasLines || []).findIndex(l => l.id === lineId);
         const line = (ordre.matelasLines || [])[idx];
         if (!line) return;
@@ -1093,6 +1094,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         const pieces = (line.plis || 0) * ratioSum;
         const cons = ratioSum > 0 ? (line.plis || 0) * ((line.longTracee || 0) + 0.03) : 0;
         const matPhoto = line.matiere ? matierePhoto(line.matiere) : null;
+        // Le ticket suit le paquet coupé et peut sortir de l'atelier (sous-traitance,
+        // client) : il porte le nom de l'entreprise, jamais celui du logiciel.
+        const company = await loadCompanyIdentity();
 
         const esc = (v: any) => String(v ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
         const L = {
@@ -1126,6 +1130,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
   .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: #64748b; font-weight: 700; }
   .n { font-size: 34px; font-weight: 800; line-height: 1; letter-spacing: -.02em; }
   .hd { border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px; }
+  .co { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
   .mdl { font-size: 13px; font-weight: 700; margin-top: 3px; word-break: break-word; }
   .kv { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; padding: 5px 0; border-bottom: 1px dotted #cbd5e1; }
   .kv > span:first-child { color: #64748b; white-space: nowrap; }
@@ -1142,6 +1147,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
 </style></head><body>
  <div class="ticket">
   <div class="hd">
+    ${company.nom ? `<div class="co">${esc(company.nom)}</div>` : ''}
     <div class="lbl">${esc(L.matelas)}</div>
     <div class="n">N° ${idx + 1}</div>
     <div class="mdl">${esc(ordre.refModele || selectedModel?.meta_data?.nom_modele || '')}</div>

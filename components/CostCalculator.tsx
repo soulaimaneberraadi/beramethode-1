@@ -4,6 +4,7 @@ import { Material, AppSettings, PdfSettings, FicheData, PurchasingData } from '.
 import { translations, fmt } from '../app/constants';
 import { findMagasinItem } from '../lib/magasinMatch';
 import { tx } from '../lib/i18n';
+import { loadCompanyIdentity, legalLine } from '../lib/companyIdentity';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
 
@@ -104,6 +105,23 @@ export default function CostCalculator({
     const [companyName, setCompanyName] = useState("");
     const [companyAddress, setCompanyAddress] = useState("");
     const [companyLegal, setCompanyLegal] = useState("");
+    /** Logo de l'entreprise imprimé sur la fiche (data-URL, lecture seule). */
+    const [companyLogo, setCompanyLogo] = useState<string>("");
+
+    // La fiche de coût peut partir chez un client : elle doit porter l'identité
+    // légale RÉELLE de l'entreprise, pas un en-tête vide ni le nom du logiciel.
+    // On préremplit depuis Admin > Entreprise sans écraser une saisie en cours.
+    useEffect(() => {
+        let alive = true;
+        loadCompanyIdentity().then(c => {
+            if (!alive) return;
+            setCompanyName(prev => prev || c.nom);
+            setCompanyAddress(prev => prev || c.adresse);
+            setCompanyLegal(prev => prev || legalLine(c));
+            setCompanyLogo(c.logo);
+        });
+        return () => { alive = false; };
+    }, []);
     const [docNotes, setDocNotes] = useState("");
 
     const [docTitle, setDocTitle] = useState("");
@@ -945,7 +963,8 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
             const allBorders = { top: thin, bottom: thin, left: thin, right: thin };
 
             const wb = new ExcelJS.Workbook();
-            wb.creator = 'BERAMETHODE';
+            // Auteur du classeur = l'entreprise émettrice (le fichier peut être envoyé au client).
+            wb.creator = companyName || 'Entreprise';
             wb.created = new Date();
             const ws = wb.addWorksheet(t.docTitle || 'Fiche de Co\u00FBt', {
                 pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } },
@@ -1199,6 +1218,8 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                         docRef={docRef}
                         companyName={companyName}
                         companyAddress={companyAddress}
+                        companyLegal={companyLegal}
+                        companyLogo={companyLogo}
                         baseTime={baseTime} cutTime={cutTime} packTime={packTime}
                         totalTime={totalTime} settings={settings}
                         materials={materials} laborCost={laborCost}
@@ -1627,6 +1648,8 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                                             docRef={docRef}
                                             companyName={companyName}
                                             companyAddress={companyAddress}
+                                            companyLegal={companyLegal}
+                                            companyLogo={companyLogo}
                                             baseTime={baseTime} cutTime={cutTime} packTime={packTime}
                                             totalTime={totalTime} settings={settings}
                                             materials={materials} laborCost={laborCost}
