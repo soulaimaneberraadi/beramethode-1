@@ -5370,7 +5370,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   Une seule ligne, toujours — sur petit écran elle défile
                   horizontalement au lieu de s'empiler en 2x2, pour rester un
                   vrai bandeau de synthèse qu'on lit d'un balayage. */}
-              <div className="flex items-stretch gap-2.5 overflow-x-auto pb-1 -mx-1 px-1">
+              <div className="relative">
+                {/* Rien ne dit qu'un bandeau défile tant qu'on n'a pas essayé :
+                    sur mobile, un dégradé au bord droit avoue qu'il reste du
+                    contenu à balayer, plutôt qu'une carte coupée à la hussarde
+                    qui se lit comme une erreur d'affichage. */}
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-slate-50 dark:from-dk-bg to-transparent sm:hidden z-10" aria-hidden="true" />
+                <div className="flex items-stretch gap-2.5 overflow-x-auto pb-1 -mx-1 px-1">
                 {/* Valorisation au cout : masquee en bloc quand le cloisonnement
                     commercial est actif. Afficher 0 serait une information FAUSSE. */}
                 {canSeeCostHere && (
@@ -5400,6 +5406,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <span className={`block mt-1 font-bold text-sm ${stockKpis.noPrice > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-dk-text'}`}>
                     {stockKpis.noPrice.toLocaleString(dateLocale)}
                   </span>
+                </div>
                 </div>
               </div>
 
@@ -7110,7 +7117,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 }
                 const totalSortie: number = Object.values(sortieForm.grid).reduce<number>((a, v) => a + (Number(v) || 0), 0);
                 return (
-                  <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                  <div className="relative border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                    {/* Même aveu qu'ailleurs : sur un modèle à six tailles, S à XL
+                        tient dans 390px mais XX et XXXL restent hors champ — le
+                        dégradé dit qu'il faut glisser au lieu de laisser croire
+                        que la grille s'arrête à XL. */}
+                    <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white dark:from-dk-surface to-transparent sm:hidden z-10" aria-hidden="true" />
                     <div className="overflow-x-auto">
                       <table className="w-full text-[11px]">
                         <thead className="bg-slate-50 dark:bg-dk-bg/60 text-slate-400 dark:text-dk-muted uppercase text-[9px] border-b border-slate-200 dark:border-dk-border">
