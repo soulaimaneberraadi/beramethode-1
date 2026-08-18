@@ -240,3 +240,101 @@ export const deleteStockEntry = (req: Request, res: Response) => {
         res.status(500).json({ message: 'Error deleting stock entry' });
     }
 };
+
+/**
+ * Sorties de stock fini (ventes / livraisons client).
+ *
+ * Le stock vendable se lit à la maille couleur × taille : « il reste 134 pièces »
+ * ne dit pas s'il reste des XL en bleu. Chaque sortie est donc détaillée, datée,
+ * et rattachée à un client du registre — le nom seul se réécrit de trois façons.
+ */
+
+export const getStockSorties = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    const { modelId } = req.query as { modelId?: string };
+    try {
+        const rows = modelId
+            ? db.prepare('SELECT * FROM st_stock_sorties WHERE owner_id = ? AND modelId = ? ORDER BY date_sortie DESC, created_at DESC').all(companyId, modelId)
+            : db.prepare('SELECT * FROM st_stock_sorties WHERE owner_id = ? ORDER BY date_sortie DESC, created_at DESC').all(companyId);
+        res.json(rows);
+    } catch (error) {
+        console.error('Get stock sorties error:', error);
+        res.status(500).json({ message: 'Error fetching stock exits' });
+    }
+};
+
+export const createStockSortie = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    const body = req.body || {};
+    const modelId = body.modelId;
+
+    if (!modelId) return res.status(400).json({ message: 'modelId est obligatoire' });
+
+    const lignes = (Array.isArray(body.lignes) ? body.lignes : [])
+        .map((l: any) => ({
+            couleur: l.couleur || null,
+            taille: l.taille || null,
+            quantite: Math.floor(Number(l.quantite) || 0),
+            prix_unitaire: Number(l.prix_unitaire ?? body.prix_unitaire) || 0,
+        }))
+        .filter((l: any) => l.quantite > 0);
+
+    if (lignes.length === 0) return res.status(400).json({ message: 'Aucune quantité saisie' });
+
+    try {
+        // Stock disponible, cellule par cellule : on refuse de sortir ce qui
+        // n'existe pas, sinon le stock passerait en négatif sans que rien ne le
+        // signale — et c'est ce stock qui sert de base aux ventes suivantes.
+        const entrees = db.prepare(
+            "SELECT couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_entries WHERE owner_id = ? AND modelId = ? AND qualite = 'ACCEPTED' GROUP BY couleur, taille"
+        ).all(companyId, modelId) as any[];
+        const sorties = db.prepare(
+            'SELECT couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_sorties WHERE owner_id = ? AND modelId = ? GROUP BY couleur, taille'
+        ).all(companyId, modelId) as any[];
+
+        const key = (c: any, t: any) => `${String(c ?? '')}|${String(t ?? '')}`;
+        const dispo = new Map<string, number>();
+        entrees.forEach(r => dispo.set(key(r.couleur, r.taille), (dispo.get(key(r.couleur, r.taille)) || 0) + Number(r.q)));
+        sorties.forEach(r => dispo.set(key(r.couleur, r.taille), (dispo.get(key(r.couleur, r.taille)) || 0) - Number(r.q)));
+
+        const insuffisant = lignes.find((l: any) => (dispo.get(key(l.couleur, l.taille)) || 0) < l.quantite);
+        if (insuffisant) {
+            return res.status(400).json({
+                message: `Stock insuffisant pour ${insuffisant.couleur || '—'} / ${insuffisant.taille || '—'} : ${dispo.get(key(insuffisant.couleur, insuffisant.taille)) || 0} disponible(s), ${insuffisant.quantite} demandée(s)`,
+            });
+        }
+
+        const batchId = randomUUID();
+        const date = body.date_sortie || new Date().toISOString().split('T')[0];
+        const insert = db.prepare(`
+            INSERT INTO st_stock_sorties (id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire, batch_id, facture_id, note, date_sortie)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        // Transaction : une sortie est un tout. La moitié des cellules écrites
+        // laisserait un stock faux sans que rien ne le signale.
+        db.transaction(() => {
+            for (const l of lignes) {
+                insert.run(randomUUID(), companyId, modelId, body.client_id || null, body.client_nom || null,
+                    l.couleur, l.taille, l.quantite, l.prix_unitaire, batchId, body.facture_id || null, body.note || null, date);
+            }
+        })();
+
+        res.json({ batch_id: batchId, count: lignes.length });
+    } catch (error) {
+        console.error('Create stock sortie error:', error);
+        res.status(500).json({ message: 'Error creating stock exit' });
+    }
+};
+
+/** Annule une sortie entière : les pièces reviennent au stock disponible. */
+export const deleteStockSortieBatch = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    try {
+        const info = db.prepare('DELETE FROM st_stock_sorties WHERE batch_id = ? AND owner_id = ?').run(req.params.batchId, companyId);
+        if (info.changes === 0) return res.status(404).json({ message: 'Sortie introuvable' });
+        res.json({ message: 'Sortie annulée' });
+    } catch (error) {
+        console.error('Delete stock sortie error:', error);
+        res.status(500).json({ message: 'Error deleting stock exit' });
+    }
+};

@@ -878,6 +878,31 @@ db.exec(`
 // comme le tableau qu'elle était, et de la supprimer d'un bloc.
 try { db.exec('ALTER TABLE st_stock_entries ADD COLUMN batch_id TEXT'); } catch { /* colonne déjà présente */ }
 
+// Sorties de stock fini : ce qui QUITTE l'atelier, ligne par ligne (couleur x
+// taille x client x date). Le stock vendable d'un modele vaut donc
+// « entrees acceptees - sorties », a la maille couleur/taille : un total global
+// ne dit pas quelles tailles il reste vraiment.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_stock_sorties (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    modelId TEXT NOT NULL,
+    client_id TEXT,
+    client_nom TEXT,
+    couleur TEXT,
+    taille TEXT,
+    quantite INTEGER NOT NULL,
+    prix_unitaire REAL DEFAULT 0,
+    -- Une sortie = une grille saisie d'un coup, comme pour les entrees.
+    batch_id TEXT,
+    facture_id TEXT,
+    note TEXT,
+    date_sortie TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+
 // Clients de l'atelier — acheteurs des pièces finies. Ils étaient jusqu'ici
 // saisis à la main sur chaque facture de vente : le même client se retrouvait
 // écrit de trois façons, sans historique ni ICE réutilisable. Une fiche par

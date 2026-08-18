@@ -1000,6 +1000,116 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   /** Clients enregistrés — remontés par l'onglet Clients pour être proposés
    *  telles quelles à la sortie de stock (plus de ressaisie d'ICE / RC). */
   const [atelierClients, setAtelierClients] = useState<AtelierClient[]>([]);
+  /** Entrées et sorties de TOUS les modèles : le stock vendable se lit à la
+   *  maille couleur × taille (« il reste 134 pièces » ne dit pas s'il reste des
+   *  XL bleus), donc l'écran a besoin du détail, pas seulement des totaux. */
+  const [allStockEntries, setAllStockEntries] = useState<any[]>([]);
+  const [allStockSorties, setAllStockSorties] = useState<any[]>([]);
+  /** Modèle dont la grille de stock est dépliée dans l'onglet Stock & Ventes. */
+  const [expandedStockModel, setExpandedStockModel] = useState<string | null>(null);
+
+  /** Sortie de stock en préparation : un client du registre, une grille de
+   *  quantités par couleur × taille, un prix. On sort des pièces PRÉCISES, pas
+   *  un total abstrait — sans quoi le stock restant devient invérifiable. */
+  const [sortieForm, setSortieForm] = useState<{
+    model: ModelData;
+    clientId: string;
+    prix: number | '';
+    date: string;
+    grid: Record<string, number | ''>;
+  } | null>(null);
+  const [sortieSaving, setSortieSaving] = useState(false);
+  const [sortieError, setSortieError] = useState<string | null>(null);
+
+  const openSortieModal = (model: ModelData, salePrice: number | null) => {
+    setSortieForm({
+      model,
+      clientId: '',
+      prix: salePrice != null && salePrice > 0 ? Number(salePrice.toFixed(2)) : '',
+      date: new Date().toISOString().split('T')[0],
+      grid: {},
+    });
+    setSortieError(null);
+  };
+
+  const submitSortie = async () => {
+    if (!sortieForm) return;
+    const lignes = Object.entries(sortieForm.grid)
+      .map(([k, v]) => {
+        const [couleur, taille] = k.split('|');
+        return { couleur, taille, quantite: Number(v) || 0 };
+      })
+      .filter(l => l.quantite > 0);
+
+    if (lignes.length === 0) {
+      setSortieError(tx(lang,{fr:'Saisissez au moins une quantité.',ar:'دخّل على الأقل كمية وحدة.',en:'Enter at least one quantity.',es:'Introduzca al menos una cantidad.',pt:'Introduza pelo menos uma quantidade.',tr:'En az bir miktar girin.'}));
+      return;
+    }
+
+    const client = atelierClients.find(c => c.id === sortieForm.clientId);
+    setSortieSaving(true);
+    setSortieError(null);
+    try {
+      const res = await fetch('/api/subcontract/stock-sorties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          modelId: sortieForm.model.id,
+          client_id: client?.id || null,
+          client_nom: client?.nom || null,
+          prix_unitaire: Number(sortieForm.prix) || 0,
+          date_sortie: sortieForm.date,
+          lignes,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || tx(lang,{fr:'La sortie a été refusée.',ar:'تم رفض الإخراج.',en:'The exit was rejected.',es:'La salida fue rechazada.',pt:'A saida foi recusada.',tr:'Cikis reddedildi.'}));
+      await loadStockMovements();
+      setSortieForm(null);
+    } catch (err: any) {
+      setSortieError(err.message);
+    } finally {
+      setSortieSaving(false);
+    }
+  };
+
+
+  const loadStockMovements = async () => {
+    try {
+      const [e, x] = await Promise.all([
+        fetch('/api/subcontract/stock-entries', { credentials: 'include' }).then(r => (r.ok ? r.json() : [])),
+        fetch('/api/subcontract/stock-sorties', { credentials: 'include' }).then(r => (r.ok ? r.json() : [])),
+      ]);
+      setAllStockEntries(Array.isArray(e) ? e : []);
+      setAllStockSorties(Array.isArray(x) ? x : []);
+    } catch {
+      // Hors-ligne : l'onglet retombe sur les totaux de la commande.
+    }
+  };
+
+  /** Stock disponible par modèle, cellule par cellule : entrées ACCEPTÉES moins
+   *  sorties. C'est ce chiffre, et lui seul, qui autorise une vente. */
+  const stockMatrixByModel = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    const cell = (c: any, t: any) => `${String(c ?? '')}|${String(t ?? '')}`;
+    allStockEntries.forEach(en => {
+      if (en.qualite !== 'ACCEPTED' || !en.modelId) return;
+      const m = map.get(en.modelId) || new Map<string, number>();
+      const k = cell(en.couleur, en.taille);
+      m.set(k, (m.get(k) || 0) + (Number(en.quantite) || 0));
+      map.set(en.modelId, m);
+    });
+    allStockSorties.forEach(so => {
+      if (!so.modelId) return;
+      const m = map.get(so.modelId) || new Map<string, number>();
+      const k = cell(so.couleur, so.taille);
+      m.set(k, (m.get(k) || 0) - (Number(so.quantite) || 0));
+      map.set(so.modelId, m);
+    });
+    return map;
+  }, [allStockEntries, allStockSorties]);
+
 
   // Tab 4 (Groups) States
   const { lang } = useLang();
@@ -1485,6 +1595,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     loadCompanyIdentity();
     // Le registre doit être disponible dès la sortie de stock, même si l'onglet
     // Clients n'a jamais été ouvert dans cette session.
+    loadStockMovements();
     fetch('/api/subcontract/clients', { credentials: 'include' })
       .then(r => (r.ok ? r.json() : []))
       .then(d => setAtelierClients(Array.isArray(d) ? d : []))
@@ -1973,7 +2084,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         });
       });
 
-      const remaining = Math.max(0, produced - sold);
+      // Stock restant : le DÉTAIL des mouvements fait foi quand il existe, car
+      // c'est lui qui est ventilé par couleur et par taille. Les totaux de la
+      // commande ne servent que de repli pour les données antérieures.
+      const entered = allStockEntries
+        .filter(en => en.modelId === model.id && en.qualite === 'ACCEPTED')
+        .reduce((a, en) => a + (Number(en.quantite) || 0), 0);
+      const exited = allStockSorties
+        .filter(so => so.modelId === model.id)
+        .reduce((a, so) => a + (Number(so.quantite) || 0), 0);
+      const remaining = entered > 0 || exited > 0
+        ? Math.max(0, entered - exited)
+        : Math.max(0, produced - sold);
 
       // Prix de revient réel (même formule que la fiche de coût). `null` quand
       // le modèle n'a ni gamme chiffrée ni prix de sous-traitance : on n'invente
@@ -1987,7 +2109,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       list.push({
         model,
         producedQty: produced,
-        soldQty: sold,
+        soldQty: exited > 0 ? exited : sold,
         remainingStock: remaining,
         price,
         salePrice,
@@ -1997,7 +2119,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     });
 
     return list;
-  }, [models, orders, invoices, settings, lang, dateLocale]);
+  }, [models, orders, invoices, settings, lang, dateLocale, allStockEntries, allStockSorties]);
 
   // Initialize form for adding order
   const openAddModal = () => {
@@ -4973,7 +5095,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
                     <button
                       disabled={item.remainingStock <= 0}
-                      onClick={() => openSaleModal(item)}
+                      onClick={() => openSortieModal(item.model, item.salePrice)}
                       className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
                         item.remainingStock > 0
                           ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white'
@@ -5002,8 +5124,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface">
+                      {/* Fragment : chaque modèle produit DEUX lignes — la ligne
+                          principale et, dépliée, sa grille couleur x taille. */}
                       {modelStockStats.map(item => (
-                        <tr key={item.model.id} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/50 transition-colors">
+                        <React.Fragment key={item.model.id}>
+                        <tr className="hover:bg-slate-50 dark:hover:bg-dk-elevated/50 transition-colors">
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
@@ -5057,10 +5182,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               )}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-6 py-4 text-right whitespace-nowrap">
+                            {/* Le détail par couleur x taille répond à « me reste-t-il
+                                des XL bleus ? » ; le total seul ne le dit pas. */}
+                            <button
+                              onClick={() => setExpandedStockModel(prev => prev === item.model.id ? null : item.model.id)}
+                              className="mr-2 px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                            >
+                              {expandedStockModel === item.model.id
+                                ? tx(lang,{fr:'Masquer',ar:'إخفاء',en:'Hide',es:'Ocultar',pt:'Ocultar',tr:'Gizle'})
+                                : tx(lang,{fr:'Détail',ar:'التفصيل',en:'Detail',es:'Detalle',pt:'Detalhe',tr:'Detay'})}
+                            </button>
                             <button
                               disabled={item.remainingStock <= 0}
-                              onClick={() => openSaleModal(item)}
+                              onClick={() => openSortieModal(item.model, item.salePrice)}
                               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
                                 item.remainingStock > 0 
                                   ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white hover:scale-[1.02]' 
@@ -5071,6 +5206,71 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             </button>
                           </td>
                         </tr>
+                        {expandedStockModel === item.model.id && (() => {
+                          const fiche: any = item.model.ficheData || {};
+                          const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+                          const sizes: string[] = fiche.sizes || [];
+                          const matrix = stockMatrixByModel.get(item.model.id) || new Map<string, number>();
+                          const at = (c: string, t: string) => matrix.get(`${c}|${t}`) || 0;
+                          const hasGrid = colors.length > 0 && sizes.length > 0;
+                          return (
+                            <tr key={`${item.model.id}-detail`} className="bg-slate-50/60 dark:bg-dk-bg/40">
+                              <td colSpan={8} className="px-6 py-4">
+                                {!hasGrid ? (
+                                  <p className="text-[11px] text-slate-400 dark:text-dk-muted italic">
+                                    {tx(lang,{fr:"Ce modèle n'a ni couleurs ni tailles : le stock reste un total global.",ar:'هاد الموديل ما عندو لا ألوان لا مقاسات: المخزون يبقى مجموعاً عامّاً.',en:'This model has no colors or sizes: stock stays a global total.',es:'Este modelo no tiene colores ni tallas: el stock es un total global.',pt:'Este modelo nao tem cores nem tamanhos: o stock e um total global.',tr:'Bu modelin rengi veya bedeni yok: stok genel toplam kalir.'})}
+                                  </p>
+                                ) : (
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-[11px]">
+                                      <thead className="text-slate-400 dark:text-dk-muted uppercase text-[9px] border-b border-slate-200 dark:border-dk-border">
+                                        <tr>
+                                          <th className="px-2 py-1.5 text-left font-medium">{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
+                                          {sizes.map(sz => <th key={sz} className="px-2 py-1.5 text-center font-medium">{sz}</th>)}
+                                          <th className="px-2 py-1.5 text-right font-medium">Total</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                                        {colors.map(c => {
+                                          const rowTotal = sizes.reduce((a, sz) => a + at(c.name, sz), 0);
+                                          return (
+                                            <tr key={c.id}>
+                                              <td className="px-2 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">
+                                                <span className="inline-flex items-center gap-1.5"><ColorDot hex={colorHexOf(c.name)} />{c.name}</span>
+                                              </td>
+                                              {sizes.map(sz => {
+                                                const q = at(c.name, sz);
+                                                return (
+                                                  <td key={sz} className={`px-2 py-1.5 text-center font-semibold ${q > 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-300 dark:text-dk-muted'}`}>
+                                                    {q || '—'}
+                                                  </td>
+                                                );
+                                              })}
+                                              <td className="px-2 py-1.5 text-right font-bold text-slate-700 dark:text-dk-text-soft">{rowTotal || '—'}</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                      <tfoot className="border-t border-slate-200 dark:border-dk-border">
+                                        <tr>
+                                          <td className="px-2 py-1.5 font-bold uppercase text-[9px] text-slate-500 dark:text-dk-muted">Total</td>
+                                          {sizes.map(sz => {
+                                            const t = colors.reduce((a, c) => a + at(c.name, sz), 0);
+                                            return <td key={sz} className="px-2 py-1.5 text-center font-bold text-slate-600 dark:text-dk-text-soft">{t || '—'}</td>;
+                                          })}
+                                          <td className="px-2 py-1.5 text-right font-extrabold text-indigo-600 dark:text-dk-accent">
+                                            {colors.reduce((a, c) => a + sizes.reduce((b, sz) => b + at(c.name, sz), 0), 0) || '—'}
+                                          </td>
+                                        </tr>
+                                      </tfoot>
+                                    </table>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })()}
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>
@@ -6086,6 +6286,188 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   })
                 )}
               </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Sortie de stock : client du registre + grille couleur x taille. */}
+      {sortieForm && createPortal(
+        <div className="fixed inset-0 z-[245] flex items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSortieForm(null)}>
+          <div className="bg-white dark:bg-dk-surface rounded-none sm:rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-none sm:max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between sticky top-0 bg-white dark:bg-dk-surface z-10">
+              <h3 className="text-[13px] font-bold text-slate-900 dark:text-dk-text flex items-center gap-2 min-w-0">
+                <Truck className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />
+                <span className="truncate">
+                  {tx(lang,{fr:'Sortie de stock',ar:'إخراج من المخزون',en:'Stock exit',es:'Salida de stock',pt:'Saida de stock',tr:'Stok cikisi'})}
+                  {' — '}{sortieForm.model.meta_data?.nom_modele || sortieForm.model.id}
+                </span>
+              </h3>
+              <button onClick={() => setSortieForm(null)} className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                    {tx(lang,{fr:'Client',ar:'الزبون',en:'Client',es:'Cliente',pt:'Cliente',tr:'Musteri'})}
+                  </label>
+                  <select
+                    value={sortieForm.clientId}
+                    onChange={e => setSortieForm(prev => prev && ({ ...prev, clientId: e.target.value }))}
+                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                  >
+                    <option value="">{tx(lang,{fr:'— Aucun —',ar:'— بلا —',en:'— None —',es:'— Ninguno —',pt:'— Nenhum —',tr:'— Yok —'})}</option>
+                    {atelierClients.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.nom}{c.type === 'GROS' ? ` · ${tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {atelierClients.length === 0 && (
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
+                      {tx(lang,{fr:"Aucun client enregistré — ajoutez-le dans l'onglet Clients.",ar:'ما كاين حتى زبون مسجّل — زيدو ف تبويب Clients.',en:'No client recorded — add one in the Clients tab.',es:'Ningun cliente registrado — anadalo en la pestana Clientes.',pt:'Nenhum cliente registado — adicione no separador Clientes.',tr:'Kayitli musteri yok — Musteriler sekmesinden ekleyin.'})}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                    {tx(lang,{fr:'Prix unitaire',ar:'ثمن الوحدة',en:'Unit price',es:'Precio unitario',pt:'Preco unitario',tr:'Birim fiyat'})}
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="any"
+                    value={sortieForm.prix}
+                    onChange={e => setSortieForm(prev => prev && ({ ...prev, prix: e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0) }))}
+                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                    {tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'})}
+                  </label>
+                  <input
+                    type="date"
+                    value={sortieForm.date}
+                    onChange={e => setSortieForm(prev => prev && ({ ...prev, date: e.target.value }))}
+                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                  />
+                </div>
+              </div>
+
+              {/* Grille : chaque case indique en gris le stock DISPONIBLE pour cette
+                  couleur et cette taille — on ne peut pas sortir ce qui n'existe pas. */}
+              {(() => {
+                const fiche: any = sortieForm.model.ficheData || {};
+                const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+                const sizes: string[] = fiche.sizes || [];
+                const matrix = stockMatrixByModel.get(sortieForm.model.id) || new Map<string, number>();
+                const dispo = (c: string, t: string) => matrix.get(`${c}|${t}`) || 0;
+                if (colors.length === 0 || sizes.length === 0) {
+                  return (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold">
+                      {tx(lang,{fr:"Ce modèle n'a ni couleurs ni tailles : complétez sa grille dans la fiche de coût.",ar:'هاد الموديل ما عندو لا ألوان لا مقاسات: كمّل الشبكة ف بطاقة التكلفة.',en:'This model has no colors or sizes: complete its grid in the cost sheet.',es:'Este modelo no tiene colores ni tallas: complete su rejilla en la ficha de coste.',pt:'Este modelo nao tem cores nem tamanhos: complete a grelha na ficha de custo.',tr:'Bu modelin rengi veya bedeni yok: maliyet kartindaki izgarayi tamamlayin.'})}
+                    </p>
+                  );
+                }
+                const totalSortie: number = Object.values(sortieForm.grid).reduce<number>((a, v) => a + (Number(v) || 0), 0);
+                return (
+                  <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px]">
+                        <thead className="bg-slate-50 dark:bg-dk-bg/60 text-slate-400 dark:text-dk-muted uppercase text-[9px] border-b border-slate-200 dark:border-dk-border">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
+                            {sizes.map(sz => <th key={sz} className="px-2 py-2 text-center font-medium">{sz}</th>)}
+                            <th className="px-3 py-2 text-right font-medium">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                          {colors.map(c => {
+                            const rowTotal = sizes.reduce((a, sz) => a + (Number(sortieForm.grid[`${c.name}|${sz}`]) || 0), 0);
+                            return (
+                              <tr key={c.id}>
+                                <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">
+                                  <span className="inline-flex items-center gap-1.5"><ColorDot hex={colorHexOf(c.name)} />{c.name}</span>
+                                </td>
+                                {sizes.map(sz => {
+                                  const k = `${c.name}|${sz}`;
+                                  const d = dispo(c.name, sz);
+                                  return (
+                                    <td key={sz} className="px-1 py-1.5 text-center">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={d}
+                                        disabled={d <= 0}
+                                        placeholder={d > 0 ? String(d) : '—'}
+                                        value={sortieForm.grid[k] ?? ''}
+                                        onChange={e => setSortieForm(prev => prev && ({
+                                          ...prev,
+                                          grid: { ...prev.grid, [k]: e.target.value === '' ? '' : Math.min(d, Math.max(0, parseInt(e.target.value) || 0)) },
+                                        }))}
+                                        title={`${tx(lang,{fr:'Disponible',ar:'المتوفّر',en:'Available',es:'Disponible',pt:'Disponivel',tr:'Mevcut'})} : ${d}`}
+                                        className={`w-14 text-center rounded-lg px-1 py-1 text-[11px] outline-none border ${
+                                          d <= 0
+                                            ? 'bg-slate-50 dark:bg-dk-bg/40 border-transparent text-slate-300 dark:text-dk-muted'
+                                            : 'bg-slate-50 dark:bg-dk-bg border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent'
+                                        }`}
+                                      />
+                                    </td>
+                                  );
+                                })}
+                                <td className="px-3 py-1.5 text-right font-bold text-slate-700 dark:text-dk-text-soft">{rowTotal || '—'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot className="bg-slate-50 dark:bg-dk-bg/60 border-t border-slate-200 dark:border-dk-border">
+                          <tr>
+                            <td className="px-3 py-2 font-bold uppercase text-[9px] text-slate-500 dark:text-dk-muted">Total</td>
+                            {sizes.map(sz => {
+                              const t = colors.reduce((a, c) => a + (Number(sortieForm.grid[`${c.name}|${sz}`]) || 0), 0);
+                              return <td key={sz} className="px-2 py-2 text-center font-bold text-slate-600 dark:text-dk-text-soft">{t || '—'}</td>;
+                            })}
+                            <td className="px-3 py-2 text-right font-extrabold text-indigo-600 dark:text-dk-accent">{totalSortie || '—'}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                    <div className="px-4 py-2 border-t border-slate-100 dark:border-dk-border text-[10px] text-slate-500 dark:text-dk-muted">
+                      {tx(lang,{fr:'Le gris dans chaque case indique le stock disponible.',ar:'الرقم الرمادي ف كل خانة كيبيّن المخزون المتوفّر.',en:'The grey number in each cell shows available stock.',es:'El numero gris de cada celda indica el stock disponible.',pt:'O numero cinzento em cada celula mostra o stock disponivel.',tr:'Her hucredeki gri sayi mevcut stogu gosterir.'})}
+                      {' · '}
+                      {tx(lang,{fr:'Montant',ar:'المبلغ',en:'Amount',es:'Importe',pt:'Montante',tr:'Tutar'})} : <b>{fmt(totalSortie * (Number(sortieForm.prix) || 0))} {currency}</b>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {sortieError && (
+                <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{sortieError}</p>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-dk-surface">
+              <button
+                type="button"
+                onClick={() => setSortieForm(null)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+              >
+                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'Iptal'})}
+              </button>
+              <button
+                type="button"
+                disabled={sortieSaving}
+                onClick={submitSortie}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors disabled:opacity-40"
+              >
+                {sortieSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                {tx(lang,{fr:'Enregistrer la sortie',ar:'حفظ الإخراج',en:'Save the exit',es:'Guardar la salida',pt:'Guardar a saida',tr:'Cikisi kaydet'})}
+              </button>
             </div>
           </div>
         </div>,

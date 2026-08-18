@@ -80,7 +80,7 @@ import {
   updateSubcontractExpense,
   deleteSubcontractExpense,
 } from './server/subcontractController';
-import { getClients, saveClient, deleteClient, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch } from './server/clientsController';
+import { getClients, saveClient, deleteClient, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch } from './server/clientsController';
 import { getSuiviData, saveSuiviData } from './server/suiviController';
 import { getPosteSuivi, savePosteSuivi } from './server/posteSuiviController';
 import { getDemandesAppro, saveDemandesAppro } from './server/demandesApproController';
@@ -661,6 +661,10 @@ async function startServer() {
   app.post('/api/subcontract/stock-entries', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createStockEntry);
   app.delete('/api/subcontract/stock-entries/batch/:batchId', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteStockBatch);
   app.delete('/api/subcontract/stock-entries/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_stock_entries', 'owner_id'), deleteStockEntry);
+  // Sorties de stock fini (ventes clients), detaillees par couleur x taille.
+  app.get('/api/subcontract/stock-sorties', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStockSorties);
+  app.post('/api/subcontract/stock-sorties', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createStockSortie);
+  app.delete('/api/subcontract/stock-sorties/batch/:batchId', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteStockSortieBatch);
   app.put('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), updateSubcontractOrder);
   app.delete('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontract_orders', 'owner_id'), deleteSubcontractOrder);
   // ⚠️ doit être déclarée avant toute route paramétrée /api/subcontract/:id
