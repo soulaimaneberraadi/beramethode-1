@@ -9,7 +9,7 @@ import { computeModelCostPrice, prixPlancher, estSousPlancher, SOUS_COUT_NOTE_PR
 import { resolveCommercialAccess } from '../app/accessControl';
 import { useAuth } from '../src/context/AuthContext';
 import { usePermissions } from '../src/context/PermissionsContext';
-import { diffOrderVsModelGrid } from '../utils/subcontractGrid';
+import { diffOrderVsModelGrid, orderGridToModel } from '../utils/subcontractGrid';
 import InlineInvoiceList from './InlineInvoiceList';
 import FactureUploader from './FactureUploader';
 import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
@@ -823,7 +823,26 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const fiche: any = models.find(m => m.id === stockEntryOrder.modelId)?.ficheData || {};
     const colors: Array<{ id: string; name: string }> = fiche.colors || [];
     const sizes: string[] = fiche.sizes || [];
-    const gq: Record<string, number> = fiche.gridQuantities || {};
+    // Ce qui reste à recevoir doit se lire contre CETTE commande, pas contre la
+    // fiche générique du modèle : un modèle réutilisé sur plusieurs commandes a
+    // souvent une grille différente d'une commande à l'autre, et lire la fiche
+    // à la place désactivait des cases pourtant réellement commandées — sans
+    // aucun message pour dire pourquoi. La grille de la commande (`grid_json`)
+    // fait foi ; la fiche ne sert de repli que pour les commandes anciennes qui
+    // n'en ont pas encore.
+    // `parseJsonSafe` est déclaré plus bas dans ce composant : un useMemo
+    // s'exécute pendant le rendu, avant que cette déclaration n'ait eu lieu
+    // dans le corps de la fonction — l'appeler ici lèverait une erreur de
+    // zone morte temporelle. D'où ce parsing local plutôt qu'un appel partagé.
+    const rawGridJson = (stockEntryOrder as any).grid_json;
+    let orderGrid: Record<string, Record<string, number>> | null = null;
+    if (rawGridJson) {
+      try { orderGrid = typeof rawGridJson === 'string' ? JSON.parse(rawGridJson) : rawGridJson; }
+      catch { orderGrid = null; }
+    }
+    const gq: Record<string, number> = (orderGrid && Object.keys(orderGrid).length > 0)
+      ? orderGridToModel(orderGrid, colors, sizes).gridQuantities
+      : (fiche.gridQuantities || {});
 
     const commande: Record<string, number> = {};
     colors.forEach(c => sizes.forEach((sz, i) => {
