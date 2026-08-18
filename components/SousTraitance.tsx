@@ -20,7 +20,7 @@ import {
   ChevronDown, ChevronUp, Loader2, Info, Eye, Layers, Palette,
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
-  AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil
+  AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil, Table
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
@@ -977,6 +977,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  existe parce que c'est exactement la population qui bloque une vente. */
   const [stockSearch, setStockSearch] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'inStock' | 'noPrice' | 'unventilated'>('all');
+  /** Cartes vs tableau : le mobile impose toujours les cartes (le tableau y est
+   *  illisible), ce choix ne pilote que l'écran desktop. */
+  const [stockViewMode, setStockViewMode] = useState<'cards' | 'table'>('cards');
   /** Édition en ligne du prix de vente : id du modèle en cours d'édition. */
   const [editingPriceModelId, setEditingPriceModelId] = useState<string | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>('');
@@ -5377,6 +5380,37 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
               {/* Recherche + filtres d'intention */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+                {/* Cartes vs tableau : la grille couleur x taille reste ouverte
+                    en permanence dans les cartes — c'est elle qui répond à « me
+                    reste-t-il du XL bleu ? », pas le total. Le tableau reste
+                    utile pour un balayage rapide de nombreux modèles. Le
+                    bouton n'a de sens qu'à partir de md : en dessous, le
+                    tableau est de toute façon illisible et les cartes
+                    s'imposent seules. */}
+                <div className="hidden md:inline-flex shrink-0 rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setStockViewMode('cards')}
+                    title={tx(lang,{fr:'Vue cartes : grille couleur x taille toujours visible',ar:'عرض البطاقات: شبكة اللون والمقاس ظاهرة دائماً',en:'Card view: color x size grid always visible',es:'Vista de tarjetas: rejilla color x talla siempre visible',pt:'Vista de cartoes: grelha cor x tamanho sempre visivel',tr:'Kart gorunumu: renk x beden izgarasi her zaman gorunur'})}
+                    className={stockViewMode === 'cards'
+                      ? 'px-3 py-2 text-[11px] font-bold flex items-center gap-1.5 bg-slate-800 dark:bg-dk-accent text-white transition-colors'
+                      : 'px-3 py-2 text-[11px] font-bold flex items-center gap-1.5 bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors'}
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    {tx(lang,{fr:'Cartes',ar:'بطاقات',en:'Cards',es:'Tarjetas',pt:'Cartoes',tr:'Kartlar'})}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStockViewMode('table')}
+                    title={tx(lang,{fr:'Vue tableau : balayage rapide, détail sur demande',ar:'عرض الجدول: مسح سريع، التفصيل عند الطلب',en:'Table view: quick scan, detail on demand',es:'Vista de tabla: barrido rápido, detalle bajo demanda',pt:'Vista de tabela: varredura rapida, detalhe sob pedido',tr:'Tablo gorunumu: hizli tarama, istege bagli detay'})}
+                    className={stockViewMode === 'table'
+                      ? 'px-3 py-2 text-[11px] font-bold flex items-center gap-1.5 bg-slate-800 dark:bg-dk-accent text-white border-l border-slate-800 dark:border-dk-accent transition-colors'
+                      : 'px-3 py-2 text-[11px] font-bold flex items-center gap-1.5 bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated border-l border-slate-200 dark:border-dk-border transition-colors'}
+                  >
+                    <Table className="w-3.5 h-3.5" />
+                    {tx(lang,{fr:'Tableau',ar:'جدول',en:'Table',es:'Tabla',pt:'Tabela',tr:'Tablo'})}
+                  </button>
+                </div>
                 <div className="relative flex-1 min-w-0">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted pointer-events-none" />
                   <input
@@ -5415,7 +5449,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               )}
 
               {/* Vue mobile : cartes (le tableau ci-dessous devient illisible sous md) */}
-              <div className="md:hidden space-y-3">
+              <div className={stockViewMode === 'table' ? 'md:hidden space-y-3' : 'grid grid-cols-1 md:grid-cols-2 gap-3'}>
                 {filteredStockStats.map(item => (
                   <div key={item.model.id} className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none p-4 space-y-3">
                     <div className="flex items-center gap-3">
@@ -5580,7 +5614,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 ))}
               </div>
 
-              <div className="hidden md:block bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none overflow-hidden">
+              <div className={stockViewMode === 'table' ? 'hidden md:block bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none overflow-hidden' : 'hidden'}>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-semibold text-xs uppercase">
