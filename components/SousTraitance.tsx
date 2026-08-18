@@ -557,6 +557,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     });
   }, []);
   const [modelInfoTarget, setModelInfoTarget] = useState<ModelData | null>(null);
+  /** Commande d'où l'on a ouvert la fiche modèle — permet de rebondir vers sa
+   *  Fiche de Commande Sous-traitance sans redemander à l'utilisateur laquelle. */
+  const [modelInfoOrderId, setModelInfoOrderId] = useState<string | null>(null);
 
   // Core Data States
   const [orders, setOrders] = useState<SubcontractOrder[]>([]);
@@ -2442,6 +2445,31 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     }
   };
 
+  /** L'évaluation se donne PAR COMMANDE (une prestation = une note), jamais
+   *  globalement sur le sous-traitant : la note affichée sur sa fiche est la
+   *  moyenne de ses commandes notées. Cliquer la même étoile annule la note. */
+  const handleRateOrder = async (order: SubcontractOrder, rating: number) => {
+    const next = order.subcontractorRating === rating ? undefined : rating;
+    const patch: Partial<SubcontractOrder> = { subcontractorRating: next };
+
+    setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, ...patch } : o)));
+    setDetailOrder(prev => (prev && prev.id === order.id ? { ...prev, ...patch } : prev));
+
+    try {
+      const res = await fetch(`/api/subcontract/${order.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ subcontractorRating: next ?? null })
+      });
+      if (!res.ok) throw new Error(tx(lang,{fr:'Echec de la mise à jour',ar:'فشل التحديث',en:'Update failed',es:'Error al actualizar',pt:'Falha na atualização',tr:'Güncelleme başarısız'}));
+    } catch (err: any) {
+      setOrders(prev => prev.map(o => (o.id === order.id ? order : o)));
+      setDetailOrder(prev => (prev && prev.id === order.id ? order : prev));
+      setError(err.message || tx(lang,{fr:'Erreur de communication',ar:'خطأ في الاتصال',en:'Communication error',es:'Error de comunicación',pt:'Erro de comunicação',tr:'İletişim hatası'}));
+    }
+  };
+
   /** Un jalon dit « le tissu est parti », « la FT est envoyée » : c'est une
    *  déclaration engageante, lue ailleurs dans l'application. Un clic par
    *  inadvertance ne doit pas la produire, ni l'effacer — d'où la confirmation.
@@ -3070,6 +3098,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
     // Pastille de teinte sur le papier : le magasinier reconnaît la couleur sans
     // lire, exactement comme à l'écran.
+    const modelPhoto = models.find(m => m.id === order.modelId)?.image || '';
+    const stPhoto = subcontractorProfiles.find(p => p.name === order.subcontractorName)?.photo || '';
+    // Vignettes en ligne : le visuel colle au nom qu'il illustre. DÉCLARÉES ICI,
+    // avant tout bloc qui les emploie — plus bas, elles étaient dans la zone morte
+    // temporelle du `const` et l'impression échouait sur une ReferenceError.
+    const visualsBlock = '';
+    const modelThumb = bonEnvoiShow.model ? inlineThumbHtml(modelPhoto, 20) : '';
+    const stThumb = bonEnvoiShow.subcontractor ? inlineThumbHtml(stPhoto, 20) : '';
+    const logoThumb = bonEnvoiShow.logo ? inlineThumbHtml(companyIdentity.logo, 22) : '';
+    // Photo de la matière : elle vit dans la fiche Magasin, appariée par nom
+    // normalisé (casse et espaces indifférents).
+    const materialPhoto = (name: string) => {
+      const n = (v: any) => String(v ?? '').trim().toLowerCase();
+      const item = magasinData.find((m: any) => n(m.nom || m.designation) === n(name));
+      return (item as any)?.photo || (item as any)?.image || '';
+    };
+
     const colorDotHtml = (name: string) => {
       const hex = colorHexOf(name);
       return hex
@@ -3160,30 +3205,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     tr:`Uyarı: renk detayı ${rowsTotal} adet toplarken sipariş ${order.totalQuantity} kaydediyor. Sevkiyattan önce kontrol edin.`,
                   }))}
             </div>`;
-
-    // Visuels optionnels : logo en en-tête, vignettes modèle / sous-traitant.
-    // Ils ne sont imprimés que si l'utilisateur les a cochés ET qu'ils existent.
-    const modelPhoto = models.find(m => m.id === order.modelId)?.image || '';
-    const stPhoto = subcontractorProfiles.find(p => p.name === order.subcontractorName)?.photo || '';
-    const visuals: string[] = [];
-    if (bonEnvoiShow.model && modelPhoto) {
-      visuals.push(`<div class="thumb"><img src="${esc(modelPhoto)}" alt="" /><div>${esc(order.modelName || order.modelId)}</div></div>`);
-    }
-    if (bonEnvoiShow.subcontractor && stPhoto) {
-      visuals.push(`<div class="thumb"><img src="${esc(stPhoto)}" alt="" /><div>${esc(order.subcontractorName)}</div></div>`);
-    }
-    // Vignettes en ligne : le visuel colle au nom qu'il illustre.
-    const visualsBlock = '';
-    const modelThumb = bonEnvoiShow.model ? inlineThumbHtml(modelPhoto, 20) : '';
-    const stThumb = bonEnvoiShow.subcontractor ? inlineThumbHtml(stPhoto, 20) : '';
-    const logoThumb = bonEnvoiShow.logo ? inlineThumbHtml(companyIdentity.logo, 22) : '';
-    // Photo de la matière : elle vit dans la fiche Magasin, reliée par magasinId
-    // puis, à défaut, par le nom normalisé.
-    const materialPhoto = (name: string) => {
-      const norm = (v: any) => String(v ?? '').trim().toLowerCase();
-      const item = magasinData.find((m: any) => norm(m.nom || m.designation) === norm(name));
-      return (item as any)?.photo || (item as any)?.image || '';
-    };
 
     // Jalons : cases à cocher imprimées, l'état venant de la commande. Sur le
     // papier, la case cochée vaut engagement de ce qui a déjà été fourni.
@@ -4669,16 +4690,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        {selectedSubcontractor.profile && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteProfile(selectedSubcontractor.profile!.id)}
-                            className="p-1.5 rounded-lg text-rose-400 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
-                            title={tx(lang,{fr:'Supprimer le profil',ar:'حذف الملف',en:'Delete profile',es:'Eliminar perfil',pt:'Eliminar perfil',tr:'Profili sil'})}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
                       </div>
                     </div>
 
@@ -4696,10 +4707,31 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             <p className="text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft truncate" title={f.value}>{f.value}</p>
                           </div>
                         ))}
-                        <div className="min-w-0 leading-tight">
-                          <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">{tx(lang,{fr:'Évaluation',ar:'التقييم',en:'Rating',es:'Evaluación',pt:'Avaliação',tr:'Değerlendirme'})}</p>
-                          <p className="text-[12px] font-semibold text-amber-500">{'★'.repeat(Math.round(selectedSubcontractor.profile.rating || 5))}</p>
-                        </div>
+                        {(() => {
+                          // La note du sous-traitant n'est pas saisie : c'est la
+                          // moyenne des notes données commande par commande.
+                          const rated = selectedSubcontractor.orders.filter(o => (o.subcontractorRating || 0) > 0);
+                          const avg = rated.length
+                            ? rated.reduce((s, o) => s + (o.subcontractorRating || 0), 0) / rated.length
+                            : 0;
+                          return (
+                            <div className="min-w-0 leading-tight">
+                              <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">
+                                {tx(lang,{fr:'Évaluation',ar:'التقييم',en:'Rating',es:'Evaluación',pt:'Avaliação',tr:'Değerlendirme'})}
+                              </p>
+                              {rated.length === 0 ? (
+                                <p className="text-[12px] font-semibold text-slate-400 dark:text-dk-muted">—</p>
+                              ) : (
+                                <p className="text-[12px] font-semibold text-amber-500 flex items-center gap-1">
+                                  <span>{'★'.repeat(Math.round(avg))}{'☆'.repeat(5 - Math.round(avg))}</span>
+                                  <span className="text-slate-400 dark:text-dk-muted font-bold text-[10px]">
+                                    {avg.toFixed(1)} · {rated.length}
+                                  </span>
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dk-border bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-[11px] font-semibold">
@@ -4716,6 +4748,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             <th className="px-4 py-3">{tx(lang,{fr:'Prix/pièce',ar:'السعر/قطعة',en:'Price/piece',es:'Precio/pieza',pt:'Preço/peça',tr:'Fiyat/adet'})}</th>
                             <th className="px-4 py-3">{tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</th>
                             <th className="px-4 py-3">{tx(lang,{fr:'Livraison',ar:'التسليم',en:'Delivery',es:'Entrega',pt:'Entrega',tr:'Teslimat'})}</th>
+                            <th className="px-4 py-3">{tx(lang,{fr:'Évaluation',ar:'التقييم',en:'Rating',es:'Evaluación',pt:'Avaliação',tr:'Değerlendirme'})}</th>
+                            <th className="px-4 py-3 text-right">{tx(lang,{fr:'Fiche',ar:'البطاقة',en:'Sheet',es:'Ficha',pt:'Ficha',tr:'Kart'})}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
@@ -4725,7 +4759,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             return (
                               <tr
                                 key={o.id}
-                                onClick={() => m && setModelInfoTarget(m)}
+                                onClick={() => { if (m) { setModelInfoOrderId(o.id); setModelInfoTarget(m); } }}
                                 className={`${m ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-dk-elevated/60' : ''} transition-colors`}
                               >
                                 <td className="px-4 py-3">
@@ -4744,6 +4778,33 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 <td className="px-4 py-3 text-slate-700 dark:text-dk-text-soft">{(o.pricePerPiece || 0).toLocaleString()} MAD</td>
                                 <td className="px-4 py-3 font-semibold text-slate-800 dark:text-dk-text">{total.toLocaleString()} MAD</td>
                                 <td className="px-4 py-3 text-slate-700 dark:text-dk-text-soft">{o.deliveryDate || '-'}</td>
+                                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center gap-0.5">
+                                    {[1, 2, 3, 4, 5].map(n => (
+                                      <button
+                                        key={n}
+                                        type="button"
+                                        onClick={() => handleRateOrder(o, n)}
+                                        className="p-0.5 rounded hover:scale-110 transition-transform"
+                                        title={`${n}/5`}
+                                      >
+                                        <Star
+                                          className={`w-3.5 h-3.5 ${n <= (o.subcontractorRating || 0) ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-dk-border'}`}
+                                        />
+                                      </button>
+                                    ))}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setDetailOrder(o); setIsDetailModalOpen(true); }}
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-dk-accent-text hover:underline whitespace-nowrap"
+                                  >
+                                    <span>{tx(lang,{fr:'Voir la fiche',ar:'عرض البطاقة',en:'View sheet',es:'Ver ficha',pt:'Ver ficha',tr:'Kartı gör'})}</span>
+                                    <ArrowRight className="w-3 h-3" />
+                                  </button>
+                                </td>
                               </tr>
                             );
                           })}
@@ -8285,6 +8346,39 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     ))}
                   </div>
                 </div>
+              )}
+            </div>
+
+            {/* Rebonds : fiche de commande liée, et ouverture du modèle complet */}
+            <div className="px-5 py-3 border-t border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50 flex flex-wrap items-center justify-end gap-2">
+              {(() => {
+                const linkedOrder = orders.find(o => o.id === modelInfoOrderId) || null;
+                if (!linkedOrder) return null;
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModelInfoTarget(null);
+                      setDetailOrder(linkedOrder);
+                      setIsDetailModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-indigo-600 dark:text-dk-accent-text hover:bg-indigo-50 dark:hover:bg-dk-accent/10 transition-colors"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>{tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                );
+              })()}
+              {onLoadModel && (
+                <button
+                  type="button"
+                  onClick={() => { const m = modelInfoTarget; setModelInfoTarget(null); if (m) onLoadModel(m); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 text-white text-[11px] font-bold transition-colors"
+                >
+                  <span>{tx(lang,{fr:'Voir son modèle',ar:'عرض الموديل',en:'Open model',es:'Ver su modelo',pt:'Ver o modelo',tr:'Modeli aç'})}</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
               )}
             </div>
           </div>
