@@ -5933,19 +5933,27 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     </tbody>
                     {filteredStockStats.length > 0 && (
                       <tfoot className="bg-slate-50 dark:bg-dk-bg border-t border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text">
+                        {/* Cinq colonnes dans le corps, cinq colonnes ici : un pied
+                            qui n'aligne pas ses colSpan sur l'en-tête laisse le
+                            navigateur recalculer des largeurs incohérentes entre
+                            thead/tbody/tfoot — d'où l'espace vide et les totaux
+                            décalés que ce correctif supprime. */}
                         <tr className="font-bold text-xs">
-                          <td className="px-6 py-3 uppercase text-[10px] text-slate-500 dark:text-dk-muted" colSpan={3}>
+                          <td className="px-6 py-3 uppercase text-[10px] text-slate-500 dark:text-dk-muted" colSpan={2}>
                             {tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})} ({filteredStockStats.length})
                           </td>
-                          <td className="px-6 py-3">{stockTotals.produced.toLocaleString(dateLocale)} pcs</td>
-                          <td className="px-6 py-3">{stockTotals.exited.toLocaleString(dateLocale)} pcs</td>
-                          <td className="px-6 py-3">{stockTotals.invoiced.toLocaleString(dateLocale)} pcs</td>
-                          <td className="px-6 py-3">{stockTotals.remaining.toLocaleString(dateLocale)} pcs</td>
-                          <td className="px-6 py-3" colSpan={2}>
+                          <td className="px-6 py-3 whitespace-nowrap">
+                            {stockTotals.produced.toLocaleString(dateLocale)}
+                            {' → '}{stockTotals.exited.toLocaleString(dateLocale)}
+                            {' → '}{stockTotals.invoiced.toLocaleString(dateLocale)}
+                            {' → '}{stockTotals.remaining.toLocaleString(dateLocale)}
+                          </td>
+                          <td className="px-6 py-3">
                             {canSeeCostHere
                               ? `${tx(lang,{fr:'Valeur (revient)',ar:'القيمة (بالتكلفة)',en:'Value (cost)',es:'Valor (coste)',pt:'Valor (custo)',tr:'Deger (maliyet)'})} : ${fmt(stockTotals.value)} ${currency}`
                               : '—'}
                           </td>
+                          <td className="px-6 py-3" />
                         </tr>
                       </tfoot>
                     )}
