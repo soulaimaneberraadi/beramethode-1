@@ -5366,32 +5366,35 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           {activeTab === 'stock' && (
             <div className="space-y-4">
               {/* Barre d'indicateurs : un stock fini se pilote d'abord par sa
-                  VALEUR immobilisée, pas par le nombre de lignes du tableau. */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  VALEUR immobilisée, pas par le nombre de lignes du tableau.
+                  Une seule ligne, toujours — sur petit écran elle défile
+                  horizontalement au lieu de s'empiler en 2x2, pour rester un
+                  vrai bandeau de synthèse qu'on lit d'un balayage. */}
+              <div className="flex items-stretch gap-2.5 overflow-x-auto pb-1 -mx-1 px-1">
                 {/* Valorisation au cout : masquee en bloc quand le cloisonnement
                     commercial est actif. Afficher 0 serait une information FAUSSE. */}
                 {canSeeCostHere && (
-                  <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                    <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">
+                  <div className="shrink-0 min-w-[150px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
+                    <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
                       {tx(lang,{fr:'Valeur du stock (revient)',ar:'قيمة المخزون (بالتكلفة)',en:'Stock value (cost)',es:'Valor del stock (coste)',pt:'Valor do stock (custo)',tr:'Stok degeri (maliyet)'})}
                     </span>
-                    <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm">{fmt(stockKpis.value)} {currency}</span>
+                    <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm whitespace-nowrap">{fmt(stockKpis.value)} {currency}</span>
                   </div>
                 )}
-                <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">
+                <div className="shrink-0 min-w-[150px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
+                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
                     {tx(lang,{fr:'Pièces disponibles',ar:'القطع المتوفّرة',en:'Available pieces',es:'Piezas disponibles',pt:'Pecas disponiveis',tr:'Mevcut parca'})}
                   </span>
                   <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm">{stockKpis.available.toLocaleString(dateLocale)}</span>
                 </div>
-                <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">
+                <div className="shrink-0 min-w-[150px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
+                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
                     {tx(lang,{fr:'Pièces sorties',ar:'القطع المخرَجة',en:'Pieces exited',es:'Piezas salidas',pt:'Pecas saidas',tr:'Cikan parca'})}
                   </span>
                   <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm">{stockKpis.exited.toLocaleString(dateLocale)}</span>
                 </div>
-                <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">
+                <div className="shrink-0 min-w-[190px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
+                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
                     {tx(lang,{fr:'Modèles sans prix de vente',ar:'موديلات بلا ثمن بيع',en:'Models without sale price',es:'Modelos sin precio de venta',pt:'Modelos sem preco de venda',tr:'Satis fiyati olmayan model'})}
                   </span>
                   <span className={`block mt-1 font-bold text-sm ${stockKpis.noPrice > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-dk-text'}`}>
