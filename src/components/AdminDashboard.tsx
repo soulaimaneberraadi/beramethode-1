@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   Trash2, Shield, User, Search, AlertCircle, Download, GitMerge, Database,
@@ -277,8 +277,12 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
 
   const finishAfterWarning = () => { clearLocalAppData(); window.location.reload(); };
 
-  const setMeta = (key: string, val: string) =>
+  const setMeta = (key: string, val: string) => {
+    // Toute frappe rend la fiche « sale » : c'est ce drapeau qui autorise
+    // l'enregistrement automatique, et qui l'empêche au simple chargement.
+    dirtyRef.current = true;
     setCompany(c => c ? { ...c, profileMeta: { ...(c.profileMeta || {}), [key]: val } } : c);
+  };
 
   const onLogoFile = (file: File) => {
     setLogoError(null);
@@ -289,7 +293,27 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
     reader.readAsDataURL(file);
   };
 
-  const saveCompany = async () => {
+  /** Enregistrement automatique de la fiche entreprise.
+   *
+   *  Ces informations alimentent l'en-tête de TOUS les documents (factures, bons
+   *  d'envoi, fiches). Les laisser derrière un bouton, c'est prendre le risque
+   *  qu'un ICE saisi mais non enregistré manque sur la prochaine facture. On
+   *  sauvegarde donc dès que la saisie se stabilise — 900 ms sans frappe — ce qui
+   *  évite aussi une requête par caractère.
+   *
+   *  `dirtyRef` empêche un enregistrement au simple chargement de la page : sans
+   *  lui, l'arrivée des données déclencherait aussitôt une écriture inutile. */
+  const dirtyRef = useRef(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!company || !company.canEdit || !dirtyRef.current) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => { saveCompany(true); }, 900);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, [company?.name, company?.specialty, company?.logo, company?.accountType, company?.profileMeta]);
+
+  const saveCompany = async (auto = false) => {
     if (!company) return;
     if (!company.name.trim()) { setCompanyMsg('❌ ' + tx(lang, { fr: 'Le nom est requis.', ar: 'الاسم مطلوب.', en: 'Name is required.', es: 'El nombre es obligatorio.', pt: 'O nome é obrigatório.', tr: 'Ad gereklidir.' })); return; }
     setSavingCompany(true); setCompanyMsg(null);
@@ -308,7 +332,12 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
       });
       if (!d?.ok) throw new Error(d?.error || 'fail');
       setCompany(c => c ? { ...c, ...d } : c);
-      setCompanyMsg('✅ ' + tx(lang, { fr: 'Enregistré.', ar: 'تم الحفظ.', en: 'Saved.', es: 'Guardado.', pt: 'Guardado.', tr: 'Kaydedildi.' }));
+      dirtyRef.current = false;
+      setCompanyMsg('✅ ' + (auto
+        ? tx(lang, { fr: 'Modifications enregistrées.', ar: 'تم حفظ التعديلات.', en: 'Changes saved.', es: 'Cambios guardados.', pt: 'Alterações guardadas.', tr: 'Değişiklikler kaydedildi.' })
+        : tx(lang, { fr: 'Enregistré.', ar: 'تم الحفظ.', en: 'Saved.', es: 'Guardado.', pt: 'Guardado.', tr: 'Kaydedildi.' })));
+      // Le message d'auto-enregistrement s'efface seul : il informe, il n'exige rien.
+      if (auto) setTimeout(() => setCompanyMsg(null), 2500);
       // Le type de compte change les modules visibles → rafraîchir le contexte.
       await refreshPermissions();
     } catch {
@@ -487,8 +516,8 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                 {/* Identité */}
                 <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-5">
                   <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-                    <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Identité', ar: 'الهوية', en: 'Identity', es: 'Identidad', pt: 'Identidade', tr: 'Kimlik' })}</h2>
+                    <Building2 className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
+                    <h2 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest">{tx(lang, { fr: 'Identité', ar: 'الهوية', en: 'Identity', es: 'Identidad', pt: 'Identidade', tr: 'Kimlik' })}</h2>
                   </div>
 
                   {/* Logo + Nom */}
@@ -515,12 +544,12 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                     <div className="flex-1 w-full space-y-4">
                       <div>
                         <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Nom', ar: 'الاسم', en: 'Name', es: 'Nombre', pt: 'Nome', tr: 'Ad' })}</label>
-                        <input className={inputCls} disabled={!company.canEdit} value={company.name} onChange={e => setCompany(c => c ? { ...c, name: e.target.value } : c)} />
+                        <input className={inputCls} disabled={!company.canEdit} value={company.name} onChange={e => { dirtyRef.current = true; setCompany(c => c ? { ...c, name: e.target.value } : c); }} />
                       </div>
                       {company.accountType !== 'client' && (
                         <div>
                           <label className="block text-xs font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5">{tx(lang, { fr: 'Spécialité', ar: 'التخصّص', en: 'Specialty', es: 'Especialidad', pt: 'Especialidade', tr: 'Uzmanlık' })}</label>
-                          <input className={inputCls} disabled={!company.canEdit} value={company.specialty} onChange={e => setCompany(c => c ? { ...c, specialty: e.target.value } : c)} />
+                          <input className={inputCls} disabled={!company.canEdit} value={company.specialty} onChange={e => { dirtyRef.current = true; setCompany(c => c ? { ...c, specialty: e.target.value } : c); }} />
                         </div>
                       )}
                     </div>
@@ -550,8 +579,8 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                 {/* Identifiants légaux */}
                 <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
                   <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-                    <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Identifiants légaux', ar: 'المعرّفات القانونية', en: 'Legal identifiers', es: 'Identificadores legales', pt: 'Identificadores legais', tr: 'Yasal kimlikler' })}</h2>
+                    <FileText className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
+                    <h2 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest">{tx(lang, { fr: 'Identifiants légaux', ar: 'المعرّفات القانونية', en: 'Legal identifiers', es: 'Identificadores legales', pt: 'Identificadores legais', tr: 'Yasal kimlikler' })}</h2>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -580,8 +609,8 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                 {/* Contact */}
                 <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-                    <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Contact', ar: 'التواصل', en: 'Contact', es: 'Contacto', pt: 'Contacto', tr: 'İletişim' })}</h2>
+                    <MapPin className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
+                    <h2 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest">{tx(lang, { fr: 'Contact', ar: 'التواصل', en: 'Contact', es: 'Contacto', pt: 'Contacto', tr: 'İletişim' })}</h2>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -606,8 +635,8 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                 {/* Banque */}
                 <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
                   <div className="flex items-center gap-2">
-                    <Landmark className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-                    <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Banque', ar: 'البنك', en: 'Bank', es: 'Banco', pt: 'Banco', tr: 'Banka' })}</h2>
+                    <Landmark className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
+                    <h2 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest">{tx(lang, { fr: 'Banque', ar: 'البنك', en: 'Bank', es: 'Banco', pt: 'Banco', tr: 'Banka' })}</h2>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -624,8 +653,8 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                 {/* Type de compte + صلاحية الترقية */}
                 <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
                   <div className="flex items-center gap-2">
-                    <ChevronRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-                    <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Type de compte', ar: 'نوع الحساب', en: 'Account type', es: 'Tipo de cuenta', pt: 'Tipo de conta', tr: 'Hesap türü' })}</h2>
+                    <ChevronRight className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
+                    <h2 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest">{tx(lang, { fr: 'Type de compte', ar: 'نوع الحساب', en: 'Account type', es: 'Tipo de cuenta', pt: 'Tipo de conta', tr: 'Hesap türü' })}</h2>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {(['societe', 'client', 'personnel'] as AccountType[]).map(t => {
@@ -646,13 +675,23 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                   <p className="text-[11px] text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Le type de compte adapte les modules visibles dans le menu.', ar: 'نوع الحساب يحدّد الوحدات الظاهرة في القائمة.', en: 'Account type adjusts which modules appear in the menu.', es: 'El tipo de cuenta ajusta los módulos visibles en el menú.', pt: 'O tipo de conta ajusta os módulos visíveis no menu.', tr: 'Hesap türü menüde görünen modülleri ayarlar.' })}</p>
                 </div>
 
+                {/* Plus de bouton « Enregistrer » ici : la fiche se sauvegarde seule.
+                    Un bouton en plus de l'auto-enregistrement laissait croire que
+                    la saisie n'était pas prise en compte tant qu'on ne cliquait pas. */}
                 {company.canEdit && (
-                  <div className="flex items-center gap-3">
-                    <button onClick={saveCompany} disabled={savingCompany}
-                      className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-60 inline-flex items-center gap-2">
-                      <Check className="w-4 h-4" /> {savingCompany ? tx(lang, { fr: 'Enregistrement…', ar: 'جارٍ الحفظ…', en: 'Saving…', es: 'Guardando…', pt: 'A guardar…', tr: 'Kaydediliyor…' }) : tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}
-                    </button>
-                    {companyMsg && <span className={`text-xs font-medium ${companyMsg.startsWith('✅') ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>{companyMsg}</span>}
+                  <div className="flex items-center gap-2 text-xs">
+                    {savingCompany ? (
+                      <span className="inline-flex items-center gap-1.5 text-slate-400 dark:text-dk-muted font-medium">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        {tx(lang, { fr: 'Enregistrement…', ar: 'جارٍ الحفظ…', en: 'Saving…', es: 'Guardando…', pt: 'A guardar…', tr: 'Kaydediliyor…' })}
+                      </span>
+                    ) : companyMsg ? (
+                      <span className={`font-medium ${companyMsg.startsWith('✅') ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>{companyMsg}</span>
+                    ) : (
+                      <span className="text-slate-400 dark:text-dk-muted">
+                        {tx(lang, { fr: 'Enregistrement automatique.', ar: 'حفظ تلقائي.', en: 'Saved automatically.', es: 'Guardado automático.', pt: 'Guardado automaticamente.', tr: 'Otomatik kaydedilir.' })}
+                      </span>
+                    )}
                   </div>
                 )}
               </>
@@ -661,8 +700,8 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
             {/* Paramètres de production de l'entreprise (devise, coût minute, horaires) */}
             <div className="pt-2">
               <div className="flex items-center gap-2 mb-3">
-                <SlidersHorizontal className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-                <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Paramètres de production', ar: 'إعدادات الإنتاج', en: 'Production settings', es: 'Ajustes de producción', pt: 'Definições de produção', tr: 'Üretim ayarları' })}</h2>
+                <SlidersHorizontal className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
+                <h2 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest">{tx(lang, { fr: 'Paramètres de production', ar: 'إعدادات الإنتاج', en: 'Production settings', es: 'Ajustes de producción', pt: 'Definições de produção', tr: 'Üretim ayarları' })}</h2>
               </div>
               <CompanyParamsSection settings={settings} setSettings={setSettings} lang={lang} />
             </div>
@@ -672,12 +711,12 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
               <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
-                    <Factory className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-                    <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Espaces de travail', ar: 'مساحات العمل', en: 'Workspaces', es: 'Espacios de trabajo', pt: 'Espaços de trabalho', tr: 'Çalışma alanları' })}</h2>
+                    <Factory className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
+                    <h2 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest">{tx(lang, { fr: 'Espaces de travail', ar: 'مساحات العمل', en: 'Workspaces', es: 'Espacios de trabajo', pt: 'Espaços de trabalho', tr: 'Çalışma alanları' })}</h2>
                     <span className="text-[11px] font-semibold text-slate-400 dark:text-dk-muted">({workspaces.length}/{workspacesMax})</span>
                   </div>
                   <button type="button" onClick={() => { setShowNewWorkspace(v => !v); setWorkspaceMsg(null); setWorkspaceResult(null); clearImportFile(); }} disabled={!workspacesCanCreate}
-                    className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600">
+                    className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-indigo-600">
                     <Factory className="w-4 h-4" />
                     {tx(lang, { fr: 'Nouvelle société', ar: 'شركة جديدة', en: 'New company', es: 'Nueva empresa', pt: 'Nova empresa', tr: 'Yeni şirket' })}
                   </button>
@@ -728,7 +767,7 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                   <div className="space-y-3 p-4 bg-slate-50 dark:bg-dk-bg rounded-2xl border border-emerald-200 dark:border-emerald-800">
                     <div className="flex flex-wrap items-center gap-2">
                       <input autoFocus value={newWorkspaceName} onChange={e => setNewWorkspaceName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void createWorkspace(); }} placeholder={tx(lang, { fr: 'Nom de la société', ar: 'اسم الشركة', en: 'Company name', es: 'Nombre de la empresa', pt: 'Nome da empresa', tr: 'Şirket adı' })} className="flex-1 min-w-[220px] px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text outline-none focus:border-emerald-500" />
-                      <button type="button" onClick={() => void createWorkspace()} disabled={creatingWorkspace || !newWorkspaceName.trim()} className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2">
+                      <button type="button" onClick={() => void createWorkspace()} disabled={creatingWorkspace || !newWorkspaceName.trim()} className="px-4 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-50 inline-flex items-center gap-2">
                         {creatingWorkspace && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                         {creatingWorkspace ? tx(lang, { fr: 'Création…', ar: 'جارٍ الإنشاء…', en: 'Creating…', es: 'Creando…', pt: 'A criar…', tr: 'Oluşturuluyor…' }) : tx(lang, { fr: 'Créer', ar: 'إنشاء', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Oluştur' })}
                       </button>
@@ -777,7 +816,7 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                         ))}
                       </div>
                     )}
-                    <button type="button" onClick={finishAfterWarning} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700">
+                    <button type="button" onClick={finishAfterWarning} className="px-4 py-2 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white text-sm font-bold hover:bg-indigo-700">
                       {tx(lang, { fr: 'Continuer', ar: 'متابعة', en: 'Continue', es: 'Continuar', pt: 'Continuar', tr: 'Devam et' })}
                     </button>
                   </div>
@@ -828,12 +867,12 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
             {company?.canEdit && company.accountType === 'personnel' && (
               <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
                 <div className="flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-                  <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Devenir société', ar: 'التحوّل إلى شركة', en: 'Become a company', es: 'Convertirse en empresa', pt: 'Tornar-se uma empresa', tr: 'Şirkete dönüşün' })}</h2>
+                  <Briefcase className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
+                  <h2 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest">{tx(lang, { fr: 'Devenir société', ar: 'التحوّل إلى شركة', en: 'Become a company', es: 'Convertirse en empresa', pt: 'Tornar-se uma empresa', tr: 'Şirkete dönüşün' })}</h2>
                 </div>
                 <p className="text-[11px] text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Un compte indépendant ne gère pas plusieurs sociétés. Convertissez ce compte en société pour activer la gestion multi-société, l\'équipe et les rôles.', ar: 'الحساب الشخصي المستقل لا يدير عدة شركات. حوّل هذا الحساب إلى شركة لتفعيل إدارة عدة شركات والفريق والصلاحيات.', en: 'An independent account does not manage multiple companies. Convert this account into a company to enable multi-company management, team and roles.', es: 'Una cuenta independiente no gestiona varias empresas. Convierta esta cuenta en empresa para activar la gestión multiempresa, el equipo y los roles.', pt: 'Uma conta independente não gere várias empresas. Converta esta conta numa empresa para ativar a gestão multiempresa, a equipa e as funções.', tr: 'Bağımsız bir hesap birden fazla şirketi yönetemez. Çoklu şirket yönetimini, ekibi ve rolleri etkinleştirmek için bu hesabı bir şirkete dönüştürün.' })}</p>
                 {!showBecomeSociete ? (
-                  <button type="button" onClick={() => setShowBecomeSociete(true)} className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors shadow-sm">
+                  <button type="button" onClick={() => setShowBecomeSociete(true)} className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm">
                     <Briefcase className="w-4 h-4" />
                     {tx(lang, { fr: 'Devenir société', ar: 'التحوّل إلى شركة', en: 'Become a company', es: 'Convertirse en empresa', pt: 'Tornar-se uma empresa', tr: 'Şirkete dönüşün' })}
                   </button>
@@ -870,7 +909,7 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <button type="button" onClick={submitBecomeSociete} disabled={savingBecomeSociete} className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors disabled:opacity-60 inline-flex items-center gap-2">
+                      <button type="button" onClick={submitBecomeSociete} disabled={savingBecomeSociete} className="px-5 py-2.5 bg-indigo-600 dark:bg-dk-accent text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60 inline-flex items-center gap-2">
                         <Check className="w-4 h-4" /> {savingBecomeSociete ? tx(lang, { fr: 'Enregistrement…', ar: 'جارٍ الحفظ…', en: 'Saving…', es: 'Guardando…', pt: 'A guardar…', tr: 'Kaydediliyor…' }) : tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })}
                       </button>
                       <button type="button" onClick={() => setShowBecomeSociete(false)} className="px-4 py-2 text-slate-600 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-surface rounded-lg font-medium text-sm">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
@@ -902,7 +941,7 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-dk-muted" />
                 <input type="text" placeholder={tx(lang, { fr: 'Rechercher…', ar: 'بحث…', en: 'Search…', es: 'Buscar…', pt: 'Pesquisar…', tr: 'Ara…' })} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`${inputCls} pl-10`} />
               </div>
-              <button onClick={() => setShowCreateModal(true)} className="px-4 py-2.5 bg-emerald-600 text-white text-sm rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-sm shrink-0">
+              <button onClick={() => setShowCreateModal(true)} className="px-4 py-2.5 bg-indigo-600 dark:bg-dk-accent text-white text-sm rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm shrink-0">
                 {tx(lang, { fr: '+ Nouveau compte', ar: '+ حساب جديد', en: '+ New account', es: '+ Nueva cuenta', pt: '+ Nova conta', tr: '+ Yeni hesap' })}
               </button>
             </div>
@@ -970,7 +1009,7 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                                   {teamRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                                 </select>
                                 <button onClick={() => submitAddToTeam(u)} disabled={addingTeamUserId === u.id || !addTeamRoleId}
-                                  className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 disabled:opacity-50">
+                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white text-xs font-bold hover:bg-indigo-700 disabled:opacity-50">
                                   {addingTeamUserId === u.id ? tx(lang, { fr: 'Ajout…', ar: 'جارٍ الإضافة…', en: 'Adding…', es: 'Añadiendo…', pt: 'A adicionar…', tr: 'Ekleniyor…' }) : tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add', es: 'Añadir', pt: 'Adicionar', tr: 'Ekle' })}
                                 </button>
                                 <button onClick={closeAddToTeam} className="px-2 py-1.5 text-xs font-semibold text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text">
@@ -1002,7 +1041,7 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                 <h3 className="font-bold text-slate-800 dark:text-dk-text text-sm">{tx(lang, { fr: 'Exporter toutes les données', ar: 'تصدير جميع البيانات', en: 'Export all data', es: 'Exportar todos los datos', pt: 'Exportar todos os dados', tr: 'Tüm verileri dışa aktar' })}</h3>
               </div>
               <p className="text-xs text-slate-500 dark:text-dk-muted mb-4">{tx(lang, { fr: 'Fichier JSON complet : utilisateurs, modèles, stock, paramètres.', ar: 'ملف JSON كامل: المستخدمون، النماذج، المخزون، الإعدادات.', en: 'Complete JSON file: users, models, stock, settings.', es: 'Archivo JSON completo: usuarios, modelos, stock, ajustes.', pt: 'Ficheiro JSON completo: utilizadores, modelos, stock, definições.', tr: 'Tam JSON dosyası: kullanıcılar, modeller, stok, ayarlar.' })}</p>
-              <button onClick={handleExportAllData} className="w-full py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2">
+              <button onClick={handleExportAllData} className="w-full py-2.5 bg-indigo-600 dark:bg-dk-accent text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
                 <Download className="w-4 h-4" /> {tx(lang, { fr: 'Télécharger JSON', ar: 'تنزيل JSON', en: 'Download JSON', es: 'Descargar JSON', pt: 'Baixar JSON', tr: 'JSON indir' })}
               </button>
             </div>
@@ -1028,8 +1067,8 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
         {activeTab === 'license' && (
           <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4 max-w-2xl">
             <div className="flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-              <h2 className="text-sm font-bold text-slate-700 dark:text-dk-text uppercase tracking-wide">{tx(lang, { fr: 'Licence / Abonnement', ar: 'الترخيص / الاشتراك', en: 'License / Subscription', es: 'Licencia / Suscripción', pt: 'Licença / Subscrição', tr: 'Lisans / Abonelik' })}</h2>
+              <KeyRound className="w-4 h-4 text-slate-400 dark:text-dk-muted" strokeWidth={1.75} />
+              <h2 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest">{tx(lang, { fr: 'Licence / Abonnement', ar: 'الترخيص / الاشتراك', en: 'License / Subscription', es: 'Licencia / Suscripción', pt: 'Licença / Subscrição', tr: 'Lisans / Abonelik' })}</h2>
             </div>
             <p className="text-xs text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Activez BERAMETHODE avec votre clé de licence.', ar: 'فعّل BERAMETHODE باستعمال مفتاح الترخيص الخاص بك.', en: 'Activate BERAMETHODE with your license key.', es: 'Active BERAMETHODE con su clave de licencia.', pt: 'Ative o BERAMETHODE com a sua chave de licença.', tr: 'BERAMETHODE’u lisans anahtarınızla etkinleştirin.' })}</p>
             <LicenseActivation lang={lang === 'ar' ? 'ar' : 'fr'} />
@@ -1056,7 +1095,7 @@ export default function AdminDashboard({ settings, setSettings, machines }: Admi
                 </div>
                 <div className="flex justify-end gap-3 mt-6">
                   <button type="button" onClick={() => setShowCreateModal(false)} className="px-4 py-2 text-slate-600 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-bg rounded-lg font-medium text-sm">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
-                  <button type="submit" className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg font-bold hover:bg-emerald-700">{tx(lang, { fr: 'Créer', ar: 'إنشاء', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Oluştur' })}</button>
+                  <button type="submit" className="px-4 py-2 bg-indigo-600 dark:bg-dk-accent text-white text-sm rounded-lg font-bold hover:bg-indigo-700">{tx(lang, { fr: 'Créer', ar: 'إنشاء', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Oluştur' })}</button>
                 </div>
               </form>
             </div>
