@@ -409,6 +409,31 @@ export interface AppSettings {
   /** Salle (hall/workshop) hierarchy — optional, graceful degradation to single default */
   salleNames?: Record<string, string>;          // salleId → display name
   chaineToSalle?: Record<string, string>;        // chaineId → salleId
+
+  // ═══════════════════════════════════════════════════════════
+  // COMMERCIAL / VENTES
+  // Règles de gestion commerciales sorties du code pour être paramétrables
+  // atelier par atelier (objectif SaaS). TOUS ces champs sont optionnels et
+  // leurs défauts reproduisent le comportement actuel : une installation
+  // existante ne voit rien changer tant qu'elle n'y touche pas.
+  // ═══════════════════════════════════════════════════════════
+
+  /** Marge minimale (%) sous laquelle une vente déclenche une alerte — garde-fou contre la vente à perte. Défaut 15. */
+  margeMinimale?: number;
+  /** Unité de vente de l'atelier : certains ateliers ne vendent qu'à la douzaine ou au carton. Défaut 'PIECE'. */
+  venteUnite?: 'PIECE' | 'DOUZAINE' | 'CARTON';
+  /** Nombre de pièces contenues dans une unité de vente quand ce n'est pas la pièce (ex. 12 pour la douzaine). Défaut 12. */
+  venteUniteTaille?: number;
+  /** Renommage des types de clients (GROS / DETAIL / BOUTIQUE) : chaque atelier a son propre vocabulaire commercial. */
+  clientTypeLabels?: Record<string, string>;
+  /** Active la tarification différenciée par client. Défaut false : un petit atelier n'en a pas besoin et l'écran serait plus lourd pour rien. */
+  prixParClientEnabled?: boolean;
+  /** Nombre de jours sans mouvement au-delà duquel un stock est signalé « dormant ». Défaut 60. */
+  stockDormantJours?: number;
+  /** Politique quand le prix de vente passe sous le prix de revient : bloquer, demander confirmation (+ motif), ou autoriser. Défaut 'CONFIRM'. */
+  venteSousCoutPolicy?: 'BLOCK' | 'CONFIRM' | 'ALLOW';
+  /** Masque le prix de revient / la marge aux rôles non autorisés (vendeurs). Défaut false pour ne rien casser dans les installations existantes. */
+  masquerCoutRevient?: boolean;
 }
 
 export interface PdfSettings {
@@ -1254,3 +1279,43 @@ export interface InventoryMovement {
   date: string;            // YYYY-MM-DD
   notes?: string;          // e.g. "Sortie pour Chaine 1"
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// Défauts des réglages COMMERCIAL / VENTES
+//
+// Volontairement séparé de `DEFAULT_CALENDAR_APP_SETTINGS` (lib/defaultCalendarSettings.ts)
+// pour éviter un import circulaire types → lib. Ce bloc peut être étalé
+// (`...DEFAULT_COMMERCIAL_SETTINGS`) dans cet objet de défauts global : les
+// valeurs ci-dessous reproduisent EXACTEMENT le comportement actuel du produit,
+// donc l'étalement est neutre pour les installations existantes.
+//
+// Règle de lecture côté UI/moteurs : toujours `settings.champ ?? DEFAULT_COMMERCIAL_SETTINGS.champ`,
+// jamais une valeur en dur — c'est tout l'intérêt de sortir ces règles du code.
+// ════════════════════════════════════════════════════════════════════════════
+export const DEFAULT_COMMERCIAL_SETTINGS: Required<Pick<AppSettings,
+  | 'margeMinimale'
+  | 'venteUnite'
+  | 'venteUniteTaille'
+  | 'clientTypeLabels'
+  | 'prixParClientEnabled'
+  | 'stockDormantJours'
+  | 'venteSousCoutPolicy'
+  | 'masquerCoutRevient'
+>> = {
+  /** 15 % : seuil d'alerte usuel dans la confection marocaine (façon + complet). */
+  margeMinimale: 15,
+  /** La pièce reste l'unité de référence de tous les calculs existants. */
+  venteUnite: 'PIECE',
+  /** Douzaine = 12 pièces (valeur la plus courante dès qu'on quitte la pièce). */
+  venteUniteTaille: 12,
+  /** Vocabulaire par défaut : l'atelier peut le remplacer sans toucher au code. */
+  clientTypeLabels: { GROS: 'Gros', DETAIL: 'Détail', BOUTIQUE: 'Boutique' },
+  /** Désactivé : un petit atelier vend au même prix à tout le monde. */
+  prixParClientEnabled: false,
+  /** 60 jours sans mouvement → stock considéré comme dormant. */
+  stockDormantJours: 60,
+  /** Vente sous le coût autorisée mais confirmée + motivée (traçabilité). */
+  venteSousCoutPolicy: 'CONFIRM',
+  /** false : comportement historique — tout le monde voit le coût de revient. */
+  masquerCoutRevient: false,
+};

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Users, Plus, Trash2, Edit2, Search, Loader2, AlertCircle, X, Save } from 'lucide-react';
 import { useLang } from '../../src/context/LanguageContext';
 import { tx } from '../../lib/i18n';
+import { fmt } from '../../app/constants';
 
 /** Client de l'atelier. Reflet exact de la table `st_clients`. */
 export interface AtelierClient {
@@ -30,6 +31,18 @@ interface ClientsPanelProps {
     /** Notifie le parent après tout changement, pour rafraîchir les listes de
      *  sélection ailleurs (sortie de stock, facture de vente). */
     onChanged?: (clients: AtelierClient[]) => void;
+    /** Sorties de stock brutes. Un registre qui n'affiche que des coordonnées
+     *  ne dit pas qui fait vivre l'atelier : sans le chiffre d'affaires, tous
+     *  les clients se ressemblent, y compris ceux qui n'ont jamais rien acheté. */
+    sorties?: any[];
+    /** Ouvre la fiche client (agrégats + historique). */
+    onOpenClient?: (client: AtelierClient) => void;
+    /** Demande d'édition venue de l'extérieur (fiche client) : on rouvre LE
+     *  formulaire existant plutôt que d'en dupliquer un second ailleurs. */
+    editClientId?: string | null;
+    onEditConsumed?: () => void;
+    currency?: string;
+    dateLocale?: string;
 }
 
 /**
@@ -39,7 +52,10 @@ interface ClientsPanelProps {
  * du client à chaque sortie : même client écrit de trois façons, ICE parfois
  * oublié, aucun historique. Ici la fiche est saisie UNE fois et réutilisée.
  */
-const ClientsPanel: React.FC<ClientsPanelProps> = ({ onChanged }) => {
+const ClientsPanel: React.FC<ClientsPanelProps> = ({
+    onChanged, sorties = [], onOpenClient, editClientId, onEditConsumed,
+    currency = 'MAD', dateLocale = 'fr-FR',
+}) => {
     const { lang } = useLang();
     const [clients, setClients] = useState<AtelierClient[]>([]);
     const [loading, setLoading] = useState(true);
@@ -76,6 +92,47 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({ onChanged }) => {
             || norm(c.tel).includes(q) || norm(c.ville).includes(q)
         );
     }, [clients, search]);
+
+    /** Poids commercial de chaque client, agrégé côté client depuis les sorties
+     *  de stock déjà chargées par le parent. Rattachement par `client_id` quand
+     *  il existe, sinon par nom normalisé : les ventes saisies avant l'existence
+     *  du registre doivent rester comptées, sinon un vrai client apparaîtrait
+     *  comme un prospect. */
+    const salesByClient = useMemo(() => {
+        const byId = new Map<string, { ca: number; pieces: number; last: string }>();
+        const byNom = new Map<string, { ca: number; pieces: number; last: string }>();
+        sorties.forEach(s => {
+            const q = Number(s.quantite) || 0;
+            const montant = q * (Number(s.prix_unitaire) || 0);
+            const date = String(s.date_sortie || '');
+            const push = (map: Map<string, { ca: number; pieces: number; last: string }>, key: string) => {
+                if (!key) return;
+                const row = map.get(key) || { ca: 0, pieces: 0, last: '' };
+                row.ca += montant;
+                row.pieces += q;
+                if (date > row.last) row.last = date;
+                map.set(key, row);
+            };
+            if (s.client_id) push(byId, String(s.client_id));
+            push(byNom, norm(s.client_nom));
+        });
+        return (c: AtelierClient) => byId.get(String(c.id)) || byNom.get(norm(c.nom)) || { ca: 0, pieces: 0, last: '' };
+    }, [sorties]);
+
+    /** Une demande d'édition venue de la fiche client rouvre ce formulaire dès
+     *  que le registre est chargé — puis se consomme pour ne pas se rejouer. */
+    useEffect(() => {
+        if (!editClientId || clients.length === 0) return;
+        const target = clients.find(c => String(c.id) === String(editClientId));
+        if (target) setForm(target);
+        onEditConsumed?.();
+    }, [editClientId, clients]);
+
+    const fmtDay = (raw: string) => {
+        if (!raw) return '—';
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? raw : d.toLocaleDateString(dateLocale);
+    };
 
     const save = async () => {
         if (!form || !form.nom.trim()) return;
@@ -170,19 +227,37 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({ onChanged }) => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {filtered.map(c => (
-                        <div key={c.id} className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-2">
+                    {filtered.map(c => {
+                    // Un prospect n'est pas un client : le distinguer visuellement
+                    // évite de croire que le carnet d'adresses est un portefeuille.
+                    const sales = salesByClient(c);
+                    const isProspect = sales.pieces === 0 && sales.ca === 0;
+                    return (
+                        <div
+                            key={c.id}
+                            onClick={onOpenClient ? () => onOpenClient(c) : undefined}
+                            className={isProspect
+                                ? 'bg-slate-50/70 dark:bg-dk-bg/40 border border-dashed border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-2 cursor-pointer hover:border-slate-300 dark:hover:border-dk-border transition-colors'
+                                : 'bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl p-4 space-y-2 cursor-pointer hover:border-indigo-300 dark:hover:border-dk-accent transition-colors'}
+                        >
                             <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0">
-                                    <p className="font-bold text-slate-800 dark:text-dk-text truncate">{c.nom}</p>
+                                    <p className={isProspect
+                                        ? 'font-bold text-slate-500 dark:text-dk-muted truncate'
+                                        : 'font-bold text-slate-800 dark:text-dk-text truncate hover:text-indigo-600 dark:hover:text-dk-accent transition-colors'}>{c.nom}</p>
                                     <span className={`inline-block mt-1 px-2 py-0.5 rounded border text-[9px] font-bold ${typeChip(c.type)}`}>
                                         {typeLabel(c.type)}
                                     </span>
+                                    {isProspect && (
+                                        <span className="inline-block ml-1.5 mt-1 px-2 py-0.5 rounded border text-[9px] font-bold bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border">
+                                            {tx(lang, { fr: 'Prospect', ar: 'زبون محتمل', en: 'Prospect', es: 'Prospecto', pt: 'Potencial', tr: 'Aday' })}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-1 shrink-0">
                                     <button
                                         type="button"
-                                        onClick={() => setForm(c)}
+                                        onClick={e => { e.stopPropagation(); setForm(c); }}
                                         title={tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })}
                                         className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent hover:bg-indigo-50 dark:hover:bg-dk-accent/20 transition-colors"
                                     >
@@ -190,7 +265,7 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({ onChanged }) => {
                                     </button>
                                     <button
                                         type="button"
-                                        onClick={() => setPendingDelete(c)}
+                                        onClick={e => { e.stopPropagation(); setPendingDelete(c); }}
                                         title={tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Eliminar', tr: 'Sil' })}
                                         className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                                     >
@@ -202,8 +277,37 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({ onChanged }) => {
                                 <p>{[c.ice && `ICE : ${c.ice}`, c.rc && `RC : ${c.rc}`].filter(Boolean).join(' · ') || '—'}</p>
                                 <p>{[c.tel, c.ville].filter(Boolean).join(' · ') || '—'}</p>
                             </div>
+
+                            {/* Poids commercial : CA, pièces, dernier achat. */}
+                            <div className="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-100 dark:border-dk-border">
+                                <div>
+                                    <span className="block text-[8px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-bold">CA</span>
+                                    <span className={isProspect
+                                        ? 'block text-[11px] font-bold text-slate-400 dark:text-dk-muted'
+                                        : 'block text-[11px] font-bold text-indigo-600 dark:text-dk-accent'}>
+                                        {sales.ca > 0 ? `${fmt(sales.ca)} ${currency}` : '—'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="block text-[8px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-bold">
+                                        {tx(lang, { fr: 'Pièces', ar: 'القطع', en: 'Pieces', es: 'Piezas', pt: 'Peças', tr: 'Parça' })}
+                                    </span>
+                                    <span className={isProspect
+                                        ? 'block text-[11px] font-bold text-slate-400 dark:text-dk-muted'
+                                        : 'block text-[11px] font-bold text-slate-800 dark:text-dk-text'}>
+                                        {sales.pieces > 0 ? sales.pieces.toLocaleString(dateLocale) : '—'}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="block text-[8px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-bold">
+                                        {tx(lang, { fr: 'Dernier achat', ar: 'آخر شراء', en: 'Last purchase', es: 'Última compra', pt: 'Última compra', tr: 'Son alım' })}
+                                    </span>
+                                    <span className="block text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft">{fmtDay(sales.last)}</span>
+                                </div>
+                            </div>
                         </div>
-                    ))}
+                    );
+                    })}
                 </div>
             )}
 

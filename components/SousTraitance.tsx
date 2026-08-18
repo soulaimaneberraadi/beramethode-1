@@ -9,6 +9,7 @@ import { diffOrderVsModelGrid } from '../utils/subcontractGrid';
 import InlineInvoiceList from './InlineInvoiceList';
 import FactureUploader from './FactureUploader';
 import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
+import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
@@ -1005,6 +1006,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  XL bleus), donc l'écran a besoin du détail, pas seulement des totaux. */
   const [allStockEntries, setAllStockEntries] = useState<any[]>([]);
   const [allStockSorties, setAllStockSorties] = useState<any[]>([]);
+  /** Pile des fiches ouvertes (modèle ↔ client). Une pile, et pas un simple
+   *  identifiant, parce qu'on doit pouvoir descendre « modèle → client → autre
+   *  modèle » puis remonter : sans elle, chaque fiche serait un cul-de-sac. */
+  const [entityStack, setEntityStack] = useState<SheetTarget[]>([]);
+  /** Client dont la fiche a demandé l'édition : c'est le formulaire EXISTANT de
+   *  ClientsPanel qui s'ouvre, jamais un second formulaire dupliqué ici. */
+  const [pendingEditClientId, setPendingEditClientId] = useState<string | null>(null);
   /** Modèle dont la grille de stock est dépliée dans l'onglet Stock & Ventes. */
   const [expandedStockModel, setExpandedStockModel] = useState<string | null>(null);
   /** Vrai dès que l'utilisateur a lui-même plié/déplié une ligne : son choix
@@ -1097,6 +1105,34 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     } catch {
       // Hors-ligne : l'onglet retombe sur les totaux de la commande.
     }
+  };
+
+  /** Registre des clients. Les fiches en ont besoin quel que soit l'onglet
+   *  ouvert : une fiche client atteinte depuis le stock ne doit pas dépendre
+   *  du fait que l'onglet Clients ait été visité auparavant. */
+  const loadAtelierClients = async () => {
+    try {
+      const res = await fetch('/api/subcontract/clients', { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setAtelierClients(Array.isArray(data) ? data : []);
+    } catch {
+      // Hors-ligne : les sorties portent déjà le nom du client, la fiche reste lisible.
+    }
+  };
+
+  /* ---- Navigation entre fiches (modèle ↔ client) ---- */
+  const openEntitySheet = (target: SheetTarget) => setEntityStack([target]);
+  const pushEntitySheet = (target: SheetTarget) => setEntityStack(prev => [...prev, target]);
+  const backEntitySheet = () => setEntityStack(prev => (prev.length > 1 ? prev.slice(0, -1) : prev));
+  const closeEntitySheet = () => setEntityStack([]);
+
+  /** L'édition d'un client depuis sa fiche renvoie vers l'onglet Clients, qui
+   *  détient le formulaire. On ferme la fiche pour ne pas empiler deux modales. */
+  const editClientFromSheet = (client: AtelierClient) => {
+    setEntityStack([]);
+    setActiveTab('clients');
+    setPendingEditClientId(String(client.id));
   };
 
   /** Stock disponible par modèle, cellule par cellule : entrées ACCEPTÉES moins
@@ -1205,6 +1241,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   useEffect(() => {
     const controller = new AbortController();
     fetchData(controller.signal);
+    // Mouvements de stock et registre clients : les fiches modèle/client les
+    // agrègent entièrement côté client, elles doivent donc être présentes dès
+    // l'ouverture du module et non seulement après une sortie de stock.
+    loadStockMovements();
+    loadAtelierClients();
     return () => controller.abort();
   }, []);
 
@@ -5181,7 +5222,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           {/* TAB 3: STOCK & VENTES (STOCK & SALES) */}
           {/* ======================================= */}
           {activeTab === 'clients' && (
-            <ClientsPanel onChanged={setAtelierClients} />
+            <ClientsPanel
+              onChanged={setAtelierClients}
+              sorties={allStockSorties}
+              onOpenClient={(c) => openEntitySheet({ kind: 'client', clientId: String(c.id), clientNom: c.nom })}
+              editClientId={pendingEditClientId}
+              onEditConsumed={() => setPendingEditClientId(null)}
+              currency={currency}
+              dateLocale={dateLocale}
+            />
           )}
 
           {activeTab === 'stock' && (
@@ -5268,9 +5317,28 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           <Package className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
                         )}
                       </div>
+                      {/* Le nom du modèle n'est plus une étiquette morte : il ouvre
+                          sa fiche (stock ventilé, marge, acheteurs, historique). */}
                       <div className="flex-1 min-w-0">
-                        <span className="font-semibold block text-slate-800 dark:text-dk-text truncate">{item.model.meta_data.nom_modele}</span>
-                        <span className="text-[9px] text-indigo-600 dark:text-dk-accent block font-normal uppercase">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {item.model.ficheData?.client || 'N/A'}</span>
+                        <button
+                          type="button"
+                          onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
+                          className="font-semibold block text-slate-800 dark:text-dk-text truncate text-left hover:text-indigo-600 dark:hover:text-dk-accent hover:underline underline-offset-2 transition-colors w-full"
+                        >
+                          {item.model.meta_data.nom_modele}
+                        </button>
+                        <span className="text-[9px] text-indigo-600 dark:text-dk-accent block font-normal uppercase">
+                          {tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})}{' '}
+                          {item.model.ficheData?.client ? (
+                            <button
+                              type="button"
+                              onClick={() => openEntitySheet({ kind: 'client', clientNom: item.model.ficheData?.client })}
+                              className="hover:underline underline-offset-2 uppercase"
+                            >
+                              {item.model.ficheData.client}
+                            </button>
+                          ) : 'N/A'}
+                        </span>
                       </div>
                       <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase whitespace-nowrap shrink-0 ${
                         item.status === 'FINISHED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
@@ -5427,9 +5495,28 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                   <Package className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
                                 )}
                               </div>
+                              {/* Même règle qu'en mobile : toute mention d'une entité
+                                  est un lien vers sa fiche. */}
                               <div>
-                                <span className="font-semibold block text-slate-800 dark:text-dk-text">{item.model.meta_data.nom_modele}</span>
-                                <span className="text-[9px] text-indigo-600 dark:text-dk-accent block font-normal uppercase">{tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})} {item.model.ficheData?.client || 'N/A'}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
+                                  className="font-semibold block text-slate-800 dark:text-dk-text text-left hover:text-indigo-600 dark:hover:text-dk-accent hover:underline underline-offset-2 transition-colors"
+                                >
+                                  {item.model.meta_data.nom_modele}
+                                </button>
+                                <span className="text-[9px] text-indigo-600 dark:text-dk-accent block font-normal uppercase">
+                                  {tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})}{' '}
+                                  {item.model.ficheData?.client ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openEntitySheet({ kind: 'client', clientNom: item.model.ficheData?.client })}
+                                      className="hover:underline underline-offset-2 uppercase"
+                                    >
+                                      {item.model.ficheData.client}
+                                    </button>
+                                  ) : 'N/A'}
+                                </span>
                               </div>
                             </div>
                           </td>
@@ -7021,6 +7108,25 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Fiches d'entité — modèle et client, avec pile de navigation croisée. */}
+      {entityStack.length > 0 && (
+        <EntitySheet
+          stack={entityStack}
+          onPush={pushEntitySheet}
+          onBack={backEntitySheet}
+          onClose={closeEntitySheet}
+          models={models}
+          orders={orders}
+          clients={atelierClients}
+          sorties={allStockSorties}
+          stats={modelStockStats}
+          stockMatrix={stockMatrixByModel}
+          currency={currency}
+          dateLocale={dateLocale}
+          onEditClient={editClientFromSheet}
+        />
       )}
 
       {isDetailModalOpen && detailOrder && (

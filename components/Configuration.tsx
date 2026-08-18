@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Settings, Users, Shield, Save, Building, Plus, Trash2, CheckCircle, ListTodo, CalendarClock, AlertTriangle, Check, X, SkipForward, Factory, Zap, ChevronDown, Loader2 } from 'lucide-react';
-import { AppSettings, AppTask, Machine } from '../types';
+import { AppSettings, AppTask, Machine, DEFAULT_COMMERCIAL_SETTINGS } from '../types';
 import { useTheme } from '../src/context/ThemeContext';
 import { isMachineOperational } from '../utils/machineMatch';
 import AgendaModal from './AgendaModal';
@@ -929,6 +929,251 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     })}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* FULL WIDTH BLOCK: Commercial / Ventes
+                Règles de gestion commerciales sorties du code : chaque atelier a sa
+                marge plancher, son unité de vente et son vocabulaire client. Tous les
+                champs sont optionnels — laissés vides, le comportement actuel est conservé. */}
+            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
+                <div onClick={() => toggleSec('commercial')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['commercial'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
+                    <div className="flex items-center gap-2">
+                        <Building className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
+                        <h2 className="font-bold text-slate-800 dark:text-dk-text">
+                            {tx(lang, { fr: 'Commercial / Ventes', ar: 'التجاري / المبيعات', en: 'Commercial / Sales', es: 'Comercial / Ventas', pt: 'Comercial / Vendas', tr: 'Ticari / Satış' })}
+                        </h2>
+                    </div>
+                    <ChevronDown className={`w-5 h-5 text-slate-400 dark:text-dk-muted shrink-0 transition-transform ${openSec['commercial'] ? 'rotate-180' : ''}`} />
+                </div>
+                <div className={`p-6 md:p-8 space-y-6 ${openSec['commercial'] ? '' : 'hidden'}`}>
+                    <p className="text-sm text-slate-500 dark:text-dk-muted font-medium">
+                        {tx(lang, {
+                            fr: "Règles de vente propres à votre atelier : elles s'appliquent aux devis, aux prix et aux alertes. Rien n'est modifié dans les formules de calcul du prix de revient.",
+                            ar: 'قواعد البيع الخاصة بورشتك: تُطبَّق على العروض والأسعار والتنبيهات. لا يتغيّر أي شيء في صيغ حساب سعر التكلفة.',
+                            en: 'Sales rules specific to your workshop: they apply to quotes, prices and alerts. No cost price formula is modified.',
+                            es: 'Reglas de venta propias de su taller: se aplican a presupuestos, precios y alertas. No se modifica ninguna fórmula de precio de costo.',
+                            pt: 'Regras de venda próprias da sua oficina: aplicam-se a orçamentos, preços e alertas. Nenhuma fórmula de preço de custo é alterada.',
+                            tr: 'Atölyenize özel satış kuralları: teklifler, fiyatlar ve uyarılar için geçerlidir. Maliyet fiyatı formülleri değişmez.',
+                        })}
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {/* Marge minimale — garde-fou contre la vente à perte */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">
+                                {tx(lang, { fr: 'Marge minimale (%)', ar: 'الهامش الأدنى (%)', en: 'Minimum margin (%)', es: 'Margen mínimo (%)', pt: 'Margem mínima (%)', tr: 'Asgari marj (%)' })}
+                            </label>
+                            <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={0.5}
+                                value={draft.margeMinimale ?? DEFAULT_COMMERCIAL_SETTINGS.margeMinimale}
+                                onChange={e => setDraft(prev => ({ ...prev, margeMinimale: e.target.value === '' ? undefined : Math.max(0, Number(e.target.value)) }))}
+                                className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-slate-700 dark:text-dk-text-soft transition-all text-sm"
+                            />
+                            <p className="text-xs text-slate-500 dark:text-dk-muted">
+                                {tx(lang, {
+                                    fr: 'En dessous de ce pourcentage, une vente déclenche une alerte. Garde-fou contre la vente à perte.',
+                                    ar: 'تحت هذه النسبة، تُطلق عملية البيع تنبيهاً. حماية من البيع بخسارة.',
+                                    en: 'Below this percentage a sale raises an alert. Safeguard against selling at a loss.',
+                                    es: 'Por debajo de este porcentaje, una venta genera una alerta. Protección contra vender con pérdidas.',
+                                    pt: 'Abaixo desta percentagem, uma venda gera um alerta. Proteção contra vender com prejuízo.',
+                                    tr: 'Bu yüzdenin altında satış uyarı üretir. Zararına satışa karşı koruma.',
+                                })}
+                            </p>
+                        </div>
+
+                        {/* Unité de vente */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">
+                                {tx(lang, { fr: 'Unité de vente', ar: 'وحدة البيع', en: 'Sales unit', es: 'Unidad de venta', pt: 'Unidade de venda', tr: 'Satış birimi' })}
+                            </label>
+                            <select
+                                value={draft.venteUnite ?? DEFAULT_COMMERCIAL_SETTINGS.venteUnite}
+                                onChange={e => setDraft(prev => ({ ...prev, venteUnite: e.target.value as 'PIECE' | 'DOUZAINE' | 'CARTON' }))}
+                                className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-medium text-slate-700 dark:text-dk-text-soft transition-all cursor-pointer text-sm"
+                            >
+                                <option value="PIECE">{tx(lang, { fr: 'Pièce', ar: 'قطعة', en: 'Piece', es: 'Pieza', pt: 'Peça', tr: 'Adet' })}</option>
+                                <option value="DOUZAINE">{tx(lang, { fr: 'Douzaine', ar: 'دزينة', en: 'Dozen', es: 'Docena', pt: 'Dúzia', tr: 'Düzine' })}</option>
+                                <option value="CARTON">{tx(lang, { fr: 'Carton', ar: 'كرطونة', en: 'Carton', es: 'Caja', pt: 'Caixa', tr: 'Koli' })}</option>
+                            </select>
+                            <p className="text-xs text-slate-500 dark:text-dk-muted">
+                                {tx(lang, {
+                                    fr: 'Unité affichée sur les documents de vente. Certains ateliers ne vendent qu’à la douzaine.',
+                                    ar: 'الوحدة المعروضة في وثائق البيع. بعض الورشات لا تبيع إلا بالدزينة.',
+                                    en: 'Unit shown on sales documents. Some workshops only sell by the dozen.',
+                                    es: 'Unidad mostrada en los documentos de venta. Algunos talleres solo venden por docena.',
+                                    pt: 'Unidade exibida nos documentos de venda. Algumas oficinas só vendem à dúzia.',
+                                    tr: 'Satış belgelerinde gösterilen birim. Bazı atölyeler yalnızca düzine ile satar.',
+                                })}
+                            </p>
+                        </div>
+
+                        {/* Taille de l'unité — visible seulement si l'unité n'est pas la pièce */}
+                        {(draft.venteUnite ?? DEFAULT_COMMERCIAL_SETTINGS.venteUnite) !== 'PIECE' && (
+                            <div className="space-y-2">
+                                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">
+                                    {tx(lang, { fr: 'Pièces par unité', ar: 'عدد القطع في الوحدة', en: 'Pieces per unit', es: 'Piezas por unidad', pt: 'Peças por unidade', tr: 'Birim başına adet' })}
+                                </label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    step={1}
+                                    value={draft.venteUniteTaille ?? DEFAULT_COMMERCIAL_SETTINGS.venteUniteTaille}
+                                    onChange={e => setDraft(prev => ({ ...prev, venteUniteTaille: e.target.value === '' ? undefined : Math.max(1, Math.round(Number(e.target.value))) }))}
+                                    className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-slate-700 dark:text-dk-text-soft transition-all text-sm"
+                                />
+                                <p className="text-xs text-slate-500 dark:text-dk-muted">
+                                    {tx(lang, {
+                                        fr: 'Nombre de pièces contenues dans une unité de vente (ex. 12 pour la douzaine).',
+                                        ar: 'عدد القطع داخل وحدة البيع (مثلاً 12 للدزينة).',
+                                        en: 'Number of pieces contained in one sales unit (e.g. 12 for a dozen).',
+                                        es: 'Número de piezas contenidas en una unidad de venta (p. ej. 12 por docena).',
+                                        pt: 'Número de peças contidas numa unidade de venda (ex. 12 para a dúzia).',
+                                        tr: 'Bir satış biriminde bulunan parça sayısı (ör. düzine için 12).',
+                                    })}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Stock dormant */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">
+                                {tx(lang, { fr: 'Stock dormant (jours)', ar: 'المخزون الراكد (أيام)', en: 'Dormant stock (days)', es: 'Stock inmovilizado (días)', pt: 'Stock parado (dias)', tr: 'Durgun stok (gün)' })}
+                            </label>
+                            <input
+                                type="number"
+                                min={1}
+                                step={1}
+                                value={draft.stockDormantJours ?? DEFAULT_COMMERCIAL_SETTINGS.stockDormantJours}
+                                onChange={e => setDraft(prev => ({ ...prev, stockDormantJours: e.target.value === '' ? undefined : Math.max(1, Math.round(Number(e.target.value))) }))}
+                                className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-slate-700 dark:text-dk-text-soft transition-all text-sm"
+                            />
+                            <p className="text-xs text-slate-500 dark:text-dk-muted">
+                                {tx(lang, {
+                                    fr: 'Au-delà de ce délai sans aucun mouvement, un article est signalé comme dormant (argent immobilisé).',
+                                    ar: 'بعد هذه المدة بدون أي حركة، يُشار إلى المنتج كراكد (مال مجمَّد).',
+                                    en: 'Beyond this delay without any movement, an item is flagged as dormant (money tied up).',
+                                    es: 'Superado este plazo sin ningún movimiento, un artículo se marca como inmovilizado (dinero parado).',
+                                    pt: 'Ultrapassado este prazo sem qualquer movimento, um artigo é assinalado como parado (dinheiro imobilizado).',
+                                    tr: 'Bu süre boyunca hareket görmeyen ürün durgun olarak işaretlenir (bağlanmış para).',
+                                })}
+                            </p>
+                        </div>
+
+                        {/* Politique vente sous le prix de revient */}
+                        <div className="space-y-2 md:col-span-2">
+                            <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">
+                                {tx(lang, { fr: 'Vente sous le prix de revient', ar: 'البيع تحت سعر التكلفة', en: 'Selling below cost price', es: 'Venta por debajo del precio de costo', pt: 'Venda abaixo do preço de custo', tr: 'Maliyetin altında satış' })}
+                            </label>
+                            <select
+                                value={draft.venteSousCoutPolicy ?? DEFAULT_COMMERCIAL_SETTINGS.venteSousCoutPolicy}
+                                onChange={e => setDraft(prev => ({ ...prev, venteSousCoutPolicy: e.target.value as 'BLOCK' | 'CONFIRM' | 'ALLOW' }))}
+                                className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-medium text-slate-700 dark:text-dk-text-soft transition-all cursor-pointer text-sm"
+                            >
+                                <option value="BLOCK">{tx(lang, { fr: 'Bloquer la vente', ar: 'منع البيع', en: 'Block the sale', es: 'Bloquear la venta', pt: 'Bloquear a venda', tr: 'Satışı engelle' })}</option>
+                                <option value="CONFIRM">{tx(lang, { fr: 'Demander confirmation et motif', ar: 'طلب تأكيد وسبب', en: 'Ask for confirmation and reason', es: 'Pedir confirmación y motivo', pt: 'Pedir confirmação e motivo', tr: 'Onay ve gerekçe iste' })}</option>
+                                <option value="ALLOW">{tx(lang, { fr: 'Autoriser sans rien demander', ar: 'السماح بدون أي طلب', en: 'Allow without asking', es: 'Permitir sin preguntar', pt: 'Permitir sem perguntar', tr: 'Sormadan izin ver' })}</option>
+                            </select>
+                            <p className="text-xs text-slate-500 dark:text-dk-muted">
+                                {tx(lang, {
+                                    fr: 'Comportement quand le prix saisi passe sous le prix de revient calculé.',
+                                    ar: 'السلوك عندما ينزل السعر المُدخل تحت سعر التكلفة المحسوب.',
+                                    en: 'Behaviour when the entered price falls below the computed cost price.',
+                                    es: 'Comportamiento cuando el precio introducido cae por debajo del precio de costo calculado.',
+                                    pt: 'Comportamento quando o preço introduzido fica abaixo do preço de custo calculado.',
+                                    tr: 'Girilen fiyat hesaplanan maliyetin altına düştüğünde uygulanan davranış.',
+                                })}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Vocabulaire client — chaque atelier nomme ses types de clients à sa façon */}
+                    <div className="pt-4 border-t border-slate-100 dark:border-dk-border space-y-3">
+                        <p className="text-xs font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide">
+                            {tx(lang, { fr: 'Noms des types de clients', ar: 'أسماء أنواع الزبناء', en: 'Client type names', es: 'Nombres de los tipos de cliente', pt: 'Nomes dos tipos de cliente', tr: 'Müşteri türü adları' })}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-dk-muted">
+                            {tx(lang, {
+                                fr: 'Ces libellés remplacent GROS / DÉTAIL / BOUTIQUE partout dans les écrans de vente. Laissez vide pour garder le nom par défaut.',
+                                ar: 'هذه التسميات تعوّض GROS / DÉTAIL / BOUTIQUE في جميع شاشات البيع. اتركها فارغة للاحتفاظ بالاسم الافتراضي.',
+                                en: 'These labels replace GROS / DETAIL / BOUTIQUE everywhere in the sales screens. Leave empty to keep the default name.',
+                                es: 'Estas etiquetas sustituyen a GROS / DETALLE / BOUTIQUE en todas las pantallas de venta. Déjelo vacío para mantener el nombre por defecto.',
+                                pt: 'Estas etiquetas substituem GROS / DETALHE / BOUTIQUE em todos os ecrãs de venda. Deixe vazio para manter o nome predefinido.',
+                                tr: 'Bu etiketler satış ekranlarındaki GROS / DETAIL / BOUTIQUE yerine geçer. Varsayılan adı korumak için boş bırakın.',
+                            })}
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {(['GROS', 'DETAIL', 'BOUTIQUE'] as const).map(key => (
+                                <div key={key}>
+                                    <label className="block text-[11px] font-black text-slate-500 dark:text-dk-muted mb-1">{key}</label>
+                                    <input
+                                        type="text"
+                                        value={draft.clientTypeLabels?.[key] ?? ''}
+                                        placeholder={DEFAULT_COMMERCIAL_SETTINGS.clientTypeLabels[key]}
+                                        onChange={e => setDraft(prev => ({
+                                            ...prev,
+                                            clientTypeLabels: { ...(prev.clientTypeLabels || {}), [key]: e.target.value },
+                                        }))}
+                                        className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-indigo-500 text-slate-700 dark:text-dk-text-soft"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Interrupteurs : tarification par client + confidentialité du coût */}
+                    <div className="pt-4 border-t border-slate-100 dark:border-dk-border space-y-3">
+                        <div className="flex items-start justify-between gap-3 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-3">
+                            <div>
+                                <span className="font-bold text-slate-800 dark:text-dk-text text-sm block">
+                                    {tx(lang, { fr: 'Prix différenciés par client', ar: 'أسعار مخصّصة لكل زبون', en: 'Per-client pricing', es: 'Precios diferenciados por cliente', pt: 'Preços diferenciados por cliente', tr: 'Müşteriye özel fiyatlandırma' })}
+                                </span>
+                                <span className="text-xs text-slate-500 dark:text-dk-muted">
+                                    {tx(lang, {
+                                        fr: 'Permet de fixer un tarif propre à chaque client. Désactivé, tous les clients partagent le même prix et l’écran reste plus simple.',
+                                        ar: 'يسمح بتحديد سعر خاص بكل زبون. عند التعطيل، جميع الزبناء بنفس السعر وتبقى الشاشة أبسط.',
+                                        en: 'Lets you set a specific rate for each client. When off, all clients share the same price and the screen stays simpler.',
+                                        es: 'Permite fijar una tarifa propia para cada cliente. Desactivado, todos comparten el mismo precio y la pantalla es más simple.',
+                                        pt: 'Permite definir uma tarifa própria para cada cliente. Desativado, todos partilham o mesmo preço e o ecrã fica mais simples.',
+                                        tr: 'Her müşteri için ayrı bir fiyat belirlemenizi sağlar. Kapalıyken tüm müşteriler aynı fiyatı paylaşır ve ekran daha sade kalır.',
+                                    })}
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => setDraft(prev => ({ ...prev, prixParClientEnabled: !(prev.prixParClientEnabled ?? DEFAULT_COMMERCIAL_SETTINGS.prixParClientEnabled) }))}
+                                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${(draft.prixParClientEnabled ?? DEFAULT_COMMERCIAL_SETTINGS.prixParClientEnabled) ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-dk-border'}`}
+                            >
+                                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white dark:bg-dk-surface rounded-full shadow transition-transform ${(draft.prixParClientEnabled ?? DEFAULT_COMMERCIAL_SETTINGS.prixParClientEnabled) ? 'translate-x-5' : ''}`} />
+                            </button>
+                        </div>
+
+                        <div className="flex items-start justify-between gap-3 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl p-3">
+                            <div>
+                                <span className="font-bold text-slate-800 dark:text-dk-text text-sm block">
+                                    {tx(lang, { fr: 'Masquer le prix de revient et la marge', ar: 'إخفاء سعر التكلفة والهامش', en: 'Hide cost price and margin', es: 'Ocultar el precio de costo y el margen', pt: 'Ocultar o preço de custo e a margem', tr: 'Maliyet fiyatını ve marjı gizle' })}
+                                </span>
+                                <span className="text-xs text-slate-500 dark:text-dk-muted">
+                                    {tx(lang, {
+                                        fr: 'Activé, un vendeur voit le prix de vente et le stock mais plus le coût ni la marge. Le patron et les administrateurs voient toujours tout.',
+                                        ar: 'عند التفعيل، البائع يرى سعر البيع والمخزون لكن لا يرى التكلفة ولا الهامش. المالك والمشرفون يرون كل شيء دائماً.',
+                                        en: 'When on, a salesperson sees the selling price and stock but no longer the cost or the margin. The owner and administrators always see everything.',
+                                        es: 'Activado, un vendedor ve el precio de venta y el stock pero ya no el costo ni el margen. El propietario y los administradores siempre lo ven todo.',
+                                        pt: 'Ativado, um vendedor vê o preço de venda e o stock mas já não o custo nem a margem. O proprietário e os administradores veem sempre tudo.',
+                                        tr: 'Açıkken satış personeli satış fiyatını ve stoğu görür, maliyeti ve marjı görmez. Sahip ve yöneticiler her zaman her şeyi görür.',
+                                    })}
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => setDraft(prev => ({ ...prev, masquerCoutRevient: !(prev.masquerCoutRevient ?? DEFAULT_COMMERCIAL_SETTINGS.masquerCoutRevient) }))}
+                                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${(draft.masquerCoutRevient ?? DEFAULT_COMMERCIAL_SETTINGS.masquerCoutRevient) ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-dk-border'}`}
+                            >
+                                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white dark:bg-dk-surface rounded-full shadow transition-transform ${(draft.masquerCoutRevient ?? DEFAULT_COMMERCIAL_SETTINGS.masquerCoutRevient) ? 'translate-x-5' : ''}`} />
+                            </button>
                         </div>
                     </div>
                 </div>
