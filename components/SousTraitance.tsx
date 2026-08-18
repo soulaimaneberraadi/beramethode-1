@@ -4625,6 +4625,230 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     printWindow.document.close();
   };
 
+  /** Impression de la facture de VENTE émise depuis la fiche client (bouton
+   *  « Facturer »). Même charte graphique que la facture de sous-traitance —
+   *  un atelier qui imprime deux styles de facture différents selon qu'il
+   *  achète ou qu'il vend finit par perdre confiance dans ses propres papiers. */
+  const handlePrintClientInvoice = (
+    facture: { numero: string; tiers_nom?: string; date_facture: string; date_echeance: string | null; taux_tva: number; total_ht: number; total_tva: number; total_ttc: number; lignes: any[] },
+    client: { nom: string; ice?: string | null; rc?: string | null; adresse?: string | null; tel?: string | null; email?: string | null; photo?: string | null } | null,
+    grid: { couleurs: string[]; tailles: string[]; byCell: Map<string, number> },
+  ) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const esc = (v: unknown) => String(v ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const money = (v: number) => `${esc(fmt(v))} ${esc(currency)}`;
+    const clientThumb = inlineThumbHtml(client?.photo || '', 18);
+    const words = amountInWords(facture.total_ttc, currency);
+
+    const lineRows = (facture.lignes || []).map(l => `
+              <tr>
+                <td class="c-desc"><span class="label">${esc(l.designation || '—')}</span></td>
+                <td class="num">${esc((Number(l.quantite) || 0).toLocaleString(dateLocale))} pcs</td>
+                <td class="num">${money(Number(l.prix_unitaire) || 0)}</td>
+                <td class="num strong">${money(Number(l.total) || 0)}</td>
+              </tr>`).join('');
+
+    const gridBlock = (grid.couleurs.length > 1 || grid.tailles.length > 1) ? `
+            <table class="lines" style="margin-top:10px;">
+              <thead>
+                <tr>
+                  <th>${esc(tx(lang,{fr:'Répartition Couleur / Taille',ar:'التوزيع لون / مقاس',en:'Color / Size Breakdown',es:'Reparto Color / Talla',pt:'Repartição Cor / Tamanho',tr:'Renk / Beden Dağılımı'}))}</th>
+                  ${grid.tailles.map(t => `<th class="num">${esc(t)}</th>`).join('')}
+                  <th class="num">${esc(tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'}))}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${grid.couleurs.map(c => {
+                  const total = grid.tailles.reduce((a, t) => a + (grid.byCell.get(`${c}|${t}`) || 0), 0);
+                  return `
+                <tr>
+                  <td class="c-desc"><span class="label">${esc(c)}</span></td>
+                  ${grid.tailles.map(t => `<td class="num">${esc(String(grid.byCell.get(`${c}|${t}`) || '·'))}</td>`).join('')}
+                  <td class="num strong">${esc(String(total))}</td>
+                </tr>`;
+                }).join('')}
+              </tbody>
+            </table>` : '';
+
+    const issuerLines = [
+      companyIdentity.adresse,
+      companyIdentity.tel ? `${tx(lang,{fr:'Tél',ar:'الهاتف',en:'Tel',es:'Tel',pt:'Tel',tr:'Tel'})} : ${companyIdentity.tel}` : '',
+      [companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : ''].filter(Boolean).join(' · '),
+    ].filter(Boolean).map(l => `<div class="party-line">${esc(l)}</div>`).join('');
+
+    const recipientLines = [
+      client?.adresse || '',
+      client?.tel || '',
+      [client?.ice ? `ICE : ${client.ice}` : '', client?.rc ? `RC : ${client.rc}` : ''].filter(Boolean).join(' · '),
+    ].filter(Boolean).map(l => `<div class="party-line">${esc(l)}</div>`).join('');
+
+    const legalLines = [
+      tx(lang,{fr:'Tout retard de paiement au-delà de la date d\'échéance peut donner lieu à des pénalités de retard conformément à la loi 32-10.',ar:'كل تأخير في الأداء بعد تاريخ الاستحقاق قد يترتب عنه غرامات تأخير طبقاً للقانون 32-10.',en:'Any payment delay beyond the due date may incur late penalties under Moroccan law 32-10.',es:'Cualquier retraso en el pago tras el vencimiento puede generar penalizaciones según la ley 32-10.',pt:'Qualquer atraso no pagamento após o vencimento pode gerar penalidades nos termos da lei 32-10.',tr:'Vade tarihinden sonraki gecikmeler 32-10 sayılı kanun uyarınca gecikme cezasına tabi olabilir.'}),
+    ].map(l => `<li>${esc(l)}</li>`).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${esc(tx(lang,{fr:'Facture de Vente',ar:'فاتورة بيع',en:'Sale Invoice',es:'Factura de Venta',pt:'Fatura de Venda',tr:'Satış Faturası'}))} - ${esc(facture.numero)}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #16202e; padding: 16px; line-height: 1.35; font-size: 11px; }
+            .invoice-box { max-width: 820px; margin: auto; }
+            .num, .amount { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; white-space: nowrap; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 1.5px solid #16202e; padding-bottom: 8px; }
+            .header-rule { border-bottom: 0.5px solid #16202e; margin-bottom: 12px; padding-top: 1.5px; }
+            .logo { font-size: 17px; font-weight: 800; letter-spacing: -.01em; color: #16202e; }
+            .doc-title { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .10em; color: #16202e; }
+            .doc-meta { margin-top: 5px; font-size: 10px; color: #16202e; }
+            .doc-meta div { margin-top: 1px; }
+            .doc-meta .k { color: #667085; }
+            .doc-meta .v { font-weight: 700; }
+            .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 12px; }
+            .party { padding: 0 14px; }
+            .party:first-child { padding-left: 0; }
+            .party:last-child { border-left: 0.5px solid #ccd3dc; }
+            .party-title { font-size: 7.5px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: .12em; }
+            .party-name { font-size: 12px; font-weight: 800; color: #16202e; margin-top: 3px; }
+            .party-line { font-size: 10px; color: #4a5568; margin-top: 2px; }
+            table { width: 100%; border-collapse: collapse; }
+            .lines { margin-bottom: 10px; }
+            .lines th { padding: 5px 8px; text-align: left; font-size: 8px; color: #16202e; font-weight: 700; text-transform: uppercase; letter-spacing: .09em;
+                        border-top: 0.75px solid #16202e; border-bottom: 0.75px solid #16202e; }
+            .lines th.num { text-align: right; }
+            .lines td { padding: 5px 8px; border-bottom: 0.5px solid #e3e8ee; vertical-align: top; }
+            .lines tr:last-child td { border-bottom: 0.75px solid #16202e; }
+            .lines .c-desc { padding-left: 0; }
+            .lines td.num:last-child, .lines th.num:last-child { padding-right: 0; }
+            .label { font-weight: 600; color: #16202e; }
+            .strong { font-weight: 700; }
+            .summary { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; margin-top: 10px; }
+            .total-table { width: 100%; }
+            .total-table td { padding: 3px 0; border: none; font-size: 10.5px; }
+            .total-table td:first-child { color: #4a5568; }
+            .total-table td:last-child { font-weight: 700; }
+            .sub-rule td { border-top: 0.5px solid #ccd3dc !important; }
+            .total-row td { background: #16202e; color: #ffffff; font-weight: 800; font-size: 12.5px; padding: 6px 8px; letter-spacing: .02em; }
+            .total-row td:first-child { color: #ffffff; text-transform: uppercase; font-size: 10px; letter-spacing: .09em; }
+            .words { border-left: 2px solid #16202e; padding: 2px 0 2px 9px; }
+            .words-title { font-size: 7.5px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: .10em; }
+            .words-fr { font-weight: 700; margin-top: 2px; font-size: 10.5px; }
+            .words-ar { direction: rtl; font-size: 10.5px; font-weight: 700; margin-top: 1px; }
+            .legal { font-size: 8.5px; color: #4a5568; line-height: 1.5; margin-top: 12px; padding: 0; }
+            .legal ul { margin: 3px 0 0; padding-left: 12px; }
+            .legal-title { font-size: 7.5px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: .10em; }
+            .signatures { display: flex; justify-content: space-between; gap: 24px; margin-top: 26px; }
+            .sig-box { width: 210px; border-top: 0.5px solid #16202e; text-align: center; padding-top: 4px; font-size: 8.5px; color: #4a5568; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+            .footer { margin-top: 12px; text-align: center; font-size: 8.5px; color: #667085; border-top: 0.5px solid #e3e8ee; padding-top: 6px; }
+            .thumb { display: inline-block; vertical-align: middle; margin-right: 6px; }
+            .thumb img { height: 18px; width: 18px; object-fit: cover; border: 0.5px solid #ccd3dc; border-radius: 3px; }
+            @page { size: A4; margin: 10mm 10mm; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+            tr, .party, .words, .signatures, .summary { break-inside: avoid; page-break-inside: avoid; }
+            @media print {
+              body { padding: 0; font-size: 10.5px; }
+              .invoice-box { max-width: none; }
+              .signatures { margin-top: 18px; }
+              .total-row td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="invoice-box">
+            <div class="header">
+              <div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  ${companyIdentity.logo ? `<img src="${esc(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
+                  <div class="logo">${esc(companyIdentity.nom || '')}</div>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div class="doc-title">${esc(tx(lang,{fr:'FACTURE DE VENTE',ar:'فاتورة بيع',en:'SALE INVOICE',es:'FACTURA DE VENTA',pt:'FATURA DE VENDA',tr:'SATIŞ FATURASI'}))}</div>
+                <div class="doc-meta">
+                  <div class="v">${esc(tx(lang,{fr:'Facture n°',ar:'فاتورة رقم',en:'Invoice no.',es:'Factura n.º',pt:'Fatura n.º',tr:'Fatura no'}))} ${esc(facture.numero)}</div>
+                  <div><span class="k">${esc(tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'}))} :</span> <span class="v">${esc(fmtDate(facture.date_facture))}</span></div>
+                  ${facture.date_echeance ? `<div><span class="k">${esc(tx(lang,{fr:'Échéance',ar:'تاريخ الاستحقاق',en:'Due date',es:'Vencimiento',pt:'Vencimento',tr:'Vade'}))} :</span> <span class="v">${esc(fmtDate(facture.date_echeance))}</span></div>` : ''}
+                </div>
+              </div>
+            </div>
+            <div class="header-rule"></div>
+
+            <div class="parties">
+              <div class="party">
+                <div class="party-title">${esc(tx(lang,{fr:'Émetteur',ar:'المصدر',en:'Issuer',es:'Emisor',pt:'Emitente',tr:'Düzenleyen'}))}</div>
+                <div class="party-name">${esc(companyIdentity.nom || tx(lang,{fr:'Entreprise non renseignée',ar:'الشركة غير محدَّدة',en:'Company not set',es:'Empresa no indicada',pt:'Empresa não indicada',tr:'Şirket belirtilmedi'}))}</div>
+                ${issuerLines}
+              </div>
+              <div class="party">
+                <div class="party-title">${esc(tx(lang,{fr:'Client',ar:'الزبون',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'}))}</div>
+                <div class="party-name">${clientThumb}${esc(client?.nom || facture.tiers_nom || '—')}</div>
+                ${recipientLines}
+              </div>
+            </div>
+
+            <table class="lines">
+              <thead>
+                <tr>
+                  <th>${esc(tx(lang,{fr:'Désignation',ar:'البيان',en:'Description',es:'Designación',pt:'Designação',tr:'Açıklama'}))}</th>
+                  <th class="num">${esc(tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'}))}</th>
+                  <th class="num">${esc(tx(lang,{fr:'Prix Unitaire',ar:'السعر الوحدة',en:'Unit Price',es:'Precio Unitario',pt:'Preço Unitário',tr:'Birim Fiyat'}))}</th>
+                  <th class="num">${esc(tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'}))}</th>
+                </tr>
+              </thead>
+              <tbody>${lineRows}</tbody>
+            </table>
+
+            ${gridBlock}
+
+            <div class="summary">
+              <div>
+                <div class="words">
+                  <div class="words-title">${esc(tx(lang,{fr:'Arrêtée la présente facture à la somme de',ar:'حُررت هذه الفاتورة بمبلغ',en:'This invoice is settled at the sum of',es:'La presente factura asciende a la suma de',pt:'A presente fatura ascende à quantia de',tr:'İşbu fatura şu tutar üzerinden düzenlenmiştir'}))}</div>
+                  <div class="words-fr">${esc(words.fr)}</div>
+                  <div class="words-ar">${esc(words.ar)}</div>
+                </div>
+              </div>
+              <table class="total-table">
+                <tr>
+                  <td>${esc(tx(lang,{fr:'Total HT',ar:'المجموع دون احتساب الضريبة',en:'Total excl. tax',es:'Total sin IVA',pt:'Total sem IVA',tr:'KDV hariç toplam'}))}</td>
+                  <td class="num">${money(facture.total_ht)}</td>
+                </tr>
+                <tr>
+                  <td>${esc(tx(lang,{fr:'TVA',ar:'الضريبة على القيمة المضافة',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'}))} ${esc(facture.taux_tva)}%</td>
+                  <td class="num">${money(facture.total_tva)}</td>
+                </tr>
+                <tr class="total-row">
+                  <td>${esc(tx(lang,{fr:'TOTAL TTC',ar:'المجموع مع الضريبة',en:'TOTAL INCL. TAX',es:'TOTAL CON IVA',pt:'TOTAL COM IVA',tr:'TOPLAM (KDV DAHİL)'}))}</td>
+                  <td class="num">${money(facture.total_ttc)}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="legal">
+              <div class="legal-title">${esc(tx(lang,{fr:'Mentions légales',ar:'البيانات القانونية',en:'Legal notices',es:'Menciones legales',pt:'Menções legais',tr:'Yasal bilgiler'}))}</div>
+              <ul>${legalLines}</ul>
+            </div>
+
+            <div class="signatures">
+              <div class="sig-box">${esc(tx(lang,{fr:'Atelier',ar:'الورشة',en:'Workshop',es:'Taller',pt:'Oficina',tr:'Atölye'}))}</div>
+              <div class="sig-box">${esc(tx(lang,{fr:'Client',ar:'الزبون',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'}))}</div>
+            </div>
+
+            <div class="footer">
+              <div style="font-weight:700;color:#16202e;margin-bottom:3px;">${esc([companyIdentity.nom, companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : '', companyIdentity.tel].filter(Boolean).join(' · '))}</div>
+              ${esc(tx(lang,{fr:'Document généré électroniquement et valable sans signature.',ar:'مستند تم إنشاؤه إلكترونياً وصالح بدون توقيع.',en:'Electronically generated document valid without signature.',es:'Documento generado electrónicamente y válido sin firma.',pt:'Documento gerado eletronicamente e válido sem assinatura.',tr:'Elektronik olarak oluşturulmuş, imzasız geçerli belge.'}))}
+            </div>
+          </div>
+                  ${autoFitScript(20)}
+</body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   return (
     <div className="flex-1 overflow-y-auto space-y-3.5 lg:space-y-6 p-3 lg:p-6 bg-slate-50 dark:bg-dk-bg text-slate-800 dark:text-dk-text relative font-sans animate-fade-in w-full h-full">
       
@@ -7487,6 +7711,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           currency={currency}
           dateLocale={dateLocale}
           onEditClient={editClientFromSheet}
+          onInvoiced={loadStockMovements}
+          onPrintInvoice={handlePrintClientInvoice}
           prixParClientEnabled={prixParClientEnabled}
           canSeeCost={canSeeCostHere}
           canSetPrice={canSetPriceHere}

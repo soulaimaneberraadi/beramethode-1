@@ -5,7 +5,7 @@ import { useLang } from '../../src/context/LanguageContext';
 import { fmt } from '../../app/constants';
 import {
     X, ArrowLeft, Package, Users, Layers, Edit2, ShoppingBag,
-    Truck, Coins, AlertTriangle, Tag, TrendingUp, Plus, Trash2, Loader2, Save,
+    Truck, Coins, AlertTriangle, Tag, TrendingUp, Plus, Trash2, Loader2, Save, Receipt,
 } from 'lucide-react';
 import type { AtelierClient } from './ClientsPanel';
 
@@ -65,6 +65,12 @@ interface EntitySheetProps {
     /** Renvoie vers le formulaire client existant (ClientsPanel) : on ne
      *  duplique pas la saisie, on la réutilise. */
     onEditClient?: (client: AtelierClient) => void;
+    /** Rechargement des sorties après émission d'une facture de vente : sans
+     *  lui, le badge « Payé / Impayé » resterait figé sur l'ancien état. */
+    onInvoiced?: () => void;
+    /** Impression de la facture de vente juste émise — le parent seul connaît
+     *  l'identité de l'entreprise et la charte graphique des documents imprimés. */
+    onPrintInvoice?: (facture: any, client: AtelierClient | null, grid: { couleurs: string[]; tailles: string[]; byCell: Map<string, number> }) => void;
     /** `AppSettings.prixParClientEnabled` : sans lui, la grille tarifaire ne
      *  s'affiche pas — un petit atelier vend au même prix à tout le monde et
      *  n'a pas à subir un écran de plus. */
@@ -152,6 +158,39 @@ const EntityLink: React.FC<{ label: string; onClick: () => void; title?: string 
 const EmptyLine: React.FC<{ text: string }> = ({ text }) => (
     <p className="text-[11px] text-slate-400 dark:text-dk-muted font-semibold py-2">{text}</p>
 );
+
+/** État de paiement d'une sortie, déduit du statut de SA facture (jointe côté
+ *  serveur). Une sortie sans facture_id n'est pas « impayée » : elle n'a
+ *  simplement jamais été facturée — les deux ne doivent pas se confondre. */
+const PaymentBadge: React.FC<{ s: any; dateLocale: string; lang: string }> = ({ s, dateLocale, lang }) => {
+    if (!s.facture_id) {
+        return <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang as any, { fr: 'Non facturé', ar: 'غير مفوتر', en: 'Not invoiced', es: 'Sin facturar', pt: 'Não faturado', tr: 'Faturasız' })}</span>;
+    }
+    const statut = String(s.facture_statut || '');
+    if (statut === 'PAYEE') {
+        return <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">{tx(lang as any, { fr: 'Payé', ar: 'مؤدّى', en: 'Paid', es: 'Pagado', pt: 'Pago', tr: 'Ödendi' })}</span>;
+    }
+    if (statut === 'PARTIELLEMENT') {
+        return <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">{tx(lang as any, { fr: 'Partiel', ar: 'جزئي', en: 'Partial', es: 'Parcial', pt: 'Parcial', tr: 'Kısmi' })}</span>;
+    }
+    if (statut === 'ANNULEE') {
+        return <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang as any, { fr: 'Annulée', ar: 'ملغاة', en: 'Cancelled', es: 'Anulada', pt: 'Anulada', tr: 'İptal' })}</span>;
+    }
+    // BROUILLON / ENVOYEE : impayée. L'échéance, si connue, dit si elle est en
+    // retard — un « impayé » sans date ne dit rien de l'urgence.
+    const echeance = s.facture_echeance ? new Date(s.facture_echeance) : null;
+    const enRetard = echeance && !isNaN(echeance.getTime()) && echeance.getTime() < Date.now();
+    return (
+        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border ${
+            enRetard
+                ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/50'
+                : 'bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+        }`}>
+            {tx(lang as any, { fr: 'Impayé', ar: 'غير مؤدّى', en: 'Unpaid', es: 'Impagado', pt: 'Não pago', tr: 'Ödenmedi' })}
+            {echeance && !isNaN(echeance.getTime()) && ` · ${fmtDay(s.facture_echeance, dateLocale)}`}
+        </span>
+    );
+};
 
 /* ------------------------------------------------------------------ */
 /* TARIFS du modèle (grille tarifaire)                                 */
@@ -932,9 +971,15 @@ interface ClientSheetProps extends Omit<EntitySheetProps, 'stack' | 'onBack' | '
 }
 
 const ClientSheet: React.FC<ClientSheetProps> = ({
-    clientId, clientNom, clients, models, sorties, currency, dateLocale, onPush, onEditClient,
+    clientId, clientNom, clients, models, sorties, currency, dateLocale, onPush, onEditClient, onInvoiced, onPrintInvoice,
 }) => {
     const { lang } = useLang();
+    const [invoiceModal, setInvoiceModal] = useState(false);
+    const [invoiceSelected, setInvoiceSelected] = useState<Set<string>>(new Set());
+    const [invoiceTva, setInvoiceTva] = useState('20');
+    const [invoiceStatut, setInvoiceStatut] = useState<'BROUILLON' | 'ENVOYEE' | 'PAYEE'>('ENVOYEE');
+    const [invoiceSaving, setInvoiceSaving] = useState(false);
+    const [invoiceError, setInvoiceError] = useState<string | null>(null);
 
     /** Le registre `st_clients` fait foi quand il connaît ce client ; sinon la
      *  fiche reste ouvrable à partir du seul nom porté par les sorties. */
@@ -964,15 +1009,22 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
     }, [sorties, record, clientId, clientNom]);
 
     const kpis = useMemo(() => {
-        let ca = 0, pieces = 0, last = '';
+        let ca = 0, pieces = 0, last = '', first = '';
+        const modelIds = new Set<string>();
         clientSorties.forEach(s => {
             const q = toNum(s.quantite);
             pieces += q;
             ca += q * toNum(s.prix_unitaire);
             const d = String(s.date_sortie || '');
             if (d > last) last = d;
+            if (d && (!first || d < first)) first = d;
+            if (s.modelId) modelIds.add(String(s.modelId));
         });
-        return { ca, pieces, count: clientSorties.length, last, panier: clientSorties.length > 0 ? ca / clientSorties.length : 0 };
+        return {
+            ca, pieces, count: clientSorties.length, last, first,
+            panier: clientSorties.length > 0 ? ca / clientSorties.length : 0,
+            modeles: modelIds.size,
+        };
     }, [clientSorties]);
 
     /** Répartition par modèle : sur quoi ce client dépense-t-il réellement. */
@@ -994,6 +1046,78 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
         return Array.from(map.values()).sort((a, b) => b.ca - a.ca);
     }, [clientSorties, models]);
 
+    /** Sorties de ce client qui n'appartiennent encore à aucune facture — la
+     *  matière première du bouton « Facturer ». */
+    const unbilled = useMemo(() => clientSorties.filter(s => !s.facture_id), [clientSorties]);
+
+    const openInvoiceModal = () => {
+        setInvoiceSelected(new Set(unbilled.map(s => String(s.id))));
+        setInvoiceTva('20');
+        setInvoiceStatut('ENVOYEE');
+        setInvoiceError(null);
+        setInvoiceModal(true);
+    };
+
+    const invoiceTotals = useMemo(() => {
+        const lignes = unbilled.filter(s => invoiceSelected.has(String(s.id)));
+        const ht = lignes.reduce((a, s) => a + toNum(s.quantite) * toNum(s.prix_unitaire), 0);
+        const tva = ht * ((Number(invoiceTva) || 0) / 100);
+        return { count: lignes.length, ht, tva, ttc: ht + tva };
+    }, [unbilled, invoiceSelected, invoiceTva]);
+
+    /** Récap couleur × taille des lignes cochées : avant d'émettre, l'utilisateur
+     *  doit pouvoir vérifier d'un coup d'œil QUOI part chez ce client, pas
+     *  seulement combien ça coûte — deux chiffres identiques peuvent recouvrir
+     *  des pièces complètement différentes. */
+    const invoiceGrid = useMemo(() => {
+        const lignes = unbilled.filter(s => invoiceSelected.has(String(s.id)));
+        const couleurs: string[] = [];
+        const tailles: string[] = [];
+        const byCell = new Map<string, number>();
+        lignes.forEach(s => {
+            const c = String(s.couleur || '—');
+            const t = String(s.taille || '—');
+            if (!couleurs.includes(c)) couleurs.push(c);
+            if (!tailles.includes(t)) tailles.push(t);
+            const key = `${c}|${t}`;
+            byCell.set(key, (byCell.get(key) || 0) + toNum(s.quantite));
+        });
+        couleurs.sort((a, b) => a.localeCompare(b));
+        tailles.sort((a, b) => sizeRank(a) - sizeRank(b) || a.localeCompare(b));
+        return { couleurs, tailles, byCell };
+    }, [unbilled, invoiceSelected]);
+
+    const submitInvoice = async () => {
+        if (invoiceTotals.count === 0) return;
+        setInvoiceSaving(true);
+        setInvoiceError(null);
+        try {
+            const res = await fetch('/api/subcontract/clients/facturer', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    clientId: record?.id || null,
+                    sortieIds: Array.from(invoiceSelected),
+                    taux_tva: Number(invoiceTva) || 0,
+                    statut: invoiceStatut,
+                }),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => null);
+                throw new Error(body?.message || 'save');
+            }
+            const savedFacture = await res.json();
+            setInvoiceModal(false);
+            onInvoiced?.();
+            onPrintInvoice?.(savedFacture, record, invoiceGrid);
+        } catch {
+            setInvoiceError(tx(lang, { fr: "L'émission de la facture a échoué.", ar: 'فشل إصدار الفاتورة.', en: 'Invoice issuing failed.', es: 'Error al emitir la factura.', pt: 'Falha ao emitir a fatura.', tr: 'Fatura kesme başarısız.' }));
+        } finally {
+            setInvoiceSaving(false);
+        }
+    };
+
     const typeLabel = record?.type === 'GROS'
         ? tx(lang, { fr: 'Gros', ar: 'الجملة', en: 'Wholesale', es: 'Mayorista', pt: 'Grosso', tr: 'Toptan' })
         : record?.type === 'BOUTIQUE'
@@ -1013,9 +1137,13 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
         <div className="space-y-4">
             {/* En-tête identitaire — mêmes champs que la fiche du registre. */}
             <div className="flex items-start gap-3">
-                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 dark:border-dk-border flex items-center justify-center shrink-0">
-                    <Users className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
-                </div>
+                {record?.photo ? (
+                    <img src={record.photo} alt="" className="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                ) : (
+                    <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 dark:border-dk-border flex items-center justify-center shrink-0">
+                        <Users className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
+                    </div>
+                )}
                 <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-slate-900 dark:text-dk-text text-base truncate">{displayName}</h3>
                     {record ? (
@@ -1028,26 +1156,178 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                     <div className="mt-1.5 text-[10px] text-slate-500 dark:text-dk-muted space-y-0.5">
                         <p>{[record?.ice && `ICE : ${record.ice}`, record?.rc && `RC : ${record.rc}`].filter(Boolean).join(' · ') || '—'}</p>
                         <p>{[record?.tel, record?.email, record?.ville].filter(Boolean).join(' · ') || '—'}</p>
+                        {record?.adresse && <p>{record.adresse}</p>}
                     </div>
                 </div>
-                {record && onEditClient && (
-                    <button
-                        type="button"
-                        onClick={() => onEditClient(record)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors shrink-0"
-                    >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        {tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })}
-                    </button>
-                )}
+                <div className="flex items-center gap-2 shrink-0">
+                    {unbilled.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={openInvoiceModal}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors"
+                            title={tx(lang, { fr: `${unbilled.length} sortie(s) non facturée(s)`, ar: `${unbilled.length} إخراج غير مفوتر`, en: `${unbilled.length} unbilled exit(s)`, es: `${unbilled.length} salida(s) sin facturar`, pt: `${unbilled.length} saída(s) não faturada(s)`, tr: `${unbilled.length} faturasız çıkış` })}
+                        >
+                            <Receipt className="w-3.5 h-3.5" />
+                            {tx(lang, { fr: 'Facturer', ar: 'فوترة', en: 'Invoice', es: 'Facturar', pt: 'Faturar', tr: 'Faturala' })}
+                            <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-white/20 text-[9px]">{unbilled.length}</span>
+                        </button>
+                    )}
+                    {record && onEditClient && (
+                        <button
+                            type="button"
+                            onClick={() => onEditClient(record)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                        >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            {tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' })}
+                        </button>
+                    )}
+                </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {invoiceModal && (
+                <div className="fixed inset-0 bg-slate-950/30 backdrop-blur-[2px] flex items-center justify-center z-[260] p-4" onClick={() => !invoiceSaving && setInvoiceModal(false)}>
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between sticky top-0 bg-white dark:bg-dk-surface">
+                            <h3 className="text-[13px] font-bold text-slate-900 dark:text-dk-text flex items-center gap-2">
+                                <Receipt className="w-4 h-4 text-indigo-600 dark:text-dk-accent" />
+                                {tx(lang, { fr: 'Facturer les sorties non facturées', ar: 'فوترة الإخراجات غير المفوترة', en: 'Invoice unbilled exits', es: 'Facturar salidas sin facturar', pt: 'Faturar saídas não faturadas', tr: 'Faturasız çıkışları faturala' })}
+                            </h3>
+                            <button onClick={() => setInvoiceModal(false)} className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="p-5 space-y-3">
+                            {invoiceError && (
+                                <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                    <span className="text-[10px] font-semibold">{invoiceError}</span>
+                                </div>
+                            )}
+
+                            {invoiceGrid.couleurs.length > 1 || invoiceGrid.tailles.length > 1 ? (
+                                <div className="border border-slate-200 dark:border-dk-border rounded-xl overflow-hidden">
+                                    <div className="px-3 py-1.5 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/40 flex items-center gap-1.5">
+                                        <Layers className="w-3 h-3 text-indigo-600 dark:text-dk-accent" />
+                                        <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted">
+                                            {tx(lang, { fr: 'Répartition Couleur / Taille', ar: 'التوزيع لون / مقاس', en: 'Color / Size Breakdown', es: 'Reparto Color / Talla', pt: 'Repartição Cor / Tamanho', tr: 'Renk / Beden Dağılımı' })}
+                                        </span>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-[10px]">
+                                            <thead>
+                                                <tr>
+                                                    <th className="px-2.5 py-1.5 text-left font-semibold uppercase text-[9px] text-slate-500 dark:text-dk-muted whitespace-nowrap">{tx(lang, { fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}</th>
+                                                    {invoiceGrid.tailles.map(t => <th key={t} className="px-2.5 py-1.5 text-center font-semibold uppercase text-[9px] text-slate-500 dark:text-dk-muted whitespace-nowrap">{t}</th>)}
+                                                    <th className="px-2.5 py-1.5 text-center font-semibold uppercase text-[9px] text-slate-500 dark:text-dk-muted whitespace-nowrap">{tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' })}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                                                {invoiceGrid.couleurs.map(c => {
+                                                    const total = invoiceGrid.tailles.reduce((a, t) => a + (invoiceGrid.byCell.get(`${c}|${t}`) || 0), 0);
+                                                    return (
+                                                        <tr key={c}>
+                                                            <td className="px-2.5 py-1.5 font-semibold text-slate-800 dark:text-dk-text whitespace-nowrap">{c}</td>
+                                                            {invoiceGrid.tailles.map(t => {
+                                                                const q = invoiceGrid.byCell.get(`${c}|${t}`) || 0;
+                                                                return <td key={t} className={q > 0 ? 'px-2.5 py-1.5 text-center font-bold text-emerald-600 dark:text-emerald-400' : 'px-2.5 py-1.5 text-center text-slate-300 dark:text-dk-muted'}>{q > 0 ? q : '·'}</td>;
+                                                            })}
+                                                            <td className="px-2.5 py-1.5 text-center font-bold text-slate-800 dark:text-dk-text">{total}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            <div className="space-y-1.5 max-h-64 overflow-y-auto border border-slate-200 dark:border-dk-border rounded-xl divide-y divide-slate-100 dark:divide-dk-border">
+                                {unbilled.map(s => {
+                                    const id = String(s.id);
+                                    const checked = invoiceSelected.has(id);
+                                    const found = models.find(m => m.id === String(s.modelId || ''));
+                                    const label = found?.meta_data?.nom_modele || String(s.modele_nom || s.designation || '').trim() || '—';
+                                    const total = toNum(s.quantite) * toNum(s.prix_unitaire);
+                                    return (
+                                        <label key={id} className="flex items-center gap-2.5 px-3 py-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors">
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={() => setInvoiceSelected(prev => {
+                                                    const next = new Set(prev);
+                                                    if (next.has(id)) next.delete(id); else next.add(id);
+                                                    return next;
+                                                })}
+                                                className="shrink-0"
+                                            />
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[11px] font-semibold text-slate-800 dark:text-dk-text truncate">{label}</p>
+                                                <p className="text-[9px] text-slate-400 dark:text-dk-muted">
+                                                    {fmtDay(s.date_sortie, dateLocale)} · {[s.couleur, s.taille].filter(Boolean).join(' / ') || '—'} · {toNum(s.quantite)} pcs
+                                                </p>
+                                            </div>
+                                            <span className="text-[11px] font-bold text-slate-800 dark:text-dk-text shrink-0">{fmt(total)} {currency}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                        {tx(lang, { fr: 'TVA (%)', ar: 'الضريبة (%)', en: 'VAT (%)', es: 'IVA (%)', pt: 'IVA (%)', tr: 'KDV (%)' })}
+                                    </label>
+                                    <input type="number" min={0} step="any" value={invoiceTva} onChange={e => setInvoiceTva(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                                </div>
+                                <div>
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                        {tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Estado', tr: 'Durum' })}
+                                    </label>
+                                    <select value={invoiceStatut} onChange={e => setInvoiceStatut(e.target.value as any)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent">
+                                        <option value="BROUILLON">{tx(lang, { fr: 'Brouillon', ar: 'مسوّدة', en: 'Draft', es: 'Borrador', pt: 'Rascunho', tr: 'Taslak' })}</option>
+                                        <option value="ENVOYEE">{tx(lang, { fr: 'Envoyée (impayée)', ar: 'مرسلة (غير مؤدّاة)', en: 'Sent (unpaid)', es: 'Enviada (impagada)', pt: 'Enviada (não paga)', tr: 'Gönderildi (ödenmedi)' })}</option>
+                                        <option value="PAYEE">{tx(lang, { fr: 'Payée', ar: 'مؤدّاة', en: 'Paid', es: 'Pagada', pt: 'Paga', tr: 'Ödendi' })}</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-dk-border">
+                                <span className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted">
+                                    {tx(lang, { fr: `${invoiceTotals.count} ligne(s) sélectionnée(s)`, ar: `${invoiceTotals.count} سطر مختار`, en: `${invoiceTotals.count} line(s) selected`, es: `${invoiceTotals.count} línea(s) seleccionada(s)`, pt: `${invoiceTotals.count} linha(s) selecionada(s)`, tr: `${invoiceTotals.count} satır seçildi` })}
+                                </span>
+                                <span className="text-[13px] font-bold text-indigo-600 dark:text-dk-accent">{fmt(invoiceTotals.ttc)} {currency}</span>
+                            </div>
+                        </div>
+
+                        <div className="px-5 py-3 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-dk-surface">
+                            <button onClick={() => setInvoiceModal(false)} className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors">
+                                {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
+                            </button>
+                            <button
+                                onClick={submitInvoice}
+                                disabled={invoiceSaving || invoiceTotals.count === 0}
+                                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                            >
+                                {invoiceSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Receipt className="w-3.5 h-3.5" />}
+                                {tx(lang, { fr: 'Émettre la facture', ar: 'إصدار الفاتورة', en: 'Issue invoice', es: 'Emitir factura', pt: 'Emitir fatura', tr: 'Fatura kes' })}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <Kpi label={tx(lang, { fr: 'CA total', ar: 'رقم المعاملات', en: 'Total revenue', es: 'Facturación total', pt: 'Volume total', tr: 'Toplam ciro' })} value={`${fmt(kpis.ca)} ${currency}`} tone="accent" />
                 <Kpi label={tx(lang, { fr: 'Pièces achetées', ar: 'القطع المشتراة', en: 'Pieces bought', es: 'Piezas compradas', pt: 'Peças compradas', tr: 'Alınan parça' })} value={kpis.pieces.toLocaleString(dateLocale)} />
                 <Kpi label={tx(lang, { fr: 'Sorties', ar: 'الإخراجات', en: 'Exits', es: 'Salidas', pt: 'Saídas', tr: 'Çıkışlar' })} value={kpis.count.toLocaleString(dateLocale)} />
-                <Kpi label={tx(lang, { fr: 'Dernier achat', ar: 'آخر شراء', en: 'Last purchase', es: 'Última compra', pt: 'Última compra', tr: 'Son alım' })} value={kpis.last ? fmtDay(kpis.last, dateLocale) : '—'} />
                 <Kpi label={tx(lang, { fr: 'Panier moyen', ar: 'متوسّط السلّة', en: 'Average basket', es: 'Cesta media', pt: 'Cesto médio', tr: 'Ortalama sepet' })} value={kpis.count > 0 ? `${fmt(kpis.panier)} ${currency}` : '—'} />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+                <Kpi label={tx(lang, { fr: 'Client depuis', ar: 'زبون منذ', en: 'Client since', es: 'Cliente desde', pt: 'Cliente desde', tr: 'Müşteri tarihi' })} value={kpis.first ? fmtDay(kpis.first, dateLocale) : '—'} />
+                <Kpi label={tx(lang, { fr: 'Dernier achat', ar: 'آخر شراء', en: 'Last purchase', es: 'Última compra', pt: 'Última compra', tr: 'Son alım' })} value={kpis.last ? fmtDay(kpis.last, dateLocale) : '—'} />
+                <Kpi label={tx(lang, { fr: 'Modèles achetés', ar: 'الموديلات المشتراة', en: 'Models bought', es: 'Modelos comprados', pt: 'Modelos comprados', tr: 'Alınan model' })} value={kpis.modeles.toLocaleString(dateLocale)} />
             </div>
 
             <Section
@@ -1063,6 +1343,7 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                                 <tr>
                                     <th className={th}>{tx(lang, { fr: 'Modèle', ar: 'الموديل', en: 'Model', es: 'Modelo', pt: 'Modelo', tr: 'Model' })}</th>
                                     <th className={`${th} text-right`}>{tx(lang, { fr: 'Pièces', ar: 'القطع', en: 'Pieces', es: 'Piezas', pt: 'Peças', tr: 'Parça' })}</th>
+                                    <th className={`${th} text-right`}>{tx(lang, { fr: 'PU moyen', ar: 'متوسّط ثمن الوحدة', en: 'Avg. unit price', es: 'PU medio', pt: 'PU médio', tr: 'Ort. birim fiyat' })}</th>
                                     <th className={`${th} text-right`}>CA</th>
                                 </tr>
                             </thead>
@@ -1075,6 +1356,7 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                                                 : <span className="font-semibold text-slate-700 dark:text-dk-text-soft">{m.nom}</span>}
                                         </td>
                                         <td className={`${td} text-right font-semibold`}>{m.qty.toLocaleString(dateLocale)}</td>
+                                        <td className={`${td} text-right`}>{m.qty > 0 ? `${fmt(m.ca / m.qty)} ${currency}` : '—'}</td>
                                         <td className={`${td} text-right font-bold text-slate-800 dark:text-dk-text`}>{fmt(m.ca)} {currency}</td>
                                     </tr>
                                 ))}
@@ -1101,6 +1383,7 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                                     <th className={`${th} text-right`}>{tx(lang, { fr: 'Qté', ar: 'الكمية', en: 'Qty', es: 'Cant.', pt: 'Qtd', tr: 'Adet' })}</th>
                                     <th className={`${th} text-right`}>PU</th>
                                     <th className={`${th} text-right`}>{tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' })}</th>
+                                    <th className={th}>{tx(lang, { fr: 'Paiement', ar: 'الأداء', en: 'Payment', es: 'Pago', pt: 'Pagamento', tr: 'Ödeme' })}</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
@@ -1121,6 +1404,7 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                                             <td className={`${td} text-right font-semibold`}>{q.toLocaleString(dateLocale)}</td>
                                             <td className={`${td} text-right`}>{pu > 0 ? `${fmt(pu)} ${currency}` : '—'}</td>
                                             <td className={`${td} text-right font-bold text-slate-800 dark:text-dk-text`}>{fmt(q * pu)} {currency}</td>
+                                            <td className={td}><PaymentBadge s={s} dateLocale={dateLocale} lang={lang} /></td>
                                         </tr>
                                     );
                                 })}
@@ -1233,6 +1517,8 @@ const EntitySheet: React.FC<EntitySheetProps> = (props) => {
                             dateLocale={props.dateLocale}
                             onPush={props.onPush}
                             onEditClient={props.onEditClient}
+                            onInvoiced={props.onInvoiced}
+                            onPrintInvoice={props.onPrintInvoice}
                         />
                     )}
                 </div>
