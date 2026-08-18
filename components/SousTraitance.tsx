@@ -2881,6 +2881,36 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   };
 
   /** Jalons imprimables : les 4 jalons fixes + la checklist libre de la commande. */
+  /** Lignes de DÉTAIL du bon d'envoi : la façon confiée et les matières qui
+   *  partent avec. Même lecture que « Détail de la facture », mais SANS aucun
+   *  montant : un bon d'envoi qui porte des prix devient une facture, et le
+   *  sous-traitant n'a pas à connaître le coût des matières qu'il reçoit. */
+  const buildBonEnvoiDetail = (order: SubcontractOrder) => {
+    const lines: { key: string; type: string; label: string; qty: number; unit: string }[] = [
+      {
+        key: 'det-facon',
+        type: tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'}),
+        label: order.modelName || order.modelId,
+        qty: order.totalQuantity,
+        unit: 'pcs',
+      },
+    ];
+
+    // Les matières ne partent qu'en mode Façon : en « tout compris » c'est le
+    // sous-traitant qui les fournit, les lister n'aurait aucun sens.
+    if (inferSubcontractMode(order) === 'facon') {
+      getFaconMaterialsNeeds(order, parseJsonSafe(order.materials_fournisseur_json, {} as Record<string, string>))
+        .forEach(m => lines.push({
+          key: `det-mat-${m.id}`,
+          type: tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'}),
+          label: m.name,
+          qty: m.buyQty,
+          unit: m.unit,
+        }));
+    }
+    return lines;
+  };
+
   const buildBonEnvoiMilestones = (order: SubcontractOrder) => ([
     { key: 'ms-tissu', label: tx(lang,{fr:'Tissu expédié',ar:'القماش مُرسَل',en:'Fabric shipped',es:'Tejido enviado',pt:'Tecido expedido',tr:'Kumaş sevk edildi'}), done: order.tissuStatus === 'SENT' },
     { key: 'ms-fournitures', label: tx(lang,{fr:'Fournitures livrées',ar:'اللوازم مُسلَّمة',en:'Supplies delivered',es:'Fornituras entregadas',pt:'Acessórios entregues',tr:'Malzemeler teslim edildi'}), done: order.fournituresStatus === 'DELIVERED' },
@@ -2910,9 +2940,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   });
   /** Blocs et visuels à faire figurer sur le document imprimé. */
   const [bonEnvoiShow, setBonEnvoiShow] = useState<{
+    detail: boolean;
     logo: boolean; model: boolean; subcontractor: boolean;
     sizeDetail: boolean; milestones: boolean; notes: boolean; materials: boolean;
-  }>({ logo: true, model: true, subcontractor: false, sizeDetail: true, milestones: false, notes: true, materials: false });
+  }>({ detail: true, logo: true, model: true, subcontractor: false, sizeDetail: true, milestones: false, notes: true, materials: false });
   /** Notes du bon : pré-remplies depuis la commande mais propres au document —
    *  une consigne de transport n'a pas à polluer la fiche de la commande. */
   const [bonEnvoiNotes, setBonEnvoiNotes] = useState('');
@@ -2939,7 +2970,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setBonEnvoiOrder(order);
     setBonEnvoiOff(new Set());
     setBonEnvoiEdits({});
-    setBonEnvoiShow({ logo: true, model: true, subcontractor: false, sizeDetail: true, milestones: false, notes: true, materials: false });
+    setBonEnvoiShow({ detail: true, logo: true, model: true, subcontractor: false, sizeDetail: true, milestones: false, notes: true, materials: false });
     setBonEnvoiNotes(order.notes || '');
     setBonEnvoiMaterials('');
     setBonEnvoiDate('');
@@ -3057,6 +3088,30 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           return `<td style="text-align:center; font-weight:800;">${t ? t.toLocaleString(dateLocale) : '&mdash;'}</td>`;
         }).join('')
       : '';
+
+    // Détail des lignes envoyées (façon + matières), quantités seules.
+    const detailLines = buildBonEnvoiDetail(order).filter(l => !bonEnvoiOff.has(l.key));
+    const detailBlock = (!bonEnvoiShow.detail || detailLines.length === 0) ? '' : `
+          <table>
+            <thead>
+              <tr>
+                <th>${esc(tx(lang,{fr:"Détail de l'envoi",ar:'تفصيل الإرسال',en:'Shipment details',es:'Detalle del envío',pt:'Detalhe da remessa',tr:'Sevkiyat detayı'}))}</th>
+                <th style="text-align: right;">${esc(tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'}))}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${detailLines.map(l => {
+                const edit = bonEnvoiEdits[l.key] || {};
+                const qty = edit.qty ?? l.qty;
+                return `
+                <tr>
+                  <td><span style="font-size:8px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;">${esc(l.type)}</span><br/><span style="font-weight:700;">${esc(edit.label ?? l.label)}</span></td>
+                  <td style="text-align: right; font-weight: 700;">${esc(fmt(qty))} ${esc(l.unit)}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+    `;
 
     const mismatchHtml = !mismatch ? '' : `
             <div style="background:${intentional ? '#f8fafc' : '#fffbeb'};border:1px solid ${intentional ? '#e2e8f0' : '#fde68a'};border-radius:8px;padding:6px 9px;margin-bottom:8px;font-size:9.5px;color:${intentional ? '#475569' : '#92400e'};font-weight:700;">
@@ -3234,6 +3289,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           ${mismatchHtml}
 
           ${milestonesBlock}
+
+          ${detailBlock}
 
           ${materialsBlock}
 
@@ -7230,6 +7287,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         const milestones = buildBonEnvoiMilestones(order);
         // Colonnes de tailles, dans l'ordre du modèle : la préparation doit se
         // lire comme la grille de la fiche, pas comme une phrase à décoder.
+        const detailLines = buildBonEnvoiDetail(order);
         const beModelSizes: string[] = (((models.find(m => m.id === order.modelId)?.ficheData as any)?.sizes) || []) as string[];
         const beSeen = new Set<string>();
         baseRows.forEach(r => r.detail.forEach(([sz]) => beSeen.add(sz)));
@@ -7248,6 +7306,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           { k: 'logo', label: tx(lang,{fr:'Logo entreprise',ar:'شعار الشركة',en:'Company logo',es:'Logotipo de la empresa',pt:'Logótipo da empresa',tr:'Şirket logosu'}), missing: !companyIdentity.logo },
           { k: 'model', label: tx(lang,{fr:'Photo du modèle',ar:'صورة الموديل',en:'Model photo',es:'Foto del modelo',pt:'Foto do modelo',tr:'Model fotoğrafı'}), missing: !modelPhoto },
           { k: 'subcontractor', label: tx(lang,{fr:'Photo du sous-traitant',ar:'صورة المقاول من الباطن',en:'Subcontractor photo',es:'Foto del subcontratista',pt:'Foto do subcontratado',tr:'Taşeron fotoğrafı'}), missing: !stPhoto },
+          { k: 'detail', label: tx(lang,{fr:"Détail de l'envoi",ar:'تفصيل الإرسال',en:'Shipment details',es:'Detalle del envío',pt:'Detalhe da remessa',tr:'Sevkiyat detayı'}) },
           { k: 'sizeDetail', label: tx(lang,{fr:'Détail par taille',ar:'التفصيل حسب المقاس',en:'Detail by size',es:'Detalle por talla',pt:'Detalhe por tamanho',tr:'Beden detayı'}) },
           { k: 'milestones', label: tx(lang,{fr:'Jalons',ar:'المراحل',en:'Milestones',es:'Hitos',pt:'Marcos',tr:'Kilometre taşları'}) },
           { k: 'materials', label: tx(lang,{fr:'Matières à prévoir',ar:'المواد الواجب توفيرها',en:'Materials to provide',es:'Materias a prever',pt:'Matérias a prever',tr:'Sağlanacak malzemeler'}) },
@@ -7335,6 +7394,66 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 {/* Lignes du bon : ce qui part réellement dans le camion. Une
                     ligne décochée ou corrigée disparaît / change AUSSI dans le
                     total imprimé — le bon ne peut pas se contredire lui-même. */}
+                <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border flex items-center justify-between gap-2 flex-wrap">
+                    <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
+                      {tx(lang,{fr:"Détail de l'envoi",ar:'تفصيل الإرسال',en:'Shipment details',es:'Detalle del envío',pt:'Detalhe da remessa',tr:'Sevkiyat detayı'})}
+                    </h4>
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest">
+                      {tx(lang,{fr:'Quantités seules — aucun montant',ar:'كميات فقط — بلا أي مبلغ',en:'Quantities only — no amounts',es:'Solo cantidades — sin importes',pt:'Só quantidades — sem valores',tr:'Yalnızca miktarlar — tutar yok'})}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[11px]">
+                      <thead className="bg-white dark:bg-dk-surface text-slate-400 dark:text-dk-muted uppercase tracking-wide text-[9px] border-b border-slate-100 dark:border-dk-border">
+                        <tr>
+                          <th className="pl-4 pr-1 py-2 text-left font-medium w-8">{tx(lang,{fr:'Incl.',ar:'ضمّ',en:'Incl.',es:'Incl.',pt:'Incl.',tr:'Dahil'})}</th>
+                          <th className="px-4 py-2 text-left font-medium">{tx(lang,{fr:'Désignation',ar:'البيان',en:'Description',es:'Designación',pt:'Designação',tr:'Açıklama'})}</th>
+                          <th className="px-4 py-2 text-right font-medium">{tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                        {detailLines.map(l => {
+                          const on = !bonEnvoiOff.has(l.key);
+                          const edit = bonEnvoiEdits[l.key] || {};
+                          return (
+                            <tr key={l.key} className={on ? '' : 'opacity-45 line-through'}>
+                              <td className="pl-4 pr-1 py-2">
+                                <input
+                                  type="checkbox"
+                                  checked={on}
+                                  onChange={() => toggleBonEnvoiKey(l.key)}
+                                  className="w-3.5 h-3.5 accent-indigo-600 cursor-pointer align-middle"
+                                />
+                              </td>
+                              <td className="px-4 py-2">
+                                <span className="text-slate-400 dark:text-dk-muted">{l.type} — </span>
+                                <input
+                                  type="text"
+                                  value={edit.label ?? l.label}
+                                  onChange={e => editBonEnvoiRow(l.key, { label: e.target.value })}
+                                  className="bg-transparent border-b border-dashed border-slate-300 dark:border-dk-border focus:border-indigo-500 outline-none px-0.5 min-w-0 w-40 font-semibold text-slate-700 dark:text-dk-text-soft"
+                                />
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="any"
+                                  value={edit.qty ?? l.qty}
+                                  onChange={e => editBonEnvoiRow(l.key, { qty: Math.max(0, parseFloat(e.target.value) || 0) })}
+                                  className="w-20 text-right bg-transparent border-b border-dashed border-slate-300 dark:border-dk-border focus:border-indigo-500 outline-none px-0.5 font-bold text-slate-700 dark:text-dk-text-soft"
+                                />
+                                <span className="ml-1 text-slate-400 dark:text-dk-muted">{l.unit}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
                 <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden">
                   <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-200 dark:border-dk-border flex items-center justify-between gap-2">
                     <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide text-[10px]">
