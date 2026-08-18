@@ -19,6 +19,10 @@ interface PermissionsState {
   isSuper: boolean;
   ownerId: number | null;
   roleId: string | null;
+  /** Nom du rôle tel que l'atelier l'a nommé (« Commercial », « Vendeur »…).
+   *  C'est la seule clé de rôle LISIBLE côté client : `roleId` est un UUID, donc
+   *  inutilisable pour reconnaître un rôle de vente (cf. app/accessControl.ts). */
+  roleName: string | null;
   pages: PermMap;
   fields: PermMap;
   hiddenPages: string[];
@@ -34,7 +38,7 @@ interface PermissionsContextType extends PermissionsState {
 }
 
 const DEFAULT: PermissionsState = {
-  loading: true, isSuper: true, ownerId: null, roleId: null,
+  loading: true, isSuper: true, ownerId: null, roleId: null, roleName: null,
   pages: {}, fields: {}, hiddenPages: [], accountType: DEFAULT_ACCOUNT_TYPE,
 };
 
@@ -70,6 +74,7 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
         isSuper: !!d.isSuper,
         ownerId: d.ownerId ?? null,
         roleId: d.roleId ?? null,
+        roleName: d.roleName ?? null,
         pages: d.pages || {},
         fields: d.fields || {},
         hiddenPages: d.hiddenPages || [],
