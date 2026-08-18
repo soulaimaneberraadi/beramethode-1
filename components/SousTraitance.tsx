@@ -2270,6 +2270,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       salePrice: number | null;
       startDate: string;
       status: string;
+      /** Nombre de FOIS où une sortie a été saisie (une grille couleur x taille
+       *  saisie d'un coup = un seul geste, partagé par `batch_id`) — pas la
+       *  quantité de pièces, le nombre de transactions. Répond à « combien de
+       *  fois j'ai vendu ce modèle ? ». Tant que la vente n'a qu'un seul canal
+       *  (aucune distinction client / magasin / boutique en ligne n'existe
+       *  encore côté données), ce compteur reste global. */
+      sortiesCount: number;
+      /** Nombre de commandes de sous-traitance distinctes ayant produit ce modèle. */
+      ordersCount: number;
     }> = [];
 
     models.forEach(model => {
@@ -2340,6 +2349,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       // proposé à la sortie, le prix de revient ne servant qu'à mesurer la marge.
       const salePrice = Number((model.ficheData as any)?.clientPrice) || null;
 
+      // Compte les GESTES, pas les pièces : une grille couleur x taille saisie
+      // d'un coup partage un `batch_id`, donc c'est lui qui identifie « une
+      // sortie » — sinon 12 tailles remplies en une fois compteraient pour 12.
+      const sortieBatches = new Set(
+        allStockSorties
+          .filter(so => so.modelId === model.id)
+          .map(so => (so as any).batch_id || so.id)
+      );
+      const ordersCount = orders.filter(o => o.modelId === model.id).length;
+
       list.push({
         model,
         producedQty: produced,
@@ -2352,7 +2371,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         price,
         salePrice,
         startDate: oldestDate ? fmtDate(oldestDate) : tx(lang,{fr:'Non commencée',ar:'لم تبدأ',en:'Not started',es:'No iniciado',pt:'Não iniciado',tr:'Başlamadı'}),
-        status: activeStatus
+        status: activeStatus,
+        sortiesCount: sortieBatches.size,
+        ordersCount,
       });
     });
 
@@ -5534,6 +5555,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       <div>
                         <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Date lancement',ar:'تاريخ الإطلاق',en:'Launch date',es:'Fecha de inicio',pt:'Data de lançamento',tr:'Başlangıç tarihi'})}</span>
                         <span className="text-slate-600 dark:text-dk-text-soft text-[11px]">{item.startDate}</span>
+                        {/* Compte les gestes (sorties, commandes), pas les pièces. */}
+                        <span className="block text-[10px] text-slate-400 dark:text-dk-muted mt-1">
+                          {tx(lang,{fr:'sorties',ar:'مرّات الخروج',en:'exits',es:'salidas',pt:'saidas',tr:'cikislar'})} : {item.sortiesCount.toLocaleString(dateLocale)}
+                          {' · '}
+                          {tx(lang,{fr:'commandes',ar:'الطلبيات',en:'orders',es:'pedidos',pt:'encomendas',tr:'siparisler'})} : {item.ordersCount.toLocaleString(dateLocale)}
+                        </span>
                       </div>
                       <div className="text-right">
                         <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Prix de vente',ar:'ثمن البيع',en:'Sale price',es:'Precio de venta',pt:'Preço de venda',tr:'Satis fiyati'})}</span>
@@ -5619,14 +5646,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-semibold text-xs uppercase">
                       <tr>
+                        {/* Neuf colonnes forçaient un défilement horizontal sur tout
+                            écran qui n'est pas plein écran. Cinq colonnes regroupent
+                            ce qui se lit ensemble : le modèle porte son client, sa
+                            date et son état ; le flux se lit comme un parcours plutôt
+                            que quatre chiffres qui se disputent l'œil. */}
                         <th className="px-6 py-4">{tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}</th>
-                        <th className="px-6 py-4">{tx(lang,{fr:'Date Lancement',ar:'تاريخ الإطلاق',en:'Launch Date',es:'Fecha de Inicio',pt:'Data de Lançamento',tr:'Başlangıç Tarihi'})}</th>
-                        <th className="px-6 py-4">{tx(lang,{fr:'État de production',ar:'حالة الإنتاج',en:'Production Status',es:'Estado de Producción',pt:'Estado de Produção',tr:'Üretim Durumu'})}</th>
-                        <th className="px-6 py-4">{tx(lang,{fr:'Produit (réalisé)',ar:'المنتج (المنجز)',en:'Produced',es:'Producido',pt:'Produzido',tr:'Üretilen'})}</th>
-                        <th className="px-6 py-4">{tx(lang,{fr:'Sorti (stock)',ar:'مخرَج (من المخزون)',en:'Exited (stock)',es:'Salido (stock)',pt:'Saido (stock)',tr:'Cikan (stok)'})}</th>
-                        <th className="px-6 py-4">{tx(lang,{fr:'Facturé',ar:'مفوتر',en:'Invoiced',es:'Facturado',pt:'Faturado',tr:'Faturali'})}</th>
-                        <th className="px-6 py-4">{tx(lang,{fr:'Stock Restant',ar:'المخزون المتبقي',en:'Remaining Stock',es:'Stock Restante',pt:'Stock Restante',tr:'Kalan Stok'})}</th>
-                        <th className="px-6 py-4">{tx(lang,{fr:'Prix Estimé',ar:'السعر التقديري',en:'Estimated Price',es:'Precio Estimado',pt:'Preço Estimado',tr:'Tahmini Fiyat'})}</th>
+                        <th className="px-6 py-4">{tx(lang,{fr:'Lancement',ar:'الإطلاق',en:'Launch',es:'Inicio',pt:'Lançamento',tr:'Başlangıç'})}</th>
+                        <th className="px-6 py-4">{tx(lang,{fr:'Flux',ar:'التدفّق',en:'Flow',es:'Flujo',pt:'Fluxo',tr:'Akis'})}</th>
+                        <th className="px-6 py-4">{tx(lang,{fr:'Prix',ar:'الثمن',en:'Price',es:'Precio',pt:'Preco',tr:'Fiyat'})}</th>
                         <th className="px-6 py-4 text-right">{tx(lang,{fr:'Actions',ar:'الإجراءات',en:'Actions',es:'Acciones',pt:'Ações',tr:'İşlemler'})}</th>
                       </tr>
                     </thead>
@@ -5646,15 +5674,29 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 )}
                               </div>
                               {/* Même règle qu'en mobile : toute mention d'une entité
-                                  est un lien vers sa fiche. */}
-                              <div>
-                                <button
-                                  type="button"
-                                  onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
-                                  className="font-semibold block text-slate-800 dark:text-dk-text text-left hover:text-indigo-600 dark:hover:text-dk-accent hover:underline underline-offset-2 transition-colors"
-                                >
-                                  {item.model.meta_data.nom_modele}
-                                </button>
+                                  est un lien vers sa fiche. Client, état, date de
+                                  lancement et compteurs de gestes vivent ici avec le
+                                  modèle : ils se lisent ensemble, pas dans des colonnes
+                                  qui forcent l'œil à faire des allers-retours. */}
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
+                                    className="font-semibold text-slate-800 dark:text-dk-text text-left hover:text-indigo-600 dark:hover:text-dk-accent hover:underline underline-offset-2 transition-colors"
+                                  >
+                                    {item.model.meta_data.nom_modele}
+                                  </button>
+                                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase whitespace-nowrap ${
+                                    item.status === 'FINISHED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
+                                    item.status === 'IN_PRODUCTION' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50' :
+                                    'bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
+                                  }`}>
+                                    {item.status === 'FINISHED' ? tx(lang,{fr:'Terminé',ar:'منتهٍ',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'}) :
+                                     item.status === 'IN_PRODUCTION' ? tx(lang,{fr:'En production',ar:'قيد الإنتاج',en:'In production',es:'En producción',pt:'Em produção',tr:'Üretimde'}) :
+                                     tx(lang,{fr:'Inactif',ar:'غير نشط',en:'Inactive',es:'Inactivo',pt:'Inativo',tr:'Pasif'})}
+                                  </span>
+                                </div>
                                 <span className="text-[9px] text-indigo-600 dark:text-dk-accent block font-normal uppercase">
                                   {tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})}{' '}
                                   {item.model.ficheData?.client ? (
@@ -5667,48 +5709,56 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                     </button>
                                   ) : 'N/A'}
                                 </span>
+                                <span className="text-[10px] text-slate-400 dark:text-dk-muted block mt-0.5">
+                                  {/* Compte les GESTES (sorties, commandes), pas les
+                                      pièces : « combien de fois ai-je vendu / reçu
+                                      ce modèle ? » n'est pas la même question que
+                                      « combien de pièces ? ». */}
+                                  {tx(lang,{fr:'sorties',ar:'مرّات الخروج',en:'exits',es:'salidas',pt:'saidas',tr:'cikislar'})} : {item.sortiesCount.toLocaleString(dateLocale)}
+                                  {' · '}
+                                  {tx(lang,{fr:'commandes',ar:'الطلبيات',en:'orders',es:'pedidos',pt:'encomendas',tr:'siparisler'})} : {item.ordersCount.toLocaleString(dateLocale)}
+                                </span>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-slate-500 dark:text-dk-muted">
+                          <td className="px-6 py-4 text-slate-500 dark:text-dk-muted whitespace-nowrap">
                             {item.startDate}
                           </td>
+                          {/* Le flux se lit comme un parcours — produit puis sorti puis
+                              facturé puis restant — plutôt que quatre chiffres isolés
+                              qui se disputent l'attention dans des colonnes séparées. */}
                           <td className="px-6 py-4">
-                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase whitespace-nowrap inline-block ${
-                              item.status === 'FINISHED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
-                              item.status === 'IN_PRODUCTION' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50' :
-                              'bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
-                            }`}>
-                              {item.status === 'FINISHED' ? tx(lang,{fr:'Terminé',ar:'منتهٍ',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'}) :
-                               item.status === 'IN_PRODUCTION' ? tx(lang,{fr:'En production',ar:'قيد الإنتاج',en:'In production',es:'En producción',pt:'Em produção',tr:'Üretimde'}) :
-                               tx(lang,{fr:'Inactif',ar:'غير نشط',en:'Inactive',es:'Inactivo',pt:'Inativo',tr:'Pasif'})}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 font-semibold text-slate-800 dark:text-dk-text">
-                            {item.producedQty.toLocaleString(dateLocale)} pcs
-                          </td>
-                          {/* « Sorti » et « Facturé » sont deux faits distincts : les
-                              confondre masquait les sorties non encore facturées. */}
-                          <td className="px-6 py-4 font-semibold text-slate-700 dark:text-dk-text-soft">
-                            {item.exitedQty.toLocaleString(dateLocale)} pcs
-                          </td>
-                          <td
-                            className={`px-6 py-4 font-semibold ${item.exitedQty !== item.invoicedQty ? 'text-rose-600 dark:text-rose-400' : 'text-indigo-600 dark:text-dk-accent'}`}
-                            title={item.exitedQty !== item.invoicedQty
-                              ? `${tx(lang,{fr:'Écart sorti / facturé',ar:'فرق بين المخرَج والمفوتر',en:'Exited / invoiced gap',es:'Diferencia salido / facturado',pt:'Diferenca saido / faturado',tr:'Cikan / faturali farki'})} : ${(item.exitedQty - item.invoicedQty).toLocaleString(dateLocale)} pcs`
-                              : undefined}
-                          >
-                            {item.invoicedQty.toLocaleString(dateLocale)} pcs
-                          </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`font-bold ${item.stockSource === 'FALLBACK' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
-                              title={item.stockSource === 'FALLBACK' ? tx(lang,{fr:"Stock non détaillé par couleur et taille : ce total vient des compteurs de la commande, aucune vente n'est possible en l'état.",ar:'المخزون غير مفصّل باللون والمقاس: هاد المجموع جاي من عدّادات الطلبية، والبيع مستحيل هكّاك.',en:'Stock not itemised by color and size: this total comes from the order counters, no sale is possible as is.',es:'Stock sin desglose por color y talla: este total viene de los contadores del pedido, no es posible vender así.',pt:'Stock sem desdobramento por cor e tamanho: este total vem dos contadores da encomenda, nao e possivel vender assim.',tr:'Stok renk ve bedene gore ayrilmamis: bu toplam siparis sayaclarindan geliyor, bu haliyle satis mumkun degil.'}) : undefined}
-                            >
-                              {item.remainingStock.toLocaleString(dateLocale)} pcs
-                            </span>
+                            <div className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">
+                              <span className="text-slate-800 dark:text-dk-text">{item.producedQty.toLocaleString(dateLocale)}</span>
+                              <ArrowRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" />
+                              <span>{item.exitedQty.toLocaleString(dateLocale)}</span>
+                              <ArrowRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" />
+                              <span
+                                className={item.exitedQty !== item.invoicedQty ? 'text-rose-600 dark:text-rose-400' : 'text-indigo-600 dark:text-dk-accent'}
+                                title={item.exitedQty !== item.invoicedQty
+                                  ? `${tx(lang,{fr:'Écart sorti / facturé',ar:'فرق بين المخرَج والمفوتر',en:'Exited / invoiced gap',es:'Diferencia salido / facturado',pt:'Diferenca saido / faturado',tr:'Cikan / faturali farki'})} : ${(item.exitedQty - item.invoicedQty).toLocaleString(dateLocale)}`
+                                  : undefined}
+                              >
+                                {item.invoicedQty.toLocaleString(dateLocale)}
+                              </span>
+                              <ArrowRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" />
+                              <span
+                                className={`font-bold ${item.stockSource === 'FALLBACK' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                                title={item.stockSource === 'FALLBACK' ? tx(lang,{fr:"Stock non détaillé par couleur et taille : ce total vient des compteurs de la commande, aucune vente n'est possible en l'état.",ar:'المخزون غير مفصّل باللون والمقاس: هاد المجموع جاي من عدّادات الطلبية، والبيع مستحيل هكّاك.',en:'Stock not itemised by color and size: this total comes from the order counters, no sale is possible as is.',es:'Stock sin desglose por color y talla: este total viene de los contadores del pedido, no es posible vender así.',pt:'Stock sem desdobramento por cor e tamanho: este total vem dos contadores da encomenda, nao e possivel vender assim.',tr:'Stok renk ve bedene gore ayrilmamis: bu toplam siparis sayaclarindan geliyor, bu haliyle satis mumkun degil.'}) : undefined}
+                              >
+                                {item.remainingStock.toLocaleString(dateLocale)}
+                              </span>
+                            </div>
+                            <div className="text-[9px] text-slate-400 dark:text-dk-muted mt-1">
+                              {tx(lang,{fr:'produit · sorti · facturé · restant',ar:'المنتج · المخرَج · المفوتر · المتبقي',en:'produced · exited · invoiced · remaining',es:'producido · salido · facturado · restante',pt:'produzido · saido · faturado · restante',tr:'uretilen · cikan · faturali · kalan'})}
+                            </div>
+                            {item.exitedQty !== item.invoicedQty && (
+                              <span className="inline-flex items-center gap-1 mt-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50">
+                                {(item.exitedQty - item.invoicedQty).toLocaleString(dateLocale)} {tx(lang,{fr:'non facturées',ar:'غير مفوترة',en:'not invoiced',es:'sin facturar',pt:'nao faturadas',tr:'faturasiz'})}
+                              </span>
+                            )}
                             {item.stockSource === 'FALLBACK' && (
-                              <span className="ml-2 inline-flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 align-middle">
+                              <span className="inline-flex items-center gap-1 mt-1 ml-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 align-middle">
                                 <AlertTriangle className="w-2.5 h-2.5" />
                                 {tx(lang,{fr:'non ventilé',ar:'غير مفصّل',en:'not itemised',es:'sin desglose',pt:'sem desdobramento',tr:'ayrintisiz'})}
                               </span>
@@ -5806,7 +5856,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           const hasGrid = colors.length > 0 && sizes.length > 0;
                           return (
                             <tr key={`${item.model.id}-detail`} className="bg-slate-50/60 dark:bg-dk-bg/40">
-                              <td colSpan={9} className="px-6 py-4">
+                              <td colSpan={5} className="px-6 py-4">
                                 {/* Deux impasses différentes, deux messages différents :
                                     « pas de grille » se règle dans la fiche de coût,
                                     « grille vide » se règle par la réception détaillée. */}
