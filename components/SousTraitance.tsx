@@ -3133,7 +3133,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const visualsBlock = '';
     const modelThumb = bonEnvoiShow.model ? inlineThumbHtml(modelPhoto, 20) : '';
     const stThumb = bonEnvoiShow.subcontractor ? inlineThumbHtml(stPhoto, 20) : '';
-    const logoThumb = bonEnvoiShow.logo ? inlineThumbHtml(companyIdentity.logo, 22) : '';
     // Photo de la matière : elle vit dans la fiche Magasin, appariée par nom
     // normalisé (casse et espaces indifférents).
     const materialPhoto = (name: string) => {
@@ -3317,8 +3316,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             <div style="display:flex;align-items:center;gap:12px;">
               ${bonEnvoiShow.logo && companyIdentity.logo ? `<img src="${esc(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
               <div>
+                <!-- Pas d'ICE/RC ici : ils figurent dans le cartouche Expéditeur
+                     juste dessous et en pied de page. -->
                 <div class="title">${esc(bonEnvoiIssuer.nom || '')}</div>
-                <div style="font-size: 10px; color: #64748b; font-weight: 600;">${esc([bonEnvoiIssuer.ice ? `ICE : ${bonEnvoiIssuer.ice}` : '', bonEnvoiIssuer.rc ? `RC : ${bonEnvoiIssuer.rc}` : ''].filter(Boolean).join(' · '))}</div>
               </div>
             </div>
             <div style="text-align: right;">
@@ -3767,7 +3767,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const visualsBlock = '';
     const modelThumb = costInvoiceShow.model ? inlineThumbHtml(modelPhoto, 18) : '';
     const stThumb = costInvoiceShow.subcontractor ? inlineThumbHtml(stPhoto, 18) : '';
-    const logoThumbInv = costInvoiceShow.logo ? inlineThumbHtml(companyIdentity.logo, 22) : '';
     // Photo de la matière : reprise de sa fiche Magasin, appariée par nom
     // normalisé (casse et espaces indifférents).
     const materialPhotoInv = (name: string) => {
@@ -3996,8 +3995,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <div style="display:flex;align-items:center;gap:12px;">
                   ${costInvoiceShow.logo && companyIdentity.logo ? `<img src="${esc(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
                   <div>
-                    <div class="logo">${logoThumbInv}${esc(companyIdentity.nom || '')}</div>
-                    <div class="party-line">${esc([companyIdentity.ice ? `ICE : ${companyIdentity.ice}` : '', companyIdentity.rc ? `RC : ${companyIdentity.rc}` : ''].filter(Boolean).join(' · '))}</div>
+                    <!-- Ni vignette de logo (l'image ci-dessus EST le logo), ni
+                         ICE/RC : ils figurent déjà dans le cartouche Émetteur et
+                         en pied de page. Trois fois la même donnée sur une facture
+                         donne l'impression d'un document mal fait. -->
+                    <div class="logo">${esc(companyIdentity.nom || '')}</div>
                   </div>
                 </div>
               </div>
