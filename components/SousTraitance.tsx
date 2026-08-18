@@ -20,7 +20,8 @@ import {
   ChevronDown, ChevronUp, Loader2, Info, Eye, Layers, Palette,
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
-  AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil, Table
+  AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil, Table,
+  Receipt, Warehouse
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
@@ -5728,24 +5729,38 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               facturé puis restant — plutôt que quatre chiffres isolés
                               qui se disputent l'attention dans des colonnes séparées. */}
                           <td className="px-6 py-4">
-                            <div className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">
-                              <span className="text-slate-800 dark:text-dk-text">{item.producedQty.toLocaleString(dateLocale)}</span>
-                              <ArrowRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" />
-                              <span>{item.exitedQty.toLocaleString(dateLocale)}</span>
-                              <ArrowRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" />
+                            {/* Chaque étape porte sa propre icône plutôt qu'un simple
+                                chiffre entre deux flèches : l'œil identifie la nature
+                                de l'étape (produit, sorti, facturé, en stock) sans
+                                avoir à relire la légende en dessous à chaque fois. */}
+                            <div className="flex items-center gap-1 text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">
+                              <span className="inline-flex items-center gap-1 text-slate-800 dark:text-dk-text" title={tx(lang,{fr:'Produit',ar:'المنتج',en:'Produced',es:'Producido',pt:'Produzido',tr:'Uretilen'})}>
+                                <Package className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted shrink-0" />
+                                {item.producedQty.toLocaleString(dateLocale)}
+                              </span>
+                              <ChevronRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" />
+                              <span className="inline-flex items-center gap-1" title={tx(lang,{fr:'Sorti (stock)',ar:'مخرَج (من المخزون)',en:'Exited (stock)',es:'Salido (stock)',pt:'Saido (stock)',tr:'Cikan (stok)'})}>
+                                <Truck className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted shrink-0" />
+                                {item.exitedQty.toLocaleString(dateLocale)}
+                              </span>
+                              <ChevronRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" />
                               <span
-                                className={item.exitedQty !== item.invoicedQty ? 'text-rose-600 dark:text-rose-400' : 'text-indigo-600 dark:text-dk-accent'}
+                                className={item.exitedQty !== item.invoicedQty
+                                  ? 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400'
+                                  : 'inline-flex items-center gap-1 text-indigo-600 dark:text-dk-accent'}
                                 title={item.exitedQty !== item.invoicedQty
                                   ? `${tx(lang,{fr:'Écart sorti / facturé',ar:'فرق بين المخرَج والمفوتر',en:'Exited / invoiced gap',es:'Diferencia salido / facturado',pt:'Diferenca saido / faturado',tr:'Cikan / faturali farki'})} : ${(item.exitedQty - item.invoicedQty).toLocaleString(dateLocale)}`
-                                  : undefined}
+                                  : tx(lang,{fr:'Facturé',ar:'مفوتر',en:'Invoiced',es:'Facturado',pt:'Faturado',tr:'Faturali'})}
                               >
+                                <Receipt className="w-3.5 h-3.5 shrink-0" />
                                 {item.invoicedQty.toLocaleString(dateLocale)}
                               </span>
-                              <ArrowRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" />
+                              <ChevronRight className="w-3 h-3 text-slate-300 dark:text-dk-muted shrink-0" />
                               <span
-                                className={`font-bold ${item.stockSource === 'FALLBACK' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
-                                title={item.stockSource === 'FALLBACK' ? tx(lang,{fr:"Stock non détaillé par couleur et taille : ce total vient des compteurs de la commande, aucune vente n'est possible en l'état.",ar:'المخزون غير مفصّل باللون والمقاس: هاد المجموع جاي من عدّادات الطلبية، والبيع مستحيل هكّاك.',en:'Stock not itemised by color and size: this total comes from the order counters, no sale is possible as is.',es:'Stock sin desglose por color y talla: este total viene de los contadores del pedido, no es posible vender así.',pt:'Stock sem desdobramento por cor e tamanho: este total vem dos contadores da encomenda, nao e possivel vender assim.',tr:'Stok renk ve bedene gore ayrilmamis: bu toplam siparis sayaclarindan geliyor, bu haliyle satis mumkun degil.'}) : undefined}
+                                className={`inline-flex items-center gap-1 font-bold ${item.stockSource === 'FALLBACK' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                                title={item.stockSource === 'FALLBACK' ? tx(lang,{fr:"Stock non détaillé par couleur et taille : ce total vient des compteurs de la commande, aucune vente n'est possible en l'état.",ar:'المخزون غير مفصّل باللون والمقاس: هاد المجموع جاي من عدّادات الطلبية، والبيع مستحيل هكّاك.',en:'Stock not itemised by color and size: this total comes from the order counters, no sale is possible as is.',es:'Stock sin desglose por color y talla: este total viene de los contadores del pedido, no es posible vender así.',pt:'Stock sem desdobramento por cor e tamanho: este total vem dos contadores da encomenda, nao e possivel vender assim.',tr:'Stok renk ve bedene gore ayrilmamis: bu toplam siparis sayaclarindan geliyor, bu haliyle satis mumkun degil.'}) : tx(lang,{fr:'Stock Restant',ar:'المخزون المتبقي',en:'Remaining Stock',es:'Stock Restante',pt:'Stock Restante',tr:'Kalan Stok'})}
                               >
+                                <Warehouse className="w-3.5 h-3.5 shrink-0" />
                                 {item.remainingStock.toLocaleString(dateLocale)}
                               </span>
                             </div>
