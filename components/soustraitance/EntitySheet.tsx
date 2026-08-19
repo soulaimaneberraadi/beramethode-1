@@ -4,11 +4,12 @@ import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { fmt } from '../../app/constants';
 import {
-    X, ArrowLeft, Package, Users, Layers, Edit2, ShoppingBag,
+    ArrowLeft, Package, Users, Layers, Edit2, ShoppingBag,
     Truck, Coins, AlertTriangle, Tag, TrendingUp, Plus, Trash2, Loader2, Save, Receipt,
 } from 'lucide-react';
 import type { AtelierClient } from './ClientsPanel';
 import { ModelStoreSection } from './StoreSync';
+import SheetModal, { useSheetFullscreen } from './SheetModal';
 
 /**
  * Fiches d'entité de la sous-traitance (modèle et client).
@@ -1102,6 +1103,7 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
     clientId, clientNom, clients, models, sorties, currency, dateLocale, onPush, onEditClient, onInvoiced, onPrintInvoice,
 }) => {
     const { lang } = useLang();
+    const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
     const [invoiceModal, setInvoiceModal] = useState(false);
     const [invoiceSelected, setInvoiceSelected] = useState<Set<string>>(new Set());
     const [invoiceTva, setInvoiceTva] = useState('20');
@@ -1374,18 +1376,18 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
             </div>
 
             {invoiceModal && (
-                <div className="fixed inset-0 bg-slate-950/30 backdrop-blur-[2px] flex items-center justify-center z-[260] p-4" onClick={() => !invoiceSaving && setInvoiceModal(false)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between sticky top-0 bg-white dark:bg-dk-surface">
-                            <h3 className="text-[13px] font-bold text-slate-900 dark:text-dk-text flex items-center gap-2">
-                                <Receipt className="w-4 h-4 text-indigo-600 dark:text-dk-accent" />
-                                {tx(lang, { fr: 'Facturer les sorties non facturées', ar: 'فوترة الإخراجات غير المفوترة', en: 'Invoice unbilled exits', es: 'Facturar salidas sin facturar', pt: 'Faturar saídas não faturadas', tr: 'Faturasız çıkışları faturala' })}
-                            </h3>
-                            <button onClick={() => setInvoiceModal(false)} className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated">
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-
+                <SheetModal
+                    onClose={() => { if (!invoiceSaving) setInvoiceModal(false); }}
+                    title={tx(lang, { fr: 'Facturer les sorties non facturées', ar: 'فوترة الإخراجات غير المفوترة', en: 'Invoice unbilled exits', es: 'Facturar salidas sin facturar', pt: 'Faturar saídas não faturadas', tr: 'Faturasız çıkışları faturala' })}
+                    icon={<Receipt className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />}
+                    size="lg"
+                    zClass="z-[260]"
+                    fullscreen={denseFullscreen}
+                    onToggleFullscreen={toggleDenseFullscreen}
+                    closeOnBackdrop
+                    bare
+                >
+                    <div className="flex-1 overflow-y-auto min-h-0">
                         <div className="p-5 space-y-3">
                             {invoiceError && (
                                 <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
@@ -1587,8 +1589,9 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                                 {tx(lang, { fr: `${invoiceTotals.count} ligne(s) sélectionnée(s)`, ar: `${invoiceTotals.count} سطر مختار`, en: `${invoiceTotals.count} line(s) selected`, es: `${invoiceTotals.count} línea(s) seleccionada(s)`, pt: `${invoiceTotals.count} linha(s) selecionada(s)`, tr: `${invoiceTotals.count} satır seçildi` })}
                             </p>
                         </div>
+                    </div>
 
-                        <div className="px-5 py-3 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-dk-surface">
+                        <div className="shrink-0 px-5 py-3 border-t border-slate-100 dark:border-dk-border flex flex-wrap justify-end gap-2 bg-white dark:bg-dk-surface">
                             <button onClick={() => setInvoiceModal(false)} className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors">
                                 {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
                             </button>
@@ -1601,8 +1604,7 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                                 {tx(lang, { fr: 'Émettre la facture', ar: 'إصدار الفاتورة', en: 'Issue invoice', es: 'Emitir factura', pt: 'Emitir fatura', tr: 'Fatura kes' })}
                             </button>
                         </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1771,8 +1773,13 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
             )}
 
             {pendingCancelFacture && (
-                <div className="fixed inset-0 bg-slate-950/30 backdrop-blur-[2px] flex items-center justify-center z-[260] p-4" onClick={() => setPendingCancelFacture(null)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+                <SheetModal
+                    onClose={() => setPendingCancelFacture(null)}
+                    size="sm"
+                    zClass="z-[260]"
+                    closeOnBackdrop
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+                >
                         <div className="flex items-start gap-2.5">
                             <AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
                             <div className="min-w-0">
@@ -1792,8 +1799,7 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                                 {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
                             </button>
                         </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             {record?.notes && (
@@ -1815,6 +1821,8 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
 const EntitySheet: React.FC<EntitySheetProps> = (props) => {
     const { stack, onBack, onClose, models, clients } = props;
     const { lang } = useLang();
+    /* Appele AVANT le retour anticipe ci-dessous : un hook conditionnel casserait le rendu. */
+    const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
 
     const current = stack.length > 0 ? stack[stack.length - 1] : null;
     if (!current) return null;
@@ -1833,39 +1841,32 @@ const EntitySheet: React.FC<EntitySheetProps> = (props) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-[210] p-0 sm:p-4 overflow-y-auto">
-            <div className="relative my-auto bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-3xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[88vh] text-slate-700 dark:text-dk-text">
-                <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-b border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface">
-                    {stack.length > 1 && (
-                        <button
-                            type="button"
-                            onClick={onBack}
-                            title={tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}
-                            className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated hover:text-slate-600 dark:hover:text-dk-text-soft transition-colors shrink-0"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                        </button>
-                    )}
-                    <div className="min-w-0 flex-1">
-                        <span className="block text-[9px] uppercase tracking-wide font-bold text-slate-400 dark:text-dk-muted">
-                            {current.kind === 'model'
-                                ? tx(lang, { fr: 'Fiche modèle', ar: 'بطاقة الموديل', en: 'Model sheet', es: 'Ficha de modelo', pt: 'Ficha de modelo', tr: 'Model kartı' })
-                                : tx(lang, { fr: 'Fiche client', ar: 'بطاقة الزبون', en: 'Client sheet', es: 'Ficha de cliente', pt: 'Ficha de cliente', tr: 'Müşteri kartı' })}
-                        </span>
-                        <span className="block text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft truncate">
-                            {stack.map(crumb).join(' › ')}
-                        </span>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        title={tx(lang, { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}
-                        className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft shrink-0"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        /* Fiche dense (tableaux de ventes, factures, mouvements) : le plein
+           écran est utile ici, et le réglage est partagé avec le reste du module. */
+        <SheetModal
+            onClose={onClose}
+            title={current.kind === 'model'
+                ? tx(lang, { fr: 'Fiche modèle', ar: 'بطاقة الموديل', en: 'Model sheet', es: 'Ficha de modelo', pt: 'Ficha de modelo', tr: 'Model kartı' })
+                : tx(lang, { fr: 'Fiche client', ar: 'بطاقة الزبون', en: 'Client sheet', es: 'Ficha de cliente', pt: 'Ficha de cliente', tr: 'Müşteri kartı' })}
+            subtitle={stack.map(crumb).join(' › ')}
+            icon={stack.length > 1 ? (
+                <button
+                    type="button"
+                    onClick={onBack}
+                    title={tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}
+                    className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated hover:text-slate-600 dark:hover:text-dk-text-soft transition-colors shrink-0"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                </button>
+            ) : undefined}
+            size="xl"
+            zClass="z-[210]"
+            fullscreen={denseFullscreen}
+            onToggleFullscreen={toggleDenseFullscreen}
+            closeOnBackdrop={false}
+            bare
+        >
+                <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 bg-slate-50 dark:bg-dk-bg">
                     {current.kind === 'model' ? (
                         <ModelSheet
                             key={`model-${current.modelId}-${stack.length}`}
@@ -1905,8 +1906,7 @@ const EntitySheet: React.FC<EntitySheetProps> = (props) => {
                         />
                     )}
                 </div>
-            </div>
-        </div>
+        </SheetModal>
     );
 };
 

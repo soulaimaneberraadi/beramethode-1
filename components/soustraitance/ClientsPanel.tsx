@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Users, Plus, Trash2, Edit2, Eye, Search, Loader2, AlertCircle, X, Save, Download, FileText } from 'lucide-react';
+import { Users, Plus, Trash2, Edit2, Eye, Search, Loader2, AlertCircle, Save, Download, FileText } from 'lucide-react';
 import { useLang } from '../../src/context/LanguageContext';
 import { tx } from '../../lib/i18n';
 import { fmt } from '../../app/constants';
+import SheetModal from './SheetModal';
 
 /** Client de l'atelier. Reflet exact de la table `st_clients`. */
 export interface AtelierClient {
@@ -421,20 +422,18 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
 
             {/* Fiche client — création et modification partagent le même formulaire. */}
             {form && (
-                <div className="fixed inset-0 z-[230] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setForm(null)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between sticky top-0 bg-white dark:bg-dk-surface">
-                            <h3 className="text-[13px] font-bold text-slate-900 dark:text-dk-text flex items-center gap-2">
-                                <Users className="w-4 h-4 text-indigo-600 dark:text-dk-accent" />
-                                {form.id
-                                    ? tx(lang, { fr: 'Modifier le client', ar: 'تعديل الزبون', en: 'Edit client', es: 'Editar cliente', pt: 'Editar cliente', tr: 'Müşteriyi düzenle' })
-                                    : tx(lang, { fr: 'Nouveau client', ar: 'زبون جديد', en: 'New client', es: 'Nuevo cliente', pt: 'Novo cliente', tr: 'Yeni müşteri' })}
-                            </h3>
-                            <button onClick={() => setForm(null)} className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated">
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-
+                <SheetModal
+                    onClose={() => setForm(null)}
+                    title={form.id
+                        ? tx(lang, { fr: 'Modifier le client', ar: 'تعديل الزبون', en: 'Edit client', es: 'Editar cliente', pt: 'Editar cliente', tr: 'Müşteriyi düzenle' })
+                        : tx(lang, { fr: 'Nouveau client', ar: 'زبون جديد', en: 'New client', es: 'Nuevo cliente', pt: 'Novo cliente', tr: 'Yeni müşteri' })}
+                    icon={<Users className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />}
+                    size="lg"
+                    zClass="z-[230]"
+                    closeOnBackdrop
+                    bare
+                >
+                    <div className="flex-1 overflow-y-auto min-h-0">
                         <div className="p-5 space-y-3">
                             <div className="flex items-center gap-3">
                                 {form.photo ? (
@@ -640,7 +639,9 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
                             </div>
                         </div>
 
-                        <div className="px-5 py-3 border-t border-slate-100 dark:border-dk-border flex items-center justify-between gap-2 sticky bottom-0 bg-white dark:bg-dk-surface">
+                    </div>
+
+                        <div className="shrink-0 px-5 py-3 border-t border-slate-100 dark:border-dk-border flex flex-wrap items-center justify-between gap-2 bg-white dark:bg-dk-surface">
                             {form.id ? (
                                 <button
                                     type="button"
@@ -665,13 +666,18 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
                                 </button>
                             </div>
                         </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             {pendingDelete && (
-                <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setPendingDelete(null)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+                /* Confirmation courte : pas de plein écran. */
+                <SheetModal
+                    onClose={() => setPendingDelete(null)}
+                    size="sm"
+                    zClass="z-[240]"
+                    closeOnBackdrop
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+                >
                         <div className="flex items-start gap-2.5">
                             <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
                             <div className="min-w-0">
@@ -691,20 +697,19 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
                                 {tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Eliminar', tr: 'Sil' })}
                             </button>
                         </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             {previewSrc && (
-                <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-slate-950/70" onClick={() => setPreviewSrc(null)}>
-                    <button
-                        onClick={() => setPreviewSrc(null)}
-                        className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                    <img src={previewSrc} alt="" className="max-w-full max-h-full rounded-2xl object-contain" onClick={e => e.stopPropagation()} />
-                </div>
+                /* Aperçu : l'image occupe déjà la fenêtre, pas de plein écran. */
+                <SheetModal
+                    onClose={() => setPreviewSrc(null)}
+                    size="xl"
+                    zClass="z-[250]"
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-4 flex items-center justify-center"
+                >
+                    <img src={previewSrc} alt="" className="max-w-full max-h-[70vh] rounded-2xl object-contain" />
+                </SheetModal>
             )}
         </div>
     );

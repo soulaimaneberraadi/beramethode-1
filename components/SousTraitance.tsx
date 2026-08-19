@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { ModelData, SubcontractOrder, PlanningEvent, SubcontractorProfile, DEFAULT_COMMERCIAL_SETTINGS } from '../types';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
@@ -15,6 +14,7 @@ import FactureUploader from './FactureUploader';
 import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
 import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
 import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
+import SheetModal, { useSheetFullscreen } from './soustraitance/SheetModal';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
@@ -22,7 +22,7 @@ import {
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
   AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil, Table,
-  Receipt, Warehouse, Maximize2, Minimize2
+  Receipt, Warehouse
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
@@ -563,12 +563,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [orderPendingDelete, setOrderPendingDelete] = useState<SubcontractOrder | null>(null);
   const [isDeletingOrder, setIsDeletingOrder] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  /** Fiche de commande en plein écran. La fiche porte la grille de réception,
-   *  les frais et les factures : sur un grand écran, la lire dans une fenêtre
+  /** Plein écran des fenêtres denses (grille de réception, frais, factures,
+   *  mouvements de stock). Sur un grand écran, les lire dans une fenêtre
    *  étroite oblige à faire défiler pour comparer ce qui devrait se voir d'un
-   *  seul coup. Le choix est retenu tant que l'onglet reste ouvert : celui qui
-   *  agrandit une fois veut le même confort à la fiche suivante. */
-  const [detailFullscreen, setDetailFullscreen] = useState(false);
+   *  seul coup. Le choix est PARTAGÉ par tout le module et retenu tant que
+   *  l'onglet reste ouvert : celui qui agrandit une fois veut le même confort
+   *  à la fenêtre suivante. */
+  const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
   const [detailOrder, setDetailOrder] = useState<SubcontractOrder | null>(null);
 
   // Form States (Orders)
@@ -6373,29 +6374,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       )}
 
       {/* ======================================= */}
-      {typeof document !== 'undefined' && isChoiceModalOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
-          <div className="absolute inset-0 bg-slate-900/70 dark:bg-black/70 backdrop-blur-md" onClick={() => setIsChoiceModalOpen(false)} />
-          <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-xl overflow-hidden flex flex-col border border-slate-200 dark:border-dk-border">
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-2xl">
-                  <Plus className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-slate-800 dark:text-dk-text text-sm sm:text-base">
-                    {tx(lang, { fr: "Créer une Commande", ar: "إنشاء أمر", en: "Create an Order", es: "Crear un pedido", pt: "Criar uma encomenda", tr: "Sipariş oluştur" })}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-dk-muted">
-                    {tx(lang, { fr: "Choisissez comment vous souhaitez commencer", ar: "اختر كيف تريد البدء", en: "Choose how you want to start", es: "Elija cómo desea empezar", pt: "Escolha como pretende começar", tr: "Nasıl başlamak istediğinizi seçin" })}
-                  </p>
-                </div>
-              </div>
-              <button onClick={() => setIsChoiceModalOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+      {isChoiceModalOpen && (
+        /* Petit choix de départ : pas de bouton plein écran, agrandir deux
+           cartes à tout l'écran n'apporterait rien. */
+        <SheetModal
+          onClose={() => setIsChoiceModalOpen(false)}
+          title={tx(lang, { fr: "Créer une Commande", ar: "إنشاء أمر", en: "Create an Order", es: "Crear un pedido", pt: "Criar uma encomenda", tr: "Sipariş oluştur" })}
+          subtitle={tx(lang, { fr: "Choisissez comment vous souhaitez commencer", ar: "اختر كيف تريد البدء", en: "Choose how you want to start", es: "Elija cómo desea empezar", pt: "Escolha como pretende começar", tr: "Nasıl başlamak istediğinizi seçin" })}
+          icon={<div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-xl shrink-0"><Plus className="w-5 h-5" /></div>}
+          size="lg"
+          zClass="z-[9999]"
+          bare
+        >
+            <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 space-y-3 sm:space-y-4">
               <div
                 onClick={() => {
                   setIsChoiceModalOpen(false);
@@ -6449,24 +6440,24 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-dk-accent group-hover:translate-x-1 transition-all shrink-0" />
               </div>
             </div>
-          </div>
-        </div>
-      , document.body)}
+        </SheetModal>
+      )}
       {/* ======================================= */}
           {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/50">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                <Truck className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
-                <span>{tx(lang,{fr:'Nouvelle Commande de Sous-traitance',ar:'أمر مقاولة من الباطن جديد',en:'New Subcontract Order',es:'Nuevo Pedido de Subcontratación',pt:'Nova Encomenda de Subcontratação',tr:'Yeni Taşeron Siparişi'})}</span>
-              </h2>
-              <button onClick={() => setIsAddModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddOrder} className="flex-1 overflow-y-auto p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
+        /* Plein écran : la répartition couleur x taille est une grille dense,
+           illisible dans une fenêtre étroite dès que les coloris se multiplient. */
+        <SheetModal
+          onClose={() => setIsAddModalOpen(false)}
+          title={tx(lang,{fr:'Nouvelle Commande de Sous-traitance',ar:'أمر مقاولة من الباطن جديد',en:'New Subcontract Order',es:'Nuevo Pedido de Subcontratación',pt:'Nova Encomenda de Subcontratação',tr:'Yeni Taşeron Siparişi'})}
+          icon={<Truck className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
+          size="xl"
+          zClass="z-[200]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop={false}
+          bare
+        >
+            <form onSubmit={handleAddOrder} className="flex-1 overflow-y-auto min-h-0 p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ModelPickerField
                   lang={lang}
@@ -6752,27 +6743,26 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </SheetModal>
       )}
 
       {/* ======================================= */}
       {/* EDIT ORDER MODAL */}
       {/* ======================================= */}
       {isEditModalOpen && selectedOrder && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/50">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                <Edit2 className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
-                <span>{tx(lang,{fr:'Modifier la Commande de Sous-traitance',ar:'تعديل أمر المقاولة من الباطن',en:'Edit Subcontract Order',es:'Editar Pedido de Subcontratación',pt:'Editar Encomenda de Subcontratação',tr:'Taşeron Siparişini Düzenle'})}</span>
-              </h2>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleEditOrder} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs text-slate-600 dark:text-dk-text-soft">
+        /* Même grille dense que la création : plein écran disponible. */
+        <SheetModal
+          onClose={() => setIsEditModalOpen(false)}
+          title={tx(lang,{fr:'Modifier la Commande de Sous-traitance',ar:'تعديل أمر المقاولة من الباطن',en:'Edit Subcontract Order',es:'Editar Pedido de Subcontratación',pt:'Editar Encomenda de Subcontratação',tr:'Taşeron Siparişini Düzenle'})}
+          icon={<Edit2 className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
+          size="xl"
+          zClass="z-[200]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop={false}
+          bare
+        >
+            <form onSubmit={handleEditOrder} className="flex-1 overflow-y-auto min-h-0 p-6 space-y-6 text-xs text-slate-600 dark:text-dk-text-soft">
               {(
                 <div className="space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -7038,16 +7028,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
             </form>
-          </div>
-        </div>
+        </SheetModal>
       )}
 
       {/* ======================================= */}
       {/* CONFIRMATION DE SUPPRESSION DE COMMANDE */}
       {/* ======================================= */}
-      {orderPendingDelete && createPortal(
-        <div className="fixed inset-0 bg-slate-950/30 dark:bg-dk-bg/50 backdrop-blur-[2px] flex items-center justify-center z-[500] p-4">
-          <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-md p-6 text-slate-700 dark:text-dk-text">
+      {orderPendingDelete && (
+        /* Confirmation courte : pas de plein écran, agrandir une question de
+           deux lignes n'aurait aucun sens. Le fond n'est pas cliquable :
+           une suppression ne doit pas s'annuler par un clic distrait. */
+        <SheetModal
+          onClose={() => { if (!isDeletingOrder) setOrderPendingDelete(null); }}
+          size="md"
+          zClass="z-[500]"
+          closeOnBackdrop={false}
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-6"
+        >
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40">
                 <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
@@ -7084,9 +7081,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <span>{tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}</span>
               </button>
             </div>
-          </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
 
       {/* ======================================= */}
@@ -7104,9 +7099,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         const question = isOn
           ? tx(lang,{fr:`Repasser « ${name} » en attente ?`,ar:`ترجاع «${name}» للانتظار؟`,en:`Set “${name}” back to pending?`,es:`¿Volver a poner «${name}» en espera?`,pt:`Voltar “${name}” a pendente?`,tr:`“${name}” tekrar beklemeye alınsın mı?`})
           : tx(lang,{fr:`Confirmer « ${name} » comme fait ?`,ar:`تأكيد «${name}» كمُنجَز؟`,en:`Confirm “${name}” as done?`,es:`¿Confirmar «${name}» como hecho?`,pt:`Confirmar “${name}” como feito?`,tr:`“${name}” tamamlandı olarak onaylansın mı?`});
-        return createPortal(
-          <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setMilestoneConfirm(null)}>
-            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+        return (
+          /* Question de deux lignes : feuille sur téléphone, mais pas de plein écran. */
+          <SheetModal
+            onClose={() => setMilestoneConfirm(null)}
+            size="sm"
+            zClass="z-[240]"
+            bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+          >
               <div className="flex items-start gap-2.5">
                 <ClipboardCheck className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0 mt-0.5" />
                 <div className="min-w-0">
@@ -7132,30 +7132,28 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   {tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
                 </button>
               </div>
-            </div>
-          </div>,
-          document.body
+          </SheetModal>
         );
       })()}
 
       {/* Entrées en stock : la saisie se fait sur la MÊME grille couleur x taille
           que la fiche du modèle, et chaque saisie reste consultable telle quelle. */}
-      {stockEntryOrder && stockEntryMatrix && createPortal(
-        <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setStockEntryOrder(null)}>
-          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-3xl max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between sticky top-0 bg-white dark:bg-dk-surface z-10">
-              <h3 className="text-[13px] font-bold text-slate-900 dark:text-dk-text flex items-center gap-2 min-w-0">
-                <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span className="truncate">
-                  {tx(lang,{fr:'Entrées en stock',ar:'إدخالات المخزون',en:'Stock entries',es:'Entradas en stock',pt:'Entradas em stock',tr:'Stok girisleri'})}
-                  {' — '}{stockEntryOrder.modelName || stockEntryOrder.modelId}
-                </span>
-              </h3>
-              <button onClick={() => setStockEntryOrder(null)} className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+      {stockEntryOrder && stockEntryMatrix && (
+        /* Plein écran : la saisie ET l'historique sont des grilles
+           couleur x taille — sur un grand écran, il faut pouvoir les lire
+           d'un seul coup au lieu de faire défiler colonne par colonne. */
+        <SheetModal
+          onClose={() => setStockEntryOrder(null)}
+          title={`${tx(lang,{fr:'Entrées en stock',ar:'إدخالات المخزون',en:'Stock entries',es:'Entradas en stock',pt:'Entradas em stock',tr:'Stok girisleri'})} — ${stockEntryOrder.modelName || stockEntryOrder.modelId}`}
+          icon={<Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+          size="xl"
+          zClass="z-[240]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop
+          bare
+        >
+          <div className="flex-1 overflow-y-auto min-h-0">
             <div className="p-5 space-y-5">
               {/* Grille de saisie : chaque cellule affiche ce qu'il RESTE à recevoir
                   pour cette couleur et cette taille. Saisir en aveugle un total
@@ -7384,27 +7382,24 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </div>
             </div>
           </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
 
       {/* Sortie de stock : client du registre + grille couleur x taille. */}
-      {sortieForm && createPortal(
-        <div className="fixed inset-0 z-[245] flex items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSortieForm(null)}>
-          <div className="bg-white dark:bg-dk-surface rounded-none sm:rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-none sm:max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between sticky top-0 bg-white dark:bg-dk-surface z-10">
-              <h3 className="text-[13px] font-bold text-slate-900 dark:text-dk-text flex items-center gap-2 min-w-0">
-                <Truck className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />
-                <span className="truncate">
-                  {tx(lang,{fr:'Sortie de stock',ar:'إخراج من المخزون',en:'Stock exit',es:'Salida de stock',pt:'Saida de stock',tr:'Stok cikisi'})}
-                  {' — '}{sortieForm.model.meta_data?.nom_modele || sortieForm.model.id}
-                </span>
-              </h3>
-              <button onClick={() => setSortieForm(null)} className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+      {sortieForm && (
+        /* Plein écran : grille couleur x taille + récapitulatif des quantités. */
+        <SheetModal
+          onClose={() => setSortieForm(null)}
+          title={`${tx(lang,{fr:'Sortie de stock',ar:'إخراج من المخزون',en:'Stock exit',es:'Salida de stock',pt:'Saida de stock',tr:'Stok cikisi'})} — ${sortieForm.model.meta_data?.nom_modele || sortieForm.model.id}`}
+          icon={<Truck className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />}
+          size="xl"
+          zClass="z-[245]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop
+          bare
+        >
+          <div className="flex-1 overflow-y-auto min-h-0">
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -7779,8 +7774,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{sortieError}</p>
               )}
             </div>
+          </div>
 
-            <div className="px-5 py-3 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-dk-surface">
+            <div className="shrink-0 px-5 py-3 border-t border-slate-100 dark:border-dk-border flex flex-wrap justify-end gap-2 bg-white dark:bg-dk-surface">
               <button
                 type="button"
                 onClick={() => setSortieForm(null)}
@@ -7804,15 +7800,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   : tx(lang,{fr:'Enregistrer la sortie',ar:'حفظ الإخراج',en:'Save the exit',es:'Guardar la salida',pt:'Guardar a saida',tr:'Cikisi kaydet'})}
               </button>
             </div>
-          </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
 
       {/* Clôture de commande + évaluation du sous-traitant. */}
-      {finishForm && createPortal(
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setFinishForm(null)}>
-          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+      {finishForm && (
+        /* Clôture courte (note + commentaire) : aucun tableau, pas de plein écran. */
+        <SheetModal
+          onClose={() => setFinishForm(null)}
+          size="sm"
+          zClass="z-[250]"
+          closeOnBackdrop
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+        >
             <div className="flex items-start gap-2.5">
               <CheckSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
               <div className="min-w-0">
@@ -7875,15 +7875,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 {tx(lang,{fr:'Terminer',ar:'إنهاء',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
               </button>
             </div>
-          </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
 
       {/* Confirmation de suppression d'une entrée en stock. */}
-      {batchPendingDelete && createPortal(
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setBatchPendingDelete(null)}>
-          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+      {batchPendingDelete && (
+        /* Confirmation courte : pas de plein écran. */
+        <SheetModal
+          onClose={() => setBatchPendingDelete(null)}
+          size="sm"
+          zClass="z-[250]"
+          closeOnBackdrop
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+        >
             <div className="flex items-start gap-2.5">
               <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
               <div className="min-w-0">
@@ -7921,15 +7925,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}
               </button>
             </div>
-          </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
 
       {/* Confirmation d'un jalon libre (bascule ou suppression). */}
-      {customConfirm && createPortal(
-        <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setCustomConfirm(null)}>
-          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+      {customConfirm && (
+        /* Confirmation courte : pas de plein écran. */
+        <SheetModal
+          onClose={() => setCustomConfirm(null)}
+          size="sm"
+          zClass="z-[240]"
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+        >
             <div className="flex items-start gap-2.5">
               {customConfirm.action === 'remove'
                 ? <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
@@ -7974,9 +7981,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   : tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
               </button>
             </div>
-          </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
 
       {/* Fiches d'entité — modèle et client, avec pile de navigation croisée. */}
@@ -8009,44 +8014,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         /* Téléphone : feuille qui monte du bas, comme la modale « Nouvel ordre »
            du Planning — le pouce atteint les boutons, et le contexte derrière
            reste visible. Ordinateur : fenêtre centrée, agrandissable. */
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 overflow-y-auto">
-          <div className={`relative bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border shadow-2xl dark:shadow-dk-elevated w-full overflow-hidden flex flex-col text-slate-700 dark:text-dk-text rounded-t-2xl sm:rounded-3xl max-h-[92vh] sm:my-auto ${
-            /* Pas de `vw` ici : `96vw` s'ajoutait au padding du conteneur et
-               débordait de l'écran — le bouton Fermer et la colonne de droite
-               des tableaux se retrouvaient coupés. En pourcentage, la largeur
-               se calcule DANS la zone déjà amputée du padding. */
-            detailFullscreen
-              ? 'sm:max-w-none sm:h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-2rem)]'
-              : 'sm:max-w-2xl sm:h-auto sm:max-h-[85vh]'
-          }`}>
-            {/* Poignée : dit qu'on peut refermer en glissant, convention mobile. */}
-            <div className="sm:hidden pt-2 pb-1 flex items-center justify-center shrink-0">
-              <span className="w-10 h-1 rounded-full bg-slate-300 dark:bg-dk-muted" />
-            </div>
-            <div className="flex items-center justify-between px-5 sm:px-6 py-3 sm:py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-sm sm:text-base truncate pr-2">{tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}</h2>
-              <div className="flex items-center gap-1 shrink-0">
-                {/* Caché sur téléphone : la feuille y occupe déjà tout l'espace utile. */}
-                <button
-                  onClick={() => setDetailFullscreen(v => !v)}
-                  className="hidden sm:inline-flex p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft"
-                  title={detailFullscreen
-                    ? tx(lang,{fr:'Réduire la fenêtre',ar:'تصغير النافذة',en:'Restore window',es:'Restaurar ventana',pt:'Restaurar janela',tr:'Pencereyi küçült'})
-                    : tx(lang,{fr:'Agrandir en plein écran',ar:'تكبير لملء الشاشة',en:'Expand to full screen',es:'Ampliar a pantalla completa',pt:'Expandir para ecrã inteiro',tr:'Tam ekrana genişlet'})}
-                >
-                  {detailFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={() => setIsDetailModalOpen(false)}
-                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft"
-                  title={tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
+        <SheetModal
+          onClose={() => setIsDetailModalOpen(false)}
+          title={tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}
+          size="lg"
+          zClass="z-50"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop={false}
+          bare
+        >
+            <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-6 text-xs">
               <div className="grid grid-cols-2 gap-4">
                 {(() => {
                   const profile = subcontractorProfiles.find(p => p.name === detailOrder.subcontractorName);
@@ -8757,8 +8735,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
               </button>
             </div>
-          </div>
-        </div>
+        </SheetModal>
       )}
 
       {/* ======================================= */}
@@ -8772,19 +8749,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         const inv = buildCostInvoice(order, Number(costInvoiceQty) || 0);
         const identityIncomplete = !companyIdentity.nom || !companyIdentity.ice;
         return (
-          <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
-            <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[90vh] text-slate-800 dark:text-dk-text">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
-                <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                  <Coins className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
-                  <span>{tx(lang,{fr:'Facture de sous-traitance (à payer)',ar:'فاتورة المقاولة من الباطن (للأداء)',en:'Subcontract invoice (payable)',es:'Factura de subcontratación (a pagar)',pt:'Fatura de subcontratação (a pagar)',tr:'Taşeron faturası (ödenecek)'})}</span>
-                </h2>
-                <button onClick={() => setIsCostInvoiceModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
+          <SheetModal
+            onClose={() => setIsCostInvoiceModalOpen(false)}
+            title={tx(lang,{fr:'Facture de sous-traitance (à payer)',ar:'فاتورة المقاولة من الباطن (للأداء)',en:'Subcontract invoice (payable)',es:'Factura de subcontratación (a pagar)',pt:'Fatura de subcontratação (a pagar)',tr:'Taşeron faturası (ödenecek)'})}
+            icon={<Coins className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
+            size="lg"
+            zClass="z-[200]"
+            fullscreen={denseFullscreen}
+            onToggleFullscreen={toggleDenseFullscreen}
+            closeOnBackdrop={false}
+            bare
+          >
+              <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
                   <div className="min-w-0">
                     <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'})}</span>
@@ -9347,8 +9323,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <span>{tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}</span>
                 </button>
               </div>
-            </div>
-          </div>
+          </SheetModal>
         );
       })()}
 
@@ -9394,19 +9369,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           { k: 'adresse' as const, label: tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'}) },
         ]);
         return (
-          <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
-            <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[90vh] text-slate-800 dark:text-dk-text">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
-                <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                  <Truck className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
-                  <span>{tx(lang,{fr:"Bon d'envoi — préparation",ar:'مذكرة الإرسال — التحضير',en:'Delivery note — preparation',es:'Nota de envío — preparación',pt:'Nota de remessa — preparação',tr:'Sevk irsaliyesi — hazırlık'})}</span>
-                </h2>
-                <button onClick={() => setIsBonEnvoiModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
+          <SheetModal
+            onClose={() => setIsBonEnvoiModalOpen(false)}
+            title={tx(lang,{fr:"Bon d'envoi — préparation",ar:'مذكرة الإرسال — التحضير',en:'Delivery note — preparation',es:'Nota de envío — preparación',pt:'Nota de remessa — preparação',tr:'Sevk irsaliyesi — hazırlık'})}
+            icon={<Truck className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
+            size="lg"
+            zClass="z-[200]"
+            fullscreen={denseFullscreen}
+            onToggleFullscreen={toggleDenseFullscreen}
+            closeOnBackdrop={false}
+            bare
+          >
+              <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
                   <div className="min-w-0">
                     <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'})}</span>
@@ -9722,8 +9696,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <span>{tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}</span>
                 </button>
               </div>
-            </div>
-          </div>
+          </SheetModal>
         );
       })()}
 
@@ -9731,19 +9704,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* SALE INVOICE MODAL (TAB 3 ACTION) */}
       {/* ======================================= */}
       {isSaleModalOpen && selectedModelForSale && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-4xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[90vh] text-slate-800 dark:text-dk-text">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
-                <span>{tx(lang,{fr:'Générer une facture de sortie de stock (Vente)',ar:'إنشاء فاتورة إخراج من المخزون (بيع)',en:'Generate stock exit invoice (Sale)',es:'Generar factura de salida de stock (Venta)',pt:'Gerar fatura de saída de stock (Venda)',tr:'Stok çıkış faturası oluştur (Satış)'})}</span>
-              </h2>
-              <button onClick={() => setIsSaleModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveSaleInvoice} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs text-slate-700 dark:text-dk-text-soft">
+        /* Plein écran : lignes de facture et quantités par taille se lisent mal
+           dans une fenêtre étroite. */
+        <SheetModal
+          onClose={() => setIsSaleModalOpen(false)}
+          title={tx(lang,{fr:'Générer une facture de sortie de stock (Vente)',ar:'إنشاء فاتورة إخراج من المخزون (بيع)',en:'Generate stock exit invoice (Sale)',es:'Generar factura de salida de stock (Venta)',pt:'Gerar fatura de saída de stock (Venda)',tr:'Stok çıkış faturası oluştur (Satış)'})}
+          icon={<FileText className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
+          size="xl"
+          zClass="z-50"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop={false}
+          bare
+        >
+            <form onSubmit={handleSaveSaleInvoice} className="flex-1 overflow-y-auto min-h-0 p-6 space-y-6 text-xs text-slate-700 dark:text-dk-text-soft">
               {/* Invoice structured details */}
               <div className="bg-slate-50 dark:bg-dk-surface/75 rounded-2xl p-4 border border-slate-200 dark:border-dk-border space-y-4">
                 <h3 className="font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider text-[9px]">{tx(lang,{fr:'Informations Facture',ar:'معلومات الفاتورة',en:'Invoice Information',es:'Información de Factura',pt:'Informações da Fatura',tr:'Fatura Bilgileri'})}</h3>
@@ -9856,8 +9830,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               {/* Items Grid */}
               <div className="space-y-3">
                 <h3 className="font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider text-[9px]">{tx(lang,{fr:'Lignes de facturation',ar:'بنود الفاتورة',en:'Invoice Lines',es:'Líneas de Facturación',pt:'Linhas de Faturação',tr:'Fatura Kalemleri'})}</h3>
-                <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden bg-slate-50 dark:bg-dk-bg/30">
-                  <table className="w-full text-left">
+                {/* `overflow-x-auto` : sur téléphone, les quatre colonnes de la
+                    facture débordent — c'est le tableau qui défile, jamais la page. */}
+                <div className="border border-slate-200 dark:border-dk-border rounded-2xl bg-slate-50 dark:bg-dk-bg/30 overflow-x-auto">
+                  <table className="w-full text-left min-w-[560px]">
                     <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold">
                       <tr>
                         <th className="px-4 py-3">{tx(lang,{fr:'Désignation',ar:'البيان',en:'Description',es:'Designación',pt:'Designação',tr:'Açıklama'})}</th>
@@ -9984,46 +9960,43 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </SheetModal>
       )}
 
       {/* ======================================= */}
       {/* IMAGE LIGHTBOX PREVIEW */}
       {/* ======================================= */}
       {imagePreviewSrc && (
-        <div
-          className="fixed inset-0 bg-black/80 z-[220] flex items-center justify-center p-6"
-          onClick={() => setImagePreviewSrc(null)}
+        /* Aperçu : aucun bouton d'agrandissement, l'image occupe déjà la fenêtre. */
+        <SheetModal
+          onClose={() => setImagePreviewSrc(null)}
+          size="xl"
+          zClass="z-[220]"
+          backdropClassName="bg-black/85 backdrop-blur-[2px]"
+          panelClassName="bg-black/95 border border-white/10 shadow-2xl text-white"
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-4 flex items-center justify-center"
         >
-          <button
-            onClick={() => setImagePreviewSrc(null)}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <img src={imagePreviewSrc} alt="" className="max-w-full max-h-full rounded-2xl object-contain" onClick={(e) => e.stopPropagation()} />
-        </div>
+          <img src={imagePreviewSrc} alt="" className="max-w-full max-h-[70vh] rounded-2xl object-contain" />
+        </SheetModal>
       )}
 
       {/* ======================================= */}
       {/* SUBCONTRACTOR PROFILE MODAL */}
       {/* ======================================= */}
       {isProfileModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[210] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                <Users className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text" />
-                <span>{editingProfile
-                  ? tx(lang,{fr:'Modifier le Sous-traitant',ar:'تعديل المقاول من الباطن',en:'Edit Subcontractor',es:'Editar Subcontratista',pt:'Editar Subcontratado',tr:'Taşeronu Düzenle'})
-                  : tx(lang,{fr:'Nouveau Sous-traitant',ar:'مقاول من الباطن جديد',en:'New Subcontractor',es:'Nuevo Subcontratista',pt:'Novo Subcontratado',tr:'Yeni Taşeron'})}</span>
-              </h2>
-              <button onClick={() => setIsProfileModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSaveProfile} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs text-slate-600 dark:text-dk-text-soft">
+        /* Formulaire court : pas de tableau, donc pas de bouton plein écran. */
+        <SheetModal
+          onClose={() => setIsProfileModalOpen(false)}
+          title={editingProfile
+            ? tx(lang,{fr:'Modifier le Sous-traitant',ar:'تعديل المقاول من الباطن',en:'Edit Subcontractor',es:'Editar Subcontratista',pt:'Editar Subcontratado',tr:'Taşeronu Düzenle'})
+            : tx(lang,{fr:'Nouveau Sous-traitant',ar:'مقاول من الباطن جديد',en:'New Subcontractor',es:'Nuevo Subcontratista',pt:'Novo Subcontratado',tr:'Yeni Taşeron'})}
+          icon={<Users className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text shrink-0" />}
+          size="lg"
+          zClass="z-[210]"
+          closeOnBackdrop={false}
+          bare
+        >
+            <form onSubmit={handleSaveProfile} className="flex-1 overflow-y-auto min-h-0 p-6 space-y-4 text-xs text-slate-600 dark:text-dk-text-soft">
               <div className="flex items-center gap-4">
                 <div className="shrink-0 space-y-1.5">
                   <label className="relative block cursor-pointer group">
@@ -10267,26 +10240,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
             </form>
-          </div>
-        </div>
+        </SheetModal>
       )}
 
       {/* ======================================= */}
       {/* MODEL INFO POPUP (from Bibliothèque) */}
       {/* ======================================= */}
       {modelInfoTarget && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[210] flex items-center justify-center p-4" onClick={() => setModelInfoTarget(null)}>
-          <div
-            className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base">{modelInfoTarget.meta_data.nom_modele}</h2>
-              <button onClick={() => setModelInfoTarget(null)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-5 space-y-4 overflow-y-auto text-xs">
+        /* Fiche de lecture courte : pas de bouton plein écran. */
+        <SheetModal
+          onClose={() => setModelInfoTarget(null)}
+          title={modelInfoTarget.meta_data.nom_modele}
+          size="lg"
+          zClass="z-[210]"
+          bare
+        >
+            <div className="flex-1 min-h-0 p-5 space-y-4 overflow-y-auto text-xs">
               {modelInfoTarget.image && (
                 <img src={modelInfoTarget.image} alt={modelInfoTarget.meta_data.nom_modele} className="w-full max-h-72 object-contain rounded-2xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg" />
               )}
@@ -10362,8 +10331,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </button>
               )}
             </div>
-          </div>
-        </div>
+        </SheetModal>
       )}
     </div>
   );
