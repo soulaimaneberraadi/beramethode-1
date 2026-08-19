@@ -8721,7 +8721,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 differentes, et l'oeil ne trouvait plus l'action principale.
                 Ici l'entrée en stock tient toute la largeur (c'est le geste du
                 jour), les deux documents se partagent la ligne suivante, et
-                Fermer ferme la marche. Sur ordinateur, la rangée d'origine. */
+                Fermer ferme la marche. Sur ordinateur, la rangée d'origine. */}
             <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-4 sm:px-6 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center text-xs font-bold sticky bottom-0">
               {/* L'entrée en stock est une opération de production, pas un
                   document : elle reste à gauche, séparée des actions
