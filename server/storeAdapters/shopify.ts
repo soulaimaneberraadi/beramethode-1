@@ -53,6 +53,22 @@ const MAX_RETRIES = 3;
 /** Shopify limite les recherches par lot ; 40 SKU par requête reste confortable. */
 const SKU_BATCH = 40;
 
+/** Commandes lues par page. Shopify plafonne à 250, mais chaque commande porte
+ *  ses lignes : 50 garde le coût de la requête sous le seuil de throttle. */
+const ORDERS_PAGE_SIZE = 50;
+
+/**
+ * Pages de commandes lues par TOUR de worker.
+ *
+ * Après une longue coupure, des centaines de commandes attendent. Sans plafond,
+ * un seul tour monopoliserait le worker (le stock n'est plus poussé pendant ce
+ * temps) et épuiserait le quota d'API. Avec ce plafond, le rattrapage se fait en
+ * plusieurs tours : le curseur avance à chaque tour, donc rien n'est perdu — et
+ * relire une commande est sans effet grâce à l'idempotence par
+ * `external_order_ref`. 10 pages = jusqu'à 500 commandes par minute.
+ */
+const ORDERS_MAX_PAGES = 10;
+
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
 /** `https://xxx.myshopify.com` — on tolère une saisie sans protocole ou avec un
@@ -317,55 +333,72 @@ export class ShopifyAdapter implements StoreAdapter {
      * Le curseur renvoyé est la date de la dernière commande lue. On accepte de
      * relire la commande frontière : l'insertion des sorties est idempotente par
      * `external_order_ref`, donc un doublon de lecture ne coûte rien.
+     *
+     * PAGINATION : à l'intérieur d'un tour, on suit le curseur relais de Shopify
+     * (`pageInfo.endCursor`) jusqu'à `ORDERS_MAX_PAGES`. Sans cela, un atelier
+     * coupé du réseau pendant une semaine ne rattrapait que 50 commandes par
+     * minute et son stock en ligne restait faux pendant des heures. Le curseur
+     * relais ne quitte JAMAIS cette méthode : ce qui est persisté reste la date,
+     * lisible par un humain et valable après un redémarrage.
      */
     async pullOrders(since: string | null): Promise<{ commandes: ExternalOrder[]; cursor: string | null }> {
         const depuis = since && String(since).trim() ? String(since).trim() : null;
         const filtre = depuis ? `created_at:>='${depuis}'` : 'created_at:>=-30d';
 
-        const data = await this.gql(`
-            query($q: String!) {
-                orders(first: 50, query: $q, sortKey: CREATED_AT) {
-                    nodes {
-                        name
-                        createdAt
-                        email
-                        customer { displayName }
-                        lineItems(first: 100) {
-                            nodes {
-                                quantity
-                                sku
-                                originalUnitPriceSet { shopMoney { amount } }
+        const commandes: ExternalOrder[] = [];
+        let dernier: string | null = depuis;
+        let apres: string | null = null;
+
+        for (let page = 0; page < ORDERS_MAX_PAGES; page++) {
+            const data: any = await this.gql(`
+                query($q: String!, $after: String) {
+                    orders(first: ${ORDERS_PAGE_SIZE}, after: $after, query: $q, sortKey: CREATED_AT) {
+                        pageInfo { hasNextPage endCursor }
+                        nodes {
+                            name
+                            createdAt
+                            email
+                            customer { displayName }
+                            lineItems(first: 100) {
+                                nodes {
+                                    quantity
+                                    sku
+                                    originalUnitPriceSet { shopMoney { amount } }
+                                }
                             }
                         }
                     }
                 }
+            `, { q: filtre, after: apres });
+
+            for (const o of data?.orders?.nodes ?? []) {
+                const lignes = (o?.lineItems?.nodes ?? [])
+                    .map((l: any) => ({
+                        sku: String(l?.sku ?? '').trim(),
+                        quantite: Math.floor(Number(l?.quantity) || 0),
+                        prix_unitaire: Number(l?.originalUnitPriceSet?.shopMoney?.amount) || 0,
+                    }))
+                    // Une ligne sans SKU ne peut être rattachée à aucune cellule de
+                    // stock : la sortir « au hasard » fausserait la matrice.
+                    .filter((l: any) => l.sku && l.quantite > 0);
+
+                if (lignes.length > 0) {
+                    commandes.push({
+                        ref: String(o?.name ?? ''),
+                        date: String(o?.createdAt ?? ''),
+                        client_nom: o?.customer?.displayName ?? null,
+                        client_email: o?.email ?? null,
+                        lignes,
+                    });
+                }
+                if (o?.createdAt && (!dernier || String(o.createdAt) > dernier)) dernier = String(o.createdAt);
             }
-        `, { q: filtre });
 
-        const commandes: ExternalOrder[] = [];
-        let dernier: string | null = depuis;
-
-        for (const o of data?.orders?.nodes ?? []) {
-            const lignes = (o?.lineItems?.nodes ?? [])
-                .map((l: any) => ({
-                    sku: String(l?.sku ?? '').trim(),
-                    quantite: Math.floor(Number(l?.quantity) || 0),
-                    prix_unitaire: Number(l?.originalUnitPriceSet?.shopMoney?.amount) || 0,
-                }))
-                // Une ligne sans SKU ne peut être rattachée à aucune cellule de
-                // stock : la sortir « au hasard » fausserait la matrice.
-                .filter((l: any) => l.sku && l.quantite > 0);
-
-            if (lignes.length > 0) {
-                commandes.push({
-                    ref: String(o?.name ?? ''),
-                    date: String(o?.createdAt ?? ''),
-                    client_nom: o?.customer?.displayName ?? null,
-                    client_email: o?.email ?? null,
-                    lignes,
-                });
-            }
-            if (o?.createdAt && (!dernier || String(o.createdAt) > dernier)) dernier = String(o.createdAt);
+            const info = data?.orders?.pageInfo;
+            // Sortie sur `hasNextPage` faux OU sur un curseur vide : une réponse
+            // dégradée ne doit pas faire tourner la boucle sur la même page.
+            if (!info?.hasNextPage || !info?.endCursor || info.endCursor === apres) break;
+            apres = String(info.endCursor);
         }
 
         return { commandes, cursor: dernier };
@@ -378,22 +411,44 @@ export class ShopifyAdapter implements StoreAdapter {
      * produit existant au lieu d'en créer un second. C'est ce qui évite le
      * doublon classique — « le modèle apparaît deux fois sur la boutique » —
      * quand l'opérateur reclique sur Publier.
+     *
+     * ⚠️ NOMBRE D'OPTIONS VARIABLE. Tous les modèles n'ont pas couleur ET taille :
+     * un bonnet peut n'exister qu'en couleurs, un drap qu'en tailles, un article
+     * unique ni l'un ni l'autre. Publier une option « — » pour combler le vide
+     * produisait une vitrine où le client voit « Taille : — » dans un menu
+     * déroulant : un défaut visible PUBLIQUEMENT, sur la boutique du client.
+     * On ne déclare donc que les dimensions réellement renseignées, et un produit
+     * à variante unique (sans aucune option) quand il n'y en a aucune.
      */
     async publishModel(input: PublishInput): Promise<PublishResult> {
-        const couleurs = Array.from(new Set(input.variantes.map(v => v.couleur || '—')));
-        const tailles = Array.from(new Set(input.variantes.map(v => v.taille || '—')));
+        const valeurs = (champ: 'couleur' | 'taille') =>
+            Array.from(new Set(input.variantes.map(v => String(v[champ] ?? '').trim()).filter(Boolean)));
+        const couleurs = valeurs('couleur');
+        const tailles = valeurs('taille');
+
+        // Une dimension ne compte que si TOUTES les variantes la renseignent :
+        // Shopify exige une valeur d'option par variante, une cellule sans
+        // couleur dans un produit à option Couleur ferait échouer la mutation.
+        const avecCouleur = couleurs.length > 0 && input.variantes.every(v => String(v.couleur ?? '').trim());
+        const avecTaille = tailles.length > 0 && input.variantes.every(v => String(v.taille ?? '').trim());
+
+        const productOptions: any[] = [];
+        if (avecCouleur) productOptions.push({ name: 'Couleur', values: couleurs.map(c => ({ name: c })) });
+        if (avecTaille) productOptions.push({ name: 'Taille', values: tailles.map(t => ({ name: t })) });
+
+        const optionValues = (v: PublishInput['variantes'][number]) => {
+            const ov: any[] = [];
+            if (avecCouleur) ov.push({ optionName: 'Couleur', name: String(v.couleur).trim() });
+            if (avecTaille) ov.push({ optionName: 'Taille', name: String(v.taille).trim() });
+            return ov;
+        };
 
         const produit: any = {
             title: input.titre,
-            productOptions: [
-                { name: 'Couleur', values: couleurs.map(c => ({ name: c })) },
-                { name: 'Taille', values: tailles.map(t => ({ name: t })) },
-            ],
             variants: input.variantes.map(v => ({
-                optionValues: [
-                    { optionName: 'Couleur', name: v.couleur || '—' },
-                    { optionName: 'Taille', name: v.taille || '—' },
-                ],
+                // Produit sans aucune option : Shopify crée la variante unique
+                // « Default Title » — on n'envoie donc pas de `optionValues`.
+                ...(productOptions.length > 0 ? { optionValues: optionValues(v) } : {}),
                 price: v.prix != null ? String(v.prix) : undefined,
                 // `tracked: true` est indispensable : sans suivi d'inventaire,
                 // Shopify accepte les commandes indéfiniment et le stock poussé
@@ -401,6 +456,7 @@ export class ShopifyAdapter implements StoreAdapter {
                 inventoryItem: { sku: v.sku, tracked: true },
             })),
         };
+        if (productOptions.length > 0) produit.productOptions = productOptions;
         if (input.external_product_id) produit.id = input.external_product_id;
 
         const data = await this.gql(`
@@ -449,5 +505,65 @@ export class ShopifyAdapter implements StoreAdapter {
         }
 
         return { external_product_id: String(produitId), variantes };
+    }
+
+    /**
+     * Pose le PRIX de variantes déjà publiées (valeur ABSOLUE, comme le stock :
+     * rejouer la tâche repose le même prix, donc le rejeu est inoffensif).
+     *
+     * `productVariantsBulkUpdate` travaille produit par produit : on regroupe
+     * donc les cellules par `external_product_id`. Une cellule sans identifiant
+     * de variante ou de produit n'est reliée à rien — on la signale au lieu de la
+     * compter comme envoyée, exactement comme pour le stock.
+     */
+    async pushPrice(items: Array<{ mapping: StoreMappingRow; prix: number }>): Promise<WriteStockResult[]> {
+        const resultats: WriteStockResult[] = [];
+        const parProduit = new Map<string, Array<{ mapping: StoreMappingRow; prix: number }>>();
+
+        for (const it of items) {
+            const sku = it.mapping.sku ?? '';
+            if (!it.mapping.external_variant_id || !it.mapping.external_product_id) {
+                resultats.push({
+                    sku, ok: false,
+                    erreur: 'Cellule non liée à une variante Shopify — publiez le modèle avant de pousser son prix',
+                });
+                continue;
+            }
+            const cle = String(it.mapping.external_product_id);
+            if (!parProduit.has(cle)) parProduit.set(cle, []);
+            parProduit.get(cle)!.push(it);
+        }
+
+        for (const [produitId, lot] of parProduit) {
+            try {
+                const data = await this.gql(`
+                    mutation($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+                        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+                            productVariants { id }
+                            userErrors { field message }
+                        }
+                    }
+                `, {
+                    productId: produitId,
+                    variants: lot.map(it => ({
+                        id: it.mapping.external_variant_id,
+                        price: String(Math.max(0, Number(it.prix) || 0)),
+                    })),
+                });
+
+                // ⚠️ Shopify répond 200 même quand il refuse : sans cette lecture
+                // on marquerait « prix poussé » un lot entièrement rejeté.
+                const erreur = ShopifyAdapter.userErrors(data?.productVariantsBulkUpdate);
+                if (erreur) {
+                    resultats.push(...lot.map(it => ({ sku: it.mapping.sku ?? '', ok: false, erreur })));
+                } else {
+                    resultats.push(...lot.map(it => ({ sku: it.mapping.sku ?? '', ok: true })));
+                }
+            } catch (e: any) {
+                resultats.push(...lot.map(it => ({ sku: it.mapping.sku ?? '', ok: false, erreur: e?.message || String(e) })));
+            }
+        }
+
+        return resultats;
     }
 }

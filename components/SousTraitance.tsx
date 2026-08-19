@@ -6,7 +6,7 @@ import { useLang } from '../src/context/LanguageContext';
 import { resolveStock, MagasinItem } from '../lib/magasinMatch';
 import { fmt } from '../app/constants';
 import { computeModelCostPrice, prixPlancher, estSousPlancher, SOUS_COUT_NOTE_PREFIX } from '../lib/costPrice';
-import { resolveCommercialAccess } from '../app/accessControl';
+import { resolveCommercialAccess, SALE_PRICE_FIELD } from '../app/accessControl';
 import { useAuth } from '../src/context/AuthContext';
 import { usePermissions } from '../src/context/PermissionsContext';
 import { diffOrderVsModelGrid, orderGridToModel } from '../utils/subcontractGrid';
@@ -1336,6 +1336,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     // champ inconnu (deny par défaut), et s'appuyer dessus ferait brutalement
     // disparaître le coût chez des ateliers qui le voyaient hier.
     hiddenFields: perms.fields['model.prix_revient']?.view === false ? ['model.prix_revient'] : [],
+    // Même principe pour l'écriture du prix de vente : seul un `edit:false`
+    // déclaré ferme la porte. Champ non déclaré = aucune restriction, sinon
+    // un « Chef d'atelier » perdrait l'édition sans que personne ne l'ait voulu.
+    priceFieldEdit: perms.fields[SALE_PRICE_FIELD]?.edit === false ? false : undefined,
   }), [perms, user, settings]);
   const canSeeCostHere = commercialAccess.canSeeCost;
   const canSetPriceHere = commercialAccess.canSetPrice;
@@ -6374,10 +6378,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
                 <div>
                   <h3 className="font-extrabold text-slate-800 dark:text-dk-text text-sm sm:text-base">
-                    {tx(lang, { fr: "Créer une Commande", ar: "إنشاء أمر", en: "Create an Order" })}
+                    {tx(lang, { fr: "Créer une Commande", ar: "إنشاء أمر", en: "Create an Order", es: "Crear un pedido", pt: "Criar uma encomenda", tr: "Sipariş oluştur" })}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-dk-muted">
-                    {tx(lang, { fr: "Choisissez comment vous souhaitez commencer", ar: "اختر كيف تريد البدء", en: "Choose how you want to start" })}
+                    {tx(lang, { fr: "Choisissez comment vous souhaitez commencer", ar: "اختر كيف تريد البدء", en: "Choose how you want to start", es: "Elija cómo desea empezar", pt: "Escolha como pretende começar", tr: "Nasıl başlamak istediğinizi seçin" })}
                   </p>
                 </div>
               </div>
@@ -6399,13 +6403,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-extrabold text-slate-800 dark:text-dk-text text-sm group-hover:text-indigo-600 dark:group-hover:text-dk-accent transition-colors">
-                    {tx(lang, { fr: "Créer un nouveau modèle", ar: "إنشاء موديل جديد", en: "Create a new model" })}
+                    {tx(lang, { fr: "Créer un nouveau modèle", ar: "إنشاء موديل جديد", en: "Create a new model", es: "Crear un modelo nuevo", pt: "Criar um novo modelo", tr: "Yeni model oluştur" })}
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-dk-muted mt-1 leading-relaxed">
                     {tx(lang, {
                       fr: "Rediriger vers la bibliothèque pour concevoir un nouveau modèle de A à Z avec sa gamme opératoire.",
                       ar: "التوجيه إلى المكتبة لتصميم موديل جديد وتحديد التسلسل التشغيلي والتكلفة.",
-                      en: "Redirect to the library to design a new model with operational sequence."
+                      en: "Redirect to the library to design a new model with operational sequence.",
+                      es: "Ir a la biblioteca para diseñar un modelo nuevo de principio a fin con su gama operativa.",
+                      pt: "Ir para a biblioteca para conceber um novo modelo de raiz com a sua gama operatória.",
+                      tr: "Yeni bir modeli operasyon akışıyla birlikte baştan sona tasarlamak için kütüphaneye gidin."
                     })}
                   </p>
                 </div>
@@ -6420,13 +6427,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-extrabold text-slate-800 dark:text-dk-text text-sm group-hover:text-indigo-600 dark:group-hover:text-dk-accent transition-colors">
-                    {tx(lang, { fr: "Sélectionner un modèle existant", ar: "اختيار موديل موجود من القائمة", en: "Select an existing model" })}
+                    {tx(lang, { fr: "Sélectionner un modèle existant", ar: "اختيار موديل موجود من القائمة", en: "Select an existing model", es: "Seleccionar un modelo existente", pt: "Selecionar um modelo existente", tr: "Mevcut bir modeli seç" })}
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-dk-muted mt-1 leading-relaxed">
                     {tx(lang, {
                       fr: "Sélectionner un modèle déjà enregistré dans votre catalogue pour lancer immédiatement la commande de sous-traitance.",
                       ar: "اختيار موديل مسجل في الكتالوج لبدء أمر المقاولة الفرعية مباشرة.",
-                      en: "Select a model saved in catalog to immediately start the order."
+                      en: "Select a model saved in catalog to immediately start the order.",
+                      es: "Seleccione un modelo ya guardado en su catálogo para lanzar de inmediato el pedido de subcontratación.",
+                      pt: "Selecione um modelo já guardado no seu catálogo para lançar de imediato a encomenda de subcontratação.",
+                      tr: "Fason siparişini hemen başlatmak için kataloğunuzda kayıtlı bir model seçin."
                     })}
                   </p>
                 </div>

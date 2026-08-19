@@ -115,6 +115,25 @@ export function resolveHiddenPages(
 // mêmes clés `module.champ` que `resolveAccess` (FIELD_CATALOG / PROTECTED_FIELDS).
 // Le réglage `AppSettings.masquerCoutRevient` sert d'interrupteur : à false
 // (défaut), le comportement reste EXACTEMENT celui d'aujourd'hui.
+//
+// ── RÈGLE DES DEUX CAPACITÉS (à lire avant de toucher au code) ──────────────
+//
+//   canSeeCost  : VRAI par défaut. Ne devient faux que si le patron a activé
+//                 `masquerCoutRevient` ET que la personne tient un rôle de
+//                 vente, ou si une couche de permissions masque explicitement
+//                 le champ témoin `model.prix_revient`.
+//
+//   canSetPrice : VRAI par défaut (fail-open). Ne devient faux que sur un
+//                 REFUS EXPLICITE :
+//                   • une permission de champ interdit l'écriture du prix de
+//                     vente (`priceFieldEdit === false`) ; ou
+//                   • le rôle est déclaré en lecture seule (`roleReadOnly`, ou
+//                     un nom de rôle de la liste READ_ONLY_ROLE_KEYS).
+//                 Un nom de rôle INCONNU (« Chef d'atelier », « Responsable
+//                 production », vocabulaire local de l'atelier) n'est JAMAIS une
+//                 restriction : deviner un refus à partir d'un nom faisait
+//                 disparaître l'édition du prix chez tout atelier ayant nommé
+//                 ses rôles, sans que personne ne l'ait décidé.
 // ════════════════════════════════════════════════════════════════════════════
 
 /**
@@ -139,8 +158,33 @@ const COST_PROBE_FIELD = 'model.prix_revient';
  */
 export const SALES_ROLE_KEYS: string[] = ['commercial', 'vendeur', 'vente', 'ventes', 'sales'];
 
-/** Rôles autorisés à fixer les prix de vente en plus du patron/admin. */
+/**
+ * Rôles historiquement listés comme « tarificateurs ». Conservé pour
+ * compatibilité d'import : la tarification est désormais ouverte par défaut
+ * (fail-open), donc cette liste ne sert PLUS à refuser quoi que ce soit.
+ */
 export const PRICING_ROLE_KEYS: string[] = [...SALES_ROLE_KEYS];
+
+/**
+ * Rôles dont le nom DIT explicitement « lecture seule ». C'est la seule
+ * reconnaissance par nom autorisée pour refuser l'écriture : elle ne devine
+ * rien, elle lit une intention déjà écrite par l'atelier dans le nom du rôle.
+ * Tout autre nom (connu ou non) reste autorisé.
+ */
+export const READ_ONLY_ROLE_KEYS: string[] = [
+  'lecture', 'lecture seule', 'lecture-seule', 'lecteur',
+  'consultation', 'observateur',
+  'read only', 'read-only', 'readonly', 'viewer',
+  'solo lectura', 'somente leitura', 'salt okunur',
+  'قراءة فقط',
+];
+
+/**
+ * Clé de champ facultative que l'atelier peut déclarer pour verrouiller
+ * l'écriture du prix de vente. Absente du catalogue par défaut : tant qu'elle
+ * n'est pas déclarée, aucune restriction ne s'applique.
+ */
+export const SALE_PRICE_FIELD = 'model.prix_vente';
 
 export interface CommercialAccessInput {
   /** Propriétaire du workspace — voit et modifie tout, sans exception. */
@@ -153,6 +197,15 @@ export interface CommercialAccessInput {
   masquerCoutRevient?: boolean;
   /** Champs déjà masqués par les 4 couches (`resolveAccess().hiddenFields`). */
   hiddenFields?: string[];
+  /**
+   * Permission d'ÉCRITURE sur le prix de vente, telle que déclarée par les
+   * permissions de champ (`perms.fields[SALE_PRICE_FIELD]?.edit`).
+   * `false` = refus explicite → l'édition est fermée.
+   * `undefined`/`null` = rien n'a été déclaré → on n'invente pas de restriction.
+   */
+  priceFieldEdit?: boolean | null;
+  /** Le rôle est déclaré en lecture seule (aucune écriture, nulle part). */
+  roleReadOnly?: boolean;
 }
 
 export interface CommercialAccess {
@@ -167,8 +220,19 @@ export interface CommercialAccess {
   hiddenCostFields: string[];
 }
 
-const isSalesRole = (roleKey?: string | null) =>
-  !!roleKey && SALES_ROLE_KEYS.includes(String(roleKey).trim().toLowerCase());
+const normRole = (roleKey?: string | null) =>
+  roleKey ? String(roleKey).trim().toLowerCase() : null;
+
+const isSalesRole = (roleKey?: string | null) => {
+  const r = normRole(roleKey);
+  return !!r && SALES_ROLE_KEYS.includes(r);
+};
+
+/** Le NOM du rôle dit lui-même « lecture seule ». Aucune déduction ici. */
+const isReadOnlyRole = (roleKey?: string | null) => {
+  const r = normRole(roleKey);
+  return !!r && READ_ONLY_ROLE_KEYS.includes(r);
+};
 
 /**
  * Résout les deux capacités commerciales. Hiérarchie respectée :
@@ -176,7 +240,7 @@ const isSalesRole = (roleKey?: string | null) =>
  */
 export function resolveCommercialAccess(input: CommercialAccessInput): CommercialAccess {
   const privileged = !!input.isOwner || !!input.isAdmin;
-  const role = input.roleKey ? String(input.roleKey).trim().toLowerCase() : null;
+  const role = normRole(input.roleKey);
 
   // 1) Patron / admin : rien ne leur est caché, même cloisonnement actif.
   if (privileged) {
@@ -189,11 +253,17 @@ export function resolveCommercialAccess(input: CommercialAccessInput): Commercia
   // 3) Sinon on retombe sur le mécanisme existant (champ masqué par une couche).
   const hiddenByLayers = (input.hiddenFields || []).includes(COST_PROBE_FIELD);
 
+  // 4) Prix de vente : FAIL-OPEN. Ouvert tant que personne n'a écrit un refus.
+  //    Un « Chef d'atelier » ou un « Responsable production » — rôles que
+  //    l'atelier nomme lui-même — doit continuer à corriger un prix comme hier.
+  const refusExplicitePrix =
+    input.priceFieldEdit === false
+    || input.roleReadOnly === true
+    || isReadOnlyRole(role);
+
   return {
     canSeeCost: !cloisonne && !hiddenByLayers,
-    // Le vendeur fixe les prix de vente ; un rôle non commercial sans privilège
-    // garde le comportement actuel (autorisé) tant qu'aucun rôle n'est déclaré.
-    canSetPrice: !role || isSalesRole(role) || PRICING_ROLE_KEYS.includes(role),
+    canSetPrice: !refusExplicitePrix,
     hiddenCostFields: cloisonne ? [...COST_SENSITIVE_FIELDS] : [],
   };
 }
@@ -203,7 +273,10 @@ export function canSeeCost(input: CommercialAccessInput): boolean {
   return resolveCommercialAccess(input).canSeeCost;
 }
 
-/** Raccourci UI : « ai-je le droit de modifier les prix de vente ? ». */
+/**
+ * Raccourci UI : « ai-je le droit de modifier les prix de vente ? ».
+ * VRAI par défaut ; faux uniquement sur refus explicite (cf. bloc de tête).
+ */
 export function canSetPrice(input: CommercialAccessInput): boolean {
   return resolveCommercialAccess(input).canSetPrice;
 }

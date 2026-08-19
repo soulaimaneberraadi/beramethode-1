@@ -134,9 +134,23 @@ export const deleteClient = (req: Request, res: Response) => {
     try {
         // Les factures déjà émises gardent le nom recopié : supprimer une fiche
         // client ne doit jamais réécrire l'historique comptable.
-        const info = db.prepare('DELETE FROM st_clients WHERE id = ? AND owner_id = ?').run(req.params.id, companyId);
-        if (info.changes === 0) return res.status(404).json({ message: 'Client introuvable' });
-        res.json({ message: 'Client supprimé' });
+        //
+        // En revanche les TARIFS NÉGOCIÉS avec ce client (`st_prix.client_id`)
+        // partent avec lui, dans la MÊME transaction : ils ne s'appliqueraient
+        // plus à personne mais resteraient affichés dans la grille tarifaire,
+        // où ils feraient croire à un accord commercial encore en vigueur. La
+        // transaction évite l'état intermédiaire « client supprimé, tarifs
+        // orphelins » si l'une des deux écritures échoue.
+        let supprime = 0;
+        let tarifs = 0;
+        db.transaction(() => {
+            supprime = db.prepare('DELETE FROM st_clients WHERE id = ? AND owner_id = ?').run(req.params.id, companyId).changes;
+            if (supprime > 0) {
+                tarifs = db.prepare('DELETE FROM st_prix WHERE owner_id = ? AND client_id = ?').run(companyId, req.params.id).changes;
+            }
+        })();
+        if (supprime === 0) return res.status(404).json({ message: 'Client introuvable' });
+        res.json({ message: 'Client supprimé', tarifs_supprimes: tarifs });
     } catch (error) {
         console.error('Delete client error:', error);
         res.status(500).json({ message: 'Error deleting client' });

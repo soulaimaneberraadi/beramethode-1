@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import db from './db';
 import { getAdapter, PLATEFORMES } from './storeAdapters';
 import type { StoreConfigRow, StoreMappingRow } from './storeAdapters/types';
+import { chiffrerToken, dechiffrerToken, dechiffrerConfig } from './storeSecrets';
 
 /**
  * Synchronisation avec une BOUTIQUE EN LIGNE.
@@ -19,7 +20,9 @@ import type { StoreConfigRow, StoreMappingRow } from './storeAdapters/types';
  * Deux entreprises partagent la même base ; une requête sans filtre ferait
  * pousser le stock d'un atelier sur la boutique d'un autre.
  *
- * ⚠️ Le token de la boutique ne sort JAMAIS d'ici : il est renvoyé masqué.
+ * ⚠️ Le token de la boutique ne sort JAMAIS d'ici : il est renvoyé masqué, et il
+ * est CHIFFRÉ au repos (cf. `storeSecrets.ts`). Toute lecture destinée à appeler
+ * la plateforme passe par `lireConfig`, qui déchiffre.
  */
 
 /** Marqueur des valeurs masquées : sa présence signifie « l'écran n'a pas
@@ -38,13 +41,16 @@ const masquerToken = (token: string | null): string | null => {
     return `${prefixe}${MASQUE}${t.slice(-4)}`;
 };
 
-/** Forme renvoyée au navigateur : tout sauf le secret. */
+/** Forme renvoyée au navigateur : tout sauf le secret.
+ *  Le masque est calculé sur le jeton DÉCHIFFRÉ : masquer la forme stockée
+ *  afficherait « encv1_•••• » et empêcherait de reconnaître quel jeton est en
+ *  place, ce qui est justement le seul intérêt du masque. */
 const publicConfig = (row: any) => ({
     id: row.id,
     plateforme: row.plateforme,
     nom: row.nom,
     boutique_url: row.boutique_url,
-    token_masque: masquerToken(row.token),
+    token_masque: masquerToken(dechiffrerToken(row.token)),
     location_id: row.location_id,
     actif: Number(row.actif) ? 1 : 0,
     marge_securite: Number(row.marge_securite) || 0,
@@ -52,10 +58,11 @@ const publicConfig = (row: any) => ({
     derniere_erreur: row.derniere_erreur,
 });
 
-/** Lecture interne d'une boutique, TOKEN COMPRIS. Réservée au serveur. */
+/** Lecture interne d'une boutique, TOKEN COMPRIS et DÉCHIFFRÉ. Réservée au
+ *  serveur : c'est la seule porte d'entrée vers un adaptateur. */
 export const lireConfig = (companyId: number | string, storeId: string): StoreConfigRow | null =>
-    (db.prepare('SELECT * FROM st_store_config WHERE id = ? AND owner_id = ?')
-        .get(storeId, companyId) as StoreConfigRow | undefined) ?? null;
+    dechiffrerConfig(db.prepare('SELECT * FROM st_store_config WHERE id = ? AND owner_id = ?')
+        .get(storeId, companyId) as StoreConfigRow | undefined);
 
 /** Clé de cellule, unique dans toute la couche : couleur|taille normalisées. */
 export const cellKey = (couleur: any, taille: any) => `${String(couleur ?? '')}|${String(taille ?? '')}`;
@@ -187,7 +194,11 @@ export const saveStoreConfig = (req: Request, res: Response) => {
         // parce qu'il ne se voit qu'à la synchronisation suivante.
         const tokenEntrant = p.token == null ? '' : String(p.token).trim();
         const tokenValide = tokenEntrant && !tokenEntrant.includes(MASQUE) ? tokenEntrant : null;
-        const token = tokenValide ?? (existant?.token ?? null);
+        // Le jeton conservé est relu DÉCHIFFRÉ puis re-chiffré : c'est ce qui
+        // migre silencieusement une installation existante dont le jeton est
+        // encore en clair, sans jamais toucher aux lignes qu'on ne réécrit pas.
+        const tokenClair = tokenValide ?? dechiffrerToken(existant?.token ?? null);
+        const token = chiffrerToken(tokenClair);
 
         db.prepare(`
             INSERT INTO st_store_config (id, owner_id, plateforme, nom, boutique_url, token, location_id, actif, marge_securite)
@@ -451,13 +462,111 @@ export const saveStoreMapping = (req: Request, res: Response) => {
 };
 
 /**
- * Publie le modèle sur la boutique : crée le produit et ses variantes, puis
- * enregistre les identifiants distants dans le pont.
+ * PRIX DE VENTE EN LIGNE d'un modèle.
+ *
+ * Chaîne de résolution UNIQUE, utilisée par la publication ET par la tâche
+ * `PUSH_PRICE` du worker : deux chaînes différentes finiraient par publier un
+ * prix et en pousser un autre, sans que rien ne le signale.
+ *
+ *   1. tarif catalogue de canal 'ONLINE'  (le prix décidé POUR la boutique)
+ *   2. tarif catalogue tous canaux
+ *   3. `ficheData.clientPrice` du modèle   (le prix historique, avant `st_prix`)
+ *   4. `null` — aucun prix décidé
+ *
+ * ⚠️ Seuls les tarifs CATALOGUE entrent ici (ni client ni segment) : une
+ * boutique en ligne vend au public, lui pousser un prix négocié avec un
+ * grossiste afficherait ce prix à tout le monde.
+ *
+ * `null` est une réponse valide : la plateforme garde alors son prix actuel.
+ * Inventer un montant (coût de revient, dernier prix vu) ferait vendre à un prix
+ * que personne n'a décidé.
+ */
+export const prixOnlineModele = (companyId: number | string, modelId: string): number | null => {
+    const tarif = db.prepare(`
+        SELECT prix FROM st_prix
+        WHERE owner_id = ? AND modelId = ? AND client_id IS NULL AND type_client IS NULL
+          AND (canal = 'ONLINE' OR canal IS NULL)
+        ORDER BY (canal = 'ONLINE') DESC, qty_min ASC, updated_at DESC
+        LIMIT 1
+    `).get(companyId, modelId) as any;
+    if (tarif?.prix != null && Number.isFinite(Number(tarif.prix))) return Number(tarif.prix);
+
+    // Repli historique : les ateliers qui n'ont pas encore saisi de grille
+    // tarifaire ont leur prix de vente dans la fiche du modèle.
+    const row = db.prepare(
+        "SELECT json_extract(data, '$.ficheData.clientPrice') AS prix FROM models WHERE id = ? AND user_id = ?"
+    ).get(modelId, companyId) as any;
+    const clientPrice = Number(row?.prix);
+    return Number.isFinite(clientPrice) && clientPrice > 0 ? clientPrice : null;
+};
+
+/** Erreur métier portant le code HTTP à renvoyer : la route et le worker
+ *  partagent le même chemin de publication, seul le rendu diffère. */
+class PublicationError extends Error {
+    constructor(message: string, readonly statut = 400) { super(message); this.name = 'PublicationError'; }
+}
+
+/**
+ * PUBLICATION D'UN MODÈLE — chemin unique.
+ *
+ * Appelé par la route synchrone `POST /api/store/publish` ET par la tâche
+ * `PUBLISH` de la file d'attente. Un seul corps de code : dupliquer la
+ * publication ferait diverger les deux chemins (options de variantes, prix,
+ * écriture du pont) et un opérateur ne verrait pas la même vitrine selon qu'il a
+ * cliqué ou attendu le worker.
  *
  * IDEMPOTENT : si le pont porte déjà un `external_product_id`, la plateforme est
  * appelée en MISE À JOUR. Un opérateur qui reclique sur « Publier » ne doit pas
  * se retrouver avec le même article deux fois en vitrine.
  */
+export const publierModele = async (
+    companyId: number | string,
+    storeId: string,
+    modelId: string,
+): Promise<{ external_product_id: string; variantes: number; mis_a_jour: boolean }> => {
+    const config = lireConfig(companyId, storeId);
+    if (!config) throw new PublicationError('Boutique introuvable', 404);
+
+    const adapter = getAdapter(config);
+    if (!adapter.publishModel) {
+        throw new PublicationError('Cette plateforme ne permet pas de créer les produits depuis BERAMETHODE : créez la fiche produit sur la boutique, puis générez et corrigez le mapping.', 400);
+    }
+
+    const lignes = db.prepare('SELECT * FROM st_store_mapping WHERE owner_id = ? AND store_id = ? AND modelId = ?')
+        .all(companyId, storeId, modelId) as any[];
+    if (lignes.length === 0) throw new PublicationError('Générez d\'abord le mapping (les SKU) de ce modèle', 400);
+    if (lignes.some(l => !l.sku)) throw new PublicationError('Certaines cellules n\'ont pas de SKU : régénérez le mapping', 400);
+
+    const prix = prixOnlineModele(companyId, modelId);
+    const dejaPublie = lignes.find(l => l.external_product_id)?.external_product_id ?? null;
+
+    const resultat = await adapter.publishModel({
+        titre: nomModele(companyId, modelId),
+        external_product_id: dejaPublie,
+        variantes: lignes.map(l => ({ sku: String(l.sku), couleur: l.couleur, taille: l.taille, prix })),
+    });
+
+    const maj = db.prepare(`
+        UPDATE st_store_mapping
+        SET external_product_id = ?, external_variant_id = ?, external_inventory_item_id = ?,
+            statut = 'OK', derniere_erreur = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE owner_id = ? AND store_id = ? AND sku = ?
+    `);
+    db.transaction(() => {
+        for (const v of resultat.variantes) {
+            if (!v.sku) continue;
+            maj.run(resultat.external_product_id, v.external_variant_id, v.external_inventory_item_id, companyId, storeId, v.sku);
+        }
+    })();
+
+    return {
+        external_product_id: resultat.external_product_id,
+        variantes: resultat.variantes.length,
+        mis_a_jour: Boolean(dejaPublie),
+    };
+};
+
+/** Route synchrone de publication : simple enveloppe HTTP de `publierModele`. */
 export const publishStoreModel = async (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
     const modelId = String(req.body?.modelId ?? '').trim();
@@ -466,65 +575,11 @@ export const publishStoreModel = async (req: Request, res: Response) => {
     if (!modelId || !storeId) return res.status(400).json({ message: 'modelId et storeId sont obligatoires' });
 
     try {
-        const config = lireConfig(companyId, storeId);
-        if (!config) return res.status(404).json({ message: 'Boutique introuvable' });
-
-        const adapter = getAdapter(config);
-        if (!adapter.publishModel) {
-            return res.status(400).json({ message: 'Cette plateforme ne permet pas de créer les produits depuis BERAMETHODE : créez la fiche produit sur la boutique, puis générez et corrigez le mapping.' });
-        }
-
-        const lignes = db.prepare('SELECT * FROM st_store_mapping WHERE owner_id = ? AND store_id = ? AND modelId = ?')
-            .all(companyId, storeId, modelId) as any[];
-        if (lignes.length === 0) {
-            return res.status(400).json({ message: 'Générez d\'abord le mapping (les SKU) de ce modèle' });
-        }
-        if (lignes.some(l => !l.sku)) {
-            return res.status(400).json({ message: 'Certaines cellules n\'ont pas de SKU : régénérez le mapping' });
-        }
-
-        // Prix en ligne s'il existe, sinon tarif catalogue tous canaux. Aucun
-        // prix inventé : `null` laisse la plateforme appliquer son défaut plutôt
-        // que de publier un montant que personne n'a décidé.
-        const tarif = db.prepare(`
-            SELECT prix FROM st_prix
-            WHERE owner_id = ? AND modelId = ? AND client_id IS NULL AND type_client IS NULL
-              AND (canal = 'ONLINE' OR canal IS NULL)
-            ORDER BY (canal = 'ONLINE') DESC, qty_min ASC, updated_at DESC
-            LIMIT 1
-        `).get(companyId, modelId) as any;
-        const prix = tarif?.prix != null ? Number(tarif.prix) : null;
-
-        const dejaPublie = lignes.find(l => l.external_product_id)?.external_product_id ?? null;
-
-        const resultat = await adapter.publishModel({
-            titre: nomModele(companyId, modelId),
-            external_product_id: dejaPublie,
-            variantes: lignes.map(l => ({ sku: String(l.sku), couleur: l.couleur, taille: l.taille, prix })),
-        });
-
-        const maj = db.prepare(`
-            UPDATE st_store_mapping
-            SET external_product_id = ?, external_variant_id = ?, external_inventory_item_id = ?,
-                statut = 'OK', derniere_erreur = NULL, updated_at = CURRENT_TIMESTAMP
-            WHERE owner_id = ? AND store_id = ? AND sku = ?
-        `);
-        db.transaction(() => {
-            for (const v of resultat.variantes) {
-                if (!v.sku) continue;
-                maj.run(resultat.external_product_id, v.external_variant_id, v.external_inventory_item_id, companyId, storeId, v.sku);
-            }
-        })();
-
-        res.json({
-            ok: true,
-            external_product_id: resultat.external_product_id,
-            variantes: resultat.variantes.length,
-            mis_a_jour: Boolean(dejaPublie),
-        });
+        const resultat = await publierModele(companyId, storeId, modelId);
+        res.json({ ok: true, ...resultat });
     } catch (error: any) {
         console.error('Publish store model error:', error);
-        res.status(500).json({ message: error?.message || 'Erreur lors de la publication' });
+        res.status(Number(error?.statut) || 500).json({ message: error?.message || 'Erreur lors de la publication' });
     }
 };
 

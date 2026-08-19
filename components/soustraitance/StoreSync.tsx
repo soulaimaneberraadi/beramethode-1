@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Store, Loader2, RefreshCw, AlertTriangle, CheckCircle2, Clock, Save, Trash2,
     Plus, ChevronDown, Copy, Upload, Link2, ShieldCheck, ServerOff,
@@ -81,6 +81,61 @@ const jsonOrThrow = async (r: Response) => {
     throw new Error(msg || `HTTP ${r.status}`);
 };
 
+/**
+ * Traduit une panne technique en phrase compréhensible. Le patron d'atelier ne
+ * doit pas lire « HTTP 401 » ou « Failed to fetch » : il doit lire ce qui lui
+ * arrive et ce qu'il peut faire. Un message déjà rédigé par le serveur (donc
+ * déjà en français métier) est conservé tel quel.
+ */
+const messageLisible = (e: unknown, lang: Lang | string): string => {
+    const brut = (e instanceof Error ? e.message : String(e || '')).trim();
+    const reseau = /failed to fetch|networkerror|load failed/i.test(brut);
+    const code = /^HTTP\s+(\d{3})$/i.exec(brut);
+    const statut = code ? Number(code[1]) : 0;
+
+    if (reseau) return tx(lang, {
+        fr: "Le serveur de l'atelier ne répond pas. Vérifiez qu'il est allumé, puis réessayez.",
+        ar: 'خادم الورشة ما كيجاوبش. تأكّد بلّي مشعّل، ومن بعد عاود المحاولة.',
+        en: 'The workshop server is not answering. Check that it is running, then try again.',
+        es: 'El servidor del taller no responde. Compruebe que está encendido y vuelva a intentarlo.',
+        pt: 'O servidor da oficina não responde. Verifique se está ligado e tente de novo.',
+        tr: 'Atölye sunucusu yanıt vermiyor. Açık olduğunu doğrulayıp yeniden deneyin.',
+    });
+    if (statut === 401 || statut === 403) return tx(lang, {
+        fr: 'Votre session a expiré, ou vous n’avez pas le droit de faire cette action. Reconnectez-vous.',
+        ar: 'الجلسة ديالك سالات، ولا ما عندكش الحق دير هاد العملية. عاود دخل.',
+        en: 'Your session has expired, or you are not allowed to do this. Sign in again.',
+        es: 'Su sesión ha caducado o no tiene permiso para esta acción. Vuelva a iniciar sesión.',
+        pt: 'A sua sessão expirou ou não tem permissão para esta ação. Inicie sessão de novo.',
+        tr: 'Oturumunuz doldu ya da bu işlem için yetkiniz yok. Yeniden giriş yapın.',
+    });
+    if (statut === 404) return tx(lang, {
+        fr: "Cette boutique n'existe plus dans le programme. Rechargez la page, puis rebranchez-la.",
+        ar: 'هاد المتجر ما بقاش كاين فالبرنامج. عاود حمّل الصفحة، ومن بعد عاود اربطو.',
+        en: 'This shop no longer exists in the program. Reload the page, then connect it again.',
+        es: 'Esta tienda ya no existe en el programa. Recargue la página y vuelva a conectarla.',
+        pt: 'Esta loja já não existe no programa. Recarregue a página e volte a ligá-la.',
+        tr: 'Bu mağaza programda artık yok. Sayfayı yenileyip yeniden bağlayın.',
+    });
+    if (statut >= 500) return tx(lang, {
+        fr: "Le serveur de l'atelier a rencontré un problème. Réessayez dans un instant.",
+        ar: 'خادم الورشة وقعات ليه مشكلة. عاود المحاولة من بعد شوية.',
+        en: 'The workshop server hit a problem. Try again in a moment.',
+        es: 'El servidor del taller tuvo un problema. Inténtelo de nuevo en un momento.',
+        pt: 'O servidor da oficina teve um problema. Tente de novo dentro de momentos.',
+        tr: 'Atölye sunucusunda bir sorun oluştu. Birazdan yeniden deneyin.',
+    });
+    if (!brut || /^HTTP\s+\d+/i.test(brut)) return tx(lang, {
+        fr: "L'opération n'a pas abouti. Réessayez ; si cela recommence, prévenez votre installateur.",
+        ar: 'العملية ما كملاتش. عاود المحاولة؛ إلى تعاود، خبّر اللي ركّب ليك البرنامج.',
+        en: 'The operation did not go through. Try again; if it repeats, tell your installer.',
+        es: 'La operación no se completó. Inténtelo de nuevo; si se repite, avise a su instalador.',
+        pt: 'A operação não foi concluída. Tente de novo; se repetir, avise o seu instalador.',
+        tr: 'İşlem tamamlanmadı. Yeniden deneyin; tekrarlarsa kurulumu yapana haber verin.',
+    });
+    return brut;
+};
+
 const fmtMoment = (raw: any, locale: string): string => {
     if (!raw) return '—';
     const d = new Date(raw);
@@ -88,6 +143,75 @@ const fmtMoment = (raw: any, locale: string): string => {
 };
 
 const toNum = (v: any): number => Number(v) || 0;
+
+/**
+ * Cadence de rafraîchissement TANT QU'IL RESTE du travail en attente.
+ * Le patron d'atelier appuie sur « Synchroniser », puis regarde : si rien ne
+ * bouge à l'écran il rappuie, et empile des envois en double. On relit donc
+ * l'état pendant que la file se vide — et UNIQUEMENT pendant ce temps : dès
+ * qu'elle est vide, l'intervalle est arrêté (aucune interrogation permanente
+ * du serveur pour rien).
+ */
+const RAFRAICHISSEMENT_FILE_MS = 4000;
+
+/* ------------------------------------------------------------------ */
+/* Petit bus d'annonce (portée module, AUCUN hook ici).                 */
+/* Une synchronisation lancée depuis la fiche d'un modèle doit se voir  */
+/* sur la pastille de la liste Stock & Ventes sans rouvrir l'onglet.    */
+/* ------------------------------------------------------------------ */
+
+type AbonneBoutique = () => void;
+const abonnesBoutique = new Set<AbonneBoutique>();
+
+/** À appeler après toute action qui empile du travail (lier, publier, synchroniser, relancer). */
+export const signalerTravailBoutique = (): void => {
+    abonnesBoutique.forEach(f => { try { f(); } catch { /* un abonné démonté ne doit rien casser */ } });
+};
+
+/** Renvoie la fonction de désabonnement — à rendre telle quelle depuis un `useEffect`. */
+const abonnerBoutique = (f: AbonneBoutique): (() => void) => {
+    abonnesBoutique.add(f);
+    return () => { abonnesBoutique.delete(f); };
+};
+
+/**
+ * État global de la file d'envoi + rafraîchissement automatique tant qu'elle
+ * n'est pas vide. `surRafraichissement` permet à l'appelant de recharger SES
+ * données (mapping, pastilles) dans le même battement, sans ouvrir un second
+ * intervalle en parallèle.
+ */
+export function useStoreStatus(actif: boolean, surRafraichissement?: () => void) {
+    const [status, setStatus] = useState<StoreStatus | null>(null);
+    /** Évite un setState après démontage (avertissement React + fuite). */
+    const vivant = useRef(true);
+    useEffect(() => { vivant.current = true; return () => { vivant.current = false; }; }, []);
+
+    /** Le rappel est gardé dans une ref : sa nouvelle identité à chaque rendu
+     *  ne doit pas relancer (donc redémarrer) l'intervalle. */
+    const rappel = useRef(surRafraichissement);
+    useEffect(() => { rappel.current = surRafraichissement; });
+
+    const chargerStatus = useCallback(() => {
+        if (STORE_IS_STATIC || !actif) return;
+        fetch('/api/store/status', { credentials: 'include' })
+            .then(jsonOrThrow)
+            .then((d: any) => { if (vivant.current) setStatus(d && typeof d === 'object' ? d as StoreStatus : null); })
+            .catch(() => { if (vivant.current) setStatus(null); });
+    }, [actif]);
+
+    useEffect(() => { chargerStatus(); }, [chargerStatus]);
+
+    const enAttente = toNum(status?.en_attente);
+
+    useEffect(() => {
+        // Rien en attente => pas d'intervalle du tout.
+        if (STORE_IS_STATIC || !actif || enAttente <= 0) return;
+        const id = setInterval(() => { chargerStatus(); rappel.current?.(); }, RAFRAICHISSEMENT_FILE_MS);
+        return () => clearInterval(id);
+    }, [actif, enAttente, chargerStatus]);
+
+    return { status, chargerStatus, enAttente };
+}
 
 /** Nom lisible d'une plateforme. « Boutique personnalisée » = le développeur du
  *  client implémente le contrat REST affiché plus bas. */
@@ -263,9 +387,14 @@ export const BoutiqueConfigSection: React.FC<{
     const [erreur, setErreur] = useState<string | null>(null);
     const [testBusy, setTestBusy] = useState(false);
     const [testResultat, setTestResultat] = useState<{ ok: boolean; nom?: string; message?: string } | null>(null);
-    const [status, setStatus] = useState<StoreStatus | null>(null);
     const [retryBusy, setRetryBusy] = useState(false);
     const [copie, setCopie] = useState(false);
+    /** Retour visible du bouton « Réessayer » : agir sans rien dire pousse à recliquer. */
+    const [messageFile, setMessageFile] = useState<{ ok: boolean; texte: string } | null>(null);
+
+    /** État de la file : relu automatiquement tant qu'il reste des envois en
+     *  attente, arrêté dès que la file est vide. */
+    const { status, chargerStatus } = useStoreStatus(open && !STORE_IS_STATIC && !indisponible);
 
     /** Le brouillon suit la boutique enregistrée tant que l'utilisateur n'a
      *  rien saisi : sans cela, un rechargement laisserait un formulaire vide
@@ -275,16 +404,6 @@ export const BoutiqueConfigSection: React.FC<{
         const c = boutiqueCourante(configs);
         if (c) setDraft(draftDepuis(c));
     }, [configs, draft]);
-
-    const chargerStatus = useCallback(() => {
-        if (STORE_IS_STATIC) return;
-        fetch('/api/store/status', { credentials: 'include' })
-            .then(jsonOrThrow)
-            .then((d: any) => setStatus(d && typeof d === 'object' ? d as StoreStatus : null))
-            .catch(() => setStatus(null));
-    }, []);
-
-    useEffect(() => { if (open) chargerStatus(); }, [open, chargerStatus]);
 
     const enregistrer = () => {
         if (!draft) return;
@@ -313,8 +432,8 @@ export const BoutiqueConfigSection: React.FC<{
             body: JSON.stringify(corps),
         })
             .then(jsonOrThrow)
-            .then(() => { setDraft(null); recharger(); chargerStatus(); })
-            .catch((e: Error) => setErreur(e.message))
+            .then(() => { setDraft(null); recharger(); chargerStatus(); signalerTravailBoutique(); })
+            .catch((e: Error) => setErreur(messageLisible(e, lang)))
             .finally(() => setBusy(false));
     };
 
@@ -323,8 +442,8 @@ export const BoutiqueConfigSection: React.FC<{
         setBusy(true);
         fetch(`/api/store/config/${encodeURIComponent(draft.id)}`, { method: 'DELETE', credentials: 'include' })
             .then(jsonOrThrow)
-            .then(() => { setDraft(null); setTestResultat(null); recharger(); chargerStatus(); })
-            .catch((e: Error) => setErreur(e.message))
+            .then(() => { setDraft(null); setTestResultat(null); recharger(); chargerStatus(); signalerTravailBoutique(); })
+            .catch((e: Error) => setErreur(messageLisible(e, lang)))
             .finally(() => setBusy(false));
     };
 
@@ -336,12 +455,13 @@ export const BoutiqueConfigSection: React.FC<{
         fetch(`/api/store/test/${encodeURIComponent(draft.id)}`, { method: 'POST', credentials: 'include' })
             .then(jsonOrThrow)
             .then((d: any) => setTestResultat({ ok: !!d?.ok, nom: d?.nom, message: d?.message }))
-            .catch((e: Error) => setTestResultat({ ok: false, message: e.message }))
+            .catch((e: Error) => setTestResultat({ ok: false, message: messageLisible(e, lang) }))
             .finally(() => setTestBusy(false));
     };
 
     const relancerErreurs = () => {
         setRetryBusy(true);
+        setMessageFile(null);
         fetch('/api/store/outbox/retry', {
             method: 'POST',
             credentials: 'include',
@@ -349,8 +469,24 @@ export const BoutiqueConfigSection: React.FC<{
             body: JSON.stringify({}),
         })
             .then(jsonOrThrow)
-            .then(() => chargerStatus())
-            .catch(() => { /* l'état affiché reste celui du dernier chargement */ })
+            .then(() => {
+                // Confirmation explicite : sans elle le bouton semble inerte et
+                // le patron le presse plusieurs fois de suite.
+                setMessageFile({
+                    ok: true,
+                    texte: tx(lang, {
+                        fr: 'Les envois en erreur ont été remis dans la file. Ils repartent tout seuls.',
+                        ar: 'الإرسالات اللي فيها خطأ رجعات للصفّ. غادي تنطلق بوحدها.',
+                        en: 'The failed sends were put back in the queue. They will go out on their own.',
+                        es: 'Los envíos con error volvieron a la cola. Saldrán solos.',
+                        pt: 'Os envios com erro voltaram para a fila. Seguem sozinhos.',
+                        tr: 'Hatalı gönderimler kuyruğa geri alındı. Kendiliğinden yeniden gönderilir.',
+                    }),
+                });
+                chargerStatus();
+                signalerTravailBoutique();
+            })
+            .catch((e: Error) => setMessageFile({ ok: false, texte: messageLisible(e, lang) }))
             .finally(() => setRetryBusy(false));
     };
 
@@ -667,8 +803,15 @@ export const BoutiqueConfigSection: React.FC<{
                         {status && (
                             <div className="rounded-2xl border border-slate-200 dark:border-dk-border overflow-hidden">
                                 <div className="px-4 py-2.5 bg-slate-50 dark:bg-dk-bg/40 border-b border-slate-100 dark:border-dk-border flex items-center justify-between gap-2">
-                                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted">
+                                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted flex items-center gap-1.5">
                                         {tx(lang, { fr: 'État de la synchronisation', ar: 'حالة المزامنة', en: 'Synchronisation status', es: 'Estado de la sincronización', pt: 'Estado da sincronização', tr: 'Eşitleme durumu' })}
+                                        {/* Tant que la file se vide, on le dit : l'écran se met à jour tout seul. */}
+                                        {toNum(status.en_attente) > 0 && (
+                                            <span className="inline-flex items-center gap-1 normal-case text-[9px] font-bold text-amber-600 dark:text-amber-400">
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                                {tx(lang, { fr: 'envoi en cours…', ar: 'الإرسال جارٍ…', en: 'sending…', es: 'enviando…', pt: 'a enviar…', tr: 'gönderiliyor…' })}
+                                            </span>
+                                        )}
                                     </span>
                                     <button
                                         type="button"
@@ -712,12 +855,50 @@ export const BoutiqueConfigSection: React.FC<{
                                         <button
                                             type="button"
                                             disabled={retryBusy}
+                                            aria-busy={retryBusy}
                                             onClick={relancerErreurs}
-                                            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-600 text-white font-bold text-[12px] hover:bg-rose-700 transition-colors disabled:opacity-40"
+                                            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-rose-600 text-white font-bold text-[12px] hover:bg-rose-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                         >
                                             {retryBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                                            {tx(lang, { fr: 'Réessayer', ar: 'عاود المحاولة', en: 'Retry', es: 'Reintentar', pt: 'Tentar de novo', tr: 'Yeniden dene' })}
+                                            {retryBusy
+                                                ? tx(lang, { fr: 'Envoi en cours…', ar: 'الإرسال جارٍ…', en: 'Sending…', es: 'Enviando…', pt: 'A enviar…', tr: 'Gönderiliyor…' })
+                                                : tx(lang, { fr: 'Réessayer', ar: 'عاود المحاولة', en: 'Retry', es: 'Reintentar', pt: 'Tentar de novo', tr: 'Yeniden dene' })}
                                         </button>
+                                    </div>
+                                )}
+
+                                {/* Le bouton a agi : on le dit, sinon il paraît mort. */}
+                                {messageFile && (
+                                    <div className="px-4 pb-4">
+                                        <p className={`text-[11px] font-bold leading-snug ${messageFile.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                            {messageFile.texte}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* File vide et rien en erreur : on rassure au lieu de laisser
+                                    quatre compteurs à zéro sans explication. */}
+                                {toNum(status.en_attente) === 0 && toNum(status.en_erreur) === 0 && (
+                                    <div className="px-4 pb-4">
+                                        <p className="text-[11px] text-slate-500 dark:text-dk-muted leading-snug">
+                                            {toNum(status.modeles_mappes) === 0
+                                                ? tx(lang, {
+                                                    fr: "Aucun modèle n'est encore relié à cette boutique. Ouvrez la fiche d'un modèle, allumez « Publié dans la boutique en ligne », puis cliquez sur « Générer les codes ».",
+                                                    ar: 'ما كاين حتّى موديل مربوط بهاد المتجر. حلّ بطاقة شي موديل، شعّل «منشور فالمتجر الإلكتروني»، ومن بعد كليكي على «ولّد الكودات».',
+                                                    en: 'No model is linked to this shop yet. Open a model sheet, turn on “Published in the online shop”, then click “Generate the codes”.',
+                                                    es: 'Ningún modelo está vinculado todavía a esta tienda. Abra la ficha de un modelo, active «Publicado en la tienda en línea» y pulse «Generar los códigos».',
+                                                    pt: 'Nenhum modelo está ainda ligado a esta loja. Abra a ficha de um modelo, ligue «Publicado na loja online» e clique em «Gerar os códigos».',
+                                                    tr: 'Bu mağazaya henüz model bağlı değil. Bir model kartını açın, “Çevrimiçi mağazada yayında” seçeneğini açın ve “Kodları oluştur”a tıklayın.',
+                                                })
+                                                : tx(lang, {
+                                                    fr: 'Tout est à jour : rien n’attend d’être envoyé, aucune erreur.',
+                                                    ar: 'كلشي محيّن: ما كاين والو فانتظار الإرسال، ولا حتّى خطأ.',
+                                                    en: 'Everything is up to date: nothing waiting to be sent, no error.',
+                                                    es: 'Todo está al día: nada pendiente de envío, ningún error.',
+                                                    pt: 'Está tudo em dia: nada à espera de envio, nenhum erro.',
+                                                    tr: 'Her şey güncel: gönderim bekleyen yok, hata yok.',
+                                                })}
+                                        </p>
                                     </div>
                                 )}
                             </div>
@@ -789,6 +970,17 @@ export const ModelStoreSection: React.FC<{
 
     useEffect(() => { chargerMapping(); }, [chargerMapping]);
 
+    /**
+     * File d'envoi : tant qu'elle n'est pas vide, le tableau se relit tout seul
+     * (`chargerMapping` passé en rappel), et l'intervalle s'arrête dès qu'elle
+     * se vide. Sans cela, « Synchroniser maintenant » ne changeait rien à
+     * l'écran et l'utilisateur recliquait en empilant des envois en double.
+     */
+    const { status: statutFile, chargerStatus } = useStoreStatus(!!storeId && !indisponible, chargerMapping);
+
+    /** Une action lancée ailleurs (autre fiche, Réglages) se voit aussi ici. */
+    useEffect(() => abonnerBoutique(() => { chargerMapping(); chargerStatus(); }), [chargerMapping, chargerStatus]);
+
     /** Prix du canal « en ligne ». Un tarif sans canal reste valable partout :
      *  c'est le comportement historique, on ne le casse pas. */
     useEffect(() => {
@@ -839,8 +1031,13 @@ export const ModelStoreSection: React.FC<{
                 // `/api/store/mapping/generate` renvoie directement le mapping.
                 if (Array.isArray(d)) setLignes(d); else chargerMapping();
                 setMessage(succes);
+                // L'action vient d'empiler du travail : on relit l'état de la
+                // file (ce qui arme le rafraîchissement périodique) et on
+                // prévient la pastille de la liste Stock & Ventes.
+                chargerStatus();
+                signalerTravailBoutique();
             })
-            .catch((e: Error) => setErreur(e.message))
+            .catch((e: Error) => setErreur(messageLisible(e, lang)))
             .finally(() => setAction(null));
     };
 
@@ -849,7 +1046,28 @@ export const ModelStoreSection: React.FC<{
         const cible = !published;
         if (cible && !pretAPublier) return;
         setAction('toggle');
-        try { await onTogglePublished(modelId, cible); } finally { setAction(null); }
+        setErreur(null);
+        setMessage(null);
+        try {
+            const ok = await onTogglePublished(modelId, cible);
+            // `false` = l'écriture a échoué : ne jamais laisser croire à un succès.
+            if (ok === false) {
+                setErreur(tx(lang, {
+                    fr: "Le changement n'a pas pu être enregistré. Réessayez.",
+                    ar: 'التغيير ما تسجّلش. عاود المحاولة.',
+                    en: 'The change could not be saved. Try again.',
+                    es: 'No se pudo guardar el cambio. Inténtelo de nuevo.',
+                    pt: 'Não foi possível guardar a alteração. Tente de novo.',
+                    tr: 'Değişiklik kaydedilemedi. Yeniden deneyin.',
+                }));
+            } else {
+                setMessage(cible
+                    ? tx(lang, { fr: 'Ce modèle est maintenant visible dans la boutique.', ar: 'هاد الموديل ولّا باين فالمتجر.', en: 'This model is now visible in the shop.', es: 'Este modelo ya es visible en la tienda.', pt: 'Este modelo está agora visível na loja.', tr: 'Bu model artık mağazada görünür.' })
+                    : tx(lang, { fr: 'Ce modèle est de nouveau privé : plus rien ne part vers la boutique.', ar: 'هاد الموديل رجع خاص: ما بقا كيتصيفط والو للمتجر.', en: 'This model is private again: nothing more goes to the shop.', es: 'Este modelo vuelve a ser privado: ya no se envía nada a la tienda.', pt: 'Este modelo voltou a ser privado: já nada segue para a loja.', tr: 'Bu model yeniden özel: mağazaya artık bir şey gitmiyor.' }));
+                chargerStatus();
+                signalerTravailBoutique();
+            }
+        } finally { setAction(null); }
     };
 
     /** Lignes triées : les erreurs d'abord, puis les écarts, puis le reste.
@@ -971,17 +1189,21 @@ export const ModelStoreSection: React.FC<{
                     <button
                         type="button"
                         disabled={!storeId || action != null || !hasGrille}
+                        aria-busy={action === 'generate'}
                         onClick={() => appeler('generate', '/api/store/mapping/generate', { modelId, storeId }, tx(lang, { fr: 'Codes article générés.', ar: 'تولّدو كودات المنتوج.', en: 'Item codes generated.', es: 'Códigos de artículo generados.', pt: 'Códigos de artigo gerados.', tr: 'Ürün kodları oluşturuldu.' }))}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-dk-accent/50 text-indigo-600 dark:text-dk-accent font-bold text-[11px] hover:bg-indigo-50 dark:hover:bg-dk-elevated transition-colors disabled:opacity-40"
                     >
                         {action === 'generate' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                        {tx(lang, { fr: 'Générer les codes', ar: 'ولّد الكودات', en: 'Generate the codes', es: 'Generar los códigos', pt: 'Gerar os códigos', tr: 'Kodları oluştur' })}
+                        {action === 'generate'
+                            ? tx(lang, { fr: 'Génération…', ar: 'كيتولّدو…', en: 'Generating…', es: 'Generando…', pt: 'A gerar…', tr: 'Oluşturuluyor…' })
+                            : tx(lang, { fr: 'Générer les codes', ar: 'ولّد الكودات', en: 'Generate the codes', es: 'Generar los códigos', pt: 'Gerar os códigos', tr: 'Kodları oluştur' })}
                     </button>
 
                     {hasGrille && (
                         <button
                             type="button"
                             disabled={!storeId || action != null || !published || !pretAPublier}
+                            aria-busy={action === 'publish'}
                             title={!published
                                 ? tx(lang, { fr: 'Allumez d’abord « Publié dans la boutique en ligne ».', ar: 'شعّل لّولاً «منشور فالمتجر الإلكتروني».', en: 'First turn on “Published in the online shop”.', es: 'Active primero «Publicado en la tienda en línea».', pt: 'Ligue primeiro «Publicado na loja online».', tr: 'Önce “Çevrimiçi mağazada yayında” seçeneğini açın.' })
                                 : undefined}
@@ -989,20 +1211,41 @@ export const ModelStoreSection: React.FC<{
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 text-white font-bold text-[11px] hover:bg-sky-700 transition-colors disabled:opacity-40"
                         >
                             {action === 'publish' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                            {tx(lang, { fr: 'Publier dans la boutique', ar: 'انشر فالمتجر', en: 'Publish to the shop', es: 'Publicar en la tienda', pt: 'Publicar na loja', tr: 'Mağazada yayımla' })}
+                            {action === 'publish'
+                                ? tx(lang, { fr: 'Envoi…', ar: 'كيتصيفط…', en: 'Sending…', es: 'Enviando…', pt: 'A enviar…', tr: 'Gönderiliyor…' })
+                                : tx(lang, { fr: 'Publier dans la boutique', ar: 'انشر فالمتجر', en: 'Publish to the shop', es: 'Publicar en la tienda', pt: 'Publicar na loja', tr: 'Mağazada yayımla' })}
                         </button>
                     )}
 
                     <button
                         type="button"
                         disabled={!storeId || action != null}
+                        aria-busy={action === 'sync'}
                         onClick={() => appeler('sync', `/api/store/sync/${encodeURIComponent(storeId || '')}`, { modelId }, tx(lang, { fr: 'Synchronisation lancée.', ar: 'المزامنة تبداات.', en: 'Synchronisation started.', es: 'Sincronización iniciada.', pt: 'Sincronização iniciada.', tr: 'Eşitleme başlatıldı.' }))}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors disabled:opacity-40"
                     >
                         {action === 'sync' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                        {tx(lang, { fr: 'Synchroniser maintenant', ar: 'زامن دابا', en: 'Synchronise now', es: 'Sincronizar ahora', pt: 'Sincronizar agora', tr: 'Şimdi eşitle' })}
+                        {action === 'sync'
+                            ? tx(lang, { fr: 'Synchronisation…', ar: 'المزامنة جارية…', en: 'Synchronising…', es: 'Sincronizando…', pt: 'A sincronizar…', tr: 'Eşitleniyor…' })
+                            : tx(lang, { fr: 'Synchroniser maintenant', ar: 'زامن دابا', en: 'Synchronise now', es: 'Sincronizar ahora', pt: 'Sincronizar agora', tr: 'Şimdi eşitle' })}
                     </button>
                 </div>
+
+                {/* Le travail empilé est visible : l'écran se met à jour tout seul,
+                    inutile de recliquer sur « Synchroniser maintenant ». */}
+                {toNum(statutFile?.en_attente) > 0 && (
+                    <p className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        {tx(lang, {
+                            fr: 'Envoi vers la boutique en cours — cet écran se met à jour tout seul.',
+                            ar: 'الإرسال للمتجر جارٍ — هاد الشاشة كتحيّن بوحدها.',
+                            en: 'Sending to the shop — this screen updates by itself.',
+                            es: 'Envío a la tienda en curso: esta pantalla se actualiza sola.',
+                            pt: 'Envio para a loja em curso — este ecrã atualiza-se sozinho.',
+                            tr: 'Mağazaya gönderim sürüyor — bu ekran kendiliğinden güncellenir.',
+                        })}
+                    </p>
+                )}
 
                 {message && <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{message}</p>}
                 {erreur && <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400">{erreur}</p>}
@@ -1150,17 +1393,20 @@ export function useStoreSyncStates() {
 
     const store = useMemo(() => boutiqueCourante(configs), [configs]);
 
-    useEffect(() => {
+    /** Empêche un setState après démontage (le rappel du bus peut arriver tard). */
+    const vivant = useRef(true);
+    useEffect(() => { vivant.current = true; return () => { vivant.current = false; }; }, []);
+
+    const recharger = useCallback(() => {
         if (STORE_IS_STATIC || indisponible || !store) {
             setEtats(new Map());
             setBoutiqueOk(false);
             return;
         }
-        let annule = false;
         fetch(`/api/store/mapping?storeId=${encodeURIComponent(store.id)}`, { credentials: 'include' })
             .then(jsonOrThrow)
             .then((d: any) => {
-                if (annule) return;
+                if (!vivant.current) return;
                 const rows: StoreMapping[] = Array.isArray(d) ? d : [];
                 const map = new Map<string, EtatSyncModele>();
                 rows.forEach(l => {
@@ -1176,9 +1422,20 @@ export function useStoreSyncStates() {
                 setEtats(map);
                 setBoutiqueOk(true);
             })
-            .catch(() => { if (!annule) { setEtats(new Map()); setBoutiqueOk(false); } });
-        return () => { annule = true; };
+            // `vivant` suffit à couvrir le démontage : cette fonction est un
+            // rappel déclenché à la demande, pas un effet — elle n'a pas de
+            // nettoyage à rendre.
+            .catch(() => { if (!vivant.current) return; setEtats(new Map()); setBoutiqueOk(false); });
     }, [store, indisponible]);
+
+    // Premier chargement, puis à chaque action boutique signalée depuis une
+    // fiche modèle (lier, publier, synchroniser, relancer). Sans cet abonnement
+    // la pastille resterait figée sur l'état du premier affichage : l'atelier
+    // croirait que rien n'est parti et relancerait un envoi déjà en cours.
+    useEffect(() => {
+        recharger();
+        return abonnerBoutique(recharger);
+    }, [recharger]);
 
     return { etats, boutiqueOk };
 }

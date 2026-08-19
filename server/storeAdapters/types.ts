@@ -8,9 +8,12 @@
  * jamais toucher, parce que c'est celle qui décide combien de pièces sont
  * vendables.
  *
- * ⚠️ QUATRE opérations, pas cinq. Chaque opération supplémentaire est une
- * fonctionnalité qu'il faudra réimplémenter pour CHAQUE plateforme. Tout ce qui
- * peut se calculer côté BERAMETHODE reste côté BERAMETHODE.
+ * ⚠️ QUATRE opérations obligatoires, pas cinq. Chaque opération supplémentaire
+ * est une fonctionnalité qu'il faudra réimplémenter pour CHAQUE plateforme. Tout
+ * ce qui peut se calculer côté BERAMETHODE reste côté BERAMETHODE. Les deux
+ * opérations facultatives (`publishModel`, `pushPrice`) sont déclarées
+ * optionnelles justement pour qu'une plateforme puisse ne pas les offrir sans
+ * qu'on ait à écrire une implémentation qui ment.
  */
 
 /** Une ligne du pont : la cellule locale et ses identifiants distants. */
@@ -104,6 +107,16 @@ export interface StoreAdapter {
      * préfèrent créer leurs fiches produit à la main (photos, descriptions, SEO).
      */
     publishModel?(input: PublishInput): Promise<PublishResult>;
+
+    /**
+     * Pose le PRIX DE VENTE des variantes déjà publiées.
+     * OPTIONNEL, au même titre que `publishModel` : une boutique maison peut très
+     * bien gérer ses prix elle-même.
+     *
+     * ⚠️ Comme pour le stock, la valeur est ABSOLUE : « le prix vaut 180 », jamais
+     * « augmente de 10 ». Un rejeu de la file d'attente doit être inoffensif.
+     */
+    pushPrice?(items: Array<{ mapping: StoreMappingRow; prix: number }>): Promise<WriteStockResult[]>;
 }
 
 /** Erreur d'adaptateur portant l'indication « ça vaut la peine de réessayer ». */

@@ -2,7 +2,8 @@ import { randomUUID } from 'crypto';
 import db from './db';
 import { getAdapter } from './storeAdapters';
 import type { StoreConfigRow, StoreMappingRow } from './storeAdapters/types';
-import { stockLocalParCellule, quantitePoussee, cellKey } from './storeSyncController';
+import { stockLocalParCellule, quantitePoussee, cellKey, prixOnlineModele, publierModele } from './storeSyncController';
+import { dechiffrerConfig } from './storeSecrets';
 import { findOrCreateClient } from './clientsController';
 
 /**
@@ -105,6 +106,73 @@ const executerPushStock = async (config: StoreConfigRow, payload: any): Promise<
     if (echecs.length > 0) throw new Error(echecs.slice(0, 5).join(' ; '));
 };
 
+/**
+ * Exécute une tâche PUSH_PRICE : pousse le prix de vente en ligne d'UN modèle.
+ *
+ * Le prix vient de `prixOnlineModele` — la MÊME chaîne de résolution que la
+ * publication (tarif 'ONLINE' → tarif tous canaux → `ficheData.clientPrice`).
+ * Une seconde chaîne de résolution ferait publier un prix et en pousser un autre.
+ *
+ * ⚠️ Aucun prix décidé (`null`) ⇒ on ne pousse RIEN et la tâche est réussie.
+ * Envoyer 0, le coût de revient ou le dernier prix vu mettrait en vitrine un
+ * montant que personne n'a choisi — sur une boutique publique, l'erreur est
+ * immédiatement monétisée par le premier acheteur.
+ *
+ * Comme pour le stock, la valeur poussée est ABSOLUE : rejouer la tâche repose
+ * le même prix, donc le rejeu est inoffensif.
+ */
+const executerPushPrice = async (config: StoreConfigRow, payload: any): Promise<void> => {
+    const modelId = String(payload?.modelId ?? '').trim();
+    if (!modelId) throw new Error('Tâche PUSH_PRICE sans modelId');
+
+    const adapter = getAdapter(config);
+    if (!adapter.pushPrice) {
+        // La plateforme ne gère pas les prix depuis BERAMETHODE : ce n'est pas une
+        // panne, il n'y a rien à réparer. Laisser la tâche en 'ERROR' remplirait
+        // le bandeau de rouge permanent et masquerait les vraies pannes de stock.
+        console.log(`[storeSync] ${config.nom || config.id} : prix non pris en charge par cette plateforme, tâche sans effet`);
+        return;
+    }
+
+    const prix = prixOnlineModele(config.owner_id, modelId);
+    if (prix == null) {
+        console.log(`[storeSync] ${config.nom || config.id} : aucun tarif en ligne pour le modèle ${modelId}, prix non poussé`);
+        return;
+    }
+
+    const mappings = (db.prepare(
+        'SELECT * FROM st_store_mapping WHERE owner_id = ? AND store_id = ? AND modelId = ?'
+    ).all(config.owner_id, config.id, modelId) as StoreMappingRow[]).filter(m => m.sku);
+    if (mappings.length === 0) return;
+
+    const resultats = await adapter.pushPrice(mappings.map(mapping => ({ mapping, prix })));
+
+    // Le prix n'a pas de colonne de suivi dans le pont : `statut` et
+    // `derniere_qte_poussee` décrivent le lien de STOCK et ne doivent pas être
+    // réécrits ici, sous peine de faire croire à un stock poussé. Les échecs
+    // remontent donc uniquement par l'erreur de la tâche.
+    const echecs = mappings
+        .map(m => ({ sku: m.sku, r: resultats.find(x => x.sku === m.sku) }))
+        .filter(x => !x.r?.ok)
+        .map(x => `${x.sku} : ${x.r?.erreur || 'aucune réponse de la plateforme pour ce SKU'}`);
+
+    if (echecs.length > 0) throw new Error(echecs.slice(0, 5).join(' ; '));
+};
+
+/**
+ * Exécute une tâche PUBLISH : crée (ou met à jour) le produit sur la boutique.
+ *
+ * Appelle exactement le même code que la route synchrone `POST /api/store/publish`
+ * (`publierModele`) : c'est ce qui garantit qu'une publication différée donne la
+ * même vitrine qu'une publication immédiate. `publierModele` est IDEMPOTENT —
+ * un rejeu met à jour le produit existant au lieu d'en créer un second.
+ */
+const executerPublish = async (config: StoreConfigRow, payload: any): Promise<void> => {
+    const modelId = String(payload?.modelId ?? '').trim();
+    if (!modelId) throw new Error('Tâche PUBLISH sans modelId');
+    await publierModele(config.owner_id, config.id, modelId);
+};
+
 const viderFile = async (): Promise<void> => {
     // Jointure sur la configuration : une tâche visant une boutique désactivée
     // ou supprimée n'est pas tentée — elle attend, plutôt que de consommer ses
@@ -120,8 +188,11 @@ const viderFile = async (): Promise<void> => {
     `).all(nowIso()) as any[];
 
     for (const tache of taches) {
-        const config = db.prepare('SELECT * FROM st_store_config WHERE id = ? AND owner_id = ?')
-            .get(tache.store_id, tache.owner_id) as StoreConfigRow | undefined;
+        // ⚠️ `dechiffrerConfig` : le jeton est chiffré au repos. Sans ce passage,
+        // l'adaptateur enverrait la chaîne `encv1:…` comme jeton et la boutique
+        // répondrait 401 sans qu'on comprenne pourquoi.
+        const config = dechiffrerConfig(db.prepare('SELECT * FROM st_store_config WHERE id = ? AND owner_id = ?')
+            .get(tache.store_id, tache.owner_id) as StoreConfigRow | undefined);
         if (!config) continue;
 
         const tentatives = Number(tache.tentatives) + 1;
@@ -131,9 +202,15 @@ const viderFile = async (): Promise<void> => {
                 case 'PUSH_STOCK':
                     await executerPushStock(config, payload);
                     break;
+                case 'PUSH_PRICE':
+                    await executerPushPrice(config, payload);
+                    break;
+                case 'PUBLISH':
+                    await executerPublish(config, payload);
+                    break;
                 default:
-                    // PUSH_PRICE / PUBLISH : prévus par le schéma, pas encore
-                    // exécutés ici. Marquer 'SENT' ferait croire à un envoi.
+                    // Un type inconnu ne doit JAMAIS passer en 'SENT' : ce serait
+                    // affirmer un envoi qui n'a pas eu lieu.
                     throw new Error(`Type de tâche non pris en charge par le worker : ${tache.type}`);
             }
 
@@ -247,7 +324,10 @@ const enregistrerCommande = (config: StoreConfigRow, commande: any): number => {
 };
 
 const tirerCommandes = async (): Promise<void> => {
-    const boutiques = db.prepare('SELECT * FROM st_store_config WHERE actif = 1').all() as StoreConfigRow[];
+    // Jeton déchiffré en mémoire uniquement (cf. `storeSecrets.ts`).
+    const boutiques = (db.prepare('SELECT * FROM st_store_config WHERE actif = 1').all() as StoreConfigRow[])
+        .map(b => dechiffrerConfig(b)!)
+        .filter(Boolean);
     if (boutiques.length === 0) return;
 
     for (const config of boutiques) {

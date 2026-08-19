@@ -51,6 +51,30 @@
  *    vendues.
  *    `since` absent → renvoyer les commandes des 30 derniers jours.
  *
+ *    PAGINATION (facultative, mais recommandée) : si la réponse contient
+ *      "has_next": true
+ *    BERAMETHODE rappellera immédiatement la même route avec le `cursor` renvoyé,
+ *    jusqu'à `ORDERS_MAX_PAGES` pages par tour. Sans ce champ, une seule page est
+ *    lue par tour — c'est le comportement historique, et il reste correct : le
+ *    curseur avance, le rattrapage se fait simplement plus lentement.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * ROUTE SUPPLÉMENTAIRE OPTIONNELLE — prix de vente
+ * ─────────────────────────────────────────────────────────────────────────────
+ * 5) POST {url}/api/price          (facultative)
+ *    Corps : { "sku": "ABC-RGE-M", "prix": 180 }
+ *    → 200 { "ok": true }   |   erreur → { "ok": false, "erreur": "…" }
+ *
+ *    ⚠️ Même règle que le stock : `prix` est une valeur ABSOLUE, jamais une
+ *    variation. « prix: 180 » signifie « après cet appel, l'article se vend
+ *    180 », pas « ajoute 180 ».
+ *
+ *    Cette route N'EST PAS obligatoire. Une boutique qui ne l'expose pas répond
+ *    404, et BERAMETHODE considère alors la tâche comme RÉUSSIE SANS EFFET : la
+ *    boutique gère ses prix elle-même, ce n'est pas une panne. La traiter comme
+ *    une erreur remplirait la file d'attente de tâches rouges permanentes et
+ *    finirait par masquer les vraies pannes de stock.
+ *
  * La création de produit n'est PAS au contrat : `publishModel` n'est pas
  * implémenté ici. Sur une boutique maison, les fiches produit (photos, textes,
  * SEO) sont créées à la main et seul le stock est synchronisé.
@@ -66,6 +90,17 @@ import { StoreAdapterError } from './types';
 const MAX_RETRIES = 2;
 /** Une boutique mutualisée peut être lente ; au-delà elle est considérée en panne. */
 const TIMEOUT_MS = 15000;
+
+/**
+ * Pages de commandes lues par TOUR de worker (cf. `has_next` dans la
+ * spécification). Un plafond identique à celui de Shopify : le rattrapage après
+ * une coupure ne doit jamais monopoliser un cycle du worker, sinon le stock
+ * cesse d'être poussé pendant que l'on lit l'historique.
+ */
+const ORDERS_MAX_PAGES = 10;
+
+/** Sentinelle : la boutique ne connaît pas cette route optionnelle (404). */
+const NON_IMPLEMENTE = Symbol('route optionnelle absente');
 
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
@@ -86,8 +121,10 @@ export class CustomStoreAdapter implements StoreAdapter {
     }
 
     /** Requête HTTP avec timeout et distinction « rejouable / définitif » :
-     *  c'est cette distinction qui décide si la file d'attente doit réessayer. */
-    private async call(chemin: string, init: RequestInit = {}): Promise<any> {
+     *  c'est cette distinction qui décide si la file d'attente doit réessayer.
+     *  `tolerer404` sert aux routes OPTIONNELLES du contrat : leur absence est
+     *  une information, pas une panne. */
+    private async call(chemin: string, init: RequestInit = {}, tolerer404 = false): Promise<any> {
         let attempt = 0;
         for (;;) {
             attempt++;
@@ -120,6 +157,7 @@ export class CustomStoreAdapter implements StoreAdapter {
                 throw new StoreAdapterError('Token refusé par la boutique (401/403)', false);
             }
             if (response.status === 404) {
+                if (tolerer404) return NON_IMPLEMENTE;
                 throw new StoreAdapterError('Introuvable (HTTP 404)', false);
             }
             if (!response.ok) {
@@ -183,28 +221,92 @@ export class CustomStoreAdapter implements StoreAdapter {
         return resultats;
     }
 
+    /**
+     * Lit les commandes depuis le curseur, en suivant `has_next` tant que la
+     * boutique en propose (cf. spécification en tête de fichier), dans la limite
+     * de `ORDERS_MAX_PAGES` par tour.
+     *
+     * Le curseur n'est renvoyé qu'à la fin : si une page intermédiaire échoue,
+     * l'exception remonte et le worker NE fait PAS avancer le curseur. Les
+     * commandes déjà lues seront relues au tour suivant — sans conséquence,
+     * puisque l'enregistrement est idempotent par `ref`.
+     */
     async pullOrders(since: string | null): Promise<{ commandes: ExternalOrder[]; cursor: string | null }> {
-        const chemin = since ? `/api/orders?since=${encodeURIComponent(since)}` : '/api/orders';
-        const data = await this.call(chemin);
+        const commandes: ExternalOrder[] = [];
+        let curseur: string | null = since;
 
-        const commandes: ExternalOrder[] = (Array.isArray(data?.commandes) ? data.commandes : [])
-            .map((c: any) => ({
-                ref: String(c?.ref ?? '').trim(),
-                date: String(c?.date ?? ''),
-                client_nom: c?.client_nom ? String(c.client_nom) : null,
-                client_email: c?.client_email ? String(c.client_email) : null,
-                lignes: (Array.isArray(c?.lignes) ? c.lignes : [])
-                    .map((l: any) => ({
-                        sku: String(l?.sku ?? '').trim(),
-                        quantite: Math.floor(Number(l?.quantite) || 0),
-                        prix_unitaire: Number(l?.prix_unitaire) || 0,
-                    }))
-                    .filter((l: any) => l.sku && l.quantite > 0),
-            }))
-            // Une commande sans référence stable ne peut pas être dédoublonnée :
-            // l'ignorer vaut mieux que risquer de décompter deux fois le stock.
-            .filter((c: ExternalOrder) => c.ref && c.lignes.length > 0);
+        for (let page = 0; page < ORDERS_MAX_PAGES; page++) {
+            const chemin = curseur ? `/api/orders?since=${encodeURIComponent(curseur)}` : '/api/orders';
+            const data = await this.call(chemin);
 
-        return { commandes, cursor: data?.cursor != null ? String(data.cursor) : since };
+            const lot: ExternalOrder[] = (Array.isArray(data?.commandes) ? data.commandes : [])
+                .map((c: any) => ({
+                    ref: String(c?.ref ?? '').trim(),
+                    date: String(c?.date ?? ''),
+                    client_nom: c?.client_nom ? String(c.client_nom) : null,
+                    client_email: c?.client_email ? String(c.client_email) : null,
+                    lignes: (Array.isArray(c?.lignes) ? c.lignes : [])
+                        .map((l: any) => ({
+                            sku: String(l?.sku ?? '').trim(),
+                            quantite: Math.floor(Number(l?.quantite) || 0),
+                            prix_unitaire: Number(l?.prix_unitaire) || 0,
+                        }))
+                        .filter((l: any) => l.sku && l.quantite > 0),
+                }))
+                // Une commande sans référence stable ne peut pas être dédoublonnée :
+                // l'ignorer vaut mieux que risquer de décompter deux fois le stock.
+                .filter((c: ExternalOrder) => c.ref && c.lignes.length > 0);
+
+            commandes.push(...lot);
+
+            const suivant = data?.cursor != null ? String(data.cursor) : null;
+            // Boutique qui n'implémente pas la pagination : `has_next` absent →
+            // une seule page, comportement historique inchangé. Un curseur qui
+            // n'avance pas arrête aussi la boucle : sinon on relirait la même
+            // page jusqu'au plafond, pour rien.
+            if (data?.has_next !== true || !suivant || suivant === curseur) {
+                curseur = suivant ?? curseur;
+                break;
+            }
+            curseur = suivant;
+        }
+
+        return { commandes, cursor: curseur };
+    }
+
+    /**
+     * Pose le PRIX de vente, via la route OPTIONNELLE `POST /api/price`.
+     *
+     * Une boutique qui n'expose pas cette route répond 404 : la tâche est alors
+     * considérée comme réussie sans effet (cf. spécification en tête de fichier).
+     * C'est le seul comportement honnête — la boutique gère ses prix elle-même,
+     * il n'y a rien à réparer, donc rien à signaler en rouge indéfiniment.
+     */
+    async pushPrice(items: Array<{ mapping: StoreMappingRow; prix: number }>): Promise<WriteStockResult[]> {
+        const resultats: WriteStockResult[] = [];
+        for (const it of items) {
+            const sku = it.mapping.sku ?? '';
+            if (!sku) {
+                resultats.push({ sku, ok: false, erreur: 'Cellule sans SKU — générez le mapping avant de synchroniser' });
+                continue;
+            }
+            try {
+                // Valeur ABSOLUE, comme le stock : un rejeu repose le même prix.
+                const data = await this.call('/api/price', {
+                    method: 'POST',
+                    body: JSON.stringify({ sku, prix: Math.max(0, Number(it.prix) || 0) }),
+                }, true);
+
+                if (data === NON_IMPLEMENTE) { resultats.push({ sku, ok: true }); continue; }
+                if (data?.ok === false) {
+                    resultats.push({ sku, ok: false, erreur: String(data?.erreur || 'refus de la boutique') });
+                } else {
+                    resultats.push({ sku, ok: true });
+                }
+            } catch (e: any) {
+                resultats.push({ sku, ok: false, erreur: e?.message || String(e) });
+            }
+        }
+        return resultats;
     }
 }
