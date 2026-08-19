@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { X, Search, RotateCcw, Package, Palette, Ruler, Layers, Check } from 'lucide-react';
+import { Search, RotateCcw, Package, Palette, Ruler, Layers, Check } from 'lucide-react';
 import { Material, FicheData } from '../types';
 import { fmt } from '../app/constants';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
+import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 
 interface MaterialAssignmentProps {
     materials: Material[];
@@ -17,6 +18,9 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
     materials, setMaterialScope, ficheData, currency, onClose,
 }) => {
     const { lang } = useLang();
+    // Contenu dense (une ligne par matière, chacune avec ses puces couleur et
+    // taille) : l'agrandissement est utile ici, contrairement aux confirmations.
+    const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
     const colors = ficheData.colors || [];
     const sizes = ficheData.sizes || [];
     const gq = ficheData.gridQuantities || {};
@@ -94,26 +98,35 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
     );
 
     return (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-slate-950/30 backdrop-blur-sm p-0 md:p-4">
-            <div className="bg-white dark:bg-dk-surface w-full max-h-[92vh] md:max-w-3xl md:max-h-[88vh] rounded-t-2xl md:rounded-2xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-200">
-
-                {/* Header — Clean flat */}
-                <div className="px-6 py-4 flex items-center justify-between shrink-0 border-b border-slate-100 dark:border-dk-border">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 flex items-center justify-center">
-                            <Package className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
-                        </div>
-                        <div>
-                            <h2 className="text-slate-900 dark:text-dk-text font-semibold text-[15px] leading-tight">Affectation des Matières</h2>
-                            <p className="text-slate-400 dark:text-dk-muted text-[11px] mt-0.5">Quelle matière entre dans quelle couleur / taille</p>
-                        </div>
-                    </div>
+        /* Affectation = saisie (on coche des couleurs et des tailles). Fermer par
+           mégarde au clic sur le fond ferait perdre le travail de tri en cours :
+           `closeOnBackdrop={false}` protège aussi la touche Échap. */
+        <SheetModal
+            onClose={onClose}
+            title={tx(lang, {fr:'Affectation des Matières', ar:'تخصيص المواد', en:'Material Assignment', es:'Asignación de Materiales', pt:'Atribuição de Materiais', tr:'Malzeme Ataması'})}
+            subtitle={tx(lang, {fr:'Quelle matière entre dans quelle couleur / taille', ar:'أي مادة تدخل في أي لون / مقاس', en:'Which material goes into which color / size', es:'Qué material entra en qué color / talla', pt:'Que material entra em que cor / tamanho', tr:'Hangi malzeme hangi renk / bedene girer'})}
+            icon={<div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 flex items-center justify-center shrink-0"><Package className="w-4 h-4 text-indigo-600 dark:text-dk-accent-text" /></div>}
+            size="xl"
+            zClass="z-50"
+            fullscreen={denseFullscreen}
+            onToggleFullscreen={toggleDenseFullscreen}
+            closeOnBackdrop={false}
+            bare
+            footer={(
+                /* Une note et une seule action : sur téléphone elles s'empilent
+                   pleine largeur, le bouton reste franc et atteignable. */
+                <div className="w-full grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                    <span className="text-[11px] text-slate-400 dark:text-dk-muted flex items-center gap-1.5 sm:me-auto">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        {tx(lang, {fr:'Les changements sont appliqués en direct', ar:'التغييرات تُطبّق مباشرة', en:'Changes are applied live', es:'Los cambios se aplican en directo', pt:'As alterações são aplicadas em direto', tr:'Değişiklikler anında uygulanır'})}
+                    </span>
                     <button onClick={onClose}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 transition-colors">
-                        <X className="w-4 h-4" />
+                        className="px-5 py-2 rounded-lg bg-slate-900 dark:bg-dk-elevated hover:bg-slate-800 dark:hover:bg-dk-border text-white dark:text-dk-text text-[12px] font-semibold transition-colors shadow-sm dark:shadow-dk-sm">
+                        {tx(lang, {fr:'Terminé', ar:'تمّ', en:'Done', es:'Hecho', pt:'Concluído', tr:'Bitti'})}
                     </button>
                 </div>
-
+            )}
+        >
                 {/* Filters — Minimal bar */}
                 <div className="px-5 py-3 border-b border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface flex flex-wrap items-center gap-2 shrink-0">
                     <div className="relative flex-1 min-w-[180px]">
@@ -145,7 +158,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                 </div>
 
                 {/* Materials List */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2">
+                <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain px-5 py-4 space-y-2">
                     {filtered.length === 0 && (
                         <div className="text-center text-slate-400 dark:text-dk-muted text-[13px] py-12">
                             <Package className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -221,19 +234,7 @@ const MaterialAssignment: React.FC<MaterialAssignmentProps> = ({
                     })}
                 </div>
 
-                {/* Footer — Clean */}
-                <div className="px-5 py-3 border-t border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface flex items-center justify-between shrink-0">
-                    <span className="text-[11px] text-slate-400 dark:text-dk-muted flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        Les changements sont appliqués en direct
-                    </span>
-                    <button onClick={onClose}
-                        className="px-5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-semibold transition-colors shadow-sm dark:shadow-dk-sm">
-                        Terminé
-                    </button>
-                </div>
-            </div>
-        </div>
+        </SheetModal>
     );
 };
 

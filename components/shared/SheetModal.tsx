@@ -60,7 +60,7 @@ interface SheetModalProps {
     subtitle?: React.ReactNode;
     /** Icône affichée avant le titre. */
     icon?: React.ReactNode;
-    size?: 'sm' | 'md' | 'lg' | 'xl';
+    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
     /** Niveau d'empilement EXISTANT de la fenêtre : à conserver tel quel,
      *  certaines s'ouvrent volontairement par-dessus d'autres. */
     zClass?: string;
@@ -93,6 +93,9 @@ const SIZE_CLS = {
     md: 'sm:max-w-md sm:h-auto sm:max-h-[88vh]',
     lg: 'sm:max-w-2xl sm:h-auto sm:max-h-[88vh]',
     xl: 'sm:max-w-3xl sm:h-auto sm:max-h-[90vh]',
+    // Pour les fenetres a deux volets (reglages + apercu) : sous 1200 px, les
+    // deux colonnes se marchent dessus et l'apercu ne montre plus rien d'utile.
+    '2xl': 'sm:max-w-[1200px] sm:h-auto sm:max-h-[92vh]',
 } as const;
 
 /** Plein écran = la page entière, bord à bord. */

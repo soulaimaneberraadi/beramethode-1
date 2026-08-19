@@ -13,6 +13,7 @@ import type { Lang } from '../app/constants';
 import { useLang } from '../src/context/LanguageContext';
 import { uploadImageToStorage } from '../utils';
 import { loadCompanyIdentity } from '../lib/companyIdentity';
+import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 
 export interface MagasinProps {
     models?: ModelData[];
@@ -186,14 +187,29 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
     const set = (k: keyof MagasinProduct, v: unknown) => setF(p => ({ ...p, [k]: v }));
 
     return (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-2xl overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg/50">
-                    <h2 className="font-black text-slate-800 dark:text-dk-text text-lg flex items-center gap-2">{item ? <Edit2 className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> : <Plus className="w-5 h-5 text-emerald-500 dark:text-emerald-300" />}{item ? tx(lang,{fr:'Modifier Article',ar:'تعديل المادة',en:'Edit Item',es:'Editar Artículo',pt:'Editar Item',tr:'Ürünü Düzenle'}) : tx(lang,{fr:'Nouvel Article',ar:'مادة جديدة',en:'New Item',es:'Nuevo Artículo',pt:'Novo Item',tr:'Yeni Ürün'})}</h2>
-                    <button onClick={onClose} className="p-2 hover:bg-rose-50 dark:bg-rose-900/30 rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-rose-500 dark:text-rose-300"><X className="w-5 h-5" /></button>
+        /* Fiche article : formulaire long (identité produit + bloc fournisseur).
+           `closeOnBackdrop={false}` — un clic à côté ne doit pas effacer une
+           saisie de dix champs. Pas de plein écran : ce sont des champs, pas
+           un tableau ; les étaler ne les rend pas plus lisibles. */
+        <SheetModal
+            onClose={onClose}
+            title={item ? tx(lang,{fr:'Modifier Article',ar:'تعديل المادة',en:'Edit Item',es:'Editar Artículo',pt:'Editar Item',tr:'Ürünü Düzenle'}) : tx(lang,{fr:'Nouvel Article',ar:'مادة جديدة',en:'New Item',es:'Nuevo Artículo',pt:'Novo Item',tr:'Yeni Ürün'})}
+            icon={item ? <Edit2 className="w-5 h-5 text-indigo-500 dark:text-indigo-300 shrink-0" /> : <Plus className="w-5 h-5 text-emerald-500 dark:text-emerald-300 shrink-0" />}
+            size="lg"
+            zClass="z-50"
+            closeOnBackdrop={false}
+            bodyClassName="flex-1 overflow-y-auto min-h-0 p-6"
+            footer={(
+                /* Pied en GRILLE sur téléphone : en repli libre les boutons
+                   retombaient en lignes inégales et l'action principale se
+                   perdait. Deux colonnes égales, l'œil retrouve où appuyer. */
+                <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                    <button onClick={onClose} className="px-5 py-2 text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-200 dark:hover:bg-dk-border rounded-xl transition-colors justify-center sm:justify-start">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
+                    <button onClick={() => { if (!f.designation.trim()) { alert(tx(lang, {fr: 'Désignation obligatoire', ar: 'الاسم إجباري', en: 'Designation required', es: 'Designación obligatoria', pt: 'Designação obrigatória', tr: 'Tanım zorunlu'})); return; } onSave(f); }} className="px-6 py-2 text-sm font-black bg-indigo-600 dark:bg-dk-accent text-white rounded-xl hover:bg-indigo-700 dark:hover:bg-dk-accent-hover flex items-center gap-2 justify-center sm:justify-start"><Save className="w-4 h-4" /> {tx(lang, {fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet'})}</button>
                 </div>
-
-                <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+            )}
+        >
+                <div className="space-y-6">
                     <div className="flex gap-5">
                         <div onClick={() => fileRef.current?.click()} className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-200 dark:border-dk-border hover:border-indigo-400 bg-slate-50 dark:bg-dk-bg flex items-center justify-center cursor-pointer overflow-hidden shrink-0">
                             {f.photo ? <img src={f.photo} className="w-full h-full object-cover" alt="" /> : <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Photo',ar:'الصورة',en:'Photo',es:'Foto',pt:'Foto',tr:'Fotoğraf'})}</span>}
@@ -267,13 +283,7 @@ function ProductModal({ item, onSave, onClose }: { item?: MagasinProduct; onSave
                         )}
                     </div>
                 </div>
-
-                <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg">
-                    <button onClick={onClose} className="px-5 py-2 text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-200 dark:bg-dk-border rounded-xl transition-colors">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
-                    <button onClick={() => { if (!f.designation.trim()) { alert(tx(lang, {fr: 'Désignation obligatoire', ar: 'الاسم إجباري', en: 'Designation required', es: 'Designación obligatoria', pt: 'Designação obrigatória', tr: 'Tanım zorunlu'})); return; } onSave(f); }} className="px-6 py-2 text-sm font-black bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white rounded-xl hover:bg-indigo-700 dark:hover:bg-dk-accent-hover flex items-center gap-2"><Save className="w-4 h-4" /> {tx(lang, {fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet'})}</button>
-                </div>
-            </div>
-        </div>
+        </SheetModal>
     );
 }
 
@@ -321,6 +331,8 @@ function BonCommandeModal({
 }) {
     const { lang } = useLang();
     const [bc, setBc] = useState<BonCommande>({ tvaTaux: 20, ...initial });
+    // Tableau de lignes à sept colonnes : l'agrandissement sert vraiment ici.
+    const [bcFullscreen, toggleBcFullscreen] = useSheetFullscreen();
     const [addPid, setAddPid] = useState('');
     const [addQty, setAddQty] = useState('');
     const [company, setCompany] = useState<CompanyIdentity>(EMPTY_COMPANY);
@@ -552,14 +564,32 @@ ${bc.notes ? `<div class="box" style="margin-top:10px"><h3>${esc(L.notes)}</h3>$
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg/50 shrink-0">
-                    <h2 className="font-black text-slate-800 dark:text-dk-text text-lg flex items-center gap-2"><FileText className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> {tx(lang,{fr:'Éditer Bon de Commande',ar:'تحرير أمر الشراء',en:'Edit Purchase Order',es:'Editar Orden de Compra',pt:'Editar Pedido de Compra',tr:'Satın Alma Siparişini Düzenle'})} - {bc.numero}</h2>
-                    <button onClick={onClose} className="p-2 hover:bg-rose-50 dark:bg-rose-900/30 rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-rose-500 dark:text-rose-300"><X className="w-5 h-5" /></button>
+        /* Bon de commande : tableau de lignes éditables (quantités, prix, reçus)
+           — contenu dense, donc bouton plein écran. Et saisie financière, donc
+           `closeOnBackdrop={false}` : perdre un BC à moitié chiffré coûte cher. */
+        <SheetModal
+            onClose={onClose}
+            title={<>{tx(lang,{fr:'Éditer Bon de Commande',ar:'تحرير أمر الشراء',en:'Edit Purchase Order',es:'Editar Orden de Compra',pt:'Editar Pedido de Compra',tr:'Satın Alma Siparişini Düzenle'})} - {bc.numero}</>}
+            icon={<FileText className="w-5 h-5 text-indigo-500 dark:text-indigo-300 shrink-0" />}
+            size="xl"
+            zClass="z-50"
+            fullscreen={bcFullscreen}
+            onToggleFullscreen={toggleBcFullscreen}
+            closeOnBackdrop={false}
+            bodyClassName="flex-1 overflow-y-auto min-h-0 p-6 bg-slate-50 dark:bg-dk-bg/50"
+            footer={(
+                /* Trois actions + une note : sur téléphone une grille à deux
+                   colonnes, l'enregistrement occupant toute la largeur. En repli
+                   libre, ces trois boutons retombaient en lignes inégales. */
+                <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                    <div className="col-span-2 sm:col-auto text-xs text-slate-400 dark:text-dk-muted font-bold sm:me-auto"><Activity className="w-3 h-3 inline mr-1" /> {tx(lang,{fr:'Sauvegarde automatique locale',ar:'حفظ تلقائي محلي',en:'Local auto-save',es:'Guardado automático local',pt:'Salvamento automático local',tr:'Otomatik yerel kaydetme'})}</div>
+                    <button onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-xl transition-colors">{tx(lang, {fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat'})}</button>
+                    <button onClick={printBC} className="px-5 py-2.5 text-sm font-black border border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2 justify-center sm:justify-start"><Printer className="w-4 h-4" /> {tx(lang, {fr: 'Imprimer A4', ar: 'طباعة A4', en: 'Print A4', es: 'Imprimir A4', pt: 'Imprimir A4', tr: 'A4 Yazdır'})}</button>
+                    <button onClick={() => onSave(bc)} className="col-span-2 sm:col-auto px-8 py-2.5 text-sm font-black bg-indigo-600 dark:bg-dk-accent text-white rounded-xl hover:bg-indigo-700 dark:hover:bg-dk-accent-hover flex items-center gap-2 justify-center sm:justify-start"><CheckCircle className="w-4 h-4" /> {tx(lang, {fr: 'Enregistrer BC', ar: 'حفظ أمر الشراء', en: 'Save PO', es: 'Guardar BC', pt: 'Salvar BC', tr: 'BC Kaydet'})}</button>
                 </div>
-
-                <div className="p-6 overflow-y-auto flex-1 space-y-6 bg-slate-50 dark:bg-dk-bg/50">
+            )}
+        >
+                <div className="space-y-6">
                     {/* En-tête légal : émetteur (lecture seule) vs fournisseur */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-white dark:bg-dk-surface p-4 border rounded-2xl shadow-sm dark:shadow-dk-sm">
@@ -696,17 +726,7 @@ ${bc.notes ? `<div class="box" style="margin-top:10px"><h3>${esc(L.notes)}</h3>$
                         </div>
                     </div>
                 </div>
-
-                <div className="flex justify-between items-center px-6 py-4 border-t border-slate-100 dark:border-dk-border/60 bg-white dark:bg-dk-surface shrink-0">
-                    <div className="text-xs text-slate-400 dark:text-dk-muted font-bold"><Activity className="w-3 h-3 inline mr-1" /> {tx(lang,{fr:'Sauvegarde automatique locale',ar:'حفظ تلقائي محلي',en:'Local auto-save',es:'Guardado automático local',pt:'Salvamento automático local',tr:'Otomatik yerel kaydetme'})}</div>
-                    <div className="flex gap-3">
-                        <button onClick={onClose} className="px-5 py-2.5 text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 rounded-xl transition-colors">{tx(lang, {fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat'})}</button>
-                        <button onClick={printBC} className="px-5 py-2.5 text-sm font-black border border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2"><Printer className="w-4 h-4" /> {tx(lang, {fr: 'Imprimer A4', ar: 'طباعة A4', en: 'Print A4', es: 'Imprimir A4', pt: 'Imprimir A4', tr: 'A4 Yazdır'})}</button>
-                        <button onClick={() => onSave(bc)} className="px-8 py-2.5 text-sm font-black bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white rounded-xl hover:bg-indigo-700 dark:hover:bg-dk-accent-hover flex items-center gap-2"><CheckCircle className="w-4 h-4" /> {tx(lang, {fr: 'Enregistrer BC', ar: 'حفظ أمر الشراء', en: 'Save PO', es: 'Guardar BC', pt: 'Salvar BC', tr: 'BC Kaydet'})}</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </SheetModal>
     );
 }
 
@@ -795,6 +815,9 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
     const [s, setS] = useState<InvoiceTemplate>({ ...template });
     const [activeTab, setActiveTab] = useState<InvTabId>('identity');
     const [isClosing, setIsClosing] = useState(false);
+    // Deux volets côte à côte : le réglage à gauche, l'aperçu du document à
+    // droite. C'est le cas type où agrandir change vraiment la lecture.
+    const [settingsFullscreen, toggleSettingsFullscreen] = useSheetFullscreen();
     const [saveFlash, setSaveFlash] = useState(false);
 
     const handleClose = () => { setIsClosing(true); setTimeout(onClose, 250); };
@@ -942,13 +965,22 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                 .inv-save-flash { animation: invSaveFlash 0.4s ease; }
             `}</style>
 
-            <div className={`fixed inset-0 z-[200] flex items-center justify-center p-4 ${isClosing ? 'inv-bg-exit' : 'inv-bg-enter'}`}>
-                {/* Backdrop */}
-                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl" onClick={handleClose} />
-
-                {/* Modal — wider for split panel */}
-                <div className={`relative bg-white/95 dark:bg-dk-surface/95 backdrop-blur-2xl rounded-[24px] shadow-2xl dark:shadow-dk-elevated w-full max-w-[1200px] max-h-[92vh] overflow-hidden flex flex-col border border-white/40 ${isClosing ? 'inv-modal-exit' : 'inv-modal-enter'}`}
-                     style={{ boxShadow: '0 32px 64px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.1) inset' }}>
+            {/* Panneau de réglages à deux volets (onglets à gauche, aperçu vivant à
+                droite) : contenu dense, d'où le bouton plein écran. `bare` parce
+                que la fenêtre garde son en-tête sombre et son pied maison, et
+                `closeOnBackdrop={false}` parce que tout y est de la saisie. */}
+            <SheetModal
+                onClose={handleClose}
+                size="2xl"
+                zClass="z-[200]"
+                fullscreen={settingsFullscreen}
+                onToggleFullscreen={toggleSettingsFullscreen}
+                closeOnBackdrop={false}
+                bare
+                panelClassName={isClosing
+                    ? 'bg-white/95 dark:bg-dk-surface/95 backdrop-blur-2xl border border-white/40 dark:border-dk-border shadow-2xl dark:shadow-dk-elevated inv-modal-exit'
+                    : 'bg-white/95 dark:bg-dk-surface/95 backdrop-blur-2xl border border-white/40 dark:border-dk-border shadow-2xl dark:shadow-dk-elevated inv-modal-enter'}
+            >
 
                     {/* ─ HEADER ─ warm amber/charcoal */}
                     <div className="relative px-7 py-4 shrink-0 overflow-hidden">
@@ -1212,8 +1244,7 @@ function InvoiceSettingsModal({ template, onSave, onClose }: { template: Invoice
                             </button>
                         </div>
                     </div>
-                </div>
-            </div>
+            </SheetModal>
         </>
     );
 }
@@ -1686,27 +1717,23 @@ const DICT: Record<string, { ar: string, en: string, es?: string, pt?: string, t
 
 function ImageMagnifier({ src, onClose }: { src: string, onClose: () => void }) {
     return (
-        <div 
-            className="fixed inset-0 z-[101] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm animate-in fade-in duration-300"
-            onClick={onClose}
+        /* Aperçu d'image : fond sombre (une photo de produit se juge mal posée
+           sur du blanc) et surtout AUCUN bouton plein écran — l'image occupe
+           déjà la place qu'elle mérite, et rien ne s'y saisit. */
+        <SheetModal
+            onClose={onClose}
+            size="xl"
+            zClass="z-[101]"
+            backdropClassName="bg-slate-900/90 backdrop-blur-sm"
+            panelClassName="bg-white/5 dark:bg-dk-bg/40 border border-white/10 shadow-2xl text-white"
+            bodyClassName="flex-1 overflow-y-auto min-h-0 p-2 flex items-center justify-center"
         >
-            <button 
-                className="absolute top-6 right-6 p-2 bg-white/10 dark:bg-dk-surface/10 hover:bg-white rounded-full text-white transition-colors"
-                onClick={onClose}
-            >
-                <X className="w-6 h-6" />
-            </button>
-            <div 
-                className="relative max-w-[90vw] max-h-[90vh] bg-white dark:bg-dk-surface p-2 rounded-3xl shadow-2xl dark:shadow-dk-elevated animate-in zoom-in-95 duration-300"
-                onClick={e => e.stopPropagation()}
-            >
-                <img 
-                    src={src} 
-                    alt="Product" 
-                    className="max-w-full max-h-[calc(90vh-1rem)] rounded-2xl object-contain shadow-inner"
-                />
-            </div>
-        </div>
+            <img
+                src={src}
+                alt="Product"
+                className="max-w-full max-h-[70vh] rounded-2xl object-contain shadow-inner"
+            />
+        </SheetModal>
     );
 }
 
@@ -3711,9 +3738,16 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                 )}
 
                 {conflictData && (
-                    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
-                        <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                             <div className="p-6">
+                    /* Choix court à trois issues : ni en-tête ni plein écran. Les
+                       boutons restent dans le corps, groupés comme des choix et
+                       non comme un pied de page d'enregistrement. */
+                    <SheetModal
+                        onClose={() => setConflictData(null)}
+                        size="md"
+                        zClass="z-[1000]"
+                        bodyClassName="flex-1 overflow-y-auto min-h-0 p-6"
+                    >
+                             <div>
                                  <h3 className="text-xl font-black text-rose-600 dark:text-rose-400 dark:text-rose-300 flex items-center gap-2 mb-2">
                                      <AlertTriangle className="w-6 h-6" /> Conflit de Réservation
                                  </h3>
@@ -3738,8 +3772,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                      </button>
                                  </div>
                              </div>
-                        </div>
-                    </div>
+                    </SheetModal>
                 )}
 
                 {/* ══ Smart WMS ══ */}
@@ -4368,16 +4401,18 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
 
                             {/* Surplus Actions Modal */}
                             {surplusModal?.open && (
-                                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                                    <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-xl dark:shadow-dk-elevated w-full max-w-md p-6 overflow-hidden flex flex-col">
-                                        <div className="flex items-center justify-between mb-4 border-b pb-2">
-                                            <h3 className="font-black text-slate-800 dark:text-dk-text text-lg flex items-center gap-2">
-                                                <Scale className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> Action sur Surplus
-                                            </h3>
-                                            <button onClick={() => setSurplusModal(null)} className="p-2 hover:bg-slate-100 rounded-full">
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                                /* Saisie (modèle cible ou valorisation) : `closeOnBackdrop={false}`.
+                                   Les deux boutons de validation dépendent de l'onglet choisi,
+                                   ils restent donc dans le corps, collés à leur formulaire. */
+                                <SheetModal
+                                    onClose={() => setSurplusModal(null)}
+                                    title={tx(lang,{fr:'Action sur Surplus',ar:'إجراء على الفائض',en:'Surplus Action',es:'Acción sobre Excedente',pt:'Ação sobre Excedente',tr:'Fazlalık İşlemi'})}
+                                    icon={<Scale className="w-5 h-5 text-indigo-500 dark:text-indigo-300 shrink-0" />}
+                                    size="md"
+                                    zClass="z-50"
+                                    closeOnBackdrop={false}
+                                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-6"
+                                >
                                         <div className="text-sm font-bold text-slate-600 dark:text-dk-text-soft mb-4 bg-slate-50 dark:bg-dk-bg p-3 rounded-xl border">
                                             <div className="flex justify-between"><span>Fourniture :</span> <span className="text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-indigo-300">{surplusModal.materialName}</span></div>
                                             <div className="flex justify-between mt-1"><span>{tx(lang,{fr:'Quantité surplus :',ar:'كمية الفائض :',en:'Surplus quantity :',es:'Cantidad sobrante :',pt:'Quantidade excedente :',tr:'Fazla miktar :'})}</span> <span className="text-emerald-600 dark:text-emerald-400 dark:text-emerald-300">{surplusModal.surplusQty?.toLocaleString()}</span></div>
@@ -4422,8 +4457,7 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
-                                </div>
+                                </SheetModal>
                             )}
                         </div>
                     );
@@ -4550,16 +4584,28 @@ function MovementDetailModal({ movement, product, stock, draft, setDraft, onSave
     const isExit = draft.type === 'sortie' || draft.type === 'rebut' || draft.type === 'reservation';
 
     return (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden max-h-[90vh] flex flex-col">
-                <div className="px-6 py-4 border-b border-slate-200 dark:border-dk-border flex items-center justify-between gap-4">
-                    <div>
-                        <h2 className="text-lg font-black text-slate-800 dark:text-dk-text flex items-center gap-2"><History className="w-5 h-5 text-indigo-500 dark:text-indigo-300" /> {t('Détails de l\'activité')}</h2>
-                        <p className="text-xs text-slate-500 dark:text-dk-muted">{t('Modifier la ligne et enregistrer pour ajuster le registre de mouvement.')}</p>
-                    </div>
-                    <button onClick={onClose} className="p-2 rounded-full text-slate-500 dark:text-dk-muted hover:bg-slate-100"><X className="w-5 h-5" /></button>
+        /* Édition d'une ligne de mouvement : de la saisie de bout en bout, donc
+           `closeOnBackdrop={false}`. Pas de plein écran : ce sont des champs
+           groupés, pas un tableau. */
+        <SheetModal
+            onClose={onClose}
+            title={t("Détails de l'activité")}
+            subtitle={t('Modifier la ligne et enregistrer pour ajuster le registre de mouvement.')}
+            icon={<History className="w-5 h-5 text-indigo-500 dark:text-indigo-300 shrink-0" />}
+            size="xl"
+            zClass="z-[200]"
+            closeOnBackdrop={false}
+            bodyClassName="flex-1 overflow-y-auto min-h-0 p-6"
+            footer={(
+                /* Grille à deux colonnes égales sur téléphone : deux boutons de
+                   largeurs différentes en repli libre brouillent la hiérarchie. */
+                <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                    <button onClick={onClose} className="px-5 py-3 rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text font-bold hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">{t('Annuler')}</button>
+                    <button onClick={() => draft && onSave(draft)} className="px-5 py-3 rounded-2xl bg-indigo-600 dark:bg-dk-accent text-white font-black hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-colors">{t('Enregistrer')}</button>
                 </div>
-                <div className="overflow-y-auto p-6 space-y-6">
+            )}
+        >
+                <div className="space-y-6">
                     <div className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
                         <div className="space-y-4">
                             <div className="rounded-3xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg p-4 flex items-center gap-4">
@@ -4650,16 +4696,13 @@ function MovementDetailModal({ movement, product, stock, draft, setDraft, onSave
                             <input className="w-full border border-slate-200 dark:border-dk-border rounded-2xl px-3 py-2 text-sm" value={draft.documentRef || ''} onChange={e => setField('documentRef', e.target.value || undefined)} placeholder={t('Ref. bon / BL / facture')} />
                         </div>
                     </div>
-                </div>
-
-                <div className="flex flex-col gap-3 border-t border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg p-4 sm:flex-row sm:justify-between sm:items-center">
-                    <button onClick={() => onDelete(movement.id)} className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-rose-600 dark:bg-rose-700 text-white font-black hover:bg-rose-700 transition-colors">{t('Supprimer')}</button>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                        <button onClick={onClose} className="w-full sm:w-auto px-5 py-3 rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text font-bold hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">{t('Annuler')}</button>
-                        <button onClick={() => draft && onSave(draft)} className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white font-black hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-colors">{t('Enregistrer')}</button>
+                    {/* La suppression reste au fond du corps, pas dans le pied :
+                        un geste irréversible ne doit pas se trouver sous le pouce
+                        à côté d'Enregistrer — on va le chercher. */}
+                    <div className="pt-4 border-t border-slate-200 dark:border-dk-border">
+                        <button onClick={() => onDelete(movement.id)} className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-rose-600 dark:bg-rose-700 text-white font-black hover:bg-rose-700 transition-colors">{t('Supprimer')}</button>
                     </div>
                 </div>
-            </div>
-        </div>
+        </SheetModal>
     );
 }

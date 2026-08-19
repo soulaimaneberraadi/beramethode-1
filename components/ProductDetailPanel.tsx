@@ -10,6 +10,7 @@ import { MouvementStock } from '../types';
 import { tx, type TxMap } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import InlineInvoiceList from './InlineInvoiceList';
+import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 
 export interface MagasinProduct {
     id: string;
@@ -164,6 +165,9 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
             .map(l => ({ bain: l.numBain!, qty: l.quantiteRestante, date: l.dateEntree }))
     , [productLots]);
 
+    // Onglets Historique / Lots / Factures : des listes qui gagnent à s'étaler.
+    const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
+
     const handleSave = () => {
         onSave(editData);
         setIsEditing(false);
@@ -176,11 +180,21 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
     const catColor = CAT_COLORS[product.categorie] || CAT_COLORS.autre;
 
     return (
-        <div className="fixed inset-0 z-[100] flex">
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
-            
-            <div className="relative ml-auto w-full max-w-2xl h-full bg-white dark:bg-dk-surface shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg flex flex-col animate-in slide-in-from-right duration-300">
-                
+        /* `bare` : la fiche garde son propre en-tête coloré (photo, catégorie,
+           référence, boutons Modifier/Enregistrer) — la coque n'en rend donc
+           aucun. `closeOnBackdrop={false}` protège le mode édition : les champs
+           sont modifiés en place et rien n'est enregistré avant le bouton.
+           Plein écran autorisé : historique, lots et factures sont des listes
+           longues qu'on parcourt vraiment. */
+        <SheetModal
+            onClose={onClose}
+            size="xl"
+            zClass="z-[100]"
+            fullscreen={denseFullscreen}
+            onToggleFullscreen={toggleDenseFullscreen}
+            closeOnBackdrop={false}
+            bare
+        >
                 <div className={`shrink-0 ${catColor.bg} border-b ${catColor.border}`}>
                     <div className="p-6">
                         <div className="flex items-start justify-between gap-4">
@@ -238,7 +252,9 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                         </div>
                     </div>
                     
-                    <div className="px-6 flex gap-1">
+                    {/* Cinq onglets : sur téléphone ils défilent DANS leur barre,
+                        sinon c'est la page entière qui part de travers. */}
+                    <div className="px-6 flex gap-1 overflow-x-auto">
                         {[
                             { id: 'overview', k: 'Aperçu', icon: BarChart3 },
                             { id: 'history', k: 'Historique', icon: History },
@@ -266,11 +282,14 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-dk-bg">
+                <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain bg-slate-50 dark:bg-dk-bg">
                     
                     {activeTab === 'overview' && (
                         <div className="p-6 space-y-6">
-                            <div className="grid grid-cols-3 gap-4">
+                            {/* Ces trois cartes portent des phrases (« DH valeur stock »,
+                                « en stock ») : à trois colonnes sur téléphone, l'intitulé
+                                se coupe et déborde sur la carte voisine. */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div className="bg-white dark:bg-dk-surface rounded-2xl p-5 border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm">
                                     <div className="flex items-center justify-between mb-3">
                                         <Package className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
@@ -824,7 +843,6 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
                         </div>
                     )}
                 </div>
-            </div>
-        </div>
+        </SheetModal>
     );
 }

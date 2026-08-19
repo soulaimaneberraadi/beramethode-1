@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileText, Upload, Trash2, X, Receipt, Loader2, Camera, Download } from 'lucide-react';
+import { FileText, Upload, Trash2, Receipt, Loader2, Camera, Download } from 'lucide-react';
 import { addFacture, listFactures, getFactureBlob, deleteFacture, FactureMeta } from '../lib/factureStore';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
+import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 
 interface FactureUploaderProps {
     modelId?: string;
@@ -85,6 +86,9 @@ const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName
     const urlsRef = useRef<Record<string, string>>({});
     /** Facture en attente de confirmation de suppression. */
     const [pendingDelete, setPendingDelete] = useState<FactureMeta | null>(null);
+    // Vignettes de factures en grille : agrandir aide dès qu'une matière en
+    // accumule plusieurs. La confirmation de suppression, elle, n'y a pas droit.
+    const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
 
     const btnLabel = label || tx(lang, {fr:'Facture', ar:'فاتورة', en:'Invoice', es:'Factura', pt:'Fatura', tr:'Fatura'});
 
@@ -164,22 +168,20 @@ const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName
             </button>
 
             {open && (
-                <div className="fixed inset-0 z-[210] flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" dir="ltr" onClick={() => setOpen(false)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-100 dark:border-dk-border w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
-                        <div className="px-4 sm:px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between shrink-0">
-                            <div className="flex items-center gap-2 min-w-0">
-                                <Receipt className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" strokeWidth={1.75} />
-                                <div className="min-w-0">
-                                    <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, {fr:'Factures', ar:'الفواتير', en:'Invoices', es:'Facturas', pt:'Faturas', tr:'Faturalar'})}</h3>
-                                    <p className="text-[11px] text-slate-400 dark:text-dk-muted truncate">{displayName || materialName}</p>
-                                </div>
-                            </div>
-                            <button onClick={() => setOpen(false)} className="p-1.5 rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0">
-                                <X className="w-4 h-4" strokeWidth={1.75} />
-                            </button>
-                        </div>
-
-                        <div className="p-3 sm:p-5 overflow-y-auto">
+                <SheetModal
+                    onClose={() => setOpen(false)}
+                    title={tx(lang, {fr:'Factures', ar:'الفواتير', en:'Invoices', es:'Facturas', pt:'Faturas', tr:'Faturalar'})}
+                    subtitle={<span dir="ltr">{displayName || materialName}</span>}
+                    icon={<Receipt className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" strokeWidth={1.75} />}
+                    size="lg"
+                    zClass="z-[210]"
+                    fullscreen={denseFullscreen}
+                    onToggleFullscreen={toggleDenseFullscreen}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5"
+                >
+                        {/* `dir="ltr"` : noms de fichiers et extensions se lisent de
+                            gauche à droite, y compris quand l'interface est en arabe. */}
+                        <div dir="ltr">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                                 <button
                                     onClick={() => fileRef.current?.click()}
@@ -268,13 +270,20 @@ const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName
                                 </div>
                             )}
                         </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             {pendingDelete && (
-                <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" dir="ltr" onClick={() => setPendingDelete(null)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+                /* Confirmation courte : ni en-tête ni bouton plein écran. Les deux
+                   boutons restent dans le corps — une suppression définitive ne se
+                   pose pas dans un pied de page où le pouce la trouve tout seul. */
+                <SheetModal
+                    onClose={() => setPendingDelete(null)}
+                    size="sm"
+                    zClass="z-[220]"
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+                >
+                    <div dir="ltr" className="space-y-4">
                         <div className="flex items-start gap-2.5">
                             <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
                             <div className="min-w-0">
@@ -302,7 +311,7 @@ const FactureUploader: React.FC<FactureUploaderProps> = ({ modelId, materialName
                             </button>
                         </div>
                     </div>
-                </div>
+                </SheetModal>
             )}
         </>
     );
