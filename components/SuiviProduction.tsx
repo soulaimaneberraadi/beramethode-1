@@ -10,6 +10,7 @@ import {
     Package, TrendingDown, AlertTriangle, X, Image as ImageIcon, CalendarDays, CalendarRange, MoreVertical
 } from 'lucide-react';
 import DateTimePicker from './ui/DateTimePicker';
+import SheetModal from './shared/SheetModal';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
@@ -2255,28 +2256,34 @@ function CellDetailsModal({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-dk-surface rounded-3xl max-w-md w-full shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg overflow-hidden border border-slate-100 dark:border-dk-border/60 animate-in zoom-in-95 duration-200">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 dark:border-dk-border/40 bg-slate-50 dark:bg-dk-bg/50">
-                    <div>
-                        <h3 className="text-base font-black text-slate-800 dark:text-dk-text tracking-tight">
-                            {l.cellModalTitle}
-                        </h3>
-                        <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold uppercase mt-0.5">
-                            {dateStr} · {hourLabel}
-                        </p>
-                    </div>
-                    <button 
-                        onClick={onClose} 
-                        className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
+        /* Saisie d'une cellule horaire : le releve se fait debout devant la
+           chaine, donc feuille montant du bas sur telephone. `closeOnBackdrop`
+           fermee : une sortie horaire saisie et perdue se recompte a la main. */
+        <SheetModal
+            onClose={onClose}
+            zClass="z-[150]"
+            size="md"
+            title={l.cellModalTitle}
+            subtitle={`${dateStr} · ${hourLabel}`}
+            closeOnBackdrop={false}
+            bodyClassName="flex-1 overflow-y-auto min-h-0 p-6 space-y-4 text-xs"
+            footer={
+                <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-2">
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-2.5 sm:py-2 rounded-xl text-xs font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-200 dark:bg-dk-border/50 transition-colors"
                     >
-                        <X className="w-5 h-5" />
+                        {l.close}
+                    </button>
+                    <button
+                        onClick={handleConfirm}
+                        className="px-5 py-2.5 sm:py-2 rounded-xl text-xs font-black bg-indigo-600 dark:bg-dk-accent text-white hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-sm dark:shadow-dk-sm transition-colors"
+                    >
+                        {l.save}
                     </button>
                 </div>
-
-                {/* Body */}
-                <div className="p-6 space-y-4 text-xs">
+            }
+        >
                     
                     {/* Model Select */}
                     <div className="space-y-1">
@@ -2376,25 +2383,7 @@ function CellDetailsModal({
                         </div>
                     </div>
 
-                </div>
-
-                {/* Footer Buttons */}
-                <div className="flex items-center justify-end gap-2 border-t border-slate-50 dark:border-dk-border/40 px-6 py-4 bg-slate-50 dark:bg-dk-bg/50">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-200 dark:bg-dk-border/50 transition-colors"
-                    >
-                        {l.close}
-                    </button>
-                    <button
-                        onClick={handleConfirm}
-                        className="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 text-white hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-sm dark:shadow-dk-sm transition-colors"
-                    >
-                        {l.save}
-                    </button>
-                </div>
-            </div>
-        </div>
+        </SheetModal>
     );
 }
 
@@ -2457,28 +2446,34 @@ function StatusChangeModal({
     const cancelLabel = tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' });
 
     return (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-dk-surface rounded-3xl max-w-sm w-full shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg overflow-hidden border border-slate-100 dark:border-dk-border/60 animate-in zoom-in-95 duration-200">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 dark:border-dk-border/40 bg-slate-50 dark:bg-dk-bg/50">
-                    <div>
-                        <h3 className="text-sm font-black text-slate-800 dark:text-dk-text tracking-tight uppercase">
-                            {title}
-                        </h3>
-                        <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold uppercase mt-0.5 mt-1">
-                            {event.modelName || 'Modèle'} {event.qteTotal ? `· ${event.qteTotal} pcs` : ''}
-                        </p>
-                    </div>
-                    <button 
-                        onClick={onClose} 
-                        className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
+        /* Changement de statut d'un ordre : choix court, donc pas de bouton
+           d'agrandissement. Le fond reste cliquable, rien n'est saisi ici. */
+        <SheetModal
+            onClose={onClose}
+            zClass="z-[150]"
+            size="sm"
+            title={title}
+            subtitle={`${event.modelName || 'Modèle'}${event.qteTotal ? ` · ${event.qteTotal} pcs` : ''}`}
+            bodyClassName="flex-1 overflow-y-auto min-h-0 p-6 space-y-2"
+            footer={
+                <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-2 text-xs">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-xl px-4 py-2.5 sm:py-2 font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
                     >
-                        <X className="w-4 h-4" />
+                        {cancelLabel}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onSave(selectedStatus)}
+                        className="rounded-xl bg-[#2149C1] hover:bg-[#1a3ba5] text-white px-5 py-2.5 sm:py-2 font-black shadow-sm dark:shadow-dk-sm transition-colors"
+                    >
+                        {confirmLabel}
                     </button>
                 </div>
-
-                {/* Body */}
-                <div className="p-6 space-y-2">
+            }
+        >
                     <div className="grid grid-cols-2 gap-2">
                         {statusesList.map(s => {
                             const isSelected = selectedStatus === s.key;
@@ -2499,26 +2494,6 @@ function StatusChangeModal({
                             );
                         })}
                     </div>
-                </div>
-
-                {/* Footer */}
-                <div className="px-6 py-4 border-t border-slate-50 dark:border-dk-border/40 bg-slate-50 dark:bg-dk-bg/30 flex justify-end gap-2 text-xs">
-                    <button 
-                        type="button" 
-                        onClick={onClose} 
-                        className="rounded-xl px-4 py-2 font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
-                    >
-                        {cancelLabel}
-                    </button>
-                    <button 
-                        type="button" 
-                        onClick={() => onSave(selectedStatus)} 
-                        className="rounded-xl bg-[#2149C1] hover:bg-[#1a3ba5] text-white px-5 py-2 font-black shadow-sm dark:shadow-dk-sm transition-colors"
-                    >
-                        {confirmLabel}
-                    </button>
-                </div>
-            </div>
-        </div>
+        </SheetModal>
     );
 }

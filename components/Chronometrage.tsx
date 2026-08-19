@@ -6,6 +6,7 @@ import {
     Zap, BarChart3, Target, ChevronDown, ChevronUp, Settings, Flag, X, Hash, Columns3, Pin,
     Plus, History, Trash2, TrendingUp, Pencil, Check, Eye
 } from 'lucide-react';
+import SheetModal from './shared/SheetModal';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
@@ -4183,22 +4184,44 @@ export default function Chronometrage({
 
             {/* ─── CREATE SESSION DIALOG ─── */}
             {showCreateDialog && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border w-full max-w-md mx-4 overflow-hidden animate-in zoom-in-95 duration-200">
-                        <div className="px-6 py-5 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
-                            <div>
-                                <h3 className="font-black text-slate-800 dark:text-dk-text text-lg">{tx(lang, { fr: 'Nouvelle Séance Chrono', ar: 'جلسة توقيت جديدة', en: 'New Timing Session', es: 'Nueva Sesión de Cronometraje', pt: 'Nova Sessão de Cronometragem', tr: 'Yeni Kronometre Seansı' })}</h3>
-                                <p className="text-slate-500 dark:text-dk-muted text-xs mt-0.5">{tx(lang, { fr: 'Choisir le type de gamme et créer la séance', ar: 'اختر نوع النطاق وأنشئ الجلسة', en: 'Choose the routing type and create the session', es: 'Elegir el tipo de gama y créer la sesión', pt: 'Escolher o tipo de gama e criar a sessão', tr: 'Rota türünü seçin ve seansı oluşturun' })}</p>
-                            </div>
-                            <button onClick={() => setShowCreateDialog(false)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
-                                <X className="w-5 h-5" />
+                /* Création d'une séance : le fond ne fermait déjà pas (aucun
+                   handler sur l'ancien voile) et ne ferme toujours pas — les
+                   choix faits ici décident de l'ordre des opérations chronométrées.
+                   Pas de plein écran : trois réglages et un récapitulatif. */
+                <SheetModal
+                    onClose={() => setShowCreateDialog(false)}
+                    title={tx(lang, { fr: 'Nouvelle Séance Chrono', ar: 'جلسة توقيت جديدة', en: 'New Timing Session', es: 'Nueva Sesión de Cronometraje', pt: 'Nova Sessão de Cronometragem', tr: 'Yeni Kronometre Seansı' })}
+                    subtitle={tx(lang, { fr: 'Choisir le type de gamme et créer la séance', ar: 'اختر نوع النطاق وأنشئ الجلسة', en: 'Choose the routing type and create the session', es: 'Elegir el tipo de gama y crear la sesión', pt: 'Escolher o tipo de gama e criar a sessão', tr: 'Rota türünü seçin ve seansı oluşturun' })}
+                    icon={<Timer className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
+                    size="md"
+                    zClass="z-[200]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 px-6 py-5 space-y-4"
+                    footer={(
+                        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                            <button
+                                onClick={() => setShowCreateDialog(false)}
+                                className="px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors flex items-center justify-center sm:justify-start"
+                            >
+                                {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
+                            </button>
+                            <button
+                                onClick={createSession}
+                                className="col-span-2 sm:col-auto px-6 py-2.5 rounded-xl text-sm font-black bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-200 hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-all flex items-center justify-center sm:justify-start gap-1"
+                            >
+                                <Plus className="w-4 h-4" /> {tx(lang, { fr: 'Créer la Séance', ar: 'إنشاء الجلسة', en: 'Create Session', es: 'Crear la Sesión', pt: 'Criar Sessão', tr: 'Seans Oluştur' })}
                             </button>
                         </div>
-                        <div className="px-6 py-5 space-y-4">
+                    )}
+                >
+                        <div className="contents">
                             {/* Gamme Type Selector */}
                             <div>
                                 <label className="text-xs font-bold text-slate-600 dark:text-dk-text-soft uppercase tracking-wider block mb-2">{tx(lang, { fr: 'Type de Gamme', ar: 'نوع النطاق', en: 'Routing Type', es: 'Tipo de Gama', pt: 'Tipo de Gama', tr: 'Rota Türü' })}</label>
-                                <div className="grid grid-cols-3 gap-2">
+                                {/* Une colonne sur telephone : ces cartes portent
+                                    un libelle ET une description, qui se coupent
+                                    en deux et debordent a trois colonnes. */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                     {gammeTypeOptions.map(opt => (
                                         <button
                                             key={opt.value}
@@ -4256,22 +4279,7 @@ export default function Chronometrage({
                                 </div>
                             </div>
                         </div>
-                        <div className="px-6 py-4 border-t border-slate-100 dark:border-dk-border flex items-center justify-end gap-3">
-                            <button
-                                onClick={() => setShowCreateDialog(false)}
-                                className="px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 transition-colors"
-                            >
-                                {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
-                            </button>
-                            <button
-                                onClick={createSession}
-                                className="px-6 py-2.5 rounded-xl text-sm font-black bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-200 hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-all"
-                            >
-                                <Plus className="w-4 h-4 inline mr-1" /> {tx(lang, { fr: 'Créer la Séance', ar: 'إنشاء الجلسة', en: 'Create Session', es: 'Crear la Sesión', pt: 'Criar Sessão', tr: 'Seans Oluştur' })}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             {/* ─── SELECTED SESSION VIEW (Page dédiée) ─── */}

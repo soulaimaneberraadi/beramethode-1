@@ -1,12 +1,13 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import QRCode from 'react-qr-code';
-import { Printer, X, CheckCircle, AlertTriangle, Wrench } from 'lucide-react';
+import { Printer, CheckCircle, AlertTriangle, Wrench } from 'lucide-react';
 import type { CompanyProfile, Machine } from '../types';
 import { buildMachineQrPayload } from '../lib/machineQrPayload';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
 import { useCompanyIdentity } from '../lib/companyIdentity';
+import SheetModal from './shared/SheetModal';
 
 function formatAddress(p: CompanyProfile): string | null {
   const parts = [
@@ -231,40 +232,33 @@ export function MachineQrTicket({
   ];
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div
-        className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden
-      />
-
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="qrt-title"
-        className="relative z-10 w-full sm:max-w-sm bg-white rounded-t-[32px] sm:rounded-[28px] shadow-2xl overflow-hidden
-                   animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
-      >
-        <div className="sm:hidden w-10 h-1 rounded-full bg-slate-200 mx-auto mt-3 mb-1" />
-
-        <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-100">
-          <div>
-            <p id="qrt-title" className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">
-              {tx(lang,{fr:'Étiquette Parc',ar:'ملصق الأسطول',en:'Fleet Label',es:'Etiqueta de Parque',pt:'Etiqueta de Parque',tr:'Filo Etiketi'})}
-            </p>
-            <p className="text-sm font-black text-slate-900 mt-0.5 leading-tight truncate max-w-[220px]">
-              {machine.name}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 transition-all"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="p-4">
+    /* POURQUOI le panneau reste blanc (panelClassName) : le corps de cette
+       fenêtre est un APERÇU FIDÈLE de l'étiquette papier collée sur la machine.
+       Une étiquette s'imprime sur du blanc ; la teinter en mode sombre ferait
+       juger une couleur qui ne sortira jamais de l'imprimante. */
+    <SheetModal
+      onClose={onClose}
+      zClass="z-[1100]"
+      size="sm"
+      panelClassName="bg-white border border-slate-200 shadow-2xl text-slate-700"
+      title={<span className="text-slate-900">{machine.name}</span>}
+      subtitle={tx(lang,{fr:'Étiquette Parc',ar:'ملصق الأسطول',en:'Fleet Label',es:'Etiqueta de Parque',pt:'Etiqueta de Parque',tr:'Filo Etiketi'})}
+      bodyClassName="flex-1 overflow-y-auto min-h-0 p-4"
+      footer={
+        /* Action unique : elle prend toute la largeur, le pouce la trouve sans viser. */
+        <button
+          type="button"
+          onClick={print}
+          className="w-full flex items-center justify-center gap-2.5 bg-[#1e1b4b] hover:bg-indigo-900 active:scale-[0.98]
+                     text-white text-[11px] font-black uppercase tracking-widest py-4 rounded-2xl
+                     shadow-xl shadow-indigo-900/30 transition-all duration-200"
+        >
+          <Printer className="w-4 h-4 opacity-80" />
+          {tx(lang,{fr:"Imprimer l'Étiquette",ar:'طباعة الملصق',en:'Print Label',es:'Imprimir Etiqueta',pt:'Imprimir Etiqueta',tr:'Etiketi Yazdır'})}
+        </button>
+      }
+    >
+        <div>
           <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex bg-white" style={{ minHeight: 160 }}>
 
             <div className="w-7 bg-[#1e1b4b] flex-shrink-0 flex items-center justify-center">
@@ -338,20 +332,6 @@ export function MachineQrTicket({
             </div>
           </div>
         </div>
-
-        <div className="px-4 pb-5 pt-0">
-          <button
-            type="button"
-            onClick={print}
-            className="w-full flex items-center justify-center gap-2.5 bg-[#1e1b4b] hover:bg-indigo-900 active:scale-[0.98]
-                       text-white text-[11px] font-black uppercase tracking-widest py-4 rounded-2xl
-                       shadow-xl shadow-indigo-900/30 transition-all duration-200"
-          >
-            <Printer className="w-4 h-4 opacity-80" />
-            {tx(lang,{fr:"Imprimer l'Étiquette",ar:'طباعة الملصق',en:'Print Label',es:'Imprimir Etiqueta',pt:'Imprimir Etiqueta',tr:'Etiketi Yazdır'})}
-          </button>
-        </div>
-      </div>
-    </div>
+    </SheetModal>
   );
 }

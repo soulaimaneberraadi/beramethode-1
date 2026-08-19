@@ -4,6 +4,7 @@ import { Scissors, Check, X, Calculator, Package, ChevronDown, ChevronUp, Maximi
 import { Operation, Material } from '../types';
 import { STITCH_TYPES, MACHINE_THREAD_CONFIG, BOBBIN_SIZES, GARMENT_INDICES, findGarmentIndice, type StitchType, type GarmentIndice } from '../data/threadConsumption';
 import { suggestClasseFromFamilyInput } from '../lib/machineCategoryClasseLink';
+import SheetModal from './shared/SheetModal';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useCompanyIdentity, legalLine } from '../lib/companyIdentity';
@@ -1108,55 +1109,51 @@ export default function ThreadCalculator({
     if (!isExpanded) {
         return (
             <>
-                <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/30 backdrop-blur-[3px] animate-[fadeIn_140ms_ease-out] md:items-center md:p-4 md:bg-slate-950/40">
-                    <div className="bg-white dark:bg-dk-surface w-full max-h-[92vh] md:h-auto md:max-w-6xl md:max-h-[90vh] rounded-t-2xl md:rounded-2xl shadow-[0_-12px_40px_rgba(15,23,42,0.18)] md:shadow-2xl ring-1 ring-slate-200/60 md:ring-0 overflow-hidden flex flex-col">
-                        {/* Poignée de glissement (mobile) */}
-                        <div className="md:hidden pt-2 pb-1 flex items-center justify-center shrink-0">
-                            <span className="w-10 h-1 rounded-full bg-slate-300" />
+                {/* Fenêtre de calcul du fil : le fond ne ferme pas — quantité de
+                    déchet, taille de bobine et sélection d'opérations sont des
+                    saisies, et le résultat alimente le coût matière. Le bouton
+                    d'agrandissement bascule vers le mode pleine page EXISTANT
+                    du composant (isExpanded), on ne change pas ce comportement. */}
+                <SheetModal
+                    onClose={onClose}
+                    title={_({ fr: 'Calcul Fil', ar: 'حساب الخيط', en: 'Thread Calculation', es: 'Cálculo de Hilo', pt: 'Cálculo de Fio', tr: 'İplik Hesaplama' })}
+                    subtitle={_({ fr: 'Calcul automatique de la consommation de fil', ar: 'حساب تلقائي لاستهلاك الخيط', en: 'Automatic thread consumption calculation', es: 'Cálculo automático del consumo de hilo', pt: 'Cálculo automático do consumo de fio', tr: 'Otomatik iplik tüketimi hesaplaması' })}
+                    icon={<Scissors className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0" />}
+                    size="xl"
+                    zClass="z-50"
+                    fullscreen={false}
+                    onToggleFullscreen={() => setIsExpanded(true)}
+                    closeOnBackdrop={false}
+                    bare
+                    headerActions={(
+                        <button onClick={() => window.print()} className="p-1.5 rounded-full text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors" title={_({ fr: 'Imprimer le rapport de fil', ar: 'طباعة تقرير الخيط', en: 'Print thread report', es: 'Imprimir informe de hilo', pt: 'Imprimir relatório de fio', tr: 'İplik raporunu yazdır' })} aria-label={_({ fr: 'Imprimer', ar: 'طباعة', en: 'Print', es: 'Imprimir', pt: 'Imprimir', tr: 'Yazdır' })}>
+                            <Printer className="w-4 h-4" />
+                        </button>
+                    )}
+                    footer={(
+                        /* Grille sur téléphone : deux boutons de largeur égale
+                           valent mieux qu'un repli libre en lignes inégales. */
+                        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                            <button
+                                onClick={onClose}
+                                className="px-4 sm:px-6 py-2.5 text-sm text-slate-600 dark:text-dk-text-soft font-medium sm:font-bold rounded-xl hover:bg-slate-200/70 dark:hover:bg-dk-elevated transition-colors flex items-center justify-center sm:justify-start"
+                                aria-label={_({ fr: 'Annuler et fermer', ar: 'إلغاء وإغلاق', en: 'Cancel and close', es: 'Cancelar y cerrar', pt: 'Cancelar e fechar', tr: 'İptal et ve kapat' })}
+                            >
+                                {_({ fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
+                            </button>
+                            <button
+                                onClick={handleApply}
+                                disabled={calcMode === 'poste' ? machineSummary.length === 0 : (!indiceGarment || indiceBobbinsTotal <= 0)}
+                                className="col-span-2 sm:col-auto px-4 sm:px-6 py-2.5 text-sm bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center sm:justify-start gap-2"
+                                aria-label={`${_({ fr: 'Appliquer', ar: 'تطبيق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' })} ${calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} ${_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })}`}
+                            >
+                                <Check className="w-4 h-4" />
+                                {_({ fr: 'Appliquer', ar: 'تطبيق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' })} ({calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} {_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })})
+                            </button>
                         </div>
-
-                        <div className="md:hidden px-5 pt-1 pb-3 flex items-start justify-between gap-3 shrink-0">
-                            <div className="min-w-0">
-                                <h2 className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{_({ fr: 'Calcul Fil', ar: 'حساب الخيط', en: 'Thread Calculation', es: 'Cálculo de Hilo', pt: 'Cálculo de Fio', tr: 'İplik Hesaplama' })}</h2>
-                                <p className="text-[12px] text-slate-500 dark:text-dk-muted mt-0.5 truncate">{_({ fr: 'Consommation de fil automatique', ar: 'استهلاك الخيط التلقائي', en: 'Automatic thread consumption', es: 'Consumo de hilo automático', pt: 'Consumo de fio automático', tr: 'Otomatik iplik tüketimi' })}</p>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                                <button onClick={() => window.print()} className="p-1.5 rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100 transition-colors" title={_({ fr: 'Imprimer le rapport de fil', ar: 'طباعة تقرير الخيط', en: 'Print thread report', es: 'Imprimir informe de hilo', pt: 'Imprimir relatório de fio', tr: 'İplik raporunu yazdır' })} aria-label={_({ fr: 'Imprimer', ar: 'طباعة', en: 'Print', es: 'Imprimir', pt: 'Imprimir', tr: 'Yazdır' })}>
-                                    <Printer className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => setIsExpanded(true)} className="p-1.5 rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100 transition-colors" title={_({ fr: 'Agrandir (page complète)', ar: 'تكبير (صفحة كاملة)', en: 'Expand (full page)', es: 'Ampliar (página completa)', pt: 'Ampliar (página completa)', tr: 'Büyüt (tam sayfa)' })} aria-label={_({ fr: 'Agrandir', ar: 'تكبير', en: 'Expand', es: 'Ampliar', pt: 'Ampliar', tr: 'Büyüt' })}>
-                                    <Maximize2 className="w-4 h-4" />
-                                </button>
-                                <button onClick={onClose} className="p-1.5 rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100 transition-colors" aria-label={_({ fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}>
-                                    <X className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="hidden md:flex bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-5 items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-white/20 dark:bg-dk-surface/20 p-2 rounded-xl">
-                                    <Scissors className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                                </div>
-                                <div>
-                                    <h2 className="text-xl font-black">{_({ fr: 'Calcul Fil', ar: 'حساب الخيط', en: 'Thread Calculation', es: 'Cálculo de Hilo', pt: 'Cálculo de Fio', tr: 'İplik Hesaplama' })}</h2>
-                                    <p className="text-sm text-blue-100">{_({ fr: 'Calcul automatique de la consommation de fil', ar: 'حساب تلقائي لاستهلاك الخيط', en: 'Automatic thread consumption calculation', es: 'Cálculo automático del consumo de hilo', pt: 'Cálculo automático do consumo de fio', tr: 'Otomatik iplik tüketimi hesaplaması' })}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => window.print()} className="p-2 hover:bg-white rounded-lg transition-colors" title={_({ fr: 'Imprimer le rapport de fil', ar: 'طباعة تقرير الخيط', en: 'Print thread report', es: 'Imprimir informe de hilo', pt: 'Imprimir relatório de fio', tr: 'İplik raporunu yazdır' })}>
-                                    <Printer className="w-5 h-5" />
-                                </button>
-                                <button onClick={() => setIsExpanded(true)} className="p-2 hover:bg-white rounded-lg transition-colors" title={_({ fr: 'Agrandir (page complète)', ar: 'تكبير (صفحة كاملة)', en: 'Expand (full page)', es: 'Ampliar (página completa)', pt: 'Ampliar (página completa)', tr: 'Büyüt (tam sayfa)' })}>
-                                    <Maximize2 className="w-5 h-5" />
-                                </button>
-                                <button onClick={onClose} className="p-2 hover:bg-white rounded-lg transition-colors">
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-
-                <div className="bg-slate-50 dark:bg-dk-bg/60 md:bg-slate-50 border-b border-slate-100 dark:border-dk-border px-5 py-3 md:p-4 flex flex-wrap items-center gap-3 md:gap-4 shrink-0">
+                    )}
+                >
+                <div className="bg-slate-50 dark:bg-dk-bg/60 border-b border-slate-100 dark:border-dk-border px-5 py-3 md:p-4 flex flex-wrap items-center gap-3 md:gap-4 shrink-0">
                     <div className="flex items-center gap-2">
                         <label className="text-xs font-bold text-slate-500 dark:text-dk-muted">{_({ fr: 'QUANTITÉ:', ar: 'الكمية:', en: 'QUANTITY:', es: 'CANTIDAD:', pt: 'QUANTIDADE:', tr: 'MİKTAR:' })}</label>
                         <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-lg font-black text-sm">
@@ -1215,7 +1212,7 @@ export default function ThreadCalculator({
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain p-5 space-y-4">
                     {/* Selecteur de mode de calcul */}
                     <CalcModeToggle calcMode={calcMode} onChange={setCalcMode} />
 
@@ -1615,28 +1612,7 @@ export default function ThreadCalculator({
                     )}
                     </>)}
                 </div>
-
-                <div className="bg-slate-50 dark:bg-dk-bg/60 md:bg-slate-50 border-t border-slate-100 dark:border-dk-border p-4 flex items-center justify-between gap-3 shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base text-slate-600 dark:text-dk-text-soft font-medium md:font-bold rounded-xl hover:bg-slate-200/70 transition-colors"
-                        aria-label={_({ fr: 'Annuler et fermer', ar: 'إلغاء وإغلاق', en: 'Cancel and close', es: 'Cancelar y cerrar', pt: 'Cancelar e fechar', tr: 'İptal et ve kapat' })}
-                    >
-                        {_({ fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
-                    </button>
-                    <button
-                        onClick={handleApply}
-                        disabled={calcMode === 'poste' ? machineSummary.length === 0 : (!indiceGarment || indiceBobbinsTotal <= 0)}
-                        className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm sm:text-base bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        aria-label={`${_({ fr: 'Appliquer', ar: 'تطبيق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' })} ${calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} ${_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })}`}
-                    >
-                        <Check className="w-4 h-4" />
-                        {_({ fr: 'Appliquer', ar: 'تطبيق', en: 'Apply', es: 'Aplicar', pt: 'Aplicar', tr: 'Uygula' })} ({calcMode === 'poste' ? grandTotal.totalBobbins : indiceBobbinsTotal} {_({ fr: 'bobines', ar: 'بكرات', en: 'bobbins', es: 'bobinas', pt: 'bobinas', tr: 'bobin' })})
-                    </button>
-                </div>
-            </div>
-            <style>{`@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }`}</style>
-        </div>
+                </SheetModal>
         {typeof document !== 'undefined' && createPortal(
             <ThreadPrintView
                 effectiveQty={effectiveQty}

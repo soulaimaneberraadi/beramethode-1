@@ -4,6 +4,7 @@ import type { Machine, MachineInstance } from '../types';
 import { parseMachineQrFromString, tryDecodeQrFromImageFile } from '../lib/machineQrPayload';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import SheetModal from './shared/SheetModal';
 
 export type QuickActionPayload = {
   instanceId: string;
@@ -135,22 +136,31 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
     return tx(lang, map[action.kind]);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg w-full max-w-md flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-dk-border">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center justify-center">
-              <ScanLine className="w-4 h-4" />
-            </div>
-            <h2 className="text-sm font-black text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, { fr: 'Identifier une machine', ar: 'تحديد آلة', en: 'Identify a machine', es: 'Identificar una máquina', pt: 'Identificar uma máquina', tr: 'Bir makineyi tanımla' })}</h2>
-          </div>
-          <button onClick={handleClose} className="w-7 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-dk-hover text-slate-400 dark:text-dk-muted dark:text-dk-text-muted hover:text-slate-700 flex items-center justify-center transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+  /* POURQUOI le bouton Confirmer dans le pied : ce scan se fait debout devant la
+     machine, telephone en main. Le pouce doit atteindre la validation sans que
+     l'operateur change de main ni remonte la feuille. */
+  const pied = identified && !done && action ? (
+    <button
+      onClick={handleConfirm}
+      disabled={action === 'TRANSFER' && !newChainId}
+      className="w-full py-2.5 bg-indigo-600 dark:bg-dk-accent text-white text-[11px] font-black rounded-xl hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+    >
+      <Check className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
+    </button>
+  ) : undefined;
 
-        <div className="p-5 flex flex-col gap-4 overflow-y-auto max-h-[80vh]">
+  return (
+    /* Saisie en cours (matricule, motif, nom) : ni le fond ni Echap ne ferment. */
+    <SheetModal
+      onClose={handleClose}
+      title={tx(lang, { fr: 'Identifier une machine', ar: 'تحديد آلة', en: 'Identify a machine', es: 'Identificar una máquina', pt: 'Identificar uma máquina', tr: 'Bir makineyi tanımla' })}
+      icon={<div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-dk-accent/20 text-indigo-600 dark:text-dk-accent flex items-center justify-center shrink-0"><ScanLine className="w-4 h-4" /></div>}
+      size="md"
+      zClass="z-50"
+      closeOnBackdrop={false}
+      footer={pied}
+      bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 flex flex-col gap-4"
+    >
 
           {!identified && (
             <>
@@ -267,16 +277,6 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
                   className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-3 py-2 text-sm font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 />
               )}
-
-              {action && (
-                <button
-                  onClick={handleConfirm}
-                  disabled={action === 'TRANSFER' && !newChainId}
-                  className="w-full py-2.5 bg-indigo-600 dark:bg-dk-accent text-white text-[11px] font-black rounded-xl hover:bg-indigo-700 dark:hover:bg-dk-accent-hover transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
-                >
-                  <Check className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
-                </button>
-              )}
             </>
           )}
 
@@ -289,8 +289,6 @@ export default function MachineQuickScanModal({ open, onClose, machineInstances,
               <div className="text-xs text-slate-400 dark:text-dk-muted dark:text-dk-text-muted">{tx(lang, { fr: 'L\'historique a été mis à jour.', ar: 'تم تحديث السجل.', en: 'The history has been updated.', es: 'El historial ha sido actualizado.', pt: 'O histórico foi atualizado.', tr: 'Geçmiş güncellendi.' })}</div>
             </div>
           )}
-        </div>
-      </div>
-    </div>
+    </SheetModal>
   );
 }

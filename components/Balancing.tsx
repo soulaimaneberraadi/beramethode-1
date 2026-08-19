@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { Operation, Poste, Machine, FicheData } from '../types';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import SheetModal from './shared/SheetModal';
 import { 
   Users, 
   Clock, 
@@ -28,7 +29,6 @@ import {
   Scissors,
   Clipboard,
   CopyPlus,
-  X,
   Save,
   AlertCircle,
   Percent,
@@ -1719,19 +1719,27 @@ export default function Balancing({
        )}
 
        {/* INSERT POST MODAL */}
-       {showInsertModal && createPortal(
-           <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-                <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowInsertModal(false)} />
-                <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                    <div className="px-6 py-4 border-b border-slate-100 dark:border-dk-border flex justify-between items-center bg-white dark:bg-dk-surface">
-                        <h3 className="font-bold text-slate-800 dark:text-dk-text flex items-center gap-2">
-                            <ListPlus className="w-5 h-5 text-indigo-500" />
-                            {tx(lang,{fr:'Insérer un Poste',ar:'إضافة محطة',en:'Insert Station',es:'Insertar Puesto',pt:'Inserir Posto',tr:'İstasyon Ekle'})}
-                        </h3>
-                        <button onClick={() => setShowInsertModal(false)} className="text-slate-400 dark:text-dk-muted hover:text-slate-600 transition-colors"><X className="w-5 h-5" /></button>
-                    </div>
-                    
-                    <form onSubmit={handleInsertSubmit} className="p-6 space-y-4">
+       {showInsertModal && (
+           /* Saisie d'un poste : fond NON cliquable — une machine, une description
+              et une longueur tapées à la main se reperdent en un clic distrait.
+              Pas de plein écran : trois champs n'ont rien à gagner à s'étaler. */
+           <SheetModal
+               onClose={() => setShowInsertModal(false)}
+               title={tx(lang,{fr:'Insérer un Poste',ar:'إضافة محطة',en:'Insert Station',es:'Insertar Puesto',pt:'Inserir Posto',tr:'İstasyon Ekle'})}
+               icon={<ListPlus className="w-5 h-5 text-indigo-500 shrink-0" />}
+               size="sm"
+               zClass="z-[1000]"
+               closeOnBackdrop={false}
+               bare
+               footer={(
+                   /* Le bouton vit dans le pied collant mais reste rattaché au
+                      formulaire par `form=` : la soumission est inchangée. */
+                   <button type="submit" form="balancing-insert-form" className="w-full py-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white rounded-xl font-bold text-sm shadow-lg dark:shadow-dk-lg shadow-indigo-200 transition-all active:scale-[0.98]">
+                       {tx(lang,{fr:'Insérer et Calculer',ar:'إدراج وحساب',en:'Insert & Calculate',es:'Insertar y Calcular',pt:'Inserir e Calcular',tr:'Ekle ve Hesapla'})}
+                   </button>
+               )}
+           >
+                    <form id="balancing-insert-form" onSubmit={handleInsertSubmit} className="flex-1 overflow-y-auto min-h-0 p-6 space-y-4">
                         <div className="space-y-1">
                             <label className="text-xs font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang,{fr:'Machine',ar:'آلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</label>
                             <div className="relative">
@@ -1782,13 +1790,8 @@ export default function Balancing({
                             </div>
                         </div>
 
-                        <button type="submit" className="w-full py-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white rounded-xl font-bold text-sm shadow-lg dark:shadow-dk-lg shadow-indigo-200 transition-all active:scale-[0.98] mt-2">
-                            {tx(lang,{fr:'Insérer et Calculer',ar:'إدراج وحساب',en:'Insert & Calculate',es:'Insertar y Calcular',pt:'Inserir e Calcular',tr:'Ekle ve Hesapla'})}
-                        </button>
                     </form>
-                </div>
-           </div>,
-           document.body
+           </SheetModal>
        )}
 
        {/* CONTEXT MENU PORTAL */}

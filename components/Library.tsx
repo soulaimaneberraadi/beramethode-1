@@ -6,6 +6,7 @@ import { tx } from '../lib/i18n';
 import { lsGet, lsSet, lsGetMig } from '../lib/storageKeys';
 import { Search, FolderOpen, MoreVertical, FileJson, Clock, Users, Calendar, Download, Copy, Trash2, Edit2, SortAsc, Scissors, Filter, Upload, AlertTriangle, Plus, Share2, LayoutGrid, ZoomIn, ZoomOut, List as ListIcon, Database, UploadCloud, DownloadCloud, CheckCircle2, Loader2, FileText, X } from 'lucide-react';
 import InlineInvoiceList from './InlineInvoiceList';
+import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import { ModelData } from '../types';
 
 function getModelAbbrev(model: ModelData): string {
@@ -71,6 +72,9 @@ export default function Library({
     const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null);
     const [dbStatus, setDbStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
     const [invoiceModalModelId, setInvoiceModalModelId] = useState<string | null>(null);
+    /* Préférence d'agrandissement partagée avec le reste du programme :
+       qui agrandit une fiche ailleurs retrouve ici le même confort. */
+    const [libFullscreen, toggleLibFullscreen] = useSheetFullscreen();
     const { user } = useAuth();
     const { lang } = useLang();
     const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true' || !window.location.hostname.includes('localhost');
@@ -539,9 +543,19 @@ export default function Library({
                 </div>,
                 document.body
             )}
-            {deleteConfirm && createPortal(
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 dark:bg-slate-950/70 backdrop-blur-sm dark:backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-lg dark:shadow-dk-elevated w-full max-w-sm overflow-hidden p-6 text-center transform scale-100 transition-all">
+            {deleteConfirm && (
+                /* Confirmation de suppression : pas d'en-tête ni de plein écran —
+                   agrandir une question de deux lignes n'aurait aucun sens. Le fond
+                   n'est pas cliquable : une suppression de modèle (avec sa gamme et
+                   ses coûts) ne doit pas s'annuler ni se déclencher par mégarde. */
+                <SheetModal
+                    onClose={() => setDeleteConfirm(null)}
+                    size="sm"
+                    zClass="z-[100]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-6"
+                >
+                    <div className="text-center">
                         <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-rose-600 dark:text-rose-400 dark:text-rose-300">
                             <Trash2 className="w-8 h-8" />
                         </div>
@@ -566,32 +580,31 @@ export default function Library({
                             </button>
                         </div>
                     </div>
-                </div>,
-                document.body
+                </SheetModal>
             )}
 
-            {invoiceModalModelId && createPortal(
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 dark:bg-black/40" onClick={() => setInvoiceModalModelId(null)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border w-full max-w-3xl max-h-[90vh] flex flex-col shadow-sm" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between px-5 h-12 border-b border-slate-100 dark:border-dk-border">
-                            <h2 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">
-                                {tx(lang, { fr: "Factures liées", ar: "الفواتير المرتبطة", en: "Related Invoices", es: "Facturas relacionadas", pt: "Faturas relacionadas", tr: "İlgili Faturalar" })}
-                            </h2>
-                            <button onClick={() => setInvoiceModalModelId(null)} className="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors">
-                                <X className="w-3.5" strokeWidth={1.75} />
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-5">
-                            <InlineInvoiceList
-                                productId={invoiceModalModelId}
-                                productLabel={models.find(m => m.id === invoiceModalModelId)?.meta_data?.nom_modele || ''}
-                                sourceModule="model"
-                                sourceId={invoiceModalModelId}
-                            />
-                        </div>
+            {invoiceModalModelId && (
+                /* Liste de factures : contenu dense (tableau de lignes), donc
+                   bouton plein écran. Consultation seule, le fond peut fermer. */
+                <SheetModal
+                    onClose={() => setInvoiceModalModelId(null)}
+                    title={tx(lang, { fr: "Factures liées", ar: "الفواتير المرتبطة", en: "Related Invoices", es: "Facturas relacionadas", pt: "Faturas relacionadas", tr: "İlgili Faturalar" })}
+                    icon={<FileText className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />}
+                    size="xl"
+                    zClass="z-50"
+                    fullscreen={libFullscreen}
+                    onToggleFullscreen={toggleLibFullscreen}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-4 sm:p-5"
+                >
+                    <div className="overflow-x-auto">
+                        <InlineInvoiceList
+                            productId={invoiceModalModelId}
+                            productLabel={models.find(m => m.id === invoiceModalModelId)?.meta_data?.nom_modele || ''}
+                            sourceModule="model"
+                            sourceId={invoiceModalModelId}
+                        />
                     </div>
-                </div>,
-                document.body
+                </SheetModal>
             )}
         </div>
     );

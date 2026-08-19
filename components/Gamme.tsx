@@ -60,6 +60,7 @@ import { analyzeTextileContext, suggestTextileVocabulary } from '../services/gem
 import { VOCABULARY } from '../data/vocabulary';
 import { compressImage } from '../utils';
 import ExcelInput from './ExcelInput';
+import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 
@@ -233,6 +234,9 @@ export default function Gamme({
   postes = []
 }: GammeProps) {
   const { lang } = useLang();
+  /* Preference d'agrandissement partagee : catalogue de guides, assistant et
+     apercu photo profitent tous du plein ecran. */
+  const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
   const posteColorById = useMemo(
     () => new Map(postes.map((poste, index) => [poste.id, getPosteColor(poste, index)])),
     [postes]
@@ -2509,33 +2513,36 @@ export default function Gamme({
       </div>
 
       {/* ... (Existing Portals for Modals) ... */}
-      {showFabricModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/65 dark:bg-dk-bg/80 backdrop-blur-md animate-in fade-in duration-200" onClick={() => handleFabricModalClose()} />
-            
-            <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="fabric-modal-title"
-                className="bg-white/95 dark:bg-dk-surface/95 backdrop-blur w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-3 duration-300 z-10 rounded-3xl border border-white/70 dark:border-dk-border/70 shadow-[0_30px_80px_-25px_rgba(15,23,42,0.45)] dark:shadow-[0_30px_80px_-25px_rgba(0,0,0,0.6)] flex flex-col max-h-[92vh] sm:max-h-[88vh]"
-            >
-                <div className="p-4 border-b border-emerald-100/80 dark:border-dk-border flex justify-between items-center bg-gradient-to-r from-emerald-50 dark:from-dk-elevated/60 via-white dark:via-dk-surface to-indigo-50 dark:to-dk-elevated/60">
-                    <h3 id="fabric-modal-title" className="font-black text-slate-800 dark:text-dk-text flex items-center gap-2">
-                        <span className="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 shadow-sm dark:shadow-dk-sm">
-                            <Shirt className="w-4 h-4" />
-                        </span>
-                        {tx(lang,{fr:'Difficulté Tissu',ar:'صعوبة القماش',en:'Fabric Difficulty',es:'Dificultad Tela',pt:'Dificuldade Tecido',tr:'Kumaş Zorluğu'})}
-                    </h3>
+      {showFabricModal && (
+        /* Pénalité tissu : elle entre directement dans le calcul des temps, donc
+           le fond ne ferme pas — un clic à côté annulerait une valeur tapée.
+           Pas de plein écran, le réglage tient en une colonne. */
+        <SheetModal
+            onClose={() => handleFabricModalClose()}
+            title={tx(lang,{fr:'Difficulté Tissu',ar:'صعوبة القماش',en:'Fabric Difficulty',es:'Dificultad Tela',pt:'Dificuldade Tecido',tr:'Kumaş Zorluğu'})}
+            icon={<span className="inline-flex w-8 h-8 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 shadow-sm dark:shadow-dk-sm shrink-0"><Shirt className="w-4 h-4" /></span>}
+            size="md"
+            zClass="z-[9999]"
+            closeOnBackdrop={false}
+            bodyClassName="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-4 sm:p-5 space-y-4"
+            footer={(
+                /* Grille sur téléphone : deux boutons de largeur égale, et
+                   « Valider » sur sa propre ligne, là où le pouce le cherche. */
+                <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
                     <button
-                        onClick={() => handleFabricModalClose()}
-                        className="w-9 h-9 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-400 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text hover:border-slate-300 dark:hover:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center justify-center"
-                        title={tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
+                        type="button"
+                        onClick={() => updateFabricValue((fabricDraft || fabricSettings).selected, 0)}
+                        className="py-3 px-4 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft rounded-2xl font-bold text-sm transition-all active:scale-[0.98] flex items-center justify-center sm:justify-start"
                     >
-                        <X className="w-5 h-5" />
+                        {tx(lang,{fr:'Réinitialiser',ar:'إعادة تعيين',en:'Reset',es:'Reiniciar',pt:'Redefinir',tr:'Sıfırla'})}
+                    </button>
+                    <button onClick={() => handleFabricModalClose(true)} className="col-span-2 sm:col-auto py-3 px-6 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white rounded-2xl font-black text-sm shadow-lg dark:shadow-dk-lg shadow-emerald-200 dark:shadow-emerald-900/30 transition-all active:scale-[0.98] flex items-center justify-center sm:justify-start">
+                        {tx(lang,{fr:'Valider',ar:'موافق',en:'Apply',es:'Validar',pt:'Validar',tr:'Onayla'})}
                     </button>
                 </div>
-                
-                <div className="p-4 sm:p-5 space-y-4 overflow-y-auto custom-scrollbar min-h-0">
+            )}
+        >
+                <>
                     <p className="text-xs leading-relaxed text-slate-600 dark:text-dk-text-soft bg-gradient-to-r from-slate-50 dark:from-dk-elevated/60 to-emerald-50/50 dark:to-emerald-900/20 border border-slate-100 dark:border-dk-border rounded-2xl px-3.5 py-3 animate-in fade-in duration-500">
                         {tx(lang,{fr:'Ajustez la penalite selon le type de tissu pour affiner le temps de chaque operation machine.',ar:'اضبط الغرامة حسب نوع القماش لضبط وقت كل عملية آلة.',en:'Adjust the penalty by fabric type to refine each machine operation time.',es:'Ajuste la penalización según el tipo de tela para afinar cada tiempo de operación.',pt:'Ajuste a penalidade conforme o tipo de tecido para refinar cada tempo de operação.',tr:'Her makine işlem süresini hassaslaştırmak için kumaş türüne göre cezayı ayarlayın.'})}
                     </p>
@@ -2625,40 +2632,32 @@ export default function Gamme({
                         </label>
                     </div>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                        <button
-                            type="button"
-                            onClick={() => updateFabricValue((fabricDraft || fabricSettings).selected, 0)}
-                            className="w-full py-3.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft rounded-2xl font-bold text-sm transition-all active:scale-[0.98]"
-                        >
-                            {tx(lang,{fr:'Réinitialiser',ar:'إعادة تعيين',en:'Reset',es:'Reiniciar',pt:'Redefinir',tr:'Sıfırla'})}
-                        </button>
-                        <button onClick={() => handleFabricModalClose(true)} className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 text-white rounded-2xl font-black text-sm shadow-lg dark:shadow-dk-lg shadow-emerald-200 dark:shadow-emerald-900/30 transition-all active:scale-[0.98]">
-                            {tx(lang,{fr:'Valider',ar:'موافق',en:'Apply',es:'Validar',pt:'Validar',tr:'Onayla'})}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>,
-        document.body
+                </>
+        </SheetModal>
       )}
 
       {/* GUIDE SELECTION MODAL */}
-      {showGuideModal && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/60 dark:bg-dk-bg/80 backdrop-blur-sm" onClick={() => setShowGuideModal(null)} />
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-10 flex flex-col max-h-[80vh]">
-                <div className="p-4 border-b border-slate-100 dark:border-dk-border flex justify-between items-center bg-white dark:bg-dk-surface shrink-0">
-                    <div>
-                        <h3 className="font-bold text-slate-700 dark:text-dk-text-soft dark:text-dk-text flex items-center gap-2">
-                            <Layers className="w-5 h-5 text-orange-500" />
-                            {tx(lang,{fr:'Choisir un Guide',ar:'اختيار دليل',en:'Choose a Guide',es:'Elegir una Guía',pt:'Escolher um Guia',tr:'Kılavuz Seç'})}
-                        </h3>
-                        <p className="text-xs text-slate-400 dark:text-dk-muted">
-                            {tx(lang,{fr:'Machine:',ar:'الآلة:',en:'Machine:',es:'Máquina:',pt:'Máquina:',tr:'Makine:'})} <span className="font-bold text-slate-600 dark:text-dk-text-soft dark:text-dk-text">{showGuideModal.machineName || tx(lang,{fr:'Toutes',ar:'الكل',en:'All',es:'Todas',pt:'Todas',tr:'Tümü'})}</span>
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
+      {showGuideModal && (
+        /* Catalogue de guides : liste potentiellement longue, donc plein écran
+           disponible. Fond non cliquable — la fenêtre porte une recherche et,
+           dépliée, un formulaire de création de guide. */
+        <SheetModal
+            onClose={() => setShowGuideModal(null)}
+            title={tx(lang,{fr:'Choisir un Guide',ar:'اختيار دليل',en:'Choose a Guide',es:'Elegir una Guía',pt:'Escolher um Guia',tr:'Kılavuz Seç'})}
+            subtitle={(
+                <>
+                    {tx(lang,{fr:'Machine:',ar:'الآلة:',en:'Machine:',es:'Máquina:',pt:'Máquina:',tr:'Makine:'})} <span className="font-bold text-slate-600 dark:text-dk-text-soft">{showGuideModal.machineName || tx(lang,{fr:'Toutes',ar:'الكل',en:'All',es:'Todas',pt:'Todas',tr:'Tümü'})}</span>
+                </>
+            )}
+            icon={<Layers className="w-5 h-5 text-orange-500 shrink-0" />}
+            size="md"
+            zClass="z-[9999]"
+            fullscreen={denseFullscreen}
+            onToggleFullscreen={toggleDenseFullscreen}
+            closeOnBackdrop={false}
+            bare
+            headerActions={(
+                    <>
                         <button
                             type="button"
                             onClick={() => setShowGuideCreateForm(prev => !prev)}
@@ -2672,11 +2671,10 @@ export default function Gamme({
                         >
                             {tx(lang,{fr:'+ Nouveau',ar:'+ جديد',en:'+ New',es:'+ Nuevo',pt:'+ Novo',tr:'+ Yeni'})}
                         </button>
-                        <button onClick={() => setShowGuideModal(null)} className="text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text transition-colors"><X className="w-5 h-5" /></button>
-                    </div>
-                </div>
-                
-                <div className="p-3 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg">
+                    </>
+            )}
+        >
+                <div className="p-3 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg shrink-0">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-dk-muted" />
                         <input 
@@ -2782,7 +2780,7 @@ export default function Gamme({
                     )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1">
+                <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain p-2 custom-scrollbar space-y-1">
                     {filteredGuides.length > 0 ? (
                         filteredGuides.map((guide, index) => (
                             <button 
@@ -2816,9 +2814,7 @@ export default function Gamme({
                         </div>
                     )}
                 </div>
-            </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
 
       {/* CONTEXT MENU - USING PORTAL - FIXED TO PAGE COORDS */}
@@ -2912,26 +2908,22 @@ export default function Gamme({
 
       {/* AI Assistant Modal */}
       {showAiModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/60 dark:bg-dk-bg/80 backdrop-blur-sm" onClick={() => !isAnalyzing && setShowAiModal(false)} />
-            <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg w-full max-w-lg relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
-                <div className="bg-gradient-to-r from-rose-500 to-pink-600 p-5 text-white relative overflow-hidden shrink-0">
-                    <div className="absolute top-0 right-0 p-8 opacity-10 transform translate-x-4 -translate-y-4">
-                        <Sparkles className="w-24 h-24" />
-                    </div>
-                    <h3 className="text-lg font-bold flex items-center gap-2 relative z-10">
-                        <Bot className="w-5 h-5 text-yellow-300" />
-                        {tx(lang,{fr:'Assistant Intelligent',ar:'مساعد ذكي',en:'Smart Assistant',es:'Asistente Inteligente',pt:'Assistente Inteligente',tr:'Akıllı Asistan'})}
-                    </h3>
-                    <p className="text-rose-100 text-xs mt-1 relative z-10">
-                        {tx(lang,{fr:'Je "lis" votre gamme en temps réel pour apprendre et vous aider.',ar:'أنا "أقرأ" التسلسل الخاص بك في الوقت الفعلي للتعلم ومساعدتك.',en:'I "read" your routing in real-time to learn and help you.',es:'"Leo" su gama en tiempo real para aprender y ayudarle.',pt:'"Leio" sua gama em tempo real para aprender e ajudá-lo.',tr:'Size yardım etmek ve öğrenmek için rotanızı gerçek zamanlı "okuyorum".'})}
-                    </p>
-                    <button onClick={() => setShowAiModal(false)} disabled={isAnalyzing} className="absolute top-4 right-4 text-white/70 hover:text-white p-1 rounded-lg">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 bg-slate-50 dark:bg-dk-bg space-y-4">
+        /* Conversation avec l'assistant : le fond ne ferme pas, une question
+           en cours de frappe et l'historique de l'échange se perdraient.
+           Plein écran disponible : les réponses peuvent être longues. */
+        <SheetModal
+            onClose={() => { if (!isAnalyzing) setShowAiModal(false); }}
+            title={tx(lang,{fr:'Assistant Intelligent',ar:'مساعد ذكي',en:'Smart Assistant',es:'Asistente Inteligente',pt:'Assistente Inteligente',tr:'Akıllı Asistan'})}
+            subtitle={tx(lang,{fr:'Je "lis" votre gamme en temps réel pour apprendre et vous aider.',ar:'أنا "أقرأ" التسلسل الخاص بك في الوقت الفعلي للتعلم ومساعدتك.',en:'I "read" your routing in real-time to learn and help you.',es:'"Leo" su gama en tiempo real para aprender y ayudarle.',pt:'"Leio" sua gama em tempo real para aprender e ajudá-lo.',tr:'Size yardım etmek ve öğrenmek için rotanızı gerçek zamanlı "okuyorum".'})}
+            icon={<Bot className="w-5 h-5 text-rose-500 shrink-0" />}
+            size="lg"
+            zClass="z-50"
+            fullscreen={denseFullscreen}
+            onToggleFullscreen={toggleDenseFullscreen}
+            closeOnBackdrop={false}
+            bare
+        >
+                <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain custom-scrollbar p-4 bg-slate-50 dark:bg-dk-bg space-y-4">
                     {chatHistory.length === 0 && (
                         <div className="text-center py-8 px-4">
                             <div className="w-12 h-12 bg-white dark:bg-dk-surface rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm dark:shadow-dk-sm">
@@ -2980,9 +2972,11 @@ export default function Gamme({
                     <div ref={chatEndRef} />
                 </div>
 
-                <div className="p-3 bg-white dark:bg-dk-surface border-t border-slate-100 dark:border-dk-border flex gap-2">
-                    <input 
-                        type="text" 
+                {/* Zone de saisie collée en bas : elle fait partie de la
+                    conversation, elle ne descend donc pas dans le pied. */}
+                <div className="shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3 bg-white dark:bg-dk-surface border-t border-slate-100 dark:border-dk-border flex gap-2">
+                    <input
+                        type="text"
                         value={aiPrompt}
                         onChange={(e) => setAiPrompt(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleAiAssist()}
@@ -3002,8 +2996,7 @@ export default function Gamme({
                         <Send className="w-5 h-5" />
                     </button>
                 </div>
-            </div>
-        </div>
+        </SheetModal>
       )}
 
       {/* INPUTS FICHIERS CACHÉS POUR PHOTO OPÉRATION (caméra + galerie) */}
@@ -3070,36 +3063,23 @@ export default function Gamme({
       )}
 
       {/* APERÇU PHOTO OPÉRATION */}
-      {photoPreview && createPortal(
-        <div
-          className="fixed inset-0 z-[9998] flex items-center justify-center bg-slate-950/60 dark:bg-dk-bg/80 p-3 animate-in fade-in duration-200 sm:p-6"
-          onClick={() => setPhotoPreview(null)}
+      {photoPreview && (
+        /* Aperçu photo : rien à saisir, le fond referme. Plein écran offert —
+           une photo d'opération se juge en grand. */
+        <SheetModal
+          onClose={() => setPhotoPreview(null)}
+          title={photoPreview.title}
+          subtitle={tx(lang,{fr:'Aperçu haute résolution',ar:'معاينة عالية الدقة',en:'High-resolution preview',es:'Vista previa alta resolución',pt:'Visualização de alta resolução',tr:'Yüksek çözünürlüklü önizleme'})}
+          size="xl"
+          zClass="z-[9998]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          bodyClassName="flex-1 overflow-auto min-h-0 bg-slate-100 dark:bg-dk-bg p-3 sm:p-5"
         >
-          <div
-            className="relative flex w-full max-w-3xl max-h-[92vh] flex-col overflow-hidden rounded-2xl border border-slate-200/80 dark:border-dk-border bg-white dark:bg-dk-surface shadow-[0_20px_80px_rgba(15,23,42,0.45)] dark:shadow-[0_20px_80px_rgba(0,0,0,0.6)]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-dk-border bg-gradient-to-r from-slate-50 dark:from-dk-elevated/60 via-white dark:via-dk-surface to-slate-50 dark:to-dk-elevated/60 px-4 py-3 sm:px-5">
-              <div className="min-w-0">
-                <h3 className="truncate text-base font-black tracking-wide text-slate-800 dark:text-dk-text sm:text-lg">{photoPreview.title}</h3>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Aperçu haute résolution',ar:'معاينة عالية الدقة',en:'High-resolution preview',es:'Vista previa alta resolución',pt:'Visualização de alta resolução',tr:'Yüksek çözünürlüklü önizleme'})}</p>
-              </div>
-              <button
-                onClick={() => setPhotoPreview(null)}
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm transition hover:border-slate-300 dark:hover:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-900 dark:hover:text-dk-text"
-              >
-                <X className="h-4 w-4" />
-                {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
-              </button>
-            </div>
-            <div className="relative flex-1 overflow-auto bg-[radial-gradient(circle_at_top,_#f8fafc_0%,_#e2e8f0_100%)] dark:bg-dk-bg p-3 sm:p-5">
               <div className="mx-auto flex min-h-full max-w-[92%] items-center justify-center rounded-2xl border border-white/80 dark:border-dk-border/40 bg-white/60 dark:bg-dk-surface/60 p-2 shadow-inner sm:p-4">
-                <img src={photoPreview.src} alt="Aperçu" className="max-h-[74vh] w-auto max-w-full rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface object-contain shadow-xl dark:shadow-dk-elevated" />
+                <img src={photoPreview.src} alt={photoPreview.title} className="max-h-[74vh] w-auto max-w-full rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface object-contain shadow-xl dark:shadow-dk-elevated" />
               </div>
-            </div>
-          </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
     </div>
   );

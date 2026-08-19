@@ -20,6 +20,7 @@ import { FicheData, AppSettings, PlanningEvent } from '../types';
 import DateTimePicker, { type DatePickerAgendaItem } from './ui/DateTimePicker';
 import RepartitionMatrix from './RepartitionMatrix';
 import MaterialDetailModal from './MaterialDetailModal';
+import SheetModal from './shared/SheetModal';
 import { resolveStock } from '../lib/magasinMatch';
 import { confirmReceptionLocal } from '../lib/confirmReception';
 import FactureUploader from './FactureUploader';
@@ -1938,33 +1939,40 @@ export default function Pedido({
 
             {/* Material Detail Modal */}
             {confirmModal.open && confirmModal.mat && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" dir="ltr" onClick={() => setConfirmModal({ open: false, qty: '' })}>
-                    <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-100 dark:border-dk-border w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                        <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-                            <div>
-                                <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang, { fr: 'Confirmer réception', ar: 'تأكيد الاستلام', en: 'Confirm reception', es: 'Confirmar recepción', pt: 'Confirmar receção', tr: 'Teslimatı onayla' })}</h3>
-                                <p className="text-[11px] text-slate-400 dark:text-dk-muted truncate max-w-[280px]">{confirmModal.mat.name}</p>
-                            </div>
-                        </div>
-                        <div className="p-5">
-                            <label className="block text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-1.5">{tx(lang, { fr: 'Quantité reçue', ar: 'الكمية المستلمة', en: 'Quantity received', es: 'Cantidad recibida', pt: 'Quantidade recebida', tr: 'Alınan miktar' })} ({confirmModal.mat.unit})</label>
-                            <input
-                                type="number" min="0" step="0.01" autoFocus
-                                value={confirmModal.qty}
-                                onChange={(e) => setConfirmModal(c => ({ ...c, qty: e.target.value }))}
-                                className="w-full h-9 px-3 bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
-                            />
-                            <p className="text-[10.5px] text-slate-400 dark:text-dk-muted mt-1.5">{tx(lang, { fr: `Besoin : ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. S'ajoute au stock et lève « Attente » (BR pour le Planning).`, ar: `الاحتياج: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. يضاف إلى المخزون ويرفع « انتظار » (BR للتخطيط).`, en: `Need: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Adds to stock and removes "Waiting" (BR for Planning).`, es: `Necesidad: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Se agrega al stock y elimina « Espera » (BR para Planificación).`, pt: `Necessidade: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Adiciona ao stock e remove « Espera » (BR para Planeamento).`, tr: `İhtiyaç: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Stoka eklenir ve « Bekleme » kaldırılır (Planlama için BR).` })}</p>
-                        </div>
-                        <div className="bg-zinc-50/80 dark:bg-dk-elevated/40 px-5 py-4 flex justify-end gap-2.5 border-t border-slate-100 dark:border-dk-border">
-<button onClick={() => setConfirmModal({ open: false, qty: '' })} className="px-4 h-9 text-[12px] font-medium text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
-                                                                                            <button onClick={handleConfirmReception} className="inline-flex items-center gap-1.5 px-4 h-9 text-[12px] font-medium text-white bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover rounded-md transition-colors">
-                                                                                                <CheckCircle className="w-3.5 h-3.5" strokeWidth={2} /> {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
+                /* Saisie d'une quantité reçue : le fond ne ferme pas, un clic
+                   distrait ne doit pas annuler une réception à demi saisie.
+                   Pas de plein écran : un seul champ, rien à déplier.
+                   POURQUOI le `dir="ltr"` à l'intérieur : la coque ne le propage
+                   pas, et un champ numérique en RTL se lit à l'envers. */
+                <SheetModal
+                    onClose={() => setConfirmModal({ open: false, qty: '' })}
+                    title={tx(lang, { fr: 'Confirmer réception', ar: 'تأكيد الاستلام', en: 'Confirm reception', es: 'Confirmar recepción', pt: 'Confirmar receção', tr: 'Teslimatı onayla' })}
+                    subtitle={confirmModal.mat.name}
+                    icon={<CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" strokeWidth={1.75} />}
+                    size="sm"
+                    zClass="z-[200]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+                    footer={
+                        <div dir="ltr" className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                            <button onClick={() => setConfirmModal({ open: false, qty: '' })} className="px-4 h-9 text-[12px] font-medium text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center justify-center sm:justify-start">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+                            <button onClick={handleConfirmReception} className="inline-flex items-center justify-center sm:justify-start gap-1.5 px-4 h-9 text-[12px] font-medium text-white bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover rounded-md transition-colors">
+                                <CheckCircle className="w-3.5 h-3.5" strokeWidth={2} /> {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
                             </button>
                         </div>
+                    }
+                >
+                    <div dir="ltr">
+                        <label className="block text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-1.5">{tx(lang, { fr: 'Quantité reçue', ar: 'الكمية المستلمة', en: 'Quantity received', es: 'Cantidad recibida', pt: 'Quantidade recebida', tr: 'Alınan miktar' })} ({confirmModal.mat.unit})</label>
+                        <input
+                            type="number" min="0" step="0.01" autoFocus
+                            value={confirmModal.qty}
+                            onChange={(e) => setConfirmModal(c => ({ ...c, qty: e.target.value }))}
+                            className="w-full h-9 px-3 bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 focus:bg-white border border-slate-200 dark:border-dk-border focus:border-slate-300 rounded-md text-[13px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 outline-none transition-all tabular-nums"
+                        />
+                        <p className="text-[10.5px] text-slate-400 dark:text-dk-muted mt-1.5">{tx(lang, { fr: `Besoin : ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. S'ajoute au stock et lève « Attente » (BR pour le Planning).`, ar: `الاحتياج: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. يضاف إلى المخزون ويرفع « انتظار » (BR للتخطيط).`, en: `Need: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Adds to stock and removes "Waiting" (BR for Planning).`, es: `Necesidad: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Se agrega al stock y elimina « Espera » (BR para Planificación).`, pt: `Necessidade: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Adiciona ao stock e remove « Espera » (BR para Planeamento).`, tr: `İhtiyaç: ${fmt(confirmModal.mat.buyQty)} ${confirmModal.mat.unit}. Stoka eklenir ve « Bekleme » kaldırılır (Planlama için BR).` })}</p>
                     </div>
-                </div>
+                </SheetModal>
             )}
 
             {selectedMaterial && (

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Plus, Trash2, Save } from 'lucide-react';
+import { Plus, Trash2, Save, Receipt } from 'lucide-react';
+import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 
 
 type FormType = 'VENTE' | 'ACHAT' | 'PRODUCTION' | 'TRANSFERT';
@@ -47,6 +48,9 @@ export default function InvoiceModalInvoice({ context, onClose, onSaved }: Invoi
     });
     const [lines, setLines] = useState<InvoiceFormLine[]>([newLine()]);
     const [saving, setSaving] = useState(false);
+    /* Fenetre a contenu dense (tableau de lignes) : bouton plein ecran, avec la
+       preference partagee par tout le programme. */
+    const [sheetFullscreen, toggleSheetFullscreen] = useSheetFullscreen();
 
     const updateLine = (idx: number, field: keyof InvoiceFormLine, value: string | number) => {
         setLines(prev => {
@@ -105,17 +109,36 @@ export default function InvoiceModalInvoice({ context, onClose, onSaved }: Invoi
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 dark:bg-black/40">
-            <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border w-full max-w-3xl max-h-[90vh] flex flex-col shadow-sm">
-                <div className="flex items-center justify-between px-5 h-12 border-b border-slate-100 dark:border-dk-border">
-                    <h2 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">Nouvelle facture (contexte {context.sourceModule})</h2>
-                    <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors">
-                        <X className="w-3.5" strokeWidth={1.75} />
+        /* Saisie de facture : le fond ne ferme pas — une facture a demi saisie
+           perdue d'un clic distrait, c'est une demi-journee de ressaisie. */
+        <SheetModal
+            onClose={onClose}
+            title={`Nouvelle facture (contexte ${context.sourceModule})`}
+            icon={<Receipt className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />}
+            size="xl"
+            zClass="z-50"
+            fullscreen={sheetFullscreen}
+            onToggleFullscreen={toggleSheetFullscreen}
+            closeOnBackdrop={false}
+            bodyClassName="flex-1 overflow-y-auto min-h-0 p-4 sm:p-5 space-y-4"
+            footer={
+                <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                    <button onClick={onClose}
+                        className="h-9 px-3 text-[12px] font-medium text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors flex items-center justify-center sm:justify-start">
+                        Annuler
+                    </button>
+                    <button onClick={handleSave} disabled={saving}
+                        className="h-9 px-3 bg-slate-900 dark:bg-dk-accent hover:bg-slate-800 dark:hover:bg-dk-accent/90 text-white text-[12px] font-medium rounded-md flex items-center justify-center sm:justify-start gap-1.5 transition-colors disabled:opacity-50">
+                        <Save className="w-3.5" strokeWidth={1.75} />
+                        {saving ? 'Enregistrement...' : 'Enregistrer'}
                     </button>
                 </div>
-
-                <div className="flex-1 overflow-y-auto p-5 space-y-4">
-                    <div className="flex gap-3">
+            }
+        >
+                <>
+                    {/* Deux champs texte : une seule colonne sur telephone, sinon
+                        les intitules se coupent et debordent sur le champ voisin. */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex-1">
                             <label className="text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-1.5 block">Type</label>
                             <select
@@ -163,8 +186,9 @@ export default function InvoiceModalInvoice({ context, onClose, onSaved }: Invoi
                                 Ajouter
                             </button>
                         </div>
-                        <div className="border border-slate-200 dark:border-dk-border rounded-lg overflow-hidden">
-                            <table className="w-full text-sm">
+                        {/* Le tableau defile dans son propre conteneur : jamais la page. */}
+                        <div className="border border-slate-200 dark:border-dk-border rounded-lg overflow-hidden overflow-x-auto">
+                            <table className="w-full min-w-[520px] text-sm">
                                 <thead className="bg-slate-50/60 dark:bg-dk-bg/60 border-b border-slate-100 dark:border-dk-border">
                                     <tr>
                                         <th className="px-3 py-2 text-[11px] font-medium text-slate-500 dark:text-dk-muted uppercase tracking-wide text-left">Désignation</th>
@@ -231,20 +255,7 @@ export default function InvoiceModalInvoice({ context, onClose, onSaved }: Invoi
                         <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                             className="w-full h-16 bg-slate-50/60 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border rounded-md px-2.5 py-1.5 text-[12px] text-slate-700 dark:text-dk-text-soft focus:bg-white dark:focus:bg-dk-surface focus:border-slate-300 focus:ring-2 focus:ring-slate-100 dark:focus:ring-dk-border outline-none resize-none" />
                     </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 px-5 h-12 border-t border-slate-100 dark:border-dk-border">
-                    <button onClick={onClose}
-                        className="h-8 px-3 text-[12px] font-medium text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors">
-                        Annuler
-                    </button>
-                    <button onClick={handleSave} disabled={saving}
-                        className="h-8 px-3 bg-slate-900 dark:bg-dk-accent hover:bg-slate-800 dark:hover:bg-dk-accent/90 text-white text-[12px] font-medium rounded-md flex items-center gap-1.5 transition-colors disabled:opacity-50">
-                        <Save className="w-3.5" strokeWidth={1.75} />
-                        {saving ? 'Enregistrement...' : 'Enregistrer'}
-                    </button>
-                </div>
-            </div>
-        </div>
+                </>
+        </SheetModal>
     );
 }

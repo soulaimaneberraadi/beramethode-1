@@ -3,6 +3,7 @@ import { ShoppingCart, Percent, Banknote, Clock, Package, TrendingUp, Info, Aler
 import { PurchasingData, Material, FicheData } from '../types';
 import { fmt } from '../app/constants';
 import MaterialDetailModal from './MaterialDetailModal';
+import SheetModal from './shared/SheetModal';
 import NumberInput from './ui/NumberInput';
 import { findMagasinItem, resolveStock } from '../lib/magasinMatch';
 import { confirmReceptionLocal } from '../lib/confirmReception';
@@ -251,16 +252,27 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
 
             {/* CONFIRMER RÉCEPTION MODAL */}
             {confirmModal.open && confirmModal.mat && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setConfirmModal({ open: false, qty: '' })}>
-                    <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                        <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center gap-2">
-                            <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.75} />
-                            <div>
-                                <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight">{tx(lang,{fr:'Confirmer réception',ar:'تأكيد الاستلام',en:'Confirm reception',es:'Confirmar recepción',pt:'Confirmar receção',tr:'Teslim almayı onayla'})}</h3>
-                                <p className="text-[11px] text-slate-400 dark:text-dk-muted">{confirmModal.mat.name}</p>
-                            </div>
+                /* Saisie d'une quantité reçue : le fond ne ferme pas — un clic
+                   distrait ne doit pas jeter une réception à demi saisie.
+                   Pas de plein écran : un seul champ, rien à déplier. */
+                <SheetModal
+                    onClose={() => setConfirmModal({ open: false, qty: '' })}
+                    title={tx(lang,{fr:'Confirmer réception',ar:'تأكيد الاستلام',en:'Confirm reception',es:'Confirmar recepción',pt:'Confirmar receção',tr:'Teslim almayı onayla'})}
+                    subtitle={confirmModal.mat.name}
+                    icon={<CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" strokeWidth={1.75} />}
+                    size="sm"
+                    zClass="z-[200]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-3"
+                    footer={
+                        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:gap-3 sm:justify-end">
+                            <button onClick={() => setConfirmModal({ open: false, qty: '' })} className="px-4 h-9 text-[12px] font-medium text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors flex items-center justify-center sm:justify-start">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
+                            <button onClick={handleConfirmReception} className="inline-flex items-center justify-center sm:justify-start gap-1.5 px-4 h-9 text-[12px] font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors">
+                                <CheckCircle className="w-3.5 h-3.5" strokeWidth={2} /> {tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
+                            </button>
                         </div>
-                        <div className="p-5 space-y-3">
+                    }
+                >
                             <div>
                                 <label className="block text-[11px] font-medium text-slate-500 dark:text-dk-muted mb-1.5">{tx(lang,{fr:'Quantité reçue',ar:'الكمية المستلمة',en:'Quantity received',es:'Cantidad recibida',pt:'Quantidade recebida',tr:'Alınan miktar'})} ({confirmModal.mat.unit})</label>
                                 <input
@@ -273,30 +285,30 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                     {tx(lang,{fr:'Besoin',ar:'الاحتياج',en:'Need',es:'Necesidad',pt:'Necessidade',tr:'İhtiyaç'})} : {fmt(confirmModal.mat.buyQty)} {confirmModal.mat.unit}. {tx(lang,{fr:'La quantité confirmée s\'ajoute au stock et lève « En attente » (BR pour le Planning).',ar:'الكمية المؤكدة تضاف إلى المخزون وترفع "قيد الانتظار" (أمر الإنتاج للتخطيط).',en:'The confirmed quantity adds to stock and clears "Pending" (BR for Planning).',es:'La cantidad confirmada se añade al stock y levanta "Pendiente" (BR para Planificación).',pt:'A quantidade confirmada é adicionada ao stock e levanta "Pendente" (BR para o Planeamento).',tr:'Onaylanan miktar stoğa eklenir ve "Beklemede" durumunu kaldırır (Planlama için BR).'})}
                                 </p>
                             </div>
-                        </div>
-                        <div className="bg-slate-50 dark:bg-dk-bg px-5 py-4 flex justify-end gap-2.5 border-t border-slate-100 dark:border-dk-border">
-                            <button onClick={() => setConfirmModal({ open: false, qty: '' })} className="px-4 h-9 text-[12px] font-medium text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-md hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
-                            <button onClick={handleConfirmReception} className="inline-flex items-center gap-1.5 px-4 h-9 text-[12px] font-medium text-white bg-slate-900 hover:bg-slate-800 rounded-md transition-colors">
-                                <CheckCircle className="w-3.5 h-3.5" strokeWidth={2} /> {tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             {/* QUICK ADD MAGASIN MODAL */}
             {showQuickAddModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setShowQuickAddModal(false)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm w-full max-w-md p-5 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-semibold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                                <Plus className="w-4 h-4 text-slate-400 dark:text-dk-muted" /> {tx(lang,{fr:'Ajouter au Magasin',ar:'إضافة إلى المخزن',en:'Add to Store',es:'Añadir al Almacén',pt:'Adicionar ao Armazém',tr:'Depoya Ekle'})}
-                            </h3>
-                            <button onClick={() => setShowQuickAddModal(false)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:bg-slate-100 rounded-full transition-colors">
-                                <X className="w-3.5 h-3.5" />
-                            </button>
+                /* Formulaire de création d'article : le fond ne ferme pas, une
+                   fiche à demi remplie ne doit pas se perdre d'un clic. Pas de
+                   plein écran : c'est un formulaire court, pas un tableau. */
+                <SheetModal
+                    onClose={() => setShowQuickAddModal(false)}
+                    title={tx(lang,{fr:'Ajouter au Magasin',ar:'إضافة إلى المخزن',en:'Add to Store',es:'Añadir al Almacén',pt:'Adicionar ao Armazém',tr:'Depoya Ekle'})}
+                    icon={<Plus className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />}
+                    size="md"
+                    zClass="z-[200]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+                    footer={
+                        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:gap-3 sm:justify-end">
+                            <button onClick={() => setShowQuickAddModal(false)} className="px-3 py-2 text-xs font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated/60 rounded-lg transition-colors flex items-center justify-center sm:justify-start">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
+                            <button onClick={handleQuickAdd} className="px-5 py-2 bg-slate-900 dark:bg-dk-accent text-white text-xs font-medium rounded-md hover:bg-slate-800 dark:hover:bg-dk-accent-hover transition-colors flex items-center justify-center sm:justify-start">{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</button>
                         </div>
-                        <div className="space-y-3 max-h-[60vh] overflow-y-auto p-1">
+                    }
+                >
+                        <div className="space-y-3">
                             <div className="flex flex-col items-center justify-center mb-3">
                                 <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5 w-full">{tx(lang,{fr:'Photo du produit',ar:'صورة المنتج',en:'Product photo',es:'Foto del producto',pt:'Foto do produto',tr:'Ürün fotoğrafı'})}</label>
                                 <div className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 dark:bg-dk-bg flex items-center justify-center overflow-hidden relative cursor-pointer hover:bg-slate-100 transition-colors">
@@ -315,7 +327,9 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                 <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-0.5">{tx(lang,{fr:'Désignation / Nom *',ar:'التسمية / الاسم *',en:'Designation / Name *',es:'Designación / Nombre *',pt:'Designação / Nome *',tr:'Tanım / Ad *'})}</label>
                                 <input type="text" value={quickAddForm.nom || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, nom: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300 font-bold" placeholder={tx(lang,{fr:'Ex: Tissu Denim 12oz',ar:'مثال: قماش دنيم 12oz',en:'Ex: Denim Fabric 12oz',es:'Ej: Tela Denim 12oz',pt:'Ex: Tecido Denim 12oz',tr:'Örn: Denim Kumaş 12oz'})} />
                             </div>
-                            <div className="flex gap-3">
+                            {/* Une colonne sur téléphone : à deux, ces intitulés se
+                                coupent et débordent sur le champ voisin. */}
+                            <div className="grid grid-cols-1 gap-3 sm:flex sm:gap-3">
                                 <div className="flex-1">
                                     <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-0.5">{tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'})}</label>
                                     <input type="text" value={quickAddForm.reference || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, reference: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300" placeholder={tx(lang,{fr:'Ex: REF-001',ar:'مثال: REF-001',en:'Ex: REF-001',es:'Ej: REF-001',pt:'Ex: REF-001',tr:'Örn: REF-001'})} />
@@ -326,14 +340,15 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                         {['tissu', 'fil', 'bouton', 'fermeture', 'etiquette', 'emballage', 'autre'].map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
-                                <div className="w-1/3">
+                                <div className="w-full sm:w-1/3">
                                     <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-0.5">{tx(lang,{fr:'Unité',ar:'الوحدة',en:'Unit',es:'Unidad',pt:'Unidade',tr:'Birim'})}</label>
                                     <select value={quickAddForm.unite || 'm'} onChange={(e) => setQuickAddForm({ ...quickAddForm, unite: e.target.value })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300">
                                         {['m', 'kg', 'piece', 'cone', 'boite'].map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                 </div>
                             </div>
-                            <div className="flex gap-3">
+                            {/* Deux nombres courts : deux colonnes tiennent sur un téléphone. */}
+                            <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-3">
                                 <div className="flex-1">
                                     <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-0.5">{tx(lang,{fr:'Prix U. (DH)',ar:'السعر (درهم)',en:'Unit price (MAD)',es:'Precio U. (MAD)',pt:'Preço U. (MAD)',tr:'Birim fiyat (MAD)'})}</label>
                                     <input type="number" min="0" step="0.01" value={quickAddForm.prixUnitaire || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, prixUnitaire: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300 text-[#2149C1] font-semibold" />
@@ -352,12 +367,7 @@ const OrderSimulation: React.FC<OrderSimulationProps> = ({
                                 <input type="number" min="0" value={quickAddForm.fournisseurDelaiLivraisonJours || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurDelaiLivraisonJours: Number(e.target.value) })} className="w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300" placeholder={tx(lang,{fr:'Ex: 14',ar:'مثال: 14',en:'Ex: 14',es:'Ej: 14',pt:'Ex: 14',tr:'Örn: 14'})} />
                             </div>
                         </div>
-                        <div className="mt-4 pt-3 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2">
-                            <button onClick={() => setShowQuickAddModal(false)} className="px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 rounded-lg transition-colors">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
-                            <button onClick={handleQuickAdd} className="px-5 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition-colors">{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</button>
-                        </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             {/* Header Section */}

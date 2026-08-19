@@ -14,6 +14,7 @@ import { tx } from '../lib/i18n';
 import { loadCompanyIdentity } from '../lib/companyIdentity';
 import { useLang } from '../src/context/LanguageContext';
 import ExcelInput from './ExcelInput';
+import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
 
@@ -58,6 +59,9 @@ function useIsMobile(): boolean {
 export default function LaCoupe({ models, setModels, onOpenInAtelier, currentModelId, setFicheData, onNavigate, onCreateNewProject }: LaCoupeProps) {
     const isMobile = useIsMobile();
     const { lang } = useLang();
+    /* Préférence d'agrandissement partagée : celui qui agrandit la liste des
+       modèles veut le même confort à la fenêtre dense suivante. */
+    const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedModel, setSelectedModel] = useState<ModelData | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -2643,8 +2647,17 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
 
             {/* DELETE CONFIRMATION */}
             {deleteConfirm && (
-                <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-[2px]" onClick={() => setDeleteConfirm(null)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-xl shadow-xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border p-5 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+                /* Question courte : aucun en-tête, aucun plein écran. Le fond
+                   n'est pas cliquable — une suppression ne s'annule pas par un
+                   clic distrait, et les actions restent DANS le corps : un
+                   geste irréversible ne se met pas sous le pouce. */
+                <SheetModal
+                    onClose={() => setDeleteConfirm(null)}
+                    size="sm"
+                    zClass="z-[90]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+                >
                         <div className="flex items-center gap-3 mb-3">
                             <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/30 flex items-center justify-center shrink-0">
                                 <Trash2 className="w-5 h-5 text-red-500" />
@@ -2670,24 +2683,22 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 {tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}
                             </button>
                         </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             {/* CHOIX : nouveau modèle vs modèle existant */}
-            {isChoiceModalOpen && createPortal(
-                <div className="fixed inset-0 z-[97] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-[2px]" onClick={() => setIsChoiceModalOpen(false)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-dk-border">
-                            <div>
-                                <h3 className="text-[14px] font-bold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Créer une Commande', ar: 'إنشاء أمر', en: 'Create an Order', es: 'Crear una Orden', pt: 'Criar uma Ordem', tr: 'Emir Oluştur' })}</h3>
-                                <p className="text-[11px] text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang, { fr: 'Choisissez comment vous souhaitez commencer', ar: 'اختر كيف تريد البدء', en: 'Choose how you want to start', es: 'Elige cómo quieres empezar', pt: 'Escolha como deseja começar', tr: 'Nasıl başlamak istediğinizi seçin' })}</p>
-                            </div>
-                            <button type="button" onClick={() => setIsChoiceModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted shrink-0">
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <div className="p-4 space-y-2.5">
+            {isChoiceModalOpen && (
+                /* Deux cartes de départ : pas de plein écran, il n'y aurait rien
+                   à étaler. Aucune saisie, le fond reste donc cliquable. */
+                <SheetModal
+                    onClose={() => setIsChoiceModalOpen(false)}
+                    title={tx(lang, { fr: 'Créer une Commande', ar: 'إنشاء أمر', en: 'Create an Order', es: 'Crear una Orden', pt: 'Criar uma Ordem', tr: 'Emir Oluştur' })}
+                    subtitle={tx(lang, { fr: 'Choisissez comment vous souhaitez commencer', ar: 'اختر كيف تريد البدء', en: 'Choose how you want to start', es: 'Elige cómo quieres empezar', pt: 'Escolha como deseja começar', tr: 'Nasıl başlamak istediğinizi seçin' })}
+                    size="md"
+                    zClass="z-[97]"
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-4"
+                >
+                        <div className="space-y-2.5">
                             <button
                                 type="button"
                                 onClick={() => { setIsChoiceModalOpen(false); if (onCreateNewProject) onCreateNewProject(); else onNavigate?.('library'); }}
@@ -2717,20 +2728,25 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-dk-accent group-hover:translate-x-1 transition-all shrink-0" />
                             </button>
                         </div>
-                    </div>
-                </div>
-            , document.body)}
+                </SheetModal>
+            )}
 
             {/* SÉLECTION D'UN MODÈLE EXISTANT (bibliothèque) */}
-            {isSelectModelOpen && createPortal(
-                <div className="fixed inset-0 z-[97] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-[2px]" onClick={() => setIsSelectModelOpen(false)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-dk-border shrink-0">
-                            <h3 className="text-[14px] font-bold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Sélectionner un modèle', ar: 'اختيار موديل', en: 'Select a model', es: 'Seleccionar un modelo', pt: 'Selecionar um modelo', tr: 'Bir model seç' })}</h3>
-                            <button type="button" onClick={() => setIsSelectModelOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted shrink-0">
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
+            {isSelectModelOpen && (
+                /* Liste longue : le plein écran a du sens quand la bibliothèque
+                   compte des dizaines de modèles. Fond non cliquable car la
+                   fenêtre porte un champ de recherche. `bare` : la colonne
+                   recherche + liste gère elle-même son défilement. */
+                <SheetModal
+                    onClose={() => setIsSelectModelOpen(false)}
+                    title={tx(lang, { fr: 'Sélectionner un modèle', ar: 'اختيار موديل', en: 'Select a model', es: 'Seleccionar un modelo', pt: 'Selecionar um modelo', tr: 'Bir model seç' })}
+                    size="md"
+                    zClass="z-[97]"
+                    fullscreen={denseFullscreen}
+                    onToggleFullscreen={toggleDenseFullscreen}
+                    closeOnBackdrop={false}
+                    bare
+                >
                         <div className="px-4 py-3 border-b border-slate-100 dark:border-dk-border shrink-0">
                             <div className="relative">
                                 <Search className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted absolute left-3 top-1/2 -translate-y-1/2" />
@@ -2743,7 +2759,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 />
                             </div>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-2">
+                        <div className="flex-1 overflow-y-auto min-h-0 p-2 overscroll-contain">
                             {filteredLibraryModels.length === 0 ? (
                                 <div className="text-center py-8 text-slate-400 dark:text-dk-muted text-[12px] font-medium">
                                     {tx(lang, { fr: 'Aucun modèle disponible dans la bibliothèque', ar: 'لا يوجد موديل متاح في المكتبة', en: 'No model available in the library', es: 'Ningún modelo disponible en la biblioteca', pt: 'Nenhum modelo disponível na biblioteca', tr: 'Kütüphanede model yok' })}
@@ -2772,20 +2788,30 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 </button>
                             ))}
                         </div>
-                    </div>
-                </div>
-            , document.body)}
+                </SheetModal>
+            )}
 
             {/* AUTO MATELAS */}
-            {autoMatelasOpen && createPortal(
-                <div className="fixed inset-0 z-[96] flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-[2px]" onClick={() => setAutoMatelasOpen(false)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-xl shadow-xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Génération automatique des matelas', ar: 'توليد المفرشات تلقائياً', en: 'Auto-generate layers', es: 'Generar capas automáticamente', pt: 'Gerar esteiras automaticamente', tr: 'Katmanları otomatik oluştur' })}</h3>
-                            <button type="button" onClick={() => setAutoMatelasOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted">
-                                <X className="w-4 h-4" />
-                            </button>
+            {autoMatelasOpen && (
+                /* Deux nombres saisis à la main (plis max, pièces par pli) :
+                   fond non cliquable, sinon un clic à côté efface la saisie.
+                   Pas de plein écran, deux champs n'ont rien à étaler. */
+                <SheetModal
+                    onClose={() => setAutoMatelasOpen(false)}
+                    title={tx(lang, { fr: 'Génération automatique des matelas', ar: 'توليد المفرشات تلقائياً', en: 'Auto-generate layers', es: 'Generar capas automáticamente', pt: 'Gerar esteiras automaticamente', tr: 'Katmanları otomatik oluştur' })}
+                    size="sm"
+                    zClass="z-[96]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+                    footer={(
+                        /* Grille sur téléphone : deux boutons de largeur égale,
+                           l'action principale sur sa propre ligne. */
+                        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                            <button type="button" onClick={() => setAutoMatelasOpen(false)} className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors flex items-center justify-center sm:justify-start">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+                            <button type="button" onClick={() => applyAutoMatelasGeneration(Number(autoMaxPly) || 1, Number(autoMaxBundle) || 1)} className="col-span-2 sm:col-auto h-9 px-4 rounded-lg text-[12px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center justify-center sm:justify-start">{tx(lang, { fr: 'Générer', ar: 'توليد', en: 'Generate', es: 'Generar', pt: 'Gerar', tr: 'Oluştur' })}</button>
                         </div>
+                    )}
+                >
                         <div className="grid grid-cols-2 gap-2">
                             <div>
                                 <label className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted mb-1 uppercase tracking-wide">{tx(lang, { fr: 'Plis max', ar: 'أقصى طيات', en: 'Max ply', es: 'Pliegues máx', pt: 'Dobras máx', tr: 'Maks kat' })}</label>
@@ -2820,19 +2846,20 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 />
                             </div>
                         </div>
-                        <div className="flex items-center justify-end gap-2 mt-4">
-                            <button type="button" onClick={() => setAutoMatelasOpen(false)} className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
-                            <button type="button" onClick={() => applyAutoMatelasGeneration(Number(autoMaxPly) || 1, Number(autoMaxBundle) || 1)} className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">{tx(lang, { fr: 'Générer', ar: 'توليد', en: 'Generate', es: 'Generar', pt: 'Gerar', tr: 'Oluştur' })}</button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
+                </SheetModal>
             )}
 
             {/* DÉTACHER FICHIER */}
-            {removeConfirmId && createPortal(
-                <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-[2px]" onClick={() => setRemoveConfirmId(null)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-xl shadow-xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+            {removeConfirmId && (
+                /* Détachement : geste destructif du point de vue de l'ordre de
+                   coupe, donc actions dans le corps et fond non cliquable. */
+                <SheetModal
+                    onClose={() => setRemoveConfirmId(null)}
+                    size="sm"
+                    zClass="z-[95]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+                >
                         <div className="flex items-start gap-3 mb-3">
                             <div className="w-10 h-10 rounded-full bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center shrink-0">
                                 <AlertCircle className="w-5 h-5 text-rose-500" />
@@ -2846,15 +2873,20 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             <button type="button" onClick={() => setRemoveConfirmId(null)} className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
                             <button type="button" onClick={() => handleRemoveFichier(removeConfirmId)} className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-rose-600 text-white hover:bg-rose-700 transition-colors">{tx(lang, { fr: 'Détacher', ar: 'فصل', en: 'Detach', es: 'Desvincular', pt: 'Desvincular', tr: 'Ayır' })}</button>
                         </div>
-                    </div>
-                </div>,
-                document.body
+                </SheetModal>
             )}
 
             {/* SUPPRIMER LIGNE MATELAS */}
-            {deleteLineConfirmId && createPortal(
-                <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-[2px]" onClick={() => setDeleteLineConfirmId(null)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-xl shadow-xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+            {deleteLineConfirmId && (
+                /* Suppression d'un matelas : actions dans le corps, fond non
+                   cliquable — le plan de coupe se refait à la main sinon. */
+                <SheetModal
+                    onClose={() => setDeleteLineConfirmId(null)}
+                    size="sm"
+                    zClass="z-[95]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+                >
                         <div className="flex items-start gap-3 mb-3">
                             <div className="w-10 h-10 rounded-full bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center shrink-0">
                                 <AlertCircle className="w-5 h-5 text-rose-500" />
@@ -2870,15 +2902,22 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             <button type="button" onClick={() => setDeleteLineConfirmId(null)} className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
                             <button type="button" onClick={() => handleDeleteMatelasLine(deleteLineConfirmId)} className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-rose-600 text-white hover:bg-rose-700 transition-colors">{tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete', es: 'Eliminar', pt: 'Excluir', tr: 'Sil' })}</button>
                         </div>
-                    </div>
-                </div>,
-                document.body
+                </SheetModal>
             )}
 
             {/* CONFIRMER MATELAS COUPÉ */}
-            {toggleFaitConfirmId && createPortal(
-                <div className="fixed inset-0 z-[95] flex items-center justify-center p-4 bg-slate-950/20 backdrop-blur-[2px]" onClick={() => setToggleFaitConfirmId(null)}>
-                    <div className="bg-white dark:bg-dk-surface rounded-xl shadow-xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border p-5 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+            {toggleFaitConfirmId && (
+                /* Confirmation de coupe : question courte, pas de plein écran.
+                   Le fond reste verrouillé car valider un matelas modifie
+                   l'avancement réel de l'atelier. Les boutons restent dans le
+                   corps : ils dépendent du calcul local du matelas visé. */
+                <SheetModal
+                    onClose={() => setToggleFaitConfirmId(null)}
+                    size="sm"
+                    zClass="z-[95]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+                >
                         {(() => {
                             const targetIdx = (ordre.matelasLines || []).findIndex(l => l.id === toggleFaitConfirmId);
                             const targetLine = (ordre.matelasLines || [])[targetIdx];
@@ -2915,9 +2954,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 </>
                             );
                         })()}
-                    </div>
-                </div>,
-                document.body
+                </SheetModal>
             )}
 
             {/* TOAST */}

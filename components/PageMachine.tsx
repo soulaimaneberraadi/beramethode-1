@@ -12,6 +12,7 @@ import { MachineQrTicket } from './MachineQrTicket';
 import Implantation from './Implantation';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import SheetModal from './shared/SheetModal';
 
 /** Formatting the date for production launches */
 function formatLaunch(ev: PlanningEvent, model: ModelData | null): string {
@@ -1411,30 +1412,52 @@ function InstanceEditorModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-900/40 backdrop-blur-lg animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-dk-surface rounded-[28px] shadow-2xl dark:shadow-dk-elevated shadow-indigo-500/10 w-full max-w-md overflow-hidden flex flex-col scale-in-center border border-slate-100 dark:border-dk-border/80">
-        
-        {/* Header */}
-        <div className="p-6 pb-5 flex items-start justify-between relative overflow-hidden bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-100/50 rounded-full blur-3xl opacity-60 -mr-10 -mt-10 pointer-events-none" />
-          
-          <div className="flex gap-3.5 items-center relative z-10">
-            <div className="w-11 h-11 rounded-[16px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg dark:shadow-dk-lg shadow-indigo-500/25">
-               <Component className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="font-black text-slate-900 dark:text-dk-text text-lg tracking-tight leading-none mb-1">
-                {instance ? tx(lang,{fr:'Gérer la Machine',ar:'إدارة الآلة',en:'Manage Machine',es:'Gestionar Máquina',pt:'Gerir Máquina',tr:'Makineyi Yönet'}) : tx(lang,{fr:'Ajouter une Machine',ar:'إضافة آلة',en:'Add a Machine',es:'Añadir Máquina',pt:'Adicionar Máquina',tr:'Makine Ekle'})}
-              </h2>
-              <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Configurez les paramètres du parc',ar:'قم بتكوين إعدادات الأسطول',en:'Configure fleet parameters',es:'Configure los parámetros del parque',pt:'Configure os parâmetros do parque',tr:'Filo parametrelerini yapılandırın'})}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100/80 border border-slate-200 dark:border-dk-border/60 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors relative z-10"><XCircle className="w-4 h-4"/></button>
+    /* POURQUOI closeOnBackdrop={false} : fiche machine saisie a la main
+       (matricule, n° de serie, photo, notice). Une fermeture par megarde
+       obligerait a tout reprendre, y compris les pieces jointes. */
+    <SheetModal
+      onClose={onClose}
+      zClass="z-50"
+      size="md"
+      closeOnBackdrop={false}
+      icon={
+        <div className="w-11 h-11 rounded-[16px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-lg dark:shadow-dk-lg shadow-indigo-500/25">
+          <Component className="w-5 h-5 text-white" />
         </div>
-        
-        {/* Body Form */}
-        <div className="px-6 pb-6 flex flex-col gap-4 relative z-10">
-          
+      }
+      title={instance ? tx(lang,{fr:'Gérer la Machine',ar:'إدارة الآلة',en:'Manage Machine',es:'Gestionar Máquina',pt:'Gerir Máquina',tr:'Makineyi Yönet'}) : tx(lang,{fr:'Ajouter une Machine',ar:'إضافة آلة',en:'Add a Machine',es:'Añadir Máquina',pt:'Adicionar Máquina',tr:'Makine Ekle'})}
+      subtitle={tx(lang,{fr:'Configurez les paramètres du parc',ar:'قم بتكوين إعدادات الأسطول',en:'Configure fleet parameters',es:'Configure los parámetros del parque',pt:'Configure os parâmetros do parque',tr:'Filo parametrelerini yapılandırın'})}
+      footer={
+        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+          <button onClick={onClose} className="px-4 py-2.5 text-[10px] font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated/60 hover:text-slate-800 dark:hover:text-dk-text rounded-xl transition-colors flex items-center justify-center sm:justify-start uppercase tracking-widest">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
+          <button
+            onClick={() => {
+              const matchedClass = classes.find(c => c.classe === classId);
+              const finalClassId = matchedClass ? matchedClass.id : classId;
+              onSave({
+                id: instance?.id || `inst_${Date.now()}`,
+                classId: finalClassId,
+                numero: instance?.numero || Date.now(),
+                matricule, brand, serialNumber, status, chainId: chainId || undefined,
+                machinePhotos: photos,
+                machineManuals: manuals
+              }, { created: !instance });
+            }}
+            disabled={
+              (!matricule.trim() && !serialNumber.trim()) ||
+              !classId.trim() ||
+              instances.some(i => i.id !== instance?.id && i.matricule && i.matricule === matricule) ||
+              instances.some(i => i.id !== instance?.id && i.serialNumber && i.serialNumber === serialNumber)
+            }
+            className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md dark:shadow-dk-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 disabled:opacity-50 disabled:hover:shadow-md transition-all flex items-center justify-center sm:justify-start"
+          >
+            {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
+          </button>
+        </div>
+      }
+    >
+        <div className="flex flex-col gap-4">
+                    
           {/* Classe Lookup */}
           <div className="bg-gradient-to-br from-slate-50 to-indigo-50/30 p-4 rounded-2xl border border-slate-100 dark:border-dk-border/80">
             <label className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-2 flex items-center gap-1.5"><Layers className="w-3 h-3" /> {tx(lang,{fr:'Classe & Type',ar:'الفئة والنوع',en:'Class & Type',es:'Clase y Tipo',pt:'Classe e Tipo',tr:'Sınıf ve Tip'})}</label>
@@ -1466,7 +1489,9 @@ function InstanceEditorModal({
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          {/* Champs TEXTE : a deux ou trois colonnes sur telephone, un libelle
+              se coupe et deborde sur la carte voisine. Une seule colonne. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1.5 ml-0.5">{tx(lang,{fr:'Réf / Matricule',ar:'المرجع / الرقم التسلسلي',en:'Ref / Serial No.',es:'Ref / Matrícula',pt:'Ref / Matrícula',tr:'Ref / Seri No.'})}</label>
               <input 
@@ -1504,7 +1529,7 @@ function InstanceEditorModal({
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1.5 ml-0.5">{tx(lang,{fr:'Affectation',ar:'التعيين',en:'Assignment',es:'Asignación',pt:'Atribuição',tr:'Atama'})}</label>
               <select
@@ -1563,52 +1588,22 @@ function InstanceEditorModal({
               </div>
             </div>
           </div>
+          {/* POURQUOI la suppression vit ICI et non dans le pied de page :
+              retirer une machine du parc est irreversible. On va la chercher au
+              bas du formulaire au lieu de la poser sous le pouce, a cote
+              d'Enregistrer, ou un doigt presse la trouverait par accident. */}
+          {instance && (
+            <div className="pt-2 mt-2 border-t border-slate-100 dark:border-dk-border/80">
+              <button
+                onClick={() => onDelete(instance.id)}
+                className="w-full sm:w-auto px-4 py-2 text-[10px] font-bold text-rose-500 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 hover:text-rose-600 rounded-xl transition-colors uppercase tracking-widest"
+              >
+                {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}
+              </button>
+            </div>
+          )}
         </div>
-
-        {/* Footer */}
-        <div className="p-5 pt-4 border-t border-slate-100 dark:border-dk-border/80 bg-gradient-to-r from-slate-50/50 to-indigo-50/30 flex items-center justify-between mt-auto">
-          {instance ? (
-             <button 
-               onClick={() => onDelete(instance.id)}
-               className="px-4 py-2 text-[10px] font-bold text-rose-500 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 hover:text-rose-600 rounded-xl transition-colors"
-             >
-               {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}
-             </button>
-          ) : <div />}
-          
-          <div className="flex gap-2.5">
-              <button onClick={onClose} className="px-4 py-2.5 text-[10px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800 rounded-xl transition-colors">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
-              <button 
-                onClick={() => {
-                  const matchedClass = classes.find(c => c.classe === classId);
-                  const finalClassId = matchedClass ? matchedClass.id : classId;
-                  onSave({
-                  id: instance?.id || `inst_${Date.now()}`,
-                  classId: finalClassId,
-                  numero: instance?.numero || Date.now(),
-                  matricule, brand, serialNumber, status, chainId: chainId || undefined,
-                  machinePhotos: photos,
-                  machineManuals: manuals
-                }, { created: !instance });
-              }}
-              disabled={
-                (!matricule.trim() && !serialNumber.trim()) || 
-                !classId.trim() ||
-                instances.some(i => i.id !== instance?.id && i.matricule && i.matricule === matricule) ||
-                instances.some(i => i.id !== instance?.id && i.serialNumber && i.serialNumber === serialNumber)
-              }
-              className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md dark:shadow-dk-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30 disabled:opacity-50 disabled:hover:shadow-md transition-all"
-            >
-              {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
-            </button>
-          </div>
-        </div>
-      </div>
-      <style>{`
-        .scale-in-center { animation: scale-in-center 0.25s cubic-bezier(0.250, 0.460, 0.450, 0.940) both; }
-        @keyframes scale-in-center { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-      `}</style>
-    </div>
+    </SheetModal>
   );
 }
 
@@ -1633,30 +1628,46 @@ function ClassEditorModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6 bg-slate-900/40 backdrop-blur-lg animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-dk-surface rounded-[28px] shadow-2xl dark:shadow-dk-elevated shadow-emerald-500/10 w-full max-w-md overflow-hidden flex flex-col scale-in-center border border-slate-100 dark:border-dk-border/80">
-        
-        {/* Header */}
-        <div className="p-6 pb-5 flex items-start justify-between relative overflow-hidden bg-gradient-to-br from-emerald-50/50 via-white to-teal-50/30">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-100/50 rounded-full blur-3xl opacity-60 -mr-10 -mt-10 pointer-events-none" />
-          
-          <div className="flex gap-3.5 items-center relative z-10">
-            <div className="w-11 h-11 rounded-[16px] bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0 shadow-lg dark:shadow-dk-lg shadow-emerald-500/25">
-               <Plus className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="font-black text-slate-900 dark:text-dk-text text-lg tracking-tight leading-none mb-1">
-                {tx(lang,{fr:'Créer la Classe',ar:'إنشاء الفئة',en:'Create Class',es:'Crear Clase',pt:'Criar Classe',tr:'Sınıf Oluştur'})}
-              </h2>
-              <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Définissez ce nouveau type',ar:'حدد هذا النوع الجديد',en:'Define this new type',es:'Defina este nuevo tipo',pt:'Defina este novo tipo',tr:'Bu yeni türü tanımlayın'})}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100/80 border border-slate-200 dark:border-dk-border/60 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors relative z-10"><XCircle className="w-4 h-4"/></button>
+    /* z-[60] conserve : cette fenetre s'ouvre DEPUIS la fiche machine (z-50) et
+       doit rester devant elle. */
+    <SheetModal
+      onClose={onClose}
+      zClass="z-[60]"
+      size="md"
+      closeOnBackdrop={false}
+      icon={
+        <div className="w-11 h-11 rounded-[16px] bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0 shadow-lg dark:shadow-dk-lg shadow-emerald-500/25">
+          <Plus className="w-5 h-5 text-white" />
         </div>
-        
-        {/* Body Form */}
-        <div className="px-6 pb-6 flex flex-col gap-4 relative z-10">
-          
+      }
+      title={tx(lang,{fr:'Créer la Classe',ar:'إنشاء الفئة',en:'Create Class',es:'Crear Clase',pt:'Criar Classe',tr:'Sınıf Oluştur'})}
+      subtitle={tx(lang,{fr:'Définissez ce nouveau type',ar:'حدد هذا النوع الجديد',en:'Define this new type',es:'Defina este nuevo tipo',pt:'Defina este novo tipo',tr:'Bu yeni türü tanımlayın'})}
+      footer={
+        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+          <button onClick={onClose} className="px-4 py-2.5 text-[10px] font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated/60 hover:text-slate-800 dark:hover:text-dk-text rounded-xl transition-colors flex items-center justify-center sm:justify-start uppercase tracking-widest">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
+          <button
+            onClick={() => {
+              onSave({
+                id: Date.now().toString(),
+                name,
+                classe,
+                machineCategory,
+                speed,
+                speedMajor,
+                cofs,
+                active: true
+              });
+            }}
+            disabled={!name.trim() || !classe.trim()}
+            className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md dark:shadow-dk-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50 disabled:hover:shadow-md transition-all flex items-center justify-center sm:justify-start"
+          >
+            {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
+          </button>
+        </div>
+      }
+    >
+        <div className="flex flex-col gap-4">
+                    
           <div>
             <label className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1.5 ml-0.5">{tx(lang,{fr:'Nom *',ar:'الاسم *',en:'Name *',es:'Nombre *',pt:'Nome *',tr:'Ad *'})}</label>
             <input 
@@ -1666,7 +1677,7 @@ function ClassEditorModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-1.5 ml-0.5">{tx(lang,{fr:'Type (Famille)',ar:'النوع (العائلة)',en:'Type (Family)',es:'Tipo (Familia)',pt:'Tipo (Família)',tr:'Tip (Aile)'})}</label>
               <input 
@@ -1710,36 +1721,6 @@ function ClassEditorModal({
           </div>
 
         </div>
-
-        {/* Footer */}
-        <div className="p-5 pt-4 border-t border-slate-100 dark:border-dk-border/80 bg-gradient-to-r from-slate-50/50 to-emerald-50/30 flex items-center justify-end mt-auto">
-          <div className="flex gap-2.5">
-            <button onClick={onClose} className="px-4 py-2.5 text-[10px] font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-800 rounded-xl transition-colors">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
-            <button 
-              onClick={() => {
-                onSave({
-                  id: Date.now().toString(),
-                  name,
-                  classe,
-                  machineCategory,
-                  speed,
-                  speedMajor,
-                  cofs,
-                  active: true
-                });
-              }}
-              disabled={!name.trim() || !classe.trim()}
-              className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-md dark:shadow-dk-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50 disabled:hover:shadow-md transition-all"
-            >
-              {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
-            </button>
-          </div>
-        </div>
-      </div>
-      <style>{`
-        .scale-in-center { animation: scale-in-center 0.25s cubic-bezier(0.250, 0.460, 0.450, 0.940) both; }
-        @keyframes scale-in-center { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-      `}</style>
-    </div>
+    </SheetModal>
   );
 }

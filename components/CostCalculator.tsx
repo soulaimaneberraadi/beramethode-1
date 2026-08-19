@@ -23,6 +23,7 @@ import CompactCostSheet from './CompactCostSheet';
 import ThreadCalculator from './ThreadCalculator';
 import SensitiveValue, { useFieldAccess } from './ui/SensitiveValue';
 import SousTraitanceModal, { SousTraitance } from './SousTraitanceModal';
+import SheetModal from './shared/SheetModal';
 import { Operation } from '../types';
 
 /** Mode Vercel : pas de serveur Express, donc aucune API commande à mettre à jour. */
@@ -1673,8 +1674,17 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
 
             {/* Confirm Modal */}
             {confirmDialog.isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl dark:shadow-dk-elevated w-full max-w-md sm:max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+                /* Boîte de confirmation courte : ni en-tête, ni plein écran. Le
+                   fond ne ferme pas — une réponse à une question qui engage un
+                   calcul de coût ne doit pas s'annuler d'un clic distrait. */
+                <SheetModal
+                    onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+                    size="md"
+                    zClass="z-[100]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0"
+                >
+                    <div>
                         <div className="p-6">
                             <div className="flex items-start gap-4">
                                 <div className={`p-3 rounded-full shrink-0 ${
@@ -1692,7 +1702,9 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                                 </div>
                             </div>
                         </div>
-                        <div className="bg-slate-50 dark:bg-dk-bg px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-end gap-3 border-t border-slate-100 dark:border-dk-border">
+                        {/* Actions gardées dans le corps : la boîte est courte, rien
+                            ne défile, et le geste de confirmation reste sous les yeux. */}
+                        <div className="bg-slate-50 dark:bg-dk-bg px-4 sm:px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-4 grid grid-cols-1 sm:flex sm:flex-row sm:justify-end gap-2 sm:gap-3 border-t border-slate-100 dark:border-dk-border">
                             {!confirmDialog.hideCancel && (
                                 <button
                                     onClick={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
@@ -1713,7 +1725,7 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                             </button>
                         </div>
                     </div>
-                </div>
+                </SheetModal>
             )}
 
             {/* Thread Calculator Modal */}
