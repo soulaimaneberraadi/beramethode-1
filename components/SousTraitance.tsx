@@ -8712,20 +8712,26 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               )}
             </div>
 
-            <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap gap-2 sm:gap-3 items-center text-xs font-bold sticky bottom-0">
+            {/* Téléphone : une grille, pas un `flex-wrap`. En repli libre les
+                quatre boutons retombaient en lignes ineégales, de largeurs
+                differentes, et l'oeil ne trouvait plus l'action principale.
+                Ici l'entrée en stock tient toute la largeur (c'est le geste du
+                jour), les deux documents se partagent la ligne suivante, et
+                Fermer ferme la marche. Sur ordinateur, la rangée d'origine. */
+            <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-4 sm:px-6 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center text-xs font-bold sticky bottom-0">
               {/* L'entrée en stock est une opération de production, pas un
                   document : elle reste à gauche, séparée des actions
                   d'impression et de facturation. */}
               <button
                 onClick={() => openStockEntries(detailOrder)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-none transition-all mr-auto"
+                className="col-span-2 sm:col-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 sm:py-2 rounded-xl flex items-center justify-center sm:justify-start gap-1.5 shadow-sm dark:shadow-none transition-all sm:mr-auto"
               >
                 <Package className="w-4 h-4" />
                 <span>{tx(lang,{fr:'Entrer en stock',ar:'إدخال للمخزون',en:'Add to stock',es:'Entrar en stock',pt:'Entrar em stock',tr:'Stoğa gir'})}</span>
               </button>
               <button 
                 onClick={() => openBonEnvoiModal(detailOrder)}
-                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-none transition-all"
+                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2.5 sm:py-2 rounded-xl flex items-center justify-center sm:justify-start gap-1.5 shadow-sm dark:shadow-none transition-all"
                 title={tx(lang,{fr:"Préparer le bon avant impression",ar:'تحضير المذكرة قبل الطباعة',en:'Prepare the note before printing',es:'Preparar el bono antes de imprimir',pt:'Preparar a nota antes de imprimir',tr:'Yazdırmadan önce irsaliyeyi hazırla'})}
               >
                 <Printer className="w-4 h-4" />
@@ -8733,7 +8739,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </button>
               <button
                 onClick={() => openCostInvoiceModal(detailOrder)}
-                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-none transition-all"
+                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2.5 sm:py-2 rounded-xl flex items-center justify-center sm:justify-start gap-1.5 shadow-sm dark:shadow-none transition-all"
                 title={tx(lang,{fr:'Facture de ce que vous devez payer au sous-traitant',ar:'فاتورة ديال اللي خاصك تخلّص للمقاول من الباطن',en:'Invoice of what you owe the subcontractor',es:'Factura de lo que debe pagar al subcontratista',pt:'Fatura do que deve pagar ao subcontratado',tr:'Taşerona ödemeniz gerekenin faturası'})}
               >
                 <Coins className="w-4 h-4" />
@@ -8741,7 +8747,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </button>
               <button
                 onClick={() => setIsDetailModalOpen(false)}
-                className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow dark:shadow-dk-sm transition-all border border-indigo-600 dark:border-dk-accent"
+                className="col-span-2 sm:col-auto bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow dark:shadow-dk-sm transition-all border border-indigo-600 dark:border-dk-accent"
               >
                 {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
               </button>
