@@ -3,7 +3,7 @@ import { Users, Plus, Trash2, Edit2, Eye, Search, Loader2, AlertCircle, Save, Do
 import { useLang } from '../../src/context/LanguageContext';
 import { tx } from '../../lib/i18n';
 import { fmt } from '../../app/constants';
-import SheetModal from './SheetModal';
+import SheetModal from '../shared/SheetModal';
 
 /** Client de l'atelier. Reflet exact de la table `st_clients`. */
 export interface AtelierClient {

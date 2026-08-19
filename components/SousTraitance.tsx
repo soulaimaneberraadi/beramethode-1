@@ -14,7 +14,7 @@ import FactureUploader from './FactureUploader';
 import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
 import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
 import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
-import SheetModal, { useSheetFullscreen } from './soustraitance/SheetModal';
+import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 

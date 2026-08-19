@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { AtelierClient } from './ClientsPanel';
 import { ModelStoreSection } from './StoreSync';
-import SheetModal, { useSheetFullscreen } from './SheetModal';
+import SheetModal, { useSheetFullscreen } from '../shared/SheetModal';
 
 /**
  * Fiches d'entité de la sous-traitance (modèle et client).
