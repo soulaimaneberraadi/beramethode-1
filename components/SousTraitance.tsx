@@ -8011,8 +8011,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
            reste visible. Ordinateur : fenêtre centrée, agrandissable. */
         <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 overflow-y-auto">
           <div className={`relative bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border shadow-2xl dark:shadow-dk-elevated w-full overflow-hidden flex flex-col text-slate-700 dark:text-dk-text rounded-t-2xl sm:rounded-3xl max-h-[92vh] sm:my-auto ${
+            /* Pas de `vw` ici : `96vw` s'ajoutait au padding du conteneur et
+               débordait de l'écran — le bouton Fermer et la colonne de droite
+               des tableaux se retrouvaient coupés. En pourcentage, la largeur
+               se calcule DANS la zone déjà amputée du padding. */
             detailFullscreen
-              ? 'sm:max-w-[96vw] sm:h-[94vh] sm:max-h-[94vh]'
+              ? 'sm:max-w-none sm:h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-2rem)]'
               : 'sm:max-w-2xl sm:h-auto sm:max-h-[85vh]'
           }`}>
             {/* Poignée : dit qu'on peut refermer en glissant, convention mobile. */}
