@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import db from './db';
 import { verifierVenteSousCout } from './commercialPolicy';
+import { generateNumero } from './facturationController';
 
 /**
  * Clients de l'atelier (acheteurs des pièces finies).
@@ -14,11 +15,20 @@ import { verifierVenteSousCout } from './commercialPolicy';
 
 const TYPES = new Set(['GROS', 'DETAIL', 'BOUTIQUE']);
 
+/** Canal de vente d'une sortie. NULL est accepté et vaut 'ATELIER' : toutes les
+ *  sorties saisies avant l'arrivée de la boutique en ligne n'en portent aucun,
+ *  et les requalifier après coup inventerait une information. */
+const CANAUX = new Set(['ATELIER', 'MAGASIN', 'ONLINE']);
+
+/** `doc_recto`/`doc_verso` restent en snake_case en base (comme le reste de la
+ *  table) mais sortent en camelCase pour coller à `AtelierClient` côté client. */
+const CLIENT_SELECT = 'SELECT id, owner_id, nom, type, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto AS docRecto, doc_verso AS docVerso, created_at, updated_at FROM st_clients';
+
 export const getClients = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
     try {
         const rows = db
-            .prepare('SELECT * FROM st_clients WHERE owner_id = ? ORDER BY nom COLLATE NOCASE')
+            .prepare(`${CLIENT_SELECT} WHERE owner_id = ? ORDER BY nom COLLATE NOCASE`)
             .all(companyId);
         res.json(rows);
     } catch (error) {
@@ -39,8 +49,8 @@ export const saveClient = (req: Request, res: Response) => {
     try {
         const id = c.id || randomUUID();
         db.prepare(`
-            INSERT INTO st_clients (id, owner_id, nom, type, ice, rc, tel, email, adresse, ville, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_clients (id, owner_id, nom, type, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto, doc_verso)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 nom = excluded.nom,
                 type = excluded.type,
@@ -51,6 +61,9 @@ export const saveClient = (req: Request, res: Response) => {
                 adresse = excluded.adresse,
                 ville = excluded.ville,
                 notes = excluded.notes,
+                photo = excluded.photo,
+                doc_recto = excluded.doc_recto,
+                doc_verso = excluded.doc_verso,
                 updated_at = CURRENT_TIMESTAMP
         `).run(
             id,
@@ -64,14 +77,56 @@ export const saveClient = (req: Request, res: Response) => {
             c.adresse || null,
             c.ville || null,
             c.notes || null,
+            c.photo || null,
+            c.docRecto || null,
+            c.docVerso || null,
         );
 
-        const saved = db.prepare('SELECT * FROM st_clients WHERE id = ? AND owner_id = ?').get(id, companyId);
+        const saved = db.prepare(`${CLIENT_SELECT} WHERE id = ? AND owner_id = ?`).get(id, companyId);
         res.json(saved);
     } catch (error) {
         console.error('Save client error:', error);
         res.status(500).json({ message: 'Error saving client' });
     }
+};
+
+/**
+ * Retrouve un client, ou crée sa fiche s'il est inconnu.
+ *
+ * Utilisé par la synchronisation boutique : une commande en ligne arrive avec un
+ * nom et un email, pas avec un identifiant BERAMETHODE. Sans cette réconciliation,
+ * chaque vente en ligne créerait une fiche de plus et le même acheteur se
+ * retrouverait éclaté en dix clients — ses statistiques (CA, fidélité, tarifs
+ * négociés) deviendraient illisibles.
+ *
+ * Réconciliation, du plus fiable au moins fiable :
+ *   1. l'email — unique par nature, c'est la vraie clé d'un acheteur en ligne ;
+ *   2. le nom, comparé sans tenir compte de la casse ;
+ *   3. sinon, création.
+ *
+ * ⚠️ Isolation : toujours borné à `owner_id`.
+ */
+export const findOrCreateClient = (
+    companyId: number | string,
+    infos: { nom: string; email?: string | null; tel?: string | null; type?: string | null },
+): { id: string; nom: string } => {
+    const nom = String(infos.nom ?? '').trim() || 'Client';
+    const email = String(infos.email ?? '').trim();
+
+    if (email) {
+        const parEmail = db.prepare('SELECT id, nom FROM st_clients WHERE owner_id = ? AND email = ? COLLATE NOCASE LIMIT 1')
+            .get(companyId, email) as any;
+        if (parEmail) return { id: String(parEmail.id), nom: String(parEmail.nom) };
+    }
+
+    const parNom = db.prepare('SELECT id, nom FROM st_clients WHERE owner_id = ? AND nom = ? COLLATE NOCASE LIMIT 1')
+        .get(companyId, nom) as any;
+    if (parNom) return { id: String(parNom.id), nom: String(parNom.nom) };
+
+    const id = randomUUID();
+    db.prepare('INSERT INTO st_clients (id, owner_id, nom, type, email) VALUES (?, ?, ?, ?, ?)')
+        .run(id, companyId, nom, TYPES.has(String(infos.type)) ? String(infos.type) : 'DETAIL', email || null);
+    return { id, nom };
 };
 
 export const deleteClient = (req: Request, res: Response) => {
@@ -107,9 +162,12 @@ export const getClientDossier = (req: Request, res: Response) => {
         // un modèle supprimé ne doit pas faire disparaître ses ventes passées.
         const sorties = db.prepare(`
             SELECT s.*,
-                   COALESCE(json_extract(m.data, '$.meta_data.nom_modele'), json_extract(m.data, '$.filename')) AS model_nom
+                   COALESCE(json_extract(m.data, '$.meta_data.nom_modele'), json_extract(m.data, '$.filename')) AS model_nom,
+                   f.statut AS facture_statut, f.date_echeance AS facture_echeance,
+                   f.montant_paye AS facture_montant_paye, f.total_ttc AS facture_total_ttc
             FROM st_stock_sorties s
             LEFT JOIN models m ON m.id = s.modelId AND m.user_id = s.owner_id
+            LEFT JOIN factures f ON f.id = s.facture_id AND f.owner_id = s.owner_id
             WHERE s.owner_id = ? AND s.client_id = ?
             ORDER BY s.date_sortie DESC, s.created_at DESC
         `).all(companyId, clientId) as any[];
@@ -311,10 +369,18 @@ export const deleteStockEntry = (req: Request, res: Response) => {
 export const getStockSorties = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
     const { modelId } = req.query as { modelId?: string };
+    // Jointure vers la facture qui couvre cette sortie : sans elle, la fiche
+    // client ne pourrait jamais répondre « ce client a-t-il payé ? ».
+    const select = `
+        SELECT s.*, f.statut AS facture_statut, f.date_echeance AS facture_echeance,
+               f.montant_paye AS facture_montant_paye, f.total_ttc AS facture_total_ttc
+        FROM st_stock_sorties s
+        LEFT JOIN factures f ON f.id = s.facture_id AND f.owner_id = s.owner_id
+        WHERE s.owner_id = ?`;
     try {
         const rows = modelId
-            ? db.prepare('SELECT * FROM st_stock_sorties WHERE owner_id = ? AND modelId = ? ORDER BY date_sortie DESC, created_at DESC').all(companyId, modelId)
-            : db.prepare('SELECT * FROM st_stock_sorties WHERE owner_id = ? ORDER BY date_sortie DESC, created_at DESC').all(companyId);
+            ? db.prepare(`${select} AND s.modelId = ? ORDER BY s.date_sortie DESC, s.created_at DESC`).all(companyId, modelId)
+            : db.prepare(`${select} ORDER BY s.date_sortie DESC, s.created_at DESC`).all(companyId);
         res.json(rows);
     } catch (error) {
         console.error('Get stock sorties error:', error);
@@ -373,16 +439,23 @@ export const createStockSortie = (req: Request, res: Response) => {
 
         const batchId = randomUUID();
         const date = body.date_sortie || new Date().toISOString().split('T')[0];
+        // Le canal est saisi ici uniquement pour les ventes humaines (comptoir,
+        // magasin). Les ventes 'ONLINE' ne passent JAMAIS par cette route : elles
+        // sont écrites par le worker de synchronisation, seul détenteur de la
+        // référence de commande qui garantit l'absence de doublon.
+        const canalDemande = String(body.canal ?? '').trim().toUpperCase();
+        const canal = canalDemande === 'MAGASIN' ? 'MAGASIN' : (CANAUX.has(canalDemande) && canalDemande !== 'ONLINE' ? canalDemande : null);
+
         const insert = db.prepare(`
-            INSERT INTO st_stock_sorties (id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire, batch_id, facture_id, note, date_sortie)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_stock_sorties (id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire, batch_id, facture_id, note, date_sortie, canal)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         // Transaction : une sortie est un tout. La moitié des cellules écrites
         // laisserait un stock faux sans que rien ne le signale.
         db.transaction(() => {
             for (const l of lignes) {
                 insert.run(randomUUID(), companyId, modelId, body.client_id || null, body.client_nom || null,
-                    l.couleur, l.taille, l.quantite, l.prix_unitaire, batchId, body.facture_id || null, body.note || null, date);
+                    l.couleur, l.taille, l.quantite, l.prix_unitaire, batchId, body.facture_id || null, body.note || null, date, canal);
             }
         })();
 
@@ -390,6 +463,131 @@ export const createStockSortie = (req: Request, res: Response) => {
     } catch (error) {
         console.error('Create stock sortie error:', error);
         res.status(500).json({ message: 'Error creating stock exit' });
+    }
+};
+
+/**
+ * Facture de VENTE construite à partir de sorties de stock déjà réalisées.
+ *
+ * Le module savait sortir des pièces (st_stock_sorties) et savait imprimer une
+ * facture de vente, mais les deux ne se parlaient jamais : une facture pouvait
+ * être émise sans qu'aucune sortie n'y soit rattachée, ce qui rendait le statut
+ * de paiement d'une vente invérifiable depuis la fiche client. Ici, la facture
+ * naît DES sorties choisies, et ces sorties portent ensuite son id — c'est ce
+ * lien qui permet à la fiche client de savoir « payé / impayé » ligne par ligne.
+ */
+export const createClientInvoice = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    const body = req.body || {};
+    const sortieIds: string[] = Array.isArray(body.sortieIds) ? body.sortieIds.map(String) : [];
+
+    if (sortieIds.length === 0) return res.status(400).json({ message: 'Aucune sortie sélectionnée' });
+
+    try {
+        const client = db.prepare('SELECT * FROM st_clients WHERE id = ? AND owner_id = ?').get(body.clientId, companyId) as any;
+
+        const placeholders = sortieIds.map(() => '?').join(',');
+        // Seules les sorties de CE client, encore NON facturées, entrent dans le
+        // calcul : une sortie déjà facturée ne doit jamais se retrouver sur deux
+        // factures, et une sortie d'un autre client ne doit jamais s'y glisser.
+        const sorties = db.prepare(`
+            SELECT s.*, COALESCE(json_extract(m.data, '$.meta_data.nom_modele'), json_extract(m.data, '$.filename')) AS model_nom
+            FROM st_stock_sorties s
+            LEFT JOIN models m ON m.id = s.modelId AND m.user_id = s.owner_id
+            WHERE s.owner_id = ? AND s.id IN (${placeholders}) AND s.facture_id IS NULL
+        `).all(companyId, ...sortieIds) as any[];
+
+        if (sorties.length === 0) return res.status(400).json({ message: 'Ces sorties sont introuvables ou déjà facturées' });
+
+        const mismatched = body.clientId && sorties.some(s => s.client_id && String(s.client_id) !== String(body.clientId));
+        if (mismatched) return res.status(400).json({ message: "Une sortie n'appartient pas à ce client" });
+
+        const totalBrut = sorties.reduce((a, s) => a + (Number(s.quantite) || 0) * (Number(s.prix_unitaire) || 0), 0);
+        // La remise arrive déjà calculée en montant (le client choisit % ou
+        // montant fixe côté écran) : le serveur ne fait que la borner, pour
+        // qu'un montant fantaisiste ne puisse jamais rendre le HT négatif.
+        const discount = Math.max(0, Math.min(totalBrut, Number(body.discount) || 0));
+        const totalHt = totalBrut - discount;
+        const exonere = body.exonere === true;
+        const tauxTva = exonere ? 0 : (Number(body.taux_tva) || 0);
+        const totalTva = totalHt * (tauxTva / 100);
+        const totalTtc = totalHt + totalTva;
+        const statut = ['BROUILLON', 'ENVOYEE', 'PAYEE'].includes(body.statut) ? body.statut : 'ENVOYEE';
+        // L'acompte est un RÈGLEMENT déjà perçu : il alimente montant_paye et
+        // laisse le TTC intact, sinon la facture serait sous-évaluée. Un statut
+        // "Payée" vaut réglage total, quel que soit l'acompte saisi.
+        const montantPaye = statut === 'PAYEE' ? totalTtc : Math.max(0, Math.min(totalTtc, Number(body.montant_paye) || 0));
+
+        const lignes: any[] = sorties.map(s => ({
+            designation: `${s.model_nom || s.modelId || '—'}${[s.couleur, s.taille].filter(Boolean).length ? ' — ' + [s.couleur, s.taille].filter(Boolean).join(' / ') : ''}`,
+            quantite: Number(s.quantite) || 0,
+            prix_unitaire: Number(s.prix_unitaire) || 0,
+            total: (Number(s.quantite) || 0) * (Number(s.prix_unitaire) || 0),
+            modelId: s.modelId,
+        }));
+        if (discount > 0) {
+            lignes.push({ designation: 'Remise commerciale', quantite: 1, prix_unitaire: -discount, total: -discount });
+        }
+
+        const id = 'FAC_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        const numero = generateNumero('VENTE', companyId);
+        const dateFacture = /^\d{4}-\d{2}-\d{2}$/.test(body.date_facture) ? body.date_facture : new Date().toISOString().split('T')[0];
+
+        db.transaction(() => {
+            db.prepare(`
+                INSERT INTO factures (
+                    id, owner_id, numero, type, tiers_nom, tiers_ice, tiers_rc, tiers_adresse, tiers_tel, tiers_email,
+                    date_facture, date_echeance, total_ht, taux_tva, total_tva, total_ttc, montant_paye,
+                    source_module, source_id, statut, notes, lignes
+                ) VALUES (?, ?, ?, 'VENTE', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(
+                id, companyId, numero,
+                client?.nom || sorties[0]?.client_nom || '—',
+                client?.ice || null, client?.rc || null, client?.adresse || null, client?.tel || null, client?.email || null,
+                dateFacture, body.date_echeance || null,
+                totalHt, tauxTva, totalTva, totalTtc, montantPaye,
+                'SOUSTRAITANCE_VENTE', body.clientId || null,
+                statut, body.notes || null, JSON.stringify(lignes),
+            );
+
+            const setFacture = db.prepare('UPDATE st_stock_sorties SET facture_id = ? WHERE id = ? AND owner_id = ? AND facture_id IS NULL');
+            for (const s of sorties) setFacture.run(id, s.id, companyId);
+        })();
+
+        const facture = db.prepare('SELECT * FROM factures WHERE id = ? AND owner_id = ?').get(id, companyId);
+        res.json({ ...(facture as any), lignes: JSON.parse((facture as any).lignes || '[]'), sortiesFacturees: sorties.length });
+    } catch (error) {
+        console.error('Create client invoice error:', error);
+        res.status(500).json({ message: 'Error creating invoice' });
+    }
+};
+
+/**
+ * Annule une facture de VENTE émise depuis la fiche client.
+ *
+ * Une facture annulée ne doit plus bloquer ses sorties : elles redeviennent
+ * facturables, comme si elles n'avaient jamais été prises dans une facture.
+ * La facture elle-même n'est pas supprimée (elle garde son numéro pour la
+ * traçabilité comptable) — seul son statut passe à ANNULEE.
+ */
+export const cancelClientInvoice = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    const { id } = req.params;
+    try {
+        const facture = db.prepare("SELECT id FROM factures WHERE id = ? AND owner_id = ? AND source_module = 'SOUSTRAITANCE_VENTE'").get(id, companyId);
+        if (!facture) return res.status(404).json({ message: 'Facture introuvable' });
+
+        db.transaction(() => {
+            db.prepare("UPDATE factures SET statut = 'ANNULEE', montant_paye = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND owner_id = ?").run(id, companyId);
+            // Les sorties reviennent au pool « non facturé » : c'est ce qui permet
+            // de les reprendre dans une nouvelle facture.
+            db.prepare('UPDATE st_stock_sorties SET facture_id = NULL WHERE facture_id = ? AND owner_id = ?').run(id, companyId);
+        })();
+
+        res.json({ message: 'Facture annulée' });
+    } catch (error) {
+        console.error('Cancel client invoice error:', error);
+        res.status(500).json({ message: 'Error cancelling invoice' });
     }
 };
 

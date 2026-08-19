@@ -927,6 +927,9 @@ db.exec(`
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
   )
 `);
+try { db.exec("ALTER TABLE st_clients ADD COLUMN photo TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE st_clients ADD COLUMN doc_recto TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE st_clients ADD COLUMN doc_verso TEXT"); } catch { /* already exists */ }
 
 // Tarifs de VENTE d'un modèle. Jusqu'ici un modèle n'avait qu'un seul prix
 // (`ficheData.clientPrice`) : dans un atelier réel le même article part à un prix
@@ -965,6 +968,140 @@ db.exec(`
 // La lecture se fait toujours « les tarifs de CE modèle pour CETTE entreprise » :
 // c'est le seul accès qui mérite un index.
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_prix_owner_model ON st_prix (owner_id, modelId)'); } catch { /* index déjà présent */ }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOUTIQUE EN LIGNE — pont entre le stock de l'atelier et une plateforme e-commerce
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Configuration d'une boutique en ligne. Une ligne PAR boutique et PAR
+// entreprise : un atelier peut vendre sur sa boutique Shopify ET sur un site
+// maison, avec deux stocks à tenir à jour depuis le même magasin physique.
+// Une seule configuration globale obligerait à choisir, ou à ressaisir.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_store_config (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    -- SHOPIFY / WOO / CUSTOM : détermine l'adaptateur utilisé côté serveur.
+    plateforme TEXT NOT NULL DEFAULT 'SHOPIFY',
+    nom TEXT,
+    boutique_url TEXT,
+    -- ⚠️ Secret. Il ne sort JAMAIS du serveur : le controller ne renvoie qu'une
+    -- version masquée (shpat_••••1234). Un token qui transite vers le navigateur
+    -- finit dans un cache, une capture d'écran ou un log.
+    token TEXT,
+    -- Emplacement de stock côté plateforme (Shopify : location GID). Une boutique
+    -- peut avoir plusieurs entrepôts ; sans cette précision on écrirait la
+    -- quantité au mauvais endroit et le stock afficherait 0 en vente.
+    location_id TEXT,
+    actif INTEGER DEFAULT 0,
+    -- Pièces gardées hors ligne. Le magasin physique vend la même pièce que la
+    -- boutique : la marge évite de vendre en ligne l'article que le comptoir
+    -- vient d'écouler, et donc d'annuler une commande client.
+    marge_securite INTEGER DEFAULT 0,
+    derniere_sync TEXT,
+    derniere_erreur TEXT,
+    -- Curseur de lecture des commandes distantes (date ou id) : sans lui on
+    -- relirait tout l'historique à chaque passage du worker.
+    orders_cursor TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_store_config_owner ON st_store_config (owner_id)'); } catch { /* index déjà présent */ }
+
+// Le PONT, à la maille CELLULE (modèle × couleur × taille).
+//
+// L'atelier raisonne « un modèle, une matrice couleur × taille ». Une boutique
+// en ligne, elle, ne connaît que des VARIANTES : chaque couleur × taille est un
+// article distinct, avec son propre stock. Mapper un modèle entier serait donc
+// faux dès la deuxième taille — c'est la cellule qui est l'unité d'échange.
+//
+// POURQUOI DEUX CLÉS DISTANTES ?
+//   • `sku` est la clé LISIBLE : c'est elle que l'humain lit sur l'étiquette,
+//     dans l'export CSV de la boutique et dans un email de réclamation.
+//   • `external_inventory_item_id` est la clé sur laquelle la plateforme AGIT
+//     réellement quand on pose une quantité.
+// Garder les deux permet de détecter qu'elles ont divergé — variante supprimée
+// puis recréée à la main côté boutique, produit dupliqué — au lieu de pousser
+// des quantités dans le vide et de laisser le stock dériver en silence.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_store_mapping (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    store_id TEXT NOT NULL,
+    modelId TEXT NOT NULL,
+    couleur TEXT,
+    taille TEXT,
+    sku TEXT,
+    external_product_id TEXT,
+    external_variant_id TEXT,
+    external_inventory_item_id TEXT,
+    -- Dernière quantité effectivement acceptée par la plateforme : sert de
+    -- valeur de comparaison (compareQuantity) et évite de repousser à l'identique.
+    derniere_qte_poussee INTEGER,
+    -- OK / PENDING (pas encore lié à une variante) / ERROR (le lien est cassé).
+    statut TEXT DEFAULT 'PENDING',
+    derniere_erreur TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+// Lecture courante : « le mapping de CE modèle sur CETTE boutique ».
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_store_mapping_model ON st_store_mapping (owner_id, store_id, modelId)'); } catch { /* index déjà présent */ }
+// Un SKU en double sur la même boutique ferait pousser deux quantités
+// contradictoires sur la même variante : la base doit l'interdire, pas le code.
+try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_st_store_mapping_sku ON st_store_mapping (owner_id, store_id, sku)'); } catch { /* index déjà présent */ }
+
+// File d'attente des ordres à envoyer à la boutique.
+//
+// POURQUOI UNE FILE ET PAS UN APPEL DIRECT ?
+// Dans un atelier marocain l'internet tombe — coupure ADSL, panne de courant,
+// forfait 4G épuisé. Sans file d'attente, un envoi raté pendant une saisie de
+// stock est perdu SANS QUE PERSONNE NE LE SACHE : la boutique continue de vendre
+// sur une quantité périmée et les stocks dérivent pendant des jours. Ici l'ordre
+// est écrit en base d'abord, rejoué ensuite, et une tâche en échec reste
+// visible en 'ERROR' — elle ne disparaît jamais silencieusement.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_sync_outbox (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    store_id TEXT NOT NULL,
+    -- PUSH_STOCK / PUSH_PRICE / PUBLISH
+    type TEXT NOT NULL,
+    payload TEXT,
+    -- QUEUED / SENT / ERROR
+    statut TEXT DEFAULT 'QUEUED',
+    tentatives INTEGER DEFAULT 0,
+    -- Date ISO avant laquelle la tâche ne doit pas être rejouée (backoff).
+    prochaine_tentative TEXT,
+    derniere_erreur TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    sent_at TEXT,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+// Le worker ne lit qu'une chose : « les tâches à envoyer maintenant ».
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sync_outbox_due ON st_sync_outbox (owner_id, statut, prochaine_tentative)'); } catch { /* index déjà présent */ }
+
+// Canal de vente d'une sortie de stock. NULL / 'ATELIER' = vente directe depuis
+// l'atelier (le comportement historique), 'MAGASIN' = point de vente physique,
+// 'ONLINE' = commande passée sur la boutique en ligne. Sans ce champ, une vente
+// en ligne serait indiscernable d'une vente au comptoir et le chiffre d'affaires
+// par canal — la première question que pose le gérant — serait incalculable.
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN canal TEXT'); } catch { /* colonne déjà présente */ }
+// Référence de la commande côté boutique. C'est la clé d'IDEMPOTENCE du worker :
+// avant de créer une sortie, il vérifie qu'aucune ligne ne porte déjà cette
+// référence. Sans elle, un simple rejeu retirerait du stock jamais vendu.
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN external_order_ref TEXT'); } catch { /* colonne déjà présente */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_ext_ref ON st_stock_sorties (owner_id, external_order_ref)'); } catch { /* index déjà présent */ }
+
+// Canal d'application d'un tarif. NULL = tous canaux (comportement historique).
+// Le même modèle ne se vend pas au même prix en gros, en boutique physique et
+// en ligne : la vente en ligne porte des frais de livraison et une commission
+// de plateforme que le prix de gros n'a pas.
+try { db.exec('ALTER TABLE st_prix ADD COLUMN canal TEXT'); } catch { /* colonne déjà présente */ }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS subcontractor_profiles (

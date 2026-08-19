@@ -80,8 +80,14 @@ import {
   updateSubcontractExpense,
   deleteSubcontractExpense,
 } from './server/subcontractController';
-import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch } from './server/clientsController';
+import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice } from './server/clientsController';
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
+import {
+  getStoreConfig, saveStoreConfig, deleteStoreConfig, testStoreConnection,
+  getStoreMapping, generateStoreMapping, saveStoreMapping, publishStoreModel,
+  queueStoreSync, getStoreOutbox, retryStoreOutbox, getStoreStatus,
+} from './server/storeSyncController';
+import { startStoreSyncWorker } from './server/storeSyncWorker';
 import { getSuiviData, saveSuiviData } from './server/suiviController';
 import { getPosteSuivi, savePosteSuivi } from './server/posteSuiviController';
 import { getDemandesAppro, saveDemandesAppro } from './server/demandesApproController';
@@ -666,6 +672,10 @@ async function startServer() {
   app.get('/api/subcontract/stock-sorties', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStockSorties);
   app.post('/api/subcontract/stock-sorties', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createStockSortie);
   app.delete('/api/subcontract/stock-sorties/batch/:batchId', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteStockSortieBatch);
+  // Facture de VENTE construite à partir de sorties déjà réalisées — c'est ce
+  // qui relie enfin « ce qui est sorti » à « ce qui est payé ».
+  app.post('/api/subcontract/clients/facturer', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createClientInvoice);
+  app.post('/api/subcontract/clients/facturer/:id/annuler', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), cancelClientInvoice);
   app.put('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), updateSubcontractOrder);
   app.delete('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontract_orders', 'owner_id'), deleteSubcontractOrder);
   // ⚠️ doit être déclarée avant toute route paramétrée /api/subcontract/:id
@@ -686,6 +696,23 @@ async function startServer() {
   app.get('/api/prix', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getPrix);
   app.post('/api/prix', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), savePrix);
   app.delete('/api/prix/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_prix', 'owner_id'), deletePrix);
+
+  // Boutique en ligne (Shopify / WooCommerce / boutique maison).
+  // ⚠️ Les chemins fixes (« config », « mapping », « outbox », « status ») sont
+  // déclarés AVANT toute route paramétrée, sinon ils seraient pris pour des ids.
+  // Le token de la boutique n'est jamais renvoyé : le controller le masque.
+  app.get('/api/store/config', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStoreConfig);
+  app.post('/api/store/config', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveStoreConfig);
+  app.delete('/api/store/config/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_store_config', 'owner_id'), deleteStoreConfig);
+  app.post('/api/store/test/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), testStoreConnection);
+  app.get('/api/store/mapping', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStoreMapping);
+  app.post('/api/store/mapping/generate', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), generateStoreMapping);
+  app.post('/api/store/mapping', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveStoreMapping);
+  app.post('/api/store/publish', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), publishStoreModel);
+  app.get('/api/store/outbox', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStoreOutbox);
+  app.post('/api/store/outbox/retry', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), retryStoreOutbox);
+  app.get('/api/store/status', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStoreStatus);
+  app.post('/api/store/sync/:storeId', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), queueStoreSync);
 
   app.get('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractorGroups);
   app.post('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveSubcontractorGroup);
@@ -975,7 +1002,11 @@ async function startServer() {
 
   app.use((err: any, _req: any, res: any, _next: any) => {
     console.error(err);
-    res.status(500).json({ message: 'Internal server error' });
+    // body-parser (PayloadTooLargeError, 413) et consorts portent déjà le bon
+    // code HTTP : l'écraser en 500 masquait la vraie cause côté client, qui
+    // ne pouvait alors afficher qu'un message générique inexploitable.
+    const status = Number.isInteger(err?.status) ? err.status : 500;
+    res.status(status).json({ message: status === 413 ? 'Fichier trop volumineux.' : 'Internal server error' });
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -1011,6 +1042,9 @@ async function startServer() {
         logSupabaseSyncStatus();
         // Start realtime listener (Vercel/phone → PC) — fire and forget
         void startSupabaseSync();
+        // Synchronisation boutique en ligne. Encapsulé : une couche e-commerce
+        // cassée ne doit jamais empêcher l'ERP de démarrer.
+        try { startStoreSyncWorker(); } catch (e) { console.error('  ⚠️  Worker boutique non démarré :', e); }
         resolve();
       });
     };
