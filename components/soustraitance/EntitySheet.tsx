@@ -927,7 +927,12 @@ const ModelSheet: React.FC<ModelSheetProps> = ({
                         </span>
                     </div>
                 ) : grid.couleurs.length === 0 ? (
-                    <EmptyLine text={tx(lang, { fr: 'Aucune pièce disponible.', ar: 'ما كاينة حتى قطعة متوفّرة.', en: 'No piece available.', es: 'Ninguna pieza disponible.', pt: 'Nenhuma peça disponível.', tr: 'Mevcut parça yok.' })} />
+                    /* « Rien » ne veut pas dire la même chose selon d'où l'on
+                       vient : tout vendu, ou rien jamais réceptionné. Le dire
+                       évite de chercher une erreur là où il n'y en a pas. */
+                    <EmptyLine text={(stat?.producedQty ?? 0) > 0
+                        ? tx(lang, { fr: 'Aucune pièce disponible : tout a été sorti.', ar: 'ما كاينة حتى قطعة متوفّرة: كلشي خرج.', en: 'No piece available: everything has been shipped out.', es: 'Ninguna pieza disponible: todo ha salido.', pt: 'Nenhuma peça disponível: tudo saiu.', tr: 'Mevcut parça yok: hepsi çıktı.' })
+                        : tx(lang, { fr: "Aucune pièce disponible : aucune réception n'a encore été saisie pour ce modèle.", ar: 'ما كاينة حتى قطعة متوفّرة: مازال ما تسجّل حتى استلام لهاد الموديل.', en: 'No piece available: no reception has been recorded for this model yet.', es: 'Ninguna pieza disponible: aún no se ha registrado ninguna recepción para este modelo.', pt: 'Nenhuma peça disponível: ainda não foi registada nenhuma receção para este modelo.', tr: 'Mevcut parça yok: bu model için henüz kabul girilmedi.' })} />
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-[11px] border-collapse">
