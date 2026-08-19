@@ -8036,7 +8036,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           bare
         >
             <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-6 text-xs">
-              <div className="grid grid-cols-2 gap-4">
+              {/* Une seule colonne sur telephone : a deux colonnes, « SOUS-
+                  TRAITANT » se coupait en deux lignes et « Voir sa fiche »
+                  chevauchait la carte voisine. Deux cartes lisibles l'une sous
+                  l'autre valent mieux que deux cartes serrees cote a cote. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {(() => {
                   const profile = subcontractorProfiles.find(p => p.name === detailOrder.subcontractorName);
                   return (
@@ -8073,7 +8077,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
                 <div className="col-span-2 sm:col-span-1 flex items-center gap-3">
                   {(() => {
                     const matchedModel = models.find(m => m.id === detailOrder.modelId);
