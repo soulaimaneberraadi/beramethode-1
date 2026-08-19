@@ -14,6 +14,7 @@ import InlineInvoiceList from './InlineInvoiceList';
 import FactureUploader from './FactureUploader';
 import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
 import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
+import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
@@ -1033,6 +1034,21 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   /** Étape de confirmation « vente à perte » : le premier clic sur Enregistrer
    *  ouvre la demande de motif, le second enregistre réellement. */
   const [sortieConfirmSousCout, setSortieConfirmSousCout] = useState(false);
+  /** Sélecteur de client de la sortie de stock : deux clients homonymes ne se
+   *  distinguent qu'à la photo et aux coordonnées — un <select> texte seul
+   *  les rend indiscernables. */
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
+  const [clientPickerSearch, setClientPickerSearch] = useState('');
+  /** Ajout rapide d'un client SANS quitter la sortie de stock : attendre que
+   *  l'opérateur referme le formulaire, aille dans l'onglet Clients, crée la
+   *  fiche puis revienne casse le geste — le client se crée là où on en a
+   *  besoin, avec juste le minimum (nom + téléphone), le reste se complète
+   *  plus tard depuis sa fiche. */
+  const [clientQuickAdd, setClientQuickAdd] = useState(false);
+  const [clientQuickAddNom, setClientQuickAddNom] = useState('');
+  const [clientQuickAddTel, setClientQuickAddTel] = useState('');
+  const [clientQuickAddSaving, setClientQuickAddSaving] = useState(false);
+  const [clientQuickAddError, setClientQuickAddError] = useState<string | null>(null);
   /** Compteur de requêtes : chaque frappe dans la grille change la quantité et
    *  relance une résolution. Sans ce garde, une réponse lente écraserait une
    *  réponse plus récente et proposerait le tarif d'une autre quantité. */
@@ -1047,6 +1063,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     ...DEFAULT_COMMERCIAL_SETTINGS.clientTypeLabels,
     ...(settings?.clientTypeLabels || {}),
   };
+
+  // ── Boutique en ligne : état de synchronisation par modèle, en une seule
+  //    requête pour toute la liste. Si aucune boutique n'est branchée,
+  //    `boutiqueOk` reste faux et RIEN ne s'affiche — pas de colonne vide.
+  const { etats: storeSyncEtats, boutiqueOk: storeBoutiqueOk } = useStoreSyncStates();
 
   /** Quantité totale saisie dans la grille : c'est elle qui décide du palier
    *  tarifaire, donc chaque modification relance la résolution du prix. */
@@ -1223,6 +1244,36 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setAtelierClients(Array.isArray(data) ? data : []);
     } catch {
       // Hors-ligne : les sorties portent déjà le nom du client, la fiche reste lisible.
+    }
+  };
+
+  /** Création minimale d'un client depuis le sélecteur de la sortie de stock :
+   *  attendre la fin de la saisie pour aller dans l'onglet Clients casse le
+   *  geste. Nom + téléphone suffisent ici, le reste se complète depuis sa fiche. */
+  const handleQuickAddClient = async () => {
+    const nom = clientQuickAddNom.trim();
+    if (!nom) return;
+    setClientQuickAddSaving(true);
+    setClientQuickAddError(null);
+    try {
+      const res = await fetch('/api/subcontract/clients', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nom, tel: clientQuickAddTel.trim() || undefined, type: 'DETAIL' }),
+      });
+      if (!res.ok) throw new Error();
+      const created = await res.json();
+      setAtelierClients(prev => [...prev, created]);
+      setSortieForm(prev => prev && ({ ...prev, clientId: created.id }));
+      setClientQuickAdd(false);
+      setClientQuickAddNom('');
+      setClientQuickAddTel('');
+      setClientPickerOpen(false);
+    } catch {
+      setClientQuickAddError(tx(lang,{fr:"La création a échoué.",ar:'فشل الإنشاء.',en:'Creation failed.',es:'La creación falló.',pt:'A criação falhou.',tr:'Oluşturma başarısız.'}));
+    } finally {
+      setClientQuickAddSaving(false);
     }
   };
 
@@ -1609,6 +1660,52 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       return true;
     } catch (err) {
       console.error('[SousTraitance] sync prix de vente → modèle', err);
+      return false;
+    }
+  };
+
+  /** Écrit le drapeau « publié dans la boutique en ligne » (`ficheData.storePublished`).
+   *
+   *  Décalque exact de `writeModelClientPrice` : `POST /api/models` remplace le
+   *  modèle entier, donc on relit la version fraîche avant d'écrire pour ne pas
+   *  effacer le travail de l'ingénierie. Publication VOLONTAIRE : ce chemin
+   *  n'est emprunté que sur un clic explicite dans la fiche modèle, jamais
+   *  déclenché par une synchronisation ou un import. */
+  const writeModelStorePublished = async (modelId: string, published: boolean): Promise<boolean> => {
+    if (!modelId || modelId === 'MANUAL') return false;
+    const local = models.find(m => m.id === modelId);
+    if (!local) return false;
+
+    try {
+      let base: ModelData = local;
+      if (!IS_STATIC) {
+        const fresh = await fetch('/api/models', { credentials: 'include' });
+        if (!fresh.ok) return false;
+        const list = await fresh.json();
+        const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
+        if (!found) return false;
+        base = found;
+      }
+
+      const updated: ModelData = {
+        ...base,
+        ficheData: { ...(base.ficheData as any), storePublished: published },
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (!IS_STATIC) {
+        const res = await fetch('/api/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(updated),
+        });
+        if (!res.ok) return false;
+      }
+      setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+      return true;
+    } catch (err) {
+      console.error('[SousTraitance] sync publication boutique → modèle', err);
       return false;
     }
   };
@@ -4649,7 +4746,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  un atelier qui imprime deux styles de facture différents selon qu'il
    *  achète ou qu'il vend finit par perdre confiance dans ses propres papiers. */
   const handlePrintClientInvoice = (
-    facture: { numero: string; tiers_nom?: string; date_facture: string; date_echeance: string | null; taux_tva: number; total_ht: number; total_tva: number; total_ttc: number; lignes: any[] },
+    facture: { numero: string; tiers_nom?: string; date_facture: string; date_echeance: string | null; taux_tva: number; total_ht: number; total_tva: number; total_ttc: number; montant_paye?: number; lignes: any[] },
     client: { nom: string; ice?: string | null; rc?: string | null; adresse?: string | null; tel?: string | null; email?: string | null; photo?: string | null } | null,
     grid: { couleurs: string[]; tailles: string[]; byCell: Map<string, number> },
   ) => {
@@ -4843,6 +4940,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <td>${esc(tx(lang,{fr:'TOTAL TTC',ar:'المجموع مع الضريبة',en:'TOTAL INCL. TAX',es:'TOTAL CON IVA',pt:'TOTAL COM IVA',tr:'TOPLAM (KDV DAHİL)'}))}</td>
                   <td class="num">${money(facture.total_ttc)}</td>
                 </tr>
+                ${(facture.montant_paye || 0) > 0 ? `
+                <tr>
+                  <td>${esc(tx(lang,{fr:'Déjà payé',ar:'المؤدى سابقاً',en:'Already paid',es:'Ya pagado',pt:'Já pago',tr:'Ödenmiş'}))}</td>
+                  <td class="num">&minus; ${money(facture.montant_paye || 0)}</td>
+                </tr>
+                <tr class="sub-rule">
+                  <td>${esc(tx(lang,{fr:'Reste à payer',ar:'الباقي للأداء',en:'Balance due',es:'Resto a pagar',pt:'Restante a pagar',tr:'Kalan borç'}))}</td>
+                  <td class="num strong">${money(facture.total_ttc - (facture.montant_paye || 0))}</td>
+                </tr>` : ''}
               </table>
             </div>
 
@@ -5738,13 +5844,25 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       {/* Le nom du modèle n'est plus une étiquette morte : il ouvre
                           sa fiche (stock ventilé, marge, acheteurs, historique). */}
                       <div className="flex-1 min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
-                          className="font-semibold block text-slate-800 dark:text-dk-text truncate text-left hover:text-indigo-600 dark:hover:text-dk-accent hover:underline underline-offset-2 transition-colors w-full"
-                        >
-                          {item.model.meta_data.nom_modele}
-                        </button>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
+                            className="font-semibold block text-slate-800 dark:text-dk-text truncate text-left hover:text-indigo-600 dark:hover:text-dk-accent hover:underline underline-offset-2 transition-colors min-w-0"
+                          >
+                            {item.model.meta_data.nom_modele}
+                          </button>
+                          {/* Pastille boutique en ligne — affichée UNIQUEMENT si une
+                              boutique est branchée. Sinon rien : une pastille grise
+                              partout n'apprendrait rien à personne. */}
+                          {storeBoutiqueOk && (
+                            <StoreSyncDot
+                              etat={storeSyncEtats.get(item.model.id) ?? 'NONE'}
+                              onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
+                              lang={lang}
+                            />
+                          )}
+                        </div>
                         <span className="text-[9px] text-indigo-600 dark:text-dk-accent block font-normal uppercase">
                           {tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})}{' '}
                           {item.model.ficheData?.client ? (
@@ -5941,6 +6059,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                   >
                                     {item.model.meta_data.nom_modele}
                                   </button>
+                                  {/* Pastille boutique en ligne : discrète, à côté du
+                                      nom, et rien du tout si aucune boutique n'est
+                                      branchée. Un clic ouvre la fiche du modèle. */}
+                                  {storeBoutiqueOk && (
+                                    <StoreSyncDot
+                                      etat={storeSyncEtats.get(item.model.id) ?? 'NONE'}
+                                      onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
+                                      lang={lang}
+                                    />
+                                  )}
                                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase whitespace-nowrap ${
                                     item.status === 'FINISHED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
                                     item.status === 'IN_PRODUCTION' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50' :
@@ -7267,18 +7395,139 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
                     {tx(lang,{fr:'Client',ar:'الزبون',en:'Client',es:'Cliente',pt:'Cliente',tr:'Musteri'})}
                   </label>
-                  <select
-                    value={sortieForm.clientId}
-                    onChange={e => setSortieForm(prev => prev && ({ ...prev, clientId: e.target.value }))}
-                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
-                  >
-                    <option value="">{tx(lang,{fr:'— Aucun —',ar:'— بلا —',en:'— None —',es:'— Ninguno —',pt:'— Nenhum —',tr:'— Yok —'})}</option>
-                    {atelierClients.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.nom}{c.type === 'GROS' ? ` · ${tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  {(() => {
+                    const selected = atelierClients.find(c => c.id === sortieForm.clientId) || null;
+                    const q = clientPickerSearch.trim().toLowerCase();
+                    const filtered = q
+                      ? atelierClients.filter(c => [c.nom, c.ice, c.rc, c.tel, c.ville].filter(Boolean).some(v => String(v).toLowerCase().includes(q)))
+                      : atelierClients;
+                    return (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => { setClientPickerOpen(o => !o); setClientPickerSearch(''); }}
+                          className="w-full flex items-center gap-2 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        >
+                          {selected ? (
+                            selected.photo ? (
+                              <img src={selected.photo} alt="" className="w-6 h-6 rounded-full object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
+                            ) : (
+                              <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 font-bold text-[9px] bg-indigo-50 dark:bg-dk-accent/15 text-indigo-600 dark:text-dk-accent">
+                                {selected.nom.trim().slice(0, 2).toUpperCase()}
+                              </span>
+                            )
+                          ) : (
+                            <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted">
+                              <Users className="w-3 h-3" />
+                            </span>
+                          )}
+                          <span className="flex-1 text-left truncate">
+                            {selected
+                              ? `${selected.nom}${selected.ice ? ` · ICE ${selected.ice}` : ''}`
+                              : tx(lang,{fr:'— Aucun —',ar:'— بلا —',en:'— None —',es:'— Ninguno —',pt:'— Nenhum —',tr:'— Yok —'})}
+                          </span>
+                        </button>
+
+                        {clientPickerOpen && (
+                          <div className="absolute z-20 mt-1 w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg dark:shadow-dk-elevated overflow-hidden">
+                            {clientQuickAdd ? (
+                              <div className="p-3 space-y-2">
+                                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">
+                                  {tx(lang,{fr:'Nouveau client',ar:'زبون جديد',en:'New client',es:'Nuevo cliente',pt:'Novo cliente',tr:'Yeni müşteri'})}
+                                </p>
+                                {clientQuickAddError && <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{clientQuickAddError}</p>}
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={clientQuickAddNom}
+                                  onChange={e => setClientQuickAddNom(e.target.value)}
+                                  placeholder={tx(lang,{fr:'Nom / Raison sociale',ar:'الاسم',en:'Name',es:'Nombre',pt:'Nome',tr:'Ad'})}
+                                  className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                />
+                                <input
+                                  type="text"
+                                  value={clientQuickAddTel}
+                                  onChange={e => setClientQuickAddTel(e.target.value)}
+                                  placeholder={tx(lang,{fr:'Téléphone (facultatif)',ar:'الهاتف (اختياري)',en:'Phone (optional)',es:'Teléfono (opcional)',pt:'Telefone (opcional)',tr:'Telefon (isteğe bağlı)'})}
+                                  className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                />
+                                <div className="flex items-center justify-end gap-1.5 pt-1">
+                                  <button type="button" onClick={() => { setClientQuickAdd(false); setClientQuickAddError(null); }} className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[10px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors">
+                                    {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={!clientQuickAddNom.trim() || clientQuickAddSaving}
+                                    onClick={handleQuickAddClient}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[10px] hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                                  >
+                                    {clientQuickAddSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                                    {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={clientPickerSearch}
+                                  onChange={e => setClientPickerSearch(e.target.value)}
+                                  placeholder={tx(lang,{fr:'Rechercher…',ar:'بحث…',en:'Search…',es:'Buscar…',pt:'Procurar…',tr:'Ara…'})}
+                                  className="w-full px-3 py-2 text-[12px] border-b border-slate-100 dark:border-dk-border outline-none bg-transparent text-slate-800 dark:text-dk-text"
+                                />
+                                <div className="max-h-56 overflow-y-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => { setSortieForm(prev => prev && ({ ...prev, clientId: '' })); setClientPickerOpen(false); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                                  >
+                                    {tx(lang,{fr:'— Aucun —',ar:'— بلا —',en:'— None —',es:'— Ninguno —',pt:'— Nenhum —',tr:'— Yok —'})}
+                                  </button>
+                                  {filtered.length === 0 ? (
+                                    <p className="px-3 py-2 text-[10px] text-slate-400 dark:text-dk-muted">
+                                      {tx(lang,{fr:'Aucun résultat.',ar:'ما كاينة حتى نتيجة.',en:'No result.',es:'Ningún resultado.',pt:'Nenhum resultado.',tr:'Sonuç yok.'})}
+                                    </p>
+                                  ) : filtered.map(c => (
+                                    <button
+                                      key={c.id}
+                                      type="button"
+                                      onClick={() => { setSortieForm(prev => prev && ({ ...prev, clientId: c.id })); setClientPickerOpen(false); }}
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                                    >
+                                      {c.photo ? (
+                                        <img src={c.photo} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
+                                      ) : (
+                                        <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-[10px] bg-indigo-50 dark:bg-dk-accent/15 text-indigo-600 dark:text-dk-accent">
+                                          {c.nom.trim().slice(0, 2).toUpperCase()}
+                                        </span>
+                                      )}
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block text-[11px] font-semibold text-slate-800 dark:text-dk-text truncate">
+                                          {c.nom}{c.type === 'GROS' ? ` · ${tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})}` : ''}
+                                        </span>
+                                        <span className="block text-[9px] text-slate-400 dark:text-dk-muted truncate">
+                                          {[c.ice && `ICE ${c.ice}`, c.tel, c.ville].filter(Boolean).join(' · ') || '—'}
+                                        </span>
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => { setClientQuickAdd(true); setClientQuickAddNom(clientPickerSearch); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-bold text-indigo-600 dark:text-dk-accent border-t border-slate-100 dark:border-dk-border hover:bg-indigo-50 dark:hover:bg-dk-elevated transition-colors"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  {tx(lang,{fr:'Ajouter un client',ar:'زيادة زبون',en:'Add a client',es:'Añadir un cliente',pt:'Adicionar um cliente',tr:'Müşteri ekle'})}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {atelierClients.length === 0 && (
                     <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
                       {tx(lang,{fr:"Aucun client enregistré — ajoutez-le dans l'onglet Clients.",ar:'ما كاين حتى زبون مسجّل — زيدو ف تبويب Clients.',en:'No client recorded — add one in the Clients tab.',es:'Ningun cliente registrado — anadalo en la pestana Clientes.',pt:'Nenhum cliente registado — adicione no separador Clientes.',tr:'Kayitli musteri yok — Musteriler sekmesinden ekleyin.'})}
@@ -7736,6 +7985,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           canSeeCost={canSeeCostHere}
           canSetPrice={canSetPriceHere}
           clientTypeLabels={clientTypeLabels}
+          onSetModelStorePublished={writeModelStorePublished}
         />
       )}
 

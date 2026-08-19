@@ -13,6 +13,7 @@ import {
 } from '../lib/pointageGrille';
 import { tx, pickT } from '../lib/i18n';
 import { TRANSLATIONS } from './configTranslations';
+import { BoutiqueConfigSection } from './soustraitance/StoreSync';
 
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 import type { Lang } from '../app/constants';
@@ -1178,6 +1179,17 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     </div>
                 </div>
             </div>
+
+            {/* FULL WIDTH BLOCK: Boutique en ligne
+                Branchement de la boutique (Shopify, WooCommerce ou site sur mesure).
+                Les données ne viennent PAS des réglages `draft` mais du serveur
+                (`/api/store/config`) : une clé d'accès n'a rien à faire dans un
+                brouillon que l'on peut abandonner sans enregistrer. */}
+            <BoutiqueConfigSection
+                lang={lang}
+                open={!!openSec['boutique']}
+                onToggle={() => toggleSec('boutique')}
+            />
 
             {/* FULL WIDTH BLOCK: Personnalisation du Menu de Navigation */}
             {navConfig && setNavConfig && (

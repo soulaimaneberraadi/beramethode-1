@@ -8,6 +8,7 @@ import {
     Truck, Coins, AlertTriangle, Tag, TrendingUp, Plus, Trash2, Loader2, Save, Receipt,
 } from 'lucide-react';
 import type { AtelierClient } from './ClientsPanel';
+import { ModelStoreSection } from './StoreSync';
 
 /**
  * Fiches d'entité de la sous-traitance (modèle et client).
@@ -82,6 +83,10 @@ interface EntitySheetProps {
     canSetPrice?: boolean;
     /** Vocabulaire local des types de clients (`AppSettings.clientTypeLabels`). */
     clientTypeLabels?: Record<string, string>;
+    /** Écriture du drapeau « publié dans la boutique en ligne » dans le modèle.
+     *  Le parent seul sait écrire un modèle sans écraser le travail de
+     *  l'ingénierie (même mécanisme que le prix de vente). */
+    onSetModelStorePublished?: (modelId: string, published: boolean) => Promise<boolean>;
 }
 
 /** Mode statique (Vercel, sans Express) : aucune route `/api/prix` n'existe.
@@ -206,7 +211,24 @@ interface Tarif {
     devise: string | null;
     valid_from: string | null;
     note: string | null;
+    /** Canal de vente. `null` = valable partout — c'est le comportement
+     *  historique de tous les tarifs déjà saisis, il ne change pas.
+     *  Le prix diffère selon l'endroit où la pièce part : le gros à l'atelier,
+     *  le détail au magasin, et en ligne où s'ajoutent la livraison, les
+     *  retours et la concurrence. */
+    canal?: CanalVente | null;
 }
+
+/** `null` = tous canaux. Les trois valeurs correspondent à la colonne `canal`
+ *  de la table des tarifs. */
+type CanalVente = 'ATELIER' | 'MAGASIN' | 'ONLINE';
+
+const CANAL_KEYS: CanalVente[] = ['ATELIER', 'MAGASIN', 'ONLINE'];
+
+/** Ordre d'affichage : les tarifs « tous canaux » en premier (ce sont les
+ *  règles générales), puis chaque canal, du plus proche au plus lointain. */
+const canalRank = (c: CanalVente | null | undefined): number =>
+    c == null ? 0 : CANAL_KEYS.indexOf(c) + 1;
 
 const TYPE_KEYS = ['GROS', 'DETAIL', 'BOUTIQUE'];
 
@@ -215,8 +237,13 @@ const TYPE_KEYS = ['GROS', 'DETAIL', 'BOUTIQUE'];
  *  départage silencieusement (le plus récent gagne), donc l'écran doit les
  *  montrer, faute de quoi l'utilisateur ne comprendra jamais pourquoi « son »
  *  prix n'est pas celui qui sort. */
-const scopeKey = (t: Tarif) =>
-    t.client_id ? `c:${t.client_id}` : t.type_client ? `t:${t.type_client}` : 'catalogue';
+const scopeKey = (t: Tarif) => {
+    const portee = t.client_id ? `c:${t.client_id}` : t.type_client ? `t:${t.type_client}` : 'catalogue';
+    // Le canal fait partie de la portée : le même client peut légitimement avoir
+    // un prix atelier ET un prix en ligne pour le même palier, ce n'est pas un
+    // doublon. Deux prix pour le MÊME canal, en revanche, en est un.
+    return `${portee}|${t.canal || 'ALL'}`;
+};
 
 const TarifsSection: React.FC<{
     modelId: string;
@@ -232,7 +259,16 @@ const TarifsSection: React.FC<{
     const [busyId, setBusyId] = useState<string | null>(null);
     /** Brouillon de création/modification. `null` = aucun formulaire ouvert. */
     const [draft, setDraft] = useState<
-        { id?: string; portee: 'CATALOGUE' | 'TYPE' | 'CLIENT'; client_id: string; type_client: string; qty_min: string; prix: string }
+        {
+            id?: string;
+            portee: 'CATALOGUE' | 'TYPE' | 'CLIENT';
+            client_id: string;
+            type_client: string;
+            qty_min: string;
+            prix: string;
+            /** `''` = tous canaux (valeur `NULL` en base). */
+            canal: '' | CanalVente;
+        }
         | null
     >(null);
 
@@ -258,6 +294,25 @@ const TarifsSection: React.FC<{
         });
         return new Set(Array.from(compte.entries()).filter(([, n]) => n > 1).map(([k]) => k));
     }, [tarifs]);
+
+    /** Tarifs regroupés par canal : « tous canaux » d'abord, puis atelier,
+     *  magasin, en ligne. Sans ce regroupement, trois prix pour un même modèle
+     *  se lisent comme trois doublons alors qu'ils répondent à trois endroits
+     *  de vente différents. */
+    const tarifsTries = useMemo(
+        () => tarifs.slice().sort((a, b) =>
+            canalRank(a.canal) - canalRank(b.canal)
+            || (Number(a.qty_min) || 0) - (Number(b.qty_min) || 0)
+            || Number(a.prix) - Number(b.prix)),
+        [tarifs]
+    );
+
+    const libelleCanal = (c: CanalVente | null | undefined): string => {
+        if (c === 'ATELIER') return tx(lang, { fr: 'Atelier (gros)', ar: 'الورشة (الݣروس)', en: 'Workshop (wholesale)', es: 'Taller (mayoreo)', pt: 'Oficina (grosso)', tr: 'Atölye (toptan)' });
+        if (c === 'MAGASIN') return tx(lang, { fr: 'Magasin (détail)', ar: 'المحلّ (التقسيط)', en: 'Store (retail)', es: 'Tienda (detalle)', pt: 'Loja (retalho)', tr: 'Mağaza (perakende)' });
+        if (c === 'ONLINE') return tx(lang, { fr: 'En ligne', ar: 'أونلاين', en: 'Online', es: 'En línea', pt: 'Online', tr: 'Çevrimiçi' });
+        return tx(lang, { fr: 'Tous canaux', ar: 'جميع القنوات', en: 'All channels', es: 'Todos los canales', pt: 'Todos os canais', tr: 'Tüm kanallar' });
+    };
 
     const libellePortee = (t: Tarif): string => {
         if (t.client_id) {
@@ -289,6 +344,9 @@ const TarifsSection: React.FC<{
                 qty_min: Math.max(0, Math.floor(Number(draft.qty_min) || 0)),
                 prix,
                 devise: currency,
+                // `null` = valable partout : c'est le comportement historique,
+                // conservé tel quel pour tous les tarifs déjà en base.
+                canal: draft.canal || null,
             }),
         })
             .then(r => (r.ok ? r.json() : r.json().then((b: any) => Promise.reject(new Error(b?.message || 'save')))))
@@ -332,13 +390,14 @@ const TarifsSection: React.FC<{
                                 <thead>
                                     <tr>
                                         <th className={th}>{tx(lang, { fr: 'Portée', ar: 'النطاق', en: 'Scope', es: 'Alcance', pt: 'Ambito', tr: 'Kapsam' })}</th>
+                                        <th className={th}>{tx(lang, { fr: 'Canal', ar: 'القناة', en: 'Channel', es: 'Canal', pt: 'Canal', tr: 'Kanal' })}</th>
                                         <th className={`${th} text-right`}>{tx(lang, { fr: 'Palier', ar: 'العتبة', en: 'Tier', es: 'Tramo', pt: 'Escalao', tr: 'Kademe' })}</th>
                                         <th className={`${th} text-right`}>{tx(lang, { fr: 'Prix', ar: 'الثمن', en: 'Price', es: 'Precio', pt: 'Preco', tr: 'Fiyat' })}</th>
                                         {canSetPrice && <th className={`${th} text-right`}>{tx(lang, { fr: 'Actions', ar: 'إجراءات', en: 'Actions', es: 'Acciones', pt: 'Acoes', tr: 'Islemler' })}</th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
-                                    {tarifs.map(t => {
+                                    {tarifsTries.map(t => {
                                         const enDouble = doublons.has(`${scopeKey(t)}|${Number(t.qty_min) || 0}`);
                                         return (
                                             <tr key={t.id} className={enDouble ? 'bg-amber-50 dark:bg-amber-950/20' : ''}>
@@ -350,6 +409,19 @@ const TarifsSection: React.FC<{
                                                             {tx(lang, { fr: 'doublon', ar: 'مكرّر', en: 'duplicate', es: 'duplicado', pt: 'duplicado', tr: 'yinelenen' })}
                                                         </span>
                                                     )}
+                                                </td>
+                                                <td className={td}>
+                                                    <span className={
+                                                        t.canal === 'ONLINE'
+                                                            ? 'inline-block text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/50'
+                                                            : t.canal === 'MAGASIN'
+                                                                ? 'inline-block text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800/50'
+                                                                : t.canal === 'ATELIER'
+                                                                    ? 'inline-block text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50'
+                                                                    : 'inline-block text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border'
+                                                    }>
+                                                        {libelleCanal(t.canal)}
+                                                    </span>
                                                 </td>
                                                 <td className={`${td} text-right`}>{Number(t.qty_min) > 0 ? `≥ ${Number(t.qty_min)}` : '—'}</td>
                                                 <td className={`${td} text-right font-bold text-indigo-600 dark:text-dk-accent`}>{fmt(Number(t.prix))} {t.devise || currency}</td>
@@ -364,6 +436,7 @@ const TarifsSection: React.FC<{
                                                                 type_client: t.type_client || 'GROS',
                                                                 qty_min: String(Number(t.qty_min) || 0),
                                                                 prix: String(Number(t.prix)),
+                                                                canal: t.canal || '',
                                                             })}
                                                             className="p-1 rounded-lg text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
                                                             title={tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Modificar', pt: 'Alterar', tr: 'Duzenle' })}
@@ -392,6 +465,19 @@ const TarifsSection: React.FC<{
                     {doublons.size > 0 && (
                         <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">
                             {tx(lang, { fr: 'Des tarifs se recouvrent (même portée, même palier) : le plus récent l\u2019emporte. Supprimez celui que vous ne voulez plus.', ar: 'كاينين تعريفات كيتقاطعو (نفس النطاق ونفس العتبة): الأخير هو اللي كيربح. حيّد اللي ما بقيتيش باغيه.', en: 'Some tariffs overlap (same scope, same tier): the most recent one wins. Delete the one you no longer want.', es: 'Algunas tarifas se solapan (mismo alcance, mismo tramo): gana la mas reciente. Elimine la que ya no quiera.', pt: 'Alguns tarifarios sobrepoem-se (mesmo ambito, mesmo escalao): o mais recente vence. Elimine o que ja nao quer.', tr: 'Bazi tarifeler cakisiyor (ayni kapsam, ayni kademe): en yenisi kazanir. Istemediginizi silin.' })}
+                        </p>
+                    )}
+
+                    {tarifs.some(t => !!t.canal) && (
+                        <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                            {tx(lang, {
+                                fr: 'Un tarif « tous canaux » s’applique partout. Un tarif rattaché à un canal ne vaut que là : atelier pour le gros, magasin pour le détail, en ligne pour la boutique.',
+                                ar: 'التعريفة «جميع القنوات» كتطبّق فكل بلاصة. التعريفة المربوطة بقناة كتصلح غير تما: الورشة للݣروس، المحلّ للتقسيط، أونلاين للمتجر.',
+                                en: 'An “all channels” tariff applies everywhere. A tariff tied to a channel applies only there: workshop for wholesale, store for retail, online for the shop.',
+                                es: 'Una tarifa «todos los canales» se aplica en todas partes. Una tarifa ligada a un canal solo vale allí: taller para mayoreo, tienda para detalle, en línea para la boutique.',
+                                pt: 'Um tarifario «todos os canais» aplica-se em todo o lado. Um tarifario ligado a um canal so vale ai: oficina para grosso, loja para retalho, online para a boutique.',
+                                tr: '«Tüm kanallar» tarifesi her yerde gecerlidir. Bir kanala bagli tarife yalnizca orada gecerlidir: toptan icin atolye, perakende icin magaza, butik icin cevrimici.',
+                            })}
                         </p>
                     )}
 
@@ -434,6 +520,18 @@ const TarifsSection: React.FC<{
                                         </select>
                                     </div>
                                 )}
+                                {/* Canal de vente — le prix n'est pas le même selon
+                                    l'endroit où la pièce part. Laissé sur « tous
+                                    canaux », le tarif garde son comportement actuel. */}
+                                <div>
+                                    <label className="block text-[9px] uppercase font-bold text-slate-400 dark:text-dk-muted mb-1">
+                                        {tx(lang, { fr: 'Canal de vente', ar: 'قناة البيع', en: 'Sales channel', es: 'Canal de venta', pt: 'Canal de venda', tr: 'Satış kanalı' })}
+                                    </label>
+                                    <select value={draft.canal} onChange={e => setDraft({ ...draft, canal: e.target.value as '' | CanalVente })} className={champ}>
+                                        <option value="">{libelleCanal(null)}</option>
+                                        {CANAL_KEYS.map(k => <option key={k} value={k}>{libelleCanal(k)}</option>)}
+                                    </select>
+                                </div>
                                 <div>
                                     <label className="block text-[9px] uppercase font-bold text-slate-400 dark:text-dk-muted mb-1">
                                         {tx(lang, { fr: 'À partir de (quantité)', ar: 'ابتداءً من (الكمية)', en: 'From (quantity)', es: 'A partir de (cantidad)', pt: 'A partir de (quantidade)', tr: 'Su miktardan (adet)' })}
@@ -469,7 +567,7 @@ const TarifsSection: React.FC<{
                     ) : (
                         <button
                             type="button"
-                            onClick={() => setDraft({ portee: 'CATALOGUE', client_id: '', type_client: 'GROS', qty_min: '0', prix: '' })}
+                            onClick={() => setDraft({ portee: 'CATALOGUE', client_id: '', type_client: 'GROS', qty_min: '0', prix: '', canal: '' })}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-dk-accent/50 text-indigo-600 dark:text-dk-accent font-bold text-[11px] hover:bg-indigo-50 dark:hover:bg-dk-elevated transition-colors"
                         >
                             <Plus className="w-3.5 h-3.5" />
@@ -622,6 +720,7 @@ interface ModelSheetProps extends Omit<EntitySheetProps, 'stack' | 'onBack' | 'o
 const ModelSheet: React.FC<ModelSheetProps> = ({
     modelId, models, orders, clients, sorties, stats, stockMatrix, currency, dateLocale, onPush,
     prixParClientEnabled = false, canSeeCost = true, canSetPrice = true, clientTypeLabels = {},
+    onSetModelStorePublished,
 }) => {
     const { lang } = useLang();
 
@@ -693,6 +792,15 @@ const ModelSheet: React.FC<ModelSheetProps> = ({
     const clientOrigine = String((model.ficheData as any)?.client || '').trim();
     const price = stat?.price ?? null;
     const salePrice = stat?.salePrice ?? null;
+
+    /** Le modèle a-t-il une déclinaison couleur × taille ? On accepte aussi bien
+     *  la déclaration de la fiche de coût que ce qui existe réellement en stock :
+     *  un modèle lancé avant l'ajout des grilles a des pièces sans avoir de
+     *  `sizes`/`colors` renseignés. Sans déclinaison, publier n'a aucun sens —
+     *  la boutique ne saurait pas quoi proposer à l'acheteur. */
+    const hasGrilleBoutique =
+        (((model.ficheData as any)?.colors?.length || 0) > 0 || grid.couleurs.length > 0) &&
+        (((model.ficheData as any)?.sizes?.length || 0) > 0 || grid.tailles.length > 0);
     const marge = (price != null && salePrice != null) ? salePrice - price : null;
     const margePct = (marge != null && salePrice != null && salePrice > 0) ? (marge / salePrice) * 100 : null;
 
@@ -781,6 +889,21 @@ const ModelSheet: React.FC<ModelSheetProps> = ({
                     </p>
                 </div>
             )}
+
+            {/* Boutique en ligne : codes article, publication volontaire, écarts
+                de quantité. C'est le seul écran qui révèle une dérive entre le
+                stock réel et ce que la boutique propose encore à la vente. */}
+            <ModelStoreSection
+                modelId={modelId}
+                hasGrille={hasGrilleBoutique}
+                hasImage={!!model.image}
+                published={!!(model.ficheData as any)?.storePublished}
+                onTogglePublished={onSetModelStorePublished}
+                prixVente={salePrice}
+                currency={currency}
+                dateLocale={dateLocale}
+                lang={lang}
+            />
 
             {stat && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -980,6 +1103,21 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
     const [invoiceStatut, setInvoiceStatut] = useState<'BROUILLON' | 'ENVOYEE' | 'PAYEE'>('ENVOYEE');
     const [invoiceSaving, setInvoiceSaving] = useState(false);
     const [invoiceError, setInvoiceError] = useState<string | null>(null);
+    /** Conditions & montants — même logique que la facture de sous-traitance
+     *  (achat) : dates, remise, acompte et exonération, visibles avant
+     *  d'émettre plutôt que découvertes après coup sur le document imprimé. */
+    const [invoiceDateFacture, setInvoiceDateFacture] = useState('');
+    const [invoiceDateEcheance, setInvoiceDateEcheance] = useState('');
+    const [invoiceDiscount, setInvoiceDiscount] = useState<number | ''>('');
+    const [invoiceDiscountMode, setInvoiceDiscountMode] = useState<'PCT' | 'AMOUNT'>('PCT');
+    const [invoiceAcompte, setInvoiceAcompte] = useState<number | ''>('');
+    const [invoiceExo, setInvoiceExo] = useState(false);
+    /** Factures de VENTE déjà émises pour ce client — pour pouvoir en annuler
+     *  une et rendre ses sorties de nouveau facturables (un « retour »). */
+    const [clientFactures, setClientFactures] = useState<any[]>([]);
+    const [clientFacturesLoading, setClientFacturesLoading] = useState(false);
+    const [cancellingFactureId, setCancellingFactureId] = useState<string | null>(null);
+    const [pendingCancelFacture, setPendingCancelFacture] = useState<any | null>(null);
 
     /** Le registre `st_clients` fait foi quand il connaît ce client ; sinon la
      *  fiche reste ouvrable à partir du seul nom porté par les sorties. */
@@ -988,6 +1126,33 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
         const n = norm(clientNom);
         return clients.find(c => norm(c.nom) === n) || null;
     }, [clients, clientId, clientNom]);
+
+    const loadClientFactures = useCallback(() => {
+        if (!record?.id) { setClientFactures([]); return; }
+        setClientFacturesLoading(true);
+        fetch(`/api/facturation/factures?source_module=SOUSTRAITANCE_VENTE&source_id=${encodeURIComponent(record.id)}`, { credentials: 'include' })
+            .then(r => (r.ok ? r.json() : []))
+            .then(d => setClientFactures(Array.isArray(d) ? d : []))
+            .catch(() => setClientFactures([]))
+            .finally(() => setClientFacturesLoading(false));
+    }, [record?.id]);
+
+    useEffect(() => { loadClientFactures(); }, [loadClientFactures]);
+
+    const cancelInvoice = async (facture: any) => {
+        setCancellingFactureId(facture.id);
+        try {
+            const res = await fetch(`/api/subcontract/clients/facturer/${encodeURIComponent(facture.id)}/annuler`, { method: 'POST', credentials: 'include' });
+            if (!res.ok) throw new Error();
+            setPendingCancelFacture(null);
+            loadClientFactures();
+            onInvoiced?.();
+        } catch {
+            setInvoiceError(tx(lang, { fr: "L'annulation a échoué.", ar: 'فشل الإلغاء.', en: 'Cancellation failed.', es: 'La anulación falló.', pt: 'A anulação falhou.', tr: 'İptal başarısız.' }));
+        } finally {
+            setCancellingFactureId(null);
+        }
+    };
 
     const displayName = record?.nom || String(clientNom || '').trim()
         || tx(lang, { fr: 'Client non renseigné', ar: 'زبون غير محدّد', en: 'Unnamed client', es: 'Cliente sin nombre', pt: 'Cliente sem nome', tr: 'Adsız müşteri' });
@@ -1055,15 +1220,27 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
         setInvoiceTva('20');
         setInvoiceStatut('ENVOYEE');
         setInvoiceError(null);
+        setInvoiceDateFacture(new Date().toISOString().split('T')[0]);
+        setInvoiceDateEcheance('');
+        setInvoiceDiscount('');
+        setInvoiceDiscountMode('PCT');
+        setInvoiceAcompte('');
+        setInvoiceExo(false);
         setInvoiceModal(true);
     };
 
     const invoiceTotals = useMemo(() => {
         const lignes = unbilled.filter(s => invoiceSelected.has(String(s.id)));
-        const ht = lignes.reduce((a, s) => a + toNum(s.quantite) * toNum(s.prix_unitaire), 0);
-        const tva = ht * ((Number(invoiceTva) || 0) / 100);
-        return { count: lignes.length, ht, tva, ttc: ht + tva };
-    }, [unbilled, invoiceSelected, invoiceTva]);
+        const brut = lignes.reduce((a, s) => a + toNum(s.quantite) * toNum(s.prix_unitaire), 0);
+        const discount = invoiceDiscountMode === 'PCT'
+            ? brut * ((Number(invoiceDiscount) || 0) / 100)
+            : Math.min(brut, Number(invoiceDiscount) || 0);
+        const ht = Math.max(0, brut - discount);
+        const tva = invoiceExo ? 0 : ht * ((Number(invoiceTva) || 0) / 100);
+        const ttc = ht + tva;
+        const acompte = Math.min(ttc, Number(invoiceAcompte) || 0);
+        return { count: lignes.length, brut, discount, ht, tva, ttc, acompte, reste: ttc - acompte };
+    }, [unbilled, invoiceSelected, invoiceTva, invoiceDiscount, invoiceDiscountMode, invoiceExo, invoiceAcompte]);
 
     /** Récap couleur × taille des lignes cochées : avant d'émettre, l'utilisateur
      *  doit pouvoir vérifier d'un coup d'œil QUOI part chez ce client, pas
@@ -1099,8 +1276,13 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                 body: JSON.stringify({
                     clientId: record?.id || null,
                     sortieIds: Array.from(invoiceSelected),
-                    taux_tva: Number(invoiceTva) || 0,
+                    taux_tva: invoiceExo ? 0 : (Number(invoiceTva) || 0),
                     statut: invoiceStatut,
+                    date_facture: invoiceDateFacture || undefined,
+                    date_echeance: invoiceDateEcheance || null,
+                    discount: invoiceTotals.discount,
+                    montant_paye: invoiceTotals.acompte,
+                    exonere: invoiceExo,
                 }),
             });
             if (!res.ok) {
@@ -1110,6 +1292,7 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
             const savedFacture = await res.json();
             setInvoiceModal(false);
             onInvoiced?.();
+            loadClientFactures();
             onPrintInvoice?.(savedFacture, record, invoiceGrid);
         } catch {
             setInvoiceError(tx(lang, { fr: "L'émission de la facture a échoué.", ar: 'فشل إصدار الفاتورة.', en: 'Invoice issuing failed.', es: 'Error al emitir la factura.', pt: 'Falha ao emitir a fatura.', tr: 'Fatura kesme başarısız.' }));
@@ -1274,31 +1457,130 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                                 })}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
-                                        {tx(lang, { fr: 'TVA (%)', ar: 'الضريبة (%)', en: 'VAT (%)', es: 'IVA (%)', pt: 'IVA (%)', tr: 'KDV (%)' })}
-                                    </label>
-                                    <input type="number" min={0} step="any" value={invoiceTva} onChange={e => setInvoiceTva(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                            {/* Conditions & montants — mêmes leviers que la facture d'achat
+                                (sous-traitance) : dates, remise, acompte, exonération. Tout
+                                visible AVANT d'émettre, faute de quoi une correction devient
+                                un avoir. */}
+                            <div className="border border-slate-200 dark:border-dk-border rounded-xl overflow-hidden">
+                                <div className="px-3 py-1.5 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/40">
+                                    <h4 className="text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted">
+                                        {tx(lang, { fr: 'Conditions & montants', ar: 'الشروط والمبالغ', en: 'Terms & amounts', es: 'Condiciones e importes', pt: 'Condições e montantes', tr: 'Koşullar ve tutarlar' })}
+                                    </h4>
                                 </div>
-                                <div>
-                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
-                                        {tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Estado', tr: 'Durum' })}
+                                <div className="p-3 grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                            {tx(lang, { fr: 'Date de facture', ar: 'تاريخ الفاتورة', en: 'Invoice date', es: 'Fecha de factura', pt: 'Data da fatura', tr: 'Fatura tarihi' })}
+                                        </label>
+                                        <input type="date" value={invoiceDateFacture} onChange={e => setInvoiceDateFacture(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                                    </div>
+                                    <div>
+                                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                            {tx(lang, { fr: "Date d'échéance", ar: 'تاريخ الاستحقاق', en: 'Due date', es: 'Fecha de vencimiento', pt: 'Data de vencimento', tr: 'Vade tarihi' })}
+                                        </label>
+                                        <input type="date" value={invoiceDateEcheance} onChange={e => setInvoiceDateEcheance(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                                    </div>
+
+                                    <div>
+                                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                            {tx(lang, { fr: 'TVA (%)', ar: 'الضريبة (%)', en: 'VAT (%)', es: 'IVA (%)', pt: 'IVA (%)', tr: 'KDV (%)' })}
+                                        </label>
+                                        <input type="number" min={0} step="any" disabled={invoiceExo} value={invoiceTva} onChange={e => setInvoiceTva(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent disabled:opacity-40" />
+                                    </div>
+                                    <div>
+                                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                            {tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Estado', tr: 'Durum' })}
+                                        </label>
+                                        <select value={invoiceStatut} onChange={e => setInvoiceStatut(e.target.value as any)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent">
+                                            <option value="BROUILLON">{tx(lang, { fr: 'Brouillon', ar: 'مسوّدة', en: 'Draft', es: 'Borrador', pt: 'Rascunho', tr: 'Taslak' })}</option>
+                                            <option value="ENVOYEE">{tx(lang, { fr: 'Envoyée (impayée)', ar: 'مرسلة (غير مؤدّاة)', en: 'Sent (unpaid)', es: 'Enviada (impagada)', pt: 'Enviada (não paga)', tr: 'Gönderildi (ödenmedi)' })}</option>
+                                            <option value="PAYEE">{tx(lang, { fr: 'Payée', ar: 'مؤدّاة', en: 'Paid', es: 'Pagada', pt: 'Paga', tr: 'Ödendi' })}</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                            {tx(lang, { fr: 'Remise', ar: 'التخفيض', en: 'Discount', es: 'Descuento', pt: 'Desconto', tr: 'İndirim' })}
+                                        </label>
+                                        <div className="flex items-center gap-1.5">
+                                            <input
+                                                type="number" min={0} value={invoiceDiscount}
+                                                onChange={e => setInvoiceDiscount(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                            />
+                                            <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border shrink-0">
+                                                {(['PCT', 'AMOUNT'] as const).map(mode => (
+                                                    <button key={mode} type="button" onClick={() => setInvoiceDiscountMode(mode)}
+                                                        className={`px-2 py-2 text-[10px] font-bold transition-colors ${invoiceDiscountMode === mode ? 'bg-indigo-600 dark:bg-dk-accent text-white' : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted'}`}>
+                                                        {mode === 'PCT' ? '%' : currency}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                                            {tx(lang, { fr: 'Acompte déjà versé', ar: 'تسبيق مؤدى', en: 'Advance already paid', es: 'Anticipo ya pagado', pt: 'Adiantamento já pago', tr: 'Ödenmiş avans' })}
+                                        </label>
+                                        <input
+                                            type="number" min={0} value={invoiceAcompte}
+                                            onChange={e => setInvoiceAcompte(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                                            className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                        />
+                                    </div>
+
+                                    <label className="col-span-2 flex items-start gap-2 cursor-pointer">
+                                        <input type="checkbox" checked={invoiceExo} onChange={e => setInvoiceExo(e.target.checked)} className="w-3.5 h-3.5 accent-indigo-600 mt-0.5" />
+                                        <span className="text-[10px] font-bold text-slate-600 dark:text-dk-text-soft">
+                                            {tx(lang, { fr: 'Exonéré de TVA (marché export — art. 92 CGI)', ar: 'معفى من الضريبة على القيمة المضافة (سوق التصدير — المادة 92)', en: 'VAT exempt (export market — art. 92)', es: 'Exento de IVA (mercado de exportación — art. 92)', pt: 'Isento de IVA (mercado de exportação — art. 92)', tr: 'KDV muaf (ihracat pazarı — madde 92)' })}
+                                        </span>
                                     </label>
-                                    <select value={invoiceStatut} onChange={e => setInvoiceStatut(e.target.value as any)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent">
-                                        <option value="BROUILLON">{tx(lang, { fr: 'Brouillon', ar: 'مسوّدة', en: 'Draft', es: 'Borrador', pt: 'Rascunho', tr: 'Taslak' })}</option>
-                                        <option value="ENVOYEE">{tx(lang, { fr: 'Envoyée (impayée)', ar: 'مرسلة (غير مؤدّاة)', en: 'Sent (unpaid)', es: 'Enviada (impagada)', pt: 'Enviada (não paga)', tr: 'Gönderildi (ödenmedi)' })}</option>
-                                        <option value="PAYEE">{tx(lang, { fr: 'Payée', ar: 'مؤدّاة', en: 'Paid', es: 'Pagada', pt: 'Paga', tr: 'Ödendi' })}</option>
-                                    </select>
+                                </div>
+
+                                {/* Récapitulatif — brut → remise → net → TVA → TTC → acompte → reste. */}
+                                <div className="border-t border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 p-3 space-y-1 text-[11px]">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-slate-500 dark:text-dk-muted font-semibold">{tx(lang, { fr: 'Total HT brut', ar: 'المجموع الخام دون الضريبة', en: 'Gross total excl. tax', es: 'Total bruto sin IVA', pt: 'Total bruto sem IVA', tr: 'Brüt KDV hariç toplam' })}</span>
+                                        <span className="font-bold text-slate-700 dark:text-dk-text-soft">{fmt(invoiceTotals.brut)} {currency}</span>
+                                    </div>
+                                    {invoiceTotals.discount > 0 && (
+                                        <>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-slate-500 dark:text-dk-muted font-semibold">{tx(lang, { fr: 'Remise', ar: 'التخفيض', en: 'Discount', es: 'Descuento', pt: 'Desconto', tr: 'İndirim' })}</span>
+                                                <span className="font-bold text-amber-700 dark:text-amber-400">- {fmt(invoiceTotals.discount)} {currency}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-slate-500 dark:text-dk-muted font-semibold">{tx(lang, { fr: 'Net HT', ar: 'الصافي دون الضريبة', en: 'Net excl. tax', es: 'Neto sin IVA', pt: 'Líquido sem IVA', tr: 'Net KDV hariç' })}</span>
+                                                <span className="font-bold text-slate-700 dark:text-dk-text-soft">{fmt(invoiceTotals.ht)} {currency}</span>
+                                            </div>
+                                        </>
+                                    )}
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-slate-500 dark:text-dk-muted font-semibold">{tx(lang, { fr: 'TVA', ar: 'الضريبة', en: 'VAT', es: 'IVA', pt: 'IVA', tr: 'KDV' })} {invoiceExo ? '(0%)' : `${invoiceTva}%`}</span>
+                                        <span className="font-bold text-slate-700 dark:text-dk-text-soft">{fmt(invoiceTotals.tva)} {currency}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-dk-border">
+                                        <span className="font-black uppercase tracking-wide text-[10px] text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'Total TTC', ar: 'المجموع مع الضريبة', en: 'Total incl. tax', es: 'Total con IVA', pt: 'Total com IVA', tr: 'Toplam (KDV dahil)' })}</span>
+                                        <span className="font-extrabold text-indigo-600 dark:text-dk-accent text-sm">{fmt(invoiceTotals.ttc)} {currency}</span>
+                                    </div>
+                                    {invoiceTotals.acompte > 0 && (
+                                        <>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-emerald-700 dark:text-emerald-400 font-semibold">{tx(lang, { fr: 'Déjà payé', ar: 'المؤدى سابقاً', en: 'Already paid', es: 'Ya pagado', pt: 'Já pago', tr: 'Ödenmiş' })}</span>
+                                                <span className="font-bold text-emerald-700 dark:text-emerald-400">- {fmt(invoiceTotals.acompte)} {currency}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-dk-border">
+                                                <span className="font-black uppercase tracking-wide text-[10px] text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'Reste à payer', ar: 'الباقي للأداء', en: 'Balance due', es: 'Resto a pagar', pt: 'Restante a pagar', tr: 'Kalan borç' })}</span>
+                                                <span className="font-extrabold text-indigo-600 dark:text-dk-accent text-sm">{fmt(invoiceTotals.reste)} {currency}</span>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-dk-border">
-                                <span className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted">
-                                    {tx(lang, { fr: `${invoiceTotals.count} ligne(s) sélectionnée(s)`, ar: `${invoiceTotals.count} سطر مختار`, en: `${invoiceTotals.count} line(s) selected`, es: `${invoiceTotals.count} línea(s) seleccionada(s)`, pt: `${invoiceTotals.count} linha(s) selecionada(s)`, tr: `${invoiceTotals.count} satır seçildi` })}
-                                </span>
-                                <span className="text-[13px] font-bold text-indigo-600 dark:text-dk-accent">{fmt(invoiceTotals.ttc)} {currency}</span>
-                            </div>
+                            <p className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted">
+                                {tx(lang, { fr: `${invoiceTotals.count} ligne(s) sélectionnée(s)`, ar: `${invoiceTotals.count} سطر مختار`, en: `${invoiceTotals.count} line(s) selected`, es: `${invoiceTotals.count} línea(s) seleccionada(s)`, pt: `${invoiceTotals.count} linha(s) selecionada(s)`, tr: `${invoiceTotals.count} satır seçildi` })}
+                            </p>
                         </div>
 
                         <div className="px-5 py-3 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-dk-surface">
@@ -1414,6 +1696,101 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                 )}
             </Section>
 
+            {record?.id && (clientFacturesLoading || clientFactures.length > 0) && (
+                <Section
+                    title={tx(lang, { fr: 'Factures liées', ar: 'الفواتير المرتبطة', en: 'Linked invoices', es: 'Facturas vinculadas', pt: 'Faturas ligadas', tr: 'Bağlı faturalar' })}
+                    icon={<Receipt className="w-3.5 h-3.5 text-indigo-600 dark:text-dk-accent" />}
+                >
+                    {clientFacturesLoading ? (
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400 dark:text-dk-muted py-2">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            {tx(lang, { fr: 'Chargement…', ar: 'كيتحمّل…', en: 'Loading…', es: 'Cargando…', pt: 'A carregar…', tr: 'Yükleniyor…' })}
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-[11px]">
+                                <thead>
+                                    <tr>
+                                        <th className={th}>N°</th>
+                                        <th className={th}>{tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' })}</th>
+                                        <th className={`${th} text-right`}>{tx(lang, { fr: 'Montant TTC', ar: 'المبلغ مع الضريبة', en: 'Total incl. tax', es: 'Importe con IVA', pt: 'Montante com IVA', tr: 'Toplam (KDV dahil)' })}</th>
+                                        <th className={th}>{tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Estado', tr: 'Durum' })}</th>
+                                        <th className={`${th} text-right`}></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                                    {clientFactures.map(f => {
+                                        const statutChip = f.statut === 'PAYEE'
+                                            ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50'
+                                            : f.statut === 'PARTIELLEMENT'
+                                                ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50'
+                                                : f.statut === 'ANNULEE'
+                                                    ? 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                                                    : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/50';
+                                        const statutLabel = f.statut === 'PAYEE'
+                                            ? tx(lang, { fr: 'Payée', ar: 'مؤدّاة', en: 'Paid', es: 'Pagada', pt: 'Paga', tr: 'Ödendi' })
+                                            : f.statut === 'PARTIELLEMENT'
+                                                ? tx(lang, { fr: 'Partiel', ar: 'جزئي', en: 'Partial', es: 'Parcial', pt: 'Parcial', tr: 'Kısmi' })
+                                                : f.statut === 'ANNULEE'
+                                                    ? tx(lang, { fr: 'Annulée', ar: 'ملغاة', en: 'Cancelled', es: 'Anulada', pt: 'Anulada', tr: 'İptal' })
+                                                    : tx(lang, { fr: 'Impayée', ar: 'غير مؤدّاة', en: 'Unpaid', es: 'Impagada', pt: 'Não paga', tr: 'Ödenmedi' });
+                                        return (
+                                            <tr key={f.id}>
+                                                <td className={`${td} font-semibold text-slate-800 dark:text-dk-text`}>{f.numero}</td>
+                                                <td className={td}>{fmtDay(f.date_facture, dateLocale)}</td>
+                                                <td className={`${td} text-right font-bold text-slate-800 dark:text-dk-text`}>{fmt(f.total_ttc)} {currency}</td>
+                                                <td className={td}>
+                                                    <span className={`inline-block px-2 py-0.5 rounded border text-[9px] font-bold ${statutChip}`}>{statutLabel}</span>
+                                                </td>
+                                                <td className={`${td} text-right`}>
+                                                    {f.statut !== 'ANNULEE' && (
+                                                        <button
+                                                            type="button"
+                                                            disabled={cancellingFactureId === f.id}
+                                                            onClick={() => setPendingCancelFacture(f)}
+                                                            className="p-1 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40"
+                                                            title={tx(lang, { fr: 'Annuler la facture', ar: 'إلغاء الفاتورة', en: 'Cancel invoice', es: 'Anular factura', pt: 'Anular fatura', tr: 'Faturayı iptal et' })}
+                                                        >
+                                                            {cancellingFactureId === f.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </Section>
+            )}
+
+            {pendingCancelFacture && (
+                <div className="fixed inset-0 bg-slate-950/30 backdrop-blur-[2px] flex items-center justify-center z-[260] p-4" onClick={() => setPendingCancelFacture(null)}>
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-start gap-2.5">
+                            <AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                                <p className="text-[13px] font-bold text-slate-800 dark:text-dk-text">
+                                    {tx(lang, { fr: `Annuler la facture ${pendingCancelFacture.numero} ?`, ar: `إلغاء الفاتورة ${pendingCancelFacture.numero}؟`, en: `Cancel invoice ${pendingCancelFacture.numero}?`, es: `¿Anular la factura ${pendingCancelFacture.numero}?`, pt: `Anular a fatura ${pendingCancelFacture.numero}?`, tr: `${pendingCancelFacture.numero} faturası iptal edilsin mi?` })}
+                                </p>
+                                <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-1">
+                                    {tx(lang, { fr: 'Ses sorties redeviennent non facturées : elles pourront être reprises dans une nouvelle facture.', ar: 'الإخراجات ديالها كترجع غير مفوترة: يمكن تتفوتر من جديد.', en: 'Its exits become unbilled again: they can be picked up in a new invoice.', es: 'Sus salidas vuelven a no estar facturadas: podrán incluirse en una nueva factura.', pt: 'As suas saídas voltam a não faturadas: poderão ser retomadas numa nova fatura.', tr: 'Çıkışları yeniden faturasız hale gelir: yeni bir faturaya alınabilir.' })}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setPendingCancelFacture(null)} className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors">
+                                {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
+                            </button>
+                            <button onClick={() => cancelInvoice(pendingCancelFacture)} disabled={cancellingFactureId != null} className="px-3 py-1.5 rounded-lg bg-rose-600 text-white font-bold text-[11px] hover:bg-rose-700 transition-colors disabled:opacity-40">
+                                {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {record?.notes && (
                 <Section
                     title={tx(lang, { fr: 'Notes', ar: 'ملاحظات', en: 'Notes', es: 'Notas', pt: 'Notas', tr: 'Notlar' })}
@@ -1501,6 +1878,7 @@ const EntitySheet: React.FC<EntitySheetProps> = (props) => {
                             canSeeCost={props.canSeeCost}
                             canSetPrice={props.canSetPrice}
                             clientTypeLabels={props.clientTypeLabels}
+                            onSetModelStorePublished={props.onSetModelStorePublished}
                         />
                     ) : (
                         <ClientSheet

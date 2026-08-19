@@ -248,6 +248,11 @@ export type FicheData = {
      *  Sert au lien retour Modèle → Commande et à éviter les écritures en boucle. */
     orderId?: string;
   };
+  /** Publication volontaire dans la boutique en ligne. Éteint par défaut :
+   *  un atelier a des modèles réservés à un client de gros, des essais, des
+   *  choses qu'il ne veut montrer à personne. Rien ne part vers la boutique
+   *  tant que ce drapeau n'est pas allumé à la main depuis la fiche modèle. */
+  storePublished?: boolean;
   /** Saved state for the Thread Calculator modal (prices, waste, bobbin, etc.) */
   threadCalcState?: any;
 };
