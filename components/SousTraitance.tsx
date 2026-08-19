@@ -22,7 +22,7 @@ import {
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
   AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil, Table,
-  Receipt, Warehouse
+  Receipt, Warehouse, Maximize2, Minimize2
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
@@ -563,6 +563,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [orderPendingDelete, setOrderPendingDelete] = useState<SubcontractOrder | null>(null);
   const [isDeletingOrder, setIsDeletingOrder] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  /** Fiche de commande en plein écran. La fiche porte la grille de réception,
+   *  les frais et les factures : sur un grand écran, la lire dans une fenêtre
+   *  étroite oblige à faire défiler pour comparer ce qui devrait se voir d'un
+   *  seul coup. Le choix est retenu tant que l'onglet reste ouvert : celui qui
+   *  agrandit une fois veut le même confort à la fiche suivante. */
+  const [detailFullscreen, setDetailFullscreen] = useState(false);
   const [detailOrder, setDetailOrder] = useState<SubcontractOrder | null>(null);
 
   // Form States (Orders)
@@ -4987,7 +4993,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           <div className="space-y-0.5">
             <span className="text-[10px] font-black text-indigo-600 dark:text-dk-accent uppercase tracking-widest block">{tx(lang,{fr:'Plateforme Industrielle',ar:'المنصة الصناعية',en:'Industrial Platform',es:'Plataforma Industrial',pt:'Plataforma Industrial',tr:'Endüstriyel Platform'})}</span>
             <h1 className="text-lg lg:text-xl font-black tracking-tight text-slate-900 dark:text-dk-text">
-              {tx(lang,{fr:'Sous-traitance & Monawla',ar:'المقاولة من الباطن ومناولة',en:'Subcontracting & Monawla',es:'Subcontratación & Monawla',pt:'Subcontratação & Monawla',tr:'Taşeronluk & Monawla'})}
+              {tx(lang,{fr:'Sous-traitance',ar:'المقاولة من الباطن',en:'Subcontracting',es:'Subcontratación',pt:'Subcontratação',tr:'Taşeronluk'})}
             </h1>
           </div>
           {activeTab === 'orders' && (
@@ -8000,13 +8006,40 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       )}
 
       {isDetailModalOpen && detailOrder && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[85vh] text-slate-700 dark:text-dk-text">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base">{tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}</h2>
-              <button onClick={() => setIsDetailModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
-                <X className="w-5 h-5" />
-              </button>
+        /* Téléphone : feuille qui monte du bas, comme la modale « Nouvel ordre »
+           du Planning — le pouce atteint les boutons, et le contexte derrière
+           reste visible. Ordinateur : fenêtre centrée, agrandissable. */
+        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 overflow-y-auto">
+          <div className={`relative bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border shadow-2xl dark:shadow-dk-elevated w-full overflow-hidden flex flex-col text-slate-700 dark:text-dk-text rounded-t-2xl sm:rounded-3xl max-h-[92vh] sm:my-auto ${
+            detailFullscreen
+              ? 'sm:max-w-[96vw] sm:h-[94vh] sm:max-h-[94vh]'
+              : 'sm:max-w-2xl sm:h-auto sm:max-h-[85vh]'
+          }`}>
+            {/* Poignée : dit qu'on peut refermer en glissant, convention mobile. */}
+            <div className="sm:hidden pt-2 pb-1 flex items-center justify-center shrink-0">
+              <span className="w-10 h-1 rounded-full bg-slate-300 dark:bg-dk-muted" />
+            </div>
+            <div className="flex items-center justify-between px-5 sm:px-6 py-3 sm:py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
+              <h2 className="font-bold text-slate-800 dark:text-dk-text text-sm sm:text-base truncate pr-2">{tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}</h2>
+              <div className="flex items-center gap-1 shrink-0">
+                {/* Caché sur téléphone : la feuille y occupe déjà tout l'espace utile. */}
+                <button
+                  onClick={() => setDetailFullscreen(v => !v)}
+                  className="hidden sm:inline-flex p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft"
+                  title={detailFullscreen
+                    ? tx(lang,{fr:'Réduire la fenêtre',ar:'تصغير النافذة',en:'Restore window',es:'Restaurar ventana',pt:'Restaurar janela',tr:'Pencereyi küçült'})
+                    : tx(lang,{fr:'Agrandir en plein écran',ar:'تكبير لملء الشاشة',en:'Expand to full screen',es:'Ampliar a pantalla completa',pt:'Expandir para ecrã inteiro',tr:'Tam ekrana genişlet'})}
+                >
+                  {detailFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => setIsDetailModalOpen(false)}
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft"
+                  title={tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
