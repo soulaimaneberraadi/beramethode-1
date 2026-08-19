@@ -6762,7 +6762,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           closeOnBackdrop={false}
           bare
         >
-            <form onSubmit={handleEditOrder} className="flex-1 overflow-y-auto min-h-0 p-6 space-y-6 text-xs text-slate-600 dark:text-dk-text-soft">
+            {/* Le formulaire est la colonne ; seul son corps défile, pour que la
+                barre d'actions du bas reste visible en permanence. */}
+            <form onSubmit={handleEditOrder} className="flex-1 flex flex-col min-h-0 text-xs text-slate-600 dark:text-dk-text-soft">
+            <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain p-6 space-y-6">
               {(
                 <div className="space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -7001,7 +7004,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 );
               })()}
 
-              <div className="flex gap-3 justify-between items-center border-t border-slate-200 dark:border-dk-border pt-4 mt-6">
+              {/* La suppression descend AVEC la page : elle n'a pas sa place à
+                  côté d'Enregistrer, sous le pouce, en permanence. On la trouve
+                  en allant la chercher, ce qui est le bon effort pour un geste
+                  irréversible. */}
+              <div className="border-t border-slate-200 dark:border-dk-border pt-4 mt-6">
                 <button
                   type="button"
                   onClick={() => setOrderPendingDelete(selectedOrder)}
@@ -7009,24 +7016,28 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 >
                   {tx(lang,{fr:'Supprimer la commande',ar:'حذف الطلبية',en:'Delete order',es:'Eliminar pedido',pt:'Eliminar encomenda',tr:'Siparişi sil'})}
                 </button>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditModalOpen(false)}
-                    className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
-                  >
-                    {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={actionLoading}
-                    className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
-                  >
-                    {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                    <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
-                  </button>
-                </div>
               </div>
+            </div>
+
+            {/* Barre d'actions collée au bas : Annuler et Enregistrer restent
+                atteignables sans avoir à remonter toute la fiche. */}
+            <div className="shrink-0 flex gap-3 justify-end items-center px-5 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3 border-t border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/40">
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+              >
+                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+              </button>
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
+              >
+                {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
+              </button>
+            </div>
             </form>
         </SheetModal>
       )}
@@ -8018,7 +8029,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           onClose={() => setIsDetailModalOpen(false)}
           title={tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}
           size="lg"
-          zClass="z-50"
+          zClass="z-[150]"
           fullscreen={denseFullscreen}
           onToggleFullscreen={toggleDenseFullscreen}
           closeOnBackdrop={false}
@@ -9711,7 +9722,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           title={tx(lang,{fr:'Générer une facture de sortie de stock (Vente)',ar:'إنشاء فاتورة إخراج من المخزون (بيع)',en:'Generate stock exit invoice (Sale)',es:'Generar factura de salida de stock (Venta)',pt:'Gerar fatura de saída de stock (Venda)',tr:'Stok çıkış faturası oluştur (Satış)'})}
           icon={<FileText className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
           size="xl"
-          zClass="z-50"
+          zClass="z-[150]"
           fullscreen={denseFullscreen}
           onToggleFullscreen={toggleDenseFullscreen}
           closeOnBackdrop={false}
