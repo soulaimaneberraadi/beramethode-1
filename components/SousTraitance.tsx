@@ -8,12 +8,13 @@ import { computeModelCostPrice, prixPlancher, estSousPlancher, SOUS_COUT_NOTE_PR
 import { resolveCommercialAccess, SALE_PRICE_FIELD } from '../app/accessControl';
 import { useAuth } from '../src/context/AuthContext';
 import { usePermissions } from '../src/context/PermissionsContext';
-import { diffOrderVsModelGrid, orderGridToModel } from '../utils/subcontractGrid';
+import { diffOrderVsModelGrid, orderGridToModel, normalizeLabel, type OrderGrid } from '../utils/subcontractGrid';
 import InlineInvoiceList from './InlineInvoiceList';
 import FactureUploader from './FactureUploader';
 import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
 import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
 import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
+import { ean13FromDigits, ean13Variant, renderEAN13, parseScanCode } from '../lib/barcode';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
@@ -22,7 +23,7 @@ import {
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
   AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil, Table,
-  Receipt, Warehouse
+  Receipt, Warehouse, Barcode, ScanLine, Store
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
@@ -624,8 +625,30 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [saleClientIce, setSaleClientIce] = useState('');
   const [saleClientRc, setSaleClientRc] = useState('');
   const [saleClientAdresse, setSaleClientAdresse] = useState('');
+  const [saleClientVille, setSaleClientVille] = useState('');
+  /** Type du client — GROS = revendeur au carton · DETAIL = client final ·
+   *  BOUTIQUE = point de vente. Repris de la fiche client quand il est choisi
+   *  dans « Client enregistré », modifiable ensuite (le registre propose). */
+  const [saleClientType, setSaleClientType] = useState<'GROS' | 'DETAIL' | 'BOUTIQUE'>('DETAIL');
   const [saleClientTel, setSaleClientTel] = useState('');
   const [saleClientEmail, setSaleClientEmail] = useState('');
+  /** Création d'un client « sur le tas » depuis la facture de vente : attendre
+   *  d'aller dans l'onglet Clients casse le geste. Formulaire complet — type,
+   *  ville et adresse — pour que la fiche soit réutilisable à la sortie suivante. */
+  const [saleNewClientOpen, setSaleNewClientOpen] = useState(false);
+  const [saleNewClient, setSaleNewClient] = useState<{
+    nom: string;
+    type: 'GROS' | 'DETAIL' | 'BOUTIQUE';
+    ice: string;
+    rc: string;
+    tel: string;
+    email: string;
+    adresse: string;
+    ville: string;
+    notes: string;
+  }>({ nom: '', type: 'DETAIL', ice: '', rc: '', tel: '', email: '', adresse: '', ville: '', notes: '' });
+  const [saleNewClientSaving, setSaleNewClientSaving] = useState(false);
+  const [saleNewClientError, setSaleNewClientError] = useState<string | null>(null);
   const [saleQuantity, setSaleQuantity] = useState<number>(0);
   /** Prix unitaire de vente : VIDE tant qu'aucune valeur fiable n'existe.
    *  Jamais de valeur devinée — le champ est `required`, l'utilisateur tranche. */
@@ -682,14 +705,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         credentials: 'include',
         body: JSON.stringify(patch),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || '');
+      }
       setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, ...patch } : o)));
       setDetailOrder(prev => (prev && prev.id === order.id ? { ...prev, ...patch } : prev));
       setStockEntryOrder(prev => (prev && prev.id === order.id ? { ...prev, ...patch } : prev));
       setFinishForm(null);
       setStockEntryOrder(null);
-    } catch {
-      setStockEntryError(tx(lang,{fr:'La clôture a échoué.',ar:'فشل الإغلاق.',en:'Closing failed.',es:'El cierre falló.',pt:'O encerramento falhou.',tr:'Kapatma başarısız.'}));
+    } catch (err: any) {
+      setStockEntryError(err?.message || tx(lang,{fr:'La clôture a échoué.',ar:'فشل الإغلاق.',en:'Closing failed.',es:'El cierre falló.',pt:'O encerramento falhou.',tr:'Kapatma başarısız.'}));
     } finally {
       setFinishSaving(false);
     }
@@ -1028,6 +1054,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   } | null>(null);
   const [sortieSaving, setSortieSaving] = useState(false);
   const [sortieError, setSortieError] = useState<string | null>(null);
+  /** Proposition de facturation juste après une sortie de stock : la sortie est
+   *  enregistrée, on demande si l'utilisateur veut créer une facture tout de
+   *  suite. Vieux réflexe des cahiers — la facture suit la sortie, pas l'inverse. */
+  const [sortieInvoicePrompt, setSortieInvoicePrompt] = useState<{
+    clientId: string | null;
+    clientNom: string | null;
+  } | null>(null);
   /** Tarif résolu par le serveur pour (modèle, client, quantité). `source` dit
    *  D'OÙ vient le prix : un montant qui apparaît sans qu'on sache pourquoi
    *  n'est pas utilisable en confiance devant un client. */
@@ -1054,12 +1087,235 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [clientQuickAdd, setClientQuickAdd] = useState(false);
   const [clientQuickAddNom, setClientQuickAddNom] = useState('');
   const [clientQuickAddTel, setClientQuickAddTel] = useState('');
+  /** Création rapide côté sortie de stock : le type, la ville et l'adresse sont
+   *  saisis dès la fiche pour que la sortie suivante les retrouve. */
+  const [clientQuickAddType, setClientQuickAddType] = useState<'GROS' | 'DETAIL' | 'BOUTIQUE'>('DETAIL');
+  const [clientQuickAddVille, setClientQuickAddVille] = useState('');
+  const [clientQuickAddAdresse, setClientQuickAddAdresse] = useState('');
+  const [clientQuickAddIce, setClientQuickAddIce] = useState('');
+  const [clientQuickAddRc, setClientQuickAddRc] = useState('');
   const [clientQuickAddSaving, setClientQuickAddSaving] = useState(false);
   const [clientQuickAddError, setClientQuickAddError] = useState<string | null>(null);
   /** Compteur de requêtes : chaque frappe dans la grille change la quantité et
    *  relance une résolution. Sans ce garde, une réponse lente écraserait une
    *  réponse plus récente et proposerait le tarif d'une autre quantité. */
   const sortieTarifSeq = useRef(0);
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * Commande « normale » : plusieurs modèles sur UNE commande de vente.
+   * Le client a besoin de plus d'un modèle → un seul ordre, un seul client,
+   * un seul total, et une facture qui regroupe tout. Chaque ligne porte son
+   * propre tarif résolu (modèle + quantité + client) et son propre garde-fou
+   * « vente à perte ».
+   * ────────────────────────────────────────────────────────────────────── */
+  const [commandeOpen, setCommandeOpen] = useState(false);
+  const [commandeClientId, setCommandeClientId] = useState('');
+  const [commandeDate, setCommandeDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [commandeNote, setCommandeNote] = useState('');
+  const [commandeLignes, setCommandeLignes] = useState<Array<{
+    modelId: string;
+    prix: number | '';
+    /** Vrai dès que l'opérateur a touché le prix de la ligne : le serveur
+     *  PROPOSE, l'opérateur DÉCIDE — un tarif résolu ne doit jamais écraser
+     *  sa saisie. */
+    prixTouched: boolean;
+    /** Grille couleur × taille de CE modèle (comme la sortie classique) :
+     *  chaque cellule porte la quantité sortie pour (couleur, taille). */
+    grid: Record<string, number | ''>;
+  }>>([]);
+  const [commandeSaving, setCommandeSaving] = useState(false);
+  const [commandeError, setCommandeError] = useState<string | null>(null);
+  /** Tarifs résolus par modèle (le prix est une propriété du MODÈLE × quantité
+   *  × client, pas de la ligne : deux lignes du même modèle partagent le prix). */
+  const [commandePrix, setCommandePrix] = useState<Record<string, number | ''>>({});
+  const [commandePrixLoading, setCommandePrixLoading] = useState(false);
+  const commandePrixSeq = useRef(0);
+  /** Motif obligatoire d'une vente sous le prix plancher (politique 'CONFIRM'). */
+  const [commandeMotif, setCommandeMotif] = useState('');
+  const [commandeConfirmSousCout, setCommandeConfirmSousCout] = useState(false);
+  /** Sélecteur de modèle de la commande : même esprit que le sélecteur de
+   *  client — photo + nom + Réf + dispo — pour que l'opérateur reconnaisse le
+   *  modèle avant de l'ajouter. Un clic sur une ligne = ajout immédiat. */
+  const [commandeModelPickerOpen, setCommandeModelPickerOpen] = useState(false);
+  const [commandeModelSearch, setCommandeModelSearch] = useState('');
+  /** Sélecteur de client de la commande : photo/avatar + coordonnées, comme le
+   *  sélecteur de la sortie de stock — deux homonymes ne se distinguent qu'à la
+   *  photo et aux coordonnées. */
+  const [commandeClientPickerOpen, setCommandeClientPickerOpen] = useState(false);
+  const [commandeClientSearch, setCommandeClientSearch] = useState('');
+  const commandeLigneTotalQty = (l: { grid: Record<string, number | ''> }): number =>
+    Object.values(l.grid).reduce<number>((a, v) => a + (Number(v) || 0), 0);
+  const commandeTotalQty = useMemo(
+    () => commandeLignes.reduce((a, l) => a + commandeLigneTotalQty(l), 0),
+    [commandeLignes]
+  );
+  const commandeTotalHT = useMemo(
+    () => commandeLignes.reduce((a, l) => a + commandeLigneTotalQty(l) * (Number(l.prix) || 0), 0),
+    [commandeLignes]
+  );
+
+  const openCommande = () => {
+    setCommandeOpen(true);
+    setCommandeClientId('');
+    setCommandeDate(new Date().toISOString().split('T')[0]);
+    setCommandeNote('');
+    setCommandeLignes([]);
+    setCommandePrix({});
+    setCommandeError(null);
+    setCommandeMotif('');
+    setCommandeConfirmSousCout(false);
+  };
+
+  const addCommandeLigne = (modelId: string) => {
+    setCommandeLignes(prev =>
+      prev.some(l => l.modelId === modelId)
+        ? prev
+        : [...prev, { modelId, prix: '', prixTouched: false, grid: {} }]
+    );
+  };
+
+  const removeCommandeLigne = (index: number) => {
+    setCommandeLignes(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const setCommandeLigneCell = (index: number, cell: string, value: number | '') => {
+    setCommandeLignes(prev => prev.map((l, i) => (i === index ? { ...l, grid: { ...l.grid, [cell]: value } } : l)));
+  };
+
+  const setCommandeLignePrix = (index: number, prix: number | '') => {
+    setCommandeLignes(prev => prev.map((l, i) => (i === index ? { ...l, prix, prixTouched: true } : l)));
+  };
+
+  /** Résolution des tarifs ligne par ligne (même service que la sortie
+   *  classique, avec la quantité TOTALE de la ligne). Debounce + compteur de
+   *  séquence : une réponse lente ne doit pas écraser une réponse récente. */
+  useEffect(() => {
+    if (IS_STATIC || !commandeOpen) return;
+    const targets = commandeLignes.filter(l => l.modelId && commandeLigneTotalQty(l) > 0);
+    if (targets.length === 0) {
+      setCommandePrix({});
+      setCommandePrixLoading(false);
+      return;
+    }
+    const seq = ++commandePrixSeq.current;
+    const ctrl = new AbortController();
+    setCommandePrixLoading(true);
+    const timer = setTimeout(() => {
+      Promise.all(
+        targets.map(l => {
+          const qs = new URLSearchParams({ modelId: l.modelId, qty: String(commandeLigneTotalQty(l)) });
+          if (commandeClientId) qs.set('clientId', commandeClientId);
+          return fetch(`/api/prix/resolve?${qs.toString()}`, { credentials: 'include', signal: ctrl.signal })
+            .then(r => (r.ok ? r.json() : null))
+            .then(d => ({ modelId: l.modelId, prix: d?.prix == null ? null : Number(d.prix) }))
+            .catch(() => ({ modelId: l.modelId, prix: null }));
+        })
+      ).then(results => {
+        if (seq !== commandePrixSeq.current) return;
+        const map: Record<string, number | ''> = {};
+        results.forEach(r => { map[r.modelId] = r.prix == null ? '' : Number(Number(r.prix).toFixed(2)); });
+        setCommandePrix(map);
+        // Pré-remplissage UNIQUEMENT tant que l'opérateur n'a pas saisi le prix
+        // de la ligne lui-même : le serveur propose, l'opérateur décide.
+        setCommandeLignes(prev => {
+          let changed = false;
+          const next = prev.map(l => {
+            const r = results.find(x => x.modelId === l.modelId);
+            const proposé = r?.prix == null ? null : Number(Number(r.prix).toFixed(2));
+            if (proposé != null && !l.prixTouched && l.prix !== proposé) {
+              changed = true;
+              return { ...l, prix: proposé };
+            }
+            return l;
+          });
+          return changed ? next : prev;
+        });
+        setCommandePrixLoading(false);
+      });
+    }, 350);
+    return () => { ctrl.abort(); clearTimeout(timer); };
+  }, [commandeLignes, commandeClientId, commandeOpen]);
+
+  const submitCommande = async () => {
+    if (!commandeOpen) return;
+    const lignes = commandeLignes
+      .map(l => ({
+        modelId: l.modelId,
+        prix_unitaire: Number(l.prix) || 0,
+        cells: Object.entries(l.grid)
+          .map(([k, v]) => {
+            const [couleur, taille] = k.split('|');
+            return { couleur, taille, quantite: Math.floor(Number(v) || 0) };
+          })
+          .filter(c => c.quantite > 0),
+      }))
+      .filter(l => l.modelId && l.cells.length > 0);
+
+    if (lignes.length === 0) {
+      setCommandeError(tx(lang,{fr:'Saisissez au moins une quantité.',ar:'دخّل على الأقل كمية وحدة.',en:'Enter at least one quantity.',es:'Introduzca al menos una cantidad.',pt:'Introduza pelo menos uma quantidade.',tr:'En az bir miktar girin.'}));
+      return;
+    }
+    const client = atelierClients.find(c => c.id === commandeClientId);
+    if (!client) {
+      setCommandeError(tx(lang,{fr:'Choisissez un client.',ar:'اختر زبوناً.',en:'Choose a client.',es:'Elija un cliente.',pt:'Escolha um cliente.',tr:'Bir müşteri seçin.'}));
+      return;
+    }
+
+    // Garde-fou « vente à perte ». La MÊME règle est rejouée côté serveur
+    // (server/commercialPolicy.ts) : celle-ci est le confort, celle-là la loi.
+    if (commandeSousPlancher) {
+      if (venteSousCoutPolicy === 'BLOCK') {
+        setCommandeError(tx(lang,{fr:`Vente sous le prix plancher refusée par les réglages de l'entreprise.`,ar:'البيع تحت الثمن الأدنى مرفوض حسب إعدادات الشركة.',en:'Sale below the floor price is refused by the company settings.',es:'La venta por debajo del precio mínimo esta rechazada por los ajustes de la empresa.',pt:'A venda abaixo do preco minimo e recusada pelas definicoes da empresa.',tr:'Taban fiyatin altinda satis sirket ayarlarinca reddedildi.'}));
+        return;
+      }
+      if (venteSousCoutPolicy === 'CONFIRM') {
+        if (!commandeConfirmSousCout) {
+          setCommandeConfirmSousCout(true);
+          setCommandeError(null);
+          return;
+        }
+        if (!commandeMotif.trim()) {
+          setCommandeError(tx(lang,{fr:'Motif obligatoire pour vendre sous le prix plancher.',ar:'السبب إجباري باش تبيع تحت الثمن الأدنى.',en:'A reason is required to sell below the floor price.',es:'Motivo obligatorio para vender por debajo del precio minimo.',pt:'Motivo obrigatorio para vender abaixo do preco minimo.',tr:'Taban fiyatin altinda satis icin gerekce zorunlu.'}));
+          return;
+        }
+      }
+    }
+
+    const note = commandeSousPlancher && venteSousCoutPolicy === 'CONFIRM' && commandeMotif.trim()
+      ? `${SOUS_COUT_NOTE_PREFIX} ${commandeMotif.trim()}`
+      : (commandeNote.trim() || null);
+
+    setCommandeSaving(true);
+    setCommandeError(null);
+    try {
+      const res = await fetch('/api/subcontract/commandes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          client_id: client?.id || null,
+          client_nom: client?.nom || null,
+          date_sortie: commandeDate,
+          note,
+          lignes,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || tx(lang,{fr:'La commande a été refusée.',ar:'تم رفض الأمر.',en:'The order was refused.',es:'El pedido fue rechazado.',pt:'A encomenda foi recusada.',tr:'Sipariş reddedildi.'}));
+      await loadStockMovements();
+      setCommandeOpen(false);
+      setCommandeMotif('');
+      setCommandeConfirmSousCout(false);
+      // La commande vient d'être enregistrée : proposer immédiatement la facture.
+      if (client?.id) {
+        setSortieInvoicePrompt({ clientId: client.id, clientNom: client.nom });
+      }
+    } catch (err: any) {
+      setCommandeError(err.message);
+    } finally {
+      setCommandeSaving(false);
+    }
+  };
 
   // ── Politique commerciale : TOUJOURS lue via `?? DEFAULT_COMMERCIAL_SETTINGS`,
   //    jamais en dur — c'est tout l'intérêt d'avoir sorti ces règles du code.
@@ -1138,19 +1394,507 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     return () => { ctrl.abort(); clearTimeout(timer); };
   }, [sortieModelId, sortieClientId, sortieTotalQty]);
 
-  const openSortieModal = (model: ModelData, salePrice: number | null) => {
+  /** Ouvre la sortie de stock d'un modèle. `prefillGrid` permet au lecteur de
+   *  code-barres de pré-remplir la case (taille, couleur) qu'il vient de
+   *  scanner — puis l'opérateur ajuste les quantités à la main. */
+  const openSortieModal = (model: ModelData, salePrice: number | null, prefillGrid?: Record<string, number>) => {
     setSortieForm({
       model,
       clientId: '',
       prix: salePrice != null && salePrice > 0 ? Number(salePrice.toFixed(2)) : '',
       date: new Date().toISOString().split('T')[0],
-      grid: {},
+      grid: { ...(prefillGrid || {}) },
       prixTouched: false,
     });
     setSortieError(null);
     setSortieTarif(null);
     setSortieMotif('');
     setSortieConfirmSousCout(false);
+  };
+
+  // ── Lecteur de code-barres (laser / USB : se comporte comme un clavier).
+  //    On n'intercepte QUE les rafales très rapides (un vrai lecteur expédie
+  //    tout le code en quelques ms puis Enter) ; la frappe manuelle reste libre.
+  const scanBufRef = useRef('');
+  const scanLastRef = useRef(0);
+  const scanActiveRef = useRef(false);
+  const sortieFormRef = useRef(sortieForm);
+  sortieFormRef.current = sortieForm;
+  /** Miroir de `modelStockStats` (déclaré plus bas) pour que le lecteur
+   *  puisse lire le prix de vente sans dépendre de l'ordre de déclaration. */
+  const modelStockStatsRef = useRef<Array<{ model: ModelData; salePrice: number | null; remainingStock: number }>>([]);
+
+  const playPip = useCallback((ok: boolean) => {
+    try {
+      const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.type = 'sine';
+      o.frequency.value = ok ? 1318.5 : 330;
+      const t = ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.22, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + (ok ? 0.09 : 0.22));
+      o.start(t);
+      o.stop(t + (ok ? 0.11 : 0.24));
+      o.onended = () => { try { void ctx.close(); } catch { /* noop */ } };
+    } catch { /* pas de son disponible */ }
+  }, []);
+
+  /** Déchiffre un EAN-13 « variante » (13 chiffres, taille × couleur) :
+   *  1) la carte enregistrée dans `meta_data.variantCodes` (écrite à
+   *     l'impression : fiable même si la fiche est réordonnée plus tard) ;
+   *  2) à défaut, régénération brute : on rejoue la formule pour chaque
+   *     modèle × taille × couleur jusqu'à trouver le code exact. */
+  const resolveVariantByEAN = useCallback((ean13: string): { model: ModelData; taille: string; couleur: string } | null => {
+    const key = ean13.trim();
+    for (const m of models) {
+      const map = (m.meta_data as any)?.variantCodes;
+      const hit = map && map[key];
+      if (hit && typeof hit.taille === 'string' && typeof hit.couleur === 'string') {
+        return { model: m, taille: hit.taille, couleur: hit.couleur };
+      }
+    }
+    for (const m of models) {
+      const fiche: any = m.ficheData || {};
+      const sizes: string[] = fiche.sizes || [];
+      const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+      const base = ean13FromDigits(String(m.id)).slice(0, 10);
+      for (let si = 0; si < sizes.length; si++) {
+        for (let ci = 0; ci < colors.length; ci++) {
+          if (ean13Variant(base, si, ci) === key) {
+            return { model: m, taille: sizes[si], couleur: colors[ci]?.name || '' };
+          }
+        }
+      }
+    }
+    return null;
+  }, [models]);
+
+  const traiterScan = useCallback((code: string) => {
+    setStockSearch('');
+    const p = parseScanCode(code);
+    if (!p?.ref) { playPip(false); return; }
+    const norm = (s?: string) => (s || '').trim().toUpperCase();
+    let model: ModelData | undefined;
+    let taille = p.taille;
+    let couleur = p.couleur;
+    // EAN-13 variante pure (13 chiffres, sans % ni *): on déchiffre taille/couleur.
+    if (!taille && !couleur && /^\d{13}$/.test(p.ref)) {
+      const hit = resolveVariantByEAN(p.ref);
+      if (hit) { model = hit.model; taille = hit.taille; couleur = hit.couleur; }
+    }
+    if (!model) {
+      model =
+        models.find(m => norm(m.meta_data?.reference) === norm(p.ref)) ||
+        models.find(m => norm(m.meta_data?.nom_modele) === norm(p.ref));
+    }
+    if (!model) { playPip(false); return; }
+    const fiche: any = model.ficheData || {};
+    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+    const sizes: string[] = fiche.sizes || [];
+    const color = couleur ? colors.find(c => norm(c.name) === norm(couleur)) : undefined;
+    const size = taille ? sizes.find(s => norm(s) === norm(taille)) : undefined;
+    // La case n'existe que si les DEUX (taille, couleur) correspondent à la
+    // grille du modèle — sinon on ouvre simplement la sortie sans rien remplir.
+    const key = `${color?.name ?? ''}|${size ?? ''}`;
+    const stat = modelStockStatsRef.current.find(it => it.model.id === model.id);
+    const current = sortieFormRef.current;
+    if (current?.model.id === model.id && key !== '|') {
+      // Déjà en sortie pour CE modèle : on incrémente la case scannée sans
+      // toucher au client ni au prix déjà choisis (chaque pièce = +1).
+      setSortieForm(prev => prev ? { ...prev, grid: { ...prev.grid, [key]: (Number(prev.grid[key]) || 0) + 1 } } : prev);
+      playPip(true);
+      return;
+    }
+    const prefill: Record<string, number> = {};
+    if (key !== '|') prefill[key] = 1;
+    openSortieModal(model, stat?.salePrice ?? null, prefill);
+    playPip(true);
+  }, [models, resolveVariantByEAN, playPip]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const now = performance.now();
+      const gap = now - scanLastRef.current;
+      scanLastRef.current = now;
+      const terminator = e.key === 'Enter' || e.key === 'Tab';
+      if (terminator) {
+        if (scanActiveRef.current && scanBufRef.current.length >= 3) {
+          const code = scanBufRef.current;
+          scanBufRef.current = '';
+          scanActiveRef.current = false;
+          e.preventDefault();
+          traiterScan(code);
+        } else {
+          scanBufRef.current = '';
+          scanActiveRef.current = false;
+        }
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) {
+        scanBufRef.current = '';
+        scanActiveRef.current = false;
+        return;
+      }
+      if (gap < 35) {
+        scanActiveRef.current = true;
+        scanBufRef.current += e.key;
+        e.preventDefault();
+      } else {
+        scanActiveRef.current = false;
+        scanBufRef.current = e.key;
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [traiterScan]);
+
+  // ── Étiquettes « tiki » : deux modes.
+  //   - interne  : un EAN-13 PAR taille × couleur, déchiffré par le lecteur
+  //                (le code remplit la grille de sortie tout seul).
+  //   - externe  : UN EAN-13 par modèle (la « porte ») + prix — celui que le
+  //                magasin lit directement comme un code standard.
+  //   Les quantités à imprimer viennent de la commande (grille couleur × taille)
+  //   et restent modifiables dans le tableau avant impression.
+  const [labelModel, setLabelModel] = useState<ModelData | null>(null);
+  const [labelMode, setLabelMode] = useState<'interne' | 'externe'>('interne');
+  const [labelGrid, setLabelGrid] = useState<Record<string, number>>({});
+  // En mode externe le magasin ne voit que la taille : les quantités sont
+  // agrégées par taille (le même modèle porte tous les tiki d'une taille).
+  const [labelExterneGrid, setLabelExterneGrid] = useState<Record<string, number>>({});
+  const [labelPrice, setLabelPrice] = useState<number>(0);
+  const labelCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  /** Ce qui figure sur le tiki. Une étiquette de 30 mm de haut ne tient pas
+   *  tout : c'est l'opérateur qui tranche, pas nous. Le prix reste décoché par
+   *  défaut en interne (l'atelier n'affiche pas un prix client sur ses bacs). */
+  const [labelFields, setLabelFields] = useState<{
+    marque: boolean; ref: boolean; taille: boolean; couleur: boolean; prix: boolean; code: boolean;
+  }>({ marque: true, ref: true, taille: true, couleur: true, prix: false, code: true });
+
+  /** Marque imprimée en tête d'étiquette. Le logo de l'entreprise (Admin >
+   *  Entreprise) est utilisé s'il existe ; sinon la raison sociale en toutes
+   *  lettres. Le texte reste modifiable : une marque commerciale n'est pas
+   *  toujours la raison sociale. */
+  const [labelBrand, setLabelBrand] = useState('');
+  const [labelUseLogo, setLabelUseLogo] = useState(true);
+
+  /** Format physique de l'étiquette, en millimètres. Une thermique tire un
+   *  rouleau de largeur FIXE : imprimer sur une page « auto » décale tout le
+   *  rouleau. On génère donc une page par étiquette, à la taille exacte. */
+  const LABEL_SIZES: Array<{ id: string; w: number; h: number }> = [
+    { id: '40x30', w: 40, h: 30 },
+    { id: '50x30', w: 50, h: 30 },
+    { id: '60x40', w: 60, h: 40 },
+    { id: '60x30', w: 60, h: 30 },
+  ];
+  const [labelSize, setLabelSize] = useState<{ w: number; h: number }>({ w: 50, h: 30 });
+
+  /** Ordre d'impression. Le rouleau sort dans l'ordre où on écrit les pages :
+   *  regrouper par taille puis par couleur permet de vider un bac avant de
+   *  passer au suivant, au lieu de trier 460 tiki mélangés à la main. */
+  const [labelGroupBy, setLabelGroupBy] = useState<'taille' | 'couleur'>('taille');
+
+  /** Sauvegarde la référence d'un modèle via la même règle que les autres
+   *  écritures : on relit la version à jour puis on poste le patch complet. */
+  const writeModelReference = useCallback(async (modelId: string, reference: string) => {
+    if (!modelId || modelId === 'MANUAL') return;
+    const local = models.find(m => m.id === modelId);
+    if (!local) return;
+    if ((local.meta_data?.reference || '').trim() === reference.trim()) return;
+    try {
+      let base: ModelData = local;
+      if (!IS_STATIC) {
+        const fresh = await fetch('/api/models', { credentials: 'include' });
+        if (fresh.ok) {
+          const list = await fresh.json();
+          const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
+          if (found) base = found;
+        }
+      }
+      if ((base.meta_data?.reference || '').trim() === reference.trim()) return;
+      const updated: ModelData = {
+        ...base,
+        meta_data: { ...(base.meta_data || {}), reference: reference.trim() } as ModelData['meta_data'],
+        updatedAt: new Date().toISOString(),
+      };
+      if (!IS_STATIC) {
+        const res = await fetch('/api/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(updated),
+        });
+        if (!res.ok) return;
+      }
+      setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+    } catch { /* silencieux */ }
+  }, [models]);
+
+  const refModele = useMemo(() => {
+    if (!labelModel) return '';
+    return (labelModel.meta_data?.reference || '').trim() || ean13FromDigits(labelModel.id);
+  }, [labelModel]);
+
+  /** EAN-13 « variante » d'une cellule (taille × couleur) — formule identique
+   *  côté lecteur, donc déchiffrable par notre programme. */
+  const variantCodeFor = useCallback((model: ModelData, couleur: string, taille: string): string => {
+    const fiche: any = model.ficheData || {};
+    const sizes: string[] = fiche.sizes || [];
+    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+    const si = Math.max(0, sizes.indexOf(taille));
+    const ci = Math.max(0, colors.findIndex(c => c.name === couleur));
+    return ean13Variant(ean13FromDigits(String(model.id)).slice(0, 10), si, ci);
+  }, []);
+
+  /** Cellule de prévisualisation : la première qui a une quantité, sinon la
+   *  première de la grille du modèle. */
+  const labelPreview = useMemo<{ code: string; couleur: string; taille: string }>(() => {
+    if (!labelModel) return { code: '', couleur: '', taille: '' };
+    const fiche: any = labelModel.ficheData || {};
+    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+    const sizes: string[] = fiche.sizes || [];
+    let sel: { couleur: string; taille: string } | null = null;
+    for (const [k, v] of Object.entries(labelGrid)) {
+      if (Number(v) > 0) { const [c, t] = k.split('|'); sel = { couleur: c, taille: t }; break; }
+    }
+    if (!sel && colors[0] && sizes[0]) sel = { couleur: colors[0].name, taille: sizes[0] };
+    if (!sel) return { code: '', couleur: '', taille: '' };
+    return { code: variantCodeFor(labelModel, sel.couleur, sel.taille), couleur: sel.couleur, taille: sel.taille };
+  }, [labelModel, labelGrid, variantCodeFor]);
+
+  useEffect(() => {
+    const canvas = labelCanvasRef.current;
+    if (!labelModel || !canvas) return;
+    if (labelMode === 'interne') {
+      if (labelPreview.code) renderEAN13(canvas, labelPreview.code, { height: 58, module: 2 });
+    } else {
+      renderEAN13(canvas, refModele, { height: 58, module: 2 });
+    }
+  }, [labelModel, labelMode, labelPreview, refModele]);
+
+  /** Sauvegarde la carte code → (taille, couleur) dans `meta_data.variantCodes`.
+   *  C'est LE moyen fiable pour le lecteur : il lit la carte au lieu de
+   *  deviner d'après l'ordre de la fiche (qui peut changer plus tard). */
+  const saveVariantCode = useCallback(async (modelId: string, code: string, taille: string, couleur: string) => {
+    if (!modelId || modelId === 'MANUAL' || !code) return;
+    const local = models.find(m => m.id === modelId);
+    if (!local) return;
+    const prevLocal = (local.meta_data as any)?.variantCodes || {};
+    if (prevLocal[code]?.taille === taille && prevLocal[code]?.couleur === couleur) return;
+    try {
+      let base: ModelData = local;
+      if (!IS_STATIC) {
+        const fresh = await fetch('/api/models', { credentials: 'include' });
+        if (fresh.ok) {
+          const list = await fresh.json();
+          const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
+          if (found) base = found;
+        }
+      }
+      const prev = (base.meta_data as any)?.variantCodes || {};
+      if (prev[code]?.taille === taille && prev[code]?.couleur === couleur) return;
+      const updated: ModelData = {
+        ...base,
+        meta_data: { ...(base.meta_data || {}), variantCodes: { ...prev, [code]: { taille, couleur } } } as ModelData['meta_data'],
+        updatedAt: new Date().toISOString(),
+      };
+      if (!IS_STATIC) {
+        const res = await fetch('/api/models', {
+          credentials: 'include',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated),
+        });
+        if (!res.ok) return;
+      }
+      setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+    } catch { /* silencieux */ }
+  }, [models]);
+
+  const openLabel = (model: ModelData, opts?: { grid?: OrderGrid; price?: number }) => {
+    const fiche: any = model.ficheData || {};
+    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+    const sizes: string[] = fiche.sizes || [];
+    // Grille de la commande, indexée par libellé normalisé, pour pré-remplir
+    // le tableau des étiquettes (une quantité par taille × couleur).
+    const orderByNorm: Record<string, Record<string, number>> = {};
+    Object.entries(opts?.grid || {}).forEach(([cname, sizesObj]) => {
+      const inner: Record<string, number> = {};
+      Object.entries(sizesObj || {}).forEach(([sname, q]) => { inner[normalizeLabel(sname)] = Number(q) || 0; });
+      orderByNorm[normalizeLabel(cname)] = inner;
+    });
+    const grid: Record<string, number> = {};
+    colors.forEach(c => {
+      const byNorm = orderByNorm[normalizeLabel(c.name)] || {};
+      sizes.forEach(s => {
+        const key = `${c.name}|${s}`;
+        grid[key] = byNorm[normalizeLabel(s)] || 0;
+      });
+    });
+    setLabelModel(model);
+    setLabelMode('interne');
+    setLabelGrid(grid);
+    // Agrégation par taille pour le mode externe (le magasin ignore la couleur).
+    const externe: Record<string, number> = {};
+    Object.entries(grid).forEach(([k, q]) => {
+      const [, s] = k.split('|');
+      externe[s] = (externe[s] || 0) + (Number(q) || 0);
+    });
+    setLabelExterneGrid(externe);
+    // Le prix qui part sur l'étiquette est celui de la carte Stock & Ventes
+    // (« Prix de vente »). Il reste modifiable ici : une série soldée ou une
+    // remise salon ne doit pas obliger à changer le prix du modèle.
+    const pv = Number(opts?.price) || 0;
+    setLabelPrice(pv);
+    // Le prix ne s'imprime que s'il en existe un : cocher la ligne pour la voir
+    // sortir vide serait un tiki de marque sans son information principale.
+    setLabelFields(prev => ({ ...prev, prix: pv > 0 }));
+    setLabelBrand((companyIdentity.nom || '').trim());
+    setLabelUseLogo(Boolean((companyIdentity.logo || '').trim()));
+  };
+
+  const imprimerTiki = () => {
+    if (!labelModel) return;
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const nom = labelModel.meta_data?.nom_modele || labelModel.id;
+    const fiche: any = labelModel.ficheData || {};
+    const ficheSizes: string[] = fiche.sizes || [];
+    const ficheColors: Array<{ id: string; name: string }> = fiche.colors || [];
+    const cells: Array<{ couleur: string; taille: string; qty: number }> = [];
+    if (labelMode === 'externe') {
+      // Un tiki par taille : toutes les couleurs d'une meme taille partagent le
+      // code « porte » du modele, le magasin n'a que la taille a voir.
+      Object.entries(labelExterneGrid).forEach(([taille, v]) => {
+        const qty = Math.floor(Number(v) || 0);
+        if (qty <= 0) return;
+        cells.push({ couleur: '', taille, qty });
+      });
+    } else {
+      Object.entries(labelGrid).forEach(([k, v]) => {
+        const qty = Math.floor(Number(v) || 0);
+        if (qty <= 0) return;
+        const [couleur, taille] = k.split('|');
+        cells.push({ couleur, taille, qty });
+      });
+    }
+    if (cells.length === 0) return;
+
+    // Le rouleau sort dans l'ordre ou les pages sont ecrites. Sans tri, une
+    // grille de 460 pieces sort melangee et il faut la retrier a la main.
+    // Trie, un bac se remplit d'un bloc avant de passer au suivant. L'ordre de
+    // la fiche fait foi (S, M, L, XL — pas l'alphabet, qui mettrait L avant S).
+    const rankSize = (t: string) => { const i = ficheSizes.indexOf(t); return i < 0 ? 9999 : i; };
+    const rankColor = (c: string) => { const i = ficheColors.findIndex(x => x.name === c); return i < 0 ? 9999 : i; };
+    cells.sort((a, b) => {
+      const primary = labelGroupBy === 'taille'
+        ? rankSize(a.taille) - rankSize(b.taille)
+        : rankColor(a.couleur) - rankColor(b.couleur);
+      if (primary !== 0) return primary;
+      return labelGroupBy === 'taille'
+        ? rankColor(a.couleur) - rankColor(b.couleur)
+        : rankSize(a.taille) - rankSize(b.taille);
+    });
+
+    // Un seul rendu par code distinct (le meme code sert a toutes les pieces
+    // d'une meme cellule — imprimer 500 S-rouge = un rendu + 500 copies).
+    const imgs: Record<string, string> = {};
+    const imgFor = (code: string): string => {
+      if (!imgs[code]) {
+        const c = document.createElement('canvas');
+        renderEAN13(c, code, { height: 34, module: 2 });
+        imgs[code] = c.toDataURL('image/png');
+      }
+      return imgs[code];
+    };
+
+    // L'etiquette s'adapte a sa hauteur physique : sur 30 mm, six lignes se
+    // chevauchent. Les tailles sont donc derivees du format choisi.
+    const { w: lw, h: lh } = labelSize;
+    const scale = Math.min(1, lh / 30);
+    const fsName = (9.5 * scale).toFixed(2);
+    const fsRow = (7.5 * scale).toFixed(2);
+    const fsVal = (8.5 * scale).toFixed(2);
+    const fsCode = (6.8 * scale).toFixed(2);
+    const bcH = Math.max(7, lh * 0.32).toFixed(2);
+    const logoH = (lh * 0.22).toFixed(2);
+    const fsPrice = (Number(fsVal) * 1.25).toFixed(2);
+    const logo = labelUseLogo ? (companyIdentity.logo || '').trim() : '';
+    const brand = (labelBrand || '').trim();
+
+    let labels = '';
+    cells.forEach(cell => {
+      const code = labelMode === 'interne' ? variantCodeFor(labelModel, cell.couleur, cell.taille) : refModele;
+      const img = imgFor(code);
+      const isExterne = labelMode === 'externe';
+      // Chaque donnee sur sa propre ligne, en-tete de marque + bandeau colore.
+      const rows: string[] = [];
+      if (labelFields.ref) rows.push('<div class="row"><span>Ref</span><b>' + esc(refModele) + '</b></div>');
+      if (labelFields.taille && cell.taille) rows.push('<div class="row"><span>Taille</span><b>' + esc(cell.taille) + '</b></div>');
+      if (labelFields.couleur && !isExterne && cell.couleur) rows.push('<div class="row"><span>Couleur</span><b>' + esc(cell.couleur) + '</b></div>');
+      if (labelFields.prix && labelPrice > 0) rows.push('<div class="row price"><span>Prix</span><b>' + labelPrice.toLocaleString() + ' ' + esc(currency) + '</b></div>');
+      const rowsHtml = rows.join('');
+      // En-tete : le logo prime sur le texte, la marque prime sur le nom du
+      // modele — c'est elle que le client lit en rayon.
+      let head = '';
+      if (labelFields.marque) {
+        if (logo) head = '<img src="' + logo + '" class="logo" alt="" />';
+        else if (brand) head = '<div class="nm">' + esc(brand).toUpperCase() + '</div>';
+        else head = '<div class="nm">' + esc(nom).toUpperCase() + '</div>';
+      }
+      for (let i = 0; i < cell.qty; i++) {
+        labels += [
+          '<div class="lbl">',
+          '<div class="band" style="background:' + (isExterne ? '#059669' : '#4f46e5') + '"></div>',
+          head,
+          rowsHtml,
+          '<img src="' + img + '" class="bc" alt="" />',
+          labelFields.code ? '<div class="code">' + esc(code) + '</div>' : '',
+          '</div>',
+        ].join('');
+      }
+    });
+    const w = window.open('', '_blank');
+    w?.document.write(
+      '<!doctype html><html><head><style>' +
+        // Une page = une etiquette, a la taille EXACTE du rouleau. Sans cette
+        // regle le pilote thermique centre l'etiquette sur une page A4 et le
+        // rouleau se decale d'une etiquette a l'autre.
+        '@page { size: ' + lw + 'mm ' + lh + 'mm; margin: 0; }' +
+        'html, body { margin: 0; padding: 0; }' +
+        'body { font-family: "Helvetica Neue", Arial, sans-serif; }' +
+        '.lbl { width: ' + lw + 'mm; height: ' + lh + 'mm; padding: 1.2mm 1.8mm 1mm; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: #fff; page-break-after: always; break-after: page; }' +
+        '.lbl:last-child { page-break-after: auto; break-after: auto; }' +
+        '.band { height: 1.6mm; margin: -1.2mm -1.8mm 0.8mm -1.8mm; }' +
+        '.logo { max-height: ' + logoH + 'mm; max-width: 100%; object-fit: contain; align-self: flex-start; margin-bottom: 0.4mm; }' +
+        '.nm { text-transform: uppercase; letter-spacing: 1px; font-size: ' + fsName + 'pt; font-weight: 800; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
+        '.row { display: flex; justify-content: space-between; align-items: baseline; font-size: ' + fsRow + 'pt; line-height: 1.35; color: #444; text-transform: uppercase; letter-spacing: 0.3px; }' +
+        '.row b { font-size: ' + fsVal + 'pt; color: #000; font-weight: 700; text-transform: none; letter-spacing: 0; }' +
+        '.row.price b { font-size: ' + fsPrice + 'pt; }' +
+        '.bc { height: ' + bcH + 'mm; width: 100%; margin-top: auto; object-fit: contain; image-rendering: pixelated; }' +
+        '.code { font-size: ' + fsCode + 'pt; letter-spacing: 0.8px; color: #222; font-family: monospace; text-align: center; }' +
+        '</style></head><body>' + labels +
+        '<' + 'script>window.print();</' + 'script></body></html>'
+    );
+    w?.document.close();
+    // La reference est sauvegardee seulement a l'impression, et seulement si le
+    // modele n'en avait pas : le code imprime devient alors le code qui
+    // identifiera le modele aux prochains scans.
+    if (!(labelModel.meta_data?.reference || '').trim()) {
+      void writeModelReference(labelModel.id, refModele);
+    }
+    // En mode interne, on enregistre la carte code -> (taille, couleur) pour que
+    // le lecteur dechiffre ces tiki sans dependre de l'ordre de la fiche.
+    if (labelMode === 'interne') {
+      cells.forEach(cell => {
+        void saveVariantCode(labelModel.id, variantCodeFor(labelModel, cell.couleur, cell.taille), cell.taille, cell.couleur);
+      });
+    }
   };
 
   const submitSortie = async () => {
@@ -1219,6 +1963,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setSortieForm(null);
       setSortieMotif('');
       setSortieConfirmSousCout(false);
+      // La sortie vient d'être enregistrée : proposer immédiatement la facture,
+      // mais seulement si le client est connu (une facture sans client ne se
+      // rattache à aucune fiche).
+      if (client?.id) {
+        setSortieInvoicePrompt({ clientId: client.id, clientNom: client.nom });
+      }
     } catch (err: any) {
       setSortieError(err.message);
     } finally {
@@ -1267,7 +2017,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom, tel: clientQuickAddTel.trim() || undefined, type: 'DETAIL' }),
+        body: JSON.stringify({
+          nom,
+          tel: clientQuickAddTel.trim() || undefined,
+          type: clientQuickAddType,
+          ville: clientQuickAddVille.trim() || undefined,
+          adresse: clientQuickAddAdresse.trim() || undefined,
+          ice: clientQuickAddIce.trim() || undefined,
+          rc: clientQuickAddRc.trim() || undefined,
+        }),
       });
       if (!res.ok) throw new Error();
       const created = await res.json();
@@ -1276,6 +2034,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setClientQuickAdd(false);
       setClientQuickAddNom('');
       setClientQuickAddTel('');
+      setClientQuickAddType('DETAIL');
+      setClientQuickAddVille('');
+      setClientQuickAddAdresse('');
+      setClientQuickAddIce('');
+      setClientQuickAddRc('');
       setClientPickerOpen(false);
     } catch {
       setClientQuickAddError(tx(lang,{fr:"La création a échoué.",ar:'فشل الإنشاء.',en:'Creation failed.',es:'La creación falló.',pt:'A criação falhou.',tr:'Oluşturma başarısız.'}));
@@ -1320,6 +2083,25 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     return map;
   }, [allStockEntries, allStockSorties]);
 
+  /** Le stock réel, remis à la forme attendue par l'étiqueteuse (couleur →
+   *  taille → quantité). Une étiquette se colle sur une pièce QUI EXISTE : on
+   *  part des mouvements, pas de la quantité commandée. Les cellules vides ou
+   *  négatives sont écartées — imprimer un tiki pour une pièce déjà vendue
+   *  serait du papier perdu et une référence en double dans le magasin. */
+  const stockGridForLabel = (modelId: string): OrderGrid => {
+    const matrix = stockMatrixByModel.get(modelId);
+    const grid: OrderGrid = {};
+    if (!matrix) return grid;
+    matrix.forEach((qty, key) => {
+      if (!(qty > 0)) return;
+      const sep = key.indexOf('|');
+      const couleur = key.slice(0, sep);
+      const taille = key.slice(sep + 1);
+      if (!couleur || !taille) return;
+      (grid[couleur] ||= {})[taille] = qty;
+    });
+    return grid;
+  };
 
   // Tab 4 (Groups) States
   const { lang } = useLang();
@@ -2507,6 +3289,29 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
     return list;
   }, [models, orders, invoices, settings, lang, dateLocale, allStockEntries, allStockSorties]);
+  modelStockStatsRef.current = modelStockStats;
+
+  /** Modèles sélectionnables pour la commande « normale » : uniquement ceux
+   *  avec du stock VENDABLE (réception détaillée faite, reste > 0). Un modèle
+   *  non ventilé ou épuisé dans la liste serait une promesse de vente
+   *  impossible à tenir. */
+  const commandeModelOptions = useMemo(
+    () => modelStockStats.filter(it => it.stockSource === 'DETAIL' && it.remainingStock > 0),
+    [modelStockStats]
+  );
+
+  /** Au moins une ligne de la commande sous le plancher → le garde-fou
+   *  « vente à perte » se déclenche pour TOUTE la commande, comme sur la
+   *  sortie classique. */
+  const commandeSousPlancher: boolean = useMemo(
+    () => commandeLignes.some(l => {
+      if (commandeLigneTotalQty(l) <= 0) return false;
+      const stat = modelStockStats.find(it => it.model.id === l.modelId);
+      if (!stat) return false;
+      return estSousPlancher(Number(l.prix) || 0, prixPlancher(stat.price, margeMinimale));
+    }),
+    [commandeLignes, modelStockStats, margeMinimale]
+  );
 
   /** Liste réellement affichée : recherche libre (modèle ou client) + un filtre
    *  par intention. « Non ventilé » isole les lignes qui bloquent une vente. */
@@ -2516,7 +3321,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       if (q) {
         const nom = (it.model.meta_data?.nom_modele || '').toLowerCase();
         const client = (it.model.ficheData?.client || '').toLowerCase();
-        if (!nom.includes(q) && !client.includes(q)) return false;
+        const ref = (it.model.meta_data?.reference || '').toLowerCase();
+        if (!nom.includes(q) && !client.includes(q) && !ref.includes(q)) return false;
       }
       if (stockFilter === 'inStock') return it.remainingStock > 0;
       if (stockFilter === 'noPrice') return !(it.salePrice != null && it.salePrice > 0);
@@ -2775,6 +3581,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       subcontractorRating: formSubcontractorRating,
       subcontractorAvailabilityDate: formSubcontractorAvailabilityDate || null,
       prestationType: formPrestationType,
+      st_mode: formStMode,
       tissuFournisseur: formTissuFournisseur,
       fournituresFournisseur: formFournituresFournisseur,
       conditionnementFournisseur: formConditionnementFournisseur,
@@ -2832,8 +3639,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  le modèle (orderId / orderQty) sans toucher au mode de calcul.
    *  La désactivation reste manuelle : on ne coupe jamais un lien tout seul.
    *
-   *  Le mode explicite choisi dans le formulaire prime ; sinon il est déduit des
-   *  fournisseurs de la commande (`inferSubcontractMode`, prudent par défaut). */
+   *  Le mode explicite choisi dans le formulaire (`st_mode`) prime ; sinon il est
+   *  déduit des fournisseurs de la commande (`inferSubcontractMode`, prudent par
+   *  défaut). */
   const syncOrderToModel = async (order: SubcontractOrder, mode?: StMode) => {
     const price = Number(order.pricePerPiece) || 0;
     await writeModelSoustraitance(order.modelId, {
@@ -2841,7 +3649,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       // `orderId` n'est écrit que s'il est connu : juste après la création, la
       // réponse de l'API peut ne pas le porter — la réconciliation le posera.
       ...(order.id ? { orderId: order.id } : {}),
-      mode: mode ?? inferSubcontractMode(order),
+      mode: mode ?? order.st_mode ?? inferSubcontractMode(order),
       prix: price,
       orderQty: Number(order.totalQuantity) || 0,
     });
@@ -2888,9 +3696,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setFormSubcontractorRating(order.subcontractorRating || 5);
     setFormSubcontractorAvailabilityDate(order.subcontractorAvailabilityDate || '');
 
-    // Valeur initiale du sélecteur explicite (A6) : déduite de TOUS les champs
+    // Valeur initiale du sélecteur explicite : le mode stocké sur la commande
+    // fait foi (choix de l'utilisateur), sinon on le déduit de TOUS les champs
     // fournisseur, pas du seul tissu, et conservatrice en cas d'ambiguïté.
-    setFormStMode(inferSubcontractMode(order));
+    setFormStMode((order.st_mode as StMode) || inferSubcontractMode(order));
     setFormPrestationType(order.prestationType || 'CMT');
     setFormTissuFournisseur(order.tissuFournisseur || 'CLIENT');
     setFormFournituresFournisseur(order.fournituresFournisseur || 'CLIENT');
@@ -2961,6 +3770,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       subcontractorRating: formSubcontractorRating,
       subcontractorAvailabilityDate: formSubcontractorAvailabilityDate || null,
       prestationType: formPrestationType,
+      st_mode: formStMode,
       tissuFournisseur: formTissuFournisseur,
       fournituresFournisseur: formFournituresFournisseur,
       conditionnementFournisseur: formConditionnementFournisseur,
@@ -3260,6 +4070,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setSaleClientIce('');
     setSaleClientRc('');
     setSaleClientAdresse('');
+    setSaleClientVille('');
+    setSaleClientType('DETAIL');
     setSaleClientTel('');
     setSaleClientEmail('');
     setSaleQuantity(item.remainingStock);
@@ -3297,6 +4109,45 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       }));
     } finally {
       setSaleNumberLoading(false);
+    }
+  };
+
+  /** Crée un client depuis la facture de vente, puis remplit la facture avec sa
+   *  fiche (type, ville, adresse compris). Le registre sert ensuite de source
+   *  pour les sorties suivantes. */
+  const handleCreateSaleClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const nom = saleNewClient.nom.trim();
+    if (!nom) {
+      setSaleNewClientError(tx(lang,{fr:'Le nom du client est obligatoire.',ar:'اسم العميل إجباري.',en:'Client name is required.',es:'El nombre del cliente es obligatorio.',pt:'O nome do cliente é obrigatório.',tr:'Müşteri adı zorunludur.'}));
+      return;
+    }
+    setSaleNewClientSaving(true);
+    setSaleNewClientError(null);
+    try {
+      const res = await fetch('/api/subcontract/clients', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...saleNewClient, nom }),
+      });
+      if (!res.ok) throw new Error();
+      const created = await res.json();
+      setAtelierClients(prev => [...prev.filter(c => c.id !== created.id), created]);
+      setSaleClient(created.nom || '');
+      setSaleClientIce(created.ice || '');
+      setSaleClientRc(created.rc || '');
+      setSaleClientTel(created.tel || '');
+      setSaleClientEmail(created.email || '');
+      setSaleClientAdresse(created.adresse || '');
+      setSaleClientVille(created.ville || '');
+      setSaleClientType((created.type as any) || 'DETAIL');
+      setSaleNewClientOpen(false);
+      setSaleNewClient({ nom: '', type: 'DETAIL', ice: '', rc: '', tel: '', email: '', adresse: '', ville: '', notes: '' });
+    } catch {
+      setSaleNewClientError(tx(lang,{fr:"La création du client a échoué.",ar:'فشل إنشاء العميل.',en:'Client creation failed.',es:'La creación del cliente falló.',pt:'A criação do cliente falhou.',tr:'Müşteri oluşturma başarısız.'}));
+    } finally {
+      setSaleNewClientSaving(false);
     }
   };
 
@@ -3343,7 +4194,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       tiers_nom: saleClient,
       tiers_ice: saleClientIce || null,
       tiers_rc: saleClientRc || null,
+      tiers_type: saleClientType || null,
       tiers_adresse: saleClientAdresse || null,
+      tiers_ville: saleClientVille || null,
       tiers_tel: saleClientTel || null,
       tiers_email: saleClientEmail || null,
       date_facture: new Date().toISOString().split('T')[0],
@@ -4769,14 +5622,45 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const money = (v: number) => `${esc(fmt(v))} ${esc(currency)}`;
     const clientThumb = inlineThumbHtml(client?.photo || '', 18);
     const words = amountInWords(facture.total_ttc, currency);
+    const ref = /FAC/i.test(String(facture.numero)) ? String(facture.numero) : `FAC-${String(facture.numero)}`;
 
-    const lineRows = (facture.lignes || []).map(l => `
+    const lineRows = (() => {
+      // Groupement par modèle : une seule vignette par modèle, posée en tête de
+      // groupe, puis ses lignes couleur/taille en dessous. Chaque modèle de la
+      // facture est ainsi visible — même avec des dizaines de lignes, pas de
+      // répétition de la même photo. La remise commerciale, sans modèle, reste
+      // une simple ligne (photo vide → pas de titre de groupe).
+      const groups: { nom: string; photo: string; rows: any[] }[] = [];
+      (facture.lignes || []).forEach(l => {
+        const byId = models.find(m => m.id === l.modelId);
+        const nom = byId?.meta_data?.nom_modele || String(l.designation || '').split(' — ')[0].trim() || '—';
+        const photo = (byId?.image || byId?.meta_data?.photo_url) ? (byId.image || byId.meta_data.photo_url) : '';
+        const key = byId ? String(l.modelId) : nom;
+        let g = groups.find(x => x.nom === key);
+        if (!g) { g = { nom: key, photo, rows: [] }; groups.push(g); }
+        g.rows.push(l);
+      });
+      let lineCounter = 0;
+      const lineNo = () => String(++lineCounter);
+      const lineCell = (l: any) => `
               <tr>
+                <td class="row-num">${esc(lineNo())}</td>
                 <td class="c-desc"><span class="label">${esc(l.designation || '—')}</span></td>
                 <td class="num">${esc((Number(l.quantite) || 0).toLocaleString(dateLocale))} pcs</td>
                 <td class="num">${money(Number(l.prix_unitaire) || 0)}</td>
                 <td class="num strong">${money(Number(l.total) || 0)}</td>
-              </tr>`).join('');
+              </tr>`;
+      return groups.map(g => `
+              ${g.photo ? `
+              <tr class="model-head">
+                <td class="row-num"></td>
+                <td class="c-desc" colspan="4">
+                  <span class="model-title">${inlineThumbHtml(g.photo, 36)}${esc(g.nom)}</span>
+                </td>
+              </tr>` : ''}
+              ${g.rows.map(lineCell).join('')}
+            `).join('');
+    })();
 
     const gridBlock = (grid.couleurs.length > 1 || grid.tailles.length > 1) ? `
             <table class="lines" style="margin-top:10px;">
@@ -4821,104 +5705,112 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         <head>
           <title>${esc(tx(lang,{fr:'Facture de Vente',ar:'فاتورة بيع',en:'Sale Invoice',es:'Factura de Venta',pt:'Fatura de Venda',tr:'Satış Faturası'}))} - ${esc(facture.numero)}</title>
           <style>
+            /* Fiche reprise du « Bon d'envoi de sous-traitance » : même grammaire
+               visuelle (accent indigo, cartouches gris, en-têtes lavés, totaux
+               indigo) pour que tous les documents de la sous-traitance se
+               reconnaissent d'un coup d'œil. */
             * { box-sizing: border-box; }
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #16202e; padding: 16px; line-height: 1.35; font-size: 11px; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; padding: 16px; line-height: 1.35; font-size: 11px; }
             .invoice-box { max-width: 820px; margin: auto; }
             .num, .amount { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; white-space: nowrap; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 1.5px solid #16202e; padding-bottom: 8px; }
-            .header-rule { border-bottom: 0.5px solid #16202e; margin-bottom: 12px; padding-top: 1.5px; }
-            .logo { font-size: 17px; font-weight: 800; letter-spacing: -.01em; color: #16202e; }
-            .doc-title { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .10em; color: #16202e; }
-            .doc-meta { margin-top: 5px; font-size: 10px; color: #16202e; }
-            .doc-meta div { margin-top: 1px; }
-            .doc-meta .k { color: #667085; }
-            .doc-meta .v { font-weight: 700; }
-            .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 12px; }
-            .party { padding: 0 14px; }
-            .party:first-child { padding-left: 0; }
-            .party:last-child { border-left: 0.5px solid #ccd3dc; }
-            .party-title { font-size: 7.5px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: .12em; }
-            .party-name { font-size: 12px; font-weight: 800; color: #16202e; margin-top: 3px; }
-            .party-line { font-size: 10px; color: #4a5568; margin-top: 2px; }
-            table { width: 100%; border-collapse: collapse; }
-            .lines { margin-bottom: 10px; }
-            .lines th { padding: 5px 8px; text-align: left; font-size: 8px; color: #16202e; font-weight: 700; text-transform: uppercase; letter-spacing: .09em;
-                        border-top: 0.75px solid #16202e; border-bottom: 0.75px solid #16202e; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 2px solid #6366f1; padding-bottom: 10px; margin-bottom: 12px; }
+            .title { font-size: 18px; font-weight: 900; color: #1e1b4b; }
+            .doc-title { font-size: 18px; font-weight: 900; color: #4f46e5; }
+            .doc-meta { margin-top: 5px; font-size: 10.5px; color: #64748b; font-weight: 700; }
+            .doc-meta div { margin-top: 2px; }
+            .meta-section { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+            .box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 10px; border-radius: 8px; }
+            .box-title { font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: .04em; }
+            .box-val { font-size: 12px; font-weight: 800; color: #0f172a; margin-top: 2px; }
+            .party-line { font-size: 9.5px; color: #475569; font-weight: 600; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+            .lines th { background: #f1f5f9; padding: 6px 8px; text-align: left; font-size: 9px; color: #475569; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; }
             .lines th.num { text-align: right; }
-            .lines td { padding: 5px 8px; border-bottom: 0.5px solid #e3e8ee; vertical-align: top; }
-            .lines tr:last-child td { border-bottom: 0.75px solid #16202e; }
+            .lines td { padding: 5px 8px; border-bottom: 1px solid #eef2f7; vertical-align: top; font-size: 11px; }
+            .lines tr:last-child td { border-bottom: 1px solid #cbd5e1; }
             .lines .c-desc { padding-left: 0; }
             .lines td.num:last-child, .lines th.num:last-child { padding-right: 0; }
-            .label { font-weight: 600; color: #16202e; }
+            .row-num { width: 26px; text-align: center; color: #94a3b8; font-weight: 700; }
+            .label { font-weight: 700; color: #0f172a; }
             .strong { font-weight: 700; }
-            .summary { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; margin-top: 10px; }
+            .summary { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; margin-top: 4px; }
+            .words { border-left: 2px solid #6366f1; padding: 2px 0 2px 9px; }
+            .words-title { font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: .04em; }
+            .words-fr { font-weight: 700; margin-top: 2px; font-size: 11px; color: #0f172a; }
+            .words-ar { direction: rtl; font-size: 11px; font-weight: 700; margin-top: 1px; color: #0f172a; }
             .total-table { width: 100%; }
-            .total-table td { padding: 3px 0; border: none; font-size: 10.5px; }
-            .total-table td:first-child { color: #4a5568; }
+            .total-table td { padding: 4px 0; border: none; font-size: 10.5px; }
+            .total-table td:first-child { color: #475569; }
             .total-table td:last-child { font-weight: 700; }
-            .sub-rule td { border-top: 0.5px solid #ccd3dc !important; }
-            .total-row td { background: #16202e; color: #ffffff; font-weight: 800; font-size: 12.5px; padding: 6px 8px; letter-spacing: .02em; }
+            .sub-rule td { border-top: 0.5px solid #cbd5e1 !important; }
+            .total-row td { background: #4f46e5; color: #ffffff; font-weight: 800; font-size: 12.5px; padding: 6px 8px; letter-spacing: .02em; }
             .total-row td:first-child { color: #ffffff; text-transform: uppercase; font-size: 10px; letter-spacing: .09em; }
-            .words { border-left: 2px solid #16202e; padding: 2px 0 2px 9px; }
-            .words-title { font-size: 7.5px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: .10em; }
-            .words-fr { font-weight: 700; margin-top: 2px; font-size: 10.5px; }
-            .words-ar { direction: rtl; font-size: 10.5px; font-weight: 700; margin-top: 1px; }
-            .legal { font-size: 8.5px; color: #4a5568; line-height: 1.5; margin-top: 12px; padding: 0; }
+            .legal { font-size: 8.5px; color: #475569; line-height: 1.5; margin-top: 12px; padding: 0; }
             .legal ul { margin: 3px 0 0; padding-left: 12px; }
-            .legal-title { font-size: 7.5px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: .10em; }
-            .signatures { display: flex; justify-content: space-between; gap: 24px; margin-top: 26px; }
-            .sig-box { width: 210px; border-top: 0.5px solid #16202e; text-align: center; padding-top: 4px; font-size: 8.5px; color: #4a5568; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
-            .footer { margin-top: 12px; text-align: center; font-size: 8.5px; color: #667085; border-top: 0.5px solid #e3e8ee; padding-top: 6px; }
+            .legal-title { font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: .04em; }
+            .signatures { display: flex; justify-content: space-between; gap: 24px; margin-top: 22px; }
+            .sig-box { width: 210px; border-top: 1px dashed #cbd5e1; text-align: center; padding-top: 6px; font-size: 9px; color: #475569; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
+            .footer { margin-top: 12px; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
             .thumb { display: inline-block; vertical-align: middle; margin-right: 6px; }
             .thumb img { height: 18px; width: 18px; object-fit: cover; border: 0.5px solid #ccd3dc; border-radius: 3px; }
             @page { size: A4; margin: 10mm 10mm; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
-            tr, .party, .words, .signatures, .summary { break-inside: avoid; page-break-inside: avoid; }
+            tr, .box, .words, .signatures, .summary { break-inside: avoid; page-break-inside: avoid; }
             @media print {
               body { padding: 0; font-size: 10.5px; }
               .invoice-box { max-width: none; }
-              .signatures { margin-top: 18px; }
-              .total-row td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .signatures { margin-top: 16px; }
+              .total-row td, .lines th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             }
           </style>
         </head>
         <body>
           <div class="invoice-box">
             <div class="header">
-              <div>
-                <div style="display:flex;align-items:center;gap:12px;">
-                  ${companyIdentity.logo ? `<img src="${esc(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
-                  <div class="logo">${esc(companyIdentity.nom || '')}</div>
-                </div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                ${companyIdentity.logo ? `<img src="${esc(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
+                <div class="title">${esc(companyIdentity.nom || '')}</div>
               </div>
               <div style="text-align: right;">
                 <div class="doc-title">${esc(tx(lang,{fr:'FACTURE DE VENTE',ar:'فاتورة بيع',en:'SALE INVOICE',es:'FACTURA DE VENTA',pt:'FATURA DE VENDA',tr:'SATIŞ FATURASI'}))}</div>
                 <div class="doc-meta">
-                  <div class="v">${esc(tx(lang,{fr:'Facture n°',ar:'فاتورة رقم',en:'Invoice no.',es:'Factura n.º',pt:'Fatura n.º',tr:'Fatura no'}))} ${esc(facture.numero)}</div>
-                  <div><span class="k">${esc(tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'}))} :</span> <span class="v">${esc(fmtDate(facture.date_facture))}</span></div>
-                  ${facture.date_echeance ? `<div><span class="k">${esc(tx(lang,{fr:'Échéance',ar:'تاريخ الاستحقاق',en:'Due date',es:'Vencimiento',pt:'Vencimento',tr:'Vade'}))} :</span> <span class="v">${esc(fmtDate(facture.date_echeance))}</span></div>` : ''}
+                  <div>REF: ${esc(ref)}</div>
+                  <div>${esc(tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'}))} : ${esc(fmtDate(facture.date_facture))}</div>
+                  ${facture.date_echeance ? `<div>${esc(tx(lang,{fr:'Échéance',ar:'تاريخ الاستحقاق',en:'Due date',es:'Vencimiento',pt:'Vencimento',tr:'Vade'}))} : ${esc(fmtDate(facture.date_echeance))}</div>` : ''}
                 </div>
               </div>
             </div>
-            <div class="header-rule"></div>
 
-            <div class="parties">
-              <div class="party">
-                <div class="party-title">${esc(tx(lang,{fr:'Émetteur',ar:'المصدر',en:'Issuer',es:'Emisor',pt:'Emitente',tr:'Düzenleyen'}))}</div>
-                <div class="party-name">${esc(companyIdentity.nom || tx(lang,{fr:'Entreprise non renseignée',ar:'الشركة غير محدَّدة',en:'Company not set',es:'Empresa no indicada',pt:'Empresa não indicada',tr:'Şirket belirtilmedi'}))}</div>
+            <div class="meta-section">
+              <div class="box">
+                <div class="box-title">${esc(tx(lang,{fr:'Émetteur',ar:'المصدر',en:'Issuer',es:'Emisor',pt:'Emitente',tr:'Düzenleyen'}))}</div>
+                <div class="box-val">${esc(companyIdentity.nom || tx(lang,{fr:'Entreprise non renseignée',ar:'الشركة غير محدَّدة',en:'Company not set',es:'Empresa no indicada',pt:'Empresa não indicada',tr:'Şirket belirtilmedi'}))}</div>
                 ${issuerLines}
               </div>
-              <div class="party">
-                <div class="party-title">${esc(tx(lang,{fr:'Client',ar:'الزبون',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'}))}</div>
-                <div class="party-name">${clientThumb}${esc(client?.nom || facture.tiers_nom || '—')}</div>
+              <div class="box">
+                <div class="box-title">${esc(tx(lang,{fr:'Client',ar:'الزبون',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'}))}</div>
+                <div class="box-val">${clientThumb}${esc(client?.nom || facture.tiers_nom || '—')}</div>
                 ${recipientLines}
+              </div>
+              <div class="box">
+                <div class="box-title">${esc(tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'}))}</div>
+                <div class="box-val">${esc(ref)}</div>
+                <div class="party-line">${esc(tx(lang,{fr:'Facturé le',ar:'فوتر في',en:'Invoiced on',es:'Facturado el',pt:'Faturado em',tr:'Fatura tarihi'}))} : ${esc(fmtDate(facture.date_facture))}</div>
+                ${facture.date_echeance ? `<div class="party-line">${esc(tx(lang,{fr:'Échéance',ar:'تاريخ الاستحقاق',en:'Due date',es:'Vencimiento',pt:'Vencimento',tr:'Vade'}))} : ${esc(fmtDate(facture.date_echeance))}</div>` : ''}
+              </div>
+              <div class="box">
+                <div class="box-title">${esc(tx(lang,{fr:'TVA',ar:'الضريبة على القيمة المضافة',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'}))}</div>
+                <div class="box-val">${esc(facture.taux_tva)}%</div>
+                <div class="party-line">${esc(tx(lang,{fr:'Total HT',ar:'المجموع دون الضريبة',en:'Total excl. tax',es:'Total sin IVA',pt:'Total sem IVA',tr:'KDV hariç toplam'}))} : ${money(facture.total_ht)}</div>
+                <div class="party-line">${esc(tx(lang,{fr:'TOTAL TTC',ar:'المجموع مع الضريبة',en:'TOTAL INCL. TAX',es:'TOTAL CON IVA',pt:'TOTAL COM IVA',tr:'TOPLAM (KDV DAHİL)'}))} : ${money(facture.total_ttc)}</div>
               </div>
             </div>
 
             <table class="lines">
               <thead>
                 <tr>
+                  <th class="row-num" style="text-align:center;">#</th>
                   <th>${esc(tx(lang,{fr:'Désignation',ar:'البيان',en:'Description',es:'Designación',pt:'Designação',tr:'Açıklama'}))}</th>
                   <th class="num">${esc(tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'}))}</th>
                   <th class="num">${esc(tx(lang,{fr:'Prix Unitaire',ar:'السعر الوحدة',en:'Unit Price',es:'Precio Unitario',pt:'Preço Unitário',tr:'Birim Fiyat'}))}</th>
@@ -5740,32 +6632,52 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 {/* Valorisation au cout : masquee en bloc quand le cloisonnement
                     commercial est actif. Afficher 0 serait une information FAUSSE. */}
                 {canSeeCostHere && (
-                  <div className="shrink-0 min-w-[150px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                    <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
-                      {tx(lang,{fr:'Valeur du stock (revient)',ar:'قيمة المخزون (بالتكلفة)',en:'Stock value (cost)',es:'Valor del stock (coste)',pt:'Valor do stock (custo)',tr:'Stok degeri (maliyet)'})}
-                    </span>
-                    <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm whitespace-nowrap">{fmt(stockKpis.value)} {currency}</span>
+                  <div className="shrink-0 min-w-[160px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                      <Coins className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
+                        {tx(lang,{fr:'Valeur du stock (revient)',ar:'قيمة المخزون (بالتكلفة)',en:'Stock value (cost)',es:'Valor del stock (coste)',pt:'Valor do stock (custo)',tr:'Stok degeri (maliyet)'})}
+                      </span>
+                      <span className="block font-bold text-slate-800 dark:text-dk-text text-sm whitespace-nowrap">{fmt(stockKpis.value)} {currency}</span>
+                    </div>
                   </div>
                 )}
-                <div className="shrink-0 min-w-[150px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
-                    {tx(lang,{fr:'Pièces disponibles',ar:'القطع المتوفّرة',en:'Available pieces',es:'Piezas disponibles',pt:'Pecas disponiveis',tr:'Mevcut parca'})}
-                  </span>
-                  <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm">{stockKpis.available.toLocaleString(dateLocale)}</span>
+                <div className="shrink-0 min-w-[160px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+                    <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
+                      {tx(lang,{fr:'Pièces disponibles',ar:'القطع المتوفّرة',en:'Available pieces',es:'Piezas disponibles',pt:'Pecas disponiveis',tr:'Mevcut parca'})}
+                    </span>
+                    <span className="block font-bold text-emerald-700 dark:text-emerald-400 text-sm">{stockKpis.available.toLocaleString(dateLocale)}</span>
+                  </div>
                 </div>
-                <div className="shrink-0 min-w-[150px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
-                    {tx(lang,{fr:'Pièces sorties',ar:'القطع المخرَجة',en:'Pieces exited',es:'Piezas salidas',pt:'Pecas saidas',tr:'Cikan parca'})}
-                  </span>
-                  <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm">{stockKpis.exited.toLocaleString(dateLocale)}</span>
+                <div className="shrink-0 min-w-[160px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                    <Truck className="w-4 h-4 text-slate-500 dark:text-dk-muted" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
+                      {tx(lang,{fr:'Pièces sorties',ar:'القطع المخرَجة',en:'Pieces exited',es:'Piezas salidas',pt:'Pecas saidas',tr:'Cikan parca'})}
+                    </span>
+                    <span className="block font-bold text-slate-700 dark:text-dk-text-soft text-sm">{stockKpis.exited.toLocaleString(dateLocale)}</span>
+                  </div>
                 </div>
-                <div className="shrink-0 min-w-[190px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
-                    {tx(lang,{fr:'Modèles sans prix de vente',ar:'موديلات بلا ثمن بيع',en:'Models without sale price',es:'Modelos sin precio de venta',pt:'Modelos sem preco de venda',tr:'Satis fiyati olmayan model'})}
-                  </span>
-                  <span className={`block mt-1 font-bold text-sm ${stockKpis.noPrice > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-dk-text'}`}>
-                    {stockKpis.noPrice.toLocaleString(dateLocale)}
-                  </span>
+                <div className="shrink-0 min-w-[190px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3 flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${stockKpis.noPrice > 0 ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-slate-100 dark:bg-dk-elevated'}`}>
+                    <AlertTriangle className={`w-4 h-4 ${stockKpis.noPrice > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-dk-muted'}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
+                      {tx(lang,{fr:'Modèles sans prix de vente',ar:'موديلات بلا ثمن بيع',en:'Models without sale price',es:'Modelos sin precio de venta',pt:'Modelos sem preco de venda',tr:'Satis fiyati olmayan model'})}
+                    </span>
+                    <span className={`block font-bold text-sm ${stockKpis.noPrice > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-dk-text'}`}>
+                      {stockKpis.noPrice.toLocaleString(dateLocale)}
+                    </span>
+                  </div>
                 </div>
                 </div>
               </div>
@@ -5813,6 +6725,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl pl-9 pr-3 py-2 text-[12px] text-slate-800 dark:text-dk-text placeholder:text-slate-400 dark:placeholder:text-dk-muted outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
                   />
                 </div>
+                {/* Nouvelle commande multi-modèles : une action de la barre
+                    d'outils, pas un bouton isolé en pied de page — toujours à
+                    portée sans avoir à descendre jusqu'au bout de la liste. */}
+                <button
+                  type="button"
+                  onClick={openCommande}
+                  className="hidden lg:flex shrink-0 items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold text-white bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 shadow-sm dark:shadow-none transition-all border border-indigo-600 dark:border-dk-accent"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  {tx(lang,{fr:'Nouvelle Commande',ar:'أمر جديد',en:'New Order',es:'Nuevo Pedido',pt:'Nova Encomenda',tr:'Yeni Sipariş'})}
+                </button>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {([
                     { id: 'all', label: tx(lang,{fr:'Tous',ar:'الكل',en:'All',es:'Todos',pt:'Todos',tr:'Tumu'}) },
@@ -5840,32 +6763,30 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               )}
 
-              {/* Vue mobile : cartes (le tableau ci-dessous devient illisible sous md) */}
-              <div className={stockViewMode === 'table' ? 'md:hidden space-y-3' : 'grid grid-cols-1 md:grid-cols-2 gap-3'}>
-                {filteredStockStats.map(item => (
-                  <div key={item.model.id} className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none p-4 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
+               {/* Vue mobile : cartes (le tableau ci-dessous devient illisible sous md) */}
+              <div className={stockViewMode === 'table' ? 'md:hidden space-y-3' : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3'}>
+                {filteredStockStats.map(item => {
+                  const progress = item.producedQty > 0 ? Math.min(100, Math.round((item.exitedQty / item.producedQty) * 100)) : 0;
+                  const displayName = (item.model.meta_data.nom_modele || '').trim() || item.model.id.slice(0, 8);
+                  return (
+                  <div key={item.model.id} className="group bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none p-4 space-y-3 hover:shadow-md hover:border-indigo-200 dark:hover:border-dk-accent/30 transition-all cursor-pointer">
+                    <div className="flex items-start gap-3">
+                      <div className="w-14 h-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl overflow-hidden shrink-0 flex items-center justify-center shadow-sm">
                         {item.model.image ? (
                           <img src={item.model.image} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <Package className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
+                          <Package className="w-6 h-6 text-slate-300 dark:text-dk-muted" />
                         )}
                       </div>
-                      {/* Le nom du modèle n'est plus une étiquette morte : il ouvre
-                          sa fiche (stock ventilé, marge, acheteurs, historique). */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <button
                             type="button"
                             onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
-                            className="font-semibold block text-slate-800 dark:text-dk-text truncate text-left hover:text-indigo-600 dark:hover:text-dk-accent hover:underline underline-offset-2 transition-colors min-w-0"
+                            className="font-bold block text-slate-800 dark:text-dk-text truncate text-left hover:text-indigo-600 dark:hover:text-dk-accent hover:underline underline-offset-2 transition-colors min-w-0 text-[13px] leading-tight"
                           >
-                            {item.model.meta_data.nom_modele}
+                            {displayName}
                           </button>
-                          {/* Pastille boutique en ligne — affichée UNIQUEMENT si une
-                              boutique est branchée. Sinon rien : une pastille grise
-                              partout n'apprendrait rien à personne. */}
                           {storeBoutiqueOk && (
                             <StoreSyncDot
                               etat={storeSyncEtats.get(item.model.id) ?? 'NONE'}
@@ -5874,53 +6795,60 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             />
                           )}
                         </div>
-                        <span className="text-[9px] text-indigo-600 dark:text-dk-accent block font-normal uppercase">
-                          {tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})}{' '}
-                          {item.model.ficheData?.client ? (
+                        {item.model.ficheData?.client ? (
+                          <span className="text-[10px] text-slate-500 dark:text-dk-muted block font-medium truncate">
+                            <span className="text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Client',ar:'العميل',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})} · </span>
                             <button
                               type="button"
                               onClick={() => openEntitySheet({ kind: 'client', clientNom: item.model.ficheData?.client })}
-                              className="hover:underline underline-offset-2 uppercase"
+                              className="hover:underline underline-offset-2 font-semibold text-slate-600 dark:text-dk-text-soft uppercase"
                             >
                               {item.model.ficheData.client}
                             </button>
-                          ) : 'N/A'}
-                        </span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-300 dark:text-dk-muted block italic">{tx(lang,{fr:'Sans client',ar:'بلا عميل',en:'No client',es:'Sin cliente',pt:'Sem cliente',tr:'Müşteri yok'})}</span>
+                        )}
                       </div>
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase whitespace-nowrap shrink-0 ${
-                        item.status === 'FINISHED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
-                        item.status === 'IN_PRODUCTION' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50' :
-                        'bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
+                      <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full uppercase whitespace-nowrap shrink-0 border ${
+                        item.status === 'FINISHED' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40' :
+                        item.status === 'IN_PRODUCTION' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/40' :
+                        'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
                       }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.status === 'FINISHED' ? 'bg-emerald-500' : item.status === 'IN_PRODUCTION' ? 'bg-indigo-500 animate-pulse' : 'bg-slate-400'}`} />
                         {item.status === 'FINISHED' ? tx(lang,{fr:'Terminé',ar:'منتهٍ',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'}) :
                          item.status === 'IN_PRODUCTION' ? tx(lang,{fr:'En production',ar:'قيد الإنتاج',en:'In production',es:'En producción',pt:'Em produção',tr:'Üretimde'}) :
                          tx(lang,{fr:'Inactif',ar:'غير نشط',en:'Inactive',es:'Inactivo',pt:'Inativo',tr:'Pasif'})}
                       </span>
                     </div>
+                    {/* Barre de progression : produit → sorti */}
+                    <div className="h-1.5 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${item.status === 'FINISHED' ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${progress}%` }} />
+                    </div>
 
                     <div className="grid grid-cols-4 gap-1.5 text-center">
-                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Produit',ar:'المنتج',en:'Produced',es:'Producido',pt:'Produzido',tr:'Üretilen'})}</span>
-                        <span className="block font-bold text-slate-800 dark:text-dk-text text-xs">{item.producedQty.toLocaleString(dateLocale)}</span>
+                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-xl py-2.5 border border-transparent group-hover:border-slate-100 dark:group-hover:border-dk-border/50 transition-colors">
+                        <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Produit',ar:'المنتج',en:'Produced',es:'Producido',pt:'Produzido',tr:'Üretilen'})}</span>
+                        <span className="block font-extrabold text-slate-800 dark:text-dk-text text-[13px] mt-0.5">{item.producedQty.toLocaleString(dateLocale)}</span>
                       </div>
-                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Sorti',ar:'مخرَج',en:'Exited',es:'Salido',pt:'Saido',tr:'Cikan'})}</span>
-                        <span className="block font-bold text-slate-700 dark:text-dk-text-soft text-xs">{item.exitedQty.toLocaleString(dateLocale)}</span>
+                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-xl py-2.5 border border-transparent group-hover:border-slate-100 dark:group-hover:border-dk-border/50 transition-colors">
+                        <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Sorti',ar:'مخرَج',en:'Exited',es:'Salido',pt:'Saido',tr:'Cikan'})}</span>
+                        <span className="block font-extrabold text-slate-700 dark:text-dk-text-soft text-[13px] mt-0.5">{item.exitedQty.toLocaleString(dateLocale)}</span>
                       </div>
-                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Facturé',ar:'مفوتر',en:'Invoiced',es:'Facturado',pt:'Faturado',tr:'Faturali'})}</span>
+                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-xl py-2.5 border border-transparent group-hover:border-slate-100 dark:group-hover:border-dk-border/50 transition-colors">
+                        <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Facturé',ar:'مفوتر',en:'Invoiced',es:'Facturado',pt:'Faturado',tr:'Faturali'})}</span>
                         <span
                           title={item.exitedQty !== item.invoicedQty ? tx(lang,{fr:"Écart entre les pièces sorties du stock et les pièces facturées.",ar:'فرق بين القطع المخرَجة من المخزون والقطع المفوترة.',en:'Gap between pieces exited from stock and pieces invoiced.',es:'Diferencia entre las piezas salidas y las facturadas.',pt:'Diferenca entre as pecas saidas e as faturadas.',tr:'Stoktan cikan ile faturalanan parca arasindaki fark.'}) : undefined}
-                          className={`block font-bold text-xs ${item.exitedQty !== item.invoicedQty ? 'text-rose-600 dark:text-rose-400' : 'text-indigo-600 dark:text-dk-accent'}`}
+                          className={`block font-extrabold text-[13px] mt-0.5 ${item.exitedQty !== item.invoicedQty ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-dk-muted'}`}
                         >
                           {item.invoicedQty.toLocaleString(dateLocale)}
                         </span>
                       </div>
-                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Restant',ar:'المتبقي',en:'Remaining',es:'Restante',pt:'Restante',tr:'Kalan'})}</span>
+                      <div className="bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl py-2.5 border border-emerald-100 dark:border-emerald-900/30">
+                        <span className="block text-[9px] uppercase tracking-wide text-emerald-600/70 dark:text-emerald-400/70 font-bold">{tx(lang,{fr:'Restant',ar:'المتبقي',en:'Remaining',es:'Restante',pt:'Restante',tr:'Kalan'})}</span>
                         <span
                           title={item.stockSource === 'FALLBACK' ? tx(lang,{fr:"Stock non détaillé par couleur et taille : ce total vient des compteurs de la commande.",ar:'المخزون غير مفصّل باللون والمقاس: هاد المجموع جاي من عدّادات الطلبية.',en:'Stock not itemised by color and size: this total comes from the order counters.',es:'Stock sin desglose por color y talla: este total viene de los contadores del pedido.',pt:'Stock sem desdobramento por cor e tamanho: este total vem dos contadores da encomenda.',tr:'Stok renk ve bedene gore ayrilmamis: bu toplam siparis sayaclarindan geliyor.'}) : undefined}
-                          className={`block font-bold text-xs ${item.stockSource === 'FALLBACK' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                          className={`block font-extrabold text-[13px] mt-0.5 ${item.stockSource === 'FALLBACK' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}
                         >
                           {item.remainingStock.toLocaleString(dateLocale)}
                         </span>
@@ -5934,11 +6862,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </span>
                     )}
 
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-start justify-between pt-2 border-t border-slate-100 dark:border-dk-border/50">
                       <div>
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Date lancement',ar:'تاريخ الإطلاق',en:'Launch date',es:'Fecha de inicio',pt:'Data de lançamento',tr:'Başlangıç tarihi'})}</span>
-                        <span className="text-slate-600 dark:text-dk-text-soft text-[11px]">{item.startDate}</span>
-                        {/* Compte les gestes (sorties, commandes), pas les pièces. */}
+                        <span className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold"><Calendar className="w-3 h-3" />{tx(lang,{fr:'Date lancement',ar:'تاريخ الإطلاق',en:'Launch date',es:'Fecha de inicio',pt:'Data de lançamento',tr:'Başlangıç tarihi'})}</span>
+                        <span className="text-slate-700 dark:text-dk-text-soft text-[11px] font-medium mt-0.5 block">{item.startDate}</span>
                         <span className="block text-[10px] text-slate-400 dark:text-dk-muted mt-1">
                           {tx(lang,{fr:'sorties',ar:'مرّات الخروج',en:'exits',es:'salidas',pt:'saidas',tr:'cikislar'})} : {item.sortiesCount.toLocaleString(dateLocale)}
                           {' · '}
@@ -5946,7 +6873,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Prix de vente',ar:'ثمن البيع',en:'Sale price',es:'Precio de venta',pt:'Preço de venda',tr:'Satis fiyati'})}</span>
+                        <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Prix de vente',ar:'ثمن البيع',en:'Sale price',es:'Precio de venta',pt:'Preço de venda',tr:'Satis fiyati'})}</span>
                         {editingPriceModelId === item.model.id ? (
                           <input
                             type="number"
@@ -5960,21 +6887,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                               if (e.key === 'Escape') setEditingPriceModelId(null);
                             }}
-                            className="w-24 text-right bg-slate-50 dark:bg-dk-bg border border-indigo-500 dark:border-dk-accent rounded-lg px-2 py-1 text-[11px] text-slate-800 dark:text-dk-text outline-none"
+                            className="w-28 text-right bg-slate-50 dark:bg-dk-bg border border-indigo-500 dark:border-dk-accent rounded-lg px-2 py-1.5 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-500/30"
                           />
                         ) : canSetPriceHere ? (
                           <button
                             type="button"
                             onClick={() => { setEditingPriceModelId(item.model.id); setEditingPriceValue(item.salePrice != null && item.salePrice > 0 ? String(item.salePrice) : ''); }}
-                            className="inline-flex items-center gap-1 font-semibold text-slate-800 dark:text-dk-text text-[11px] hover:text-indigo-600 dark:hover:text-dk-accent transition-colors"
+                            className="inline-flex items-center gap-1.5 font-extrabold text-slate-800 dark:text-dk-text text-[13px] hover:text-indigo-600 dark:hover:text-dk-accent transition-colors mt-0.5"
                           >
-                            {item.salePrice != null && item.salePrice > 0 ? `${fmt(item.salePrice)} ${currency}` : '—'}
-                            {savingPriceModelId === item.model.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pencil className="w-3 h-3" />}
+                            {item.salePrice != null && item.salePrice > 0 ? `${fmt(item.salePrice)} ${currency}` : <span className="text-slate-300 dark:text-dk-muted font-semibold italic text-[11px]">{tx(lang,{fr:'— Prix non défini',ar:'— بلا ثمن',en:'— No price',es:'— Sin precio',pt:'— Sem preço',tr:'— Fiyat yok'})}</span>}
+                            {savingPriceModelId === item.model.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pencil className="w-3 h-3 text-slate-300 dark:text-dk-muted group-hover:text-indigo-500" />}
                           </button>
                         ) : (
-                          /* Sans droit de fixer les prix : lecture seule, pas de leurre cliquable. */
-                          <span className="font-semibold text-slate-800 dark:text-dk-text text-[11px]">
-                            {item.salePrice != null && item.salePrice > 0 ? `${fmt(item.salePrice)} ${currency}` : '—'}
+                          <span className="font-extrabold text-slate-800 dark:text-dk-text text-[13px] mt-0.5 block">
+                            {item.salePrice != null && item.salePrice > 0 ? `${fmt(item.salePrice)} ${currency}` : <span className="text-slate-300 dark:text-dk-muted font-semibold italic text-[11px]">{tx(lang,{fr:'— Prix non défini',ar:'— بلا ثمن',en:'— No price',es:'— Sin precio',pt:'— Sem preço',tr:'— Fiyat yok'})}</span>}
                           </span>
                         )}
                         {canSeeCostHere && (
@@ -5995,17 +6921,35 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         {tx(lang,{fr:'Ventiler',ar:'فصّل',en:'Itemise',es:'Desglosar',pt:'Desdobrar',tr:'Ayrintila'})}
                       </button>
                     ) : (
-                      <button
-                        disabled={item.remainingStock <= 0}
-                        onClick={() => openSortieModal(item.model, item.salePrice)}
-                        className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
-                          item.remainingStock > 0
-                            ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white'
-                            : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
-                        }`}
-                      >
-                        {tx(lang,{fr:'Sortie Facture',ar:'إخراج فاتورة',en:'Issue Invoice',es:'Emitir Factura',pt:'Emitir Fatura',tr:'Fatura Kes'})}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          disabled={item.remainingStock <= 0}
+                          onClick={() => openSortieModal(item.model, item.salePrice)}
+                          className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
+                            item.remainingStock > 0
+                              ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white'
+                              : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
+                          }`}
+                        >
+                          {tx(lang,{fr:'Sortie Facture',ar:'إخراج فاتورة',en:'Issue Invoice',es:'Emitir Factura',pt:'Emitir Fatura',tr:'Fatura Kes'})}
+                        </button>
+                        {/* Le tiki se colle sur les pièces EN STOCK : la grille
+                            part des mouvements réels, pas de la quantité
+                            commandée. Sans pièce disponible, rien à étiqueter. */}
+                        <button
+                          type="button"
+                          disabled={item.remainingStock <= 0}
+                          onClick={() => openLabel(item.model, { grid: stockGridForLabel(item.model.id), price: item.salePrice ?? undefined })}
+                          title={tx(lang,{fr:'Imprimer le tiki (code-barres)',ar:'طباعة الملصق (الباركود)',en:'Print the barcode label',es:'Imprimir la etiqueta de código',pt:'Imprimir a etiqueta de código',tr:'Barkod etiketi yazdır'})}
+                          className={`shrink-0 p-2.5 rounded-xl border transition-colors ${
+                            item.remainingStock > 0
+                              ? 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent hover:bg-indigo-50 dark:hover:bg-dk-accent/10'
+                              : 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border text-slate-300 dark:text-dk-muted/50 cursor-not-allowed'
+                          }`}
+                        >
+                          <Barcode className="w-4 h-4" />
+                        </button>
+                      </div>
                     )}
 
                     {item.stockSource === 'FALLBACK' && expandedStockModel === item.model.id && (
@@ -6021,7 +6965,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </p>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className={stockViewMode === 'table' ? 'hidden md:block bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none overflow-hidden' : 'hidden'}>
@@ -6367,6 +7312,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   </table>
                 </div>
               </div>
+
+              {/* Nouvelle commande : le client a besoin de PLUS D'UN MODÈLE →
+                  un seul ordre, un seul total, une facture qui regroupe tout.
+                  Téléphone : bouton rond flottant en bas à droite, le pouce
+                  l'atteint (reste ici, c'est sa place naturelle). */}
+              <button
+                type="button"
+                onClick={openCommande}
+                title={tx(lang,{fr:'Nouvelle Commande',ar:'أمر جديد',en:'New Order',es:'Nuevo Pedido',pt:'Nova Encomenda',tr:'Yeni Sipariş'})}
+                className="lg:hidden fixed bottom-6 right-6 w-12 h-12 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 active:scale-95 text-white rounded-full shadow-lg dark:shadow-dk-lg flex items-center justify-center transition-all z-50 hover:shadow-xl border border-indigo-500 dark:border-dk-accent"
+              >
+                <Plus className="w-6 h-6 text-white" />
+              </button>
             </div>
           )}
 
@@ -6676,15 +7634,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       desc: tx(lang,{fr:'Il fournit tout (matière + façon) → Coût = Prix seul.',ar:'كيوفّر كلشي (المواد + الخياطة) → التكلفة = الثمن فقط.',en:'They supply everything (materials + making) → Cost = Price only.',es:'Aporta todo (material + confección) → Coste = Solo el precio.',pt:'Fornece tudo (material + confeção) → Custo = Apenas o preço.',tr:'Her şeyi sağlar (malzeme + dikim) → Maliyet = Sadece fiyat.'}),
                     },
                   ].map(opt => {
-                    const isActive = (formTissuFournisseur === 'SUBCONTRACTOR' ? 'complet' : 'facon') === opt.mode;
+                    const isActive = formStMode === opt.mode;
                     return (
                       <button
                         key={opt.mode}
                         type="button"
                         onClick={() => {
                           const asSub = opt.mode === 'complet' ? 'SUBCONTRACTOR' : 'CLIENT';
+                          setFormStMode(opt.mode);
                           setFormTissuFournisseur(asSub);
                           setFormFournituresFournisseur(asSub);
+                          setFormConditionnementFournisseur(asSub);
                           setFormPrestationType(opt.mode === 'complet' ? 'CMT' : 'FACON_PURE');
                         }}
                         className={`text-left p-3 rounded-xl border transition-all ${isActive ? 'border-indigo-500 dark:border-dk-accent bg-indigo-50 dark:bg-dk-accent/20' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:border-slate-300 dark:hover:border-dk-border'}`}
@@ -7396,6 +8356,445 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         </SheetModal>
       )}
 
+      {/* Commande « normale » : plusieurs modèles, un seul client, une seule
+          facture. Même langage visuel que la Fiche de Commande Sous-traitance
+          (cartes, étiquettes, grille résumé) — ordinateur ou téléphone. */}
+      {commandeOpen && (
+        <SheetModal
+          onClose={() => { if (!commandeSaving) setCommandeOpen(false); }}
+          title={tx(lang,{fr:'Nouvelle Commande',ar:'أمر جديد',en:'New Order',es:'Nuevo Pedido',pt:'Nova Encomenda',tr:'Yeni Sipariş'})}
+          subtitle={tx(lang,{fr:'Plusieurs modèles sur un même ordre, un seul total',ar:'عدة موديلات في أمر واحد، مجموع واحد',en:'Multiple models in one order, one total',es:'Varios modelos en un pedido, un solo total',pt:'Vários modelos numa encomenda, um só total',tr:'Tek siparişte birden çok model, tek toplam'})}
+          icon={<div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-xl shrink-0"><Plus className="w-5 h-5" /></div>}
+          size="lg"
+          zClass="z-[255]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop
+          bare
+        >
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-5 space-y-4">
+              {/* Client + date — le client occupe l'espace, la date reste étroite
+                  comme sur la fiche de commande. */}
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_180px] gap-3 sm:gap-4">
+                <div className="bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
+                  <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest block">
+                    {tx(lang,{fr:'Client',ar:'الزبون',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})}
+                  </span>
+                  {(() => {
+                    const selected = atelierClients.find(c => c.id === commandeClientId) || null;
+                    const q = commandeClientSearch.trim().toLowerCase();
+                    const filtered = q
+                      ? atelierClients.filter(c => [c.nom, c.ice, c.rc, c.tel, c.ville].filter(Boolean).some(v => String(v).toLowerCase().includes(q)))
+                      : atelierClients;
+                    return (
+                      <div className="relative mt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => { setCommandeClientPickerOpen(o => !o); setCommandeClientSearch(''); }}
+                          className="w-full flex items-center gap-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        >
+                          {selected ? (
+                            selected.photo ? (
+                              <img src={selected.photo} alt="" className="w-6 h-6 rounded-full object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
+                            ) : (
+                              <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 font-bold text-[9px] bg-indigo-50 dark:bg-dk-accent/15 text-indigo-600 dark:text-dk-accent">
+                                {selected.nom.trim().slice(0, 2).toUpperCase()}
+                              </span>
+                            )
+                          ) : (
+                            <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted">
+                              <Users className="w-3 h-3" />
+                            </span>
+                          )}
+                          <span className="flex-1 text-left truncate font-bold">
+                            {selected
+                              ? `${selected.nom}${selected.ice ? ` · ICE ${selected.ice}` : ''}`
+                              : tx(lang,{fr:'— Choisir un client —',ar:'— اختر زبوناً —',en:'— Choose a client —',es:'— Elija un cliente —',pt:'— Escolha um cliente —',tr:'— Bir müşteri seçin —'})}
+                          </span>
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted shrink-0" />
+                        </button>
+
+                        {commandeClientPickerOpen && (
+                          <div className="absolute z-20 mt-1 w-full min-w-[280px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg dark:shadow-dk-elevated overflow-hidden">
+                            <div className="p-2 border-b border-slate-100 dark:border-dk-border">
+                              <input
+                                type="text"
+                                autoFocus
+                                value={commandeClientSearch}
+                                onChange={e => setCommandeClientSearch(e.target.value)}
+                                placeholder={tx(lang,{fr:'Rechercher…',ar:'بحث…',en:'Search…',es:'Buscar…',pt:'Pesquisar…',tr:'Ara…'})}
+                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                              />
+                            </div>
+                            <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 dark:divide-dk-border">
+                              {filtered.length === 0 && (
+                                <p className="text-[11px] italic text-slate-400 dark:text-dk-muted text-center py-4">
+                                  {tx(lang,{fr:'Aucun client trouvé.',ar:'لا يوجد زبون.',en:'No client found.',es:'Ningún cliente encontrado.',pt:'Nenhum cliente encontrado.',tr:'Müşteri bulunamadı.'})}
+                                </p>
+                              )}
+                              {filtered.map(c => {
+                                const active = c.id === commandeClientId;
+                                return (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => { setCommandeClientId(c.id); setCommandeClientPickerOpen(false); }}
+                                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${active ? 'bg-indigo-50 dark:bg-dk-accent/10' : 'hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+                                  >
+                                    {c.photo ? (
+                                      <img src={c.photo} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
+                                    ) : (
+                                      <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-[10px] bg-indigo-50 dark:bg-dk-accent/15 text-indigo-600 dark:text-dk-accent">
+                                        {c.nom.trim().slice(0, 2).toUpperCase()}
+                                      </span>
+                                    )}
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block text-[12px] font-bold text-slate-800 dark:text-dk-text truncate">{c.nom}</span>
+                                      <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">
+                                        {[c.type, c.ville, c.tel, c.ice && `ICE ${c.ice}`].filter(Boolean).join(' · ') || '—'}
+                                      </span>
+                                    </span>
+                                    {active && <Check className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
+                  <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest block">
+                    {tx(lang,{fr:'Date de sortie',ar:'تاريخ الإخراج',en:'Exit date',es:'Fecha de salida',pt:'Data de saída',tr:'Çıkış tarihi'})}
+                  </span>
+                  <input
+                    type="date"
+                    value={commandeDate}
+                    onChange={e => setCommandeDate(e.target.value)}
+                    className="mt-1.5 w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                  />
+                </div>
+              </div>
+
+              {/* Modèles : chaque ligne = une carte avec photo + grille couleur × taille
+                  (comme la sortie classique). Le stock dispo s'affiche par
+                  cellule, pas au global. */}
+              <div className="space-y-3">
+                {commandeLignes.length === 0 && (
+                  <p className="text-[11px] italic text-slate-400 dark:text-dk-muted text-center py-4">
+                    {tx(lang,{fr:'Ajoutez au moins un modèle ci-dessous.',ar:'أضِف موديلاً واحداً على الأقل أدناه.',en:'Add at least one model below.',es:'Añada al menos un modelo abajo.',pt:'Adicione pelo menos um modelo abaixo.',tr:'Aşağıya en az bir model ekleyin.'})}
+                  </p>
+                )}
+                {commandeLignes.map((l, i) => {
+                  const stat = modelStockStats.find(it => it.model.id === l.modelId);
+                  const model = stat?.model;
+                  const fiche: any = model?.ficheData || {};
+                  const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+                  const sizes: string[] = fiche.sizes || [];
+                  const matrix = stockMatrixByModel.get(l.modelId) || new Map<string, number>();
+                  const dispoCell = (c: string, t: string) => matrix.get(`${c}|${t}`) || 0;
+                  const lineQty = commandeLigneTotalQty(l);
+                  const lineTotal = lineQty * (Number(l.prix) || 0);
+                  const cout = stat?.price ?? null;
+                  const plancher = prixPlancher(cout, margeMinimale);
+                  const sousPlancher = plancher != null && estSousPlancher(Number(l.prix) || 0, plancher);
+                  return (
+                    <div key={l.modelId} className={`bg-white dark:bg-dk-surface border rounded-xl p-3 ${sousPlancher ? 'border-rose-300 dark:border-rose-800/60' : 'border-slate-200 dark:border-dk-border'}`}>
+                      {/* En-tête de la carte : photo + nom + Réf + dispo + prix + retirer. */}
+                      <div className="flex items-center gap-3">
+                        {model?.image ? (
+                          <img src={model.image} alt="" className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                            <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <span className="font-bold text-slate-800 dark:text-dk-text block truncate text-[12px]">{model?.meta_data?.nom_modele || l.modelId}</span>
+                          <span className="text-[10px] text-slate-400 dark:text-dk-muted block">
+                            {tx(lang,{fr:'Réf:',ar:'المرجع:',en:'Ref:',es:'Ref:',pt:'Ref:',tr:'Ref:'})} {model?.meta_data?.reference || tx(lang,{fr:'Aucune',ar:'لا يوجد',en:'None',es:'Ninguna',pt:'Nenhuma',tr:'Yok'})}
+                          </span>
+                          {sousPlancher && (
+                            <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              {tx(lang,{fr:'sous le prix plancher',ar:'تحت الثمن الأدنى',en:'below floor price',es:'bajo el precio mínimo',pt:'abaixo do preço mínimo',tr:'taban fiyatın altında'})}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-right">
+                            <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Prix',ar:'الثمن',en:'Price',es:'Precio',pt:'Preço',tr:'Fiyat'})}</span>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={l.prix === '' ? '' : l.prix}
+                              onChange={e => setCommandeLignePrix(i, e.target.value === '' ? '' : Number(e.target.value))}
+                              placeholder={tx(lang,{fr:'auto…',ar:'تلقائي…',en:'auto…',es:'auto…',pt:'auto…',tr:'otomatik…'})}
+                              className={`w-24 bg-slate-50 dark:bg-dk-bg border rounded-lg px-2 py-1.5 text-[12px] font-bold text-center outline-none focus:border-indigo-500 dark:focus:border-dk-accent ${sousPlancher ? 'border-rose-300 dark:border-rose-800/60 text-rose-600 dark:text-rose-400' : 'border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text'}`}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeCommandeLigne(i)}
+                            aria-label={tx(lang,{fr:'Retirer',ar:'إزالة',en:'Remove',es:'Quitar',pt:'Remover',tr:'Kaldır'})}
+                            className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Grille couleur × taille de CE modèle — mêmes règles que la
+                          sortie : case grisée quand le stock est à zéro, saisie
+                          plafonnée au dispo de la cellule. */}
+                      {colors.length === 0 || sizes.length === 0 ? (
+                        <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400 font-semibold">
+                          {tx(lang,{fr:"Ce modèle n'a ni couleurs ni tailles : complétez sa grille dans la fiche de coût.",ar:'هاد الموديل ما عندو لا ألوان لا مقاسات: كمّل الشبكة ف بطاقة التكلفة.',en:'This model has no colors or sizes: complete its grid in the cost sheet.',es:'Este modelo no tiene colores ni tallas: complete su rejilla en la ficha de coste.',pt:'Este modelo nao tem cores nem tamanhos: complete a grelha na ficha de custo.',tr:'Bu modelin rengi veya bedeni yok: maliyet kartindaki izgarayi tamamlayin.'})}
+                        </p>
+                      ) : (
+                        <div className="relative mt-2.5 border border-slate-200 dark:border-dk-border rounded-xl overflow-hidden">
+                          <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white dark:from-dk-surface to-transparent sm:hidden z-10" aria-hidden="true" />
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[11px]">
+                              <thead className="bg-slate-50 dark:bg-dk-bg/60 text-slate-400 dark:text-dk-muted uppercase text-[9px] border-b border-slate-200 dark:border-dk-border">
+                                <tr>
+                                  <th className="px-3 py-2 text-left font-medium">{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
+                                  {sizes.map(sz => <th key={sz} className="px-2 py-2 text-center font-medium">{sz}</th>)}
+                                  <th className="px-3 py-2 text-right font-medium">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                                {colors.map(c => {
+                                  const rowTotal = sizes.reduce((a, sz) => a + (Number(l.grid[`${c.name}|${sz}`]) || 0), 0);
+                                  return (
+                                    <tr key={c.id}>
+                                      <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">
+                                        <span className="inline-flex items-center gap-1.5"><ColorDot hex={colorHexOf(c.name)} />{c.name}</span>
+                                      </td>
+                                      {sizes.map(sz => {
+                                        const k = `${c.name}|${sz}`;
+                                        const d = dispoCell(c.name, sz);
+                                        return (
+                                          <td key={sz} className="px-1 py-1.5 text-center">
+                                            <input
+                                              type="number"
+                                              min={0}
+                                              max={d}
+                                              disabled={d <= 0}
+                                              placeholder={d > 0 ? String(d) : '—'}
+                                              value={l.grid[k] ?? ''}
+                                              onChange={e => setCommandeLigneCell(i, k, e.target.value === '' ? '' : Math.min(d, Math.max(0, parseInt(e.target.value) || 0)))}
+                                              title={`${tx(lang,{fr:'Disponible',ar:'المتوفّر',en:'Available',es:'Disponible',pt:'Disponivel',tr:'Mevcut'})} : ${d}`}
+                                              className={`w-14 text-center rounded-lg px-1 py-1 text-[11px] outline-none border ${
+                                                d <= 0
+                                                  ? 'bg-slate-50 dark:bg-dk-bg/40 border-transparent text-slate-300 dark:text-dk-muted'
+                                                  : 'bg-slate-50 dark:bg-dk-bg border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent'
+                                              }`}
+                                            />
+                                          </td>
+                                        );
+                                      })}
+                                      <td className="px-3 py-1.5 text-right font-bold text-slate-700 dark:text-dk-text-soft">{rowTotal || '—'}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-slate-50 dark:bg-dk-bg/60 border-t border-slate-200 dark:border-dk-border">
+                                <tr>
+                                  <td className="px-3 py-2 font-bold uppercase text-[9px] text-slate-500 dark:text-dk-muted">Total</td>
+                                  {sizes.map(sz => {
+                                    const t = colors.reduce((a, c) => a + (Number(l.grid[`${c.name}|${sz}`]) || 0), 0);
+                                    return <td key={sz} className="px-2 py-2 text-center font-bold text-slate-600 dark:text-dk-text-soft">{t || '—'}</td>;
+                                  })}
+                                  <td className="px-3 py-2 text-right font-extrabold text-indigo-600 dark:text-dk-accent">{lineQty || '—'}</td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                          <div className="px-4 py-2 border-t border-slate-100 dark:border-dk-border text-[10px] text-slate-500 dark:text-dk-muted flex items-center justify-between gap-2">
+                            <span>
+                              {tx(lang,{fr:'Le gris dans chaque case indique le stock disponible.',ar:'الرقم الرمادي ف كل خانة كيبيّن المخزون المتوفّر.',en:'The grey number in each cell shows available stock.',es:'El numero gris de cada celda indica el stock disponible.',pt:'O numero cinzento em cada celula mostra o stock disponivel.',tr:'Her hucredeki gri sayi mevcut stogu gosterir.'})}
+                            </span>
+                            <b className="tabular-nums whitespace-nowrap">{lineTotal.toLocaleString(dateLocale)} {currency}</b>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Ajouter un modèle : uniquement les modèles avec du stock vendable,
+                  et pas deux fois le même. */}
+              {commandeModelOptions.length === 0 ? (
+                <p className="text-[11px] italic text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  {tx(lang,{fr:'Aucun modèle vendable : détaillez les réceptions par couleur et taille dans l\'onglet Commandes.',ar:'لا يوجد موديل قابل للبيع: فصّل الاستلامات باللون والمقاس في علامة الطلبيات.',en:'No sellable model: itemise the receptions by color and size in the Orders tab.',es:'Ningún modelo vendible: detalle las recepciones por color y talla en la pestaña Pedidos.',pt:'Nenhum modelo vendível: detalhe as recepções por cor e tamanho no separador Encomendas.',tr:'Satılabilir model yok: Siparişler sekmesinde kabulleri renk ve bedene göre ayırın.'})}
+                </p>
+              ) : (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => { setCommandeModelPickerOpen(o => !o); setCommandeModelSearch(''); }}
+                    className="w-full flex items-center gap-2 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-2.5 py-2 text-[12px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                  >
+                    <span className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-dk-accent/15 flex items-center justify-center shrink-0">
+                      <Plus className="w-3.5 h-3.5 text-indigo-600 dark:text-dk-accent" />
+                    </span>
+                    <span className="flex-1 text-left truncate">
+                      {tx(lang,{fr:'Ajouter un modèle…',ar:'أضِف موديلاً…',en:'Add a model…',es:'Añadir un modelo…',pt:'Adicionar um modelo…',tr:'Bir model ekle…'})}
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted shrink-0" />
+                  </button>
+
+                  {commandeModelPickerOpen && (() => {
+                    const q = commandeModelSearch.trim().toLowerCase();
+                    const available = commandeModelOptions
+                      .filter(o => !commandeLignes.some(l => l.modelId === o.model.id))
+                      .filter(o => {
+                        if (!q) return true;
+                        const nom = o.model.meta_data?.nom_modele || '';
+                        const ref = o.model.meta_data?.reference || '';
+                        return nom.toLowerCase().includes(q) || ref.toLowerCase().includes(q);
+                      });
+                    return (
+                      <div className="absolute z-20 mt-1 w-full min-w-[300px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg dark:shadow-dk-elevated overflow-hidden">
+                        <div className="p-2 border-b border-slate-100 dark:border-dk-border">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={commandeModelSearch}
+                            onChange={e => setCommandeModelSearch(e.target.value)}
+                            placeholder={tx(lang,{fr:'Rechercher un modèle…',ar:'ابحث عن موديل…',en:'Search a model…',es:'Buscar un modelo…',pt:'Pesquisar um modelo…',tr:'Bir model ara…'})}
+                            className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                          />
+                        </div>
+                        <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-dk-border">
+                          {available.length === 0 && (
+                            <p className="text-[11px] italic text-slate-400 dark:text-dk-muted text-center py-4">
+                              {tx(lang,{fr:'Tous les modèles sont déjà ajoutés.',ar:'كل الموديلات مضافة مسبقاً.',en:'All models are already added.',es:'Todos los modelos ya están añadidos.',pt:'Todos os modelos já foram adicionados.',tr:'Tüm modeller zaten eklendi.'})}
+                            </p>
+                          )}
+                          {available.map(o => {
+                            const model = o.model;
+                            return (
+                              <button
+                                type="button"
+                                key={model.id}
+                                onClick={() => { addCommandeLigne(model.id); setCommandeModelPickerOpen(false); }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                              >
+                                {model.image ? (
+                                  <img src={model.image} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
+                                ) : (
+                                  <span className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                                    <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
+                                  </span>
+                                )}
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-[12px] font-bold text-slate-800 dark:text-dk-text truncate">{model.meta_data?.nom_modele || model.id}</span>
+                                  <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">
+                                    {tx(lang,{fr:'Réf:',ar:'المرجع:',en:'Ref:',es:'Ref:',pt:'Ref:',tr:'Ref:'})} {model.meta_data?.reference || tx(lang,{fr:'Aucune',ar:'لا يوجد',en:'None',es:'Ninguna',pt:'Nenhuma',tr:'Yok'})}
+                                    {' · '}
+                                    {tx(lang,{fr:'dispo',ar:'متوفر',en:'avail.',es:'disponible',pt:'dispon.',tr:'mevcut'})} : {o.remainingStock.toLocaleString(dateLocale)}
+                                  </span>
+                                </span>
+                                <Plus className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Récapitulatif — mêmes lignes que la sortie de stock. */}
+              <div className="bg-slate-50 dark:bg-dk-surface/75 rounded-2xl p-5 border border-slate-200 dark:border-dk-border space-y-3">
+                <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-dk-border pb-2">
+                  {tx(lang,{fr:'Récapitulatif',ar:'الملخص',en:'Summary',es:'Resumen',pt:'Resumo',tr:'Özet'})}
+                </h4>
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Pièces',ar:'قطع',en:'Pieces',es:'Piezas',pt:'Peças',tr:'Parça'})}</span>
+                  <span className="text-slate-800 dark:text-dk-text">{commandeTotalQty.toLocaleString(dateLocale)}</span>
+                </div>
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Montant HT',ar:'المبلغ HT',en:'HT Amount',es:'Importe HT',pt:'Valor HT',tr:'HT Tutarı'})}</span>
+                  <span className="text-slate-800 dark:text-dk-text">{commandeTotalHT.toLocaleString(dateLocale)} {currency}</span>
+                </div>
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'TVA',ar:'TVA',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'})} ({saleTvaRate}%)</span>
+                  <span className="text-slate-800 dark:text-dk-text">{((commandeTotalHT * saleTvaRate) / 100).toLocaleString(dateLocale)} {currency}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold border-t border-slate-200 dark:border-dk-border pt-2 text-indigo-600 dark:text-dk-accent">
+                  <span>{tx(lang,{fr:'Total TTC',ar:'الإجمالي TTC',en:'Total TTC',es:'Total TTC',pt:'Total TTC',tr:'Toplam TTC'})}</span>
+                  <span>{((commandeTotalHT * (1 + saleTvaRate / 100))).toLocaleString(dateLocale)} {currency}</span>
+                </div>
+              </div>
+
+              {/* Note interne — reprise du motif de dérogation si vente à perte. */}
+              <div className="space-y-1">
+                <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">
+                  {tx(lang,{fr:'Note interne / Observation',ar:'ملاحظة داخلية',en:'Internal Note / Remark',es:'Nota interna / Observación',pt:'Nota interna / Observação',tr:'Dahili Not / Gözlem'})}
+                </label>
+                <textarea
+                  value={commandeNote}
+                  onChange={e => setCommandeNote(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none h-16 text-[12px] text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent"
+                />
+              </div>
+
+              {commandeConfirmSousCout && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 space-y-2">
+                  <span className="text-[11px] font-bold text-amber-900 dark:text-amber-300 block flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    {tx(lang,{fr:'Vente sous le prix plancher : motif obligatoire.',ar:'بيع تحت الثمن الأدنى: السبب إجباري.',en:'Sale below the floor price: reason required.',es:'Venta por debajo del precio mínimo: motivo obligatorio.',pt:'Venda abaixo do preço mínimo: motivo obrigatório.',tr:'Taban fiyatın altında satış: gerekçe zorunlu.'})}
+                  </span>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={commandeMotif}
+                    onChange={e => setCommandeMotif(e.target.value)}
+                    placeholder={tx(lang,{fr:'Motif de la dérogation…',ar:'سبب الترخيص…',en:'Reason for the exception…',es:'Motivo de la excepción…',pt:'Motivo da exceção…',tr:'İstisna gerekçesi…'})}
+                    className="w-full bg-white dark:bg-dk-surface border border-amber-300 dark:border-amber-800/60 rounded-lg px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-amber-500"
+                  />
+                </div>
+              )}
+
+              {commandeError && (
+                <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-xl px-3 py-2">
+                  {commandeError}
+                </p>
+              )}
+
+              <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
+                <button
+                  type="button"
+                  onClick={() => { if (!commandeSaving) setCommandeOpen(false); }}
+                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                >
+                  {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                </button>
+                <button
+                  type="button"
+                  disabled={commandeSaving}
+                  onClick={submitCommande}
+                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent disabled:opacity-50"
+                >
+                  {commandeSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{tx(lang,{fr:'Enregistrer la Commande',ar:'حفظ الأمر',en:'Save Order',es:'Guardar Pedido',pt:'Guardar Encomenda',tr:'Siparişi Kaydet'})}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </SheetModal>
+      )}
+
       {/* Sortie de stock : client du registre + grille couleur x taille. */}
       {sortieForm && (
         /* Plein écran : grille couleur x taille + récapitulatif des quantités. */
@@ -7451,7 +8850,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         </button>
 
                         {clientPickerOpen && (
-                          <div className="absolute z-20 mt-1 w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg dark:shadow-dk-elevated overflow-hidden">
+                          <div className="absolute z-20 mt-1 w-full min-w-[320px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg dark:shadow-dk-elevated overflow-hidden">
                             {clientQuickAdd ? (
                               <div className="p-3 space-y-2">
                                 <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">
@@ -7473,6 +8872,83 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                   placeholder={tx(lang,{fr:'Téléphone (facultatif)',ar:'الهاتف (اختياري)',en:'Phone (optional)',es:'Teléfono (opcional)',pt:'Telefone (opcional)',tr:'Telefon (isteğe bağlı)'})}
                                   className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
                                 />
+                                <div className="space-y-1">
+                                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase text-[8px]">{tx(lang,{fr:'Type',ar:'النوع',en:'Type',es:'Tipo',pt:'Tipo',tr:'Tip'})}</label>
+                                  <div className="grid grid-cols-3 gap-1">
+                                    {([
+                                      ['GROS', tx(lang,{fr:'Gros',ar:'جملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})],
+                                      ['DETAIL', tx(lang,{fr:'Détail',ar:'تفصيل',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'})],
+                                      ['BOUTIQUE', tx(lang,{fr:'Boutique',ar:'محلّ',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'})],
+                                    ] as const).map(([val, label]) => {
+                                      const active = clientQuickAddType === val;
+                                      const colors = val === 'GROS'
+                                        ? active
+                                          ? 'bg-amber-500 border-amber-500 text-white'
+                                          : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20'
+                                        : val === 'DETAIL'
+                                          ? active
+                                            ? 'bg-emerald-500 border-emerald-500 text-white'
+                                            : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20'
+                                          : active
+                                            ? 'bg-sky-500 border-sky-500 text-white'
+                                            : 'bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20';
+                                      return (
+                                        <button
+                                          key={val}
+                                          type="button"
+                                          onClick={() => setClientQuickAddType(val as any)}
+                                          className={`px-1.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors ${colors}`}
+                                        >
+                                          {label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase text-[8px]">ICE</label>
+                                    <input
+                                      type="text"
+                                      value={clientQuickAddIce}
+                                      onChange={e => setClientQuickAddIce(e.target.value)}
+                                      placeholder="ICE"
+                                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase text-[8px]">RC</label>
+                                    <input
+                                      type="text"
+                                      value={clientQuickAddRc}
+                                      onChange={e => setClientQuickAddRc(e.target.value)}
+                                      placeholder="RC"
+                                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase text-[8px]">{tx(lang,{fr:'Ville',ar:'المدينة',en:'City',es:'Ciudad',pt:'Cidade',tr:'Şehir'})}</label>
+                                    <input
+                                      type="text"
+                                      value={clientQuickAddVille}
+                                      onChange={e => setClientQuickAddVille(e.target.value)}
+                                      placeholder={tx(lang,{fr:'Ville',ar:'المدينة',en:'City',es:'Ciudad',pt:'Cidade',tr:'Şehir'})}
+                                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase text-[8px]">{tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'})}</label>
+                                    <input
+                                      type="text"
+                                      value={clientQuickAddAdresse}
+                                      onChange={e => setClientQuickAddAdresse(e.target.value)}
+                                      placeholder={tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'})}
+                                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                    />
+                                  </div>
+                                </div>
                                 <div className="flex items-center justify-end gap-1.5 pt-1">
                                   <button type="button" onClick={() => { setClientQuickAdd(false); setClientQuickAddError(null); }} className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[10px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors">
                                     {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
@@ -7498,7 +8974,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                   placeholder={tx(lang,{fr:'Rechercher…',ar:'بحث…',en:'Search…',es:'Buscar…',pt:'Procurar…',tr:'Ara…'})}
                                   className="w-full px-3 py-2 text-[12px] border-b border-slate-100 dark:border-dk-border outline-none bg-transparent text-slate-800 dark:text-dk-text"
                                 />
-                                <div className="max-h-56 overflow-y-auto">
+                                <div className="max-h-56 overflow-y-auto border-b border-slate-100 dark:border-dk-border">
                                   <button
                                     type="button"
                                     onClick={() => { setSortieForm(prev => prev && ({ ...prev, clientId: '' })); setClientPickerOpen(false); }}
@@ -7529,7 +9005,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                           {c.nom}{c.type === 'GROS' ? ` · ${tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})}` : ''}
                                         </span>
                                         <span className="block text-[9px] text-slate-400 dark:text-dk-muted truncate">
-                                          {[c.ice && `ICE ${c.ice}`, c.tel, c.ville].filter(Boolean).join(' · ') || '—'}
+                                          <span className={`font-bold ${c.type === 'GROS' ? 'text-amber-600 dark:text-amber-400' : c.type === 'BOUTIQUE' ? 'text-sky-600 dark:text-sky-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                            {c.type === 'GROS' ? tx(lang,{fr:'Gros',ar:'جملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}) : c.type === 'BOUTIQUE' ? tx(lang,{fr:'Boutique',ar:'محلّ',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'}) : tx(lang,{fr:'Détail',ar:'تفصيل',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'})}
+                                          </span>
+                                          {' · '}
+                                          {[c.ice && `ICE ${c.ice}`, c.rc && `RC ${c.rc}`, c.tel, c.ville, c.adresse].filter(Boolean).join(' · ') || '—'}
                                         </span>
                                       </span>
                                     </button>
@@ -7537,8 +9017,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => { setClientQuickAdd(true); setClientQuickAddNom(clientPickerSearch); }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-bold text-indigo-600 dark:text-dk-accent border-t border-slate-100 dark:border-dk-border hover:bg-indigo-50 dark:hover:bg-dk-elevated transition-colors"
+                                  onClick={() => { setClientQuickAdd(true); setClientQuickAddNom(clientPickerSearch); setClientQuickAddType('DETAIL'); setClientQuickAddVille(''); setClientQuickAddAdresse(''); setClientQuickAddIce(''); setClientQuickAddRc(''); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2.5 text-[11px] font-bold text-indigo-600 dark:text-dk-accent bg-indigo-50/60 dark:bg-dk-accent/10 hover:bg-indigo-100 dark:hover:bg-dk-accent/20 transition-colors"
                                 >
                                   <Plus className="w-3.5 h-3.5" />
                                   {tx(lang,{fr:'Ajouter un client',ar:'زيادة زبون',en:'Add a client',es:'Añadir un cliente',pt:'Adicionar um cliente',tr:'Müşteri ekle'})}
@@ -7809,6 +9289,47 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 {sortieSousPlancher && venteSousCoutPolicy === 'CONFIRM' && !sortieConfirmSousCout
                   ? tx(lang,{fr:'Vendre sous le plancher…',ar:'البيع تحت الثمن الأدنى…',en:'Sell below the floor…',es:'Vender por debajo del minimo…',pt:'Vender abaixo do minimo…',tr:'Taban altinda sat…'})
                   : tx(lang,{fr:'Enregistrer la sortie',ar:'حفظ الإخراج',en:'Save the exit',es:'Guardar la salida',pt:'Guardar a saida',tr:'Cikisi kaydet'})}
+              </button>
+            </div>
+        </SheetModal>
+      )}
+
+      {/* Proposition de facture juste après une sortie de stock enregistrée. */}
+      {sortieInvoicePrompt && (
+        <SheetModal
+          onClose={() => setSortieInvoicePrompt(null)}
+          title={tx(lang,{fr:'Créer une facture ?',ar:'إنشاء فاتورة؟',en:'Create an invoice?',es:'¿Crear una factura?',pt:'Criar uma fatura?',tr:'Fatura oluşturulsun mu?'})}
+          icon={<Receipt className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />}
+          size="sm"
+          zClass="z-[260]"
+          closeOnBackdrop
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+        >
+            <div className="flex items-start gap-2.5">
+              <Receipt className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0 mt-0.5" />
+              <div className="text-[12px] text-slate-600 dark:text-dk-text-soft leading-relaxed">
+                {tx(lang,{fr:'La sortie a été enregistrée. Voulez-vous facturer les sorties non facturées de ce client maintenant ?',ar:'تم حفظ الإخراج. هل تريد فوترة الإخراجات غير المفوترة لهذا الزبون الآن؟',en:'The exit has been saved. Do you want to invoice this client\'s unbilled exits now?',es:'La salida ha sido registrada. ¿Quiere facturar las salidas sin facturar de este cliente ahora?',pt:'A saída foi registada. Quer faturar as saídas não faturadas deste cliente agora?',tr:'Çıkış kaydedildi. Bu müşterinin faturasız çıkışlarını şimdi faturalamak ister misiniz?'})}
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setSortieInvoicePrompt(null)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+              >
+                {tx(lang,{fr:'Non',ar:'لا',en:'No',es:'No',pt:'Não',tr:'Hayır'})}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = sortieInvoicePrompt;
+                  setSortieInvoicePrompt(null);
+                  openEntitySheet({ kind: 'client', clientId: p.clientId, clientNom: p.clientNom, autoInvoice: true });
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors"
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                {tx(lang,{fr:'Oui, facturer',ar:'نعم، فوترة',en:'Yes, invoice',es:'Sí, facturar',pt:'Sim, faturar',tr:'Evet, faturala'})}
               </button>
             </div>
         </SheetModal>
@@ -8132,7 +9653,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 const st: any = (matchedModel.ficheData as any)?.soustraitance;
                 if (!st?.active) return null;
 
-                const inferred = inferSubcontractMode(detailOrder);
+                // Le mode ATTENDU est le choix explicite stocké sur la commande
+                // (st_mode) ; à défaut on le déduit des fournisseurs. La fiche de
+                // coût doit refléter ce que l'utilisateur a décidé, pas une
+                // re-déduction qui viendrait contredire son choix.
+                const inferred = (detailOrder.st_mode as StMode) || inferSubcontractMode(detailOrder);
                 const current: StMode = st.mode === 'complet' ? 'complet' : 'facon';
                 // Cas partiel : le sous-traitant fournit une partie des matières
                 // seulement. Aucun mode ne le représente exactement — on le signale
@@ -8760,7 +10285,497 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       )}
 
       {/* ======================================= */}
-      {/* C — FACTURE SOUS-TRAITANCE (À PAYER)   */}
+      {/* TIKI — Étiquette code-barres du modèle  */}
+      {/* Le lecteur lit REF%TAILLE%COULEUR : il */}
+      {/* identifie le modèle et remplit la case */}
+      {/* taille×couleur de la grille de sortie. */}
+      {/* ======================================= */}
+      {labelModel && (
+        <SheetModal
+          onClose={() => setLabelModel(null)}
+          title={tx(lang,{fr:'Imprimer le tiki',ar:'طباعة الملصق',en:'Print the label',es:'Imprimir la etiqueta',pt:'Imprimir a etiqueta',tr:'Etiketi yazdır'})}
+          subtitle={tx(lang,{fr:'Étiquette code-barres à coller sur le produit',ar:'ملصق باركود يُلصق على المنتج',en:'Barcode label to stick on the product',es:'Etiqueta de código para pegar en el producto',pt:'Etiqueta de código para colar no produto',tr:'Ürüne yapıştırılacak barkod etiketi'})}
+          icon={<div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-xl shrink-0"><Barcode className="w-5 h-5" /></div>}
+          size="md"
+          zClass="z-[160]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop
+          bare
+        >
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-5 space-y-4">
+              {/* Modèle + référence (le code imprimé devient le code du modèle). */}
+              <div className="relative overflow-hidden rounded-2xl border border-indigo-100 dark:border-dk-border bg-gradient-to-br from-indigo-50/90 via-white to-white dark:from-indigo-950/40 dark:via-dk-surface dark:to-dk-surface p-4 flex items-center gap-3">
+                <div className="absolute -right-8 -top-10 w-28 h-28 rounded-full bg-indigo-200/50 dark:bg-indigo-900/30 blur-2xl pointer-events-none" />
+                {labelModel.image ? (
+                  <img src={labelModel.image} alt="" className="w-14 h-14 rounded-xl object-cover ring-2 ring-white dark:ring-dk-surface shadow-md shrink-0" />
+                ) : (
+                  <div className="w-14 h-14 rounded-xl bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0 ring-2 ring-white dark:ring-dk-surface shadow-md">
+                    <Package className="w-6 h-6 text-slate-400 dark:text-dk-muted" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1 relative">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-800 dark:text-dk-text block truncate text-sm">{labelModel.meta_data?.nom_modele || labelModel.id}</span>
+                    {(labelModel.meta_data?.reference || '').trim() ? null : (
+                      <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider">
+                        <Sparkles className="w-2.5 h-2.5" /> auto
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-400 dark:text-dk-muted block mt-0.5">
+                    {tx(lang,{fr:'Réf:',ar:'المرجع:',en:'Ref:',es:'Ref:',pt:'Ref:',tr:'Ref:'})}{' '}
+                    <span className="font-mono font-bold text-indigo-600 dark:text-dk-accent">{refModele}</span>
+                  </span>
+                </div>
+                <div className="relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-white/70 dark:bg-dk-surface/70 border border-indigo-100 dark:border-dk-border shrink-0">
+                  <Barcode className="w-5 h-5 text-indigo-500 dark:text-dk-accent" />
+                  <span className="text-[9px] font-black text-slate-500 dark:text-dk-muted whitespace-nowrap">
+                    {Object.values(labelMode === 'externe' ? labelExterneGrid : labelGrid).reduce((a, v) => a + (Math.floor(Number(v) || 0)), 0).toLocaleString()}{' '}
+                    {tx(lang,{fr:'tiki',ar:'ملصق',en:'labels',es:'tiki',pt:'tiki',tr:'etiket'})}
+                  </span>
+                </div>
+              </div>
+
+              {/* Choix du mode : interne (remplit la grille) ou externe (magasin). */}
+              <div>
+                <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                  {tx(lang,{fr:'Type d\'étiquette',ar:'نوع الملصق',en:'Label type',es:'Tipo de etiqueta',pt:'Tipo de etiqueta',tr:'Etiket türü'})}
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLabelMode('interne')}
+                    className={`relative px-3 py-3 rounded-xl text-left transition-all border ${labelMode === 'interne' ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent shadow-md dark:shadow-dk-md' : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent/40'}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`p-1.5 rounded-lg ${labelMode === 'interne' ? 'bg-white/20' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent'}`}>
+                        <ScanLine className="w-4 h-4" />
+                      </span>
+                      <span className="text-[12px] font-black">{tx(lang,{fr:'Interne',ar:'داخلي',en:'Internal',es:'Interno',pt:'Interno',tr:'Dahili'})}</span>
+                      {labelMode === 'interne' && <Check className="w-4 h-4 ml-auto" />}
+                    </div>
+                    <span className={`block mt-1.5 text-[9px] leading-snug ${labelMode === 'interne' ? 'text-indigo-100 dark:text-dk-text-soft/80' : 'text-slate-400 dark:text-dk-muted'}`}>
+                      {tx(lang,{fr:'Un code par taille × couleur : le lecteur remplit la grille.',ar:'كود لكل مقاس × لون: القارئ يملأ الشبكة.',en:'One code per size × color: the scanner fills the grid.',es:'Un código por talla × color: el escáner rellena la cuadrícula.',pt:'Um código por tamanho × cor: o leitor preenche a grade.',tr:'Beden × renk başına kod: tarayıcı ızgarayı doldurur.'})}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLabelMode('externe')}
+                    className={`relative px-3 py-3 rounded-xl text-left transition-all border ${labelMode === 'externe' ? 'bg-emerald-600 dark:bg-emerald-600 text-white border-emerald-600 shadow-md dark:shadow-dk-md' : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-emerald-300 dark:hover:border-emerald-500/40'}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`p-1.5 rounded-lg ${labelMode === 'externe' ? 'bg-white/20' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400'}`}>
+                        <Store className="w-4 h-4" />
+                      </span>
+                      <span className="text-[12px] font-black">{tx(lang,{fr:'Externe (magasin)',ar:'خارجي (المتجر)',en:'External (store)',es:'Externo (tienda)',pt:'Externo (loja)',tr:'Harici (mağaza)'})}</span>
+                      {labelMode === 'externe' && <Check className="w-4 h-4 ml-auto" />}
+                    </div>
+                    <span className={`block mt-1.5 text-[9px] leading-snug ${labelMode === 'externe' ? 'text-emerald-100 dark:text-emerald-50/90' : 'text-slate-400 dark:text-dk-muted'}`}>
+                      {tx(lang,{fr:'Un seul code par modèle, le magasin lit la taille.',ar:'كود واحد لكل موديل، المتجر يقرأ المقاس فقط.',en:'One code per model, the store reads the size.',es:'Un solo código por modelo, la tienda lee la talla.',pt:'Um código por modelo, a loja lê o tamanho.',tr:'Model başına tek kod, mağaza bedeni okur.'})}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tableau des quantités d'étiquettes, modifiable avant impression.
+                  Interne : une par taille × couleur. Externe : le magasin ne voit
+                  que la taille, les quantités sont agrégées par taille. */}
+              {(() => {
+                const fiche: any = labelModel.ficheData || {};
+                const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+                const sizes: string[] = fiche.sizes || [];
+                const total = labelMode === 'externe'
+                  ? Object.values(labelExterneGrid).reduce((a, v) => a + (Math.floor(Number(v) || 0)), 0)
+                  : Object.values(labelGrid).reduce((a, v) => a + (Math.floor(Number(v) || 0)), 0);
+                return (
+                  <div>
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {labelMode === 'externe'
+                        ? tx(lang,{fr:'Nombre d\'étiquettes par taille',ar:'عدد الملصقات لكل مقاس',en:'Number of labels per size',es:'Número de etiquetas por talla',pt:'Número de etiquetas por tamanho',tr:'Beden başına etiket sayısı'})
+                        : tx(lang,{fr:'Nombre d\'étiquettes par taille × couleur',ar:'عدد الملصقات لكل مقاس × لون',en:'Number of labels per size × color',es:'Número de etiquetas por talla × color',pt:'Número de etiquetas por tamanho × cor',tr:'Beden × renk başına etiket sayısı'})}
+                    </label>
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm dark:shadow-none">
+                      {labelMode === 'externe' ? (
+                        <table className="w-full border-collapse text-[11px]">
+                          <thead>
+                            <tr className="bg-gradient-to-r from-emerald-50 to-slate-50 dark:from-emerald-950/40 dark:to-dk-surface/75">
+                              <th className="p-2 text-left font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap border-b border-slate-200 dark:border-dk-border">
+                                {tx(lang,{fr:'Taille',ar:'المقاس',en:'Size',es:'Talla',pt:'Tamanho',tr:'Beden'})}
+                              </th>
+                              <th className="p-2 text-center font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap border-b border-slate-200 dark:border-dk-border">
+                                {tx(lang,{fr:'Étiquettes',ar:'ملصقات',en:'Labels',es:'Etiquetas',pt:'Etiquetas',tr:'Etiketler'})}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sizes.map(s => (
+                              <tr key={s} className="hover:bg-slate-50 dark:hover:bg-dk-bg/60 transition-colors">
+                                <td className="p-2 font-semibold text-slate-600 dark:text-dk-text-soft border-b border-slate-100 dark:border-dk-border whitespace-nowrap">{s}</td>
+                                <td className="p-1.5 border-b border-l border-slate-100 dark:border-dk-border text-center">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={labelExterneGrid[s] ?? 0}
+                                    onChange={e => setLabelExterneGrid(prev => ({ ...prev, [s]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
+                                    className="w-16 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-1.5 py-1 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-500/30"
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse text-[11px]">
+                            <thead>
+                              <tr className="bg-gradient-to-r from-indigo-50 to-slate-50 dark:from-indigo-950/40 dark:to-dk-surface/75">
+                                <th className="p-2 text-left font-bold text-indigo-700 dark:text-indigo-400 whitespace-nowrap border-b border-slate-200 dark:border-dk-border">
+                                  {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
+                                </th>
+                                {sizes.map(s => (
+                                  <th key={s} className="p-2 text-center font-bold text-indigo-600 dark:text-indigo-400 border-b border-l border-slate-200 dark:border-dk-border whitespace-nowrap">{s}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {colors.map(c => (
+                                <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-dk-bg/60 transition-colors">
+                                  <td className="p-2 font-semibold text-slate-600 dark:text-dk-text-soft border-b border-slate-100 dark:border-dk-border whitespace-nowrap max-w-[120px] truncate">{c.name}</td>
+                                  {sizes.map(s => {
+                                    const key = `${c.name}|${s}`;
+                                    return (
+                                      <td key={key} className="p-1.5 border-b border-l border-slate-100 dark:border-dk-border">
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          value={labelGrid[key] ?? 0}
+                                          onChange={e => setLabelGrid(prev => ({ ...prev, [key]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
+                                          className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-1.5 py-1 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-500/30"
+                                        />
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black ${labelMode === 'externe' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400'}`}>
+                        {tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}
+                        <span className="rounded-full bg-white dark:bg-dk-surface px-1.5 py-0.5 border border-current/20">
+                          {total.toLocaleString()}
+                        </span>
+                        <span className="font-semibold">{tx(lang,{fr:'étiquettes',ar:'ملصق',en:'labels',es:'etiquetas',pt:'etiquetas',tr:'etiket'})}</span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Ce qui figure sur le tiki, et à quelle taille il sort.
+                  Une étiquette de 30 mm ne tient pas six lignes : c'est
+                  l'opérateur qui choisit ce qu'il garde, pas nous. */}
+              <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-4 space-y-4">
+                <div>
+                  <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                    {tx(lang,{fr:'Contenu de l\'étiquette',ar:'محتوى الملصق',en:'Label content',es:'Contenido de la etiqueta',pt:'Conteúdo da etiqueta',tr:'Etiket içeriği'})}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      { id: 'marque', label: tx(lang,{fr:'Marque / logo',ar:'العلامة / الشعار',en:'Brand / logo',es:'Marca / logo',pt:'Marca / logo',tr:'Marka / logo'}) },
+                      { id: 'ref', label: tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'}) },
+                      { id: 'taille', label: tx(lang,{fr:'Taille',ar:'المقاس',en:'Size',es:'Talla',pt:'Tamanho',tr:'Beden'}) },
+                      { id: 'couleur', label: tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'}) },
+                      { id: 'prix', label: tx(lang,{fr:'Prix',ar:'الثمن',en:'Price',es:'Precio',pt:'Preço',tr:'Fiyat'}) },
+                      { id: 'code', label: tx(lang,{fr:'Code sous le barres',ar:'الكود تحت الباركود',en:'Code under barcode',es:'Código bajo el código de barras',pt:'Código sob o código de barras',tr:'Barkod altındaki kod'}) },
+                    ] as const).map(f => {
+                      const on = labelFields[f.id];
+                      // La couleur n'existe pas sur un tiki magasin : le code
+                      // « porte » est unique par modèle, pas par variante.
+                      const disabled = f.id === 'couleur' && labelMode === 'externe';
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => setLabelFields(prev => ({ ...prev, [f.id]: !prev[f.id] }))}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                            disabled
+                              ? 'bg-slate-50 dark:bg-dk-bg text-slate-300 dark:text-dk-muted/50 border-slate-200 dark:border-dk-border cursor-not-allowed'
+                              : on
+                                ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent'
+                                : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent/40'
+                          }`}
+                        >
+                          {on && !disabled && <Check className="w-3 h-3" />}
+                          {f.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Marque : le logo enregistré dans Admin > Entreprise prime,
+                    mais une marque commerciale n'est pas toujours la raison
+                    sociale — le texte reste donc modifiable. */}
+                {labelFields.marque && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                        {tx(lang,{fr:'Nom de la marque',ar:'اسم العلامة',en:'Brand name',es:'Nombre de la marca',pt:'Nome da marca',tr:'Marka adı'})}
+                      </label>
+                      <input
+                        type="text"
+                        value={labelBrand}
+                        onChange={e => setLabelBrand(e.target.value)}
+                        placeholder={labelModel.meta_data?.nom_modele || ''}
+                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text placeholder:font-normal placeholder:text-slate-400 dark:placeholder:text-dk-muted outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      {(companyIdentity.logo || '').trim() ? (
+                        <button
+                          type="button"
+                          onClick={() => setLabelUseLogo(v => !v)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-bold transition-colors ${
+                            labelUseLogo
+                              ? 'bg-indigo-50 dark:bg-dk-accent/10 text-indigo-700 dark:text-dk-accent border-indigo-200 dark:border-dk-accent/40'
+                              : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                          }`}
+                        >
+                          <img src={companyIdentity.logo} alt="" className="w-7 h-7 rounded object-contain bg-white shrink-0" />
+                          <span className="text-left leading-tight">
+                            {labelUseLogo
+                              ? tx(lang,{fr:'Logo imprimé',ar:'الشعار مطبوع',en:'Logo printed',es:'Logo impreso',pt:'Logo impresso',tr:'Logo basılıyor'})
+                              : tx(lang,{fr:'Utiliser le logo',ar:'استعمل الشعار',en:'Use the logo',es:'Usar el logo',pt:'Usar o logo',tr:'Logoyu kullan'})}
+                          </span>
+                          {labelUseLogo && <Check className="w-4 h-4 ml-auto shrink-0" />}
+                        </button>
+                      ) : (
+                        <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                          {tx(lang,{fr:'Aucun logo enregistré — ajoutez-le dans Admin > Entreprise pour l\'imprimer à la place du texte.',ar:'ما كاين حتى شعار مسجّل — زيدو ف Admin > Entreprise باش يتطبع بدل النص.',en:'No logo saved — add one in Admin > Company to print it instead of the text.',es:'Ningún logo guardado — añádalo en Admin > Empresa para imprimirlo en lugar del texto.',pt:'Nenhum logo guardado — adicione em Admin > Empresa para o imprimir em vez do texto.',tr:'Kayıtlı logo yok — metin yerine basmak için Admin > Şirket bölümüne ekleyin.'})}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Prix : celui de la carte Stock & Ventes, modifiable ici.
+                    Une série soldée ne doit pas obliger à changer le prix du
+                    modèle — le tiki est un tirage, pas une décision de tarif. */}
+                {labelFields.prix && (
+                  <div>
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Prix imprimé',ar:'الثمن المطبوع',en:'Printed price',es:'Precio impreso',pt:'Preço impresso',tr:'Basılan fiyat'})}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={labelPrice || ''}
+                        onChange={e => setLabelPrice(Math.max(0, Number(e.target.value) || 0))}
+                        className="w-36 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                      />
+                      <span className="text-[11px] font-bold text-slate-400 dark:text-dk-muted">{currency}</span>
+                      {labelPrice <= 0 && (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                          {tx(lang,{fr:'Sans prix, la ligne ne sera pas imprimée.',ar:'بلا ثمن، السطر ما غاديش يتطبع.',en:'Without a price, the line will not be printed.',es:'Sin precio, la línea no se imprimirá.',pt:'Sem preço, a linha não será impressa.',tr:'Fiyat olmadan satır basılmaz.'})}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Format physique : une thermique tire un rouleau de largeur
+                    FIXE. Imprimer sur une page « auto » décale tout le rouleau. */}
+                <div>
+                  <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                    {tx(lang,{fr:'Format du rouleau (mm)',ar:'قياس الرول (مم)',en:'Roll format (mm)',es:'Formato del rollo (mm)',pt:'Formato do rolo (mm)',tr:'Rulo formatı (mm)'})}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {LABEL_SIZES.map(sz => {
+                      const on = labelSize.w === sz.w && labelSize.h === sz.h;
+                      return (
+                        <button
+                          key={sz.id}
+                          type="button"
+                          onClick={() => setLabelSize({ w: sz.w, h: sz.h })}
+                          className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                            on
+                              ? 'bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent'
+                              : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent/40'
+                          }`}
+                        >
+                          {sz.id}
+                        </button>
+                      );
+                    })}
+                    <span className="mx-1 text-slate-300 dark:text-dk-border">|</span>
+                    <input
+                      type="number"
+                      min={10}
+                      value={labelSize.w}
+                      onChange={e => setLabelSize(prev => ({ ...prev, w: Math.max(10, Number(e.target.value) || 10) }))}
+                      className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                    />
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">×</span>
+                    <input
+                      type="number"
+                      min={10}
+                      value={labelSize.h}
+                      onChange={e => setLabelSize(prev => ({ ...prev, h: Math.max(10, Number(e.target.value) || 10) }))}
+                      className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                    />
+                  </div>
+                  <p className="mt-1.5 text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                    {tx(lang,{fr:'Une page par étiquette, à la taille exacte : choisissez le même format dans le pilote de l\'imprimante.',ar:'صفحة لكل ملصق بالقياس المضبوط: اختر نفس القياس ف driver ديال الطابعة.',en:'One page per label, at the exact size: choose the same format in the printer driver.',es:'Una página por etiqueta, al tamaño exacto: elija el mismo formato en el controlador de la impresora.',pt:'Uma página por etiqueta, no tamanho exato: escolha o mesmo formato no controlador da impressora.',tr:'Etiket başına bir sayfa, tam boyutta: yazıcı sürücüsünde aynı formatı seçin.'})}
+                  </p>
+                </div>
+
+                {/* Ordre de sortie : le rouleau sort dans l'ordre des pages.
+                    Regrouper évite de retrier 460 tiki mélangés à la main. */}
+                {labelMode === 'interne' && (
+                  <div>
+                    <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Ordre de sortie',ar:'ترتيب الخروج',en:'Print order',es:'Orden de salida',pt:'Ordem de saída',tr:'Çıkış sırası'})}
+                    </span>
+                    <div className="inline-flex rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
+                      {([
+                        { id: 'taille', label: tx(lang,{fr:'Par taille, puis couleur',ar:'بالمقاس ثم اللون',en:'By size, then color',es:'Por talla, luego color',pt:'Por tamanho, depois cor',tr:'Bedene, sonra renge göre'}) },
+                        { id: 'couleur', label: tx(lang,{fr:'Par couleur, puis taille',ar:'باللون ثم المقاس',en:'By color, then size',es:'Por color, luego talla',pt:'Por cor, depois tamanho',tr:'Renge, sonra bedene göre'}) },
+                      ] as const).map((o, i) => (
+                        <button
+                          key={o.id}
+                          type="button"
+                          onClick={() => setLabelGroupBy(o.id)}
+                          className={`px-3 py-2 text-[10px] font-bold transition-colors ${i > 0 ? 'border-l border-slate-200 dark:border-dk-border' : ''} ${
+                            labelGroupBy === o.id
+                              ? 'bg-slate-800 dark:bg-dk-accent text-white'
+                              : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                          }`}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Aperçu de l'étiquette telle qu'elle sera imprimée. */}
+              {(() => {
+                const pvFiche: any = labelModel.ficheData || {};
+                const pvSizes: string[] = pvFiche.sizes || [];
+                const pvColors: Array<{ id: string; name: string }> = pvFiche.colors || [];
+                let pvTaille = '';
+                let pvCouleur = '';
+                if (labelMode === 'externe') {
+                  for (const s of pvSizes) { if ((labelExterneGrid[s] ?? 0) > 0) { pvTaille = s; break; } }
+                  if (!pvTaille && pvSizes[0]) pvTaille = pvSizes[0];
+                } else {
+                  pvTaille = labelPreview.taille;
+                  pvCouleur = labelPreview.couleur;
+                }
+                // L'aperçu montre EXACTEMENT ce que la page imprimée portera :
+                // mêmes champs, même en-tête, même proportion que le rouleau.
+                const mockRows: Array<{ k: string; v: string; price?: boolean }> = [];
+                if (labelFields.ref) mockRows.push({ k: 'Réf', v: refModele });
+                if (labelFields.taille && pvTaille) mockRows.push({ k: 'Taille', v: pvTaille });
+                if (labelFields.couleur && labelMode !== 'externe' && pvCouleur) mockRows.push({ k: 'Couleur', v: pvCouleur });
+                if (labelFields.prix && labelPrice > 0) mockRows.push({ k: 'Prix', v: `${labelPrice.toLocaleString()} ${currency}`, price: true });
+                const pvLogo = labelFields.marque && labelUseLogo ? (companyIdentity.logo || '').trim() : '';
+                const pvBrand = (labelBrand || '').trim() || (labelModel.meta_data?.nom_modele || labelModel.id);
+                // Le cadre garde la proportion réelle du format choisi : un
+                // aperçu carré pour un 60x30 mentirait sur la place disponible.
+                const pvW = 230;
+                const pvH = Math.round(pvW * (labelSize.h / Math.max(1, labelSize.w)));
+                return (
+                  <div>
+                    <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Aperçu de l\'étiquette',ar:'معاينة الملصق',en:'Label preview',es:'Vista previa de la etiqueta',pt:'Pré-visualização da etiqueta',tr:'Etiket önizlemesi'})}
+                    </span>
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-4">
+                      <div className="flex justify-center">
+                        <div
+                          style={{ width: pvW, height: pvH }}
+                          className={`relative overflow-hidden max-w-full rounded-lg border-2 border-dashed px-3 pb-2 pt-4 flex flex-col ${labelMode === 'externe' ? 'border-emerald-300 dark:border-emerald-500/40' : 'border-indigo-300 dark:border-indigo-500/40'}`}
+                        >
+                          <div className={`absolute inset-x-0 top-0 h-1.5 ${labelMode === 'externe' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+                          {labelFields.marque && (
+                            pvLogo
+                              ? <img src={pvLogo} alt="" className="h-4 max-w-[60%] object-contain object-left" />
+                              : <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-900 dark:text-dk-text truncate">{pvBrand}</div>
+                          )}
+                          <div className="mt-1 space-y-0.5">
+                            {mockRows.map(r => (
+                              <div key={r.k} className="flex items-baseline justify-between text-[9px] text-slate-500 dark:text-dk-muted uppercase tracking-wide">
+                                <span>{r.k}</span>
+                                <span className={`normal-case tracking-normal font-bold truncate ${r.price ? 'text-[11px] text-emerald-600 dark:text-emerald-400' : 'text-[10px] text-slate-900 dark:text-dk-text'}`}>{r.v}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-center mt-auto">
+                            <canvas ref={labelCanvasRef} className="max-w-full h-auto" />
+                          </div>
+                          {labelFields.code && (
+                            <div className="text-center text-[8px] font-mono tracking-widest text-slate-500 dark:text-dk-muted">
+                              {labelMode === 'interne' ? labelPreview.code : refModele}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-center gap-1.5 mt-3 text-[10px] font-semibold text-slate-400 dark:text-dk-muted">
+                        {labelMode === 'interne' ? (
+                          <>
+                            <ScanLine className="w-3.5 h-3.5 text-indigo-500 dark:text-dk-accent" />
+                            <span>
+                              {tx(lang,{fr:'Le lecteur déchiffre ce code et remplit la grille automatiquement.',ar:'القارئ يفك شفرة هذا الكود ويملأ الشبكة تلقائياً.',en:'The scanner decodes this code and fills the grid automatically.',es:'El escáner decodifica este código y rellena la cuadrícula automáticamente.',pt:'O leitor decodifica este código e preenche a grade automaticamente.',tr:'Tarayıcı bu kodu çözer ve ızgarayı otomatik doldurur.'})}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Store className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
+                            <span>
+                              {tx(lang,{fr:'Un seul code par modèle : le magasin le lit directement, seule la taille est affichée.',ar:'كود واحد لكل موديل: المتجر يقرؤه مباشرة، المقاس فقط معروض.',en:'One code per model: the store reads it directly, only the size is shown.',es:'Un solo código por modelo: la tienda lo lee directamente, solo se muestra la talla.',pt:'Um código por modelo: a loja lê diretamente, apenas o tamanho é exibido.',tr:'Model başına tek kod: mağaza doğrudan okur, yalnızca beden gösterilir.'})}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
+                <button
+                  type="button"
+                  onClick={() => setLabelModel(null)}
+                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                >
+                  {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                </button>
+                <button
+                  type="button"
+                  onClick={imprimerTiki}
+                  className={`${labelMode === 'externe' ? 'bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-500 border-emerald-600 dark:border-emerald-600' : 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 border-indigo-600 dark:border-dk-accent'} text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2`}
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>{tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}</span>
+                  <span className="hidden sm:inline text-[10px] font-semibold opacity-80">
+                    {Object.values(labelMode === 'externe' ? labelExterneGrid : labelGrid).reduce((a, v) => a + (Math.floor(Number(v) || 0)), 0).toLocaleString()}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </SheetModal>
+      )}
       {/* Distincte de la facture de VENTE : ici */}
       {/* on facture ce que VOUS devez au        */}
       {/* sous-traitant pour cette commande.     */}
@@ -9771,7 +11786,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           setSaleClient(c.nom);
                           setSaleClientIce(c.ice || '');
                           setSaleClientRc(c.rc || '');
-                          setSaleClientAdresse([c.adresse, c.ville].filter(Boolean).join(', '));
+                          setSaleClientAdresse(c.adresse || '');
+                          setSaleClientVille(c.ville || '');
+                          setSaleClientType(c.type || 'DETAIL');
                           setSaleClientTel(c.tel || '');
                           setSaleClientEmail(c.email || '');
                         }}
@@ -9790,6 +11807,110 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         ))}
                       </select>
                     </div>
+                  )}
+
+                  <div className="sm:col-span-2">
+                    <button
+                      type="button"
+                      onClick={() => { setSaleNewClientOpen(v => !v); setSaleNewClientError(null); }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-indigo-300 dark:border-dk-accent/50 text-indigo-600 dark:text-dk-accent-text font-bold text-[11px] hover:bg-indigo-50 dark:hover:bg-dk-accent/10 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {saleNewClientOpen
+                        ? tx(lang,{fr:'Fermer le formulaire',ar:'إغلاق النموذج',en:'Close the form',es:'Cerrar el formulario',pt:'Fechar o formulário',tr:'Formu kapat'})
+                        : tx(lang,{fr:'Nouveau client',ar:'عميل جديد',en:'New client',es:'Nuevo cliente',pt:'Novo cliente',tr:'Yeni müşteri'})}
+                    </button>
+                  </div>
+
+                  {saleNewClientOpen && (
+                    <form onSubmit={handleCreateSaleClient} className="sm:col-span-2 space-y-3 p-4 rounded-2xl border border-indigo-200 dark:border-dk-accent/40 bg-indigo-50/40 dark:bg-dk-accent/10">
+                      <p className="text-[10px] font-bold text-indigo-700 dark:text-dk-accent-text uppercase tracking-wider">
+                        {tx(lang,{fr:'Enregistrer un nouveau client',ar:'تسجيل عميل جديد',en:'Register a new client',es:'Registrar un nuevo cliente',pt:'Registar um novo cliente',tr:'Yeni müşteri kaydet'})}
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">{tx(lang,{fr:'Nom / Raison sociale *',ar:'الاسم / الاسم التجاري *',en:'Name / Company *',es:'Nombre / Razón social *',pt:'Nome / Razão social *',tr:'Ad / Ticari unvan *'})}</label>
+                          <input type="text" value={saleNewClient.nom} onChange={e => setSaleNewClient({ ...saleNewClient, nom: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" required />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">{tx(lang,{fr:'Type de client',ar:'نوع العميل',en:'Client type',es:'Tipo de cliente',pt:'Tipo de cliente',tr:'Müşteri tipi'})}</label>
+                          <div className="grid grid-cols-3 gap-1">
+                            {([
+                              ['GROS', tx(lang,{fr:'Gros',ar:'جملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})],
+                              ['DETAIL', tx(lang,{fr:'Détail',ar:'تفصيل',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'})],
+                              ['BOUTIQUE', tx(lang,{fr:'Boutique',ar:'محلّ',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'})],
+                            ] as const).map(([val, label]) => {
+                              const active = saleNewClient.type === val;
+                              const colors = val === 'GROS'
+                                ? active
+                                  ? 'bg-amber-500 border-amber-500 text-white'
+                                  : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20'
+                                : val === 'DETAIL'
+                                  ? active
+                                    ? 'bg-emerald-500 border-emerald-500 text-white'
+                                    : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20'
+                                  : active
+                                    ? 'bg-sky-500 border-sky-500 text-white'
+                                    : 'bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20';
+                              return (
+                                <button
+                                  key={val}
+                                  type="button"
+                                  onClick={() => setSaleNewClient({ ...saleNewClient, type: val as any })}
+                                  className={`px-1.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors ${colors}`}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">ICE</label>
+                          <input type="text" value={saleNewClient.ice} onChange={e => setSaleNewClient({ ...saleNewClient, ice: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">RC</label>
+                          <input type="text" value={saleNewClient.rc} onChange={e => setSaleNewClient({ ...saleNewClient, rc: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">{tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})}</label>
+                          <input type="text" value={saleNewClient.tel} onChange={e => setSaleNewClient({ ...saleNewClient, tel: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">Email</label>
+                          <input type="email" value={saleNewClient.email} onChange={e => setSaleNewClient({ ...saleNewClient, email: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">{tx(lang,{fr:'Ville',ar:'المدينة',en:'City',es:'Ciudad',pt:'Cidade',tr:'Şehir'})}</label>
+                          <input type="text" value={saleNewClient.ville} onChange={e => setSaleNewClient({ ...saleNewClient, ville: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">{tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'})}</label>
+                          <input type="text" value={saleNewClient.adresse} onChange={e => setSaleNewClient({ ...saleNewClient, adresse: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                        </div>
+                      </div>
+                      {saleNewClientError && (
+                        <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{saleNewClientError}</p>
+                      )}
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setSaleNewClientOpen(false)}
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                        >
+                          {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={saleNewClientSaving}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                        >
+                          {saleNewClientSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                          {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
+                        </button>
+                      </div>
+                    </form>
                   )}
 
                   <div className="space-y-1">
@@ -9811,6 +11932,52 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       onChange={(e) => setSaleClientIce(e.target.value)}
                       className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
                       placeholder="ICE"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang,{fr:'Type de client',ar:'نوع العميل',en:'Client type',es:'Tipo de cliente',pt:'Tipo de cliente',tr:'Müşteri tipi'})}</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([
+                        ['GROS', tx(lang,{fr:'Gros',ar:'جملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})],
+                        ['DETAIL', tx(lang,{fr:'Détail',ar:'تفصيل',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'})],
+                        ['BOUTIQUE', tx(lang,{fr:'Boutique',ar:'محلّ',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'})],
+                      ] as const).map(([val, label]) => {
+                        const active = saleClientType === val;
+                        const colors = val === 'GROS'
+                          ? active
+                            ? 'bg-amber-500 border-amber-500 text-white'
+                            : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20'
+                          : val === 'DETAIL'
+                            ? active
+                              ? 'bg-emerald-500 border-emerald-500 text-white'
+                              : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20'
+                            : active
+                              ? 'bg-sky-500 border-sky-500 text-white'
+                              : 'bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20';
+                        return (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setSaleClientType(val as any)}
+                            className={`px-2 py-2.5 rounded-xl border text-[11px] font-bold transition-colors ${colors}`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang,{fr:'Ville',ar:'المدينة',en:'City',es:'Ciudad',pt:'Cidade',tr:'Şehir'})}</label>
+                    <input 
+                      type="text"
+                      value={saleClientVille}
+                      onChange={(e) => setSaleClientVille(e.target.value)}
+                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
+                      placeholder={tx(lang,{fr:'Ville',ar:'المدينة',en:'City',es:'Ciudad',pt:'Cidade',tr:'Şehir'})}
                     />
                   </div>
                 </div>
