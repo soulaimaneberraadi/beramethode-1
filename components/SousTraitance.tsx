@@ -1655,9 +1655,34 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setTikiSettingsOpen(false);
   };
 
+  /** Une thermique n'a pas d'encre : elle noircit le papier, ou pas. Un logo en
+   *  couleur ou en dégradé y sort en aplats sales, et un logo clair n'y sort
+   *  pas du tout. On le convertit donc en NOIR PUR sur fond transparent dès le
+   *  chargement : ce qui est stocké est ce qui sortira.
+   *  Seuil sur la luminance perçue (Rec. 601) — sous le seuil = noir opaque,
+   *  au-dessus = transparent (le papier fait le blanc). Les pixels déjà
+   *  transparents le restent. */
+  const TIKI_LOGO_THRESHOLD = 0.62;
+  const monochromeForThermal = (canvas: HTMLCanvasElement): void => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    let data: ImageData;
+    try { data = ctx.getImageData(0, 0, canvas.width, canvas.height); }
+    catch { return; } // canvas « teinté » par une image d'une autre origine
+    const px = data.data;
+    for (let i = 0; i < px.length; i += 4) {
+      if (px[i + 3] < 128) { px[i + 3] = 0; continue; }
+      const lum = (0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]) / 255;
+      if (lum < TIKI_LOGO_THRESHOLD) { px[i] = 0; px[i + 1] = 0; px[i + 2] = 0; px[i + 3] = 255; }
+      else { px[i + 3] = 0; }
+    }
+    ctx.putImageData(data, 0, 0);
+  };
+
   /** Le logo part dans la synchro : un PNG d'appareil photo ferait grossir le
    *  snapshot pour rien. On le réduit à 600 px de large — bien au-delà de ce
-   *  qu'une thermique 203 dpi peut restituer sur 7 mm de haut. */
+   *  qu'une thermique 203 dpi peut restituer sur quelques millimètres — puis on
+   *  le passe en noir et blanc pour qu'il soit imprimable tel quel. */
   const onTikiLogoFile = (file: File | null) => {
     if (!file) return;
     const reader = new FileReader();
@@ -1673,6 +1698,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         const ctx = c.getContext('2d');
         if (!ctx) { setTikiDraft(prev => ({ ...prev, logo: src, useLogo: true })); return; }
         ctx.drawImage(img, 0, 0, c.width, c.height);
+        monochromeForThermal(c);
         setTikiDraft(prev => ({ ...prev, logo: c.toDataURL('image/png'), useLogo: true }));
       };
       img.onerror = () => setTikiDraft(prev => ({ ...prev, logo: src, useLogo: true }));
@@ -1725,29 +1751,64 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   /** Géométrie de l'étiquette, en millimètres — LA source unique partagée par
    *  l'impression et les aperçus. Tant que l'aperçu avait ses propres tailles
    *  en pixels, il mentait : la marque débordait sur un 60x30 et disparaissait
-   *  du cadre, alors que l'impression, elle, réduisait tout. Un aperçu qui ne
-   *  montre pas ce qui sortira ne sert à rien.
-   *  Les corps sont en points (1 pt = 0,3528 mm) comme dans la feuille de style
-   *  d'impression. */
-  const tikiGeometryMm = (w: number, h: number) => {
-    const scale = Math.min(1, h / 30);
-    return {
-      padX: 1.8, padTop: 1.2, padBottom: 1,
-      band: 1.6,
-      logoH: h * 0.22,
-      nameMm: 9.5 * scale * 0.3528,
-      rowMm: 7.5 * scale * 0.3528,
-      valMm: 8.5 * scale * 0.3528,
-      priceMm: 8.5 * 1.25 * scale * 0.3528,
-      codeMm: 6.8 * scale * 0.3528,
-      bcH: Math.max(7, h * 0.32),
-    };
+   *  du cadre, alors que l'impression, elle, réduisait tout.
+   *
+   *  Le format est FIXE (c'est le rouleau acheté), donc c'est le contenu qui
+   *  s'adapte. Sans ce calcul, une ligne de trop faisait écraser l'en-tête par
+   *  le moteur de mise en page jusqu'à le faire disparaître — sur le papier
+   *  aussi, pas seulement à l'écran. On mesure donc ce que le contenu demande,
+   *  on donne au code-barres ce qui reste (dans des bornes lisibles), et on
+   *  réduit la typographie du facteur qui manque.
+   *  Les corps sont en points (1 pt = 0,3528 mm) comme la feuille de style. */
+  const PT = 0.3528;
+  const tikiGeometryMm = (
+    w: number,
+    h: number,
+    opts?: { head?: boolean; logo?: boolean; rows?: number; code?: boolean }
+  ) => {
+    const head = opts?.head ?? true;
+    const logo = opts?.logo ?? false;
+    const rows = opts?.rows ?? 3;
+    const code = opts?.code ?? true;
+
+    const padX = 1.8, padTop = 1.2, padBottom = 1, band = 1.6;
+    const base = Math.min(1, h / 30);
+
+    // Tailles nominales, avant ajustement.
+    let nameMm = 9.5 * base * PT;
+    let rowMm = 7.5 * base * PT;
+    let valMm = 8.5 * base * PT;
+    let priceMm = 8.5 * 1.25 * base * PT;
+    let codeMm = 6.8 * base * PT;
+    let logoH = h * 0.22;
+
+    const content = Math.max(0, h - band - padTop - padBottom);
+    const headH = head ? (logo ? logoH + 0.4 : nameMm * 1.15) : 0;
+    const rowsH = rows * (valMm * 1.35);
+    const codeH = code ? codeMm * 1.25 : 0;
+    const textNeeded = headH + rowsH + codeH;
+
+    // Le code-barres est l'élément qu'on lit à la machine : il garde une
+    // hauteur minimale même serré, sinon le lecteur ne le voit plus.
+    const bcH = Math.max(5, Math.min(h * 0.32, content - textNeeded));
+    const remaining = Math.max(0, content - bcH);
+    const fit = textNeeded > 0 ? Math.min(1, remaining / textNeeded) : 1;
+
+    nameMm *= fit; rowMm *= fit; valMm *= fit;
+    priceMm *= fit; codeMm *= fit; logoH *= fit;
+
+    return { padX, padTop, padBottom, band, logoH, nameMm, rowMm, valMm, priceMm, codeMm, bcH };
   };
 
   /** La même géométrie ramenée en pixels pour un aperçu de largeur donnée :
    *  l'aperçu est alors une maquette à l'échelle, pas une approximation. */
-  const tikiPreviewMetrics = (w: number, h: number, boxW: number) => {
-    const g = tikiGeometryMm(w, h);
+  const tikiPreviewMetrics = (
+    w: number,
+    h: number,
+    boxW: number,
+    opts?: { head?: boolean; logo?: boolean; rows?: number; code?: boolean }
+  ) => {
+    const g = tikiGeometryMm(w, h, opts);
     const k = boxW / Math.max(1, w);
     const px = (mm: number) => mm * k;
     return {
@@ -1950,19 +2011,33 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       return imgs[code];
     };
 
-    // L'etiquette s'adapte a sa hauteur physique : sur 30 mm, six lignes se
-    // chevauchent. Les tailles sont donc derivees du format choisi.
-    const { w: lw, h: lh } = labelSize;
-    const scale = Math.min(1, lh / 30);
-    const fsName = (9.5 * scale).toFixed(2);
-    const fsRow = (7.5 * scale).toFixed(2);
-    const fsVal = (8.5 * scale).toFixed(2);
-    const fsCode = (6.8 * scale).toFixed(2);
-    const bcH = Math.max(7, lh * 0.32).toFixed(2);
-    const logoH = (lh * 0.22).toFixed(2);
-    const fsPrice = (Number(fsVal) * 1.25).toFixed(2);
     const logo = labelUseLogo ? tikiLogo : '';
     const brand = (labelBrand || '').trim();
+    // Le rouleau est d'une taille FIXE : c'est le contenu qui s'y plie. On
+    // compte les lignes réellement demandées pour que la typographie soit
+    // réduite juste ce qu'il faut, au lieu de laisser l'en-tête se faire
+    // écraser jusqu'à disparaître du papier.
+    const rowCount =
+      (labelFields.ref ? 1 : 0) +
+      (labelFields.taille ? 1 : 0) +
+      (labelFields.couleur && labelMode !== 'externe' ? 1 : 0) +
+      (labelFields.prix && labelPrice > 0 ? 1 : 0);
+    const { w: lw, h: lh } = labelSize;
+    const g = tikiGeometryMm(lw, lh, {
+      head: labelFields.marque,
+      logo: Boolean(logo),
+      rows: rowCount,
+      code: labelFields.code,
+    });
+    // Millimètres -> points pour la feuille de style d'impression.
+    const mmToPt = (mm: number) => (mm / PT).toFixed(2);
+    const fsName = mmToPt(g.nameMm);
+    const fsRow = mmToPt(g.rowMm);
+    const fsVal = mmToPt(g.valMm);
+    const fsCode = mmToPt(g.codeMm);
+    const fsPrice = mmToPt(g.priceMm);
+    const bcH = g.bcH.toFixed(2);
+    const logoH = g.logoH.toFixed(2);
 
     let labels = '';
     cells.forEach(cell => {
@@ -2007,6 +2082,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         'body { font-family: "Helvetica Neue", Arial, sans-serif; }' +
         '.lbl { width: ' + lw + 'mm; height: ' + lh + 'mm; padding: 1.2mm 1.8mm 1mm; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: #fff; page-break-after: always; break-after: page; }' +
         '.lbl:last-child { page-break-after: auto; break-after: auto; }' +
+        // Sans `flex-shrink: 0`, le moteur ecrase l'en-tete en premier des que
+        // le contenu depasse d'un cheveu : le logo disparaissait du papier.
+        '.lbl > * { flex: 0 0 auto; }' +
         '.band { height: 1.6mm; margin: -1.2mm -1.8mm 0.8mm -1.8mm; }' +
         '.logo { max-height: ' + logoH + 'mm; max-width: 100%; object-fit: contain; align-self: flex-start; margin-bottom: 0.4mm; }' +
         '.nm { text-transform: uppercase; letter-spacing: 1px; font-size: ' + fsName + 'pt; font-weight: 800; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
@@ -10480,8 +10558,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         // n'aide personne devant un graphiste.
         const logoMm = (tikiDraft.size.h * 0.22);
         const logoDots = Math.round(logoMm * 8); // 203 dpi ≈ 8 points/mm
-        const m = tikiPreviewMetrics(tikiDraft.size.w, tikiDraft.size.h, 220);
         const draftLogo = (tikiDraft.logo || '').trim() || (companyIdentity.logo || '').trim();
+        const draftRows =
+          (tikiDraft.fields.ref ? 1 : 0) +
+          (tikiDraft.fields.taille ? 1 : 0) +
+          (tikiDraft.fields.couleur ? 1 : 0) +
+          (tikiDraft.fields.prix ? 1 : 0);
+        const m = tikiPreviewMetrics(tikiDraft.size.w, tikiDraft.size.h, 220, {
+          head: tikiDraft.fields.marque,
+          logo: tikiDraft.useLogo && Boolean(draftLogo),
+          rows: draftRows,
+          code: tikiDraft.fields.code,
+        });
         return (
           <SheetModal
             onClose={() => setTikiSettingsOpen(false)}
@@ -10702,8 +10790,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       <div style={{ height: m.band }} className="absolute inset-x-0 top-0 bg-indigo-500" />
                       {tikiDraft.fields.marque && (
                         tikiDraft.useLogo && draftLogo
-                          ? <img src={draftLogo} alt="" style={{ height: m.logoH }} className="max-w-[60%] object-contain object-left" />
-                          : <div style={{ fontSize: m.name }} className="font-extrabold uppercase tracking-[0.12em] leading-tight text-slate-900 dark:text-dk-text truncate">{(tikiDraft.brand || companyIdentity.nom || 'MARQUE')}</div>
+                          ? <img src={draftLogo} alt="" style={{ height: m.logoH }} className="max-w-[60%] object-contain object-left shrink-0" />
+                          : <div style={{ fontSize: m.name }} className="font-extrabold uppercase tracking-[0.12em] leading-tight text-slate-900 dark:text-dk-text truncate shrink-0">{(tikiDraft.brand || companyIdentity.nom || 'MARQUE')}</div>
                       )}
                       <div>
                         {([
@@ -10721,11 +10809,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           </div>
                         ))}
                       </div>
-                      <div className="flex justify-center mt-auto">
+                      <div className="flex justify-center mt-auto shrink-0">
                         <div style={{ height: m.bcH }} className="w-full bg-[repeating-linear-gradient(90deg,#111_0,#111_2px,transparent_2px,transparent_4px)] dark:bg-[repeating-linear-gradient(90deg,#e5e7eb_0,#e5e7eb_2px,transparent_2px,transparent_4px)]" />
                       </div>
                       {tikiDraft.fields.code && (
-                        <div style={{ fontSize: m.code }} className="text-center font-mono tracking-widest leading-tight text-slate-500 dark:text-dk-muted">1234567890128</div>
+                        <div style={{ fontSize: m.code }} className="text-center font-mono tracking-widest leading-tight text-slate-500 dark:text-dk-muted shrink-0">1234567890128</div>
                       )}
                     </div>
                   </div>
@@ -11157,7 +11245,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 const pvBrand = (labelBrand || '').trim() || (labelModel.meta_data?.nom_modele || labelModel.id);
                 // Maquette à l'échelle : mêmes millimètres que l'impression,
                 // ramenés à la largeur du cadre.
-                const m = tikiPreviewMetrics(labelSize.w, labelSize.h, 230);
+                const m = tikiPreviewMetrics(labelSize.w, labelSize.h, 230, {
+                  head: labelFields.marque,
+                  logo: Boolean(pvLogo),
+                  rows: mockRows.length,
+                  code: labelFields.code,
+                });
                 return (
                   <div>
                     <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
@@ -11176,8 +11269,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           <div style={{ height: m.band }} className={`absolute inset-x-0 top-0 ${labelMode === 'externe' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
                           {labelFields.marque && (
                             pvLogo
-                              ? <img src={pvLogo} alt="" style={{ height: m.logoH }} className="max-w-[60%] object-contain object-left" />
-                              : <div style={{ fontSize: m.name }} className="font-extrabold uppercase tracking-[0.12em] leading-tight text-slate-900 dark:text-dk-text truncate">{pvBrand}</div>
+                              ? <img src={pvLogo} alt="" style={{ height: m.logoH }} className="max-w-[60%] object-contain object-left shrink-0" />
+                              : <div style={{ fontSize: m.name }} className="font-extrabold uppercase tracking-[0.12em] leading-tight text-slate-900 dark:text-dk-text truncate shrink-0">{pvBrand}</div>
                           )}
                           <div>
                             {mockRows.map(r => (
@@ -11190,11 +11283,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               </div>
                             ))}
                           </div>
-                          <div className="flex justify-center mt-auto">
+                          <div className="flex justify-center mt-auto shrink-0">
                             <canvas ref={labelCanvasRef} style={{ height: m.bcH, width: '100%' }} />
                           </div>
                           {labelFields.code && (
-                            <div style={{ fontSize: m.code }} className="text-center font-mono tracking-widest leading-tight text-slate-500 dark:text-dk-muted">
+                            <div style={{ fontSize: m.code }} className="text-center font-mono tracking-widest leading-tight text-slate-500 dark:text-dk-muted shrink-0">
                               {labelMode === 'interne' ? labelPreview.code : refModele}
                             </div>
                           )}
