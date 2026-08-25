@@ -83,6 +83,7 @@ import {
 import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice, createCommandeNormale } from './server/clientsController';
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
 import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat } from './server/achatsController';
+import { sendZpl } from './server/printBridge';
 import {
   getStoreConfig, saveStoreConfig, deleteStoreConfig, testStoreConnection,
   getStoreMapping, generateStoreMapping, saveStoreMapping, publishStoreModel,
@@ -688,6 +689,9 @@ async function startServer() {
   // Marchandise achetee pour revente : articles (la fiche legere) et achats
   // (le fournisseur, la date, le prix paye). Declarees AVANT /api/subcontract/:id
   // sinon « articles » et « achats » seraient pris pour des identifiants.
+  // Pont vers une imprimante thermique reseau (ZPL/EPL, port 9100) : le
+  // navigateur ne peut pas ouvrir de socket TCP, ce relais le fait a sa place.
+  app.post('/api/print/zpl', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), sendZpl);
   app.get('/api/subcontract/articles', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getArticles);
   app.post('/api/subcontract/articles', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveArticle);
   app.delete('/api/subcontract/articles/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_articles', 'owner_id'), deleteArticle);

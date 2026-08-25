@@ -2635,7 +2635,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [achatReference, setAchatReference] = useState('');
   const [achatPhoto, setAchatPhoto] = useState('');
   const [achatPrix, setAchatPrix] = useState<number | ''>('');
-  const [achatPrixVente, setAchatPrixVente] = useState<number | ''>('');
+  /** Une note propre à CET achat — un carton abîmé, un délai promis, un accord
+   *  particulier. Distincte des notes de l'article (qui décrivent l'objet, pas
+   *  la transaction) : elle vit sur `st_achats.note`, pas sur `st_articles`. */
+  const [achatNote, setAchatNote] = useState('');
   const [achatDate, setAchatDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [achatTiersId, setAchatTiersId] = useState('');
   const [achatFactureRef, setAchatFactureRef] = useState('');
@@ -2751,11 +2754,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setAchatNewColorName('');
     setAchatNewSizes('');
     setAchatPrix('');
-    setAchatPrixVente(article ? (salePriceOf(article.id) ?? '') : '');
     setAchatDate(new Date().toISOString().split('T')[0]);
     setAchatTiersId('');
     setAchatFactureRef('');
     setAchatMontantPaye('');
+    setAchatNote('');
     setAchatGrid({});
     setAchatNewTiers(false);
     setAchatNewTiersNom('');
@@ -2846,25 +2849,23 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           prixAchat: Number(achatPrix) || 0,
           factureRef: achatFactureRef.trim() || null,
           montantPaye: Number(achatMontantPaye) || 0,
+          note: achatNote.trim() || null,
           lignes,
         }),
       });
       if (!resAchat.ok) throw new Error((await resAchat.json().catch(() => null))?.message || '');
 
-      // 3. Le prix de VENTE, s'il a été indiqué : il va dans la grille des
-      //    tarifs (colonne catalogue), la même que celle qui alimente le tiki.
-      if (achatPrixVente !== '' && Number(achatPrixVente) > 0) {
-        await fetch('/api/prix', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ modelId: article.id, prix: Number(achatPrixVente), qty_min: 0 }),
-        }).catch(() => { /* le tarif reste saisissable depuis la carte */ });
-      }
-
       await loadArticlesEtAchats();
       await loadStockMovements();
       setAchatOpen(false);
+      // 3. Le prix de vente : ouvre directement la fiche des tarifs (détail,
+      //    gros, boutique) au lieu d'un champ isolé qui écrivait en silence
+      //    dans la même grille — un seul chemin d'écriture pour `st_prix`,
+      //    avec la marge suggérée et la confirmation avant enregistrement.
+      //    Seulement si l'opérateur a le droit de fixer un prix : sinon la
+      //    fiche s'ouvrirait pour ne rien lui laisser faire.
+      if (canSetPriceHere) void openPrixSheet(articleAsModel(article), Number(achatPrix) || null);
+      return;
     } catch (err: any) {
       setAchatError(err?.message || tx(lang,{fr:"L'enregistrement de l'achat a échoué.",ar:'فشل تسجيل الشرا.',en:'Saving the purchase failed.',es:'Error al guardar la compra.',pt:'Falha ao guardar a compra.',tr:'Alış kaydedilemedi.'}));
     } finally {
@@ -12097,20 +12098,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
 
-              {/* Prix payé, prix de vente, date. Le prix payé EST le revient :
-                  il n'y a ni matière ni main-d'œuvre à additionner. */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {/* Prix payé et date. Le prix payé EST le revient : il n'y a ni
+                  matière ni main-d'œuvre à additionner. Le prix de VENTE ne se
+                  saisit plus ici — la fiche des tarifs (détail, gros, boutique)
+                  s'ouvre juste après, avec la marge suggérée à partir de ce
+                  prix : un seul chemin d'écriture, avec confirmation. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
                     {tx(lang,{fr:'Prix d\'achat / pièce *',ar:'ثمن الشرا / القطعة *',en:'Purchase price / piece *',es:'Precio de compra / pieza *',pt:'Preço de compra / peça *',tr:'Alış fiyatı / parça *'})} ({currency})
                   </label>
                   <input type="number" min={0} step="0.01" value={achatPrix} onChange={e => setAchatPrix(e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
-                    {tx(lang,{fr:'Prix de vente',ar:'ثمن البيع',en:'Sale price',es:'Precio de venta',pt:'Preço de venda',tr:'Satış fiyatı'})} ({currency})
-                  </label>
-                  <input type="number" min={0} step="0.01" value={achatPrixVente} onChange={e => setAchatPrixVente(e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
                 </div>
                 <div>
                   <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
@@ -12170,6 +12168,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <input type="text" value={achatFactureRef} onChange={e => setAchatFactureRef(e.target.value)} placeholder={tx(lang,{fr:'N° de facture',ar:'رقم الفاتورة',en:'Invoice no.',es:'N.º de factura',pt:'N.º de fatura',tr:'Fatura no'})} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
                   <input type="number" min={0} step="0.01" value={achatMontantPaye} onChange={e => setAchatMontantPaye(e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0))} placeholder={`${tx(lang,{fr:'Déjà payé',ar:'المخلَّص',en:'Already paid',es:'Ya pagado',pt:'Já pago',tr:'Ödenen'})} (${currency})`} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
                 </div>
+                {/* Une remarque sur CET achat — carton abîmé, délai promis,
+                    accord particulier — distincte des notes de l'article, qui
+                    décrivent l'objet, pas la transaction. */}
+                <input
+                  type="text"
+                  value={achatNote}
+                  onChange={e => setAchatNote(e.target.value)}
+                  placeholder={tx(lang,{fr:'Note sur cet achat (facultatif)',ar:'ملاحظة على هاد الشرا (اختياري)',en:'Note on this purchase (optional)',es:'Nota sobre esta compra (opcional)',pt:'Nota sobre esta compra (opcional)',tr:'Bu alışla ilgili not (isteğe bağlı)'})}
+                  className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                />
               </div>
 
               {/* Total : le chiffre qu'on vérifie contre la facture du
