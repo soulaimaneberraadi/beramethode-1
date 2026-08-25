@@ -19,6 +19,10 @@ const TYPES = new Set(['GROS', 'DETAIL', 'BOUTIQUE']);
 /** Canal d'application d'un tarif. NULL = tous canaux (comportement historique) :
  *  le même modèle ne se vend pas au même prix au comptoir et en ligne, où la
  *  livraison et la commission de plateforme s'ajoutent. */
+/** Colonnes de tarif reconnues — miroir de `st_clients.type`. Un type inconnu
+ *  est ignoré plutôt que de faire tomber la résolution sur une grille vide. */
+const TYPES_CLIENT = new Set(['GROS', 'DETAIL', 'BOUTIQUE']);
+
 const CANAUX = new Set(['ATELIER', 'MAGASIN', 'ONLINE']);
 
 /** Date du jour au format ISO court, pour comparer aux `valid_from`. */
@@ -198,13 +202,23 @@ export const resolvePrix = (req: Request, res: Response) => {
     if (!modelId) return res.status(400).json({ message: 'modelId est obligatoire' });
 
     try {
-        // Le type ne vient JAMAIS de la requête : il se lit sur la fiche client,
-        // sinon l'appelant pourrait s'attribuer un tarif GROS de son choix.
+        // Quand une VENTE est en cours, le type ne vient JAMAIS de la requête :
+        // il se lit sur la fiche client, sinon l'appelant pourrait s'attribuer
+        // un tarif GROS de son choix et facturer en dessous du plancher.
+        //
+        // Sans client, en revanche, il n'y a pas de vente à protéger : c'est une
+        // consultation de grille (étiquette à imprimer, catalogue). Le type
+        // demandé est alors accepté — il ne fixe le prix de personne, il dit
+        // seulement QUELLE colonne du tarif on regarde. La fiche client garde
+        // la priorité dès qu'un client est nommé.
         let typeClient: string | null = null;
         if (clientId) {
             const client = db.prepare('SELECT type FROM st_clients WHERE id = ? AND owner_id = ?')
                 .get(clientId, companyId) as any;
             typeClient = client?.type ?? null;
+        } else {
+            const demande = String((req.query as any).type ?? '').trim().toUpperCase();
+            if (TYPES_CLIENT.has(demande)) typeClient = demande;
         }
 
         const now = today();

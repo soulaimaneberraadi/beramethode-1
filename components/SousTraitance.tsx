@@ -1583,6 +1583,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  lettres. Le texte reste modifiable : une marque commerciale n'est pas
    *  toujours la raison sociale. */
   const [labelBrand, setLabelBrand] = useState('');
+
+  /** Colonne de tarif imprimée sur l'étiquette. Un même article ne porte pas le
+   *  même prix au carton et au comptoir : c'est la grille `st_prix` qui tranche,
+   *  pas une saisie de mémoire. 'MANUEL' = l'opérateur a fixé le prix lui-même
+   *  (solde, salon) et aucun tarif ne doit l'écraser. */
+  type TikiTarif = 'DETAIL' | 'GROS' | 'BOUTIQUE' | 'MANUEL';
+  const [labelTarif, setLabelTarif] = useState<TikiTarif>('DETAIL');
+  /** Prix résolu par la grille pour chaque colonne : `null` = aucun tarif saisi
+   *  pour ce type, ce qui doit se voir au lieu de se deviner. */
+  const [labelTarifs, setLabelTarifs] = useState<Record<string, number | null>>({});
+  const [labelTarifsLoading, setLabelTarifsLoading] = useState(false);
   const [labelUseLogo, setLabelUseLogo] = useState(true);
 
   /** Format physique de l'étiquette, en millimètres. Une thermique tire un
@@ -1725,6 +1736,27 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  regrouper par taille puis par couleur permet de vider un bac avant de
    *  passer au suivant, au lieu de trier 460 tiki mélangés à la main. */
   const [labelGroupBy, setLabelGroupBy] = useState<'taille' | 'couleur'>('taille');
+
+  /** Interroge la grille pour les trois colonnes à l'ouverture de l'étiqueteuse.
+   *  Trois requêtes plutôt qu'un prix unique : l'opérateur doit VOIR ce que
+   *  vaut l'article au carton et au comptoir avant de choisir ce qu'il colle
+   *  dessus. La quantité vaut 0 — une étiquette ne connaît pas la taille de la
+   *  commande à venir, donc aucun palier volume ne s'applique. */
+  useEffect(() => {
+    if (!labelModel || IS_STATIC) { setLabelTarifs({}); return; }
+    let alive = true;
+    const modelId = labelModel.id;
+    setLabelTarifsLoading(true);
+    Promise.all((['DETAIL', 'GROS', 'BOUTIQUE'] as const).map(t =>
+      fetch(`/api/prix/resolve?modelId=${encodeURIComponent(modelId)}&qty=0&type=${t}`, { credentials: 'include' })
+        .then(r => (r.ok ? r.json() : null))
+        .then((d: any) => [t, d?.prix == null ? null : Number(d.prix)] as const)
+        .catch(() => [t, null] as const)
+    ))
+      .then(pairs => { if (alive) setLabelTarifs(Object.fromEntries(pairs)); })
+      .finally(() => { if (alive) setLabelTarifsLoading(false); });
+    return () => { alive = false; };
+  }, [labelModel]);
 
   /** Sauvegarde la référence d'un modèle via la même règle que les autres
    *  écritures : on relit la version à jour puis on poste le patch complet. */
@@ -2025,6 +2057,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     // Le prix ne s'imprime que s'il en existe un : cocher la ligne pour la voir
     // sortir vide serait un tiki de marque sans son information principale.
     setLabelFields({ ...tikiSettings.fields, prix: pv > 0 });
+    // Le prix de la carte est un point de départ manuel ; dès qu'une grille
+    // répond, l'opérateur peut basculer sur la colonne qui l'intéresse.
+    setLabelTarif('MANUEL');
+    setLabelTarifs({});
     setLabelSize(tikiSettings.size);
     setLabelGroupBy(tikiSettings.groupBy);
     setLabelBrand((tikiSettings.brand || companyIdentity.nom || '').trim());
@@ -11329,13 +11365,68 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
                       {tx(lang,{fr:'Prix imprimé',ar:'الثمن المطبوع',en:'Printed price',es:'Precio impreso',pt:'Preço impresso',tr:'Basılan fiyat'})}
                     </label>
+                    {/* Un même article ne vaut pas le même prix au carton et au
+                        comptoir. On montre les trois colonnes de la grille et
+                        l'opérateur colle celle qui correspond au destinataire —
+                        au lieu de retaper un prix de mémoire. */}
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      {([
+                        { id: 'DETAIL', label: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}) },
+                        { id: 'GROS', label: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}) },
+                        { id: 'BOUTIQUE', label: tx(lang,{fr:'Boutique',ar:'المحل',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'}) },
+                      ] as const).map(t => {
+                        const val = labelTarifs[t.id];
+                        const missing = val == null;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            disabled={missing}
+                            onClick={() => { setLabelTarif(t.id); setLabelPrice(Number(val) || 0); }}
+                            title={missing
+                              ? tx(lang,{fr:'Aucun tarif saisi pour ce type dans la grille des prix.',ar:'ما كاين حتى ثمن مسجّل لهاد النوع فشبكة الأثمنة.',en:'No price set for this type in the price grid.',es:'Ningún precio definido para este tipo en la cuadrícula.',pt:'Nenhum preço definido para este tipo na grelha.',tr:'Fiyat listesinde bu tür için fiyat yok.'})
+                              : undefined}
+                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors flex items-center gap-1.5 ${
+                              missing
+                                ? 'bg-slate-50 dark:bg-dk-bg text-slate-300 dark:text-dk-muted/50 border-slate-200 dark:border-dk-border cursor-not-allowed'
+                                : labelTarif === t.id
+                                  ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent'
+                                  : 'bg-white dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent/40'
+                            }`}
+                          >
+                            {labelTarif === t.id && !missing && <Check className="w-3 h-3" />}
+                            {t.label}
+                            <span className={`font-mono ${missing ? '' : labelTarif === t.id ? 'opacity-90' : 'text-slate-400 dark:text-dk-muted'}`}>
+                              {missing ? '—' : fmt(Number(val))}
+                            </span>
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => setLabelTarif('MANUEL')}
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                          labelTarif === 'MANUEL'
+                            ? 'bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent'
+                            : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent/40'
+                        }`}
+                      >
+                        {tx(lang,{fr:'Manuel',ar:'يدوي',en:'Manual',es:'Manual',pt:'Manual',tr:'Elle'})}
+                      </button>
+                      {labelTarifsLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 dark:text-dk-muted" />}
+                    </div>
+                    {!labelTarifsLoading && !IS_STATIC && Object.keys(labelTarifs).length > 0 && Object.values(labelTarifs).every(v => v == null) && (
+                      <p className="mb-2 text-[10px] text-amber-600 dark:text-amber-400 font-semibold leading-snug">
+                        {tx(lang,{fr:'Aucun tarif dans la grille pour ce modèle — le prix ci-dessous reste une saisie manuelle.',ar:'ما كاين حتى ثمن فالشبكة لهاد الموديل — الثمن اللي تحت بقا إدخال يدوي.',en:'No price in the grid for this model — the price below stays a manual entry.',es:'Ningún precio en la cuadrícula para este modelo — el precio de abajo sigue siendo manual.',pt:'Nenhum preço na grelha para este modelo — o preço abaixo continua manual.',tr:'Bu model için listede fiyat yok — aşağıdaki fiyat elle girilmiş kalır.'})}
+                      </p>
+                    )}
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
                         min={0}
                         step="0.01"
                         value={labelPrice || ''}
-                        onChange={e => setLabelPrice(Math.max(0, Number(e.target.value) || 0))}
+                        onChange={e => { setLabelPrice(Math.max(0, Number(e.target.value) || 0)); setLabelTarif('MANUEL'); }}
                         className="w-36 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
                       />
                       <span className="text-[11px] font-bold text-slate-400 dark:text-dk-muted">{currency}</span>
