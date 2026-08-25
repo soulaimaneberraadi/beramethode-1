@@ -6,11 +6,18 @@ import { fmt } from '../../app/constants';
 import SheetModal from '../shared/SheetModal';
 
 /** Client de l'atelier. Reflet exact de la table `st_clients`. */
+export type TiersRole = 'CLIENT' | 'FOURNISSEUR' | 'LES_DEUX';
+
 export interface AtelierClient {
     id: string;
     nom: string;
     /** GROS = revendeur au carton · DETAIL = client final · BOUTIQUE = point de vente. */
     type: 'GROS' | 'DETAIL' | 'BOUTIQUE';
+    /** SENS de la relation. Le même atelier nous achète des pièces et nous vend
+     *  du tissu : deux registres séparés obligeaient à ressaisir la même ICE et
+     *  empêchaient de répondre à « où en est-on avec eux ? ». Absent = CLIENT,
+     *  pour que les fiches d'avant gardent leur sens. */
+    role?: TiersRole;
     ice?: string | null;
     rc?: string | null;
     tel?: string | null;
@@ -27,7 +34,7 @@ export interface AtelierClient {
     docVerso?: string | null;
 }
 
-const EMPTY: AtelierClient = { id: '', nom: '', type: 'DETAIL' };
+const EMPTY: AtelierClient = { id: '', nom: '', type: 'DETAIL', role: 'CLIENT' };
 
 /** Redimensionne et compresse une image côté client avant stockage en data-URL.
  *  Une photo de téléphone brute (souvent 20-30 Mo en base64) dépasse la limite
@@ -130,6 +137,9 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
+    /** Filtre de rôle. 'TOUS' d'abord : cacher par défaut la moitié du registre
+     *  ferait croire à une fiche manquante et provoquerait un doublon. */
+    const [roleFilter, setRoleFilter] = useState<'TOUS' | 'CLIENT' | 'FOURNISSEUR'>('TOUS');
     const [form, setForm] = useState<AtelierClient | null>(null);
     const [saving, setSaving] = useState(false);
     const [pendingDelete, setPendingDelete] = useState<AtelierClient | null>(null);
@@ -172,14 +182,20 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
 
     useEffect(() => { load(); }, []);
 
+    /** Un tiers « les deux » appartient aux deux listes : le masquer d'un côté
+     *  le ferait recréer en double. */
+    const roleOf = (c: AtelierClient): TiersRole => c.role || 'CLIENT';
+    const matchesRole = (c: AtelierClient) =>
+        roleFilter === 'TOUS' || roleOf(c) === roleFilter || roleOf(c) === 'LES_DEUX';
+
     const filtered = useMemo(() => {
         const q = norm(search);
         if (!q) return clients;
-        return clients.filter(c =>
+        return clients.filter(c => matchesRole(c)).filter(c =>
             norm(c.nom).includes(q) || norm(c.ice).includes(q) || norm(c.rc).includes(q)
             || norm(c.tel).includes(q) || norm(c.ville).includes(q)
         );
-    }, [clients, search]);
+    }, [clients, search, roleFilter]);
 
     /** Poids commercial de chaque client, agrégé côté client depuis les sorties
      *  de stock déjà chargées par le parent. Rattachement par `client_id` quand
@@ -272,6 +288,16 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
             : t === 'BOUTIQUE' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50'
                 : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50';
 
+    const roleLabel = (r: TiersRole) =>
+        r === 'FOURNISSEUR' ? tx(lang, { fr: 'Fournisseur', ar: 'مورّد', en: 'Supplier', es: 'Proveedor', pt: 'Fornecedor', tr: 'Tedarikçi' })
+            : r === 'LES_DEUX' ? tx(lang, { fr: 'Client et fournisseur', ar: 'زبون ومورّد', en: 'Client and supplier', es: 'Cliente y proveedor', pt: 'Cliente e fornecedor', tr: 'Müşteri ve tedarikçi' })
+                : tx(lang, { fr: 'Client', ar: 'زبون', en: 'Client', es: 'Cliente', pt: 'Cliente', tr: 'Müşteri' });
+
+    const roleChip = (r: TiersRole) =>
+        r === 'FOURNISSEUR' ? 'bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800/50'
+            : r === 'LES_DEUX' ? 'bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-800/50'
+                : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border';
+
     const field = 'w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white dark:focus:bg-dk-surface';
     const label = 'block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1';
 
@@ -288,13 +314,38 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
                         className={`${field} pl-9`}
                     />
                 </div>
+                {/* Filtre de sens. « Tous » d'abord : masquer la moitie du
+                    registre par defaut ferait croire a une fiche manquante et
+                    ferait creer un doublon. */}
+                <div className="inline-flex rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden shrink-0">
+                    {([
+                        { id: 'TOUS', label: tx(lang, { fr: 'Tous', ar: 'الكل', en: 'All', es: 'Todos', pt: 'Todos', tr: 'Tümü' }) },
+                        { id: 'CLIENT', label: tx(lang, { fr: 'Clients', ar: 'الزبناء', en: 'Clients', es: 'Clientes', pt: 'Clientes', tr: 'Müşteriler' }) },
+                        { id: 'FOURNISSEUR', label: tx(lang, { fr: 'Fournisseurs', ar: 'الموردون', en: 'Suppliers', es: 'Proveedores', pt: 'Fornecedores', tr: 'Tedarikçiler' }) },
+                    ] as const).map((o, i) => (
+                        <button
+                            key={o.id}
+                            type="button"
+                            onClick={() => setRoleFilter(o.id)}
+                            className={`px-3 py-2 text-[11px] font-bold transition-colors ${i > 0 ? 'border-l border-slate-200 dark:border-dk-border' : ''} ${
+                                roleFilter === o.id
+                                    ? 'bg-slate-800 dark:bg-dk-accent text-white'
+                                    : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                            }`}
+                        >
+                            {o.label}
+                        </button>
+                    ))}
+                </div>
                 <button
                     type="button"
-                    onClick={() => setForm({ ...EMPTY })}
+                    onClick={() => setForm({ ...EMPTY, role: roleFilter === 'FOURNISSEUR' ? 'FOURNISSEUR' : 'CLIENT' })}
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors shrink-0"
                 >
                     <Plus className="w-3.5 h-3.5" />
-                    {tx(lang, { fr: 'Nouveau client', ar: 'زبون جديد', en: 'New client', es: 'Nuevo cliente', pt: 'Novo cliente', tr: 'Yeni müşteri' })}
+                    {roleFilter === 'FOURNISSEUR'
+                        ? tx(lang, { fr: 'Nouveau fournisseur', ar: 'مورّد جديد', en: 'New supplier', es: 'Nuevo proveedor', pt: 'Novo fornecedor', tr: 'Yeni tedarikçi' })
+                        : tx(lang, { fr: 'Nouveau client', ar: 'زبون جديد', en: 'New client', es: 'Nuevo cliente', pt: 'Novo cliente', tr: 'Yeni müşteri' })}
                 </button>
             </div>
 
@@ -350,10 +401,21 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
                                             ? 'font-bold text-slate-500 dark:text-dk-muted truncate'
                                             : 'font-bold text-slate-800 dark:text-dk-text truncate hover:text-indigo-600 dark:hover:text-dk-accent transition-colors'}>{c.nom}</p>
                                         <div className="flex flex-wrap items-center gap-1 mt-1">
-                                            <span className={`inline-block px-2 py-0.5 rounded border text-[9px] font-bold ${typeChip(c.type)}`}>
-                                                {typeLabel(c.type)}
-                                            </span>
-                                            {isProspect && (
+                                            {/* Le SENS d'abord : savoir si on lui vend ou s'il
+                                                nous vend prime sur son segment tarifaire. */}
+                                            {roleOf(c) !== 'CLIENT' && (
+                                                <span className={`inline-block px-2 py-0.5 rounded border text-[9px] font-bold ${roleChip(roleOf(c))}`}>
+                                                    {roleLabel(roleOf(c))}
+                                                </span>
+                                            )}
+                                            {/* Le segment tarifaire ne veut rien dire pour un
+                                                pur fournisseur : on ne lui vend pas. */}
+                                            {roleOf(c) !== 'FOURNISSEUR' && (
+                                                <span className={`inline-block px-2 py-0.5 rounded border text-[9px] font-bold ${typeChip(c.type)}`}>
+                                                    {typeLabel(c.type)}
+                                                </span>
+                                            )}
+                                            {isProspect && roleOf(c) !== 'FOURNISSEUR' && (
                                                 <span className="inline-block px-2 py-0.5 rounded border text-[9px] font-bold bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border">
                                                     {tx(lang, { fr: 'Prospect', ar: 'زبون محتمل', en: 'Prospect', es: 'Prospecto', pt: 'Potencial', tr: 'Aday' })}
                                                 </span>
@@ -589,6 +651,35 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
                             </div>
 
                             <div>
+                                <label className={label}>{tx(lang, { fr: 'Sens de la relation', ar: 'نوع العلاقة', en: 'Relationship', es: 'Sentido de la relación', pt: 'Sentido da relação', tr: 'İlişki yönü' })}</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {([
+                                        { id: 'CLIENT', label: tx(lang, { fr: 'Il nous achète', ar: 'كيشري مننا', en: 'They buy from us', es: 'Nos compra', pt: 'Compra-nos', tr: 'Bizden alır' }) },
+                                        { id: 'FOURNISSEUR', label: tx(lang, { fr: 'Il nous vend', ar: 'كيبيع لينا', en: 'They sell to us', es: 'Nos vende', pt: 'Vende-nos', tr: 'Bize satar' }) },
+                                        { id: 'LES_DEUX', label: tx(lang, { fr: 'Les deux', ar: 'بجوج', en: 'Both', es: 'Ambos', pt: 'Ambos', tr: 'İkisi de' }) },
+                                    ] as const).map(r => (
+                                        <button
+                                            key={r.id}
+                                            type="button"
+                                            onClick={() => setForm({ ...form, role: r.id })}
+                                            className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold transition-colors ${
+                                                (form.role || 'CLIENT') === r.id
+                                                    ? 'bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent'
+                                                    : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent/40'
+                                            }`}
+                                        >
+                                            {r.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="mt-1 text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                                    {tx(lang, { fr: 'Une même entreprise peut faire les deux : une seule fiche, un seul historique.', ar: 'نفس الشركة تقدر تكون الجوج: بطاقة وحدة وتاريخ واحد.', en: 'One company can be both: a single sheet, a single history.', es: 'Una misma empresa puede ser ambas: una sola ficha, un solo historial.', pt: 'A mesma empresa pode ser ambas: uma ficha, um histórico.', tr: 'Aynı şirket ikisi de olabilir: tek kart, tek geçmiş.' })}
+                                </p>
+                            </div>
+
+                            {/* Le segment tarifaire n'a de sens que si on lui vend. */}
+                            {(form.role || 'CLIENT') !== 'FOURNISSEUR' && (
+                            <div>
                                 <label className={label}>{tx(lang, { fr: 'Type de client', ar: 'نوع الزبون', en: 'Client type', es: 'Tipo de cliente', pt: 'Tipo de cliente', tr: 'Müşteri tipi' })}</label>
                                 <div className="flex flex-wrap gap-2">
                                     {(['GROS', 'DETAIL', 'BOUTIQUE'] as const).map(t => (
@@ -605,6 +696,7 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
                                     ))}
                                 </div>
                             </div>
+                            )}
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>

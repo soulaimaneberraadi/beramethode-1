@@ -931,6 +931,22 @@ try { db.exec("ALTER TABLE st_clients ADD COLUMN photo TEXT"); } catch { /* alre
 try { db.exec("ALTER TABLE st_clients ADD COLUMN doc_recto TEXT"); } catch { /* already exists */ }
 try { db.exec("ALTER TABLE st_clients ADD COLUMN doc_verso TEXT"); } catch { /* already exists */ }
 
+// RÔLE du tiers. La table ne connaissait que des acheteurs, mais l'atelier a en
+// face de lui les MÊMES entreprises dans les deux sens : celui qui vend le
+// tissu facture aussi le transport, et un confrère est tour à tour client et
+// fournisseur. Les tenir dans deux registres séparés obligeait à saisir la même
+// ICE deux fois et rendait impossible de répondre à « où en est-on avec eux ? ».
+//
+//   CLIENT      → il nous achète (comportement d'origine, donc la valeur par
+//                 défaut : aucune fiche existante ne change de sens)
+//   FOURNISSEUR → il nous vend (matière, façon, transport, frais divers)
+//   LES_DEUX    → les deux sens sur la même fiche, un seul historique
+try { db.exec("ALTER TABLE st_clients ADD COLUMN role TEXT DEFAULT 'CLIENT'"); } catch { /* already exists */ }
+// Une fiche créée avant l'ajout de la colonne reste NULL : on la nomme, sinon
+// tout filtre par rôle la ferait disparaître de l'écran.
+try { db.exec("UPDATE st_clients SET role = 'CLIENT' WHERE role IS NULL OR role = ''"); } catch { /* table vide */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_clients_role ON st_clients (owner_id, role)'); } catch { /* déjà présent */ }
+
 // Tarifs de VENTE d'un modèle. Jusqu'ici un modèle n'avait qu'un seul prix
 // (`ficheData.clientPrice`) : dans un atelier réel le même article part à un prix
 // au grossiste, à un autre à la boutique, et à un prix négocié pour un client
@@ -1158,6 +1174,19 @@ db.exec(`
 // La répartition par pièce doit donc diviser par quantity_scope quand il est
 // renseigné, et par totalQuantity sinon — impact direct sur le prix de revient.
 try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN quantity_scope INTEGER"); } catch { /* already exists */ }
+// À QUI ce frais est-il dû, et l'a-t-on payé ? Un libellé libre et un montant ne
+// répondaient ni à « combien dois-je encore au transporteur ? » ni à « cette
+// ligne est-elle déjà réglée ? ». Le rattachement au tiers (`st_clients` avec
+// le rôle fournisseur) donne l'historique par fournisseur ; le montant payé
+// donne le reste dû, sans jamais inventer un règlement qui n'a pas eu lieu :
+// zéro par défaut, c'est-à-dire « rien de payé », ce qui est le cas de départ.
+try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN tiers_id TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN montant_paye REAL DEFAULT 0"); } catch { /* already exists */ }
+// Numéro de la facture du fournisseur pour ce frais : sans lui, retrouver la
+// pièce justificative dans un classeur relève de la mémoire.
+try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN facture_ref TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN date_facture TEXT"); } catch { /* already exists */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_subcontract_expenses_tiers ON subcontract_expenses(tiers_id)'); } catch { /* déjà présent */ }
 db.exec(`CREATE INDEX IF NOT EXISTS idx_subcontract_expenses_order ON subcontract_expenses(order_id)`);
 
 // Toutes les lectures sous-traitance filtrent sur owner_id (isolation workspace) :
@@ -1524,6 +1553,13 @@ try {
 // rester cohérent avec sizes_json/colors_json/grid_json sur la même table.
 try {
   db.exec("ALTER TABLE subcontract_orders ADD COLUMN custom_milestones_json TEXT");
+} catch(e) {}
+// Mode de sous-traitance EXPLICITE choisi dans le formulaire ('facon' | 'complet').
+// NULL = jamais choisi → le mode est déduit des fournisseurs (inferSubcontractMode).
+// Il est stocké sur la commande pour que la réconciliation automatique ne re-déduise
+// pas à la place de l'utilisateur et n'écrase pas son choix dans la fiche de coût.
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN st_mode TEXT");
 } catch(e) {}
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -2032,6 +2068,16 @@ for (const col of ['source_module', 'source_id']) {
   }
 }
 db.exec('CREATE INDEX IF NOT EXISTS idx_factures_source ON factures(source_module, source_id)');
+
+// Type de client (GROS / DETAIL / BOUTIQUE) et ville, saisis lors d'une vente
+// depuis la sous-traitance. Vides pour les factures émises avant ce champ.
+for (const col of ['tiers_type', 'tiers_ville']) {
+  try {
+    db.exec(`ALTER TABLE factures ADD COLUMN ${col} TEXT`);
+  } catch {
+    // colonne déjà présente
+  }
+}
 
 try {
   const legacyInvoices = db

@@ -15,6 +15,16 @@ import { generateNumero } from './facturationController';
 
 const TYPES = new Set(['GROS', 'DETAIL', 'BOUTIQUE']);
 
+/** Sens de la relation. Voir la migration `st_clients.role` : la même entreprise
+ *  peut nous acheter ET nous vendre, et deux registres séparés obligeaient à
+ *  saisir deux fois la même ICE. 'CLIENT' reste le défaut, donc aucune fiche
+ *  existante ne change de sens. */
+const ROLES = new Set(['CLIENT', 'FOURNISSEUR', 'LES_DEUX']);
+const normRole = (v: unknown): string => {
+    const r = String(v ?? '').trim().toUpperCase();
+    return ROLES.has(r) ? r : 'CLIENT';
+};
+
 /** Canal de vente d'une sortie. NULL est accepté et vaut 'ATELIER' : toutes les
  *  sorties saisies avant l'arrivée de la boutique en ligne n'en portent aucun,
  *  et les requalifier après coup inventerait une information. */
@@ -22,14 +32,23 @@ const CANAUX = new Set(['ATELIER', 'MAGASIN', 'ONLINE']);
 
 /** `doc_recto`/`doc_verso` restent en snake_case en base (comme le reste de la
  *  table) mais sortent en camelCase pour coller à `AtelierClient` côté client. */
-const CLIENT_SELECT = 'SELECT id, owner_id, nom, type, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto AS docRecto, doc_verso AS docVerso, created_at, updated_at FROM st_clients';
+const CLIENT_SELECT = 'SELECT id, owner_id, nom, type, COALESCE(role, \'CLIENT\') AS role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto AS docRecto, doc_verso AS docVerso, created_at, updated_at FROM st_clients';
 
 export const getClients = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
+    // Filtre facultatif par rôle. `?role=FOURNISSEUR` rend les fiches qui nous
+    // vendent, y compris celles qui font les deux — un tiers mixte doit
+    // apparaître dans les deux listes, sinon on le croit absent et on en crée
+    // un doublon.
+    const roleFiltre = String((req.query as any).role ?? '').trim().toUpperCase();
     try {
+        const filtre = ROLES.has(roleFiltre) && roleFiltre !== 'LES_DEUX'
+            ? " AND (COALESCE(role, 'CLIENT') = ? OR COALESCE(role, 'CLIENT') = 'LES_DEUX')"
+            : '';
+        const params: any[] = filtre ? [companyId, roleFiltre] : [companyId];
         const rows = db
-            .prepare(`${CLIENT_SELECT} WHERE owner_id = ? ORDER BY nom COLLATE NOCASE`)
-            .all(companyId);
+            .prepare(`${CLIENT_SELECT} WHERE owner_id = ?${filtre} ORDER BY nom COLLATE NOCASE`)
+            .all(...params);
         res.json(rows);
     } catch (error) {
         console.error('Get clients error:', error);
@@ -49,11 +68,12 @@ export const saveClient = (req: Request, res: Response) => {
     try {
         const id = c.id || randomUUID();
         db.prepare(`
-            INSERT INTO st_clients (id, owner_id, nom, type, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto, doc_verso)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_clients (id, owner_id, nom, type, role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto, doc_verso)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 nom = excluded.nom,
                 type = excluded.type,
+                role = excluded.role,
                 ice = excluded.ice,
                 rc = excluded.rc,
                 tel = excluded.tel,
@@ -70,6 +90,7 @@ export const saveClient = (req: Request, res: Response) => {
             companyId,
             nom,
             TYPES.has(c.type) ? c.type : 'DETAIL',
+            normRole(c.role),
             c.ice || null,
             c.rc || null,
             c.tel || null,
@@ -211,7 +232,51 @@ export const getClientDossier = (req: Request, res: Response) => {
             ORDER BY (client_id IS NULL), qty_min DESC, created_at DESC
         `).all(companyId, clientId, (client as any).type ?? null);
 
-        res.json({ client, sorties, caTotal, piecesAchetees, dernierAchat, parModele, tarifs });
+        // ── Volet FOURNISSEUR ────────────────────────────────────────────────
+        // Le même tiers peut nous vendre. Ce qu'il nous facture arrive de deux
+        // endroits qu'il faut additionner, sinon le total ment :
+        //   1. les frais additionnels de commande qui lui sont rattachés
+        //      (transport, patronage, repassage...) ;
+        //   2. les factures d'ACHAT enregistrées à son nom.
+        // « Reste dû » = facturé − payé, jamais négatif : un trop-payé est une
+        // erreur de saisie, pas une créance sur le fournisseur.
+        const frais = db.prepare(`
+            SELECT e.id, e.order_id AS orderId, e.label, e.amount,
+                   COALESCE(e.montant_paye, 0) AS montantPaye,
+                   e.facture_ref AS factureRef, e.date_facture AS dateFacture,
+                   e.created_at,
+                   o.modelName, o.subcontractorName
+            FROM subcontract_expenses e
+            JOIN subcontract_orders o ON o.id = e.order_id
+            WHERE o.owner_id = ? AND e.tiers_id = ?
+            ORDER BY COALESCE(e.date_facture, e.created_at) DESC
+        `).all(companyId, clientId) as any[];
+
+        // Les factures d'achat sont rapprochées par le NOM du tiers : elles ont
+        // été saisies avant l'existence du registre et ne portent pas son
+        // identifiant. Comparaison insensible à la casse, comme partout ailleurs.
+        const facturesAchat = db.prepare(`
+            SELECT id, numero, date_facture, date_echeance, total_ttc, montant_paye, statut
+            FROM factures
+            WHERE owner_id = ? AND type = 'ACHAT' AND LOWER(TRIM(tiers_nom)) = LOWER(TRIM(?))
+            ORDER BY date_facture DESC
+        `).all(companyId, (client as any).nom ?? '') as any[];
+
+        const fraisFacture = frais.reduce((a, f) => a + (Number(f.amount) || 0), 0);
+        const fraisPaye = frais.reduce((a, f) => a + (Number(f.montantPaye) || 0), 0);
+        const achatsFacture = facturesAchat.reduce((a, f) => a + (Number(f.total_ttc) || 0), 0);
+        const achatsPaye = facturesAchat.reduce((a, f) => a + (Number(f.montant_paye) || 0), 0);
+
+        const fournisseur = {
+            frais,
+            facturesAchat,
+            totalFacture: fraisFacture + achatsFacture,
+            totalPaye: fraisPaye + achatsPaye,
+            resteDu: Math.max(0, (fraisFacture + achatsFacture) - (fraisPaye + achatsPaye)),
+            derniereFacture: facturesAchat[0]?.date_facture ?? frais[0]?.dateFacture ?? null,
+        };
+
+        res.json({ client, sorties, caTotal, piecesAchetees, dernierAchat, parModele, tarifs, fournisseur });
     } catch (error) {
         console.error('Get client dossier error:', error);
         res.status(500).json({ message: 'Error fetching client dossier' });
@@ -477,6 +542,96 @@ export const createStockSortie = (req: Request, res: Response) => {
     } catch (error) {
         console.error('Create stock sortie error:', error);
         res.status(500).json({ message: 'Error creating stock exit' });
+    }
+};
+
+/**
+ * Commande « normale » : plusieurs modèles sur UNE seule commande de vente,
+ * un seul client, une seule transaction.
+ *
+ * Chaque modèle porte SA grille couleur × taille (comme la sortie classique) :
+ * le contrôle de stock se fait donc cellule par cellule, et un batch par
+ * modèle garde le geste « un modèle = une sortie » cohérent avec la
+ * suppression par lot.
+ */
+export const createCommandeNormale = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    const body = req.body || {};
+
+    const modelLignes = (Array.isArray(body.lignes) ? body.lignes : [])
+        .map((ml: any) => ({
+            modelId: String(ml.modelId || ''),
+            prix_unitaire: Number(ml.prix_unitaire) || 0,
+            cells: (Array.isArray(ml.cells) ? ml.cells : [])
+                .map((c: any) => ({
+                    couleur: c.couleur || null,
+                    taille: c.taille || null,
+                    quantite: Math.floor(Number(c.quantite) || 0),
+                }))
+                .filter(c => c.quantite > 0),
+        }))
+        .filter(ml => ml.modelId && ml.cells.length > 0);
+
+    if (modelLignes.length === 0) return res.status(400).json({ message: 'Aucune quantité saisie' });
+    if (!body.client_id && !body.client_nom) return res.status(400).json({ message: 'Choisissez un client' });
+
+    // Garde-fou « vente à perte » rejoué modèle par modèle — même règle que la
+    // sortie classique, contournable sinon par un appel direct à cette route.
+    for (const ml of modelLignes) {
+        const verdict = verifierVenteSousCout(companyId, ml.modelId, [{ prix_unitaire: ml.prix_unitaire }], body.note);
+        if (verdict.refuse) {
+            return res.status(400).json({ message: verdict.message, code: 'VENTE_SOUS_COUT', policy: verdict.policy });
+        }
+    }
+
+    try {
+        // Stock disponible, cellule par cellule (modèle × couleur × taille) : on
+        // refuse de sortir ce qui n'existe pas, sinon le stock passerait en
+        // négatif sans que rien ne le signale.
+        const entrees = db.prepare(
+            "SELECT modelId, couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_entries WHERE owner_id = ? AND qualite = 'ACCEPTED' GROUP BY modelId, couleur, taille"
+        ).all(companyId) as any[];
+        const sorties = db.prepare(
+            'SELECT modelId, couleur, taille, COALESCE(SUM(quantite),0) AS q FROM st_stock_sorties WHERE owner_id = ? GROUP BY modelId, couleur, taille'
+        ).all(companyId) as any[];
+        const key = (m: any, c: any, t: any) => `${String(m ?? '')}|${String(c ?? '')}|${String(t ?? '')}`;
+        const dispo = new Map<string, number>();
+        entrees.forEach(r => dispo.set(key(r.modelId, r.couleur, r.taille), (dispo.get(key(r.modelId, r.couleur, r.taille)) || 0) + Number(r.q)));
+        sorties.forEach(r => dispo.set(key(r.modelId, r.couleur, r.taille), (dispo.get(key(r.modelId, r.couleur, r.taille)) || 0) - Number(r.q)));
+
+        for (const ml of modelLignes) {
+            const insuffisant = ml.cells.find(c => (dispo.get(key(ml.modelId, c.couleur, c.taille)) || 0) < c.quantite);
+            if (insuffisant) {
+                return res.status(400).json({
+                    message: `Stock insuffisant pour ${insuffisant.couleur || '—'} / ${insuffisant.taille || '—'} : ${dispo.get(key(ml.modelId, insuffisant.couleur, insuffisant.taille)) || 0} disponible(s), ${insuffisant.quantite} demandée(s)`,
+                });
+            }
+        }
+
+        const date = body.date_sortie || new Date().toISOString().split('T')[0];
+        const insert = db.prepare(`
+            INSERT INTO st_stock_sorties (id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire, batch_id, facture_id, note, date_sortie, canal)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        // Transaction : un tout — la moitié des lignes écrites laisserait un
+        // stock faux sans que rien ne le signale.
+        const count = db.transaction(() => {
+            let n = 0;
+            for (const ml of modelLignes) {
+                const batchId = randomUUID();
+                for (const c of ml.cells) {
+                    insert.run(randomUUID(), companyId, ml.modelId, body.client_id || null, body.client_nom || null,
+                        c.couleur, c.taille, c.quantite, ml.prix_unitaire, batchId, body.facture_id || null, body.note || null, date, null);
+                    n += 1;
+                }
+            }
+            return n;
+        })();
+
+        res.json({ count, models: modelLignes.length });
+    } catch (error) {
+        console.error('Create commande normale error:', error);
+        res.status(500).json({ message: 'Error creating order' });
     }
 };
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { ModelData, SubcontractOrder } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
@@ -28,7 +28,7 @@ import SheetModal, { useSheetFullscreen } from '../shared/SheetModal';
  *  dans une ancienne sortie : la fiche doit rester ouvrable dans ce cas. */
 export type SheetTarget =
     | { kind: 'model'; modelId: string }
-    | { kind: 'client'; clientId?: string | null; clientNom?: string | null };
+    | { kind: 'client'; clientId?: string | null; clientNom?: string | null; autoInvoice?: boolean };
 
 /** Ligne de `modelStockStats` du parent — reprise telle quelle, jamais recalculée
  *  (les formules de coût sont la propriété du parent et n'ont pas à bouger). */
@@ -1097,10 +1097,13 @@ const ModelSheet: React.FC<ModelSheetProps> = ({
 interface ClientSheetProps extends Omit<EntitySheetProps, 'stack' | 'onBack' | 'onClose'> {
     clientId?: string | null;
     clientNom?: string | null;
+    /** Ouvre directement la facturation des sorties non facturées au montage de
+     *  la fiche — après une sortie de stock, l'utilisateur a dit « oui, facturer ». */
+    autoOpenInvoice?: boolean;
 }
 
 const ClientSheet: React.FC<ClientSheetProps> = ({
-    clientId, clientNom, clients, models, sorties, currency, dateLocale, onPush, onEditClient, onInvoiced, onPrintInvoice,
+    clientId, clientNom, autoOpenInvoice, clients, models, sorties, currency, dateLocale, onPush, onEditClient, onInvoiced, onPrintInvoice,
 }) => {
     const { lang } = useLang();
     const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
@@ -1125,6 +1128,21 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
     const [clientFacturesLoading, setClientFacturesLoading] = useState(false);
     const [cancellingFactureId, setCancellingFactureId] = useState<string | null>(null);
     const [pendingCancelFacture, setPendingCancelFacture] = useState<any | null>(null);
+
+    /** Volet FOURNISSEUR — ce que CE tiers nous facture, et ce qu'on lui doit
+     *  encore. Deux sources s'additionnent côté serveur : les frais rattachés à
+     *  ses commandes (transport, patronage…) et les factures d'ACHAT à son nom.
+     *  N'est chargé que pour un tiers qui nous vend : interroger le serveur pour
+     *  un client pur ferait une requête à vide à chaque ouverture de fiche. */
+    const [fournisseurAccount, setFournisseurAccount] = useState<{
+        frais: any[];
+        facturesAchat: any[];
+        totalFacture: number;
+        totalPaye: number;
+        resteDu: number;
+        derniereFacture: string | null;
+    } | null>(null);
+    const [fournisseurLoading, setFournisseurLoading] = useState(false);
 
     /** Le registre `st_clients` fait foi quand il connaît ce client ; sinon la
      *  fiche reste ouvrable à partir du seul nom porté par les sorties. */
@@ -1179,6 +1197,31 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
             .slice()
             .sort((a, b) => String(b.date_sortie || '').localeCompare(String(a.date_sortie || '')));
     }, [sorties, record, clientId, clientNom]);
+
+    /** Ouverture automatique de la facturation quand la fiche est montée avec
+     *  `autoOpenInvoice` — une seule fois, pour ne pas rouvrir la modale si les
+     *  sorties se rafraîchissent pendant qu'elle est affichée. Placé APRÈS le
+     *  calcul de `clientSorties` : la liste de dépendances l'évalue à chaque
+     *  rendu, un usage plus tôt déclencherait une référence avant initialisation. */
+    const autoOpenedInvoiceRef = useRef(false);
+    useEffect(() => {
+        if (!autoOpenInvoice || autoOpenedInvoiceRef.current) return;
+        const ids = clientSorties.filter(s => !s.facture_id).map(s => String(s.id));
+        if (ids.length === 0) return;
+        autoOpenedInvoiceRef.current = true;
+        setInvoiceSelected(new Set(ids));
+        setInvoiceTva('20');
+        setInvoiceStatut('ENVOYEE');
+        setInvoiceError(null);
+        setInvoiceDateFacture(new Date().toISOString().split('T')[0]);
+        setInvoiceDateEcheance('');
+        setInvoiceDiscount('');
+        setInvoiceDiscountMode('PCT');
+        setInvoiceAcompte('');
+        setInvoiceExo(false);
+        setInvoiceModal(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoOpenInvoice, clientSorties]);
 
     const kpis = useMemo(() => {
         let ca = 0, pieces = 0, last = '', first = '';
@@ -1308,6 +1351,22 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
         }
     };
 
+    const roleValue: string = (record as any)?.role || 'CLIENT';
+    const sellsToUs = roleValue === 'FOURNISSEUR' || roleValue === 'LES_DEUX';
+    const buysFromUs = roleValue !== 'FOURNISSEUR';
+
+    useEffect(() => {
+        if (!clientId || !sellsToUs) { setFournisseurAccount(null); return; }
+        let alive = true;
+        setFournisseurLoading(true);
+        fetch(`/api/clients/${encodeURIComponent(String(clientId))}/dossier`, { credentials: 'include' })
+            .then(r => (r.ok ? r.json() : null))
+            .then((d: any) => { if (alive) setFournisseurAccount(d?.fournisseur ?? null); })
+            .catch(() => { if (alive) setFournisseurAccount(null); })
+            .finally(() => { if (alive) setFournisseurLoading(false); });
+        return () => { alive = false; };
+    }, [clientId, sellsToUs]);
+
     const typeLabel = record?.type === 'GROS'
         ? tx(lang, { fr: 'Gros', ar: 'الجملة', en: 'Wholesale', es: 'Mayorista', pt: 'Grosso', tr: 'Toptan' })
         : record?.type === 'BOUTIQUE'
@@ -1337,7 +1396,20 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                 <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-slate-900 dark:text-dk-text text-base truncate">{displayName}</h3>
                     {record ? (
-                        <span className={`inline-block mt-1 px-2 py-0.5 rounded border text-[9px] font-bold ${typeChip}`}>{typeLabel}</span>
+                        <span className="inline-flex flex-wrap items-center gap-1 mt-1">
+                            {/* Le SENS de la relation prime : savoir si on lui vend
+                                ou s'il nous vend change tout ce qu'on lit ensuite. */}
+                            {sellsToUs && (
+                                <span className={`inline-block px-2 py-0.5 rounded border text-[9px] font-bold ${roleValue === 'LES_DEUX' ? 'bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-400 border-violet-200 dark:border-violet-800/50' : 'bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800/50'}`}>
+                                    {roleValue === 'LES_DEUX'
+                                        ? tx(lang, { fr: 'Client et fournisseur', ar: 'زبون ومورّد', en: 'Client and supplier', es: 'Cliente y proveedor', pt: 'Cliente e fornecedor', tr: 'Müşteri ve tedarikçi' })
+                                        : tx(lang, { fr: 'Fournisseur', ar: 'مورّد', en: 'Supplier', es: 'Proveedor', pt: 'Fornecedor', tr: 'Tedarikçi' })}
+                                </span>
+                            )}
+                            {buysFromUs && (
+                                <span className={`inline-block px-2 py-0.5 rounded border text-[9px] font-bold ${typeChip}`}>{typeLabel}</span>
+                            )}
+                        </span>
                     ) : (
                         <span className="inline-block mt-1 px-2 py-0.5 rounded border text-[9px] font-bold bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border">
                             {tx(lang, { fr: 'Hors registre', ar: 'خارج السجلّ', en: 'Not in registry', es: 'Fuera del registro', pt: 'Fora do registo', tr: 'Kayıt dışı' })}
@@ -1374,6 +1446,112 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                     )}
                 </div>
             </div>
+
+            {/* Compte fournisseur : facturé, payé, reste dû — plus le détail
+                des lignes. Sans ce bloc, « où en est-on avec eux ? » se
+                répondait en fouillant les commandes une par une. */}
+            {sellsToUs && (
+                <div className="rounded-2xl border border-sky-200 dark:border-sky-800/50 bg-sky-50/60 dark:bg-sky-950/20 p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="font-black uppercase tracking-widest text-[9px] text-sky-700 dark:text-sky-400">
+                            {tx(lang, { fr: 'Compte fournisseur', ar: 'حساب المورّد', en: 'Supplier account', es: 'Cuenta de proveedor', pt: 'Conta de fornecedor', tr: 'Tedarikçi hesabı' })}
+                        </span>
+                        {fournisseurLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600 dark:text-sky-400" />}
+                    </div>
+
+                    {!fournisseurLoading && !fournisseurAccount ? (
+                        <p className="text-[11px] text-slate-500 dark:text-dk-muted">
+                            {tx(lang, { fr: 'Rien à son nom pour le moment.', ar: 'ما كاين والو باسمو دابا.', en: 'Nothing under their name yet.', es: 'Nada a su nombre por ahora.', pt: 'Nada em seu nome por agora.', tr: 'Henüz adına bir şey yok.' })}
+                        </p>
+                    ) : fournisseurAccount ? (
+                        <>
+                            <div className="grid grid-cols-3 gap-2">
+                                {([
+                                    { k: tx(lang, { fr: 'Facturé', ar: 'المفوتر', en: 'Billed', es: 'Facturado', pt: 'Faturado', tr: 'Faturalanan' }), v: fournisseurAccount.totalFacture, cls: 'text-slate-800 dark:text-dk-text' },
+                                    { k: tx(lang, { fr: 'Payé', ar: 'المخلَّص', en: 'Paid', es: 'Pagado', pt: 'Pago', tr: 'Ödenen' }), v: fournisseurAccount.totalPaye, cls: 'text-emerald-600 dark:text-emerald-400' },
+                                    { k: tx(lang, { fr: 'Reste dû', ar: 'الباقي', en: 'Outstanding', es: 'Pendiente', pt: 'Em dívida', tr: 'Kalan' }), v: fournisseurAccount.resteDu, cls: fournisseurAccount.resteDu > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400 dark:text-dk-muted' },
+                                ]).map(c => (
+                                    <div key={c.k} className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2">
+                                        <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">{c.k}</span>
+                                        <span className={`block mt-0.5 font-bold text-sm ${c.cls}`}>{fmt(c.v)} {currency}</span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {fournisseurAccount.frais.length > 0 && (
+                                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface">
+                                    <table className="w-full text-[11px] border-collapse">
+                                        <thead>
+                                            <tr className="bg-slate-50 dark:bg-dk-bg/60">
+                                                <th className={th}>{tx(lang, { fr: 'Frais', ar: 'المصروف', en: 'Expense', es: 'Gasto', pt: 'Despesa', tr: 'Masraf' })}</th>
+                                                <th className={th}>{tx(lang, { fr: 'Commande', ar: 'الطلبية', en: 'Order', es: 'Pedido', pt: 'Encomenda', tr: 'Sipariş' })}</th>
+                                                <th className={th}>{tx(lang, { fr: 'Facture', ar: 'الفاتورة', en: 'Invoice', es: 'Factura', pt: 'Fatura', tr: 'Fatura' })}</th>
+                                                <th className={`${th} text-right`}>{tx(lang, { fr: 'Montant', ar: 'المبلغ', en: 'Amount', es: 'Importe', pt: 'Montante', tr: 'Tutar' })}</th>
+                                                <th className={`${th} text-right`}>{tx(lang, { fr: 'Reste', ar: 'الباقي', en: 'Left', es: 'Resta', pt: 'Resta', tr: 'Kalan' })}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {fournisseurAccount.frais.map((f: any) => {
+                                                const reste = Math.max(0, (Number(f.amount) || 0) - (Number(f.montantPaye) || 0));
+                                                return (
+                                                    <tr key={f.id} className="border-t border-slate-100 dark:border-dk-border">
+                                                        <td className={`${td} font-semibold text-slate-800 dark:text-dk-text`}>{f.label}</td>
+                                                        <td className={td}>{f.modelName || '—'}</td>
+                                                        <td className={td}>{f.factureRef || '—'}</td>
+                                                        <td className={`${td} text-right font-bold`}>{fmt(Number(f.amount) || 0)}</td>
+                                                        <td className={`${td} text-right font-bold ${reste > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                            {reste > 0 ? fmt(reste) : '✓'}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {fournisseurAccount.facturesAchat.length > 0 && (
+                                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface">
+                                    <table className="w-full text-[11px] border-collapse">
+                                        <thead>
+                                            <tr className="bg-slate-50 dark:bg-dk-bg/60">
+                                                <th className={th}>{tx(lang, { fr: 'Facture d\'achat', ar: 'فاتورة شراء', en: 'Purchase invoice', es: 'Factura de compra', pt: 'Fatura de compra', tr: 'Alış faturası' })}</th>
+                                                <th className={th}>{tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' })}</th>
+                                                <th className={`${th} text-right`}>{tx(lang, { fr: 'TTC', ar: 'مع الضريبة', en: 'Incl. tax', es: 'Con IVA', pt: 'Com IVA', tr: 'KDV dahil' })}</th>
+                                                <th className={`${th} text-right`}>{tx(lang, { fr: 'Reste', ar: 'الباقي', en: 'Left', es: 'Resta', pt: 'Resta', tr: 'Kalan' })}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {fournisseurAccount.facturesAchat.map((f: any) => {
+                                                const reste = Math.max(0, (Number(f.total_ttc) || 0) - (Number(f.montant_paye) || 0));
+                                                return (
+                                                    <tr key={f.id} className="border-t border-slate-100 dark:border-dk-border">
+                                                        <td className={`${td} font-semibold text-slate-800 dark:text-dk-text`}>{f.numero}</td>
+                                                        <td className={td}>{f.date_facture ? new Date(f.date_facture).toLocaleDateString(dateLocale) : '—'}</td>
+                                                        <td className={`${td} text-right font-bold`}>{fmt(Number(f.total_ttc) || 0)}</td>
+                                                        <td className={`${td} text-right font-bold ${reste > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                            {reste > 0 ? fmt(reste) : '✓'}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {/* Le rapprochement des factures d'achat se fait sur le NOM :
+                                elles ont ete saisies avant l'existence du registre. Le
+                                dire evite de croire a un oubli quand le nom differe. */}
+                            {fournisseurAccount.facturesAchat.length === 0 && fournisseurAccount.frais.length === 0 && (
+                                <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                                    {tx(lang, { fr: 'Aucun frais ni facture d\'achat à son nom. Les factures d\'achat sont rapprochées sur le nom exact du tiers.', ar: 'ما كاين لا مصاريف لا فواتير شراء باسمو. فواتير الشراء كتّربط بالاسم المضبوط ديال الطرف.', en: 'No expenses or purchase invoices under their name. Purchase invoices are matched on the exact name.', es: 'Ningún gasto ni factura de compra a su nombre. Las facturas de compra se cotejan por el nombre exacto.', pt: 'Nenhuma despesa ou fatura de compra em seu nome. As faturas de compra são associadas pelo nome exato.', tr: 'Adına masraf veya alış faturası yok. Alış faturaları tam ada göre eşleştirilir.' })}
+                                </p>
+                            )}
+                        </>
+                    ) : null}
+                </div>
+            )}
 
             {invoiceModal && (
                 <SheetModal
@@ -1891,6 +2069,7 @@ const EntitySheet: React.FC<EntitySheetProps> = (props) => {
                             key={`client-${current.clientId || current.clientNom}-${stack.length}`}
                             clientId={current.clientId}
                             clientNom={current.clientNom}
+                            autoOpenInvoice={current.autoInvoice}
                             models={props.models}
                             orders={props.orders}
                             clients={props.clients}

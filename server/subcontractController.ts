@@ -42,7 +42,15 @@ const validateOrderPayload = (body: any, existing?: any): string | null => {
         return isNum(v) ? Number(v) : 0;
     };
     const total = isNum(totalQuantity) ? Number(totalQuantity) : null;
-    if (total !== null) {
+    // La garde-fou ne s'applique QUE si l'utilisateur envoie lui-même les
+    // quantités contrôlées (saisie manuelle, où un zéro en trop doit sauter).
+    // Lorsqu'elles sont absentes du corps, elles viennent de `existing` — c'est-à-
+    // dire de la SOMME des entrées en stock (syncOrderTotals), qui tolère un
+    // écart de livraison (le sous-traitant rend parfois plus de pièces que la
+    // commande). Refuser cet écart au moment de la CLÔTURE bloquait des
+    // commandes parfaitement légitimes avec « La clôture a échoué ».
+    const qtyProvided = ['qtyAccepted', 'qtyToRepair', 'qtyRejected'].some(k => body[k] !== undefined);
+    if (total !== null && qtyProvided) {
         const sum = qty('qtyAccepted') + qty('qtyToRepair') + qty('qtyRejected');
         if (sum > total) {
             return `La somme des quantités contrôlées (${sum}) dépasse totalQuantity (${total})`;
@@ -78,7 +86,7 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
         prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
         protoRequired, protoStatus, paymentTerms, defectRateAccepted,
         stitchingDetails, specifications_json, materials_fournisseur_json,
-        coupeLocation, custom_milestones_json
+        coupeLocation, custom_milestones_json, st_mode
     } = req.body;
 
     if (!modelId || !totalQuantity || !subcontractorName || !deliveryDate) {
@@ -103,8 +111,8 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
                 prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
                 protoRequired, protoStatus, paymentTerms, defectRateAccepted,
                 stitchingDetails, specifications_json, materials_fournisseur_json,
-                coupeLocation, custom_milestones_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                coupeLocation, custom_milestones_json, st_mode
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         stmt.run(
@@ -143,7 +151,8 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
             specifications_json || null,
             materials_fournisseur_json || null,
             coupeLocation || 'SUBCONTRACTOR',
-            custom_milestones_json || null
+            custom_milestones_json || null,
+            st_mode || null
         );
 
         res.status(201).json({ message: 'Subcontract order created successfully', id });
@@ -167,7 +176,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
         prestationType, tissuFournisseur, fournituresFournisseur, conditionnementFournisseur,
         protoRequired, protoStatus, paymentTerms, defectRateAccepted,
         stitchingDetails, specifications_json, materials_fournisseur_json,
-        coupeLocation, custom_milestones_json
+        coupeLocation, custom_milestones_json, st_mode
     } = req.body;
 
     try {
@@ -209,6 +218,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
                 tissuFournisseur = COALESCE(?, tissuFournisseur),
                 fournituresFournisseur = COALESCE(?, fournituresFournisseur),
                 conditionnementFournisseur = COALESCE(?, conditionnementFournisseur),
+                st_mode = COALESCE(?, st_mode),
                 protoRequired = COALESCE(?, protoRequired),
                 protoStatus = COALESCE(?, protoStatus),
                 paymentTerms = COALESCE(?, paymentTerms),
@@ -256,6 +266,7 @@ export const updateSubcontractOrder = (req: Request, res: Response) => {
             v(tissuFournisseur),
             v(fournituresFournisseur),
             v(conditionnementFournisseur),
+            v(st_mode),
             v(protoRequired),
             v(protoStatus),
             v(paymentTerms),
@@ -463,6 +474,11 @@ const EXPENSE_COLUMNS = `
     label,
     amount,
     quantity_scope AS quantityScope,
+    tiers_id AS tiersId,
+    (SELECT nom FROM st_clients c WHERE c.id = subcontract_expenses.tiers_id) AS tiersNom,
+    COALESCE(montant_paye, 0) AS montantPaye,
+    facture_ref AS factureRef,
+    date_facture AS dateFacture,
     created_at,
     updated_at
 `;
@@ -508,6 +524,26 @@ const validateExpensePayload = (body: any, totalQuantity: any, existing?: any): 
 const normalizeScope = (scope: any): number | null =>
     scope === undefined || scope === null || scope === '' ? null : Number(scope);
 
+/** Un identifiant de tiers vide vaut « aucun fournisseur rattaché » : on range
+ *  NULL plutôt qu'une chaîne vide, sinon la jointure sur le nom renverrait une
+ *  ligne fantôme. Le tiers doit appartenir à l'entreprise — sans ce contrôle on
+ *  pourrait rattacher un frais au fournisseur d'un autre atelier. */
+const normalizeTiers = (tiersId: any, companyId: any): string | null => {
+    const id = String(tiersId ?? '').trim();
+    if (!id) return null;
+    const found = db.prepare('SELECT id FROM st_clients WHERE id = ? AND owner_id = ?').get(id, companyId);
+    return found ? id : null;
+};
+
+/** Montant déjà réglé. Jamais deviné : absent = zéro, c'est-à-dire « rien de
+ *  payé », et jamais supérieur au montant dû — un frais payé au-delà de son
+ *  montant est une faute de saisie, pas une avance. */
+const normalizePaye = (paye: any, amount: number): number => {
+    const v = Number(paye);
+    if (!Number.isFinite(v) || v <= 0) return 0;
+    return Math.min(v, Number(amount) || 0);
+};
+
 // GET /api/subcontract/:orderId/expenses
 export const getSubcontractExpenses = (req: Request, res: Response) => {
     const companyId = (req as any).companyId;
@@ -548,9 +584,20 @@ export const createSubcontractExpense = (req: Request, res: Response) => {
 
         const id = randomUUID();
         db.prepare(`
-            INSERT INTO subcontract_expenses (id, order_id, label, amount, quantity_scope)
-            VALUES (?, ?, ?, ?, ?)
-        `).run(id, orderId, String(label).trim(), Number(amount), normalizeScope(quantityScope));
+            INSERT INTO subcontract_expenses
+                (id, order_id, label, amount, quantity_scope, tiers_id, montant_paye, facture_ref, date_facture)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            id,
+            orderId,
+            String(label).trim(),
+            Number(amount),
+            normalizeScope(quantityScope),
+            normalizeTiers(req.body?.tiersId, companyId),
+            normalizePaye(req.body?.montantPaye, Number(amount)),
+            String(req.body?.factureRef ?? '').trim() || null,
+            String(req.body?.dateFacture ?? '').trim() || null,
+        );
 
         const expense = db.prepare(`SELECT ${EXPENSE_COLUMNS} FROM subcontract_expenses WHERE id = ?`).get(id);
         res.status(201).json({ message: 'Subcontract expense created successfully', id, expense });
@@ -589,12 +636,29 @@ export const updateSubcontractExpense = (req: Request, res: Response) => {
         const nextAmount = amount !== undefined ? Number(amount) : existing.amount;
         // `quantityScope` absent → portée inchangée ; fourni à null → portée effacée.
         const nextScope = quantityScope !== undefined ? normalizeScope(quantityScope) : existing.quantity_scope;
+        // Chaque champ suit la même règle : absent du corps = inchangé. Un PATCH
+        // partiel ne doit pas effacer le fournisseur ou le règlement déjà saisis.
+        const nextTiers = req.body?.tiersId !== undefined
+            ? normalizeTiers(req.body.tiersId, companyId)
+            : existing.tiers_id;
+        const nextPaye = req.body?.montantPaye !== undefined
+            ? normalizePaye(req.body.montantPaye, nextAmount)
+            // Le montant a pu baisser sous ce qui était déjà réglé : on replafonne
+            // au lieu de laisser un « reste dû » négatif.
+            : Math.min(Number(existing.montant_paye) || 0, nextAmount);
+        const nextFacture = req.body?.factureRef !== undefined
+            ? (String(req.body.factureRef ?? '').trim() || null)
+            : existing.facture_ref;
+        const nextDate = req.body?.dateFacture !== undefined
+            ? (String(req.body.dateFacture ?? '').trim() || null)
+            : existing.date_facture;
 
         db.prepare(`
             UPDATE subcontract_expenses
-            SET label = ?, amount = ?, quantity_scope = ?, updated_at = CURRENT_TIMESTAMP
+            SET label = ?, amount = ?, quantity_scope = ?, tiers_id = ?, montant_paye = ?,
+                facture_ref = ?, date_facture = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
-        `).run(nextLabel, nextAmount, nextScope, id);
+        `).run(nextLabel, nextAmount, nextScope, nextTiers, nextPaye, nextFacture, nextDate, id);
 
         const expense = db.prepare(`SELECT ${EXPENSE_COLUMNS} FROM subcontract_expenses WHERE id = ?`).get(id);
         res.json({ message: 'Subcontract expense updated successfully', expense });

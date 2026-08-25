@@ -943,6 +943,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [expenseAmount, setExpenseAmount] = useState<number | ''>('');
   const [expenseScopeMode, setExpenseScopeMode] = useState<'ALL' | 'PARTIAL'>('ALL');
   const [expenseQuantityScope, setExpenseQuantityScope] = useState<number | ''>('');
+  /** À QUI ce frais est-il dû, et l'a-t-on réglé ? Un libellé et un montant ne
+   *  répondaient ni à « combien dois-je encore au transporteur ? » ni à « cette
+   *  ligne est-elle déjà payée ? ». Le tiers est facultatif — un frais interne
+   *  n'a pas de fournisseur — mais dès qu'il est renseigné, la ligne apparaît
+   *  dans le compte de ce fournisseur. */
+  const [expenseTiersId, setExpenseTiersId] = useState('');
+  const [expenseFactureRef, setExpenseFactureRef] = useState('');
+  const [expenseMontantPaye, setExpenseMontantPaye] = useState<number | ''>('');
 
   // ---- C : facture de sous-traitance (ce que VOUS payez au sous-traitant) ---
   const [isCostInvoiceModalOpen, setIsCostInvoiceModalOpen] = useState(false);
@@ -2985,7 +2993,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ label, amount, quantityScope }),
+        body: JSON.stringify({
+          label,
+          amount,
+          quantityScope,
+          tiersId: expenseTiersId || null,
+          factureRef: expenseFactureRef.trim() || null,
+          // Un montant payé vide vaut zéro : « rien de réglé », jamais un
+          // règlement inventé. Le serveur replafonne au montant dû.
+          montantPaye: Number(expenseMontantPaye) || 0,
+        }),
       });
       if (!res.ok) {
         const err: any = new Error(String(res.status));
@@ -2996,6 +3013,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setExpenseAmount('');
       setExpenseScopeMode('ALL');
       setExpenseQuantityScope('');
+      setExpenseTiersId('');
+      setExpenseFactureRef('');
+      setExpenseMontantPaye('');
       await syncExpensesToModel(order, await loadExpenses(order.id));
     } catch (err: any) {
       console.error('[SousTraitance] add expense', err);
@@ -6285,7 +6305,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'clients' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
         >
           <Users className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
-          <span>{tx(lang,{fr:'Clients',ar:'الزبناء',en:'Clients',es:'Clientes',pt:'Clientes',tr:'Müşteriler'})}</span>
+          <span>{tx(lang,{fr:'Tiers',ar:'الأطراف',en:'Contacts',es:'Terceros',pt:'Terceiros',tr:'Taraflar'})}</span>
         </button>
       </div>
 
@@ -10409,7 +10429,25 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               {exp.quantity_scope == null
                                 ? tx(lang,{fr:'Toute la commande',ar:'الطلبية كاملة',en:'Whole order',es:'Todo el pedido',pt:'Toda a encomenda',tr:'Tüm sipariş'})
                                 : `${exp.quantity_scope.toLocaleString()} pcs ${tx(lang,{fr:'sur',ar:'من',en:'of',es:'de',pt:'de',tr:'/'})} ${detailOrder.totalQuantity.toLocaleString()}`}
+                              {/* Le fournisseur et le reste du, la ou on lit la
+                                  ligne : sans eux il faut ouvrir sa fiche pour
+                                  savoir a qui et combien on doit encore. */}
+                              {(exp as any).tiersNom && <> · <span className="font-semibold text-sky-700 dark:text-sky-400">{(exp as any).tiersNom}</span></>}
+                              {(exp as any).factureRef && <> · {(exp as any).factureRef}</>}
                             </p>
+                            {(() => {
+                              const paye = Number((exp as any).montantPaye) || 0;
+                              const reste = Math.max(0, (Number(exp.amount) || 0) - paye);
+                              if (paye <= 0) return null;
+                              return (
+                                <p className="text-[10px] font-semibold">
+                                  <span className="text-emerald-600 dark:text-emerald-400">{fmt(paye)} {currency} {tx(lang,{fr:'payé',ar:'مخلَّص',en:'paid',es:'pagado',pt:'pago',tr:'ödendi'})}</span>
+                                  {reste > 0
+                                    ? <span className="text-rose-600 dark:text-rose-400"> · {fmt(reste)} {currency} {tx(lang,{fr:'reste',ar:'باقي',en:'left',es:'resta',pt:'resta',tr:'kalan'})}</span>
+                                    : <span className="text-emerald-600 dark:text-emerald-400"> · {tx(lang,{fr:'soldé',ar:'مسدَّد',en:'settled',es:'saldado',pt:'saldado',tr:'kapandı'})}</span>}
+                                </p>
+                              );
+                            })()}
                           </div>
                           <span className="font-bold text-slate-700 dark:text-dk-text-soft shrink-0">{fmt(exp.amount)} {currency}</span>
                           {/* Justificatif du frais, même mécanique que les factures
@@ -10466,6 +10504,58 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         />
                       </div>
                     </div>
+
+                    {/* Le fournisseur, sa facture, et ce qui a deja ete regle.
+                        Sans ces trois champs, la question « combien je lui dois
+                        encore ? » se repond en fouillant les commandes une par
+                        une, et la piece justificative se cherche de memoire. */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="space-y-1">
+                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                          {tx(lang,{fr:'Fournisseur',ar:'المورّد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}
+                        </label>
+                        <select
+                          value={expenseTiersId}
+                          onChange={(e) => setExpenseTiersId(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-2 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        >
+                          <option value="">{tx(lang,{fr:'— Aucun —',ar:'— بلا —',en:'— None —',es:'— Ninguno —',pt:'— Nenhum —',tr:'— Yok —'})}</option>
+                          {atelierClients
+                            .filter(c => { const r = (c as any).role || 'CLIENT'; return r === 'FOURNISSEUR' || r === 'LES_DEUX'; })
+                            .map(c => <option key={c.id} value={String(c.id)}>{c.nom}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                          {tx(lang,{fr:'N° de facture',ar:'رقم الفاتورة',en:'Invoice no.',es:'N.º de factura',pt:'N.º de fatura',tr:'Fatura no'})}
+                        </label>
+                        <input
+                          type="text"
+                          value={expenseFactureRef}
+                          onChange={(e) => setExpenseFactureRef(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-2 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                          {tx(lang,{fr:'Déjà payé',ar:'المخلَّص',en:'Already paid',es:'Ya pagado',pt:'Já pago',tr:'Ödenen'})} ({currency})
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={expenseMontantPaye}
+                          onChange={(e) => setExpenseMontantPaye(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))}
+                          placeholder="0"
+                          className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-2 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        />
+                      </div>
+                    </div>
+                    {atelierClients.filter(c => { const r = (c as any).role || 'CLIENT'; return r === 'FOURNISSEUR' || r === 'LES_DEUX'; }).length === 0 && (
+                      <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                        {tx(lang,{fr:'Aucun fournisseur au registre — marquez un tiers comme « Il nous vend » dans l\'onglet Tiers pour pouvoir lui rattacher des frais.',ar:'ما كاين حتى مورّد فالسجلّ — علّم شي طرف بـ«كيبيع لينا» ف علامة الأطراف باش تقدر تربط ليه المصاريف.',en:'No supplier in the registry — mark a contact as « They sell to us » in the Contacts tab to attach expenses to them.',es:'Ningún proveedor en el registro — marque un tercero como « Nos vende » en la pestaña Terceros para poder asignarle gastos.',pt:'Nenhum fornecedor no registo — marque um terceiro como « Vende-nos » no separador Terceiros para lhe atribuir despesas.',tr:'Kayıtta tedarikçi yok — masraf bağlayabilmek için Taraflar sekmesinde bir tarafı « Bize satar » olarak işaretleyin.'})}
+                      </p>
+                    )}
 
                     <div className="flex flex-wrap items-end gap-2.5">
                       <div className="flex rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden">
