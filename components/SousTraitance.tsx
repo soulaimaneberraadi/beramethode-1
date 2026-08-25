@@ -16,6 +16,7 @@ import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
 import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
 import { ean13FromDigits, ean13Variant, renderEAN13, parseScanCode } from '../lib/barcode';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
+import { lsGetMig, lsSet } from '../lib/storageKeys';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
@@ -23,7 +24,7 @@ import {
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
   AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil, Table,
-  Receipt, Warehouse, Barcode, ScanLine, Store
+  Receipt, Warehouse, Barcode, ScanLine, Store, MoreVertical, Upload
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
@@ -1595,6 +1596,91 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   ];
   const [labelSize, setLabelSize] = useState<{ w: number; h: number }>({ w: 50, h: 30 });
 
+  /* ──────────────────────────────────────────────────────────────────────
+   * Réglages du tiki, VALABLES POUR TOUS LES MODÈLES.
+   * La marque et le logo ne changent pas d'un modèle à l'autre : les ressaisir
+   * à chaque impression était une corvée et une source de fautes de frappe sur
+   * une étiquette qui part chez le client. Ils sont donc réglés une fois, et
+   * l'impression reste libre de s'en écarter pour un tirage particulier.
+   * ────────────────────────────────────────────────────────────────────── */
+  const TIKI_SETTINGS_KEY = 'beramethode_tiki_settings';
+  type TikiSettings = {
+    brand: string;
+    /** Logo propre à l'étiquette (data-URL). Vide = on retombe sur le logo de
+     *  l'entreprise (Admin > Entreprise). */
+    logo: string;
+    useLogo: boolean;
+    size: { w: number; h: number };
+    fields: { marque: boolean; ref: boolean; taille: boolean; couleur: boolean; prix: boolean; code: boolean };
+    groupBy: 'taille' | 'couleur';
+  };
+  const DEFAULT_TIKI_SETTINGS: TikiSettings = {
+    brand: '',
+    logo: '',
+    useLogo: true,
+    size: { w: 50, h: 30 },
+    fields: { marque: true, ref: true, taille: true, couleur: true, prix: false, code: true },
+    groupBy: 'taille',
+  };
+  const [tikiSettings, setTikiSettings] = useState<TikiSettings>(DEFAULT_TIKI_SETTINGS);
+  const [tikiSettingsOpen, setTikiSettingsOpen] = useState(false);
+  const [tikiDraft, setTikiDraft] = useState<TikiSettings>(DEFAULT_TIKI_SETTINGS);
+  const [stockMenuOpen, setStockMenuOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = lsGetMig(TIKI_SETTINGS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      // Fusion champ par champ : un réglage enregistré avant l'ajout d'une
+      // option ne doit pas faire disparaître cette option.
+      setTikiSettings({
+        ...DEFAULT_TIKI_SETTINGS,
+        ...parsed,
+        size: { ...DEFAULT_TIKI_SETTINGS.size, ...(parsed?.size || {}) },
+        fields: { ...DEFAULT_TIKI_SETTINGS.fields, ...(parsed?.fields || {}) },
+      });
+    } catch { /* réglages illisibles : on garde les valeurs par défaut */ }
+  }, []);
+
+  const openTikiSettings = () => {
+    setTikiDraft(tikiSettings);
+    setTikiSettingsOpen(true);
+    setStockMenuOpen(false);
+  };
+
+  const saveTikiSettings = () => {
+    setTikiSettings(tikiDraft);
+    try { lsSet(TIKI_SETTINGS_KEY, JSON.stringify(tikiDraft)); } catch { /* quota plein */ }
+    setTikiSettingsOpen(false);
+  };
+
+  /** Le logo part dans la synchro : un PNG d'appareil photo ferait grossir le
+   *  snapshot pour rien. On le réduit à 600 px de large — bien au-delà de ce
+   *  qu'une thermique 203 dpi peut restituer sur 7 mm de haut. */
+  const onTikiLogoFile = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = String(reader.result || '');
+      const img = new window.Image();
+      img.onload = () => {
+        const maxW = 600;
+        const ratio = img.width > maxW ? maxW / img.width : 1;
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.width * ratio));
+        c.height = Math.max(1, Math.round(img.height * ratio));
+        const ctx = c.getContext('2d');
+        if (!ctx) { setTikiDraft(prev => ({ ...prev, logo: src, useLogo: true })); return; }
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        setTikiDraft(prev => ({ ...prev, logo: c.toDataURL('image/png'), useLogo: true }));
+      };
+      img.onerror = () => setTikiDraft(prev => ({ ...prev, logo: src, useLogo: true }));
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+  };
+
   /** Ordre d'impression. Le rouleau sort dans l'ordre où on écrit les pages :
    *  regrouper par taille puis par couleur permet de vider un bac avant de
    *  passer au suivant, au lieu de trier 460 tiki mélangés à la main. */
@@ -1635,6 +1721,53 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
     } catch { /* silencieux */ }
   }, [models]);
+
+  /** Géométrie de l'étiquette, en millimètres — LA source unique partagée par
+   *  l'impression et les aperçus. Tant que l'aperçu avait ses propres tailles
+   *  en pixels, il mentait : la marque débordait sur un 60x30 et disparaissait
+   *  du cadre, alors que l'impression, elle, réduisait tout. Un aperçu qui ne
+   *  montre pas ce qui sortira ne sert à rien.
+   *  Les corps sont en points (1 pt = 0,3528 mm) comme dans la feuille de style
+   *  d'impression. */
+  const tikiGeometryMm = (w: number, h: number) => {
+    const scale = Math.min(1, h / 30);
+    return {
+      padX: 1.8, padTop: 1.2, padBottom: 1,
+      band: 1.6,
+      logoH: h * 0.22,
+      nameMm: 9.5 * scale * 0.3528,
+      rowMm: 7.5 * scale * 0.3528,
+      valMm: 8.5 * scale * 0.3528,
+      priceMm: 8.5 * 1.25 * scale * 0.3528,
+      codeMm: 6.8 * scale * 0.3528,
+      bcH: Math.max(7, h * 0.32),
+    };
+  };
+
+  /** La même géométrie ramenée en pixels pour un aperçu de largeur donnée :
+   *  l'aperçu est alors une maquette à l'échelle, pas une approximation. */
+  const tikiPreviewMetrics = (w: number, h: number, boxW: number) => {
+    const g = tikiGeometryMm(w, h);
+    const k = boxW / Math.max(1, w);
+    const px = (mm: number) => mm * k;
+    return {
+      boxW,
+      boxH: Math.round(h * k),
+      padX: px(g.padX), padTop: px(g.padTop), padBottom: px(g.padBottom),
+      band: px(g.band),
+      logoH: px(g.logoH),
+      name: px(g.nameMm), row: px(g.rowMm), val: px(g.valMm),
+      price: px(g.priceMm), code: px(g.codeMm),
+      bcH: px(g.bcH),
+    };
+  };
+
+  /** Logo effectivement imprimé : celui réglé pour l'étiquette, sinon celui de
+   *  l'entreprise. Deux sources, une seule règle de priorité. */
+  const tikiLogo = useMemo(
+    () => (tikiSettings.logo || '').trim() || (companyIdentity.logo || '').trim(),
+    [tikiSettings.logo, companyIdentity.logo]
+  );
 
   const refModele = useMemo(() => {
     if (!labelModel) return '';
@@ -1752,11 +1885,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     // remise salon ne doit pas obliger à changer le prix du modèle.
     const pv = Number(opts?.price) || 0;
     setLabelPrice(pv);
+    // Les réglages généraux donnent le point de départ ; l'impression peut
+    // s'en écarter pour un tirage sans que le réglage change.
     // Le prix ne s'imprime que s'il en existe un : cocher la ligne pour la voir
     // sortir vide serait un tiki de marque sans son information principale.
-    setLabelFields(prev => ({ ...prev, prix: pv > 0 }));
-    setLabelBrand((companyIdentity.nom || '').trim());
-    setLabelUseLogo(Boolean((companyIdentity.logo || '').trim()));
+    setLabelFields({ ...tikiSettings.fields, prix: pv > 0 });
+    setLabelSize(tikiSettings.size);
+    setLabelGroupBy(tikiSettings.groupBy);
+    setLabelBrand((tikiSettings.brand || companyIdentity.nom || '').trim());
+    setLabelUseLogo(tikiSettings.useLogo && Boolean(tikiLogo));
   };
 
   const imprimerTiki = () => {
@@ -1824,7 +1961,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const bcH = Math.max(7, lh * 0.32).toFixed(2);
     const logoH = (lh * 0.22).toFixed(2);
     const fsPrice = (Number(fsVal) * 1.25).toFixed(2);
-    const logo = labelUseLogo ? (companyIdentity.logo || '').trim() : '';
+    const logo = labelUseLogo ? tikiLogo : '';
     const brand = (labelBrand || '').trim();
 
     let labels = '';
@@ -5902,6 +6039,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       </div>
 
       {/* Modern Pill-Style Tabs Bar - Compact */}
+      <div className="flex items-center gap-2">
       <div className="flex bg-white dark:bg-dk-surface p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/60 overflow-x-auto gap-0.5 shadow-sm dark:shadow-none max-w-max scrollbar-none shrink-0">
         <button
           onClick={() => setActiveTab('orders')}
@@ -5931,6 +6069,49 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           <Users className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
           <span>{tx(lang,{fr:'Clients',ar:'الزبناء',en:'Clients',es:'Clientes',pt:'Clientes',tr:'Müşteriler'})}</span>
         </button>
+      </div>
+
+        {/* Réglages de la page, à l'écart des onglets : ce sont des choses
+            qu'on règle une fois puis qu'on oublie. Un bouton pleine largeur
+            pour ça volerait la place des actions du quotidien. Réservé à
+            Stock & Ventes : le tiki ne se règle que là où on l'imprime. */}
+        {activeTab === 'stock' && (
+        <div className="relative ml-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => setStockMenuOpen(v => !v)}
+            title={tx(lang,{fr:'Réglages',ar:'الإعدادات',en:'Settings',es:'Ajustes',pt:'Definições',tr:'Ayarlar'})}
+            className={`p-2 rounded-xl border transition-colors ${
+              stockMenuOpen
+                ? 'bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent'
+                : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border/60 hover:text-slate-800 dark:hover:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated'
+            }`}
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+          {stockMenuOpen && (
+            <>
+              {/* Un clic à côté ferme : pas de menu qui reste collé à l'écran. */}
+              <div className="fixed inset-0 z-40" onClick={() => setStockMenuOpen(false)} />
+              <div className="absolute right-0 top-full mt-1.5 z-50 w-56 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg dark:shadow-dk-lg overflow-hidden py-1">
+                <button
+                  type="button"
+                  onClick={openTikiSettings}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[12px] font-bold text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                >
+                  <Barcode className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />
+                  <span className="min-w-0">
+                    {tx(lang,{fr:'Paramètres du tiki',ar:'إعدادات التيكي',en:'Label settings',es:'Ajustes de la etiqueta',pt:'Definições da etiqueta',tr:'Etiket ayarları'})}
+                    <span className="block font-medium text-[10px] text-slate-400 dark:text-dk-muted mt-0.5 leading-snug">
+                      {tx(lang,{fr:'Marque, logo et format, pour tous les modèles',ar:'العلامة والشعار والقياس، لكل الموديلات',en:'Brand, logo and format, for every model',es:'Marca, logo y formato, para todos los modelos',pt:'Marca, logo e formato, para todos os modelos',tr:'Tüm modeller için marka, logo ve format'})}
+                    </span>
+                  </span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+        )}
       </div>
 
       {/* ERROR BANNER */}
@@ -10290,6 +10471,289 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* identifie le modèle et remplit la case */}
       {/* taille×couleur de la grille de sortie. */}
       {/* ======================================= */}
+      {/* ======================================= */}
+      {/* PARAMÈTRES DU TIKI — valables pour TOUS les modèles.  */}
+      {/* ======================================= */}
+      {tikiSettingsOpen && (() => {
+        // Le logo est imprimé sur ~22 % de la hauteur. On donne le chiffre en
+        // millimètres ET en points d'impression : « faites un logo correct »
+        // n'aide personne devant un graphiste.
+        const logoMm = (tikiDraft.size.h * 0.22);
+        const logoDots = Math.round(logoMm * 8); // 203 dpi ≈ 8 points/mm
+        const m = tikiPreviewMetrics(tikiDraft.size.w, tikiDraft.size.h, 220);
+        const draftLogo = (tikiDraft.logo || '').trim() || (companyIdentity.logo || '').trim();
+        return (
+          <SheetModal
+            onClose={() => setTikiSettingsOpen(false)}
+            title={tx(lang,{fr:'Paramètres du tiki',ar:'إعدادات التيكي',en:'Label settings',es:'Ajustes de la etiqueta',pt:'Definições da etiqueta',tr:'Etiket ayarları'})}
+            subtitle={tx(lang,{fr:'Réglés une fois, appliqués à tous les modèles',ar:'تُضبط مرّة واحدة، وتُطبَّق على كل الموديلات',en:'Set once, applied to every model',es:'Configurado una vez, aplicado a todos los modelos',pt:'Definido uma vez, aplicado a todos os modelos',tr:'Bir kez ayarlanır, tüm modellere uygulanır'})}
+            icon={<div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-xl shrink-0"><Settings className="w-5 h-5" /></div>}
+            size="md"
+            zClass="z-[170]"
+            closeOnBackdrop
+            bare
+          >
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="p-5 space-y-4">
+
+                {/* Logo : le cœur d'un tiki de marque. */}
+                <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-4 space-y-3">
+                  <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                    {tx(lang,{fr:'Logo de la marque',ar:'شعار العلامة',en:'Brand logo',es:'Logo de la marca',pt:'Logo da marca',tr:'Marka logosu'})}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-20 h-20 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg flex items-center justify-center overflow-hidden shrink-0">
+                      {draftLogo
+                        ? <img src={draftLogo} alt="" className="max-w-full max-h-full object-contain" />
+                        : <Barcode className="w-6 h-6 text-slate-300 dark:text-dk-muted" />}
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft text-[11px] font-bold cursor-pointer hover:border-indigo-300 dark:hover:border-dk-accent/40 transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        {tx(lang,{fr:'Choisir une image',ar:'اختر صورة',en:'Choose an image',es:'Elegir una imagen',pt:'Escolher uma imagem',tr:'Bir görsel seç'})}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => { onTikiLogoFile(e.target.files?.[0] || null); e.currentTarget.value = ''; }}
+                        />
+                      </label>
+                      {(tikiDraft.logo || '').trim() && (
+                        <button
+                          type="button"
+                          onClick={() => setTikiDraft(prev => ({ ...prev, logo: '' }))}
+                          className="ml-2 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-[11px] font-bold hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {tx(lang,{fr:'Retirer',ar:'حيّد',en:'Remove',es:'Quitar',pt:'Remover',tr:'Kaldır'})}
+                        </button>
+                      )}
+                      {/* Le chiffre exact vaut mieux qu'un conseil vague : sur
+                          une thermique 203 dpi, un logo trop fin disparaît. */}
+                      <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                        {tx(lang,{
+                          fr:`Imprimé sur ${logoMm.toFixed(1)} mm de haut (~${logoDots} points à 203 dpi). Un PNG à fond transparent, trait épais, sans dégradé — une thermique n'imprime qu'en noir.`,
+                          ar:`كيتطبع على ${logoMm.toFixed(1)} مم علو (~${logoDots} نقطة ف 203 dpi). PNG بخلفية شفافة وخط غليظ بلا تدرّج — الطابعة الحرارية كتطبع غير بالكحل.`,
+                          en:`Printed ${logoMm.toFixed(1)} mm tall (~${logoDots} dots at 203 dpi). A transparent PNG, thick strokes, no gradients — a thermal printer only prints black.`,
+                          es:`Impreso a ${logoMm.toFixed(1)} mm de alto (~${logoDots} puntos a 203 dpi). PNG con fondo transparente, trazo grueso, sin degradados — una térmica solo imprime en negro.`,
+                          pt:`Impresso com ${logoMm.toFixed(1)} mm de altura (~${logoDots} pontos a 203 dpi). PNG com fundo transparente, traço grosso, sem gradientes — uma térmica só imprime a preto.`,
+                          tr:`${logoMm.toFixed(1)} mm yükseklikte basılır (203 dpi'de ~${logoDots} nokta). Şeffaf arka planlı PNG, kalın çizgi, gradyansız — termal yazıcı yalnızca siyah basar.`
+                        })}
+                      </p>
+                      {/* Avoir un logo et vouloir imprimer le nom sont deux
+                          choses differentes : le choix reste explicite. */}
+                      {draftLogo && (
+                        <button
+                          type="button"
+                          onClick={() => setTikiDraft(prev => ({ ...prev, useLogo: !prev.useLogo }))}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                            tikiDraft.useLogo
+                              ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent'
+                              : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                          }`}
+                        >
+                          {tikiDraft.useLogo && <Check className="w-3 h-3" />}
+                          {tikiDraft.useLogo
+                            ? tx(lang,{fr:'Logo imprimé',ar:'الشعار مطبوع',en:'Logo printed',es:'Logo impreso',pt:'Logo impresso',tr:'Logo basılıyor'})
+                            : tx(lang,{fr:'Texte imprimé',ar:'النص مطبوع',en:'Text printed',es:'Texto impreso',pt:'Texto impresso',tr:'Metin basılıyor'})}
+                        </button>
+                      )}
+                      {!(tikiDraft.logo || '').trim() && (companyIdentity.logo || '').trim() && (
+                        <p className="text-[10px] text-indigo-600 dark:text-dk-accent font-semibold leading-snug">
+                          {tx(lang,{fr:'Aucun logo propre au tiki : celui de l\'entreprise est utilisé.',ar:'ما كاين شعار خاص بالتيكي: كيتستعمل ديال الشركة.',en:'No label-specific logo: the company one is used.',es:'Sin logo propio de la etiqueta: se usa el de la empresa.',pt:'Sem logo próprio da etiqueta: é usado o da empresa.',tr:'Etikete özel logo yok: şirket logosu kullanılır.'})}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Marque + format par défaut. */}
+                <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-4 space-y-4">
+                  <div>
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Nom de la marque',ar:'اسم العلامة',en:'Brand name',es:'Nombre de la marca',pt:'Nome da marca',tr:'Marka adı'})}
+                    </label>
+                    <input
+                      type="text"
+                      value={tikiDraft.brand}
+                      onChange={e => setTikiDraft(prev => ({ ...prev, brand: e.target.value }))}
+                      placeholder={companyIdentity.nom || ''}
+                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text placeholder:font-normal placeholder:text-slate-400 dark:placeholder:text-dk-muted outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                    />
+                    <p className="mt-1 text-[10px] text-slate-400 dark:text-dk-muted">
+                      {tx(lang,{fr:'Imprimé quand aucun logo n\'est utilisé.',ar:'كيتطبع ملي ما كيتستعملش الشعار.',en:'Printed when no logo is used.',es:'Impreso cuando no se usa ningún logo.',pt:'Impresso quando nenhum logo é usado.',tr:'Logo kullanılmadığında basılır.'})}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Format du rouleau (mm)',ar:'قياس الرول (مم)',en:'Roll format (mm)',es:'Formato del rollo (mm)',pt:'Formato do rolo (mm)',tr:'Rulo formatı (mm)'})}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {LABEL_SIZES.map(sz => {
+                        const on = tikiDraft.size.w === sz.w && tikiDraft.size.h === sz.h;
+                        return (
+                          <button
+                            key={sz.id}
+                            type="button"
+                            onClick={() => setTikiDraft(prev => ({ ...prev, size: { w: sz.w, h: sz.h } }))}
+                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                              on
+                                ? 'bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent'
+                                : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent/40'
+                            }`}
+                          >
+                            {sz.id}
+                          </button>
+                        );
+                      })}
+                      <span className="mx-1 text-slate-300 dark:text-dk-border">|</span>
+                      <input
+                        type="number"
+                        min={10}
+                        value={tikiDraft.size.w}
+                        onChange={e => setTikiDraft(prev => ({ ...prev, size: { ...prev.size, w: Math.max(10, Number(e.target.value) || 10) } }))}
+                        className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                      />
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">×</span>
+                      <input
+                        type="number"
+                        min={10}
+                        value={tikiDraft.size.h}
+                        onChange={e => setTikiDraft(prev => ({ ...prev, size: { ...prev.size, h: Math.max(10, Number(e.target.value) || 10) } }))}
+                        className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Champs par défaut',ar:'الحقول الافتراضية',en:'Default fields',es:'Campos por defecto',pt:'Campos por omissão',tr:'Varsayılan alanlar'})}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([
+                        { id: 'marque', label: tx(lang,{fr:'Marque / logo',ar:'العلامة / الشعار',en:'Brand / logo',es:'Marca / logo',pt:'Marca / logo',tr:'Marka / logo'}) },
+                        { id: 'ref', label: tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'}) },
+                        { id: 'taille', label: tx(lang,{fr:'Taille',ar:'المقاس',en:'Size',es:'Talla',pt:'Tamanho',tr:'Beden'}) },
+                        { id: 'couleur', label: tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'}) },
+                        { id: 'prix', label: tx(lang,{fr:'Prix',ar:'الثمن',en:'Price',es:'Precio',pt:'Preço',tr:'Fiyat'}) },
+                        { id: 'code', label: tx(lang,{fr:'Code sous le barres',ar:'الكود تحت الباركود',en:'Code under barcode',es:'Código bajo el código de barras',pt:'Código sob o código de barras',tr:'Barkod altındaki kod'}) },
+                      ] as const).map(f => {
+                        const on = tikiDraft.fields[f.id];
+                        return (
+                          <button
+                            key={f.id}
+                            type="button"
+                            onClick={() => setTikiDraft(prev => ({ ...prev, fields: { ...prev.fields, [f.id]: !prev.fields[f.id] } }))}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                              on
+                                ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent'
+                                : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent/40'
+                            }`}
+                          >
+                            {on && <Check className="w-3 h-3" />}
+                            {f.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Ordre de sortie',ar:'ترتيب الخروج',en:'Print order',es:'Orden de salida',pt:'Ordem de saída',tr:'Çıkış sırası'})}
+                    </span>
+                    <div className="inline-flex rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
+                      {([
+                        { id: 'taille', label: tx(lang,{fr:'Par taille, puis couleur',ar:'بالمقاس ثم اللون',en:'By size, then color',es:'Por talla, luego color',pt:'Por tamanho, depois cor',tr:'Bedene, sonra renge göre'}) },
+                        { id: 'couleur', label: tx(lang,{fr:'Par couleur, puis taille',ar:'باللون ثم المقاس',en:'By color, then size',es:'Por color, luego talla',pt:'Por cor, depois tamanho',tr:'Renge, sonra bedene göre'}) },
+                      ] as const).map((o, i) => (
+                        <button
+                          key={o.id}
+                          type="button"
+                          onClick={() => setTikiDraft(prev => ({ ...prev, groupBy: o.id }))}
+                          className={`px-3 py-2 text-[10px] font-bold transition-colors ${i > 0 ? 'border-l border-slate-200 dark:border-dk-border' : ''} ${
+                            tikiDraft.groupBy === o.id
+                              ? 'bg-slate-800 dark:bg-dk-accent text-white'
+                              : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                          }`}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Aperçu à la proportion réelle du format choisi. */}
+                <div>
+                  <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                    {tx(lang,{fr:'Aperçu',ar:'المعاينة',en:'Preview',es:'Vista previa',pt:'Pré-visualização',tr:'Önizleme'})}
+                  </span>
+                  <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-4 flex justify-center">
+                    <div
+                      style={{
+                        width: m.boxW, height: m.boxH,
+                        paddingLeft: m.padX, paddingRight: m.padX,
+                        paddingTop: m.band + m.padTop, paddingBottom: m.padBottom,
+                      }}
+                      className="relative overflow-hidden max-w-full rounded-lg border-2 border-dashed border-indigo-300 dark:border-indigo-500/40 flex flex-col"
+                    >
+                      <div style={{ height: m.band }} className="absolute inset-x-0 top-0 bg-indigo-500" />
+                      {tikiDraft.fields.marque && (
+                        tikiDraft.useLogo && draftLogo
+                          ? <img src={draftLogo} alt="" style={{ height: m.logoH }} className="max-w-[60%] object-contain object-left" />
+                          : <div style={{ fontSize: m.name }} className="font-extrabold uppercase tracking-[0.12em] leading-tight text-slate-900 dark:text-dk-text truncate">{(tikiDraft.brand || companyIdentity.nom || 'MARQUE')}</div>
+                      )}
+                      <div>
+                        {([
+                          tikiDraft.fields.ref && { k: 'Réf', v: '1234567890128' },
+                          tikiDraft.fields.taille && { k: 'Taille', v: 'M' },
+                          tikiDraft.fields.couleur && { k: 'Couleur', v: 'Noir' },
+                          tikiDraft.fields.prix && { k: 'Prix', v: `350 ${currency}`, price: true },
+                        ].filter(Boolean) as Array<{ k: string; v: string; price?: boolean }>).map(r => (
+                          <div key={r.k} style={{ fontSize: m.row }} className="flex items-baseline justify-between leading-[1.35] text-slate-500 dark:text-dk-muted uppercase tracking-wide">
+                            <span>{r.k}</span>
+                            <span
+                              style={{ fontSize: r.price ? m.price : m.val }}
+                              className={`normal-case tracking-normal font-bold truncate ${r.price ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-dk-text'}`}
+                            >{r.v}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-center mt-auto">
+                        <div style={{ height: m.bcH }} className="w-full bg-[repeating-linear-gradient(90deg,#111_0,#111_2px,transparent_2px,transparent_4px)] dark:bg-[repeating-linear-gradient(90deg,#e5e7eb_0,#e5e7eb_2px,transparent_2px,transparent_4px)]" />
+                      </div>
+                      {tikiDraft.fields.code && (
+                        <div style={{ fontSize: m.code }} className="text-center font-mono tracking-widest leading-tight text-slate-500 dark:text-dk-muted">1234567890128</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setTikiSettingsOpen(false)}
+                    className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                  >
+                    {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveTikiSettings}
+                    className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </SheetModal>
+        );
+      })()}
+
       {labelModel && (
         <SheetModal
           onClose={() => setLabelModel(null)}
@@ -10538,7 +11002,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       />
                     </div>
                     <div className="flex items-end">
-                      {(companyIdentity.logo || '').trim() ? (
+                      {tikiLogo ? (
                         <button
                           type="button"
                           onClick={() => setLabelUseLogo(v => !v)}
@@ -10548,7 +11012,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
                           }`}
                         >
-                          <img src={companyIdentity.logo} alt="" className="w-7 h-7 rounded object-contain bg-white shrink-0" />
+                          <img src={tikiLogo} alt="" className="w-7 h-7 rounded object-contain bg-white shrink-0" />
                           <span className="text-left leading-tight">
                             {labelUseLogo
                               ? tx(lang,{fr:'Logo imprimé',ar:'الشعار مطبوع',en:'Logo printed',es:'Logo impreso',pt:'Logo impresso',tr:'Logo basılıyor'})
@@ -10558,7 +11022,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         </button>
                       ) : (
                         <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
-                          {tx(lang,{fr:'Aucun logo enregistré — ajoutez-le dans Admin > Entreprise pour l\'imprimer à la place du texte.',ar:'ما كاين حتى شعار مسجّل — زيدو ف Admin > Entreprise باش يتطبع بدل النص.',en:'No logo saved — add one in Admin > Company to print it instead of the text.',es:'Ningún logo guardado — añádalo en Admin > Empresa para imprimirlo en lugar del texto.',pt:'Nenhum logo guardado — adicione em Admin > Empresa para o imprimir em vez do texto.',tr:'Kayıtlı logo yok — metin yerine basmak için Admin > Şirket bölümüne ekleyin.'})}
+                          {tx(lang,{fr:'Aucun logo — ajoutez-le dans Paramètres du tiki pour l\'imprimer à la place du texte.',ar:'ما كاين حتى شعار — زيدو ف «إعدادات التيكي» باش يتطبع بدل النص.',en:'No logo — add one in Label settings to print it instead of the text.',es:'Ningún logo — añádalo en Ajustes de la etiqueta para imprimirlo en lugar del texto.',pt:'Nenhum logo — adicione em Definições da etiqueta para o imprimir em vez do texto.',tr:'Logo yok — metin yerine basmak için Etiket ayarlarına ekleyin.'})}
                         </p>
                       )}
                     </div>
@@ -10689,12 +11153,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 if (labelFields.taille && pvTaille) mockRows.push({ k: 'Taille', v: pvTaille });
                 if (labelFields.couleur && labelMode !== 'externe' && pvCouleur) mockRows.push({ k: 'Couleur', v: pvCouleur });
                 if (labelFields.prix && labelPrice > 0) mockRows.push({ k: 'Prix', v: `${labelPrice.toLocaleString()} ${currency}`, price: true });
-                const pvLogo = labelFields.marque && labelUseLogo ? (companyIdentity.logo || '').trim() : '';
+                const pvLogo = labelFields.marque && labelUseLogo ? tikiLogo : '';
                 const pvBrand = (labelBrand || '').trim() || (labelModel.meta_data?.nom_modele || labelModel.id);
-                // Le cadre garde la proportion réelle du format choisi : un
-                // aperçu carré pour un 60x30 mentirait sur la place disponible.
-                const pvW = 230;
-                const pvH = Math.round(pvW * (labelSize.h / Math.max(1, labelSize.w)));
+                // Maquette à l'échelle : mêmes millimètres que l'impression,
+                // ramenés à la largeur du cadre.
+                const m = tikiPreviewMetrics(labelSize.w, labelSize.h, 230);
                 return (
                   <div>
                     <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
@@ -10703,28 +11166,35 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-4">
                       <div className="flex justify-center">
                         <div
-                          style={{ width: pvW, height: pvH }}
-                          className={`relative overflow-hidden max-w-full rounded-lg border-2 border-dashed px-3 pb-2 pt-4 flex flex-col ${labelMode === 'externe' ? 'border-emerald-300 dark:border-emerald-500/40' : 'border-indigo-300 dark:border-indigo-500/40'}`}
+                          style={{
+                            width: m.boxW, height: m.boxH,
+                            paddingLeft: m.padX, paddingRight: m.padX,
+                            paddingTop: m.band + m.padTop, paddingBottom: m.padBottom,
+                          }}
+                          className={`relative overflow-hidden max-w-full rounded-lg border-2 border-dashed flex flex-col ${labelMode === 'externe' ? 'border-emerald-300 dark:border-emerald-500/40' : 'border-indigo-300 dark:border-indigo-500/40'}`}
                         >
-                          <div className={`absolute inset-x-0 top-0 h-1.5 ${labelMode === 'externe' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+                          <div style={{ height: m.band }} className={`absolute inset-x-0 top-0 ${labelMode === 'externe' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
                           {labelFields.marque && (
                             pvLogo
-                              ? <img src={pvLogo} alt="" className="h-4 max-w-[60%] object-contain object-left" />
-                              : <div className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-900 dark:text-dk-text truncate">{pvBrand}</div>
+                              ? <img src={pvLogo} alt="" style={{ height: m.logoH }} className="max-w-[60%] object-contain object-left" />
+                              : <div style={{ fontSize: m.name }} className="font-extrabold uppercase tracking-[0.12em] leading-tight text-slate-900 dark:text-dk-text truncate">{pvBrand}</div>
                           )}
-                          <div className="mt-1 space-y-0.5">
+                          <div>
                             {mockRows.map(r => (
-                              <div key={r.k} className="flex items-baseline justify-between text-[9px] text-slate-500 dark:text-dk-muted uppercase tracking-wide">
+                              <div key={r.k} style={{ fontSize: m.row }} className="flex items-baseline justify-between leading-[1.35] text-slate-500 dark:text-dk-muted uppercase tracking-wide">
                                 <span>{r.k}</span>
-                                <span className={`normal-case tracking-normal font-bold truncate ${r.price ? 'text-[11px] text-emerald-600 dark:text-emerald-400' : 'text-[10px] text-slate-900 dark:text-dk-text'}`}>{r.v}</span>
+                                <span
+                                  style={{ fontSize: r.price ? m.price : m.val }}
+                                  className={`normal-case tracking-normal font-bold truncate ${r.price ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-dk-text'}`}
+                                >{r.v}</span>
                               </div>
                             ))}
                           </div>
                           <div className="flex justify-center mt-auto">
-                            <canvas ref={labelCanvasRef} className="max-w-full h-auto" />
+                            <canvas ref={labelCanvasRef} style={{ height: m.bcH, width: '100%' }} />
                           </div>
                           {labelFields.code && (
-                            <div className="text-center text-[8px] font-mono tracking-widest text-slate-500 dark:text-dk-muted">
+                            <div style={{ fontSize: m.code }} className="text-center font-mono tracking-widest leading-tight text-slate-500 dark:text-dk-muted">
                               {labelMode === 'interne' ? labelPreview.code : refModele}
                             </div>
                           )}

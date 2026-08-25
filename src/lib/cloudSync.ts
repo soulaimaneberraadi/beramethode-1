@@ -27,6 +27,9 @@ const SYNC_KEYS = [
   // téléverse si le bucket est activé) avant l'UPSERT, comme pour les autres clés
   // à images — pas de blob base64 brut envoyé à Supabase.
   'beramethode_subcontract_profiles',
+  // Reglages du tiki (marque, logo, format). Le logo est une data-URL :
+  // replaceImages() la compresse avant l'UPSERT comme les autres images.
+  'beramethode_tiki_settings',
 ];
 
 const TABLE = 'user_data';
