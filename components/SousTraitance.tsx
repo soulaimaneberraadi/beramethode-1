@@ -15,6 +15,7 @@ import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
 import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
 import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
 import { ean13FromDigits, ean13Variant, renderEAN13, parseScanCode } from '../lib/barcode';
+import { buildZplForCells, buildZplTestLabel, type ZplCell } from '../lib/zpl';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import { lsGetMig, lsSet } from '../lib/storageKeys';
 import { 
@@ -1739,6 +1740,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     size: { w: number; h: number };
     fields: { marque: boolean; ref: boolean; taille: boolean; couleur: boolean; prix: boolean; code: boolean };
     groupBy: 'taille' | 'couleur';
+    /** 'browser' = le rendu HTML habituel (@page à la taille exacte, marche
+     *  avec n'importe quel pilote). 'zpl' = envoi direct des commandes ZPL à
+     *  une imprimante réseau — nécessaire quand le pilote ne respecte pas la
+     *  taille du rouleau. Le logo n'est imprimé qu'en mode navigateur : le
+     *  convertir en bitmap ZPL sans imprimante sous la main pour vérifier
+     *  chaque octet produirait des étiquettes corrompues plutôt qu'absentes. */
+    printMode: 'browser' | 'zpl';
+    zplHost: string;
+    zplPort: number;
+    /** Résolution de l'imprimante — 203 dpi (bureau) ou 300 dpi (industrielle).
+     *  Détermine la conversion millimètres → points du flux ZPL. */
+    zplDpi: number;
   };
   const DEFAULT_TIKI_SETTINGS: TikiSettings = {
     brand: '',
@@ -1750,11 +1763,47 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     size: { w: 50, h: 30 },
     fields: { marque: true, ref: true, taille: true, couleur: true, prix: false, code: true },
     groupBy: 'taille',
+    printMode: 'browser',
+    zplHost: '',
+    zplPort: 9100,
+    zplDpi: 203,
   };
   const [tikiSettings, setTikiSettings] = useState<TikiSettings>(DEFAULT_TIKI_SETTINGS);
   const [tikiSettingsOpen, setTikiSettingsOpen] = useState(false);
   const [tikiDraft, setTikiDraft] = useState<TikiSettings>(DEFAULT_TIKI_SETTINGS);
   const [stockMenuOpen, setStockMenuOpen] = useState(false);
+  /** Statut de l'envoi ZPL — partagé entre le bouton « Imprimer » de la fiche
+   *  tiki et le bouton « Tester » des réglages, les deux passent par le même
+   *  relais serveur et peuvent échouer pour les mêmes raisons réseau. */
+  const [zplSending, setZplSending] = useState(false);
+  const [zplError, setZplError] = useState<string | null>(null);
+
+  /** Envoie un flux ZPL déjà construit au relais serveur (`printBridge.ts`),
+   *  qui ouvre lui-même la connexion TCP — le navigateur ne le peut pas.
+   *  Retourne `true` si l'envoi a réussi, pour que l'appelant décide de la
+   *  suite (fermer la fiche, marquer la référence...). */
+  const sendZplToPrinter = async (data: string, host: string, port: number): Promise<boolean> => {
+    setZplSending(true);
+    setZplError(null);
+    try {
+      const res = await fetch('/api/print/zpl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ host, port, data }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || tx(lang,{fr:"Échec de l'impression réseau.",ar:'فشل الطبع عبر الشبكة.',en:'Network print failed.',es:'Error de impresión en red.',pt:'Falha na impressão em rede.',tr:'Ağ üzerinden yazdırma başarısız.'}));
+      }
+      return true;
+    } catch (err: any) {
+      setZplError(err?.message || tx(lang,{fr:"Échec de l'impression réseau.",ar:'فشل الطبع عبر الشبكة.',en:'Network print failed.',es:'Error de impresión en red.',pt:'Falha na impressão em rede.',tr:'Ağ üzerinden yazdırma başarısız.'}));
+      return false;
+    } finally {
+      setZplSending(false);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -1776,6 +1825,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setTikiDraft(tikiSettings);
     setTikiSettingsOpen(true);
     setStockMenuOpen(false);
+    setZplError(null);
   };
 
   const saveTikiSettings = () => {
@@ -2212,9 +2262,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setLabelGroupBy(tikiSettings.groupBy);
     setLabelBrand((tikiSettings.brand || companyIdentity.nom || '').trim());
     setLabelUseLogo(tikiSettings.useLogo && Boolean(tikiLogo));
+    setZplError(null);
   };
 
-  const imprimerTiki = () => {
+  const imprimerTiki = async () => {
     if (!labelModel) return;
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const nom = labelModel.meta_data?.nom_modele || labelModel.id;
@@ -2256,6 +2307,57 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         : rankSize(a.taille) - rankSize(b.taille);
     });
 
+    // Code par cellule, calculé une seule fois : partagé par les deux voies
+    // d'impression (HTML et ZPL) au lieu d'être recalculé différemment
+    // dans chacune, ce qui garantirait tôt ou tard une divergence.
+    const codeFor = (cell: { couleur: string; taille: string }): string =>
+      labelMode === 'interne' ? variantCodeFor(labelModel, cell.couleur, cell.taille) : refModele;
+
+    // Effets de bord communs aux deux voies : la référence du modèle et la
+    // carte code -> variante ne dépendent pas de la façon dont on a imprimé.
+    const finishSideEffects = () => {
+      if (!(labelModel.meta_data?.reference || '').trim()) {
+        void writeModelReference(labelModel.id, refModele);
+      }
+      if (labelMode === 'interne') {
+        cells.forEach(cell => {
+          void saveVariantCode(labelModel.id, codeFor(cell), cell.taille, cell.couleur);
+        });
+      }
+    };
+
+    // ── Impression réseau (ZPL direct) ─────────────────────────────────────
+    // Le rendu HTML reste la voie par défaut ; celle-ci ne sert qu'aux
+    // imprimantes pilotées en ZPL/EPL direct sur le port 9100, quand leur
+    // pilote ne respecte pas la taille exacte du rouleau. Le logo n'est
+    // jamais envoyé ici — voir `lib/zpl.ts`.
+    if (tikiSettings.printMode === 'zpl') {
+      const host = tikiSettings.zplHost.trim();
+      if (!host) {
+        setZplError(tx(lang,{fr:"Aucune imprimante réseau réglée — configurez-la dans Paramètres du tiki.",ar:'ما كاين حتى طابعة شبكة معدّة — عدّلها ف إعدادات التيكي.',en:'No network printer configured — set it up in Label settings.',es:'Ninguna impresora de red configurada — configúrela en Ajustes de la etiqueta.',pt:'Nenhuma impressora de rede configurada — configure em Definições da etiqueta.',tr:'Ağ yazıcısı ayarlanmadı — Etiket ayarlarından yapılandırın.'}));
+        return;
+      }
+      const zplCells: ZplCell[] = cells.map(cell => ({
+        code: codeFor(cell),
+        ref: refModele,
+        taille: cell.taille,
+        couleur: labelMode === 'externe' ? '' : cell.couleur,
+        prix: labelFields.prix && labelPrice > 0 ? `${labelPrice.toLocaleString()} ${currency}` : undefined,
+        qty: cell.qty,
+      }));
+      const data = buildZplForCells(zplCells, {
+        widthMm: labelSize.w,
+        heightMm: labelSize.h,
+        dpi: tikiSettings.zplDpi,
+        brand: (labelBrand || '').trim() || nom,
+        fields: labelFields,
+      });
+      const ok = await sendZplToPrinter(data, host, tikiSettings.zplPort);
+      if (ok) finishSideEffects();
+      return;
+    }
+
+    // ── Impression navigateur (HTML, @page à la taille exacte) ────────────
     // Un seul rendu par code distinct (le meme code sert a toutes les pieces
     // d'une meme cellule — imprimer 500 S-rouge = un rendu + 500 copies).
     const imgs: Record<string, string> = {};
@@ -2302,7 +2404,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
     let labels = '';
     cells.forEach(cell => {
-      const code = labelMode === 'interne' ? variantCodeFor(labelModel, cell.couleur, cell.taille) : refModele;
+      const code = codeFor(cell);
       const img = imgFor(code);
       const isExterne = labelMode === 'externe';
       // Chaque donnee sur sa propre ligne, en-tete de marque + bandeau colore.
@@ -2384,19 +2486,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         '<' + 'script>window.print();</' + 'script></body></html>'
     );
     w?.document.close();
-    // La reference est sauvegardee seulement a l'impression, et seulement si le
-    // modele n'en avait pas : le code imprime devient alors le code qui
-    // identifiera le modele aux prochains scans.
-    if (!(labelModel.meta_data?.reference || '').trim()) {
-      void writeModelReference(labelModel.id, refModele);
-    }
-    // En mode interne, on enregistre la carte code -> (taille, couleur) pour que
-    // le lecteur dechiffre ces tiki sans dependre de l'ordre de la fiche.
-    if (labelMode === 'interne') {
-      cells.forEach(cell => {
-        void saveVariantCode(labelModel.id, variantCodeFor(labelModel, cell.couleur, cell.taille), cell.taille, cell.couleur);
-      });
-    }
+    // La reference et la carte code -> variante sont sauvegardees seulement a
+    // l'impression : voir `finishSideEffects` plus haut.
+    finishSideEffects();
   };
 
   const submitSortie = async () => {
@@ -12521,6 +12613,100 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   </div>
                 </div>
 
+                {/* Impression réseau (ZPL) : le rendu HTML reste la voie par
+                    défaut ; celle-ci ne sert qu'aux imprimantes pilotées en
+                    ZPL/EPL direct, quand le pilote ne respecte pas la taille
+                    exacte du rouleau. Le logo n'est envoyé qu'en navigateur —
+                    le dire évite de le chercher en vain sur le papier. */}
+                <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-4 space-y-3">
+                  <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                    {tx(lang,{fr:'Mode d\'impression',ar:'نمط الطباعة',en:'Print mode',es:'Modo de impresión',pt:'Modo de impressão',tr:'Yazdırma modu'})}
+                  </span>
+                  <div className="inline-flex rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
+                    {([
+                      { id: 'browser', label: tx(lang,{fr:'Navigateur',ar:'المتصفّح',en:'Browser',es:'Navegador',pt:'Navegador',tr:'Tarayıcı'}) },
+                      { id: 'zpl', label: tx(lang,{fr:'Réseau (ZPL)',ar:'شبكة (ZPL)',en:'Network (ZPL)',es:'Red (ZPL)',pt:'Rede (ZPL)',tr:'Ağ (ZPL)'}) },
+                    ] as const).map((o, i) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => setTikiDraft(prev => ({ ...prev, printMode: o.id }))}
+                        className={`px-3 py-2 text-[10px] font-bold transition-colors ${i > 0 ? 'border-l border-slate-200 dark:border-dk-border' : ''} ${
+                          tikiDraft.printMode === o.id
+                            ? 'bg-slate-800 dark:bg-dk-accent text-white'
+                            : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                        }`}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                    {tikiDraft.printMode === 'zpl'
+                      ? tx(lang,{fr:'Les commandes sont envoyées directement à l\'imprimante via le réseau. Le logo n\'est pas envoyé dans ce mode.',ar:'الأوامر كتصيفط مباشرة للطابعة عبر الشبكة. الشعار ما كيتصيفطش فهاد النمط.',en:'Commands are sent directly to the printer over the network. The logo is not sent in this mode.',es:'Los comandos se envían directamente a la impresora por red. El logo no se envía en este modo.',pt:'Os comandos são enviados diretamente para a impressora pela rede. O logo não é enviado neste modo.',tr:'Komutlar ağ üzerinden doğrudan yazıcıya gönderilir. Bu modda logo gönderilmez.'})
+                      : tx(lang,{fr:'Ouvre une fenêtre d\'impression standard — fonctionne avec n\'importe quel pilote.',ar:'كيحل نافذة طباعة عادية — كيخدم مع أي driver.',en:'Opens a standard print window — works with any driver.',es:'Abre una ventana de impresión estándar — funciona con cualquier controlador.',pt:'Abre uma janela de impressão padrão — funciona com qualquer controlador.',tr:'Standart bir yazdırma penceresi açar — herhangi bir sürücüyle çalışır.'})}
+                  </p>
+
+                  {tikiDraft.printMode === 'zpl' && (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          value={tikiDraft.zplHost}
+                          onChange={e => setTikiDraft(prev => ({ ...prev, zplHost: e.target.value }))}
+                          placeholder={tx(lang,{fr:'Adresse IP (ex: 192.168.1.50)',ar:'عنوان IP (مثال: 192.168.1.50)',en:'IP address (e.g. 192.168.1.50)',es:'Dirección IP (ej. 192.168.1.50)',pt:'Endereço IP (ex: 192.168.1.50)',tr:'IP adresi (örn. 192.168.1.50)'})}
+                          className="sm:col-span-2 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-mono text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                        />
+                        <input
+                          type="number"
+                          min={1}
+                          max={65535}
+                          value={tikiDraft.zplPort}
+                          onChange={e => setTikiDraft(prev => ({ ...prev, zplPort: Math.max(1, Math.min(65535, Number(e.target.value) || 9100)) }))}
+                          placeholder="9100"
+                          className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-mono text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                        />
+                      </div>
+                      <div>
+                        <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                          {tx(lang,{fr:'Résolution de l\'imprimante',ar:'دقّة الطابعة',en:'Printer resolution',es:'Resolución de la impresora',pt:'Resolução da impressora',tr:'Yazıcı çözünürlüğü'})}
+                        </span>
+                        <div className="inline-flex rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
+                          {([203, 300] as const).map((d, i) => (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() => setTikiDraft(prev => ({ ...prev, zplDpi: d }))}
+                              className={`px-3 py-2 text-[10px] font-bold transition-colors ${i > 0 ? 'border-l border-slate-200 dark:border-dk-border' : ''} ${
+                                tikiDraft.zplDpi === d
+                                  ? 'bg-slate-800 dark:bg-dk-accent text-white'
+                                  : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                              }`}
+                            >
+                              {d} dpi
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={zplSending || !tikiDraft.zplHost.trim()}
+                        onClick={async () => {
+                          const data = buildZplTestLabel(tikiDraft.size.w, tikiDraft.size.h, tikiDraft.zplDpi);
+                          await sendZplToPrinter(data, tikiDraft.zplHost.trim(), tikiDraft.zplPort);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-sky-200 dark:border-sky-800/50 bg-sky-50 dark:bg-sky-950/20 text-sky-700 dark:text-sky-400 font-bold text-[11px] hover:bg-sky-100 dark:hover:bg-sky-950/40 disabled:opacity-60 transition-colors"
+                      >
+                        {zplSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
+                        {tx(lang,{fr:'Tester l\'impression',ar:'جرّب الطباعة',en:'Test the print',es:'Probar la impresión',pt:'Testar a impressão',tr:'Baskıyı test et'})}
+                      </button>
+                      {zplError && (
+                        <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 leading-snug">{zplError}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+
                 {/* Aperçu à la proportion réelle du format choisi. */}
                 <div>
                   <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
@@ -13158,6 +13344,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 );
               })()}
 
+              {tikiSettings.printMode === 'zpl' && zplError && (
+                <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span className="text-[11px] font-semibold leading-relaxed">{zplError}</span>
+                </div>
+              )}
+
               <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
                 <button
                   type="button"
@@ -13168,11 +13361,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </button>
                 <button
                   type="button"
-                  onClick={imprimerTiki}
-                  className={`${labelMode === 'externe' ? 'bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-500 border-emerald-600 dark:border-emerald-600' : 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 border-indigo-600 dark:border-dk-accent'} text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2`}
+                  disabled={zplSending}
+                  onClick={() => { void imprimerTiki(); }}
+                  className={`${labelMode === 'externe' ? 'bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-500 border-emerald-600 dark:border-emerald-600' : 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 border-indigo-600 dark:border-dk-accent'} text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 disabled:opacity-60`}
                 >
-                  <Printer className="w-4 h-4" />
-                  <span>{tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}</span>
+                  {zplSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                  <span>
+                    {tikiSettings.printMode === 'zpl'
+                      ? (zplSending
+                          ? tx(lang,{fr:'Envoi…',ar:'كيتصيفط…',en:'Sending…',es:'Enviando…',pt:'A enviar…',tr:'Gönderiliyor…'})
+                          : tx(lang,{fr:'Envoyer à l\'imprimante',ar:'صيفط للطابعة',en:'Send to printer',es:'Enviar a la impresora',pt:'Enviar para a impressora',tr:'Yazıcıya gönder'}))
+                      : tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}
+                  </span>
                   <span className="hidden sm:inline text-[10px] font-semibold opacity-80">
                     {Object.values(labelMode === 'externe' ? labelExterneGrid : labelGrid).reduce((a, v) => a + (Math.floor(Number(v) || 0)), 0).toLocaleString()}
                   </span>
