@@ -1145,6 +1145,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [commandePrix, setCommandePrix] = useState<Record<string, number | ''>>({});
   const [commandePrixLoading, setCommandePrixLoading] = useState(false);
   const commandePrixSeq = useRef(0);
+  /** Les TROIS colonnes par modèle (détail, gros, boutique), indépendamment du
+   *  client sélectionné — comme sur la sortie classique et le tiki. Sans elles,
+   *  cet écran ne montrait que le tarif déjà résolu pour le client choisi,
+   *  impossible de vérifier le prix grossiste avant de vendre au détail. */
+  const [commandeTarifsParType, setCommandeTarifsParType] = useState<Record<string, Record<string, number | null>>>({});
   /** Motif obligatoire d'une vente sous le prix plancher (politique 'CONFIRM'). */
   const [commandeMotif, setCommandeMotif] = useState('');
   const [commandeConfirmSousCout, setCommandeConfirmSousCout] = useState(false);
@@ -1176,6 +1181,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setCommandeNote('');
     setCommandeLignes([]);
     setCommandePrix({});
+    setCommandeTarifsParType({});
     setCommandeError(null);
     setCommandeMotif('');
     setCommandeConfirmSousCout(false);
@@ -1250,6 +1256,27 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     }, 350);
     return () => { ctrl.abort(); clearTimeout(timer); };
   }, [commandeLignes, commandeClientId, commandeOpen]);
+
+  /** Les trois colonnes, indépendamment du client : elles servent à COMPARER,
+   *  donc elles ne doivent pas changer quand on choisit un client précis
+   *  (contrairement à `commandePrix` ci-dessus, qui lui suit le client). */
+  useEffect(() => {
+    if (IS_STATIC || !commandeOpen) return;
+    const targets = commandeLignes.filter(l => l.modelId && commandeLigneTotalQty(l) > 0);
+    if (targets.length === 0) { setCommandeTarifsParType({}); return; }
+    let alive = true;
+    Promise.all(targets.map(async l => {
+      const qty = String(commandeLigneTotalQty(l));
+      const pairs = await Promise.all((['DETAIL', 'GROS', 'BOUTIQUE'] as const).map(t =>
+        fetch(`/api/prix/resolve?modelId=${encodeURIComponent(l.modelId)}&qty=${qty}&type=${t}`, { credentials: 'include' })
+          .then(r => (r.ok ? r.json() : null))
+          .then((d: any) => [t, d?.source === 'TYPE' ? Number(d.prix) : null] as const)
+          .catch(() => [t, null] as const)
+      ));
+      return [l.modelId, Object.fromEntries(pairs)] as const;
+    })).then(entries => { if (alive) setCommandeTarifsParType(Object.fromEntries(entries)); });
+    return () => { alive = false; };
+  }, [commandeLignes, commandeOpen]);
 
   const submitCommande = async () => {
     if (!commandeOpen) return;
@@ -9609,6 +9636,51 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         </div>
                       </div>
 
+                      {/* Les trois colonnes, visibles ensemble : au moment de
+                          vendre, il faut voir ce que vaut le modèle au comptoir
+                          ET pour un revendeur — pas seulement le tarif déjà
+                          résolu pour le client choisi. Un clic pose le prix. */}
+                      {lineQty > 0 && (() => {
+                        const tarifsLigne = commandeTarifsParType[l.modelId] || {};
+                        return (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                            {([
+                              { id: 'DETAIL', label: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}) },
+                              { id: 'GROS', label: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}) },
+                              { id: 'BOUTIQUE', label: tx(lang,{fr:'Boutique',ar:'المحل',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'}) },
+                            ] as const).map(t => {
+                              const val = tarifsLigne[t.id];
+                              const missing = val == null;
+                              const active = !missing && Number(l.prix) === val;
+                              return (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  disabled={missing}
+                                  onClick={() => setCommandeLignePrix(i, Number(Number(val).toFixed(2)))}
+                                  title={missing
+                                    ? tx(lang,{fr:'Aucun tarif saisi pour ce type dans la grille des prix.',ar:'ما كاين حتى ثمن مسجّل لهاد النوع فشبكة الأثمنة.',en:'No price set for this type in the price grid.',es:'Ningún precio definido para este tipo en la cuadrícula.',pt:'Nenhum preço definido para este tipo na grelha.',tr:'Fiyat listesinde bu tür için fiyat yok.'})
+                                    : undefined}
+                                  className={`px-2 py-1 rounded-lg text-[9px] font-bold border transition-colors flex items-center gap-1 ${
+                                    missing
+                                      ? 'bg-slate-50 dark:bg-dk-bg text-slate-300 dark:text-dk-muted/50 border-slate-200 dark:border-dk-border cursor-not-allowed'
+                                      : active
+                                        ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent'
+                                        : 'bg-white dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent/40'
+                                  }`}
+                                >
+                                  {active && <Check className="w-2.5 h-2.5" />}
+                                  {t.label}
+                                  <span className={`font-mono ${missing ? '' : active ? 'opacity-90' : 'text-slate-400 dark:text-dk-muted'}`}>
+                                    {missing ? '—' : fmt(Number(val))}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+
                       {/* Grille couleur × taille de CE modèle — mêmes règles que la
                           sortie : case grisée quand le stock est à zéro, saisie
                           plafonnée au dispo de la cellule. */}
@@ -10170,8 +10242,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     )}
                   </p>
                   {/* Le tarif reste une PROPOSITION dès que l'opérateur a saisi
-                      son propre prix : on l'offre, on ne l'impose pas. */}
-                  {sortieForm.prixTouched && sortieTarif?.prix != null && Number(sortieForm.prix) !== sortieTarif.prix && (
+                      son propre prix : on l'offre, on ne l'impose pas.
+                      Réservé au tarif NÉGOCIÉ avec CE client : les colonnes
+                      détail/gros/boutique ci-dessus couvrent déjà le tarif par
+                      type, ce bouton ne reste utile que pour le prix propre à
+                      ce client précis — sinon il ferait doublon. */}
+                  {sortieForm.prixTouched && sortieTarif?.source === 'CLIENT' && sortieTarif.prix != null && Number(sortieForm.prix) !== sortieTarif.prix && (
                     <button
                       type="button"
                       onClick={() => setSortieForm(prev => prev && ({ ...prev, prix: Number((sortieTarif.prix as number).toFixed(2)) }))}
