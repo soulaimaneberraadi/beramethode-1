@@ -1077,6 +1077,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     { prix: number | null; source: 'CLIENT' | 'TYPE' | 'CATALOGUE' | 'NONE'; qty_min: number | null; type_client: string | null } | null
   >(null);
   const [sortieTarifLoading, setSortieTarifLoading] = useState(false);
+  /** Les TROIS colonnes de la grille (détail, gros, boutique), affichées côte à
+   *  côte comme sur le tiki : au moment de vendre, l'opérateur doit voir ce que
+   *  vaut l'article pour un client de passage ET pour un revendeur, pas
+   *  seulement le prix déjà résolu pour le client sélectionné. `null` = aucun
+   *  tarif saisi pour ce type, ce qui doit se voir plutôt que se deviner. */
+  const [sortieTarifsParType, setSortieTarifsParType] = useState<Record<string, number | null>>({});
   /** Motif obligatoire d'une vente sous le prix plancher (politique 'CONFIRM').
    *  Il part dans la note de la sortie, préfixé, pour rester retrouvable. */
   const [sortieMotif, setSortieMotif] = useState('');
@@ -1403,6 +1409,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     return () => { ctrl.abort(); clearTimeout(timer); };
   }, [sortieModelId, sortieClientId, sortieTotalQty]);
 
+  /** Les trois colonnes, indépendamment du client sélectionné : elles servent
+   *  à COMPARER, donc elles ne doivent pas changer quand on choisit un client
+   *  précis (contrairement à `sortieTarif` ci-dessus, qui lui suit le client). */
+  useEffect(() => {
+    if (!sortieModelId || IS_STATIC) { setSortieTarifsParType({}); return; }
+    let alive = true;
+    const qty = String(sortieTotalQty);
+    Promise.all((['DETAIL', 'GROS', 'BOUTIQUE'] as const).map(t =>
+      fetch(`/api/prix/resolve?modelId=${encodeURIComponent(sortieModelId)}&qty=${qty}&type=${t}`, { credentials: 'include' })
+        .then(r => (r.ok ? r.json() : null))
+        .then((d: any) => [t, d?.source === 'TYPE' ? Number(d.prix) : null] as const)
+        .catch(() => [t, null] as const)
+    )).then(pairs => { if (alive) setSortieTarifsParType(Object.fromEntries(pairs)); });
+    return () => { alive = false; };
+  }, [sortieModelId, sortieTotalQty]);
+
   /** Ouvre la sortie de stock d'un modèle. `prefillGrid` permet au lecteur de
    *  code-barres de pré-remplir la case (taille, couleur) qu'il vient de
    *  scanner — puis l'opérateur ajuste les quantités à la main. */
@@ -1459,16 +1481,59 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *     l'impression : fiable même si la fiche est réordonnée plus tard) ;
    *  2) à défaut, régénération brute : on rejoue la formule pour chaque
    *     modèle × taille × couleur jusqu'à trouver le code exact. */
+  /** Un article acheté n'est PAS un modèle : pas de gamme, pas de chrono, pas
+   *  d'équilibrage. Il vit dans sa propre table (voir plus bas, section
+   *  MARCHANDISE ACHETÉE) — seule sa liste est déclarée ici, en avance, parce
+   *  que les deux fonctions juste en dessous doivent savoir si un identifiant
+   *  désigne un article plutôt qu'un modèle. */
+  type ArticleAchete = {
+    id: string;
+    nom: string;
+    reference: string | null;
+    photo: string | null;
+    colors: Array<{ id: string; name: string }>;
+    sizes: string[];
+    notes: string | null;
+    variantCodes?: Record<string, { taille: string; couleur: string }>;
+  };
+  const [articles, setArticles] = useState<ArticleAchete[]>([]);
+
+  /** Donne à un article la FORME d'un modèle, le temps de l'affichage. Tout le
+   *  reste du module (grille de stock, sorties, étiquettes, factures) travaille
+   *  déjà sur cette forme : la réécrire pour les articles aurait doublé le code
+   *  et les occasions de diverger. */
+  const articleAsModel = (a: ArticleAchete): ModelData => ({
+    id: a.id,
+    filename: a.nom,
+    image: a.photo || null,
+    ficheData: { colors: a.colors, sizes: a.sizes } as any,
+    meta_data: {
+      nom_modele: a.nom,
+      reference: a.reference || '',
+      date_creation: '',
+      total_temps: 0,
+      effectif: 0,
+      sizes: a.sizes,
+      colors: a.colors,
+    } as ModelData['meta_data'],
+    gamme_operatoire: [],
+  });
+
+
   const resolveVariantByEAN = useCallback((ean13: string): { model: ModelData; taille: string; couleur: string } | null => {
     const key = ean13.trim();
-    for (const m of models) {
+    // Un article acheté n'est pas dans `models` : sans ce passage, un tiki
+    // imprimé pour lui se scannait pour rien — le lecteur ne trouvait jamais
+    // le code, même si `saveArticleVariantCode` l'avait bien enregistré.
+    const candidats: ModelData[] = [...models, ...articles.map(articleAsModel)];
+    for (const m of candidats) {
       const map = (m.meta_data as any)?.variantCodes;
       const hit = map && map[key];
       if (hit && typeof hit.taille === 'string' && typeof hit.couleur === 'string') {
         return { model: m, taille: hit.taille, couleur: hit.couleur };
       }
     }
-    for (const m of models) {
+    for (const m of candidats) {
       const fiche: any = m.ficheData || {};
       const sizes: string[] = fiche.sizes || [];
       const colors: Array<{ id: string; name: string }> = fiche.colors || [];
@@ -1482,7 +1547,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       }
     }
     return null;
-  }, [models]);
+  }, [models, articles]);
 
   const traiterScan = useCallback((code: string) => {
     setStockSearch('');
@@ -1498,9 +1563,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       if (hit) { model = hit.model; taille = hit.taille; couleur = hit.couleur; }
     }
     if (!model) {
+      // Même repli pour un article acheté : sa référence ou son nom doivent
+      // pouvoir être reconnus au scan comme pour n'importe quel modèle.
+      const candidats: ModelData[] = [...models, ...articles.map(articleAsModel)];
       model =
-        models.find(m => norm(m.meta_data?.reference) === norm(p.ref)) ||
-        models.find(m => norm(m.meta_data?.nom_modele) === norm(p.ref));
+        candidats.find(m => norm(m.meta_data?.reference) === norm(p.ref)) ||
+        candidats.find(m => norm(m.meta_data?.nom_modele) === norm(p.ref));
     }
     if (!model) { playPip(false); return; }
     const fiche: any = model.ficheData || {};
@@ -1524,7 +1592,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     if (key !== '|') prefill[key] = 1;
     openSortieModal(model, stat?.salePrice ?? null, prefill);
     playPip(true);
-  }, [models, resolveVariantByEAN, playPip]);
+  }, [models, articles, resolveVariantByEAN, playPip]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1768,8 +1836,28 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   /** Sauvegarde la référence d'un modèle via la même règle que les autres
    *  écritures : on relit la version à jour puis on poste le patch complet. */
+  /** Même geste que `writeModelReference`, côté article acheté : sans elle, la
+   *  référence imprimée sur le tiki d'un article ne se sauvegardait jamais
+   *  (l'article n'existe pas dans `models`, où l'ancienne écriture cherchait). */
+  const writeArticleReference = useCallback(async (articleId: string, reference: string) => {
+    const local = articles.find(a => a.id === articleId);
+    if (!local || (local.reference || '').trim() === reference.trim()) return;
+    try {
+      const res = await fetch('/api/subcontract/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ ...local, reference: reference.trim() }),
+      });
+      if (!res.ok) return;
+      const saved = await res.json();
+      setArticles(prev => prev.map(a => (a.id === articleId ? saved : a)));
+    } catch { /* silencieux */ }
+  }, [articles]);
+
   const writeModelReference = useCallback(async (modelId: string, reference: string) => {
     if (!modelId || modelId === 'MANUAL') return;
+    if (articles.some(a => a.id === modelId)) { void writeArticleReference(modelId, reference); return; }
     const local = models.find(m => m.id === modelId);
     if (!local) return;
     if ((local.meta_data?.reference || '').trim() === reference.trim()) return;
@@ -1800,7 +1888,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       }
       setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
     } catch { /* silencieux */ }
-  }, [models]);
+  }, [models, articles, writeArticleReference]);
 
   /** Géométrie de l'étiquette, en millimètres — LA source unique partagée par
    *  l'impression et les aperçus. Tant que l'aperçu avait ses propres tailles
@@ -1986,11 +2074,35 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     }
   }, [labelModel, labelMode, labelPreview, refModele]);
 
+  /** Même geste que `saveVariantCode`, côté article acheté : sans elle, un
+   *  code imprimé sur le tiki d'un article n'était jamais mémorisé — l'article
+   *  n'existe pas dans `models`, où l'ancienne écriture cherchait, et le
+   *  lecteur scannait un code que rien ne savait déchiffrer. */
+  const saveArticleVariantCode = useCallback(async (articleId: string, code: string, taille: string, couleur: string) => {
+    if (!code) return;
+    const local = articles.find(a => a.id === articleId);
+    if (!local) return;
+    const prev = local.variantCodes || {};
+    if (prev[code]?.taille === taille && prev[code]?.couleur === couleur) return;
+    try {
+      const res = await fetch('/api/subcontract/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ ...local, variantCodes: { ...prev, [code]: { taille, couleur } } }),
+      });
+      if (!res.ok) return;
+      const saved = await res.json();
+      setArticles(prevList => prevList.map(a => (a.id === articleId ? saved : a)));
+    } catch { /* silencieux */ }
+  }, [articles]);
+
   /** Sauvegarde la carte code → (taille, couleur) dans `meta_data.variantCodes`.
    *  C'est LE moyen fiable pour le lecteur : il lit la carte au lieu de
    *  deviner d'après l'ordre de la fiche (qui peut changer plus tard). */
   const saveVariantCode = useCallback(async (modelId: string, code: string, taille: string, couleur: string) => {
     if (!modelId || modelId === 'MANUAL' || !code) return;
+    if (articles.some(a => a.id === modelId)) { void saveArticleVariantCode(modelId, code, taille, couleur); return; }
     const local = models.find(m => m.id === modelId);
     if (!local) return;
     const prevLocal = (local.meta_data as any)?.variantCodes || {};
@@ -2023,7 +2135,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       }
       setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
     } catch { /* silencieux */ }
-  }, [models]);
+  }, [models, articles, saveArticleVariantCode]);
 
   const openLabel = (model: ModelData, opts?: { grid?: OrderGrid; price?: number }) => {
     const fiche: any = model.ficheData || {};
@@ -2430,16 +2542,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    * d'équilibrage, et surtout pas sa place dans la bibliothèque — il y ferait
    * du bruit dans l'ingénierie, la coupe et le planning. Il vit donc dans sa
    * propre table et ne prend la forme d'un modèle qu'au moment de l'affichage.
-   * ────────────────────────────────────────────────────────────────────── */
-  type ArticleAchete = {
-    id: string;
-    nom: string;
-    reference: string | null;
-    photo: string | null;
-    colors: Array<{ id: string; name: string }>;
-    sizes: string[];
-    notes: string | null;
-  };
+   * (Le type `ArticleAchete` et l'état `articles` sont déclarés plus haut,
+   * avant `writeModelReference`/`saveVariantCode` qui doivent savoir si un
+   * identifiant désigne un article plutôt qu'un modèle.) */
   type AchatLigne = {
     id: string;
     articleId: string;
@@ -2452,7 +2557,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     quantite: number;
     note: string | null;
   };
-  const [articles, setArticles] = useState<ArticleAchete[]>([]);
   const [achats, setAchats] = useState<AchatLigne[]>([]);
   /** Prix de vente des articles achetés. Ils n'ont pas de fiche de coût où le
    *  ranger : la grille `st_prix` fait foi, colonne « catalogue ». */
@@ -2517,6 +2621,36 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [achatNewTiersTel, setAchatNewTiersTel] = useState('');
   const [achatNewTiersVille, setAchatNewTiersVille] = useState('');
   const [achatNewTiersSaving, setAchatNewTiersSaving] = useState(false);
+
+  /** Suppression d'un article acheté. Le serveur refuse déjà (409) si des
+   *  mouvements de stock existent — on affiche alors ce qu'il répond plutôt
+   *  que de laisser le bouton ne rien faire. */
+  const [pendingDeleteArticle, setPendingDeleteArticle] = useState<{ id: string; nom: string } | null>(null);
+  const [deletingArticleId, setDeletingArticleId] = useState<string | null>(null);
+  const [deleteArticleError, setDeleteArticleError] = useState<string | null>(null);
+
+  const confirmDeleteArticle = async () => {
+    if (!pendingDeleteArticle) return;
+    setDeletingArticleId(pendingDeleteArticle.id);
+    setDeleteArticleError(null);
+    try {
+      const res = await fetch(`/api/subcontract/articles/${encodeURIComponent(pendingDeleteArticle.id)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || '');
+      }
+      setArticles(prev => prev.filter(a => a.id !== pendingDeleteArticle.id));
+      setAchats(prev => prev.filter(a => a.articleId !== pendingDeleteArticle.id));
+      setPendingDeleteArticle(null);
+    } catch (err: any) {
+      setDeleteArticleError(err?.message || tx(lang,{fr:'La suppression a échoué.',ar:'فشل الحذف.',en:'Deletion failed.',es:'Error al eliminar.',pt:'Falha ao eliminar.',tr:'Silme başarısız.'}));
+    } finally {
+      setDeletingArticleId(null);
+    }
+  };
 
   /** Couleurs et tailles se composent comme dans la répartition d'une fiche
    *  technique : on ajoute une pastille de couleur et des tailles une à une.
@@ -2710,29 +2844,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setAchatSaving(false);
     }
   };
-
-
-
-  /** Donne à un article la FORME d'un modèle, le temps de l'affichage. Tout le
-   *  reste du module (grille de stock, sorties, étiquettes, factures) travaille
-   *  déjà sur cette forme : la réécrire pour les articles aurait doublé le code
-   *  et les occasions de diverger. */
-  const articleAsModel = (a: ArticleAchete): ModelData => ({
-    id: a.id,
-    filename: a.nom,
-    image: a.photo || null,
-    ficheData: { colors: a.colors, sizes: a.sizes } as any,
-    meta_data: {
-      nom_modele: a.nom,
-      reference: a.reference || '',
-      date_creation: '',
-      total_temps: 0,
-      effectif: 0,
-      sizes: a.sizes,
-      colors: a.colors,
-    } as ModelData['meta_data'],
-    gamme_operatoire: [],
-  });
 
   /** Stock disponible par modèle, cellule par cellule : entrées ACCEPTÉES moins
    *  sorties. C'est ce chiffre, et lui seul, qui autorise une vente. */
@@ -7756,16 +7867,31 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           </span>
                         )}
                       </div>
-                      <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full uppercase whitespace-nowrap shrink-0 border ${
-                        item.status === 'FINISHED' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40' :
-                        item.status === 'IN_PRODUCTION' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/40' :
-                        'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.status === 'FINISHED' ? 'bg-emerald-500' : item.status === 'IN_PRODUCTION' ? 'bg-indigo-500 animate-pulse' : 'bg-slate-400'}`} />
-                        {item.status === 'FINISHED' ? tx(lang,{fr:'Terminé',ar:'منتهٍ',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'}) :
-                         item.status === 'IN_PRODUCTION' ? tx(lang,{fr:'En production',ar:'قيد الإنتاج',en:'In production',es:'En producción',pt:'Em produção',tr:'Üretimde'}) :
-                         tx(lang,{fr:'Inactif',ar:'غير نشط',en:'Inactive',es:'Inactivo',pt:'Inativo',tr:'Pasif'})}
-                      </span>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full uppercase whitespace-nowrap shrink-0 border ${
+                          item.status === 'FINISHED' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40' :
+                          item.status === 'IN_PRODUCTION' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/40' :
+                          'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.status === 'FINISHED' ? 'bg-emerald-500' : item.status === 'IN_PRODUCTION' ? 'bg-indigo-500 animate-pulse' : 'bg-slate-400'}`} />
+                          {item.status === 'FINISHED' ? tx(lang,{fr:'Terminé',ar:'منتهٍ',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'}) :
+                           item.status === 'IN_PRODUCTION' ? tx(lang,{fr:'En production',ar:'قيد الإنتاج',en:'In production',es:'En producción',pt:'Em produção',tr:'Üretimde'}) :
+                           tx(lang,{fr:'Inactif',ar:'غير نشط',en:'Inactive',es:'Inactivo',pt:'Inativo',tr:'Pasif'})}
+                        </span>
+                        {/* Seuls les articles ACHETÉS se suppriment ici : un modèle
+                            de sous-traitance vient d'une vraie commande, le supprimer
+                            depuis cette carte n'aurait pas de sens. */}
+                        {item.origine === 'ACHAT' && (
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); setDeleteArticleError(null); setPendingDeleteArticle({ id: item.model.id, nom: displayName }); }}
+                            title={tx(lang,{fr:'Supprimer cet article',ar:'حذف هاد السلعة',en:'Delete this article',es:'Eliminar este artículo',pt:'Eliminar este artigo',tr:'Bu ürünü sil'})}
+                            className="p-1 rounded-lg text-slate-300 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {/* Barre de progression : produit → sorti */}
                     <div className="h-1.5 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">
@@ -9975,6 +10101,45 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
                     {tx(lang,{fr:'Prix unitaire',ar:'ثمن الوحدة',en:'Unit price',es:'Precio unitario',pt:'Preco unitario',tr:'Birim fiyat'})}
                   </label>
+                  {/* Les trois colonnes, visibles ensemble : au moment de vendre,
+                      il faut voir ce que vaut l'article au comptoir ET pour un
+                      revendeur, pas seulement le tarif déjà résolu pour le client
+                      choisi. Un clic pose le prix, comme sur le tiki. */}
+                  <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                    {([
+                      { id: 'DETAIL', label: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}) },
+                      { id: 'GROS', label: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}) },
+                      { id: 'BOUTIQUE', label: tx(lang,{fr:'Boutique',ar:'المحل',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'}) },
+                    ] as const).map(t => {
+                      const val = sortieTarifsParType[t.id];
+                      const missing = val == null;
+                      const active = !missing && Number(sortieForm.prix) === val;
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          disabled={missing}
+                          onClick={() => setSortieForm(prev => prev && ({ ...prev, prix: Number(Number(val).toFixed(2)), prixTouched: true }))}
+                          title={missing
+                            ? tx(lang,{fr:'Aucun tarif saisi pour ce type dans la grille des prix.',ar:'ما كاين حتى ثمن مسجّل لهاد النوع فشبكة الأثمنة.',en:'No price set for this type in the price grid.',es:'Ningún precio definido para este tipo en la cuadrícula.',pt:'Nenhum preço definido para este tipo na grelha.',tr:'Fiyat listesinde bu tür için fiyat yok.'})
+                            : undefined}
+                          className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors flex items-center gap-1.5 ${
+                            missing
+                              ? 'bg-slate-50 dark:bg-dk-bg text-slate-300 dark:text-dk-muted/50 border-slate-200 dark:border-dk-border cursor-not-allowed'
+                              : active
+                                ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent'
+                                : 'bg-white dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent/40'
+                          }`}
+                        >
+                          {active && <Check className="w-3 h-3" />}
+                          {t.label}
+                          <span className={`font-mono ${missing ? '' : active ? 'opacity-90' : 'text-slate-400 dark:text-dk-muted'}`}>
+                            {missing ? '—' : fmt(Number(val))}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                   <input
                     type="number"
                     min={0}
@@ -11561,6 +11726,51 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           </SheetModal>
         );
       })()}
+
+      {/* Confirmation courte : pas de plein écran pour une suppression. */}
+      {pendingDeleteArticle && (
+        <SheetModal
+          onClose={() => { if (!deletingArticleId) setPendingDeleteArticle(null); }}
+          size="sm"
+          zClass="z-[260]"
+          closeOnBackdrop
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+        >
+          <div className="flex items-start gap-2.5">
+            <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[13px] font-bold text-slate-800 dark:text-dk-text">
+                {tx(lang,{fr:`Supprimer « ${pendingDeleteArticle.nom} » ?`,ar:`حذف «${pendingDeleteArticle.nom}»؟`,en:`Delete “${pendingDeleteArticle.nom}”?`,es:`¿Eliminar «${pendingDeleteArticle.nom}»?`,pt:`Eliminar “${pendingDeleteArticle.nom}”?`,tr:`“${pendingDeleteArticle.nom}” silinsin mi?`})}
+              </p>
+              <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-1 leading-relaxed">
+                {tx(lang,{fr:'Impossible si des pièces sont déjà entrées ou sorties en stock — l\'historique doit rester exact.',ar:'ما تقدرش إلا كانت شي قطع دخلات ولا خرجات للمخزون — التاريخ خاصو يبقى صحيح.',en:'Not possible if pieces have already entered or exited stock — the history must stay accurate.',es:'No es posible si ya hay piezas entradas o salidas del stock — el historial debe permanecer exacto.',pt:'Não é possível se já houver peças entradas ou saídas em stock — o histórico deve permanecer exato.',tr:'Stoğa giriş veya çıkış yapılmışsa mümkün değil — geçmiş doğru kalmalı.'})}
+              </p>
+              {deleteArticleError && (
+                <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 mt-2">{deleteArticleError}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              disabled={!!deletingArticleId}
+              onClick={() => setPendingDeleteArticle(null)}
+              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+            >
+              {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+            </button>
+            <button
+              type="button"
+              disabled={!!deletingArticleId}
+              onClick={confirmDeleteArticle}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] disabled:opacity-60 transition-colors"
+            >
+              {deletingArticleId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}
+            </button>
+          </div>
+        </SheetModal>
+      )}
 
       {/* ======================================= */}
       {/* ACHAT DE MARCHANDISE FINIE            */}

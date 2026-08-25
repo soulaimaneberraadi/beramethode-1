@@ -33,7 +33,7 @@ const parseJson = <T>(raw: unknown, fallback: T): T => {
 };
 
 const ARTICLE_SELECT = `
-    SELECT id, owner_id, nom, reference, photo, colors_json, sizes_json, notes, created_at, updated_at
+    SELECT id, owner_id, nom, reference, photo, colors_json, sizes_json, notes, variant_codes_json, created_at, updated_at
     FROM st_articles
 `;
 
@@ -47,6 +47,9 @@ const hydrateArticle = (row: any) => ({
     colors: parseJson<Array<{ id: string; name: string }>>(row.colors_json, []),
     sizes: parseJson<string[]>(row.sizes_json, []),
     notes: row.notes ?? null,
+    // Carte code-barres -> (taille, couleur) : le lecteur la consulte pour
+    // remplir la grille de sortie sans deviner d'après l'ordre de la fiche.
+    variantCodes: parseJson<Record<string, { taille: string; couleur: string }>>(row.variant_codes_json, {}),
     created_at: row.created_at,
     updated_at: row.updated_at,
 });
@@ -89,9 +92,21 @@ export const saveArticle = (req: Request, res: Response) => {
             .map((t: any) => String(t ?? '').trim())
             .filter(Boolean);
 
+        // `variantCodes` absent du corps = inchangé (le PATCH du lecteur ne
+        // renvoie qu'un code à la fois) ; fourni = remplace intégralement.
+        // Sans cette règle, sauvegarder l'article depuis l'écran d'achat
+        // écraserait silencieusement la carte déjà apprise par le lecteur.
+        let variantCodesJson: string | null = null;
+        if (a.variantCodes !== undefined) {
+            variantCodesJson = JSON.stringify(a.variantCodes || {});
+        } else {
+            const existing = db.prepare('SELECT variant_codes_json FROM st_articles WHERE id = ? AND owner_id = ?').get(id, companyId) as any;
+            variantCodesJson = existing?.variant_codes_json ?? null;
+        }
+
         db.prepare(`
-            INSERT INTO st_articles (id, owner_id, nom, reference, photo, colors_json, sizes_json, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_articles (id, owner_id, nom, reference, photo, colors_json, sizes_json, notes, variant_codes_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 nom = excluded.nom,
                 reference = excluded.reference,
@@ -99,6 +114,7 @@ export const saveArticle = (req: Request, res: Response) => {
                 colors_json = excluded.colors_json,
                 sizes_json = excluded.sizes_json,
                 notes = excluded.notes,
+                variant_codes_json = excluded.variant_codes_json,
                 updated_at = CURRENT_TIMESTAMP
         `).run(
             id,
@@ -109,6 +125,7 @@ export const saveArticle = (req: Request, res: Response) => {
             JSON.stringify(colors),
             JSON.stringify(sizes),
             String(a.notes ?? '').trim() || null,
+            variantCodesJson,
         );
 
         const saved = db.prepare(`${ARTICLE_SELECT} WHERE id = ? AND owner_id = ?`).get(id, companyId) as any;

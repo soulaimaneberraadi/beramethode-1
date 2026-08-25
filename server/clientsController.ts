@@ -233,11 +233,14 @@ export const getClientDossier = (req: Request, res: Response) => {
         `).all(companyId, clientId, (client as any).type ?? null);
 
         // ── Volet FOURNISSEUR ────────────────────────────────────────────────
-        // Le même tiers peut nous vendre. Ce qu'il nous facture arrive de deux
+        // Le même tiers peut nous vendre. Ce qu'il nous facture arrive de TROIS
         // endroits qu'il faut additionner, sinon le total ment :
         //   1. les frais additionnels de commande qui lui sont rattachés
         //      (transport, patronage, repassage...) ;
-        //   2. les factures d'ACHAT enregistrées à son nom.
+        //   2. les factures d'ACHAT enregistrées à son nom ;
+        //   3. les achats de marchandise finie (`st_achats`) — le prix payé y
+        //      EST le prix de revient de l'article, donc une créance réelle
+        //      envers ce fournisseur tant qu'elle n'est pas soldée.
         // « Reste dû » = facturé − payé, jamais négatif : un trop-payé est une
         // erreur de saisie, pas une créance sur le fournisseur.
         const frais = db.prepare(`
@@ -262,18 +265,44 @@ export const getClientDossier = (req: Request, res: Response) => {
             ORDER BY date_facture DESC
         `).all(companyId, (client as any).nom ?? '') as any[];
 
+        // Achats de marchandise : contrairement aux deux sources ci-dessus, le
+        // rattachement se fait par IDENTIFIANT (`st_achats.tiers_id`), saisi dès
+        // la création — pas de rapprochement par nom hasardeux ici. Le montant
+        // dû est déduit de la quantité réellement entrée en stock pour cet
+        // achat × son prix, pas d'un total figé au moment de la saisie.
+        const achatsMarchandise = db.prepare(`
+            SELECT a.id, a.article_id AS articleId,
+                   (SELECT nom FROM st_articles ar WHERE ar.id = a.article_id) AS articleNom,
+                   a.date_achat AS dateAchat, a.prix_achat AS prixAchat,
+                   a.facture_ref AS factureRef, COALESCE(a.montant_paye, 0) AS montantPaye,
+                   (SELECT COALESCE(SUM(quantite), 0) FROM st_stock_entries se
+                     WHERE se.owner_id = a.owner_id AND se.order_id = a.id) AS quantite
+            FROM st_achats a
+            WHERE a.owner_id = ? AND a.tiers_id = ?
+            ORDER BY COALESCE(a.date_achat, a.created_at) DESC
+        `).all(companyId, clientId) as any[];
+
         const fraisFacture = frais.reduce((a, f) => a + (Number(f.amount) || 0), 0);
         const fraisPaye = frais.reduce((a, f) => a + (Number(f.montantPaye) || 0), 0);
         const achatsFacture = facturesAchat.reduce((a, f) => a + (Number(f.total_ttc) || 0), 0);
         const achatsPaye = facturesAchat.reduce((a, f) => a + (Number(f.montant_paye) || 0), 0);
+        const marchandiseFacture = achatsMarchandise.reduce((a, m) => a + (Number(m.quantite) || 0) * (Number(m.prixAchat) || 0), 0);
+        const marchandisePaye = achatsMarchandise.reduce((a, m) => a + (Number(m.montantPaye) || 0), 0);
+
+        const totalFacture = fraisFacture + achatsFacture + marchandiseFacture;
+        const totalPaye = fraisPaye + achatsPaye + marchandisePaye;
 
         const fournisseur = {
             frais,
             facturesAchat,
-            totalFacture: fraisFacture + achatsFacture,
-            totalPaye: fraisPaye + achatsPaye,
-            resteDu: Math.max(0, (fraisFacture + achatsFacture) - (fraisPaye + achatsPaye)),
-            derniereFacture: facturesAchat[0]?.date_facture ?? frais[0]?.dateFacture ?? null,
+            achatsMarchandise,
+            totalFacture,
+            totalPaye,
+            resteDu: Math.max(0, totalFacture - totalPaye),
+            derniereFacture: [facturesAchat[0]?.date_facture, frais[0]?.dateFacture, achatsMarchandise[0]?.dateAchat]
+                .filter(Boolean)
+                .sort()
+                .pop() ?? null,
         };
 
         res.json({ client, sorties, caTotal, piecesAchetees, dernierAchat, parModele, tarifs, fournisseur });

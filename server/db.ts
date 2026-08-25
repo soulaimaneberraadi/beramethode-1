@@ -915,6 +915,11 @@ db.exec(`
   )
 `);
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_articles_owner ON st_articles (owner_id)'); } catch { /* déjà présent */ }
+// Carte code-barres -> (taille, couleur), comme `models.meta_data.variantCodes`.
+// Un article acheté n'est pas dans `models` : sans cette colonne, le lecteur
+// scannait un tiki imprimé mais rien ne mémorisait ce que le code désignait,
+// et la grille de sortie ne pouvait jamais se remplir automatiquement.
+try { db.exec("ALTER TABLE st_articles ADD COLUMN variant_codes_json TEXT"); } catch { /* déjà présente */ }
 
 // Un ACHAT de marchandise : qui nous l'a vendue, quand, et à quel prix la pièce.
 // Le prix payé EST le prix de revient de cet article — il n'y a pas de matière

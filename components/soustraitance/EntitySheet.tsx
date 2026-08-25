@@ -1137,6 +1137,7 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
     const [fournisseurAccount, setFournisseurAccount] = useState<{
         frais: any[];
         facturesAchat: any[];
+        achatsMarchandise: any[];
         totalFacture: number;
         totalPaye: number;
         resteDu: number;
@@ -1540,10 +1541,49 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                                 </div>
                             )}
 
+                            {/* Achats de marchandise finie : rattachement par IDENTIFIANT
+                                (choisi à la saisie), pas par nom — pas d'ambiguïté possible
+                                ici, contrairement aux factures d'achat. Le montant dû suit
+                                les pièces RÉELLEMENT entrées en stock pour cet achat. */}
+                            {fournisseurAccount.achatsMarchandise.length > 0 && (
+                                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface">
+                                    <table className="w-full text-[11px] border-collapse">
+                                        <thead>
+                                            <tr className="bg-slate-50 dark:bg-dk-bg/60">
+                                                <th className={th}>{tx(lang, { fr: 'Article acheté', ar: 'السلعة المشراة', en: 'Purchased article', es: 'Artículo comprado', pt: 'Artigo comprado', tr: 'Satın alınan ürün' })}</th>
+                                                <th className={th}>{tx(lang, { fr: 'Date', ar: 'التاريخ', en: 'Date', es: 'Fecha', pt: 'Data', tr: 'Tarih' })}</th>
+                                                <th className={`${th} text-right`}>{tx(lang, { fr: 'Montant', ar: 'المبلغ', en: 'Amount', es: 'Importe', pt: 'Montante', tr: 'Tutar' })}</th>
+                                                <th className={`${th} text-right`}>{tx(lang, { fr: 'Reste', ar: 'الباقي', en: 'Left', es: 'Resta', pt: 'Resta', tr: 'Kalan' })}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {fournisseurAccount.achatsMarchandise.map((m: any) => {
+                                                const montant = (Number(m.quantite) || 0) * (Number(m.prixAchat) || 0);
+                                                const reste = Math.max(0, montant - (Number(m.montantPaye) || 0));
+                                                return (
+                                                    <tr key={m.id} className="border-t border-slate-100 dark:border-dk-border">
+                                                        <td className={`${td} font-semibold text-slate-800 dark:text-dk-text`}>
+                                                            {m.articleNom || '—'}
+                                                            {m.factureRef && <span className="block text-[9px] text-slate-400 dark:text-dk-muted font-normal">{m.factureRef}</span>}
+                                                        </td>
+                                                        <td className={td}>{m.dateAchat ? new Date(m.dateAchat).toLocaleDateString(dateLocale) : '—'}</td>
+                                                        <td className={`${td} text-right font-bold`}>{fmt(montant)}</td>
+                                                        <td className={`${td} text-right font-bold ${reste > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                            {reste > 0 ? fmt(reste) : '✓'}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
                             {/* Le rapprochement des factures d'achat se fait sur le NOM :
                                 elles ont ete saisies avant l'existence du registre. Le
-                                dire evite de croire a un oubli quand le nom differe. */}
-                            {fournisseurAccount.facturesAchat.length === 0 && fournisseurAccount.frais.length === 0 && (
+                                dire evite de croire a un oubli quand le nom differe. Les
+                                achats de marchandise, eux, se rattachent par identifiant. */}
+                            {fournisseurAccount.facturesAchat.length === 0 && fournisseurAccount.frais.length === 0 && fournisseurAccount.achatsMarchandise.length === 0 && (
                                 <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
                                     {tx(lang, { fr: 'Aucun frais ni facture d\'achat à son nom. Les factures d\'achat sont rapprochées sur le nom exact du tiers.', ar: 'ما كاين لا مصاريف لا فواتير شراء باسمو. فواتير الشراء كتّربط بالاسم المضبوط ديال الطرف.', en: 'No expenses or purchase invoices under their name. Purchase invoices are matched on the exact name.', es: 'Ningún gasto ni factura de compra a su nombre. Las facturas de compra se cotejan por el nombre exacto.', pt: 'Nenhuma despesa ou fatura de compra em seu nome. As faturas de compra são associadas pelo nome exato.', tr: 'Adına masraf veya alış faturası yok. Alış faturaları tam ada göre eşleştirilir.' })}
                                 </p>
