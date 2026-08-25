@@ -878,6 +878,73 @@ db.exec(`
 // comme le tableau qu'elle était, et de la supprimer d'un bloc.
 try { db.exec('ALTER TABLE st_stock_entries ADD COLUMN batch_id TEXT'); } catch { /* colonne déjà présente */ }
 
+// D'OÙ vient cette entrée en stock. Jusqu'ici il n'y en avait qu'une seule
+// origine possible — une commande de sous-traitance — et `order_id` désignait
+// toujours une ligne de `subcontract_orders`. L'atelier achète aussi de la
+// marchandise DÉJÀ FINIE pour la revendre : elle n'a ni gamme, ni chrono, ni
+// prix de revient calculé, et fabriquer une fausse commande de sous-traitance
+// pour la faire entrer aurait sali les statistiques de production.
+//   'ORDER' → `order_id` pointe une commande de sous-traitance (cas d'origine,
+//             donc la valeur par défaut : aucune entrée existante ne change)
+//   'ACHAT' → `order_id` pointe un achat (`st_achats`)
+try { db.exec("ALTER TABLE st_stock_entries ADD COLUMN source TEXT DEFAULT 'ORDER'"); } catch { /* colonne déjà présente */ }
+try { db.exec("UPDATE st_stock_entries SET source = 'ORDER' WHERE source IS NULL OR source = ''"); } catch { /* table vide */ }
+
+// Marchandise achetée pour être revendue. VOLONTAIREMENT hors de `models` : un
+// modèle, ici, c'est un parcours complet (fiche technique, gamme, chrono,
+// équilibrage, prix de revient). Un article acheté n'a rien de tout cela — il a
+// une photo, une grille de tailles et de couleurs, et un prix payé. L'inscrire
+// dans la bibliothèque l'aurait fait remonter dans l'ingénierie, la coupe et le
+// planning, où il n'a rien à faire.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_articles (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    nom TEXT NOT NULL,
+    reference TEXT,
+    photo TEXT,
+    -- Memes formes que la ficheData d un modele, pour que la grille couleur x
+    -- taille, les sorties, les étiquettes et les factures fonctionnent sans
+    -- écrire une seconde fois le même code.
+    colors_json TEXT,
+    sizes_json TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_articles_owner ON st_articles (owner_id)'); } catch { /* déjà présent */ }
+
+// Un ACHAT de marchandise : qui nous l'a vendue, quand, et à quel prix la pièce.
+// Le prix payé EST le prix de revient de cet article — il n'y a pas de matière
+// ni de main-d'œuvre à additionner, c'est la seule donnée de coût qui existe.
+// Plusieurs achats du même article peuvent coexister (réassort à un autre prix)
+// : le revient se lit alors comme la moyenne pondérée des achats, jamais comme
+// le dernier prix vu, qui ferait mentir la valeur du stock.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_achats (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    article_id TEXT NOT NULL,
+    -- Fournisseur : une fiche de st_clients portant le role FOURNISSEUR (ou
+    -- LES_DEUX). NULL est toléré — un achat comptant sans facture existe — mais
+    -- prive l'article de son historique fournisseur.
+    tiers_id TEXT,
+    date_achat TEXT,
+    prix_achat REAL NOT NULL DEFAULT 0,
+    facture_ref TEXT,
+    montant_paye REAL DEFAULT 0,
+    note TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_achats_owner ON st_achats (owner_id)'); } catch { /* déjà présent */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_achats_article ON st_achats (article_id)'); } catch { /* déjà présent */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_achats_tiers ON st_achats (tiers_id)'); } catch { /* déjà présent */ }
+
 // Sorties de stock fini : ce qui QUITTE l'atelier, ligne par ligne (couleur x
 // taille x client x date). Le stock vendable d'un modele vaut donc
 // « entrees acceptees - sorties », a la maille couleur/taille : un total global

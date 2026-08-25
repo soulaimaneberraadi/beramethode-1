@@ -2424,6 +2424,269 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setPendingEditClientId(String(client.id));
   };
 
+  /* ──────────────────────────────────────────────────────────────────────
+   * MARCHANDISE ACHETÉE POUR REVENTE.
+   * Un article acheté n'est PAS un modèle : pas de gamme, pas de chrono, pas
+   * d'équilibrage, et surtout pas sa place dans la bibliothèque — il y ferait
+   * du bruit dans l'ingénierie, la coupe et le planning. Il vit donc dans sa
+   * propre table et ne prend la forme d'un modèle qu'au moment de l'affichage.
+   * ────────────────────────────────────────────────────────────────────── */
+  type ArticleAchete = {
+    id: string;
+    nom: string;
+    reference: string | null;
+    photo: string | null;
+    colors: Array<{ id: string; name: string }>;
+    sizes: string[];
+    notes: string | null;
+  };
+  type AchatLigne = {
+    id: string;
+    articleId: string;
+    tiersId: string | null;
+    tiersNom: string | null;
+    dateAchat: string | null;
+    prixAchat: number;
+    factureRef: string | null;
+    montantPaye: number;
+    quantite: number;
+    note: string | null;
+  };
+  const [articles, setArticles] = useState<ArticleAchete[]>([]);
+  const [achats, setAchats] = useState<AchatLigne[]>([]);
+  /** Prix de vente des articles achetés. Ils n'ont pas de fiche de coût où le
+   *  ranger : la grille `st_prix` fait foi, colonne « catalogue ». */
+  const [articleSalePrices, setArticleSalePrices] = useState<Record<string, number | null>>({});
+
+  const loadArticlesEtAchats = useCallback(async () => {
+    if (IS_STATIC) return;
+    try {
+      const [ra, rb] = await Promise.all([
+        fetch('/api/subcontract/articles', { credentials: 'include' }),
+        fetch('/api/subcontract/achats', { credentials: 'include' }),
+      ]);
+      if (ra.ok) setArticles(await ra.json());
+      if (rb.ok) setAchats(await rb.json());
+    } catch { /* réseau : on garde ce qui est déjà affiché */ }
+  }, []);
+
+  useEffect(() => { void loadArticlesEtAchats(); }, [loadArticlesEtAchats]);
+
+  /** Prix de vente catalogue d'un article — résolu par la grille des tarifs.
+   *  `null` = aucun prix saisi, ce qui doit se voir plutôt que de se deviner. */
+  useEffect(() => {
+    if (IS_STATIC || articles.length === 0) return;
+    let alive = true;
+    Promise.all(articles.map(a =>
+      fetch(`/api/prix/resolve?modelId=${encodeURIComponent(a.id)}&qty=0`, { credentials: 'include' })
+        .then(r => (r.ok ? r.json() : null))
+        .then((d: any) => [a.id, d?.prix == null ? null : Number(d.prix)] as const)
+        .catch(() => [a.id, null] as const)
+    )).then(pairs => { if (alive) setArticleSalePrices(Object.fromEntries(pairs)); });
+    return () => { alive = false; };
+  }, [articles]);
+
+  const salePriceOf = (articleId: string): number | null => articleSalePrices[articleId] ?? null;
+
+  /* ── Écran d'achat ──────────────────────────────────────────────────────
+   * Volontairement court : une photo, un prix payé, une grille tailles ×
+   * couleurs, une date, un fournisseur. Rien des jalons d'une commande de
+   * sous-traitance (proto, bon d'envoi, défauts) — ils n'ont aucun sens pour
+   * de la marchandise déjà finie, et les afficher ferait croire qu'il reste
+   * des étapes à suivre.
+   * ──────────────────────────────────────────────────────────────────── */
+  const [achatOpen, setAchatOpen] = useState(false);
+  const [achatSaving, setAchatSaving] = useState(false);
+  const [achatError, setAchatError] = useState<string | null>(null);
+  /** Article visé : soit un article déjà connu (réassort), soit un nouveau. */
+  const [achatArticleId, setAchatArticleId] = useState<string>('');
+  const [achatNom, setAchatNom] = useState('');
+  const [achatReference, setAchatReference] = useState('');
+  const [achatPhoto, setAchatPhoto] = useState('');
+  const [achatColorsText, setAchatColorsText] = useState('');
+  const [achatSizesText, setAchatSizesText] = useState('');
+  const [achatPrix, setAchatPrix] = useState<number | ''>('');
+  const [achatPrixVente, setAchatPrixVente] = useState<number | ''>('');
+  const [achatDate, setAchatDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [achatTiersId, setAchatTiersId] = useState('');
+  const [achatFactureRef, setAchatFactureRef] = useState('');
+  const [achatMontantPaye, setAchatMontantPaye] = useState<number | ''>('');
+  const [achatGrid, setAchatGrid] = useState<Record<string, number | ''>>({});
+  /** Création d'un fournisseur sans quitter l'écran : aller le saisir dans
+   *  l'onglet Tiers puis revenir casse le geste et fait perdre la saisie. */
+  const [achatNewTiers, setAchatNewTiers] = useState(false);
+  const [achatNewTiersNom, setAchatNewTiersNom] = useState('');
+  const [achatNewTiersTel, setAchatNewTiersTel] = useState('');
+  const [achatNewTiersVille, setAchatNewTiersVille] = useState('');
+  const [achatNewTiersSaving, setAchatNewTiersSaving] = useState(false);
+
+  /** Les couleurs et les tailles se saisissent en texte libre séparé par des
+   *  virgules : un article acheté n'a pas de fiche technique où les choisir. */
+  const splitLabels = (raw: string): string[] =>
+    raw.split(/[,;\n]/).map(x => x.trim()).filter(Boolean);
+  const achatColors = useMemo(() => splitLabels(achatColorsText), [achatColorsText]);
+  const achatSizes = useMemo(() => splitLabels(achatSizesText), [achatSizesText]);
+  const achatTotalQty = useMemo(
+    () => Object.values(achatGrid).reduce<number>((a, v) => a + (Number(v) || 0), 0),
+    [achatGrid]
+  );
+  const achatTotalCout = achatTotalQty * (Number(achatPrix) || 0);
+
+  const openAchat = (article?: ArticleAchete) => {
+    setAchatOpen(true);
+    setAchatError(null);
+    setAchatSaving(false);
+    setAchatArticleId(article?.id || '');
+    setAchatNom(article?.nom || '');
+    setAchatReference(article?.reference || '');
+    setAchatPhoto(article?.photo || '');
+    setAchatColorsText((article?.colors || []).map(c => c.name).join(', '));
+    setAchatSizesText((article?.sizes || []).join(', '));
+    setAchatPrix('');
+    setAchatPrixVente(article ? (salePriceOf(article.id) ?? '') : '');
+    setAchatDate(new Date().toISOString().split('T')[0]);
+    setAchatTiersId('');
+    setAchatFactureRef('');
+    setAchatMontantPaye('');
+    setAchatGrid({});
+    setAchatNewTiers(false);
+    setAchatNewTiersNom('');
+    setAchatNewTiersTel('');
+    setAchatNewTiersVille('');
+  };
+
+  const createAchatTiers = async () => {
+    const nom = achatNewTiersNom.trim();
+    if (!nom) return;
+    setAchatNewTiersSaving(true);
+    try {
+      const res = await fetch('/api/subcontract/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        // Créé d'emblée comme FOURNISSEUR : on le saisit depuis un achat, donc
+        // c'est bien lui qui nous vend.
+        body: JSON.stringify({ nom, role: 'FOURNISSEUR', tel: achatNewTiersTel.trim() || null, ville: achatNewTiersVille.trim() || null }),
+      });
+      if (!res.ok) throw new Error();
+      const saved = await res.json();
+      const list = await fetch('/api/subcontract/clients', { credentials: 'include' });
+      if (list.ok) setAtelierClients(await list.json());
+      setAchatTiersId(String(saved.id));
+      setAchatNewTiers(false);
+      setAchatNewTiersNom('');
+      setAchatNewTiersTel('');
+      setAchatNewTiersVille('');
+    } catch {
+      setAchatError(tx(lang,{fr:'La création du fournisseur a échoué.',ar:'فشل إنشاء المورّد.',en:'Creating the supplier failed.',es:'Error al crear el proveedor.',pt:'Falha ao criar o fornecedor.',tr:'Tedarikçi oluşturulamadı.'}));
+    } finally {
+      setAchatNewTiersSaving(false);
+    }
+  };
+
+  const submitAchat = async () => {
+    const nom = achatNom.trim();
+    if (!nom) {
+      setAchatError(tx(lang,{fr:"Donnez un nom à l'article.",ar:'عطي اسم للسلعة.',en:'Give the article a name.',es:'Dé un nombre al artículo.',pt:'Dê um nome ao artigo.',tr:'Ürüne bir ad verin.'}));
+      return;
+    }
+    if (!(Number(achatPrix) >= 0) || achatPrix === '') {
+      setAchatError(tx(lang,{fr:"Indiquez le prix d'achat à la pièce.",ar:'حدّد ثمن الشرا للقطعة.',en:'Enter the purchase price per piece.',es:'Indique el precio de compra por pieza.',pt:'Indique o preço de compra por peça.',tr:'Parça başına alış fiyatını girin.'}));
+      return;
+    }
+    if (achatTotalQty <= 0) {
+      setAchatError(tx(lang,{fr:'Saisissez au moins une quantité dans la grille.',ar:'دخّل على الأقل كمية وحدة فالشبكة.',en:'Enter at least one quantity in the grid.',es:'Introduzca al menos una cantidad en la cuadrícula.',pt:'Introduza pelo menos uma quantidade na grelha.',tr:'Izgaraya en az bir miktar girin.'}));
+      return;
+    }
+
+    setAchatSaving(true);
+    setAchatError(null);
+    try {
+      // 1. L'article (créé ou mis à jour) — c'est lui qui portera le stock.
+      const resArt = await fetch('/api/subcontract/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          id: achatArticleId || undefined,
+          nom,
+          reference: achatReference.trim() || null,
+          photo: achatPhoto || null,
+          colors: achatColors,
+          sizes: achatSizes,
+        }),
+      });
+      if (!resArt.ok) throw new Error((await resArt.json().catch(() => null))?.message || '');
+      const article = await resArt.json();
+
+      // 2. L'achat + les entrées en stock, en une seule écriture côté serveur.
+      const lignes = Object.entries(achatGrid)
+        .map(([k, v]) => {
+          const [couleur, taille] = k.split('|');
+          return { couleur, taille, quantite: Number(v) || 0 };
+        })
+        .filter(l => l.quantite > 0);
+
+      const resAchat = await fetch('/api/subcontract/achats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          articleId: article.id,
+          tiersId: achatTiersId || null,
+          dateAchat: achatDate,
+          prixAchat: Number(achatPrix) || 0,
+          factureRef: achatFactureRef.trim() || null,
+          montantPaye: Number(achatMontantPaye) || 0,
+          lignes,
+        }),
+      });
+      if (!resAchat.ok) throw new Error((await resAchat.json().catch(() => null))?.message || '');
+
+      // 3. Le prix de VENTE, s'il a été indiqué : il va dans la grille des
+      //    tarifs (colonne catalogue), la même que celle qui alimente le tiki.
+      if (achatPrixVente !== '' && Number(achatPrixVente) > 0) {
+        await fetch('/api/prix', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ modelId: article.id, prix: Number(achatPrixVente), qty_min: 0 }),
+        }).catch(() => { /* le tarif reste saisissable depuis la carte */ });
+      }
+
+      await loadArticlesEtAchats();
+      await loadStockMovements();
+      setAchatOpen(false);
+    } catch (err: any) {
+      setAchatError(err?.message || tx(lang,{fr:"L'enregistrement de l'achat a échoué.",ar:'فشل تسجيل الشرا.',en:'Saving the purchase failed.',es:'Error al guardar la compra.',pt:'Falha ao guardar a compra.',tr:'Alış kaydedilemedi.'}));
+    } finally {
+      setAchatSaving(false);
+    }
+  };
+
+
+
+  /** Donne à un article la FORME d'un modèle, le temps de l'affichage. Tout le
+   *  reste du module (grille de stock, sorties, étiquettes, factures) travaille
+   *  déjà sur cette forme : la réécrire pour les articles aurait doublé le code
+   *  et les occasions de diverger. */
+  const articleAsModel = (a: ArticleAchete): ModelData => ({
+    id: a.id,
+    filename: a.nom,
+    image: a.photo || null,
+    ficheData: { colors: a.colors, sizes: a.sizes } as any,
+    meta_data: {
+      nom_modele: a.nom,
+      reference: a.reference || '',
+      date_creation: '',
+      total_temps: 0,
+      effectif: 0,
+      sizes: a.sizes,
+      colors: a.colors,
+    } as ModelData['meta_data'],
+    gamme_operatoire: [],
+  });
+
   /** Stock disponible par modèle, cellule par cellule : entrées ACCEPTÉES moins
    *  sorties. C'est ce chiffre, et lui seul, qui autorise une vente. */
   const stockMatrixByModel = useMemo(() => {
@@ -3564,6 +3827,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       sortiesCount: number;
       /** Nombre de commandes de sous-traitance distinctes ayant produit ce modèle. */
       ordersCount: number;
+      /** D'OÙ vient la marchandise. « Ce que j'ai fait faire » et « ce que j'ai
+       *  acheté pour revendre » ne se pilotent pas pareil : la première a un
+       *  prix de revient calculé (matière + façon + frais), la seconde a un
+       *  prix payé. Les confondre dans une même liste sans le dire ferait lire
+       *  une marge pour l'autre. */
+      origine: 'SOUS_TRAITANCE' | 'ACHAT';
+      /** Fournisseur du dernier achat — vide pour la sous-traitance. */
+      fournisseurNom?: string | null;
+      /** Date du dernier achat, déjà formatée. */
+      dateAchat?: string | null;
     }> = [];
 
     models.forEach(model => {
@@ -3659,11 +3932,71 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         status: activeStatus,
         sortiesCount: sortieBatches.size,
         ordersCount,
+        origine: 'SOUS_TRAITANCE',
+      });
+    });
+
+    // ── Marchandise ACHETÉE ────────────────────────────────────────────────
+    // Elle n'est pas dans `models` — un article acheté n'a ni gamme ni chrono,
+    // et l'inscrire dans la bibliothèque le ferait remonter dans l'ingénierie,
+    // la coupe et le planning. On lui donne ici la FORME d'un modèle, le temps
+    // de l'affichage, pour que la grille de stock, les sorties, les étiquettes
+    // et les factures marchent sans une deuxième écriture du même code.
+    articles.forEach(article => {
+      const achatsArticle = achats.filter(a => a.articleId === article.id);
+      const entrees = allStockEntries.filter(e => e.modelId === article.id && e.qualite === 'ACCEPTED');
+      const sortiesArt = allStockSorties.filter(so => so.modelId === article.id);
+
+      const producedQty = entrees.reduce((a, e) => a + (Number(e.quantite) || 0), 0);
+      const exitedQty = sortiesArt.reduce((a, so) => a + (Number(so.quantite) || 0), 0);
+
+      let invoicedQty = 0;
+      invoices.forEach(inv => {
+        (inv.lignes || []).forEach((line: any) => {
+          if (line.modelId && line.modelId === article.id) invoicedQty += line.qte || 0;
+        });
+      });
+
+      // Le revient d'un article acheté est le prix PAYÉ, pondéré par les
+      // quantités : deux réassorts à des prix différents ne se résument pas au
+      // dernier prix vu, qui ferait mentir la valeur du stock.
+      let coutTotal = 0;
+      let qtyTotal = 0;
+      achatsArticle.forEach(a => {
+        const q = Number(a.quantite) || 0;
+        coutTotal += q * (Number(a.prixAchat) || 0);
+        qtyTotal += q;
+      });
+      const price = qtyTotal > 0 ? coutTotal / qtyTotal : null;
+
+      const sortieBatches = new Set(sortiesArt.map(so => so.batch_id || so.id));
+      const dernier = achatsArticle[0] || null;
+
+      list.push({
+        model: articleAsModel(article),
+        producedQty,
+        soldQty: invoicedQty,
+        exitedQty,
+        invoicedQty,
+        remainingStock: Math.max(0, producedQty - exitedQty),
+        // Un article acheté est ventilé par construction : sa grille est saisie
+        // couleur par couleur au moment de l'achat, jamais en total global.
+        isVentile: true,
+        stockSource: 'DETAIL',
+        price,
+        salePrice: salePriceOf(article.id),
+        startDate: dernier?.dateAchat ? fmtDate(dernier.dateAchat) : '—',
+        status: producedQty > exitedQty ? 'FINISHED' : 'INACTIVE',
+        sortiesCount: sortieBatches.size,
+        ordersCount: achatsArticle.length,
+        origine: 'ACHAT',
+        fournisseurNom: dernier?.tiersNom ?? null,
+        dateAchat: dernier?.dateAchat ? fmtDate(dernier.dateAchat) : null,
       });
     });
 
     return list;
-  }, [models, orders, invoices, settings, lang, dateLocale, allStockEntries, allStockSorties]);
+  }, [models, orders, invoices, settings, lang, dateLocale, allStockEntries, allStockSorties, articles, achats, articleSalePrices]);
   modelStockStatsRef.current = modelStockStats;
 
   /** Modèles sélectionnables pour la commande « normale » : uniquement ceux
@@ -7155,6 +7488,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <Plus className="w-3.5 h-3.5" />
                   {tx(lang,{fr:'Nouvelle Commande',ar:'أمر جديد',en:'New Order',es:'Nuevo Pedido',pt:'Nova Encomenda',tr:'Yeni Sipariş'})}
                 </button>
+                {/* Acheter n'est pas commander : ici on fait entrer de la
+                    marchandise DÉJÀ FINIE, sans gamme ni jalons. Deux gestes
+                    distincts, deux boutons distincts. */}
+                <button
+                  type="button"
+                  onClick={() => openAchat()}
+                  className="hidden lg:flex shrink-0 items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold text-white bg-sky-600 hover:bg-sky-700 shadow-sm dark:shadow-none transition-all border border-sky-600"
+                >
+                  <Warehouse className="w-3.5 h-3.5" />
+                  {tx(lang,{fr:'Acheter un article',ar:'شرا سلعة',en:'Buy an article',es:'Comprar un artículo',pt:'Comprar um artigo',tr:'Ürün satın al'})}
+                </button>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {([
                     { id: 'all', label: tx(lang,{fr:'Tous',ar:'الكل',en:'All',es:'Todos',pt:'Todos',tr:'Tumu'}) },
@@ -7227,6 +7571,24 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           </span>
                         ) : (
                           <span className="text-[10px] text-slate-300 dark:text-dk-muted block italic">{tx(lang,{fr:'Sans client',ar:'بلا عميل',en:'No client',es:'Sin cliente',pt:'Sem cliente',tr:'Müşteri yok'})}</span>
+                        )}
+                        {/* D'ou vient la marchandise. Ce que j'ai fait faire et ce
+                            que j'ai achete pour revendre ne se lisent pas pareil :
+                            l'un a un revient calcule, l'autre un prix paye. */}
+                        <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded border text-[9px] font-bold ${
+                          item.origine === 'ACHAT'
+                            ? 'bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800/50'
+                            : 'bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                        }`}>
+                          {item.origine === 'ACHAT' ? <Warehouse className="w-2.5 h-2.5" /> : <Truck className="w-2.5 h-2.5" />}
+                          {item.origine === 'ACHAT'
+                            ? tx(lang,{fr:'Acheté',ar:'مشرِي',en:'Bought',es:'Comprado',pt:'Comprado',tr:'Satın alındı'})
+                            : tx(lang,{fr:'Sous-traitance',ar:'سوطراطونس',en:'Subcontracted',es:'Subcontratado',pt:'Subcontratado',tr:'Fason'})}
+                        </span>
+                        {item.origine === 'ACHAT' && item.fournisseurNom && (
+                          <span className="block text-[9px] text-slate-400 dark:text-dk-muted mt-0.5 truncate">
+                            {item.fournisseurNom}{item.dateAchat ? ` · ${item.dateAchat}` : ''}
+                          </span>
                         )}
                       </div>
                       <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full uppercase whitespace-nowrap shrink-0 border ${
@@ -10779,6 +11141,288 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* identifie le modèle et remplit la case */}
       {/* taille×couleur de la grille de sortie. */}
       {/* ======================================= */}
+      {/* ======================================= */}
+      {/* ACHAT DE MARCHANDISE FINIE            */}
+      {/* ======================================= */}
+      {achatOpen && (
+        <SheetModal
+          onClose={() => { if (!achatSaving) setAchatOpen(false); }}
+          title={tx(lang,{fr:'Acheter un article',ar:'شرا سلعة',en:'Buy an article',es:'Comprar un artículo',pt:'Comprar um artigo',tr:'Ürün satın al'})}
+          subtitle={tx(lang,{fr:'Marchandise déjà finie, achetée pour être revendue',ar:'سلعة جاهزة، مشراة باش تتباع',en:'Finished goods, bought for resale',es:'Mercancía ya terminada, comprada para revender',pt:'Mercadoria já acabada, comprada para revenda',tr:'Yeniden satmak için alınan hazır mal'})}
+          icon={<div className="p-2 bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 rounded-xl shrink-0"><Warehouse className="w-5 h-5" /></div>}
+          size="lg"
+          zClass="z-[255]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop
+          bare
+        >
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-5 space-y-4">
+              {achatError && (
+                <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span className="text-[11px] font-semibold leading-relaxed">{achatError}</span>
+                </div>
+              )}
+
+              {/* Réassort : reprendre un article déjà acheté évite d'en créer un
+                  deuxième sous un nom légèrement différent, ce qui couperait le
+                  stock en deux lignes. */}
+              {articles.length > 0 && (
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                    {tx(lang,{fr:'Article',ar:'السلعة',en:'Article',es:'Artículo',pt:'Artigo',tr:'Ürün'})}
+                  </label>
+                  <select
+                    value={achatArticleId}
+                    onChange={e => {
+                      const a = articles.find(x => x.id === e.target.value);
+                      if (a) openAchat(a); else { setAchatArticleId(''); setAchatNom(''); setAchatReference(''); setAchatPhoto(''); setAchatColorsText(''); setAchatSizesText(''); setAchatGrid({}); }
+                    }}
+                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                  >
+                    <option value="">{tx(lang,{fr:'— Nouvel article —',ar:'— سلعة جديدة —',en:'— New article —',es:'— Nuevo artículo —',pt:'— Novo artigo —',tr:'— Yeni ürün —'})}</option>
+                    {articles.map(a => <option key={a.id} value={a.id}>{a.nom}</option>)}
+                  </select>
+                  {achatArticleId && (
+                    <p className="mt-1 text-[10px] text-sky-600 dark:text-sky-400 font-semibold">
+                      {tx(lang,{fr:'Réassort : les quantités s\'ajoutent au stock existant.',ar:'إعادة تموين: الكميات كتزاد للستوك الموجود.',en:'Restock: quantities add to the existing stock.',es:'Reposición: las cantidades se suman al stock existente.',pt:'Reabastecimento: as quantidades somam-se ao stock existente.',tr:'Yeniden stok: miktarlar mevcut stoğa eklenir.'})}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Photo + identité. La photo n'est pas décorative : dans une
+                  liste de stock, c'est elle qu'on reconnaît avant le nom. */}
+              <div className="flex items-start gap-3">
+                <label className="w-24 h-24 rounded-xl border border-dashed border-slate-300 dark:border-dk-border bg-slate-50 dark:bg-dk-bg flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:border-sky-400 transition-colors">
+                  {achatPhoto
+                    ? <img src={achatPhoto} alt="" className="w-full h-full object-cover" />
+                    : <span className="flex flex-col items-center gap-1 text-slate-400 dark:text-dk-muted"><Upload className="w-5 h-5" /><span className="text-[9px] font-bold">{tx(lang,{fr:'Photo',ar:'صورة',en:'Photo',es:'Foto',pt:'Foto',tr:'Fotoğraf'})}</span></span>}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      e.currentTarget.value = '';
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        // Réduction avant stockage : la photo part dans la
+                        // synchro, une image d'appareil photo la ferait gonfler.
+                        const img = new window.Image();
+                        img.onload = () => {
+                          const maxW = 640;
+                          const ratio = img.width > maxW ? maxW / img.width : 1;
+                          const c = document.createElement('canvas');
+                          c.width = Math.max(1, Math.round(img.width * ratio));
+                          c.height = Math.max(1, Math.round(img.height * ratio));
+                          const ctx = c.getContext('2d');
+                          if (!ctx) { setAchatPhoto(String(reader.result || '')); return; }
+                          ctx.drawImage(img, 0, 0, c.width, c.height);
+                          setAchatPhoto(c.toDataURL('image/jpeg', 0.82));
+                        };
+                        img.onerror = () => setAchatPhoto(String(reader.result || ''));
+                        img.src = String(reader.result || '');
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+                <div className="flex-1 min-w-0 space-y-2.5">
+                  <div>
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                      {tx(lang,{fr:'Nom de l\'article *',ar:'اسم السلعة *',en:'Article name *',es:'Nombre del artículo *',pt:'Nome do artigo *',tr:'Ürün adı *'})}
+                    </label>
+                    <input type="text" value={achatNom} onChange={e => setAchatNom(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                      {tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'})}
+                    </label>
+                    <input type="text" value={achatReference} onChange={e => setAchatReference(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Couleurs et tailles : saisie libre, séparées par des virgules.
+                  Un article acheté n'a pas de fiche technique où les choisir. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                    {tx(lang,{fr:'Couleurs (séparées par des virgules)',ar:'الألوان (مفصولة بفواصل)',en:'Colors (comma separated)',es:'Colores (separados por comas)',pt:'Cores (separadas por vírgulas)',tr:'Renkler (virgülle ayrılmış)'})}
+                  </label>
+                  <input type="text" value={achatColorsText} onChange={e => setAchatColorsText(e.target.value)} placeholder="Noir, Blanc, Bleu" className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                    {tx(lang,{fr:'Tailles (séparées par des virgules)',ar:'المقاسات (مفصولة بفواصل)',en:'Sizes (comma separated)',es:'Tallas (separadas por comas)',pt:'Tamanhos (separados por vírgulas)',tr:'Bedenler (virgülle ayrılmış)'})}
+                  </label>
+                  <input type="text" value={achatSizesText} onChange={e => setAchatSizesText(e.target.value)} placeholder="S, M, L, XL" className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                </div>
+              </div>
+
+              {/* Grille des quantités — la même forme que la fiche technique :
+                  c'est elle qui répond plus tard à « me reste-t-il du XL bleu ? ». */}
+              {achatColors.length > 0 && achatSizes.length > 0 ? (
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                    {tx(lang,{fr:'Quantités achetées par couleur × taille',ar:'الكميات المشراة لكل لون × مقاس',en:'Quantities bought per color × size',es:'Cantidades compradas por color × talla',pt:'Quantidades compradas por cor × tamanho',tr:'Renk × beden başına alınan miktar'})}
+                  </label>
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface">
+                    <table className="w-full border-collapse text-[11px]">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-dk-bg/60">
+                          <th className="p-2 text-left font-bold text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border whitespace-nowrap">
+                            {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
+                          </th>
+                          {achatSizes.map(t => (
+                            <th key={t} className="p-2 text-center font-bold text-sky-700 dark:text-sky-400 border-b border-l border-slate-200 dark:border-dk-border whitespace-nowrap">{t}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {achatColors.map(c => (
+                          <tr key={c}>
+                            <td className="p-2 font-semibold text-slate-600 dark:text-dk-text-soft border-b border-slate-100 dark:border-dk-border whitespace-nowrap max-w-[140px] truncate">{c}</td>
+                            {achatSizes.map(t => {
+                              const key = `${c}|${t}`;
+                              return (
+                                <td key={key} className="p-1.5 border-b border-l border-slate-100 dark:border-dk-border">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={achatGrid[key] ?? ''}
+                                    onChange={e => setAchatGrid(prev => ({ ...prev, [key]: e.target.value === '' ? '' : Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
+                                    className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-1.5 py-1 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                                  />
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+                  {tx(lang,{fr:'Indiquez au moins une couleur et une taille pour saisir les quantités.',ar:'دخّل على الأقل لون واحد ومقاس واحد باش تكتب الكميات.',en:'Enter at least one color and one size to fill the quantities.',es:'Indique al menos un color y una talla para introducir las cantidades.',pt:'Indique pelo menos uma cor e um tamanho para introduzir as quantidades.',tr:'Miktar girmek için en az bir renk ve bir beden belirtin.'})}
+                </p>
+              )}
+
+              {/* Prix payé, prix de vente, date. Le prix payé EST le revient :
+                  il n'y a ni matière ni main-d'œuvre à additionner. */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                    {tx(lang,{fr:'Prix d\'achat / pièce *',ar:'ثمن الشرا / القطعة *',en:'Purchase price / piece *',es:'Precio de compra / pieza *',pt:'Preço de compra / peça *',tr:'Alış fiyatı / parça *'})} ({currency})
+                  </label>
+                  <input type="number" min={0} step="0.01" value={achatPrix} onChange={e => setAchatPrix(e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                    {tx(lang,{fr:'Prix de vente',ar:'ثمن البيع',en:'Sale price',es:'Precio de venta',pt:'Preço de venda',tr:'Satış fiyatı'})} ({currency})
+                  </label>
+                  <input type="number" min={0} step="0.01" value={achatPrixVente} onChange={e => setAchatPrixVente(e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                    {tx(lang,{fr:'Date d\'achat',ar:'تاريخ الشرا',en:'Purchase date',es:'Fecha de compra',pt:'Data de compra',tr:'Alış tarihi'})}
+                  </label>
+                  <input type="date" value={achatDate} onChange={e => setAchatDate(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                </div>
+              </div>
+
+              {/* Fournisseur — choisi dans le registre, ou créé sur place :
+                  aller le saisir ailleurs puis revenir ferait perdre la saisie. */}
+              <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-4 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                    {tx(lang,{fr:'Fournisseur',ar:'المورّد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAchatNewTiers(v => !v)}
+                    className="text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                  >
+                    {achatNewTiers
+                      ? tx(lang,{fr:'Choisir dans la liste',ar:'اختر من اللائحة',en:'Pick from the list',es:'Elegir de la lista',pt:'Escolher da lista',tr:'Listeden seç'})
+                      : tx(lang,{fr:'+ Nouveau fournisseur',ar:'+ مورّد جديد',en:'+ New supplier',es:'+ Nuevo proveedor',pt:'+ Novo fornecedor',tr:'+ Yeni tedarikçi'})}
+                  </button>
+                </div>
+
+                {achatNewTiers ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                    <input type="text" value={achatNewTiersNom} onChange={e => setAchatNewTiersNom(e.target.value)} placeholder={tx(lang,{fr:'Nom *',ar:'الاسم *',en:'Name *',es:'Nombre *',pt:'Nome *',tr:'Ad *'})} className="sm:col-span-2 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                    <input type="text" value={achatNewTiersTel} onChange={e => setAchatNewTiersTel(e.target.value)} placeholder={tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                    <input type="text" value={achatNewTiersVille} onChange={e => setAchatNewTiersVille(e.target.value)} placeholder={tx(lang,{fr:'Ville',ar:'المدينة',en:'City',es:'Ciudad',pt:'Cidade',tr:'Şehir'})} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                    <button
+                      type="button"
+                      disabled={achatNewTiersSaving || !achatNewTiersNom.trim()}
+                      onClick={createAchatTiers}
+                      className="sm:col-span-4 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-[11px] disabled:opacity-60 transition-colors"
+                    >
+                      {achatNewTiersSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                      {tx(lang,{fr:'Créer le fournisseur',ar:'إنشاء المورّد',en:'Create the supplier',es:'Crear el proveedor',pt:'Criar o fornecedor',tr:'Tedarikçiyi oluştur'})}
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={achatTiersId}
+                    onChange={e => setAchatTiersId(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                  >
+                    <option value="">{tx(lang,{fr:'— Aucun —',ar:'— بلا —',en:'— None —',es:'— Ninguno —',pt:'— Nenhum —',tr:'— Yok —'})}</option>
+                    {atelierClients
+                      .filter(c => { const r = (c as any).role || 'CLIENT'; return r === 'FOURNISSEUR' || r === 'LES_DEUX'; })
+                      .map(c => <option key={c.id} value={String(c.id)}>{c.nom}</option>)}
+                  </select>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input type="text" value={achatFactureRef} onChange={e => setAchatFactureRef(e.target.value)} placeholder={tx(lang,{fr:'N° de facture',ar:'رقم الفاتورة',en:'Invoice no.',es:'N.º de factura',pt:'N.º de fatura',tr:'Fatura no'})} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                  <input type="number" min={0} step="0.01" value={achatMontantPaye} onChange={e => setAchatMontantPaye(e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0))} placeholder={`${tx(lang,{fr:'Déjà payé',ar:'المخلَّص',en:'Already paid',es:'Ya pagado',pt:'Já pago',tr:'Ödenen'})} (${currency})`} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                </div>
+              </div>
+
+              {/* Total : le chiffre qu'on vérifie contre la facture du
+                  fournisseur avant de valider. */}
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800/50 px-4 py-3">
+                <span className="text-[11px] font-bold text-sky-700 dark:text-sky-400">
+                  {achatTotalQty.toLocaleString(dateLocale)} {tx(lang,{fr:'pièces',ar:'قطعة',en:'pieces',es:'piezas',pt:'peças',tr:'parça'})}
+                </span>
+                <span className="text-sm font-black text-sky-700 dark:text-sky-400">
+                  {fmt(achatTotalCout)} {currency}
+                </span>
+              </div>
+
+              <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
+                <button
+                  type="button"
+                  disabled={achatSaving}
+                  onClick={() => setAchatOpen(false)}
+                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                >
+                  {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                </button>
+                <button
+                  type="button"
+                  disabled={achatSaving}
+                  onClick={submitAchat}
+                  className="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-60 border border-sky-600"
+                >
+                  {achatSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>{tx(lang,{fr:'Enregistrer l\'achat',ar:'تسجيل الشرا',en:'Save the purchase',es:'Guardar la compra',pt:'Guardar a compra',tr:'Alışı kaydet'})}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </SheetModal>
+      )}
+
       {/* ======================================= */}
       {/* PARAMÈTRES DU TIKI — valables pour TOUS les modèles.  */}
       {/* ======================================= */}

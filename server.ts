@@ -80,8 +80,9 @@ import {
   updateSubcontractExpense,
   deleteSubcontractExpense,
 } from './server/subcontractController';
-import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice } from './server/clientsController';
+import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice, createCommandeNormale } from './server/clientsController';
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
+import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat } from './server/achatsController';
 import {
   getStoreConfig, saveStoreConfig, deleteStoreConfig, testStoreConnection,
   getStoreMapping, generateStoreMapping, saveStoreMapping, publishStoreModel,
@@ -671,6 +672,8 @@ async function startServer() {
   // Sorties de stock fini (ventes clients), detaillees par couleur x taille.
   app.get('/api/subcontract/stock-sorties', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStockSorties);
   app.post('/api/subcontract/stock-sorties', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createStockSortie);
+  // Commande « normale » : plusieurs modèles sur une seule commande de vente.
+  app.post('/api/subcontract/commandes', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createCommandeNormale);
   app.delete('/api/subcontract/stock-sorties/batch/:batchId', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteStockSortieBatch);
   // Facture de VENTE construite à partir de sorties déjà réalisées — c'est ce
   // qui relie enfin « ce qui est sorti » à « ce qui est payé ».
@@ -682,6 +685,15 @@ async function startServer() {
   app.get('/api/subcontract/next-invoice-number', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getNextSubcontractInvoiceNumber);
   // Clients de l'atelier — rattachés à la page Sous-traitance, qui porte les
   // sorties de stock et les factures de vente.
+  // Marchandise achetee pour revente : articles (la fiche legere) et achats
+  // (le fournisseur, la date, le prix paye). Declarees AVANT /api/subcontract/:id
+  // sinon « articles » et « achats » seraient pris pour des identifiants.
+  app.get('/api/subcontract/articles', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getArticles);
+  app.post('/api/subcontract/articles', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveArticle);
+  app.delete('/api/subcontract/articles/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_articles', 'owner_id'), deleteArticle);
+  app.get('/api/subcontract/achats', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getAchats);
+  app.post('/api/subcontract/achats', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createAchat);
+  app.delete('/api/subcontract/achats/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_achats', 'owner_id'), deleteAchat);
   app.get('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getClients);
   app.post('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveClient);
   app.delete('/api/subcontract/clients/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_clients', 'owner_id'), deleteClient);
