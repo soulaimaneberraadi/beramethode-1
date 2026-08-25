@@ -2503,8 +2503,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [achatNom, setAchatNom] = useState('');
   const [achatReference, setAchatReference] = useState('');
   const [achatPhoto, setAchatPhoto] = useState('');
-  const [achatColorsText, setAchatColorsText] = useState('');
-  const [achatSizesText, setAchatSizesText] = useState('');
   const [achatPrix, setAchatPrix] = useState<number | ''>('');
   const [achatPrixVente, setAchatPrixVente] = useState<number | ''>('');
   const [achatDate, setAchatDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -2520,12 +2518,59 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [achatNewTiersVille, setAchatNewTiersVille] = useState('');
   const [achatNewTiersSaving, setAchatNewTiersSaving] = useState(false);
 
-  /** Les couleurs et les tailles se saisissent en texte libre séparé par des
-   *  virgules : un article acheté n'a pas de fiche technique où les choisir. */
-  const splitLabels = (raw: string): string[] =>
-    raw.split(/[,;\n]/).map(x => x.trim()).filter(Boolean);
-  const achatColors = useMemo(() => splitLabels(achatColorsText), [achatColorsText]);
-  const achatSizes = useMemo(() => splitLabels(achatSizesText), [achatSizesText]);
+  /** Couleurs et tailles se composent comme dans la répartition d'une fiche
+   *  technique : on ajoute une pastille de couleur et des tailles une à une.
+   *  Une saisie « libre séparée par des virgules » obligeait à retaper toute la
+   *  ligne pour corriger une couleur, et ne montrait pas la couleur réelle. */
+  const [achatColorList, setAchatColorList] = useState<Array<{ id: string; name: string }>>([]);
+  const [achatSizeList, setAchatSizeList] = useState<string[]>([]);
+  const [achatNewColorHex, setAchatNewColorHex] = useState('#4f46e5');
+  const [achatNewColorName, setAchatNewColorName] = useState('');
+  const [achatNewSizes, setAchatNewSizes] = useState('');
+
+  const achatColors = useMemo(() => achatColorList.map(c => c.name), [achatColorList]);
+  const achatSizes = achatSizeList;
+
+  /** Plusieurs tailles d'un coup (« 36 38 40 ») : c'est ainsi qu'on les lit sur
+   *  un bon de commande, pas une par une. Les doublons sont ignorés en silence
+   *  — les ajouter créerait deux colonnes identiques dans la grille. */
+  const addAchatSizes = () => {
+    const parts = achatNewSizes.split(/[\s,;]+/).map(x => x.trim()).filter(Boolean);
+    if (parts.length === 0) return;
+    setAchatSizeList(prev => {
+      const next = [...prev];
+      parts.forEach(t => { if (!next.some(x => x.toLowerCase() === t.toLowerCase())) next.push(t); });
+      return next;
+    });
+    setAchatNewSizes('');
+  };
+
+  const removeAchatSize = (taille: string) => {
+    setAchatSizeList(prev => prev.filter(t => t !== taille));
+    // Les quantités de la colonne partent avec elle : les garder ferait un
+    // total qui ne correspond à aucune case visible.
+    setAchatGrid(prev => {
+      const next: Record<string, number | ''> = {};
+      Object.entries(prev).forEach(([k, v]) => { if (k.split('|')[1] !== taille) next[k] = v; });
+      return next;
+    });
+  };
+
+  const addAchatColor = () => {
+    const name = achatNewColorName.trim() || achatNewColorHex;
+    if (achatColorList.some(c => c.name.toLowerCase() === name.toLowerCase())) return;
+    setAchatColorList(prev => [...prev, { id: achatNewColorHex, name }]);
+    setAchatNewColorName('');
+  };
+
+  const removeAchatColor = (name: string) => {
+    setAchatColorList(prev => prev.filter(c => c.name !== name));
+    setAchatGrid(prev => {
+      const next: Record<string, number | ''> = {};
+      Object.entries(prev).forEach(([k, v]) => { if (k.split('|')[0] !== name) next[k] = v; });
+      return next;
+    });
+  };
   const achatTotalQty = useMemo(
     () => Object.values(achatGrid).reduce<number>((a, v) => a + (Number(v) || 0), 0),
     [achatGrid]
@@ -2540,8 +2585,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setAchatNom(article?.nom || '');
     setAchatReference(article?.reference || '');
     setAchatPhoto(article?.photo || '');
-    setAchatColorsText((article?.colors || []).map(c => c.name).join(', '));
-    setAchatSizesText((article?.sizes || []).join(', '));
+    setAchatColorList(article?.colors ? article.colors.map(c => ({ id: c.id || '#4f46e5', name: c.name })) : []);
+    setAchatSizeList(article?.sizes ? [...article.sizes] : []);
+    setAchatNewColorName('');
+    setAchatNewSizes('');
     setAchatPrix('');
     setAchatPrixVente(article ? (salePriceOf(article.id) ?? '') : '');
     setAchatDate(new Date().toISOString().split('T')[0]);
@@ -2587,7 +2634,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const submitAchat = async () => {
     const nom = achatNom.trim();
     if (!nom) {
-      setAchatError(tx(lang,{fr:"Donnez un nom à l'article.",ar:'عطي اسم للسلعة.',en:'Give the article a name.',es:'Dé un nombre al artículo.',pt:'Dê um nome ao artigo.',tr:'Ürüne bir ad verin.'}));
+      setAchatError(tx(lang,{fr:'Donnez un nom au modèle.',ar:'عطي اسم للموديل.',en:'Give the model a name.',es:'Dé un nombre al modelo.',pt:'Dê um nome ao modelo.',tr:'Modele bir ad verin.'}));
       return;
     }
     if (!(Number(achatPrix) >= 0) || achatPrix === '') {
@@ -2612,8 +2659,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           nom,
           reference: achatReference.trim() || null,
           photo: achatPhoto || null,
-          colors: achatColors,
-          sizes: achatSizes,
+          colors: achatColorList,
+          sizes: achatSizeList,
         }),
       });
       if (!resArt.ok) throw new Error((await resArt.json().catch(() => null))?.message || '');
@@ -3130,6 +3177,135 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   };
 
   /** Valide l'édition en ligne du prix de vente (Entrée ou perte de focus). */
+  /* ── Fiche des prix de vente ────────────────────────────────────────────
+   * Un article ne se vend pas au même prix au carton, en boutique et au
+   * comptoir. Le champ unique de la carte obligeait à retenir de tête les deux
+   * autres prix et à les retaper à chaque étiquette et à chaque vente — c'est
+   * ainsi qu'on vend du gros au prix du détail. Les trois colonnes vivent donc
+   * au même endroit, dans la grille `st_prix`, et alimentent le tiki, la sortie
+   * de stock et la facture.
+   * ──────────────────────────────────────────────────────────────────────── */
+  const [prixSheetModel, setPrixSheetModel] = useState<ModelData | null>(null);
+  const [prixSheetRevient, setPrixSheetRevient] = useState<number | null>(null);
+  const [prixSheetLoading, setPrixSheetLoading] = useState(false);
+  const [prixSheetSaving, setPrixSheetSaving] = useState(false);
+  const [prixSheetError, setPrixSheetError] = useState<string | null>(null);
+  /** Valeurs des trois colonnes + le tarif catalogue (celui qui s'applique
+   *  quand aucun type ne correspond). `''` = non saisi, ce qui n'est PAS zéro :
+   *  un prix absent doit rester absent, pas devenir gratuit. */
+  const [prixSheetVals, setPrixSheetVals] = useState<Record<string, number | ''>>({
+    CATALOGUE: '', DETAIL: '', GROS: '', BOUTIQUE: '',
+  });
+  /** Colonne dont le détail du calcul est déplié. Un prix suggéré qu'on ne peut
+   *  pas ouvrir est un chiffre tombé du ciel : on doit pouvoir vérifier d'où il
+   *  sort avant de l'appliquer. */
+  const [prixSheetOpenCalc, setPrixSheetOpenCalc] = useState<string | null>(null);
+  /** Un prix de vente ne se modifie pas d'un clic distrait : il descend
+   *  aussitôt sur les étiquettes, les sorties de stock et les factures. On
+   *  affiche donc ce qui va être écrit — ancien prix contre nouveau — et on
+   *  attend une confirmation explicite. */
+  const [prixSheetConfirm, setPrixSheetConfirm] = useState<Array<{
+    id: string; label: string; avant: number | ''; apres: number;
+  }> | null>(null);
+  /** Valeurs telles qu'elles étaient à l'ouverture : c'est la comparaison qui
+   *  rend la confirmation utile, pas la simple répétition des nouvelles. */
+  const [prixSheetInitial, setPrixSheetInitial] = useState<Record<string, number | ''>>({});
+
+  const openPrixSheet = async (model: ModelData, revient: number | null) => {
+    setPrixSheetModel(model);
+    setPrixSheetRevient(revient);
+    setPrixSheetError(null);
+    setPrixSheetVals({ CATALOGUE: '', DETAIL: '', GROS: '', BOUTIQUE: '' });
+    setPrixSheetOpenCalc(null);
+    setPrixSheetConfirm(null);
+    setPrixSheetInitial({});
+    if (IS_STATIC) return;
+    setPrixSheetLoading(true);
+    try {
+      // Une requête par colonne : la résolution répond ce qui S'APPLIQUERAIT
+      // réellement, repli catalogue compris. Lire la table brute afficherait
+      // des cases vides là où un tarif catalogue prend pourtant le relais.
+      const entries = await Promise.all((['CATALOGUE', 'DETAIL', 'GROS', 'BOUTIQUE'] as const).map(async t => {
+        const qs = new URLSearchParams({ modelId: model.id, qty: '0' });
+        if (t !== 'CATALOGUE') qs.set('type', t);
+        const r = await fetch(`/api/prix/resolve?${qs.toString()}`, { credentials: 'include' });
+        const d = r.ok ? await r.json() : null;
+        // Pour une colonne typée, on n'affiche QUE le tarif propre à ce type :
+        // recopier le catalogue ferait croire qu'un prix gros a été négocié.
+        if (t !== 'CATALOGUE' && d?.source !== 'TYPE') return [t, ''] as const;
+        return [t, d?.prix == null ? '' : Number(d.prix)] as const;
+      }));
+      const chargees = Object.fromEntries(entries) as Record<string, number | ''>;
+      setPrixSheetVals(chargees);
+      setPrixSheetInitial(chargees);
+    } catch {
+      setPrixSheetError(tx(lang,{fr:'Impossible de lire les tarifs.',ar:'تعذّر قراءة الأثمنة.',en:'Could not read the prices.',es:'No se pudieron leer las tarifas.',pt:'Não foi possível ler os preços.',tr:'Fiyatlar okunamadı.'}));
+    } finally {
+      setPrixSheetLoading(false);
+    }
+  };
+
+  /** Première étape : on ne touche à rien, on montre ce qui VA changer. Un prix
+   *  de vente descend aussitôt sur les étiquettes, les sorties de stock et les
+   *  factures — le modifier d'un clic distrait se paie sur des ventes réelles. */
+  const demanderConfirmationPrix = () => {
+    const labels: Record<string, string> = {
+      CATALOGUE: tx(lang,{fr:'Catalogue',ar:'الكتالوج',en:'Catalogue',es:'Catálogo',pt:'Catálogo',tr:'Katalog'}),
+      DETAIL: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}),
+      GROS: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}),
+      BOUTIQUE: tx(lang,{fr:'Boutique',ar:'المحل',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'}),
+    };
+    const changements = (['CATALOGUE', 'DETAIL', 'GROS', 'BOUTIQUE'] as const)
+      .map(id => ({ id, label: labels[id], avant: prixSheetInitial[id] ?? '', apres: Number(prixSheetVals[id]) }))
+      // Une colonne vide n'est pas un prix de zéro : on ne l'écrit pas, donc
+      // elle n'a rien à faire dans le récapitulatif.
+      .filter(c => prixSheetVals[c.id] !== '' && c.apres > 0)
+      // Ni les colonnes inchangées : les lister noierait le vrai changement.
+      .filter(c => !(c.avant !== '' && Math.abs(Number(c.avant) - c.apres) < 0.0001));
+
+    if (changements.length === 0) { setPrixSheetModel(null); return; }
+    setPrixSheetConfirm(changements);
+  };
+
+  const savePrixSheet = async () => {
+    if (!prixSheetModel) return;
+    setPrixSheetSaving(true);
+    setPrixSheetError(null);
+    try {
+      const modelId = prixSheetModel.id;
+      for (const t of ['CATALOGUE', 'DETAIL', 'GROS', 'BOUTIQUE'] as const) {
+        const v = prixSheetVals[t];
+        // Une colonne laissée vide n'est pas un prix de zéro : on ne l'écrit
+        // pas, et le tarif catalogue continue de s'appliquer pour ce type.
+        if (v === '' || !(Number(v) > 0)) continue;
+        await fetch('/api/prix', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            modelId,
+            prix: Number(v),
+            qty_min: 0,
+            type_client: t === 'CATALOGUE' ? null : t,
+          }),
+        });
+      }
+      // Le prix de la carte reste celui du catalogue : c'est le repli, donc le
+      // chiffre qui a du sens quand on ne sait pas encore à qui l'on vend.
+      const cat = prixSheetVals.CATALOGUE;
+      if (cat !== '' && Number(cat) > 0 && !prixSheetModel.id.startsWith('__')) {
+        const isArticle = articles.some(a => a.id === modelId);
+        if (isArticle) setArticleSalePrices(prev => ({ ...prev, [modelId]: Number(cat) }));
+        else await writeModelClientPrice(modelId, Number(cat));
+      }
+      setPrixSheetModel(null);
+    } catch {
+      setPrixSheetError(tx(lang,{fr:"L'enregistrement des tarifs a échoué.",ar:'فشل حفظ الأثمنة.',en:'Saving the prices failed.',es:'Error al guardar las tarifas.',pt:'Falha ao guardar os preços.',tr:'Fiyatlar kaydedilemedi.'}));
+    } finally {
+      setPrixSheetSaving(false);
+    }
+  };
+
   const commitInlinePrice = async (modelId: string) => {
     const raw = editingPriceValue.trim();
     const parsed = raw === '' ? 0 : Number(raw.replace(',', '.'));
@@ -7477,17 +7653,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl pl-9 pr-3 py-2 text-[12px] text-slate-800 dark:text-dk-text placeholder:text-slate-400 dark:placeholder:text-dk-muted outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
                   />
                 </div>
-                {/* Nouvelle commande multi-modèles : une action de la barre
-                    d'outils, pas un bouton isolé en pied de page — toujours à
-                    portée sans avoir à descendre jusqu'au bout de la liste. */}
-                <button
-                  type="button"
-                  onClick={openCommande}
-                  className="hidden lg:flex shrink-0 items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold text-white bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 shadow-sm dark:shadow-none transition-all border border-indigo-600 dark:border-dk-accent"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  {tx(lang,{fr:'Nouvelle Commande',ar:'أمر جديد',en:'New Order',es:'Nuevo Pedido',pt:'Nova Encomenda',tr:'Yeni Sipariş'})}
-                </button>
                 {/* Acheter n'est pas commander : ici on fait entrer de la
                     marchandise DÉJÀ FINIE, sans gamme ni jalons. Deux gestes
                     distincts, deux boutons distincts. */}
@@ -7497,7 +7662,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   className="hidden lg:flex shrink-0 items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold text-white bg-sky-600 hover:bg-sky-700 shadow-sm dark:shadow-none transition-all border border-sky-600"
                 >
                   <Warehouse className="w-3.5 h-3.5" />
-                  {tx(lang,{fr:'Acheter un article',ar:'شرا سلعة',en:'Buy an article',es:'Comprar un artículo',pt:'Comprar um artigo',tr:'Ürün satın al'})}
+                  {tx(lang,{fr:'Nouveau modèle en stock',ar:'موديل جديد فالمخزون',en:'New model in stock',es:'Nuevo modelo en stock',pt:'Novo modelo em stock',tr:'Stokta yeni model'})}
                 </button>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {([
@@ -7673,7 +7838,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         ) : canSetPriceHere ? (
                           <button
                             type="button"
-                            onClick={() => { setEditingPriceModelId(item.model.id); setEditingPriceValue(item.salePrice != null && item.salePrice > 0 ? String(item.salePrice) : ''); }}
+                            title={tx(lang,{fr:'Ouvrir les tarifs (détail, gros, boutique)',ar:'فتح الأثمنة (تقسيط، جملة، محل)',en:'Open the prices (retail, wholesale, store)',es:'Abrir las tarifas (detalle, mayorista, tienda)',pt:'Abrir os preços (retalho, grosso, loja)',tr:'Fiyatları aç (perakende, toptan, mağaza)'})}
+                            onClick={() => { void openPrixSheet(item.model, item.price); }}
                             className="inline-flex items-center gap-1.5 font-extrabold text-slate-800 dark:text-dk-text text-[13px] hover:text-indigo-600 dark:hover:text-dk-accent transition-colors mt-0.5"
                           >
                             {item.salePrice != null && item.salePrice > 0 ? `${fmt(item.salePrice)} ${currency}` : <span className="text-slate-300 dark:text-dk-muted font-semibold italic text-[11px]">{tx(lang,{fr:'— Prix non défini',ar:'— بلا ثمن',en:'— No price',es:'— Sin precio',pt:'— Sem preço',tr:'— Fiyat yok'})}</span>}
@@ -8094,18 +8260,6 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
 
-              {/* Nouvelle commande : le client a besoin de PLUS D'UN MODÈLE →
-                  un seul ordre, un seul total, une facture qui regroupe tout.
-                  Téléphone : bouton rond flottant en bas à droite, le pouce
-                  l'atteint (reste ici, c'est sa place naturelle). */}
-              <button
-                type="button"
-                onClick={openCommande}
-                title={tx(lang,{fr:'Nouvelle Commande',ar:'أمر جديد',en:'New Order',es:'Nuevo Pedido',pt:'Nova Encomenda',tr:'Yeni Sipariş'})}
-                className="lg:hidden fixed bottom-6 right-6 w-12 h-12 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 active:scale-95 text-white rounded-full shadow-lg dark:shadow-dk-lg flex items-center justify-center transition-all z-50 hover:shadow-xl border border-indigo-500 dark:border-dk-accent"
-              >
-                <Plus className="w-6 h-6 text-white" />
-              </button>
             </div>
           )}
 
@@ -11142,13 +11296,280 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* taille×couleur de la grille de sortie. */}
       {/* ======================================= */}
       {/* ======================================= */}
+      {/* TARIFS DE VENTE D'UN MODÈLE           */}
+      {/* ======================================= */}
+      {prixSheetModel && (() => {
+        const revient = prixSheetRevient;
+        // Marge affichée colonne par colonne : un prix qui passe sous le
+        // revient doit se voir AVANT d'être enregistré, pas après la vente.
+        const marge = (v: number | '') => {
+          if (v === '' || !(Number(v) > 0) || revient == null || revient <= 0) return null;
+          return ((Number(v) - revient) / Number(v)) * 100;
+        };
+
+        // Prix SUGGÉRÉ, pas imposé. Il se calcule à partir du revient réel et
+        // des taux déjà réglés dans la configuration — marge minimale, marge
+        // atelier, marge boutique, TVA — au lieu d'un coefficient inventé ici.
+        // Chaque segment supporte une marge différente parce qu'il ne rend pas
+        // le même service : le grossiste enlève le carton entier et ne coûte
+        // rien en vitrine, la boutique immobilise, expose et reprend.
+        const tauxTva = Number(settings?.tva) || 0;
+        const margeAtelier = Number(settings?.marginAtelier) || 0;
+        const margeBoutique = Number(settings?.marginBoutique) || 0;
+        const tauxPour = (id: string): number => {
+          if (id === 'GROS') return Math.max(margeMinimale, margeAtelier);
+          if (id === 'BOUTIQUE') return Math.max(margeMinimale, margeAtelier + margeBoutique);
+          // Catalogue et détail : le repli tout-venant, entre les deux.
+          return Math.max(margeMinimale, margeAtelier + margeBoutique / 2);
+        };
+        const suggestion = (id: string): { ht: number; ttc: number; taux: number } | null => {
+          if (revient == null || !(revient > 0)) return null;
+          const taux = tauxPour(id);
+          const ht = revient * (1 + taux / 100);
+          return { ht, ttc: ht * (1 + tauxTva / 100), taux };
+        };
+        const cols = [
+          { id: 'CATALOGUE', label: tx(lang,{fr:'Catalogue',ar:'الكتالوج',en:'Catalogue',es:'Catálogo',pt:'Catálogo',tr:'Katalog'}), hint: tx(lang,{fr:'Le prix par défaut, quand aucun autre ne s\'applique.',ar:'الثمن الافتراضي، ملي ما كيتطبّق حتى واحد آخر.',en:'The default price, when no other applies.',es:'El precio por defecto, cuando ningún otro se aplica.',pt:'O preço por omissão, quando nenhum outro se aplica.',tr:'Başka hiçbiri geçerli değilken varsayılan fiyat.'}) },
+          { id: 'DETAIL', label: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}), hint: tx(lang,{fr:'Client final, à la pièce.',ar:'العميل النهائي، بالقطعة.',en:'End customer, per piece.',es:'Cliente final, por pieza.',pt:'Cliente final, à peça.',tr:'Son müşteri, parça başına.'}) },
+          { id: 'GROS', label: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}), hint: tx(lang,{fr:'Revendeur au carton.',ar:'بائع بالجملة بالكرطون.',en:'Reseller by the carton.',es:'Revendedor por cartón.',pt:'Revendedor à caixa.',tr:'Koli ile bayi.'}) },
+          { id: 'BOUTIQUE', label: tx(lang,{fr:'Boutique',ar:'المحل',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'}), hint: tx(lang,{fr:'Point de vente — c\'est ce prix qui part sur le tiki du magasin.',ar:'نقطة البيع — هاد الثمن هو اللي كيخرج فتيكي المحل.',en:'Point of sale — this is the price printed on the store label.',es:'Punto de venta — este precio va en la etiqueta de la tienda.',pt:'Ponto de venda — é este preço que vai na etiqueta da loja.',tr:'Satış noktası — mağaza etiketine basılan fiyat budur.'}) },
+        ] as const;
+        return (
+          <SheetModal
+            onClose={() => { if (!prixSheetSaving) setPrixSheetModel(null); }}
+            title={tx(lang,{fr:'Prix de vente',ar:'أثمنة البيع',en:'Sale prices',es:'Precios de venta',pt:'Preços de venda',tr:'Satış fiyatları'})}
+            subtitle={prixSheetModel.meta_data?.nom_modele || prixSheetModel.id}
+            icon={<div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-xl shrink-0"><Coins className="w-5 h-5" /></div>}
+            size="md"
+            zClass="z-[250]"
+            closeOnBackdrop
+            bare
+          >
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="p-5 space-y-4">
+                {prixSheetError && (
+                  <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span className="text-[11px] font-semibold leading-relaxed">{prixSheetError}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 p-3">
+                  {prixSheetModel.image ? (
+                    <img src={prixSheetModel.image} alt="" className="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                      <Package className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-slate-800 dark:text-dk-text truncate text-sm">{prixSheetModel.meta_data?.nom_modele || prixSheetModel.id}</p>
+                    {canSeeCostHere && (
+                      <p className="text-[10px] text-slate-400 dark:text-dk-muted mt-0.5">
+                        {tx(lang,{fr:'Revient',ar:'التكلفة',en:'Cost',es:'Coste',pt:'Custo',tr:'Maliyet'})} : {revient == null ? '—' : `${fmt(revient)} ${currency}`}
+                      </p>
+                    )}
+                  </div>
+                  {prixSheetLoading && <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-dk-muted shrink-0" />}
+                </div>
+
+                <div className="space-y-2.5">
+                  {cols.map(col => {
+                    const v = prixSheetVals[col.id];
+                    const m = marge(v);
+                    const sousCout = m != null && revient != null && Number(v) < revient;
+                    return (
+                      <div key={col.id} className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <span className="block font-bold text-slate-700 dark:text-dk-text-soft text-[12px]">{col.label}</span>
+                            <span className="block text-[10px] text-slate-400 dark:text-dk-muted leading-snug mt-0.5">{col.hint}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={v}
+                              onChange={e => setPrixSheetVals(prev => ({ ...prev, [col.id]: e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0) }))}
+                              placeholder="—"
+                              className={`w-28 text-right rounded-xl px-3 py-2 text-[12px] font-bold outline-none border bg-slate-50 dark:bg-dk-bg text-slate-800 dark:text-dk-text ${
+                                sousCout
+                                  ? 'border-rose-400 dark:border-rose-500 focus:border-rose-500'
+                                  : 'border-slate-200 dark:border-dk-border focus:border-indigo-500 dark:focus:border-dk-accent'
+                              }`}
+                            />
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">{currency}</span>
+                          </div>
+                        </div>
+                        {m != null && (
+                          <p className={`mt-1.5 text-[10px] font-bold ${sousCout ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            {sousCout
+                              ? tx(lang,{fr:'Sous le prix de revient — vente à perte.',ar:'تحت التكلفة — بيع بالخسارة.',en:'Below cost — selling at a loss.',es:'Por debajo del coste — venta a pérdida.',pt:'Abaixo do custo — venda com prejuízo.',tr:'Maliyetin altında — zararına satış.'})
+                              : `${tx(lang,{fr:'Marge',ar:'الهامش',en:'Margin',es:'Margen',pt:'Margem',tr:'Marj'})} : ${m.toFixed(1)} %`}
+                          </p>
+                        )}
+                        {(() => {
+                          const sug = suggestion(col.id);
+                          if (!sug) return null;
+                          const open = prixSheetOpenCalc === col.id;
+                          return (
+                            <div className="mt-1.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {/* Un clic pose la valeur : lire un chiffre puis
+                                    le retaper à côté est une occasion de faute. */}
+                                <button
+                                  type="button"
+                                  onClick={() => setPrixSheetVals(prev => ({ ...prev, [col.id]: Number(sug.ht.toFixed(2)) }))}
+                                  className="text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                                >
+                                  {tx(lang,{fr:'Suggéré',ar:'مقترح',en:'Suggested',es:'Sugerido',pt:'Sugerido',tr:'Önerilen'})} : {fmt(Number(sug.ht.toFixed(2)))} {currency}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setPrixSheetOpenCalc(open ? null : col.id)}
+                                  title={tx(lang,{fr:'D\'où vient ce chiffre',ar:'منين جا هاد الرقم',en:'Where this figure comes from',es:'De dónde sale esta cifra',pt:'De onde vem este número',tr:'Bu rakam nereden geliyor'})}
+                                  className="w-4 h-4 rounded border border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted hover:text-sky-600 hover:border-sky-400 flex items-center justify-center transition-colors"
+                                >
+                                  {open ? <X className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5" />}
+                                </button>
+                              </div>
+                              {open && (
+                                <div className="mt-1.5 rounded-xl bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border p-2.5 space-y-1 text-[10px]">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-slate-500 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Revient',ar:'التكلفة',en:'Cost',es:'Coste',pt:'Custo',tr:'Maliyet'})}</span>
+                                    <span className="font-bold text-slate-700 dark:text-dk-text-soft">{fmt(revient!)} {currency}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-slate-500 dark:text-dk-muted font-semibold">
+                                      + {tx(lang,{fr:'Marge',ar:'الهامش',en:'Margin',es:'Margen',pt:'Margem',tr:'Marj'})} {sug.taux.toFixed(1)} %
+                                    </span>
+                                    <span className="font-bold text-slate-700 dark:text-dk-text-soft">{fmt(sug.ht - revient!)} {currency}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-dk-border">
+                                    <span className="font-black uppercase tracking-wide text-slate-600 dark:text-dk-text-soft">
+                                      {tx(lang,{fr:'Prix HT',ar:'الثمن دون الضريبة',en:'Price excl. tax',es:'Precio sin IVA',pt:'Preço sem IVA',tr:'KDV hariç fiyat'})}
+                                    </span>
+                                    <span className="font-extrabold text-sky-600 dark:text-sky-400">{fmt(Number(sug.ht.toFixed(2)))} {currency}</span>
+                                  </div>
+                                  {tauxTva > 0 && (
+                                    <div className="flex items-center justify-between text-slate-500 dark:text-dk-muted">
+                                      <span className="font-semibold">{tx(lang,{fr:'Avec TVA',ar:'مع الضريبة',en:'With VAT',es:'Con IVA',pt:'Com IVA',tr:'KDV dahil'})} {tauxTva} %</span>
+                                      <span className="font-bold">{fmt(Number(sug.ttc.toFixed(2)))} {currency}</span>
+                                    </div>
+                                  )}
+                                  {/* Le taux vient de la configuration, pas d'ici :
+                                      le dire évite de chercher où le changer. */}
+                                  <p className="pt-1 text-slate-400 dark:text-dk-muted leading-snug">
+                                    {tx(lang,{fr:'Taux repris de la configuration (marge minimale, marge atelier, marge boutique, TVA).',ar:'النسب مأخوذة من الإعدادات (الهامش الأدنى، هامش الورشة، هامش المحل، الضريبة).',en:'Rates taken from the configuration (minimum margin, workshop margin, store margin, VAT).',es:'Tasas tomadas de la configuración (margen mínimo, margen taller, margen tienda, IVA).',pt:'Taxas retiradas da configuração (margem mínima, margem oficina, margem loja, IVA).',tr:'Oranlar yapılandırmadan alınır (asgari marj, atölye marjı, mağaza marjı, KDV).'})}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {prixSheetConfirm && (
+                  <div className="rounded-2xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300 leading-snug">
+                        {tx(lang,{
+                          fr:'Ces tarifs partiront aussitôt sur les étiquettes, les sorties de stock et les factures. Vérifiez avant de confirmer.',
+                          ar:'هاد الأثمنة غادي تمشي دغيا للتيكي وإخراج المخزون والفواتير. تحقّق قبل ما تأكّد.',
+                          en:'These prices go straight onto the labels, the stock exits and the invoices. Check before confirming.',
+                          es:'Estas tarifas irán de inmediato a las etiquetas, las salidas de stock y las facturas. Verifique antes de confirmar.',
+                          pt:'Estes preços vão de imediato para as etiquetas, as saídas de stock e as faturas. Verifique antes de confirmar.',
+                          tr:'Bu fiyatlar hemen etiketlere, stok çıkışlarına ve faturalara gider. Onaylamadan önce kontrol edin.'
+                        })}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-white dark:bg-dk-surface border border-amber-200 dark:border-amber-800/40 divide-y divide-amber-100 dark:divide-dk-border">
+                      {prixSheetConfirm.map(c => (
+                        <div key={c.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[11px]">
+                          <span className="font-bold text-slate-700 dark:text-dk-text-soft">{c.label}</span>
+                          <span className="flex items-center gap-2 shrink-0">
+                            <span className="text-slate-400 dark:text-dk-muted line-through">
+                              {c.avant === '' ? '—' : `${fmt(Number(c.avant))} ${currency}`}
+                            </span>
+                            <ArrowRight className="w-3 h-3 text-slate-400 dark:text-dk-muted" />
+                            <span className="font-extrabold text-emerald-600 dark:text-emerald-400">{fmt(c.apres)} {currency}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2 justify-end">
+                      <button
+                        type="button"
+                        disabled={prixSheetSaving}
+                        onClick={() => setPrixSheetConfirm(null)}
+                        className="px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                      >
+                        {tx(lang,{fr:'Revenir corriger',ar:'رجع صلّح',en:'Go back and edit',es:'Volver a corregir',pt:'Voltar e corrigir',tr:'Geri dön ve düzelt'})}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={prixSheetSaving}
+                        onClick={savePrixSheet}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] disabled:opacity-60 transition-colors"
+                      >
+                        {prixSheetSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        {tx(lang,{fr:'Confirmer les tarifs',ar:'أكّد الأثمنة',en:'Confirm the prices',es:'Confirmar las tarifas',pt:'Confirmar os preços',tr:'Fiyatları onayla'})}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Le lien entre ces cases et le reste du programme, dit une
+                    fois : sans cela on ne sait pas ce que l'on vient de régler. */}
+                <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                  {tx(lang,{
+                    fr:'Ces tarifs alimentent le tiki, la sortie de stock et la facture : le prix proposé suit le type du client choisi. Une case laissée vide n\'est pas un prix de zéro — le tarif catalogue prend le relais.',
+                    ar:'هاد الأثمنة كتغذّي التيكي وإخراج المخزون والفاتورة: الثمن المقترح كيتبع نوع العميل المختار. خانة خاوية ماشي ثمن صفر — ثمن الكتالوج كياخد البلاصة.',
+                    en:'These prices feed the label, the stock exit and the invoice: the proposed price follows the chosen client type. An empty box is not a price of zero — the catalogue price takes over.',
+                    es:'Estas tarifas alimentan la etiqueta, la salida de stock y la factura: el precio propuesto sigue el tipo de cliente elegido. Una casilla vacía no es un precio de cero — se aplica la tarifa de catálogo.',
+                    pt:'Estes preços alimentam a etiqueta, a saída de stock e a fatura: o preço proposto segue o tipo de cliente escolhido. Uma caixa vazia não é um preço de zero — aplica-se o preço de catálogo.',
+                    tr:'Bu fiyatlar etiketi, stok çıkışını ve faturayı besler: önerilen fiyat seçilen müşteri türünü izler. Boş kutu sıfır fiyat değildir — katalog fiyatı devreye girer.'
+                  })}
+                </p>
+
+                <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
+                  <button
+                    type="button"
+                    disabled={prixSheetSaving}
+                    onClick={() => setPrixSheetModel(null)}
+                    className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                  >
+                    {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={prixSheetSaving || prixSheetLoading}
+                    onClick={demanderConfirmationPrix}
+                    className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 disabled:opacity-60 border border-indigo-600 dark:border-dk-accent"
+                  >
+                    {prixSheetSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </SheetModal>
+        );
+      })()}
+
+      {/* ======================================= */}
       {/* ACHAT DE MARCHANDISE FINIE            */}
       {/* ======================================= */}
       {achatOpen && (
         <SheetModal
           onClose={() => { if (!achatSaving) setAchatOpen(false); }}
-          title={tx(lang,{fr:'Acheter un article',ar:'شرا سلعة',en:'Buy an article',es:'Comprar un artículo',pt:'Comprar um artigo',tr:'Ürün satın al'})}
-          subtitle={tx(lang,{fr:'Marchandise déjà finie, achetée pour être revendue',ar:'سلعة جاهزة، مشراة باش تتباع',en:'Finished goods, bought for resale',es:'Mercancía ya terminada, comprada para revender',pt:'Mercadoria já acabada, comprada para revenda',tr:'Yeniden satmak için alınan hazır mal'})}
+          title={tx(lang,{fr:'Nouveau modèle en stock',ar:'موديل جديد فالمخزون',en:'New model in stock',es:'Nuevo modelo en stock',pt:'Novo modelo em stock',tr:'Stokta yeni model'})}
+          subtitle={tx(lang,{fr:'Un modèle acheté fini, qui entre directement en stock',ar:'موديل مشرِي جاهز، كيدخل مباشرة للمخزون',en:'A finished model, bought and put straight into stock',es:'Un modelo comprado terminado, que entra directo al stock',pt:'Um modelo comprado acabado, que entra diretamente em stock',tr:'Satın alınan hazır bir model, doğrudan stoğa girer'})}
           icon={<div className="p-2 bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 rounded-xl shrink-0"><Warehouse className="w-5 h-5" /></div>}
           size="lg"
           zClass="z-[255]"
@@ -11172,17 +11593,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               {articles.length > 0 && (
                 <div>
                   <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
-                    {tx(lang,{fr:'Article',ar:'السلعة',en:'Article',es:'Artículo',pt:'Artigo',tr:'Ürün'})}
+                    {tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}
                   </label>
                   <select
                     value={achatArticleId}
                     onChange={e => {
                       const a = articles.find(x => x.id === e.target.value);
-                      if (a) openAchat(a); else { setAchatArticleId(''); setAchatNom(''); setAchatReference(''); setAchatPhoto(''); setAchatColorsText(''); setAchatSizesText(''); setAchatGrid({}); }
+                      if (a) openAchat(a); else { setAchatArticleId(''); setAchatNom(''); setAchatReference(''); setAchatPhoto(''); setAchatColorList([]); setAchatSizeList([]); setAchatGrid({}); }
                     }}
                     className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
                   >
-                    <option value="">{tx(lang,{fr:'— Nouvel article —',ar:'— سلعة جديدة —',en:'— New article —',es:'— Nuevo artículo —',pt:'— Novo artigo —',tr:'— Yeni ürün —'})}</option>
+                    <option value="">{tx(lang,{fr:'— Nouveau modèle —',ar:'— موديل جديد —',en:'— New model —',es:'— Nuevo modelo —',pt:'— Novo modelo —',tr:'— Yeni model —'})}</option>
                     {articles.map(a => <option key={a.id} value={a.id}>{a.nom}</option>)}
                   </select>
                   {achatArticleId && (
@@ -11234,7 +11655,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <div className="flex-1 min-w-0 space-y-2.5">
                   <div>
                     <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
-                      {tx(lang,{fr:'Nom de l\'article *',ar:'اسم السلعة *',en:'Article name *',es:'Nombre del artículo *',pt:'Nome do artigo *',tr:'Ürün adı *'})}
+                      {tx(lang,{fr:'Nom du modèle *',ar:'اسم الموديل *',en:'Model name *',es:'Nombre del modelo *',pt:'Nome do modelo *',tr:'Model adı *'})}
                     </label>
                     <input type="text" value={achatNom} onChange={e => setAchatNom(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
                   </div>
@@ -11247,71 +11668,148 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
 
-              {/* Couleurs et tailles : saisie libre, séparées par des virgules.
-                  Un article acheté n'a pas de fiche technique où les choisir. */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
-                    {tx(lang,{fr:'Couleurs (séparées par des virgules)',ar:'الألوان (مفصولة بفواصل)',en:'Colors (comma separated)',es:'Colores (separados por comas)',pt:'Cores (separadas por vírgulas)',tr:'Renkler (virgülle ayrılmış)'})}
-                  </label>
-                  <input type="text" value={achatColorsText} onChange={e => setAchatColorsText(e.target.value)} placeholder="Noir, Blanc, Bleu" className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+              {/* Répartition tailles × couleurs — la MÊME composition que la
+                  fiche technique : on ajoute une pastille de couleur et des
+                  tailles au fur et à mesure, et les totaux se lisent en bord de
+                  grille. Une saisie « séparée par des virgules » obligeait à
+                  retaper toute la ligne pour corriger une couleur, et ne
+                  montrait pas la couleur réelle. */}
+              <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface overflow-hidden">
+                <div className="bg-slate-50 dark:bg-dk-bg/60 px-4 py-3 border-b border-slate-200 dark:border-dk-border flex flex-wrap items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                    <LayoutGrid className="w-3.5 h-3.5 text-sky-500" />
+                    {tx(lang,{fr:'Répartition (Tailles / Couleurs)',ar:'التوزيع (المقاسات / الألوان)',en:'Distribution (Sizes / Colors)',es:'Distribución (Tallas / Colores)',pt:'Distribuição (Tamanhos / Cores)',tr:'Dağılım (Bedenler / Renkler)'})}
+                  </span>
+                  <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-lg p-1 border border-slate-200 dark:border-dk-border">
+                    <input
+                      type="text"
+                      value={achatNewSizes}
+                      onChange={e => setAchatNewSizes(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAchatSizes(); } }}
+                      placeholder={tx(lang,{fr:'Ajouter Tailles (ex: 36 38 40)',ar:'أضف مقاسات (مثال: 36 38 40)',en:'Add Sizes (e.g. 36 38 40)',es:'Añadir Tallas (ej: 36 38 40)',pt:'Adicionar Tamanhos (ex: 36 38 40)',tr:'Beden Ekle (örn: 36 38 40)'})}
+                      className="bg-transparent text-[11px] px-2 outline-none w-48 max-w-[45vw] text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 dark:placeholder:text-dk-muted font-semibold"
+                    />
+                    <button type="button" onClick={addAchatSizes} className="bg-white dark:bg-dk-surface rounded p-1 shadow-sm dark:shadow-none hover:text-sky-600 transition-colors">
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
-                    {tx(lang,{fr:'Tailles (séparées par des virgules)',ar:'المقاسات (مفصولة بفواصل)',en:'Sizes (comma separated)',es:'Tallas (separadas por comas)',pt:'Tamanhos (separados por vírgulas)',tr:'Bedenler (virgülle ayrılmış)'})}
-                  </label>
-                  <input type="text" value={achatSizesText} onChange={e => setAchatSizesText(e.target.value)} placeholder="S, M, L, XL" className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
-                </div>
-              </div>
 
-              {/* Grille des quantités — la même forme que la fiche technique :
-                  c'est elle qui répond plus tard à « me reste-t-il du XL bleu ? ». */}
-              {achatColors.length > 0 && achatSizes.length > 0 ? (
-                <div>
-                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
-                    {tx(lang,{fr:'Quantités achetées par couleur × taille',ar:'الكميات المشراة لكل لون × مقاس',en:'Quantities bought per color × size',es:'Cantidades compradas por color × talla',pt:'Quantidades compradas por cor × tamanho',tr:'Renk × beden başına alınan miktar'})}
+                {/* Ajout d'une couleur : la pastille d'abord, le nom ensuite —
+                    c'est la couleur qu'on reconnaît dans la grille, pas le mot. */}
+                <div className="bg-slate-50 dark:bg-dk-bg px-4 py-2.5 border-b border-slate-200 dark:border-dk-border flex flex-wrap gap-2 items-center">
+                  <label className="relative flex items-center justify-center cursor-pointer shrink-0" title={tx(lang,{fr:'Choisir une couleur',ar:'اختر لوناً',en:'Pick a color',es:'Elegir un color',pt:'Escolher uma cor',tr:'Renk seç'})}>
+                    <input type="color" value={achatNewColorHex} onChange={e => setAchatNewColorHex(e.target.value)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                    <div className="w-6 h-6 rounded-md border-2 border-slate-300 dark:border-dk-border shadow-sm cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: achatNewColorHex }} />
                   </label>
-                  <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface">
-                    <table className="w-full border-collapse text-[11px]">
-                      <thead>
-                        <tr className="bg-slate-50 dark:bg-dk-bg/60">
-                          <th className="p-2 text-left font-bold text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border whitespace-nowrap">
-                            {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
+                  <input
+                    type="text"
+                    value={achatNewColorName}
+                    onChange={e => setAchatNewColorName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAchatColor(); } }}
+                    placeholder={tx(lang,{fr:'Nom de la couleur…',ar:'اسم اللون…',en:'Color name…',es:'Nombre del color…',pt:'Nome da cor…',tr:'Renk adı…'})}
+                    className="flex-1 min-w-[120px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-dk-text-soft outline-none focus:border-sky-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={addAchatColor}
+                    className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors"
+                  >
+                    <Plus className="w-3 h-3" /> {tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px] border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border">
+                        <th className="py-2.5 px-3 text-left font-bold border-r border-slate-200 dark:border-dk-border min-w-[120px] whitespace-nowrap">
+                          {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
+                        </th>
+                        {achatSizeList.length === 0 && (
+                          <th className="py-2 px-4 text-center font-normal italic text-slate-400 dark:text-dk-muted border-r border-slate-200 dark:border-dk-border min-w-[100px]">
+                            {tx(lang,{fr:'(Ajouter tailles)',ar:'(أضف مقاسات)',en:'(Add sizes)',es:'(Añadir tallas)',pt:'(Adicionar tamanhos)',tr:'(Beden ekle)'})}
                           </th>
-                          {achatSizes.map(t => (
-                            <th key={t} className="p-2 text-center font-bold text-sky-700 dark:text-sky-400 border-b border-l border-slate-200 dark:border-dk-border whitespace-nowrap">{t}</th>
-                          ))}
+                        )}
+                        {achatSizeList.map(t => (
+                          <th key={t} className="py-2 px-2 text-center font-bold border-r border-slate-200 dark:border-dk-border min-w-[54px] relative group">
+                            {t}
+                            <button
+                              type="button"
+                              onClick={() => removeAchatSize(t)}
+                              title={tx(lang,{fr:'Supprimer la taille',ar:'حذف المقاس',en:'Remove the size',es:'Eliminar la talla',pt:'Remover o tamanho',tr:'Bedeni kaldır'})}
+                              className="absolute top-0 right-0 p-0.5 text-slate-300 dark:text-dk-muted hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </th>
+                        ))}
+                        <th className="py-2 px-3 text-center font-black bg-slate-200 dark:bg-dk-elevated text-slate-800 dark:text-dk-text w-20">TOTAL</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                      {achatColorList.length === 0 && (
+                        <tr>
+                          <td colSpan={achatSizeList.length + (achatSizeList.length === 0 ? 3 : 2)} className="py-8 text-center text-slate-400 dark:text-dk-muted italic">
+                            {tx(lang,{fr:'Ajoutez des couleurs pour commencer la répartition.',ar:'زيد ألوان باش تبدا التوزيع.',en:'Add colors to start the distribution.',es:'Añada colores para comenzar la distribución.',pt:'Adicione cores para iniciar a distribuição.',tr:'Dağılıma başlamak için renk ekleyin.'})}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {achatColors.map(c => (
-                          <tr key={c}>
-                            <td className="p-2 font-semibold text-slate-600 dark:text-dk-text-soft border-b border-slate-100 dark:border-dk-border whitespace-nowrap max-w-[140px] truncate">{c}</td>
-                            {achatSizes.map(t => {
-                              const key = `${c}|${t}`;
+                      )}
+                      {achatColorList.map(c => {
+                        const ligne = achatSizeList.reduce((a, t) => a + (Number(achatGrid[`${c.name}|${t}`]) || 0), 0);
+                        return (
+                          <tr key={c.name} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 group">
+                            <td className="py-2 px-3 border-r border-slate-200 dark:border-dk-border font-bold text-slate-700 dark:text-dk-text-soft">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="flex items-center gap-2 min-w-0">
+                                  <span className="w-3 h-3 rounded-full shrink-0 shadow-sm border border-black/10" style={{ backgroundColor: c.id }} />
+                                  <span className="truncate">{c.name}</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeAchatColor(c.name)}
+                                  title={tx(lang,{fr:'Supprimer la couleur',ar:'حذف اللون',en:'Remove the color',es:'Eliminar el color',pt:'Remover a cor',tr:'Rengi kaldır'})}
+                                  className="p-0.5 text-slate-300 dark:text-dk-muted hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </td>
+                            {achatSizeList.length === 0 && <td className="border-r border-slate-200 dark:border-dk-border" />}
+                            {achatSizeList.map(t => {
+                              const key = `${c.name}|${t}`;
                               return (
-                                <td key={key} className="p-1.5 border-b border-l border-slate-100 dark:border-dk-border">
+                                <td key={key} className="p-1 border-r border-slate-100 dark:border-dk-border">
                                   <input
                                     type="number"
                                     min={0}
                                     value={achatGrid[key] ?? ''}
                                     onChange={e => setAchatGrid(prev => ({ ...prev, [key]: e.target.value === '' ? '' : Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
-                                    className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-1.5 py-1 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                                    className="w-full min-w-[48px] bg-transparent text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:bg-sky-50 dark:focus:bg-sky-950/30 rounded py-1"
                                   />
                                 </td>
                               );
                             })}
+                            <td className="py-2 px-3 text-center font-black bg-slate-50 dark:bg-dk-bg/60 text-slate-800 dark:text-dk-text">{ligne.toLocaleString(dateLocale)}</td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        );
+                      })}
+                    </tbody>
+                    {achatColorList.length > 0 && achatSizeList.length > 0 && (
+                      <tfoot>
+                        <tr className="bg-slate-50 dark:bg-dk-bg/60 border-t border-slate-200 dark:border-dk-border">
+                          <td className="py-2 px-3 text-right font-bold text-slate-500 dark:text-dk-muted border-r border-slate-200 dark:border-dk-border uppercase text-[9px] tracking-wide">TOTAL</td>
+                          {achatSizeList.map(t => {
+                            const col = achatColorList.reduce((a, c) => a + (Number(achatGrid[`${c.name}|${t}`]) || 0), 0);
+                            return <td key={t} className="py-2 px-2 text-center font-bold text-slate-700 dark:text-dk-text-soft border-r border-slate-100 dark:border-dk-border">{col.toLocaleString(dateLocale)}</td>;
+                          })}
+                          <td className="py-2 px-3 text-center font-black bg-sky-600 text-white">{achatTotalQty.toLocaleString(dateLocale)}</td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
                 </div>
-              ) : (
-                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
-                  {tx(lang,{fr:'Indiquez au moins une couleur et une taille pour saisir les quantités.',ar:'دخّل على الأقل لون واحد ومقاس واحد باش تكتب الكميات.',en:'Enter at least one color and one size to fill the quantities.',es:'Indique al menos un color y una talla para introducir las cantidades.',pt:'Indique pelo menos uma cor e um tamanho para introduzir as quantidades.',tr:'Miktar girmek için en az bir renk ve bir beden belirtin.'})}
-                </p>
-              )}
+              </div>
 
               {/* Prix payé, prix de vente, date. Le prix payé EST le revient :
                   il n'y a ni matière ni main-d'œuvre à additionner. */}
@@ -11415,7 +11913,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   className="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-60 border border-sky-600"
                 >
                   {achatSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                  <span>{tx(lang,{fr:'Enregistrer l\'achat',ar:'تسجيل الشرا',en:'Save the purchase',es:'Guardar la compra',pt:'Guardar a compra',tr:'Alışı kaydet'})}</span>
+                  <span>{tx(lang,{fr:'Entrer en stock',ar:'إدخال للمخزون',en:'Add to stock',es:'Entrar en stock',pt:'Entrar em stock',tr:'Stoğa gir'})}</span>
                 </button>
               </div>
             </div>
