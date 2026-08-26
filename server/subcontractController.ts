@@ -297,13 +297,53 @@ export const deleteSubcontractOrder = (req: Request, res: Response) => {
     const { id } = req.params;
 
     try {
-        const result = db.prepare('DELETE FROM subcontract_orders WHERE id = ? AND owner_id = ?').run(id, companyId);
-
-        if (result.changes === 0) {
+        const order = db.prepare('SELECT id, modelId FROM subcontract_orders WHERE id = ? AND owner_id = ?')
+            .get(id, companyId) as any;
+        if (!order) {
             return res.status(404).json({ message: 'Subcontract order not found or unauthorized' });
         }
 
-        res.json({ message: 'Subcontract order deleted successfully' });
+        // Les entrées en stock de cette commande ne disparaissaient PAS avec
+        // elle : `st_stock_entries.order_id` n'a pas de clé étrangère, donc
+        // aucune cascade. Elles restaient en base, rattachées à une commande
+        // qui n'existe plus — invisibles dans l'onglet Commandes mais toujours
+        // comptées dans le stock et dans sa valorisation. C'est ainsi qu'un
+        // modèle affichait 1060 pièces en stock pour 470 réellement reçues.
+        const entrees = db.prepare(`
+            SELECT COALESCE(SUM(quantite), 0) AS qte
+            FROM st_stock_entries
+            WHERE owner_id = ? AND order_id = ?
+        `).get(companyId, id) as any;
+        const aEntrer = Number(entrees?.qte) || 0;
+
+        if (aEntrer > 0) {
+            // Retirer ces pièces peut rendre le disponible négatif si elles ont
+            // déjà été vendues. On refuse alors, plutôt que de laisser un trou
+            // dans l'historique : les sorties, elles, sont des faits.
+            const totaux = db.prepare(`
+                SELECT
+                    (SELECT COALESCE(SUM(quantite), 0) FROM st_stock_entries
+                      WHERE owner_id = ? AND modelId = ? AND qualite = 'ACCEPTED') AS entrees,
+                    (SELECT COALESCE(SUM(quantite), 0) FROM st_stock_sorties
+                      WHERE owner_id = ? AND modelId = ?) AS sorties
+            `).get(companyId, order.modelId, companyId, order.modelId) as any;
+
+            if ((Number(totaux?.entrees) || 0) - aEntrer < (Number(totaux?.sorties) || 0)) {
+                return res.status(409).json({
+                    message: `Cette commande a fait entrer ${aEntrer} pièces dont une partie est déjà sortie du stock : la supprimer rendrait le stock négatif. Annulez d'abord les sorties concernées.`,
+                });
+            }
+        }
+
+        // La commande et ses entrées partent ensemble : à moitié supprimée,
+        // elle laisserait exactement le stock fantôme qu'on cherche à éviter.
+        const run = db.transaction(() => {
+            db.prepare('DELETE FROM st_stock_entries WHERE owner_id = ? AND order_id = ?').run(companyId, id);
+            db.prepare('DELETE FROM subcontract_orders WHERE id = ? AND owner_id = ?').run(id, companyId);
+        });
+        run();
+
+        res.json({ message: 'Subcontract order deleted successfully', entreesSupprimees: aEntrer });
     } catch (error) {
         console.error('Delete subcontract order error:', error);
         res.status(500).json({ message: 'Error deleting subcontract order' });
