@@ -3435,26 +3435,32 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     code: string | null;
     label: string;
     hint: string;
-    /** Frais propres au canal, en plus du revient — livraison, emballage,
-     *  publicité… Vides pour les segments clients : un grossiste qui enlève sa
-     *  marchandise ne me coûte ni carton ni livreur. */
+    /** Frais propres à CE canal, en plus du revient — livraison, emballage,
+     *  publicité, commission… Chaque canal a les siens : une vente en gros peut
+     *  coûter un transport et une palette, une vente en ligne un livreur et de
+     *  la publicité. La règle est la même partout, seules les lignes changent. */
     fraisKey: string | null;
   };
   const canauxVente: CanalVente[] = [
     {
-      id: 'CATALOGUE', kind: 'type', code: null, fraisKey: null,
+      id: 'CATALOGUE', kind: 'type', code: null, fraisKey: 'CATALOGUE',
       label: tx(lang,{fr:'Catalogue',ar:'الكتالوج',en:'Catalogue',es:'Catálogo',pt:'Catálogo',tr:'Katalog'}),
       hint: tx(lang,{fr:'Le prix par défaut, quand aucun autre ne s\'applique.',ar:'الثمن الافتراضي، ملي ما كيتطبّق حتى واحد آخر.',en:'The default price, when no other applies.',es:'El precio por defecto, cuando ningún otro se aplica.',pt:'O preço por omissão, quando nenhum outro se aplica.',tr:'Başka hiçbiri geçerli değilken varsayılan fiyat.'}),
     },
     {
-      id: 'GROS', kind: 'type', code: 'GROS', fraisKey: null,
+      id: 'GROS', kind: 'type', code: 'GROS', fraisKey: 'GROS',
       label: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}),
       hint: tx(lang,{fr:'Revendeur qui enlève au carton.',ar:'بائع بالجملة كياخد بالكرطون.',en:'Reseller collecting by the carton.',es:'Revendedor que retira por cartón.',pt:'Revendedor que levanta à caixa.',tr:'Koli ile alan bayi.'}),
     },
     {
-      id: 'DETAIL', kind: 'type', code: 'DETAIL', fraisKey: null,
+      id: 'DETAIL', kind: 'type', code: 'DETAIL', fraisKey: 'DETAIL',
       label: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}),
       hint: tx(lang,{fr:'Client final, à la pièce.',ar:'العميل النهائي، بالقطعة.',en:'End customer, per piece.',es:'Cliente final, por pieza.',pt:'Cliente final, à peça.',tr:'Son müşteri, parça başına.'}),
+    },
+    {
+      id: 'BOUTIQUE', kind: 'type', code: 'BOUTIQUE', fraisKey: 'BOUTIQUE',
+      label: tx(lang,{fr:'Boutique (client)',ar:'محل (زبون)',en:'Shop (client)',es:'Tienda (cliente)',pt:'Loja (cliente)',tr:'Mağaza (müşteri)'}),
+      hint: tx(lang,{fr:'Un point de vente qui m\'achète pour revendre.',ar:'نقطة بيع كتشري مني باش تعاود تبيع.',en:'A shop that buys from me to resell.',es:'Un punto de venta que me compra para revender.',pt:'Um ponto de venda que me compra para revender.',tr:'Benden alıp satan bir satış noktası.'}),
     },
     {
       id: 'MAGASIN', kind: 'canal', code: 'MAGASIN', fraisKey: 'MAGASIN',
@@ -3482,8 +3488,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    * prix quel que soit l'article qu'il transporte.
    * ────────────────────────────────────────────────────────────────────── */
   const CANAL_FRAIS_KEY = 'beramethode_canal_frais';
-  type FraisCanal = { id: string; label: string; montant: number; mode: 'FIXE' | 'PCT' };
-  const DEFAULT_CANAL_FRAIS: Record<string, FraisCanal[]> = { MAGASIN: [], ONLINE: [] };
+  type FraisCanal = {
+    id: string;
+    label: string;
+    /** `''` = pas encore saisi, ce qui n'est PAS zéro. Un champ pré-rempli de
+     *  « 0 » oblige à l'effacer avant d'écrire : sans cela le zéro reste devant
+     *  et « 40 » s'affiche « 040 ». Convention suivie partout dans ce fichier. */
+    montant: number | '';
+    mode: 'FIXE' | 'PCT';
+  };
+  const DEFAULT_CANAL_FRAIS: Record<string, FraisCanal[]> = {
+    CATALOGUE: [], GROS: [], DETAIL: [], BOUTIQUE: [], MAGASIN: [], ONLINE: [],
+  };
   const [canalFrais, setCanalFrais] = useState<Record<string, FraisCanal[]>>(DEFAULT_CANAL_FRAIS);
 
   useEffect(() => {
@@ -3505,7 +3521,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const addFraisCanal = (canalId: string) => {
     const next = {
       ...canalFrais,
-      [canalId]: [...(canalFrais[canalId] || []), { id: `f${Date.now()}`, label: '', montant: 0, mode: 'FIXE' as const }],
+      [canalId]: [...(canalFrais[canalId] || []), { id: `f${Date.now()}`, label: '', montant: '' as number | '', mode: 'FIXE' as const }],
     };
     persistCanalFrais(next);
   };
@@ -11804,7 +11820,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         // en vitrine, ma boutique immobilise, expose et reprend.
         const tauxPour = (id: string): number => {
           if (id === 'GROS') return Math.max(margeMinimale, margeAtelier);
-          if (id === 'MAGASIN' || id === 'ONLINE') return Math.max(margeMinimale, margeAtelier + margeBoutique);
+          if (id === 'BOUTIQUE' || id === 'MAGASIN' || id === 'ONLINE') return Math.max(margeMinimale, margeAtelier + margeBoutique);
           return Math.max(margeMinimale, margeAtelier + margeBoutique / 2);
         };
 
@@ -12059,7 +12075,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                   min={0}
                                   step="0.01"
                                   value={f.montant}
-                                  onChange={e => updateFraisCanal(col.fraisKey!, f.id, { montant: Math.max(0, Number(e.target.value) || 0) })}
+                                  placeholder="0"
+                                  onChange={e => updateFraisCanal(col.fraisKey!, f.id, { montant: e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0) })}
                                   className="w-16 text-right bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
                                 />
                                 {/* Une commission de plateforme se compte en
@@ -12152,7 +12169,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   })}
                 </p>
 
-                <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
+                <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4 sticky bottom-0 -mx-5 -mb-5 px-5 pb-5 bg-white/95 dark:bg-dk-surface/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-dk-surface/80">
                   <button
                     type="button"
                     disabled={prixSheetSaving}
@@ -13202,7 +13219,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                   <input
                                     type="number"
                                     min={0}
-                                    value={labelExterneGrid[s] ?? 0}
+                                    value={labelExterneGrid[s] || ''}
+                                    placeholder="0"
                                     onChange={e => setLabelExterneGrid(prev => ({ ...prev, [s]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
                                     className="w-16 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-1.5 py-1 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-500/30"
                                   />
@@ -13235,7 +13253,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                         <input
                                           type="number"
                                           min={0}
-                                          value={labelGrid[key] ?? 0}
+                                          value={labelGrid[key] || ''}
+                                          placeholder="0"
                                           onChange={e => setLabelGrid(prev => ({ ...prev, [key]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
                                           className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-1.5 py-1 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-500/30"
                                         />
