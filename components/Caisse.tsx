@@ -16,7 +16,7 @@ import { fmt } from '../app/constants';
 import { resolveScan, attachScannerListener } from '../lib/scanner';
 import type { AtelierClient } from './soustraitance/ClientsPanel';
 import {
-  X, ScanLine, Search, Trash2, Plus, Minus, Loader2, AlertTriangle, User, Store, Check,
+  X, ScanLine, Search, Trash2, Plus, Minus, Loader2, AlertTriangle, User, Store, Check, ArrowLeft,
 } from 'lucide-react';
 
 export type CaisseLigne = {
@@ -61,6 +61,48 @@ export interface CaisseProps {
 
 const cellKey = (c: string, t: string) => `${c || ''}|${t || ''}`;
 
+/**
+ * Une pastille de couleur approchée, à partir du NOM saisi dans la fiche —
+ * le modèle ne stocke aucun code hexadécimal. Ce qu'on ne sait pas teindre
+ * reste gris : mieux vaut une pastille neutre qu'une fausse couleur, qui
+ * ferait sortir la mauvaise pièce du rayon.
+ */
+const TEINTES: Array<[RegExp, string]> = [
+  [/noir|black|أسود/i, '#111827'],
+  [/blanc|white|أبيض/i, '#f8fafc'],
+  [/rouge|red|أحمر/i, '#dc2626'],
+  [/bleu|blue|أزرق/i, '#2563eb'],
+  [/marine|navy/i, '#1e3a8a'],
+  [/ciel|sky|turquoise|cyan/i, '#38bdf8'],
+  [/vert|green|أخضر/i, '#16a34a'],
+  [/emeraude|émeraude|emerald/i, '#059669'],
+  [/jaune|yellow|أصفر|dore|doré|gold/i, '#eab308'],
+  [/orange|برتقالي/i, '#f97316'],
+  [/rose|pink|وردي/i, '#ec4899'],
+  [/violet|purple|mauve/i, '#7c3aed'],
+  [/gris|grey|gray|رمادي/i, '#9ca3af'],
+  [/beige|creme|crème|ecru|écru/i, '#e7d8c0'],
+  [/marron|brown|kaki|khaki|بني/i, '#8b5a2b'],
+];
+const teinteDe = (nom: string): string | null => {
+  for (const [re, hex] of TEINTES) if (re.test(nom || '')) return hex;
+  return null;
+};
+
+/** Vignette du modèle : la photo si elle existe, sinon ses initiales. */
+const Vignette: React.FC<{ model: ModelData; className?: string }> = ({ model, className = 'w-12 h-12' }) => {
+  const src = (model as any).image || (model as any).photo || '';
+  const nom = model.meta_data?.nom_modele || '';
+  if (src) {
+    return <img src={src} alt="" className={`${className} rounded-lg object-cover bg-slate-100 dark:bg-dk-elevated flex-none`} />;
+  }
+  return (
+    <div className={`${className} rounded-lg bg-slate-100 dark:bg-dk-elevated flex-none flex items-center justify-center text-[10px] font-black text-slate-400 dark:text-dk-muted`}>
+      {nom.slice(0, 2).toUpperCase() || '—'}
+    </div>
+  );
+};
+
 const Caisse: React.FC<CaisseProps> = ({
   open, onClose, candidats, clients, stockMatrix, currency, lang, onEncaisser, isStatic,
   initialRecherche,
@@ -71,6 +113,9 @@ const Caisse: React.FC<CaisseProps> = ({
   const [paiement, setPaiement] = useState<CaissePaiement>('ESPECES');
   const [remiseGlobale, setRemiseGlobale] = useState<number | ''>('');
   const [recherche, setRecherche] = useState('');
+  /** Modèle ouvert : le comptoir choisit un vêtement, PUIS sa couleur et sa
+   *  taille. Tant qu'aucun n'est ouvert, on montre le rayon. */
+  const [modeleOuvert, setModeleOuvert] = useState<ModelData | null>(null);
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -196,27 +241,54 @@ const Caisse: React.FC<CaisseProps> = ({
     return () => document.removeEventListener('keydown', onEsc);
   }, [open, onClose]);
 
-  /** Résultats de la recherche manuelle : une cellule par pièce réellement
-   *  disponible. C'est le stock des MOUVEMENTS qui fait foi, toujours. */
-  const resultats = useMemo(() => {
+  /** Le catalogue du comptoir : un modèle par vignette, avec sa photo et ce
+   *  qu'il reste VRAIMENT (stock des mouvements, jamais les compteurs de
+   *  commande). Sans photo, l'opérateur cherche un nom au lieu de reconnaître
+   *  un vêtement — c'est plus lent que de fouiller le rayon. */
+  const catalogue = useMemo(() => {
     const q = recherche.trim().toLowerCase();
-    if (!q) return [];
-    const out: Array<{ model: ModelData; couleur: string; taille: string; dispo: number }> = [];
+    const out: Array<{ model: ModelData; total: number; couleurs: string[] }> = [];
     for (const m of candidats) {
-      const nom = String(m.meta_data?.nom_modele || '').toLowerCase();
-      const ref = String(m.meta_data?.reference || '').toLowerCase();
-      if (!nom.includes(q) && !ref.includes(q)) continue;
       const cells = stockMatrix.get(m.id);
       if (!cells) continue;
+      let total = 0;
+      const couleurs = new Set<string>();
       cells.forEach((qte, k) => {
         if (qte <= 0) return;
-        const [couleur, taille] = k.split('|');
-        out.push({ model: m, couleur, taille, dispo: qte });
+        total += qte;
+        const c = k.split('|')[0];
+        if (c) couleurs.add(c);
       });
-      if (out.length > 60) return out;
+      if (total <= 0) continue;
+      if (q) {
+        const nom = String(m.meta_data?.nom_modele || '').toLowerCase();
+        const ref = String(m.meta_data?.reference || '').toLowerCase();
+        if (!nom.includes(q) && !ref.includes(q)) continue;
+      }
+      out.push({ model: m, total, couleurs: [...couleurs] });
     }
-    return out;
+    return out.sort((a, b) => b.total - a.total);
   }, [recherche, candidats, stockMatrix]);
+
+  /** Les cellules du modèle ouvert, rangées couleur par couleur : on choisit
+   *  d'abord la couleur (c'est ce que le client montre), puis la taille. */
+  const grilleModele = useMemo(() => {
+    if (!modeleOuvert) return [];
+    const cells = stockMatrix.get(modeleOuvert.id);
+    if (!cells) return [];
+    const parCouleur = new Map<string, Array<{ taille: string; dispo: number }>>();
+    cells.forEach((qte, k) => {
+      if (qte <= 0) return;
+      const [couleur, taille] = k.split('|');
+      const arr = parCouleur.get(couleur) || [];
+      arr.push({ taille, dispo: qte });
+      parCouleur.set(couleur, arr);
+    });
+    return [...parCouleur.entries()].map(([couleur, tailles]) => ({
+      couleur,
+      tailles: tailles.sort((a, b) => a.taille.localeCompare(b.taille, undefined, { numeric: true })),
+    }));
+  }, [modeleOuvert, stockMatrix]);
 
   const sousTotal = useMemo(
     () => lignes.reduce((a, l) => a + l.qte * (Number(l.prix) || 0), 0),
@@ -272,6 +344,8 @@ const Caisse: React.FC<CaisseProps> = ({
     recu: tx(lang, { fr: 'Recu', ar: 'المدفوع', en: 'Received', es: 'Recibido', pt: 'Recebido', tr: 'Alinan' }),
     rendu: tx(lang, { fr: 'A rendre', ar: 'الصرف', en: 'Change', es: 'Cambio', pt: 'Troco', tr: 'Para ustu' }),
     encaisser: tx(lang, { fr: 'Encaisser', ar: 'خلّص', en: 'Charge', es: 'Cobrar', pt: 'Cobrar', tr: 'Tahsil et' }),
+    retour: tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' }),
+    rienEnStock: tx(lang, { fr: 'Aucune piece en stock.', ar: 'ما كاين حتى قطعة فالستوك.', en: 'No item in stock.', es: 'Ninguna pieza en stock.', pt: 'Nenhuma peca em stock.', tr: 'Stokta parca yok.' }),
     videz: tx(lang, { fr: 'Vider', ar: 'فرّغ', en: 'Clear', es: 'Vaciar', pt: 'Limpar', tr: 'Temizle' }),
     statique: tx(lang, { fr: "Mode statique : la caisse a besoin du serveur pour enregistrer une vente.", ar: 'الوضع الساكن: الصندوق كيحتاج السيرفر باش يسجّل البيعة.', en: 'Static mode: the checkout needs the server to record a sale.', es: 'Modo estatico: la caja necesita el servidor.', pt: 'Modo estatico: a caixa precisa do servidor.', tr: 'Statik mod: kasa sunucuya ihtiyac duyar.' }),
   };
@@ -327,25 +401,99 @@ const Caisse: React.FC<CaisseProps> = ({
               className="w-full pl-9 pr-3 py-3 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2 content-start">
-            {resultats.map(r => (
-              <button
-                key={`${r.model.id}::${cellKey(r.couleur, r.taille)}`}
-                onClick={() => ajouter(r.model, r.couleur, r.taille)}
-                className="p-3 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-left hover:border-indigo-400 dark:hover:border-dk-accent transition-colors"
-              >
-                <span className="block text-xs font-bold text-slate-800 dark:text-dk-text truncate">
-                  {r.model.meta_data?.nom_modele || r.model.id}
-                </span>
-                <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
-                  {[r.couleur, r.taille].filter(Boolean).join(' · ') || '—'}
-                </span>
-                <span className="block text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                  {restantDe(r.model.id, r.couleur, r.taille)}
-                </span>
-              </button>
-            ))}
-          </div>
+          {/* Le rayon : un modèle par vignette. */}
+          {!modeleOuvert && (
+            <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 content-start">
+              {catalogue.length === 0 && (
+                <p className="col-span-full p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.rienEnStock}</p>
+              )}
+              {catalogue.map(c => (
+                <button
+                  key={c.model.id}
+                  onClick={() => setModeleOuvert(c.model)}
+                  className="p-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-left hover:border-indigo-400 dark:hover:border-dk-accent transition-colors"
+                >
+                  <Vignette model={c.model} className="w-full aspect-square" />
+                  <span className="block mt-2 text-xs font-bold text-slate-800 dark:text-dk-text truncate">
+                    {c.model.meta_data?.nom_modele || c.model.id}
+                  </span>
+                  <span className="flex items-center gap-1 mt-1">
+                    {c.couleurs.slice(0, 5).map(nom => {
+                      const hex = teinteDe(nom);
+                      return (
+                        <span
+                          key={nom}
+                          title={nom}
+                          className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-border flex-none"
+                          style={hex ? { backgroundColor: hex } : undefined}
+                        />
+                      );
+                    })}
+                    <span className="flex-1" />
+                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{c.total}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Le modèle ouvert : couleur d'abord, taille ensuite. */}
+          {modeleOuvert && (
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="flex items-center gap-3 mb-3">
+                <button
+                  onClick={() => setModeleOuvert(null)}
+                  className="p-2 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-elevated"
+                  aria-label={T.retour}
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <Vignette model={modeleOuvert} className="w-12 h-12" />
+                <div className="min-w-0">
+                  <span className="block text-sm font-extrabold text-slate-800 dark:text-dk-text truncate">
+                    {modeleOuvert.meta_data?.nom_modele || modeleOuvert.id}
+                  </span>
+                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                    {modeleOuvert.meta_data?.reference || ''}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {grilleModele.map(g => (
+                  <div key={g.couleur} className="rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border p-3">
+                    <span className="flex items-center gap-2 mb-2">
+                      <span
+                        className="w-4 h-4 rounded-full border border-slate-300 dark:border-dk-border flex-none"
+                        style={teinteDe(g.couleur) ? { backgroundColor: teinteDe(g.couleur)! } : undefined}
+                      />
+                      <span className="text-xs font-extrabold text-slate-800 dark:text-dk-text">{g.couleur || '—'}</span>
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {g.tailles.map(t => {
+                        const reste = restantDe(modeleOuvert.id, g.couleur, t.taille);
+                        return (
+                          <button
+                            key={t.taille}
+                            disabled={reste <= 0}
+                            onClick={() => ajouter(modeleOuvert, g.couleur, t.taille)}
+                            className={`px-3 py-2 rounded-xl border text-center min-w-[64px] transition-colors ${
+                              reste > 0
+                                ? 'bg-slate-50 dark:bg-dk-elevated border-slate-200 dark:border-dk-border hover:border-indigo-400 dark:hover:border-dk-accent'
+                                : 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border opacity-50 cursor-not-allowed'
+                            }`}
+                          >
+                            <span className="block text-xs font-extrabold text-slate-800 dark:text-dk-text">{t.taille || '—'}</span>
+                            <span className="block text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{reste}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Droite : le panier et l'encaissement. */}
@@ -367,11 +515,16 @@ const Caisse: React.FC<CaisseProps> = ({
             )}
             {lignes.map(l => (
               <div key={l.key} className="flex items-center gap-2 px-4 py-3">
+                <Vignette model={l.model} className="w-10 h-10" />
                 <div className="flex-1 min-w-0">
                   <span className="block text-sm font-bold text-slate-800 dark:text-dk-text truncate">
                     {l.model.meta_data?.nom_modele || l.model.id}
                   </span>
-                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                  <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-dk-border flex-none"
+                      style={teinteDe(l.couleur) ? { backgroundColor: teinteDe(l.couleur)! } : undefined}
+                    />
                     {[l.couleur, l.taille].filter(Boolean).join(' · ') || '—'}
                   </span>
                 </div>

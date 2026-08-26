@@ -8220,6 +8220,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl pl-9 pr-3 py-2 text-[12px] text-slate-800 dark:text-dk-text placeholder:text-slate-400 dark:placeholder:text-dk-muted outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
                   />
                 </div>
+                {/* La caisse s'ouvre sur TOUT le rayon : au comptoir, on ne
+                    sait pas d'avance quel modele le client va poser. */}
+                <button
+                  type="button"
+                  onClick={() => { setCaisseRecherche(''); setCaisseOpen(true); }}
+                  className="shrink-0 flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-dk-accent dark:hover:bg-dk-accent/90 shadow-sm dark:shadow-none transition-all border border-indigo-600 dark:border-transparent"
+                >
+                  <Store className="w-3.5 h-3.5" />
+                  {tx(lang,{fr:'Caisse',ar:'الصندوق',en:'Checkout',es:'Caja',pt:'Caixa',tr:'Kasa'})}
+                </button>
                 {/* Acheter n'est pas commander : ici on fait entrer de la
                     marchandise DÉJÀ FINIE, sans gamme ni jalons. Deux gestes
                     distincts, deux boutons distincts. */}
@@ -8478,6 +8488,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         >
                           {tx(lang,{fr:'Caisse',ar:'الصندوق',en:'Checkout',es:'Caja',pt:'Caixa',tr:'Kasa'})}
                         </button>
+                        {/* Deux gestes distincts, deux boutons : la caisse vend
+                            au comptoir, la facture livre un client du registre.
+                            Fondre les deux avait fait perdre la facturation. */}
+                        <button
+                          type="button"
+                          disabled={item.remainingStock <= 0}
+                          onClick={() => openSortieModal(item.model, item.salePrice)}
+                          title={tx(lang,{fr:'Sortie de stock + facture client',ar:'إخراج من المخزون + فاتورة زبون',en:'Stock exit + customer invoice',es:'Salida de stock + factura',pt:'Saida de stock + fatura',tr:'Stok cikisi + fatura'})}
+                          className={`shrink-0 p-2.5 rounded-xl border transition-colors ${
+                            item.remainingStock > 0
+                              ? 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent hover:bg-indigo-50 dark:hover:bg-dk-accent/10'
+                              : 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border text-slate-300 dark:text-dk-muted/50 cursor-not-allowed'
+                          }`}
+                        >
+                          <Receipt className="w-4 h-4" />
+                        </button>
                         {/* Le tiki se colle sur les pièces EN STOCK : la grille
                             part des mouvements réels, pas de la quantité
                             commandée. Sans pièce disponible, rien à étiqueter. */}
@@ -8730,6 +8756,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 {tx(lang,{fr:'Ventiler',ar:'فصّل',en:'Itemise',es:'Desglosar',pt:'Desdobrar',tr:'Ayrintila'})}
                               </button>
                             ) : (
+                              <>
+                              <button
+                                disabled={item.remainingStock <= 0}
+                                onClick={() => openSortieModal(item.model, item.salePrice)}
+                                title={tx(lang,{fr:'Sortie de stock + facture client',ar:'إخراج من المخزون + فاتورة زبون',en:'Stock exit + customer invoice',es:'Salida de stock + factura',pt:'Saida de stock + fatura',tr:'Stok cikisi + fatura'})}
+                                className={`mr-2 px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                                  item.remainingStock > 0
+                                    ? 'border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                                    : 'border-slate-200 dark:border-dk-border text-slate-300 dark:text-dk-muted/50 cursor-not-allowed'
+                                }`}
+                              >
+                                {tx(lang,{fr:'Facture',ar:'فاتورة',en:'Invoice',es:'Factura',pt:'Fatura',tr:'Fatura'})}
+                              </button>
                               <button
                                 disabled={item.remainingStock <= 0}
                                 onClick={() => openCaisse(item.model)}
@@ -8741,6 +8780,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               >
                                 {tx(lang,{fr:'Caisse',ar:'الصندوق',en:'Checkout',es:'Caja',pt:'Caixa',tr:'Kasa'})}
                               </button>
+                              </>
                             )}
                           </td>
                         </tr>
