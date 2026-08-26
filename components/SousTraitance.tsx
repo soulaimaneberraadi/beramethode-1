@@ -17,6 +17,7 @@ import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
 import { ean13FromDigits, ean13Variant, renderEAN13, parseScanCode } from '../lib/barcode';
 import { buildZplForCells, buildZplTestLabel, type ZplCell } from '../lib/zpl';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
+import Caisse, { type CaisseLigne, type CaissePaiement } from './Caisse';
 import { lsGetMig, lsSet } from '../lib/storageKeys';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
@@ -1062,6 +1063,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
      *  l'opérateur DÉCIDE — un tarif résolu ne doit jamais écraser sa saisie. */
     prixTouched: boolean;
   } | null>(null);
+  /** Caisse : la vente au comptoir vit dans son propre ecran plein cadre.
+   *  Elle partage le stock et l'API de sortie, rien d'autre. */
+  const [caisseOpen, setCaisseOpen] = useState(false);
+  const [caisseRecherche, setCaisseRecherche] = useState('');
+  const caisseOpenRef = useRef(false);
+  caisseOpenRef.current = caisseOpen;
+
   const [sortieSaving, setSortieSaving] = useState(false);
   const [sortieError, setSortieError] = useState<string | null>(null);
   /** Proposition de facturation juste après une sortie de stock : la sortie est
@@ -1624,6 +1632,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // La caisse a son propre lecteur : deux ecouteurs sur le meme scan
+      // ajouteraient la piece deux fois.
+      if (caisseOpenRef.current) return;
       const now = performance.now();
       const gap = now - scanLastRef.current;
       scanLastRef.current = now;
@@ -2566,6 +2577,84 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     // l'impression : voir `finishSideEffects` plus haut.
     finishSideEffects();
   };
+
+
+  /** Encaissement de la caisse.
+   *
+   *  L'API de sortie de stock traite UN modele a la fois : un panier
+   *  multi-modeles se traduit donc en une sortie par modele. Ce n'est pas
+   *  atomique — si la troisieme echoue, les deux premieres sont deja
+   *  enregistrees — alors on s'arrete a la premiere erreur et on dit
+   *  exactement ce qui est passe, plutot que de laisser croire que rien
+   *  n'a bouge.
+   */
+  const encaisserCaisse = async (payload: {
+    lignes: CaisseLigne[];
+    clientId: string | null;
+    clientNom: string | null;
+    paiement: CaissePaiement;
+    remiseGlobale: number;
+    total: number;
+  }): Promise<string | null> => {
+    if (IS_STATIC) {
+      return tx(lang,{fr:"Mode statique : aucune vente ne peut etre enregistree.",ar:'الوضع الساكن: ما يمكن تسجيل حتى بيعة.',en:'Static mode: no sale can be recorded.',es:'Modo estatico: no se puede registrar la venta.',pt:'Modo estatico: nao e possivel registar a venda.',tr:'Statik mod: satis kaydedilemez.'});
+    }
+    const parModele = new Map<string, CaisseLigne[]>();
+    payload.lignes.forEach(l => {
+      const arr = parModele.get(l.model.id) || [];
+      arr.push(l);
+      parModele.set(l.model.id, arr);
+    });
+    let faites = 0;
+    try {
+      for (const [modelId, lignes] of parModele) {
+        // Un prix unitaire par sortie : quand un modele a plusieurs prix dans
+        // le panier, on envoie la moyenne ponderee pour que le total encaisse
+        // reste exact au centime.
+        const qte = lignes.reduce((a, l) => a + l.qte, 0);
+        const montant = lignes.reduce((a, l) => a + l.qte * (Number(l.prix) || 0), 0);
+        const prixUnitaire = qte > 0 ? Number((montant / qte).toFixed(2)) : 0;
+        const res = await fetch('/api/subcontract/stock-sorties', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            modelId,
+            client_id: payload.clientId,
+            client_nom: payload.clientNom,
+            prix_unitaire: prixUnitaire,
+            date_sortie: new Date().toISOString().slice(0, 10),
+            canal: 'MAGASIN',
+            note: `CAISSE ${payload.paiement}`,
+            lignes: lignes.map(l => ({ couleur: l.couleur, taille: l.taille, quantite: l.qte })),
+          }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const base = body.message || tx(lang,{fr:'La sortie a ete refusee.',ar:'تم رفض الإخراج.',en:'The exit was rejected.',es:'La salida fue rechazada.',pt:'A saida foi recusada.',tr:'Cikis reddedildi.'});
+          return faites === 0 ? base : `${base} (${faites} ${tx(lang,{fr:'deja enregistrees',ar:'مسجّلة سلفاً',en:'already recorded',es:'ya registradas',pt:'ja registadas',tr:'zaten kaydedildi'})})`;
+        }
+        faites++;
+      }
+      return null;
+    } finally {
+      // Le stock affiche doit suivre, meme apres un echec partiel.
+      await loadStockMovements();
+    }
+  };
+
+  /** Ouvre la caisse sur un modele : c'est le geste de vente au comptoir,
+   *  la ou la sortie de stock classique reste le geste de gestion. */
+  const openCaisse = (model: ModelData) => {
+    setCaisseRecherche(model.meta_data?.nom_modele || model.meta_data?.reference || '');
+    setCaisseOpen(true);
+  };
+
+  /** Modeles ET articles achetes : la caisse lit le meme tiki que le magasin. */
+  const caisseCandidats = useMemo(
+    () => [...models, ...articles.map(articleAsModel)],
+    [models, articles],
+  );
 
   const submitSortie = async () => {
     if (!sortieForm) return;
@@ -8380,14 +8469,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       <div className="flex items-center gap-2">
                         <button
                           disabled={item.remainingStock <= 0}
-                          onClick={() => openSortieModal(item.model, item.salePrice)}
+                          onClick={() => openCaisse(item.model)}
                           className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
                             item.remainingStock > 0
                               ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white'
                               : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
                           }`}
                         >
-                          {tx(lang,{fr:'Sortie Facture',ar:'إخراج فاتورة',en:'Issue Invoice',es:'Emitir Factura',pt:'Emitir Fatura',tr:'Fatura Kes'})}
+                          {tx(lang,{fr:'Caisse',ar:'الصندوق',en:'Checkout',es:'Caja',pt:'Caixa',tr:'Kasa'})}
                         </button>
                         {/* Le tiki se colle sur les pièces EN STOCK : la grille
                             part des mouvements réels, pas de la quantité
@@ -8643,14 +8732,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             ) : (
                               <button
                                 disabled={item.remainingStock <= 0}
-                                onClick={() => openSortieModal(item.model, item.salePrice)}
+                                onClick={() => openCaisse(item.model)}
                                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
                                   item.remainingStock > 0
                                     ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white hover:scale-[1.02]'
                                     : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
                                 }`}
                               >
-                                {tx(lang,{fr:'Sortie Facture',ar:'إخراج فاتورة',en:'Issue Invoice',es:'Emitir Factura',pt:'Emitir Fatura',tr:'Fatura Kes'})}
+                                {tx(lang,{fr:'Caisse',ar:'الصندوق',en:'Checkout',es:'Caja',pt:'Caixa',tr:'Kasa'})}
                               </button>
                             )}
                           </td>
@@ -10283,6 +10372,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           </div>
         </SheetModal>
       )}
+
+      <Caisse
+        open={caisseOpen}
+        onClose={() => setCaisseOpen(false)}
+        candidats={caisseCandidats}
+        clients={atelierClients}
+        stockMatrix={stockMatrixByModel}
+        currency={currency}
+        lang={lang}
+        isStatic={IS_STATIC}
+        initialRecherche={caisseRecherche}
+        onEncaisser={encaisserCaisse}
+      />
 
       {/* Sortie de stock : client du registre + grille couleur x taille. */}
       {sortieForm && (
