@@ -337,3 +337,113 @@ export const deleteAchat = (req: Request, res: Response) => {
         res.status(500).json({ message: 'Error deleting purchase' });
     }
 };
+
+// ════════════════════════════════════════════════════════════════════════════
+// INTÉGRITÉ DU STOCK
+// ════════════════════════════════════════════════════════════════════════════
+/**
+ * Une entrée en stock appartient toujours à quelque chose : une commande de
+ * sous-traitance, ou un achat. Quand ce parent disparaît sans emporter ses
+ * entrées, celles-ci restent en base — invisibles dans les écrans, mais
+ * toujours comptées dans le disponible ET dans la valorisation. Un modèle
+ * affichait ainsi 1060 pièces pour 470 réellement reçues.
+ *
+ * La fuite est colmatée (voir `deleteSubcontractOrder` et `deleteAchat`), mais
+ * les entrées déjà orphelines, elles, sont toujours là. Ce contrôle les trouve
+ * et permet de les retirer — jamais tout seul : supprimer du stock est une
+ * décision comptable, on montre d'abord ce qu'on s'apprête à retirer.
+ */
+
+type OrphelinRow = {
+    order_id: string;
+    modelId: string | null;
+    modelNom: string | null;
+    lignes: number;
+    quantite: number;
+};
+
+const trouverOrphelins = (companyId: number | string): OrphelinRow[] =>
+    db.prepare(`
+        SELECT e.order_id, e.modelId,
+               COALESCE(
+                   (SELECT nom FROM st_articles ar WHERE ar.id = e.modelId),
+                   (SELECT json_extract(m.data, '$.meta_data.nom_modele') FROM models m
+                     WHERE m.id = e.modelId AND m.user_id = e.owner_id)
+               ) AS modelNom,
+               COUNT(*) AS lignes,
+               COALESCE(SUM(e.quantite), 0) AS quantite
+        FROM st_stock_entries e
+        LEFT JOIN subcontract_orders o ON o.id = e.order_id AND o.owner_id = e.owner_id
+        LEFT JOIN st_achats a ON a.id = e.order_id AND a.owner_id = e.owner_id
+        WHERE e.owner_id = ? AND o.id IS NULL AND a.id IS NULL
+        GROUP BY e.order_id, e.modelId
+        ORDER BY quantite DESC
+    `).all(companyId) as OrphelinRow[];
+
+// GET /api/subcontract/stock-integrity
+export const checkStockIntegrity = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    try {
+        const orphelins = trouverOrphelins(companyId);
+        res.json({
+            orphelins,
+            totalPieces: orphelins.reduce((a, o) => a + (Number(o.quantite) || 0), 0),
+        });
+    } catch (error) {
+        console.error('Stock integrity check error:', error);
+        res.status(500).json({ message: 'Error checking stock integrity' });
+    }
+};
+
+// POST /api/subcontract/stock-integrity/repair
+export const repairStockIntegrity = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    try {
+        const orphelins = trouverOrphelins(companyId);
+        if (orphelins.length === 0) return res.json({ message: 'Rien à corriger.', supprimees: 0 });
+
+        // Retirer ces pièces ne doit jamais rendre un disponible négatif : ce
+        // qui est SORTI du stock est un fait, on ne le réécrit pas pour
+        // arranger un total. Un modèle dans ce cas est laissé tel quel et
+        // signalé, plutôt que corrigé de force.
+        const ignores: Array<{ modelId: string | null; modelNom: string | null; quantite: number }> = [];
+        const aSupprimer: OrphelinRow[] = [];
+
+        for (const o of orphelins) {
+            if (!o.modelId) { aSupprimer.push(o); continue; }
+            const totaux = db.prepare(`
+                SELECT
+                    (SELECT COALESCE(SUM(quantite), 0) FROM st_stock_entries
+                      WHERE owner_id = ? AND modelId = ? AND qualite = 'ACCEPTED') AS entrees,
+                    (SELECT COALESCE(SUM(quantite), 0) FROM st_stock_sorties
+                      WHERE owner_id = ? AND modelId = ?) AS sorties
+            `).get(companyId, o.modelId, companyId, o.modelId) as any;
+            const restant = (Number(totaux?.entrees) || 0) - (Number(o.quantite) || 0);
+            if (restant < (Number(totaux?.sorties) || 0)) {
+                ignores.push({ modelId: o.modelId, modelNom: o.modelNom, quantite: Number(o.quantite) || 0 });
+                continue;
+            }
+            aSupprimer.push(o);
+        }
+
+        let supprimees = 0;
+        const run = db.transaction(() => {
+            for (const o of aSupprimer) {
+                const info = db.prepare('DELETE FROM st_stock_entries WHERE owner_id = ? AND order_id = ?')
+                    .run(companyId, o.order_id);
+                supprimees += info.changes;
+            }
+        });
+        run();
+
+        res.json({
+            message: 'Stock corrigé.',
+            supprimees,
+            piecesRetirees: aSupprimer.reduce((a, o) => a + (Number(o.quantite) || 0), 0),
+            ignores,
+        });
+    } catch (error) {
+        console.error('Stock integrity repair error:', error);
+        res.status(500).json({ message: 'Error repairing stock integrity' });
+    }
+};

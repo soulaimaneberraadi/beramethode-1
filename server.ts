@@ -82,7 +82,7 @@ import {
 } from './server/subcontractController';
 import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice, createCommandeNormale } from './server/clientsController';
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
-import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat } from './server/achatsController';
+import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat, checkStockIntegrity, repairStockIntegrity } from './server/achatsController';
 import { sendZpl } from './server/printBridge';
 import {
   getStoreConfig, saveStoreConfig, deleteStoreConfig, testStoreConnection,
@@ -698,6 +698,10 @@ async function startServer() {
   app.get('/api/subcontract/achats', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getAchats);
   app.post('/api/subcontract/achats', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createAchat);
   app.delete('/api/subcontract/achats/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_achats', 'owner_id'), deleteAchat);
+  // Controle d'integrite du stock : trouve les entrees dont la commande ou
+  // l'achat parent n'existe plus, et permet de les retirer.
+  app.get('/api/subcontract/stock-integrity', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), checkStockIntegrity);
+  app.post('/api/subcontract/stock-integrity/repair', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), repairStockIntegrity);
   app.get('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getClients);
   app.post('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveClient);
   app.delete('/api/subcontract/clients/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_clients', 'owner_id'), deleteClient);

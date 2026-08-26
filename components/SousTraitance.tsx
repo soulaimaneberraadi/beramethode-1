@@ -1821,6 +1821,82 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     } catch { /* réglages illisibles : on garde les valeurs par défaut */ }
   }, []);
 
+  /* ── Contrôle d'intégrité du stock ───────────────────────────────────────
+   * Une entrée en stock appartient toujours à une commande ou à un achat.
+   * Quand ce parent disparaissait sans emporter ses entrées, celles-ci
+   * restaient comptées dans le disponible ET dans la valorisation, sans être
+   * visibles nulle part : un modèle affichait 1060 pièces pour 470 reçues.
+   * La fuite est colmatée, mais rien ne permettait de VOIR ce qui traîne déjà.
+   * Ce contrôle le montre, et ne retire rien sans un clic explicite : enlever
+   * des pièces du stock est une décision comptable.
+   * ────────────────────────────────────────────────────────────────────── */
+  const [integriteOpen, setIntegriteOpen] = useState(false);
+  const [integriteLoading, setIntegriteLoading] = useState(false);
+  const [integriteRepairing, setIntegriteRepairing] = useState(false);
+  const [integriteError, setIntegriteError] = useState<string | null>(null);
+  const [integriteResultat, setIntegriteResultat] = useState<{
+    orphelins: Array<{ order_id: string; modelId: string | null; modelNom: string | null; lignes: number; quantite: number }>;
+    totalPieces: number;
+  } | null>(null);
+  /** Message de fin : ce qui a été retiré, et ce qui a été laissé en place. */
+  const [integriteFait, setIntegriteFait] = useState<string | null>(null);
+
+  const ouvrirIntegrite = async () => {
+    setStockMenuOpen(false);
+    setIntegriteOpen(true);
+    setIntegriteError(null);
+    setIntegriteResultat(null);
+    setIntegriteFait(null);
+    if (IS_STATIC) return;
+    setIntegriteLoading(true);
+    try {
+      const res = await fetch('/api/subcontract/stock-integrity', { credentials: 'include' });
+      if (!res.ok) throw new Error();
+      setIntegriteResultat(await res.json());
+    } catch {
+      setIntegriteError(tx(lang,{fr:'Le contrôle a échoué.',ar:'فشل الفحص.',en:'The check failed.',es:'La comprobación falló.',pt:'A verificação falhou.',tr:'Kontrol başarısız.'}));
+    } finally {
+      setIntegriteLoading(false);
+    }
+  };
+
+  const reparerIntegrite = async () => {
+    setIntegriteRepairing(true);
+    setIntegriteError(null);
+    try {
+      const res = await fetch('/api/subcontract/stock-integrity/repair', { method: 'POST', credentials: 'include' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.message || '');
+      const pieces = Number(body?.piecesRetirees) || 0;
+      const ignores: any[] = Array.isArray(body?.ignores) ? body.ignores : [];
+      setIntegriteResultat({ orphelins: [], totalPieces: 0 });
+      setIntegriteFait(
+        ignores.length > 0
+          ? tx(lang,{
+              fr:`${pieces} pièces retirées. ${ignores.length} modèle(s) laissé(s) en place : leurs pièces sont déjà sorties du stock, les retirer rendrait le disponible négatif.`,
+              ar:`تحيّدو ${pieces} قطعة. ${ignores.length} موديل تخلّاو كيف ما هوما: القطع ديالهم خرجات ديجا، وتحييدهم غادي يخلّي المتوفّر بالسالب.`,
+              en:`${pieces} pieces removed. ${ignores.length} model(s) left as is: their pieces already left the stock, removing them would make the available negative.`,
+              es:`${pieces} piezas retiradas. ${ignores.length} modelo(s) sin cambios: sus piezas ya salieron del stock.`,
+              pt:`${pieces} peças retiradas. ${ignores.length} modelo(s) inalterado(s): as suas peças já saíram do stock.`,
+              tr:`${pieces} parça kaldırıldı. ${ignores.length} model olduğu gibi bırakıldı: parçaları stoktan çıkmış durumda.`
+            })
+          : tx(lang,{
+              fr:`${pieces} pièces retirées. Le stock est cohérent.`,
+              ar:`تحيّدو ${pieces} قطعة. المخزون ولّى متماسك.`,
+              en:`${pieces} pieces removed. The stock is coherent.`,
+              es:`${pieces} piezas retiradas. El stock es coherente.`,
+              pt:`${pieces} peças retiradas. O stock está coerente.`,
+              tr:`${pieces} parça kaldırıldı. Stok tutarlı.`
+            })
+      );
+      await loadStockMovements();
+    } catch (err: any) {
+      setIntegriteError(err?.message || tx(lang,{fr:'La correction a échoué.',ar:'فشل التصحيح.',en:'The repair failed.',es:'La corrección falló.',pt:'A correção falhou.',tr:'Düzeltme başarısız.'}));
+    } finally {
+      setIntegriteRepairing(false);
+    }
+  };
+
   const openTikiSettings = () => {
     setTikiDraft(tikiSettings);
     setTikiSettingsOpen(true);
@@ -7243,6 +7319,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     </span>
                   </span>
                 </button>
+                <button
+                  type="button"
+                  onClick={ouvrirIntegrite}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[12px] font-bold text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors border-t border-slate-100 dark:border-dk-border"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="min-w-0">
+                    {tx(lang,{fr:'Vérifier le stock',ar:'تحقّق من المخزون',en:'Check the stock',es:'Verificar el stock',pt:'Verificar o stock',tr:'Stoğu kontrol et'})}
+                    <span className="block font-medium text-[10px] text-slate-400 dark:text-dk-muted mt-0.5 leading-snug">
+                      {tx(lang,{fr:'Trouve les pièces rattachées à une commande disparue',ar:'كيلقى القطع المربوطة بطلبية ما بقاتش',en:'Finds pieces attached to a vanished order',es:'Encuentra las piezas ligadas a un pedido desaparecido',pt:'Encontra as peças ligadas a uma encomenda desaparecida',tr:'Kaybolmuş bir siparişe bağlı parçaları bulur'})}
+                    </span>
+                  </span>
+                </button>
               </div>
             </>
           )}
@@ -11803,6 +11892,123 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* identifie le modèle et remplit la case */}
       {/* taille×couleur de la grille de sortie. */}
       {/* ======================================= */}
+      {/* ======================================= */}
+      {/* CONTRÔLE D'INTÉGRITÉ DU STOCK         */}
+      {/* ======================================= */}
+      {integriteOpen && (
+        <SheetModal
+          onClose={() => { if (!integriteRepairing) setIntegriteOpen(false); }}
+          title={tx(lang,{fr:'Vérifier le stock',ar:'تحقّق من المخزون',en:'Check the stock',es:'Verificar el stock',pt:'Verificar o stock',tr:'Stoğu kontrol et'})}
+          subtitle={tx(lang,{fr:'Pièces rattachées à une commande ou un achat qui n\'existe plus',ar:'قطع مربوطة بطلبية ولا شرا ما بقاش كاين',en:'Pieces attached to an order or purchase that no longer exists',es:'Piezas ligadas a un pedido o compra que ya no existe',pt:'Peças ligadas a uma encomenda ou compra que já não existe',tr:'Artık var olmayan bir siparişe veya alışa bağlı parçalar'})}
+          icon={<div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-xl shrink-0"><ShieldCheck className="w-5 h-5" /></div>}
+          size="md"
+          zClass="z-[260]"
+          closeOnBackdrop
+          bare
+        >
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-5 space-y-4">
+              {integriteError && (
+                <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span className="text-[11px] font-semibold leading-relaxed">{integriteError}</span>
+                </div>
+              )}
+
+              {integriteLoading && (
+                <div className="flex items-center gap-2 text-slate-400 dark:text-dk-muted text-[11px] font-semibold py-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {tx(lang,{fr:'Contrôle en cours…',ar:'الفحص جاري…',en:'Checking…',es:'Comprobando…',pt:'A verificar…',tr:'Kontrol ediliyor…'})}
+                </div>
+              )}
+
+              {integriteFait && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400">
+                  <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span className="text-[11px] font-semibold leading-relaxed">{integriteFait}</span>
+                </div>
+              )}
+
+              {!integriteLoading && !integriteFait && integriteResultat && (
+                integriteResultat.orphelins.length === 0 ? (
+                  <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400">
+                    <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span className="text-[11px] font-semibold leading-relaxed">
+                      {tx(lang,{fr:'Tout est cohérent : chaque pièce en stock est rattachée à une commande ou à un achat.',ar:'كلشي متماسك: كل قطعة فالمخزون مربوطة بطلبية ولا بشرا.',en:'Everything is coherent: every piece in stock is attached to an order or a purchase.',es:'Todo es coherente: cada pieza en stock está ligada a un pedido o a una compra.',pt:'Tudo coerente: cada peça em stock está ligada a uma encomenda ou a uma compra.',tr:'Her şey tutarlı: stoktaki her parça bir siparişe veya alışa bağlı.'})}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-2xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300 leading-snug">
+                          {tx(lang,{
+                            fr:`${integriteResultat.totalPieces.toLocaleString(dateLocale)} pièces sont comptées dans le stock alors que la commande ou l'achat qui les a fait entrer n'existe plus. Elles gonflent le disponible ET la valeur du stock.`,
+                            ar:`${integriteResultat.totalPieces.toLocaleString(dateLocale)} قطعة محسوبة فالمخزون والحال أن الطلبية ولا الشرا اللي دخّلهم ما بقاش كاين. كينفخو المتوفّر وقيمة المخزون.`,
+                            en:`${integriteResultat.totalPieces.toLocaleString(dateLocale)} pieces are counted in stock while the order or purchase that brought them in no longer exists. They inflate both the available and the stock value.`,
+                            es:`${integriteResultat.totalPieces.toLocaleString(dateLocale)} piezas se cuentan en el stock aunque el pedido o la compra que las trajo ya no existe.`,
+                            pt:`${integriteResultat.totalPieces.toLocaleString(dateLocale)} peças são contadas no stock embora a encomenda ou compra que as trouxe já não exista.`,
+                            tr:`${integriteResultat.totalPieces.toLocaleString(dateLocale)} parça stokta sayılıyor ancak onları getiren sipariş veya alış artık yok.`
+                          })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface divide-y divide-slate-100 dark:divide-dk-border">
+                      {integriteResultat.orphelins.map(o => (
+                        <div key={o.order_id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-[11px]">
+                          <div className="min-w-0">
+                            <span className="block font-bold text-slate-800 dark:text-dk-text truncate">
+                              {o.modelNom || o.modelId || '—'}
+                            </span>
+                            <span className="block text-[9px] text-slate-400 dark:text-dk-muted font-mono truncate">
+                              {String(o.order_id).slice(0, 14)} · {o.lignes} {tx(lang,{fr:'lignes',ar:'سطور',en:'lines',es:'líneas',pt:'linhas',tr:'satır'})}
+                            </span>
+                          </div>
+                          <span className="font-extrabold text-amber-700 dark:text-amber-400 shrink-0">
+                            {Number(o.quantite).toLocaleString(dateLocale)} {tx(lang,{fr:'pcs',ar:'قطعة',en:'pcs',es:'pzs',pt:'pcs',tr:'adet'})}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Ce qui est SORTI du stock est un fait : on ne le réécrit
+                        pas pour arranger un total. Le dire évite de croire à un
+                        oubli quand une ligne reste après la correction. */}
+                    <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                      {tx(lang,{fr:'Un modèle dont ces pièces sont déjà sorties du stock sera laissé en place : les retirer rendrait le disponible négatif.',ar:'الموديل اللي القطع ديالو خرجات ديجا غادي يتخلّى كيف ما هو: تحييدهم غادي يخلّي المتوفّر بالسالب.',en:'A model whose pieces have already left the stock will be left as is: removing them would make the available negative.',es:'Un modelo cuyas piezas ya salieron del stock se dejará como está: retirarlas haría negativo el disponible.',pt:'Um modelo cujas peças já saíram do stock será deixado como está: retirá-las tornaria o disponível negativo.',tr:'Parçaları stoktan çıkmış bir model olduğu gibi bırakılır: kaldırmak mevcudu negatif yapardı.'})}
+                    </p>
+                  </>
+                )
+              )}
+
+              <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
+                <button
+                  type="button"
+                  disabled={integriteRepairing}
+                  onClick={() => setIntegriteOpen(false)}
+                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                >
+                  {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
+                </button>
+                {!integriteFait && (integriteResultat?.orphelins.length ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    disabled={integriteRepairing}
+                    onClick={reparerIntegrite}
+                    className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md disabled:opacity-60"
+                  >
+                    {integriteRepairing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    {tx(lang,{fr:'Retirer ces pièces',ar:'حيّد هاد القطع',en:'Remove these pieces',es:'Retirar estas piezas',pt:'Retirar estas peças',tr:'Bu parçaları kaldır'})}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </SheetModal>
+      )}
+
       {/* ======================================= */}
       {/* TARIFS DE VENTE D'UN MODÈLE           */}
       {/* ======================================= */}
