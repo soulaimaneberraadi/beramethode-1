@@ -1565,6 +1565,7 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                                                         <td className={`${td} font-semibold text-slate-800 dark:text-dk-text`}>
                                                             {m.articleNom || '—'}
                                                             {m.factureRef && <span className="block text-[9px] text-slate-400 dark:text-dk-muted font-normal">{m.factureRef}</span>}
+                                                            {m.note && <span className="block text-[9px] text-amber-600 dark:text-amber-400 font-normal italic truncate" title={m.note}>{m.note}</span>}
                                                         </td>
                                                         <td className={td}>{m.dateAchat ? new Date(m.dateAchat).toLocaleDateString(dateLocale) : '—'}</td>
                                                         <td className={`${td} text-right font-bold`}>{fmt(montant)}</td>

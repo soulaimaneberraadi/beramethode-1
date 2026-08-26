@@ -275,6 +275,7 @@ export const getClientDossier = (req: Request, res: Response) => {
                    (SELECT nom FROM st_articles ar WHERE ar.id = a.article_id) AS articleNom,
                    a.date_achat AS dateAchat, a.prix_achat AS prixAchat,
                    a.facture_ref AS factureRef, COALESCE(a.montant_paye, 0) AS montantPaye,
+                   a.note,
                    (SELECT COALESCE(SUM(quantite), 0) FROM st_stock_entries se
                      WHERE se.owner_id = a.owner_id AND se.order_id = a.id) AS quantite
             FROM st_achats a
