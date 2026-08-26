@@ -4300,6 +4300,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       const remaining = isVentile
         ? Math.max(0, entered - exited)
         : Math.max(0, produced - sold);
+
+      // « Produit » doit venir de la MÊME source que « restant », sinon la carte
+      // se contredit : on a vu PRODUIT 470 / SORTI 49 / RESTANT 1011, ce qui est
+      // arithmétiquement impossible et fait douter de tous les autres chiffres.
+      // La cause : `produced` comptait les quantités acceptées des COMMANDES,
+      // tandis que `restant` comptait les MOUVEMENTS de stock — deux réalités
+      // qui divergent dès qu'une entrée est saisie sans commande, ou corrigée
+      // après coup. Quand le détail existe, c'est lui qui fait foi, ici comme
+      // partout ailleurs dans cet onglet.
+      const producedShown = isVentile ? entered : produced;
       // Le repli n'est pas un détail cosmétique : sans entrée ventilée, la grille
       // de sortie est vide et la vente est IMPOSSIBLE. L'écran doit donc l'avouer
       // au lieu d'afficher un stock vert qui ne peut pas être vendu.
@@ -4326,7 +4336,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
       list.push({
         model,
-        producedQty: produced,
+        producedQty: producedShown,
         soldQty: exited > 0 ? exited : sold,
         exitedQty: exited,
         invoicedQty: sold,
@@ -4448,17 +4458,31 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   /** Indicateurs de tête. La valeur est calculée au prix de REVIENT (valorisation
    *  comptable du stock) et ignore les modèles sans prix fiable plutôt que de
-   *  leur inventer un montant. */
+   *  leur inventer un montant.
+   *
+   *  Ils portent sur TOUT le stock, jamais sur la liste filtrée : « valeur du
+   *  stock » est un montant comptable, il ne peut pas changer parce qu'on tape
+   *  une lettre dans la recherche. C'était le cas — la valeur bougeait à chaque
+   *  frappe et à chaque clic de filtre, ce qui rendait le chiffre inutilisable
+   *  et faisait douter du calcul lui-même.
+   *
+   *  Le nombre de pièces sans prix de vente reste lui aussi global : c'est une
+   *  alerte sur le catalogue entier, pas sur ce qu'on regarde à l'instant. */
   const stockKpis = useMemo(() => {
     let value = 0, available = 0, exited = 0, noPrice = 0;
-    filteredStockStats.forEach(it => {
+    modelStockStats.forEach(it => {
       available += it.remainingStock;
       exited += it.exitedQty;
       if (it.price != null) value += it.remainingStock * it.price;
       if (!(it.salePrice != null && it.salePrice > 0)) noPrice += 1;
     });
     return { value, available, exited, noPrice };
-  }, [filteredStockStats]);
+  }, [modelStockStats]);
+
+  /** Vrai quand la liste affichée ne montre PAS tout le stock. Sans ce repère,
+   *  l'écart entre les indicateurs (globaux) et les cartes (filtrées) passe
+   *  pour une erreur de calcul. */
+  const stockListeFiltree = filteredStockStats.length !== modelStockStats.length;
 
   /** Totaux du pied de tableau — un stock ne se lit pas ligne à ligne. */
   const stockTotals = useMemo(() => {
@@ -7920,6 +7944,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl px-4 py-8 text-center text-[12px] text-slate-500 dark:text-dk-muted">
                   {tx(lang,{fr:'Aucun modèle ne correspond à cette recherche.',ar:'ما كاين حتّى موديل كيوافق هاد البحث.',en:'No model matches this search.',es:'Ningún modelo coincide con esta búsqueda.',pt:'Nenhum modelo corresponde a esta pesquisa.',tr:'Bu aramaya uyan model yok.'})}
                 </div>
+              )}
+
+              {/* Les indicateurs du haut portent sur TOUT le stock ; la liste,
+                  elle, est filtrée. Sans ce repère l'écart entre les deux passe
+                  pour une erreur de calcul. */}
+              {stockListeFiltree && filteredStockStats.length > 0 && (
+                <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                  {tx(lang,{
+                    fr:`${filteredStockStats.length} modèle(s) affiché(s) sur ${modelStockStats.length}. Les indicateurs ci-dessus portent sur la totalité du stock.`,
+                    ar:`${filteredStockStats.length} موديل بايْن من ${modelStockStats.length}. المؤشّرات اللي فوق كتهضر على المخزون كامل.`,
+                    en:`${filteredStockStats.length} of ${modelStockStats.length} models shown. The indicators above cover the whole stock.`,
+                    es:`${filteredStockStats.length} de ${modelStockStats.length} modelos mostrados. Los indicadores de arriba cubren todo el stock.`,
+                    pt:`${filteredStockStats.length} de ${modelStockStats.length} modelos apresentados. Os indicadores acima cobrem todo o stock.`,
+                    tr:`${modelStockStats.length} modelden ${filteredStockStats.length} tanesi gösteriliyor. Yukarıdaki göstergeler tüm stoğu kapsar.`
+                  })}
+                </p>
               )}
 
                {/* Vue mobile : cartes (le tableau ci-dessous devient illisible sous md) */}
