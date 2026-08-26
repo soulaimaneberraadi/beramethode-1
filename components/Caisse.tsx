@@ -58,6 +58,9 @@ export interface CaisseProps {
     typeVente: TypeVente;
     /** Une facture doit suivre cette vente. */
     facture: boolean;
+    /** Especes : ce que le client a tendu, et ce qu'on lui rend. */
+    recu: number | null;
+    rendu: number | null;
   }) => Promise<string | null>;
   /** Mode statique : aucune API, la caisse ne peut pas enregistrer. */
   isStatic?: boolean;
@@ -363,6 +366,8 @@ const Caisse: React.FC<CaisseProps> = ({
       total,
       typeVente: typeEffectif,
       facture: factureRequise,
+      recu: paiement === 'ESPECES' && encaisse !== '' ? Number(encaisse) : null,
+      rendu: paiement === 'ESPECES' && rendu != null ? rendu : null,
     });
     setSaving(false);
     if (msg) { setErreur(msg); pip(false); return; }
@@ -414,18 +419,18 @@ const Caisse: React.FC<CaisseProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-[80] bg-slate-100 dark:bg-dk-bg flex flex-col">
+    <div className="fixed top-12 left-0 right-0 bottom-0 z-[80] bg-slate-100 dark:bg-dk-bg flex flex-col overflow-hidden">
       {/* Barre du haut : ce que la caisse fait, et comment en sortir. */}
-      <div className="flex items-center gap-3 px-5 py-3 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border">
-        <Store className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
-        <span className="font-extrabold text-slate-800 dark:text-dk-text">{T.titre}</span>
-        <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border shrink-0">
+        <Store className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />
+        <span className="font-extrabold text-slate-800 dark:text-dk-text text-sm sm:text-base truncate">{T.titre}</span>
+        <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
           <ScanLine className="w-4 h-4 animate-pulse" /> {T.scan}
         </span>
-        <div className="flex-1" />
+        <div className="flex-1 min-w-0" />
         <button
           onClick={onClose}
-          className="p-2 rounded-xl text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
+          className="p-2 rounded-xl text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors shrink-0"
           aria-label="Fermer"
         >
           <X className="w-5 h-5" />
@@ -433,21 +438,21 @@ const Caisse: React.FC<CaisseProps> = ({
       </div>
 
       {flash && (
-        <div className={`px-5 py-2 text-xs font-bold ${flash.ok
+        <div className={`px-3 sm:px-5 py-2 text-xs font-bold shrink-0 ${flash.ok
           ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
           : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400'}`}>
           {flash.msg}
         </div>
       )}
       {isStatic && (
-        <div className="px-5 py-2 text-xs font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4" /> {T.statique}
+        <div className="px-3 sm:px-5 py-2 text-xs font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 flex items-center gap-2 shrink-0">
+          <AlertTriangle className="w-4 h-4 shrink-0" /> <span className="truncate">{T.statique}</span>
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden overscroll-contain">
         {/* Gauche : la recherche manuelle, pour les tikis illisibles. */}
-        <div className="lg:w-1/2 flex flex-col min-h-0 p-4 gap-3">
+        <div className="flex flex-col lg:w-1/2 lg:min-h-0 p-3 sm:p-4 gap-3 shrink-0 lg:shrink lg:overflow-hidden bg-slate-50/50 dark:bg-transparent">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted" />
             <input
@@ -459,7 +464,7 @@ const Caisse: React.FC<CaisseProps> = ({
           </div>
           {/* Le rayon : un modèle par vignette. */}
           {!modeleOuvert && (
-            <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 content-start">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 content-start lg:flex-1 lg:min-h-0 lg:overflow-y-auto pb-2 auto-rows-max">
               {catalogue.length === 0 && (
                 <p className="col-span-full p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.rienEnStock}</p>
               )}
@@ -467,26 +472,26 @@ const Caisse: React.FC<CaisseProps> = ({
                 <button
                   key={c.model.id}
                   onClick={() => setModeleOuvert(c.model)}
-                  className="p-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-left hover:border-indigo-400 dark:hover:border-dk-accent transition-colors"
+                  className="p-2 sm:p-2.5 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-left hover:border-indigo-400 dark:hover:border-dk-accent hover:shadow-sm transition-all active:scale-[0.98] flex flex-col"
                 >
-                  <Vignette model={c.model} className="w-full aspect-square" />
-                  <span className="block mt-2 text-xs font-bold text-slate-800 dark:text-dk-text truncate">
+                  <Vignette model={c.model} className="w-full aspect-[4/3] sm:aspect-square" />
+                  <span className="block mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
                     {c.model.meta_data?.nom_modele || c.model.id}
                   </span>
                   <span className="flex items-center gap-1 mt-1">
-                    {c.couleurs.slice(0, 5).map(nom => {
+                    {c.couleurs.slice(0, 4).map(nom => {
                       const hex = teinteDe(nom);
                       return (
                         <span
                           key={nom}
                           title={nom}
-                          className="w-3 h-3 rounded-full border border-slate-300 dark:border-dk-border flex-none"
+                          className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border border-slate-300 dark:border-dk-border flex-none"
                           style={hex ? { backgroundColor: hex } : undefined}
                         />
                       );
                     })}
                     <span className="flex-1" />
-                    <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{c.total}</span>
+                    <span className="text-[10px] sm:text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded-full">{c.total}</span>
                   </span>
                 </button>
               ))}
@@ -495,7 +500,7 @@ const Caisse: React.FC<CaisseProps> = ({
 
           {/* Le modèle ouvert : couleur d'abord, taille ensuite. */}
           {modeleOuvert && (
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto pb-2">
               <div className="flex items-center gap-3 mb-3">
                 <button
                   onClick={() => setModeleOuvert(null)}
@@ -553,93 +558,119 @@ const Caisse: React.FC<CaisseProps> = ({
         </div>
 
         {/* Droite : le panier et l'encaissement. */}
-        <div className="lg:w-1/2 flex flex-col min-h-0 bg-white dark:bg-dk-surface border-l border-slate-200 dark:border-dk-border">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-dk-border">
-            <span className="text-xs font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">
+        <div className="flex flex-col lg:w-1/2 lg:min-h-0 bg-white dark:bg-dk-surface border-t lg:border-t-0 lg:border-l border-slate-200 dark:border-dk-border shrink-0 lg:shrink lg:overflow-hidden">
+          <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-dk-border shrink-0">
+            <span className="text-xs font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted shrink-0">
               {T.panier} · {nbPieces}
             </span>
-            {lignes.length > 0 && (
-              <button onClick={reset} className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline">
-                {T.videz}
-              </button>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {lignes.length > 0 && (
+                <button onClick={reset} className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline px-2 py-1">
+                  {T.videz}
+                </button>
+              )}
+            </div>
           </div>
+          {lignes.length > 0 && (
+            <div className="hidden">
+              <button
+                disabled={saving || isStatic}
+                onClick={valider}
+                className={`w-full py-2.5 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all ${
+                  saving || isStatic
+                    ? 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm active:scale-[0.98]'
+                }`}
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                {T.encaisser} · {fmt(total)} {currency}
+              </button>
+            </div>
+          )}
 
-          <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-dk-border">
+          <div className="max-h-[40vh] lg:max-h-none lg:flex-1 lg:min-h-0 lg:overflow-y-auto overflow-y-auto divide-y divide-slate-100 dark:divide-dk-border shrink-0 lg:shrink">
             {lignes.length === 0 && (
               <p className="p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.vide}</p>
             )}
             {lignes.map(l => (
-              <div key={l.key} className="flex items-center gap-2 px-4 py-3">
-                <Vignette model={l.model} className="w-10 h-10" />
-                <div className="flex-1 min-w-0">
-                  <span className="block text-sm font-bold text-slate-800 dark:text-dk-text truncate">
-                    {l.model.meta_data?.nom_modele || l.model.id}
-                  </span>
-                  <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-dk-muted truncate">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-dk-border flex-none"
-                      style={teinteDe(l.couleur) ? { backgroundColor: teinteDe(l.couleur)! } : undefined}
-                    />
-                    {[l.couleur, l.taille].filter(Boolean).join(' · ') || '—'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
+              <div key={l.key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 px-3 sm:px-4 py-3">
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  <Vignette model={l.model} className="w-10 h-10 sm:w-10 sm:h-10" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-[13px] sm:text-sm font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
+                      {l.model.meta_data?.nom_modele || l.model.id}
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-dk-border flex-none"
+                        style={teinteDe(l.couleur) ? { backgroundColor: teinteDe(l.couleur)! } : undefined}
+                      />
+                      {[l.couleur, l.taille].filter(Boolean).join(' · ') || '—'}
+                    </span>
+                  </div>
                   <button
-                    onClick={() => setLignes(prev => prev.flatMap(x => x.key !== l.key ? [x] : (x.qte > 1 ? [{ ...x, qte: x.qte - 1 }] : [])))}
-                    className="p-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                    onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
+                    className="sm:hidden p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
                   >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="w-8 text-center text-sm font-extrabold text-slate-800 dark:text-dk-text">{l.qte}</span>
-                  <button
-                    onClick={() => ajouter(l.model, l.couleur, l.taille)}
-                    className="p-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-                {/* Champ nombre sans zero pre-rempli : saisir 40 dans un champ
-                    qui contient deja 0 donnait « 040 ». */}
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={l.prix === 0 ? '' : l.prix}
-                  placeholder="0.00"
-                  onChange={e => {
-                    const v = e.target.value === '' ? 0 : Number(e.target.value);
-                    setLignes(prev => prev.map(x => x.key === l.key ? { ...x, prix: v, prixTouched: true } : x));
-                  }}
-                  className="w-20 px-2 py-1.5 rounded-lg text-right text-sm font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                />
-                <span className="w-20 text-right text-sm font-extrabold text-slate-800 dark:text-dk-text">
-                  {fmt(l.qte * (Number(l.prix) || 0))}
-                </span>
-                <button
-                  onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
-                  className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                  <div className="flex items-center gap-1 bg-slate-50 dark:bg-dk-elevated rounded-full p-0.5 border border-slate-200 dark:border-dk-border">
+                    <button
+                      onClick={() => setLignes(prev => prev.flatMap(x => x.key !== l.key ? [x] : (x.qte > 1 ? [{ ...x, qte: x.qte - 1 }] : [])))}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated shadow-sm active:scale-95 transition-transform"
+                    >
+                      <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </button>
+                    <span className="w-6 sm:w-8 text-center text-sm font-black text-slate-800 dark:text-dk-text">{l.qte}</span>
+                    <button
+                      onClick={() => ajouter(l.model, l.couleur, l.taille)}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated shadow-sm active:scale-95 transition-transform"
+                    >
+                      <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </button>
+                  </div>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={l.prix === 0 ? '' : l.prix}
+                    placeholder="0.00"
+                    onChange={e => {
+                      const v = e.target.value === '' ? 0 : Number(e.target.value);
+                      setLignes(prev => prev.map(x => x.key === l.key ? { ...x, prix: v, prixTouched: true } : x));
+                    }}
+                    className="w-[72px] sm:w-20 px-2 py-1.5 rounded-lg text-right text-[13px] sm:text-sm font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40 placeholder:text-slate-400"
+                  />
+                  <span className="w-[64px] sm:w-20 text-right text-[13px] sm:text-sm font-black text-slate-800 dark:text-dk-text truncate">
+                    {fmt(l.qte * (Number(l.prix) || 0))}
+                  </span>
+                  <button
+                    onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
+                    className="hidden sm:flex p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
 
-          <div className="border-t border-slate-200 dark:border-dk-border p-4 space-y-3">
+          <div className="border-t border-slate-200 dark:border-dk-border p-3 sm:p-4 space-y-2.5 sm:space-y-3 shrink-0 pb-[max(16px,env(safe-area-inset-bottom))] bg-white dark:bg-dk-surface sticky bottom-0 z-10 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
             {/* Le type de vente commande le tarif ET le document : en gros on
                 facture un revendeur nomme, au comptoir on remet un ticket. */}
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               {typesVente.map(t => (
                 <button
                   key={t.v}
                   onClick={() => setTypeVente(t.v)}
                   disabled={!!client}
                   title={client ? T.typeDuClient : undefined}
-                  className={`px-2 py-2 rounded-xl text-[11px] font-bold border transition-colors ${
+                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
                     typeEffectif === t.v
-                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent shadow-sm'
                       : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
-                  } ${client ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  } ${client ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
                   {t.l}
                 </button>
@@ -738,14 +769,14 @@ const Caisse: React.FC<CaisseProps> = ({
               {typeEffectif === 'GROS' && <span className="text-slate-400 dark:text-dk-muted">({T.imposee})</span>}
             </label>
 
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               {modes.map(m => (
                 <button
                   key={m.v}
                   onClick={() => setPaiement(m.v)}
-                  className={`px-2 py-2 rounded-xl text-[11px] font-bold border transition-colors ${
+                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
                     paiement === m.v
-                      ? 'bg-indigo-600 dark:bg-dk-accent text-white border-transparent'
+                      ? 'bg-indigo-600 dark:bg-dk-accent text-white border-transparent shadow-sm'
                       : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
                   }`}
                 >
@@ -754,20 +785,20 @@ const Caisse: React.FC<CaisseProps> = ({
               ))}
             </div>
 
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-slate-500 dark:text-dk-muted">{T.remise}</span>
+            <div className="flex items-center gap-2 text-sm bg-slate-50 dark:bg-dk-elevated/50 rounded-xl px-3 py-2 border border-slate-100 dark:border-dk-border/50">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0">{T.remise}</span>
               <input
                 type="number"
                 inputMode="decimal"
                 value={remiseGlobale}
                 placeholder="0"
                 onChange={e => setRemiseGlobale(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-24 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                className="w-20 sm:w-24 px-2 py-1.5 rounded-lg text-right font-bold bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40 text-sm"
               />
-              <div className="flex-1" />
-              <span className="text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">{T.total}</span>
-              <span className="text-2xl font-black text-slate-900 dark:text-dk-text">
-                {fmt(total)} <span className="text-sm">{currency}</span>
+              <div className="flex-1 min-w-0" />
+              <span className="text-[10px] sm:text-xs font-bold uppercase text-slate-500 dark:text-dk-muted shrink-0">{T.total}</span>
+              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-dk-text shrink-0">
+                {fmt(total)} <span className="text-xs sm:text-sm font-bold text-slate-500 dark:text-dk-muted">{currency}</span>
               </span>
             </div>
 

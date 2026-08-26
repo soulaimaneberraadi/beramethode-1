@@ -18,6 +18,7 @@ import { ean13FromDigits, ean13Variant, renderEAN13, parseScanCode } from '../li
 import { buildZplForCells, buildZplTestLabel, type ZplCell } from '../lib/zpl';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import Caisse, { type CaisseLigne, type CaissePaiement, type TypeVente } from './Caisse';
+import { buildTicketHtml, buildTicketZpl, parsePrinterHosts, type TicketData } from '../lib/ticket';
 import { lsGetMig, lsSet } from '../lib/storageKeys';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
@@ -2579,6 +2580,54 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   };
 
 
+  /** Le ticket part TOUT SEUL apres l'encaissement : au comptoir, un ticket
+   *  qu'il faut penser a demander est un ticket qu'on oublie. Le rendu
+   *  navigateur reste la voie par defaut ; en mode ZPL, le meme ticket va
+   *  d'un coup a toutes les imprimantes reglees (caisse, atelier, reserve). */
+  const imprimerTicket = (payload: {
+    lignes: CaisseLigne[];
+    clientNom: string | null;
+    paiement: CaissePaiement;
+    remiseGlobale: number;
+    total: number;
+    recu: number | null;
+    rendu: number | null;
+  }, batchId: string) => {
+    const now = new Date();
+    const ticket: TicketData = {
+      marque: tikiSettings.brand || '',
+      numero: `TK-${now.toISOString().slice(0, 10).replace(/-/g, '')}-${(batchId || String(now.getTime())).slice(0, 4).toUpperCase()}`,
+      date: now.toLocaleString(dateLocale),
+      lignes: payload.lignes.map(l => ({
+        nom: l.model.meta_data?.nom_modele || l.model.id,
+        couleur: l.couleur,
+        taille: l.taille,
+        qte: l.qte,
+        prix: Number(l.prix) || 0,
+      })),
+      sousTotal: payload.total + payload.remiseGlobale,
+      remise: payload.remiseGlobale,
+      total: payload.total,
+      paiement: payload.paiement,
+      recu: payload.recu,
+      rendu: payload.rendu,
+      clientNom: payload.clientNom,
+      currency,
+    };
+
+    const hosts = tikiSettings.printMode === 'zpl' ? parsePrinterHosts(tikiSettings.zplHost) : [];
+    if (hosts.length > 0) {
+      const zpl = buildTicketZpl(ticket, tikiSettings.zplDpi);
+      // Chaque imprimante recoit sa copie : un echec sur l'une ne prive pas
+      // les autres, et la vente est deja enregistree de toute facon.
+      hosts.forEach(h => { void sendZplToPrinter(zpl, h, tikiSettings.zplPort); });
+      return;
+    }
+    const w = window.open('', '_blank', 'width=380,height=640');
+    w?.document.write(buildTicketHtml(ticket));
+    w?.document.close();
+  };
+
   /** Encaissement de la caisse.
    *
    *  L'API de sortie de stock traite UN modele a la fois : un panier
@@ -2597,6 +2646,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     total: number;
     typeVente: TypeVente;
     facture: boolean;
+    recu: number | null;
+    rendu: number | null;
   }): Promise<string | null> => {
     if (IS_STATIC) {
       return tx(lang,{fr:"Mode statique : aucune vente ne peut etre enregistree.",ar:'الوضع الساكن: ما يمكن تسجيل حتى بيعة.',en:'Static mode: no sale can be recorded.',es:'Modo estatico: no se puede registrar la venta.',pt:'Modo estatico: nao e possivel registar a venda.',tr:'Statik mod: satis kaydedilemez.'});
@@ -2665,6 +2716,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           }
         }
       }
+      imprimerTicket(payload, batchs[0] || '');
       return null;
     } finally {
       // Le stock affiche doit suivre, meme apres un echec partiel.
@@ -13330,7 +13382,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           type="text"
                           value={tikiDraft.zplHost}
                           onChange={e => setTikiDraft(prev => ({ ...prev, zplHost: e.target.value }))}
-                          placeholder={tx(lang,{fr:'Adresse IP (ex: 192.168.1.50)',ar:'عنوان IP (مثال: 192.168.1.50)',en:'IP address (e.g. 192.168.1.50)',es:'Dirección IP (ej. 192.168.1.50)',pt:'Endereço IP (ex: 192.168.1.50)',tr:'IP adresi (örn. 192.168.1.50)'})}
+                          placeholder={tx(lang,{fr:'IP, ou plusieurs separees par des virgules',ar:'عنوان IP، أو عدة عناوين مفصولة بفواصل',en:'IP, or several separated by commas',es:'IP, o varias separadas por comas',pt:'IP, ou varias separadas por virgulas',tr:'IP, veya virgulle ayrilmis birkac tane'})}
+                          title={tx(lang,{fr:'Plusieurs adresses = le ticket de caisse part sur toutes en meme temps.',ar:'عدة عناوين = تذكرة الصندوق كتمشي لكلهم فنفس الوقت.',en:'Several addresses = the receipt goes to all of them at once.',es:'Varias direcciones = el ticket sale en todas a la vez.',pt:'Varios enderecos = o talao sai em todas ao mesmo tempo.',tr:'Birden fazla adres = fis hepsine ayni anda gider.'})}
                           className="sm:col-span-2 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-mono text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
                         />
                         <input
