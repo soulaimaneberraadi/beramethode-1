@@ -30,6 +30,9 @@ const SYNC_KEYS = [
   // Reglages du tiki (marque, logo, format). Le logo est une data-URL :
   // replaceImages() la compresse avant l'UPSERT comme les autres images.
   'beramethode_tiki_settings',
+  // Frais par canal de vente (livraison, emballage, publicite) : ils entrent
+  // dans le calcul du prix suggere, donc ils doivent suivre le compte.
+  'beramethode_canal_frais',
 ];
 
 const TABLE = 'user_data';

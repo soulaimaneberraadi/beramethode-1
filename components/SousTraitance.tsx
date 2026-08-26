@@ -3416,17 +3416,134 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    * au même endroit, dans la grille `st_prix`, et alimentent le tiki, la sortie
    * de stock et la facture.
    * ──────────────────────────────────────────────────────────────────────── */
+  /** LES CANAUX DE VENTE.
+   *
+   *  Deux natures différentes, qu'il ne faut pas confondre :
+   *   - `type` : À QUI l'on vend (segment client). Le grossiste enlève au
+   *     carton, le client final achète à la pièce. Résolu par `st_prix.type_client`.
+   *   - `canal` : PAR OÙ l'on vend, avec NOS propres moyens. Ma boutique et ma
+   *     boutique en ligne ne sont pas des clients : ce sont mes points de vente,
+   *     et chacun porte ses propres frais. Résolu par `st_prix.canal`.
+   *
+   *  La confusion était là avant : « Boutique » désignait un client-boutique,
+   *  ce qui ne laissait aucune place au prix de MA boutique ni à celui de MA
+   *  vente en ligne — celle-là même que la synchronisation pousse au magasin. */
+  type CanalVente = {
+    id: string;
+    kind: 'type' | 'canal';
+    /** Valeur envoyée au serveur : `type_client` ou `canal` selon `kind`. */
+    code: string | null;
+    label: string;
+    hint: string;
+    /** Frais propres au canal, en plus du revient — livraison, emballage,
+     *  publicité… Vides pour les segments clients : un grossiste qui enlève sa
+     *  marchandise ne me coûte ni carton ni livreur. */
+    fraisKey: string | null;
+  };
+  const canauxVente: CanalVente[] = [
+    {
+      id: 'CATALOGUE', kind: 'type', code: null, fraisKey: null,
+      label: tx(lang,{fr:'Catalogue',ar:'الكتالوج',en:'Catalogue',es:'Catálogo',pt:'Catálogo',tr:'Katalog'}),
+      hint: tx(lang,{fr:'Le prix par défaut, quand aucun autre ne s\'applique.',ar:'الثمن الافتراضي، ملي ما كيتطبّق حتى واحد آخر.',en:'The default price, when no other applies.',es:'El precio por defecto, cuando ningún otro se aplica.',pt:'O preço por omissão, quando nenhum outro se aplica.',tr:'Başka hiçbiri geçerli değilken varsayılan fiyat.'}),
+    },
+    {
+      id: 'GROS', kind: 'type', code: 'GROS', fraisKey: null,
+      label: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}),
+      hint: tx(lang,{fr:'Revendeur qui enlève au carton.',ar:'بائع بالجملة كياخد بالكرطون.',en:'Reseller collecting by the carton.',es:'Revendedor que retira por cartón.',pt:'Revendedor que levanta à caixa.',tr:'Koli ile alan bayi.'}),
+    },
+    {
+      id: 'DETAIL', kind: 'type', code: 'DETAIL', fraisKey: null,
+      label: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}),
+      hint: tx(lang,{fr:'Client final, à la pièce.',ar:'العميل النهائي، بالقطعة.',en:'End customer, per piece.',es:'Cliente final, por pieza.',pt:'Cliente final, à peça.',tr:'Son müşteri, parça başına.'}),
+    },
+    {
+      id: 'MAGASIN', kind: 'canal', code: 'MAGASIN', fraisKey: 'MAGASIN',
+      label: tx(lang,{fr:'Ma boutique',ar:'محلّي',en:'My shop',es:'Mi tienda',pt:'A minha loja',tr:'Mağazam'}),
+      hint: tx(lang,{fr:'Mon propre point de vente — c\'est ce prix que la caisse déduira du stock.',ar:'نقطة البيع ديالي — هاد الثمن هو اللي غادي تنقص بيه الكيسة من المخزون.',en:'My own point of sale — this is the price the till will deduct from stock.',es:'Mi propio punto de venta — este precio es el que la caja descontará del stock.',pt:'O meu ponto de venda — é este preço que a caixa deduzirá do stock.',tr:'Kendi satış noktam — kasanın stoktan düşeceği fiyat budur.'}),
+    },
+    {
+      id: 'ONLINE', kind: 'canal', code: 'ONLINE', fraisKey: 'ONLINE',
+      label: tx(lang,{fr:'En ligne',ar:'أونلاين',en:'Online',es:'En línea',pt:'Online',tr:'Çevrimiçi'}),
+      hint: tx(lang,{fr:'Ma boutique en ligne — c\'est ce prix que la synchronisation pousse à la plateforme.',ar:'المتجر ديالي أونلاين — هاد الثمن هو اللي كتصيفطو المزامنة للمنصّة.',en:'My online store — this is the price the sync pushes to the platform.',es:'Mi tienda en línea — este precio es el que la sincronización envía a la plataforma.',pt:'A minha loja online — é este preço que a sincronização envia para a plataforma.',tr:'Çevrimiçi mağazam — senkronizasyonun platforma gönderdiği fiyat budur.'}),
+    },
+  ];
+  const CANAL_IDS = canauxVente.map(c => c.id);
+
+  /* ── Frais propres à un canal ────────────────────────────────────────────
+   * Vendre en ligne ne coûte pas que la marchandise : il y a le livreur,
+   * l'emballage, la publicité, parfois la commission de la plateforme. Les
+   * ignorer fait croire à une marge qui n'existe pas — c'est le piège classique
+   * de la vente en ligne, où le chiffre d'affaires monte pendant que l'argent
+   * descend.
+   *
+   * Chaque ligne est soit un MONTANT par pièce, soit un POURCENTAGE du prix de
+   * vente (une commission de plateforme se compte ainsi, pas en dirhams fixes).
+   * Les frais sont GLOBAUX au canal, pas par modèle : le livreur coûte le même
+   * prix quel que soit l'article qu'il transporte.
+   * ────────────────────────────────────────────────────────────────────── */
+  const CANAL_FRAIS_KEY = 'beramethode_canal_frais';
+  type FraisCanal = { id: string; label: string; montant: number; mode: 'FIXE' | 'PCT' };
+  const DEFAULT_CANAL_FRAIS: Record<string, FraisCanal[]> = { MAGASIN: [], ONLINE: [] };
+  const [canalFrais, setCanalFrais] = useState<Record<string, FraisCanal[]>>(DEFAULT_CANAL_FRAIS);
+
+  useEffect(() => {
+    try {
+      const raw = lsGetMig(CANAL_FRAIS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        setCanalFrais({ ...DEFAULT_CANAL_FRAIS, ...parsed });
+      }
+    } catch { /* réglages illisibles : on garde les valeurs par défaut */ }
+  }, []);
+
+  const persistCanalFrais = (next: Record<string, FraisCanal[]>) => {
+    setCanalFrais(next);
+    try { lsSet(CANAL_FRAIS_KEY, JSON.stringify(next)); } catch { /* quota plein */ }
+  };
+
+  const addFraisCanal = (canalId: string) => {
+    const next = {
+      ...canalFrais,
+      [canalId]: [...(canalFrais[canalId] || []), { id: `f${Date.now()}`, label: '', montant: 0, mode: 'FIXE' as const }],
+    };
+    persistCanalFrais(next);
+  };
+
+  const updateFraisCanal = (canalId: string, fraisId: string, patch: Partial<FraisCanal>) => {
+    const next = {
+      ...canalFrais,
+      [canalId]: (canalFrais[canalId] || []).map(f => (f.id === fraisId ? { ...f, ...patch } : f)),
+    };
+    persistCanalFrais(next);
+  };
+
+  const removeFraisCanal = (canalId: string, fraisId: string) => {
+    const next = { ...canalFrais, [canalId]: (canalFrais[canalId] || []).filter(f => f.id !== fraisId) };
+    persistCanalFrais(next);
+  };
+
+  /** Total des frais d'un canal pour un prix de vente donné. Les pourcentages
+   *  se calculent sur le PRIX, pas sur le revient : une commission de 10 % est
+   *  prélevée sur ce que paie le client, pas sur ce que l'article m'a coûté. */
+  const totalFraisCanal = (canalId: string | null, prixVente: number): number => {
+    if (!canalId) return 0;
+    return (canalFrais[canalId] || []).reduce((a, f) => {
+      const m = Number(f.montant) || 0;
+      return a + (f.mode === 'PCT' ? (prixVente * m) / 100 : m);
+    }, 0);
+  };
+
   const [prixSheetModel, setPrixSheetModel] = useState<ModelData | null>(null);
   const [prixSheetRevient, setPrixSheetRevient] = useState<number | null>(null);
   const [prixSheetLoading, setPrixSheetLoading] = useState(false);
   const [prixSheetSaving, setPrixSheetSaving] = useState(false);
   const [prixSheetError, setPrixSheetError] = useState<string | null>(null);
-  /** Valeurs des trois colonnes + le tarif catalogue (celui qui s'applique
-   *  quand aucun type ne correspond). `''` = non saisi, ce qui n'est PAS zéro :
-   *  un prix absent doit rester absent, pas devenir gratuit. */
-  const [prixSheetVals, setPrixSheetVals] = useState<Record<string, number | ''>>({
-    CATALOGUE: '', DETAIL: '', GROS: '', BOUTIQUE: '',
-  });
+  /** Valeurs par canal. `''` = non saisi, ce qui n'est PAS zéro : un prix
+   *  absent doit rester absent, pas devenir gratuit. */
+  const [prixSheetVals, setPrixSheetVals] = useState<Record<string, number | ''>>(
+    Object.fromEntries(CANAL_IDS.map(id => [id, '' as number | ''])),
+  );
   /** Colonne dont le détail du calcul est déplié. Un prix suggéré qu'on ne peut
    *  pas ouvrir est un chiffre tombé du ciel : on doit pouvoir vérifier d'où il
    *  sort avant de l'appliquer. */
@@ -3443,28 +3560,31 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [prixSheetInitial, setPrixSheetInitial] = useState<Record<string, number | ''>>({});
 
   const openPrixSheet = async (model: ModelData, revient: number | null) => {
+    const vide = Object.fromEntries(CANAL_IDS.map(id => [id, '' as number | ''])) as Record<string, number | ''>;
     setPrixSheetModel(model);
     setPrixSheetRevient(revient);
     setPrixSheetError(null);
-    setPrixSheetVals({ CATALOGUE: '', DETAIL: '', GROS: '', BOUTIQUE: '' });
+    setPrixSheetVals(vide);
     setPrixSheetOpenCalc(null);
     setPrixSheetConfirm(null);
     setPrixSheetInitial({});
     if (IS_STATIC) return;
     setPrixSheetLoading(true);
     try {
-      // Une requête par colonne : la résolution répond ce qui S'APPLIQUERAIT
+      // Une requête par canal : la résolution répond ce qui S'APPLIQUERAIT
       // réellement, repli catalogue compris. Lire la table brute afficherait
       // des cases vides là où un tarif catalogue prend pourtant le relais.
-      const entries = await Promise.all((['CATALOGUE', 'DETAIL', 'GROS', 'BOUTIQUE'] as const).map(async t => {
+      const entries = await Promise.all(canauxVente.map(async c => {
         const qs = new URLSearchParams({ modelId: model.id, qty: '0' });
-        if (t !== 'CATALOGUE') qs.set('type', t);
+        if (c.kind === 'type' && c.code) qs.set('type', c.code);
+        if (c.kind === 'canal' && c.code) qs.set('canal', c.code);
         const r = await fetch(`/api/prix/resolve?${qs.toString()}`, { credentials: 'include' });
         const d = r.ok ? await r.json() : null;
-        // Pour une colonne typée, on n'affiche QUE le tarif propre à ce type :
-        // recopier le catalogue ferait croire qu'un prix gros a été négocié.
-        if (t !== 'CATALOGUE' && d?.source !== 'TYPE') return [t, ''] as const;
-        return [t, d?.prix == null ? '' : Number(d.prix)] as const;
+        // On n'affiche QUE le tarif PROPRE à ce canal : recopier le catalogue
+        // ferait croire qu'un prix gros ou un prix en ligne a été décidé.
+        if (c.kind === 'type' && c.code && d?.source !== 'TYPE') return [c.id, ''] as const;
+        if (c.kind === 'canal' && d?.canal !== c.code) return [c.id, ''] as const;
+        return [c.id, d?.prix == null ? '' : Number(d.prix)] as const;
       }));
       const chargees = Object.fromEntries(entries) as Record<string, number | ''>;
       setPrixSheetVals(chargees);
@@ -3480,14 +3600,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  de vente descend aussitôt sur les étiquettes, les sorties de stock et les
    *  factures — le modifier d'un clic distrait se paie sur des ventes réelles. */
   const demanderConfirmationPrix = () => {
-    const labels: Record<string, string> = {
-      CATALOGUE: tx(lang,{fr:'Catalogue',ar:'الكتالوج',en:'Catalogue',es:'Catálogo',pt:'Catálogo',tr:'Katalog'}),
-      DETAIL: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}),
-      GROS: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}),
-      BOUTIQUE: tx(lang,{fr:'Boutique',ar:'المحل',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'}),
-    };
-    const changements = (['CATALOGUE', 'DETAIL', 'GROS', 'BOUTIQUE'] as const)
-      .map(id => ({ id, label: labels[id], avant: prixSheetInitial[id] ?? '', apres: Number(prixSheetVals[id]) }))
+    const changements = canauxVente
+      .map(c => ({ id: c.id, label: c.label, avant: prixSheetInitial[c.id] ?? '', apres: Number(prixSheetVals[c.id]) }))
       // Une colonne vide n'est pas un prix de zéro : on ne l'écrit pas, donc
       // elle n'a rien à faire dans le récapitulatif.
       .filter(c => prixSheetVals[c.id] !== '' && c.apres > 0)
@@ -3504,10 +3618,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setPrixSheetError(null);
     try {
       const modelId = prixSheetModel.id;
-      for (const t of ['CATALOGUE', 'DETAIL', 'GROS', 'BOUTIQUE'] as const) {
-        const v = prixSheetVals[t];
-        // Une colonne laissée vide n'est pas un prix de zéro : on ne l'écrit
-        // pas, et le tarif catalogue continue de s'appliquer pour ce type.
+      for (const c of canauxVente) {
+        const v = prixSheetVals[c.id];
+        // Un canal laissé vide n'est pas un prix de zéro : on ne l'écrit pas,
+        // et le tarif catalogue continue de s'appliquer là.
         if (v === '' || !(Number(v) > 0)) continue;
         await fetch('/api/prix', {
           method: 'POST',
@@ -3517,7 +3631,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             modelId,
             prix: Number(v),
             qty_min: 0,
-            type_client: t === 'CATALOGUE' ? null : t,
+            // Segment client OU canal de vente, jamais les deux : ce sont deux
+            // portées distinctes dans `st_prix`, les mélanger rendrait la
+            // résolution ambiguë.
+            type_client: c.kind === 'type' ? c.code : null,
+            canal: c.kind === 'canal' ? c.code : null,
           }),
         });
       }
@@ -11674,40 +11792,66 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* ======================================= */}
       {prixSheetModel && (() => {
         const revient = prixSheetRevient;
-        // Marge affichée colonne par colonne : un prix qui passe sous le
-        // revient doit se voir AVANT d'être enregistré, pas après la vente.
-        const marge = (v: number | '') => {
-          if (v === '' || !(Number(v) > 0) || revient == null || revient <= 0) return null;
-          return ((Number(v) - revient) / Number(v)) * 100;
-        };
 
-        // Prix SUGGÉRÉ, pas imposé. Il se calcule à partir du revient réel et
-        // des taux déjà réglés dans la configuration — marge minimale, marge
-        // atelier, marge boutique, TVA — au lieu d'un coefficient inventé ici.
-        // Chaque segment supporte une marge différente parce qu'il ne rend pas
-        // le même service : le grossiste enlève le carton entier et ne coûte
-        // rien en vitrine, la boutique immobilise, expose et reprend.
+        // Les taux viennent de la configuration — marge minimale, marge
+        // atelier, marge boutique, TVA — jamais d'un coefficient inventé ici.
         const tauxTva = Number(settings?.tva) || 0;
         const margeAtelier = Number(settings?.marginAtelier) || 0;
         const margeBoutique = Number(settings?.marginBoutique) || 0;
+
+        // Chaque canal supporte une marge différente parce qu'il ne rend pas le
+        // même service : le grossiste enlève le carton entier et ne coûte rien
+        // en vitrine, ma boutique immobilise, expose et reprend.
         const tauxPour = (id: string): number => {
           if (id === 'GROS') return Math.max(margeMinimale, margeAtelier);
-          if (id === 'BOUTIQUE') return Math.max(margeMinimale, margeAtelier + margeBoutique);
-          // Catalogue et détail : le repli tout-venant, entre les deux.
+          if (id === 'MAGASIN' || id === 'ONLINE') return Math.max(margeMinimale, margeAtelier + margeBoutique);
           return Math.max(margeMinimale, margeAtelier + margeBoutique / 2);
         };
-        const suggestion = (id: string): { ht: number; ttc: number; taux: number } | null => {
+
+        /** Coût RÉEL d'une vente sur ce canal : le revient plus les frais qui
+         *  n'existent que là (livreur, emballage, publicité). Les ignorer fait
+         *  lire une marge qui n'existe pas — c'est le piège de la vente en
+         *  ligne, où le chiffre d'affaires monte pendant que l'argent descend. */
+        const coutReel = (canal: CanalVente, prixVente: number): number | null => {
           if (revient == null || !(revient > 0)) return null;
-          const taux = tauxPour(id);
-          const ht = revient * (1 + taux / 100);
-          return { ht, ttc: ht * (1 + tauxTva / 100), taux };
+          return revient + totalFraisCanal(canal.fraisKey, prixVente);
         };
-        const cols = [
-          { id: 'CATALOGUE', label: tx(lang,{fr:'Catalogue',ar:'الكتالوج',en:'Catalogue',es:'Catálogo',pt:'Catálogo',tr:'Katalog'}), hint: tx(lang,{fr:'Le prix par défaut, quand aucun autre ne s\'applique.',ar:'الثمن الافتراضي، ملي ما كيتطبّق حتى واحد آخر.',en:'The default price, when no other applies.',es:'El precio por defecto, cuando ningún otro se aplica.',pt:'O preço por omissão, quando nenhum outro se aplica.',tr:'Başka hiçbiri geçerli değilken varsayılan fiyat.'}) },
-          { id: 'DETAIL', label: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}), hint: tx(lang,{fr:'Client final, à la pièce.',ar:'العميل النهائي، بالقطعة.',en:'End customer, per piece.',es:'Cliente final, por pieza.',pt:'Cliente final, à peça.',tr:'Son müşteri, parça başına.'}) },
-          { id: 'GROS', label: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}), hint: tx(lang,{fr:'Revendeur au carton.',ar:'بائع بالجملة بالكرطون.',en:'Reseller by the carton.',es:'Revendedor por cartón.',pt:'Revendedor à caixa.',tr:'Koli ile bayi.'}) },
-          { id: 'BOUTIQUE', label: tx(lang,{fr:'Boutique',ar:'المحل',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'}), hint: tx(lang,{fr:'Point de vente — c\'est ce prix qui part sur le tiki du magasin.',ar:'نقطة البيع — هاد الثمن هو اللي كيخرج فتيكي المحل.',en:'Point of sale — this is the price printed on the store label.',es:'Punto de venta — este precio va en la etiqueta de la tienda.',pt:'Ponto de venda — é este preço que vai na etiqueta da loja.',tr:'Satış noktası — mağaza etiketine basılan fiyat budur.'}) },
-        ] as const;
+
+        /** Marge réelle : mesurée sur le coût complet du canal, pas sur le seul
+         *  revient. Un prix en ligne qui couvre l'article mais pas le livreur
+         *  n'est pas une vente rentable, et doit se voir comme telle. */
+        const marge = (canal: CanalVente, v: number | '') => {
+          const prix = Number(v);
+          if (v === '' || !(prix > 0)) return null;
+          const cout = coutReel(canal, prix);
+          if (cout == null) return null;
+          return { pct: ((prix - cout) / prix) * 100, cout, perte: prix < cout };
+        };
+
+        /** Prix SUGGÉRÉ, pas imposé.
+         *  Les frais en pourcentage se prélèvent sur le PRIX, or le prix dépend
+         *  des frais : on résout l'équation au lieu de boucler.
+         *    prix = (revient + fixes + prix·pct/100) · (1 + marge/100)
+         *  d'où prix = (revient + fixes)·k / (1 − k·pct/100), avec k = 1+marge/100.
+         *  Sans cette résolution, une commission de plateforme serait comptée
+         *  sur un prix qui ne tient pas compte d'elle-même — donc sous-estimée. */
+        const suggestion = (canal: CanalVente): { ht: number; ttc: number; taux: number; fixes: number; pct: number } | null => {
+          if (revient == null || !(revient > 0)) return null;
+          const lignes = canal.fraisKey ? (canalFrais[canal.fraisKey] || []) : [];
+          const fixes = lignes.filter(f => f.mode === 'FIXE').reduce((a, f) => a + (Number(f.montant) || 0), 0);
+          const pct = lignes.filter(f => f.mode === 'PCT').reduce((a, f) => a + (Number(f.montant) || 0), 0);
+          const taux = tauxPour(canal.id);
+          const k = 1 + taux / 100;
+          const denom = 1 - (k * pct) / 100;
+          // Des frais en pourcentage qui absorbent tout le prix rendent
+          // l'équation insoluble : mieux vaut ne rien suggérer qu'un montant
+          // négatif ou infini.
+          if (denom <= 0.05) return null;
+          const ht = ((revient + fixes) * k) / denom;
+          return { ht, ttc: ht * (1 + tauxTva / 100), taux, fixes, pct };
+        };
+
+        const cols = canauxVente;
         return (
           <SheetModal
             onClose={() => { if (!prixSheetSaving) setPrixSheetModel(null); }}
@@ -11716,6 +11860,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             icon={<div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-xl shrink-0"><Coins className="w-5 h-5" /></div>}
             size="md"
             zClass="z-[250]"
+            fullscreen={denseFullscreen}
+            onToggleFullscreen={toggleDenseFullscreen}
             closeOnBackdrop
             bare
           >
@@ -11750,16 +11896,32 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <div className="space-y-2.5">
                   {cols.map(col => {
                     const v = prixSheetVals[col.id];
-                    const m = marge(v);
-                    const sousCout = m != null && revient != null && Number(v) < revient;
+                    const m = marge(col, v);
+                    const sug = suggestion(col);
+                    const open = prixSheetOpenCalc === col.id;
+                    const lignesFrais = col.fraisKey ? (canalFrais[col.fraisKey] || []) : [];
                     return (
-                      <div key={col.id} className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <span className="block font-bold text-slate-700 dark:text-dk-text-soft text-[12px]">{col.label}</span>
+                      <div key={col.id} className={`rounded-2xl border bg-white dark:bg-dk-surface p-3 ${
+                        col.kind === 'canal'
+                          ? 'border-sky-200 dark:border-sky-800/50'
+                          : 'border-slate-200 dark:border-dk-border'
+                      }`}>
+                        {/* Sur téléphone la ligne se casse : le libellé garde
+                            toute la largeur, le champ passe dessous au lieu
+                            d'écraser le texte à trois mots par ligne. */}
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                          <div className="min-w-0 flex-1">
+                            <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-dk-text-soft text-[12px]">
+                              {col.kind === 'canal' && (
+                                col.id === 'ONLINE'
+                                  ? <Store className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                                  : <Warehouse className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                              )}
+                              {col.label}
+                            </span>
                             <span className="block text-[10px] text-slate-400 dark:text-dk-muted leading-snug mt-0.5">{col.hint}</span>
                           </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
                             <input
                               type="number"
                               min={0}
@@ -11768,7 +11930,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               onChange={e => setPrixSheetVals(prev => ({ ...prev, [col.id]: e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0) }))}
                               placeholder="—"
                               className={`w-28 text-right rounded-xl px-3 py-2 text-[12px] font-bold outline-none border bg-slate-50 dark:bg-dk-bg text-slate-800 dark:text-dk-text ${
-                                sousCout
+                                m?.perte
                                   ? 'border-rose-400 dark:border-rose-500 focus:border-rose-500'
                                   : 'border-slate-200 dark:border-dk-border focus:border-indigo-500 dark:focus:border-dk-accent'
                               }`}
@@ -11776,72 +11938,151 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">{currency}</span>
                           </div>
                         </div>
+
                         {m != null && (
-                          <p className={`mt-1.5 text-[10px] font-bold ${sousCout ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                            {sousCout
-                              ? tx(lang,{fr:'Sous le prix de revient — vente à perte.',ar:'تحت التكلفة — بيع بالخسارة.',en:'Below cost — selling at a loss.',es:'Por debajo del coste — venta a pérdida.',pt:'Abaixo do custo — venda com prejuízo.',tr:'Maliyetin altında — zararına satış.'})
-                              : `${tx(lang,{fr:'Marge',ar:'الهامش',en:'Margin',es:'Margen',pt:'Margem',tr:'Marj'})} : ${m.toFixed(1)} %`}
+                          <p className={`mt-1.5 text-[10px] font-bold ${m.perte ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            {m.perte
+                              ? `${tx(lang,{fr:'Sous le coût réel',ar:'تحت التكلفة الحقيقية',en:'Below the real cost',es:'Por debajo del coste real',pt:'Abaixo do custo real',tr:'Gerçek maliyetin altında'})} (${fmt(Number(m.cout.toFixed(2)))} ${currency}) — ${tx(lang,{fr:'vente à perte.',ar:'بيع بالخسارة.',en:'selling at a loss.',es:'venta a pérdida.',pt:'venda com prejuízo.',tr:'zararına satış.'})}`
+                              : `${tx(lang,{fr:'Marge',ar:'الهامش',en:'Margin',es:'Margen',pt:'Margem',tr:'Marj'})} : ${m.pct.toFixed(1)} %`}
                           </p>
                         )}
-                        {(() => {
-                          const sug = suggestion(col.id);
-                          if (!sug) return null;
-                          const open = prixSheetOpenCalc === col.id;
-                          return (
-                            <div className="mt-1.5">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {/* Un clic pose la valeur : lire un chiffre puis
-                                    le retaper à côté est une occasion de faute. */}
+
+                        {sug && (
+                          <div className="mt-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {/* Un clic pose la valeur : lire un chiffre puis
+                                  le retaper à côté est une occasion de faute. */}
+                              <button
+                                type="button"
+                                onClick={() => setPrixSheetVals(prev => ({ ...prev, [col.id]: Number(sug.ht.toFixed(2)) }))}
+                                className="text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                              >
+                                {tx(lang,{fr:'Suggéré',ar:'مقترح',en:'Suggested',es:'Sugerido',pt:'Sugerido',tr:'Önerilen'})} : {fmt(Number(sug.ht.toFixed(2)))} {currency}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPrixSheetOpenCalc(open ? null : col.id)}
+                                title={tx(lang,{fr:'D\'où vient ce chiffre',ar:'منين جا هاد الرقم',en:'Where this figure comes from',es:'De dónde sale esta cifra',pt:'De onde vem este número',tr:'Bu rakam nereden geliyor'})}
+                                className="w-4 h-4 rounded border border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted hover:text-sky-600 hover:border-sky-400 flex items-center justify-center transition-colors"
+                              >
+                                {open ? <X className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5" />}
+                              </button>
+                            </div>
+
+                            {open && (
+                              <div className="mt-1.5 rounded-xl bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border p-2.5 space-y-1 text-[10px]">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-slate-500 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Revient',ar:'التكلفة',en:'Cost',es:'Coste',pt:'Custo',tr:'Maliyet'})}</span>
+                                  <span className="font-bold text-slate-700 dark:text-dk-text-soft">{fmt(revient!)} {currency}</span>
+                                </div>
+
+                                {/* Le détail des frais du canal, ligne par ligne :
+                                    « + 42 DH de frais » sans dire lesquels ne se
+                                    vérifie pas contre une facture. */}
+                                {lignesFrais.map(f => (
+                                  <div key={f.id} className="flex items-center justify-between gap-2">
+                                    <span className="text-slate-500 dark:text-dk-muted font-semibold truncate">
+                                      + {f.label || tx(lang,{fr:'Frais',ar:'مصروف',en:'Fee',es:'Gasto',pt:'Despesa',tr:'Masraf'})}
+                                      {f.mode === 'PCT' ? ` ${Number(f.montant) || 0} %` : ''}
+                                    </span>
+                                    <span className="font-bold text-slate-700 dark:text-dk-text-soft shrink-0">
+                                      {fmt(Number((f.mode === 'PCT' ? (sug.ht * (Number(f.montant) || 0)) / 100 : Number(f.montant) || 0).toFixed(2)))} {currency}
+                                    </span>
+                                  </div>
+                                ))}
+
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-slate-500 dark:text-dk-muted font-semibold">
+                                    + {tx(lang,{fr:'Marge',ar:'الهامش',en:'Margin',es:'Margen',pt:'Margem',tr:'Marj'})} {sug.taux.toFixed(1)} %
+                                  </span>
+                                  <span className="font-bold text-slate-700 dark:text-dk-text-soft">
+                                    {fmt(Number((sug.ht - revient! - sug.fixes - (sug.ht * sug.pct) / 100).toFixed(2)))} {currency}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200 dark:border-dk-border">
+                                  <span className="font-black uppercase tracking-wide text-slate-600 dark:text-dk-text-soft">
+                                    {tx(lang,{fr:'Prix HT',ar:'الثمن دون الضريبة',en:'Price excl. tax',es:'Precio sin IVA',pt:'Preço sem IVA',tr:'KDV hariç fiyat'})}
+                                  </span>
+                                  <span className="font-extrabold text-sky-600 dark:text-sky-400">{fmt(Number(sug.ht.toFixed(2)))} {currency}</span>
+                                </div>
+
+                                {tauxTva > 0 && (
+                                  <div className="flex items-center justify-between gap-2 text-slate-500 dark:text-dk-muted">
+                                    <span className="font-semibold">{tx(lang,{fr:'Avec TVA',ar:'مع الضريبة',en:'With VAT',es:'Con IVA',pt:'Com IVA',tr:'KDV dahil'})} {tauxTva} %</span>
+                                    <span className="font-bold">{fmt(Number(sug.ttc.toFixed(2)))} {currency}</span>
+                                  </div>
+                                )}
+
+                                <p className="pt-1 text-slate-400 dark:text-dk-muted leading-snug">
+                                  {tx(lang,{fr:'Taux repris de la configuration (marge minimale, marge atelier, marge boutique, TVA).',ar:'النسب مأخوذة من الإعدادات (الهامش الأدنى، هامش الورشة، هامش المحل، الضريبة).',en:'Rates taken from the configuration (minimum margin, workshop margin, store margin, VAT).',es:'Tasas tomadas de la configuración (margen mínimo, margen taller, margen tienda, IVA).',pt:'Taxas retiradas da configuração (margem mínima, margem oficina, margem loja, IVA).',tr:'Oranlar yapılandırmadan alınır (asgari marj, atölye marjı, mağaza marjı, KDV).'})}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Frais du canal, modifiables ici. Ils sont GLOBAUX :
+                            le livreur coûte le même prix quel que soit l'article
+                            qu'il transporte, on ne les ressaisit pas par modèle. */}
+                        {col.fraisKey && (
+                          <div className="mt-2 pt-2 border-t border-dashed border-slate-200 dark:border-dk-border space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                                {tx(lang,{fr:'Frais de ce canal',ar:'مصاريف هاد القناة',en:'Costs of this channel',es:'Gastos de este canal',pt:'Custos deste canal',tr:'Bu kanalın masrafları'})}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => addFraisCanal(col.fraisKey!)}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                              >
+                                <Plus className="w-3 h-3" />
+                                {tx(lang,{fr:'Ajouter',ar:'زيد',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}
+                              </button>
+                            </div>
+
+                            {lignesFrais.length === 0 ? (
+                              <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                                {tx(lang,{fr:'Aucun frais — livraison, emballage, publicité, commission… Sans eux, la marge affichée est plus belle que la réalité.',ar:'ما كاين حتى مصروف — التوصيل، التغليف، الإشهار، العمولة… بلاهم، الهامش اللي كيبان أزين من الحقيقة.',en:'No costs — delivery, packaging, ads, commission… Without them, the margin shown is prettier than reality.',es:'Ningún gasto — entrega, embalaje, publicidad, comisión… Sin ellos, el margen mostrado es más bonito que la realidad.',pt:'Nenhum custo — entrega, embalagem, publicidade, comissão… Sem eles, a margem exibida é mais bonita do que a realidade.',tr:'Masraf yok — teslimat, ambalaj, reklam, komisyon… Bunlar olmadan gösterilen marj gerçekten daha güzeldir.'})}
+                              </p>
+                            ) : lignesFrais.map(f => (
+                              <div key={f.id} className="flex items-center gap-1.5">
+                                <input
+                                  type="text"
+                                  value={f.label}
+                                  onChange={e => updateFraisCanal(col.fraisKey!, f.id, { label: e.target.value })}
+                                  placeholder={tx(lang,{fr:'Livraison, emballage…',ar:'التوصيل، التغليف…',en:'Delivery, packaging…',es:'Entrega, embalaje…',pt:'Entrega, embalagem…',tr:'Teslimat, ambalaj…'})}
+                                  className="flex-1 min-w-0 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                                />
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  value={f.montant}
+                                  onChange={e => updateFraisCanal(col.fraisKey!, f.id, { montant: Math.max(0, Number(e.target.value) || 0) })}
+                                  className="w-16 text-right bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                                />
+                                {/* Une commission de plateforme se compte en
+                                    pourcentage du prix, pas en dirhams fixes. */}
                                 <button
                                   type="button"
-                                  onClick={() => setPrixSheetVals(prev => ({ ...prev, [col.id]: Number(sug.ht.toFixed(2)) }))}
-                                  className="text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                                  onClick={() => updateFraisCanal(col.fraisKey!, f.id, { mode: f.mode === 'FIXE' ? 'PCT' : 'FIXE' })}
+                                  title={tx(lang,{fr:'Montant fixe ou pourcentage du prix',ar:'مبلغ ثابت ولا نسبة من الثمن',en:'Fixed amount or percentage of the price',es:'Importe fijo o porcentaje del precio',pt:'Montante fixo ou percentagem do preço',tr:'Sabit tutar veya fiyatın yüzdesi'})}
+                                  className="w-9 shrink-0 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-bg text-[10px] font-bold text-slate-600 dark:text-dk-text-soft hover:border-sky-400 transition-colors"
                                 >
-                                  {tx(lang,{fr:'Suggéré',ar:'مقترح',en:'Suggested',es:'Sugerido',pt:'Sugerido',tr:'Önerilen'})} : {fmt(Number(sug.ht.toFixed(2)))} {currency}
+                                  {f.mode === 'PCT' ? '%' : currency}
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => setPrixSheetOpenCalc(open ? null : col.id)}
-                                  title={tx(lang,{fr:'D\'où vient ce chiffre',ar:'منين جا هاد الرقم',en:'Where this figure comes from',es:'De dónde sale esta cifra',pt:'De onde vem este número',tr:'Bu rakam nereden geliyor'})}
-                                  className="w-4 h-4 rounded border border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted hover:text-sky-600 hover:border-sky-400 flex items-center justify-center transition-colors"
+                                  onClick={() => removeFraisCanal(col.fraisKey!, f.id)}
+                                  className="p-1 shrink-0 rounded-lg text-slate-300 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                                 >
-                                  {open ? <X className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5" />}
+                                  <Trash2 className="w-3 h-3" />
                                 </button>
                               </div>
-                              {open && (
-                                <div className="mt-1.5 rounded-xl bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border p-2.5 space-y-1 text-[10px]">
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-slate-500 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Revient',ar:'التكلفة',en:'Cost',es:'Coste',pt:'Custo',tr:'Maliyet'})}</span>
-                                    <span className="font-bold text-slate-700 dark:text-dk-text-soft">{fmt(revient!)} {currency}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span className="text-slate-500 dark:text-dk-muted font-semibold">
-                                      + {tx(lang,{fr:'Marge',ar:'الهامش',en:'Margin',es:'Margen',pt:'Margem',tr:'Marj'})} {sug.taux.toFixed(1)} %
-                                    </span>
-                                    <span className="font-bold text-slate-700 dark:text-dk-text-soft">{fmt(sug.ht - revient!)} {currency}</span>
-                                  </div>
-                                  <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-dk-border">
-                                    <span className="font-black uppercase tracking-wide text-slate-600 dark:text-dk-text-soft">
-                                      {tx(lang,{fr:'Prix HT',ar:'الثمن دون الضريبة',en:'Price excl. tax',es:'Precio sin IVA',pt:'Preço sem IVA',tr:'KDV hariç fiyat'})}
-                                    </span>
-                                    <span className="font-extrabold text-sky-600 dark:text-sky-400">{fmt(Number(sug.ht.toFixed(2)))} {currency}</span>
-                                  </div>
-                                  {tauxTva > 0 && (
-                                    <div className="flex items-center justify-between text-slate-500 dark:text-dk-muted">
-                                      <span className="font-semibold">{tx(lang,{fr:'Avec TVA',ar:'مع الضريبة',en:'With VAT',es:'Con IVA',pt:'Com IVA',tr:'KDV dahil'})} {tauxTva} %</span>
-                                      <span className="font-bold">{fmt(Number(sug.ttc.toFixed(2)))} {currency}</span>
-                                    </div>
-                                  )}
-                                  {/* Le taux vient de la configuration, pas d'ici :
-                                      le dire évite de chercher où le changer. */}
-                                  <p className="pt-1 text-slate-400 dark:text-dk-muted leading-snug">
-                                    {tx(lang,{fr:'Taux repris de la configuration (marge minimale, marge atelier, marge boutique, TVA).',ar:'النسب مأخوذة من الإعدادات (الهامش الأدنى، هامش الورشة، هامش المحل، الضريبة).',en:'Rates taken from the configuration (minimum margin, workshop margin, store margin, VAT).',es:'Tasas tomadas de la configuración (margen mínimo, margen taller, margen tienda, IVA).',pt:'Taxas retiradas da configuração (margem mínima, margem oficina, margem loja, IVA).',tr:'Oranlar yapılandırmadan alınır (asgari marj, atölye marjı, mağaza marjı, KDV).'})}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
