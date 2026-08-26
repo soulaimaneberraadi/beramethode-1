@@ -32,6 +32,8 @@ export type CaisseLigne = {
   prixTouched?: boolean;
 };
 
+export type TypeVente = 'BOUTIQUE' | 'DETAIL' | 'GROS';
+
 export type CaissePaiement = 'ESPECES' | 'CARTE' | 'CHEQUE' | 'VIREMENT';
 
 export interface CaisseProps {
@@ -52,12 +54,20 @@ export interface CaisseProps {
     paiement: CaissePaiement;
     remiseGlobale: number;
     total: number;
+    /** GROS / DETAIL / BOUTIQUE : le segment tarifaire de la vente. */
+    typeVente: TypeVente;
+    /** Une facture doit suivre cette vente. */
+    facture: boolean;
   }) => Promise<string | null>;
   /** Mode statique : aucune API, la caisse ne peut pas enregistrer. */
   isStatic?: boolean;
   /** Ouverte depuis un modèle précis : sa grille est déjà à l'écran. */
   initialRecherche?: string;
+  /** Ouvre la création d'un client sans quitter le comptoir. */
+  onCreateClient?: () => void;
 }
+
+const FACTURE_AUTO_KEY = 'bera_caisse_facture_auto';
 
 const cellKey = (c: string, t: string) => `${c || ''}|${t || ''}`;
 
@@ -105,11 +115,19 @@ const Vignette: React.FC<{ model: ModelData; className?: string }> = ({ model, c
 
 const Caisse: React.FC<CaisseProps> = ({
   open, onClose, candidats, clients, stockMatrix, currency, lang, onEncaisser, isStatic,
-  initialRecherche,
+  initialRecherche, onCreateClient,
 }) => {
   const [lignes, setLignes] = useState<CaisseLigne[]>([]);
   const [clientId, setClientId] = useState<string>('');
   const [clientLibre, setClientLibre] = useState('');
+  const [clientQuery, setClientQuery] = useState('');
+  /** Segment tarifaire choisi a la main quand le client n'a pas de fiche. */
+  const [typeVente, setTypeVente] = useState<TypeVente>('BOUTIQUE');
+  /** Reglage, pas question : celui qui facture toujours ne veut pas cocher a
+   *  chaque vente. Retenu par poste de caisse. */
+  const [factureAuto, setFactureAuto] = useState(() => {
+    try { return localStorage.getItem(FACTURE_AUTO_KEY) === '1'; } catch { return false; }
+  });
   const [paiement, setPaiement] = useState<CaissePaiement>('ESPECES');
   const [remiseGlobale, setRemiseGlobale] = useState<number | ''>('');
   const [recherche, setRecherche] = useState('');
@@ -122,6 +140,24 @@ const Caisse: React.FC<CaisseProps> = ({
   const [encaisse, setEncaisse] = useState<number | ''>('');
   const lignesRef = useRef<CaisseLigne[]>([]);
   lignesRef.current = lignes;
+
+  const client = clients.find(c => c.id === clientId) || null;
+  /** Le client fiche impose son segment : son tarif est deja negocie. */
+  const typeEffectif: TypeVente = (client?.type as TypeVente) || typeVente;
+  /** Un revendeur repart toujours avec une facture — la case ne se decoche pas. */
+  const factureRequise = typeEffectif === 'GROS' ? true : factureAuto;
+
+  useEffect(() => {
+    try { localStorage.setItem(FACTURE_AUTO_KEY, factureAuto ? '1' : '0'); } catch { /* stockage refuse : le reglage vaut pour cette session */ }
+  }, [factureAuto]);
+
+  const clientsTrouves = useMemo(() => {
+    const q = clientQuery.trim().toLowerCase();
+    if (!q) return [];
+    return clients
+      .filter(c => [c.nom, c.tel, c.ville, c.ice].filter(Boolean).some(v => String(v).toLowerCase().includes(q)))
+      .slice(0, 20);
+  }, [clientQuery, clients]);
 
   /** Un « pip » sonore : au comptoir on n'a pas le temps de lire un message. */
   const pip = useCallback((ok: boolean) => {
@@ -187,7 +223,7 @@ const Caisse: React.FC<CaisseProps> = ({
     if (aChercher.length === 0) return;
     let alive = true;
     Promise.all(aChercher.map(l =>
-      fetch(`/api/prix/resolve?modelId=${encodeURIComponent(l.model.id)}&qty=${l.qte}&canal=MAGASIN`, { credentials: 'include' })
+      fetch(`/api/prix/resolve?modelId=${encodeURIComponent(l.model.id)}&qty=${l.qte}&canal=MAGASIN&${client ? `clientId=${encodeURIComponent(client.id)}` : `type=${typeEffectif}`}`, { credentials: 'include' })
         .then(r => (r.ok ? r.json() : null))
         .then((d: any) => [l.key, d?.prix == null ? null : Number(d.prix)] as const)
         .catch(() => [l.key, null] as const)
@@ -200,7 +236,7 @@ const Caisse: React.FC<CaisseProps> = ({
       }));
     });
     return () => { alive = false; };
-  }, [open, isStatic, lignes]);
+  }, [open, isStatic, lignes, client, typeEffectif]);
 
   /** Le lecteur reste actif en permanence tant que la caisse est ouverte. */
   useEffect(() => {
@@ -299,17 +335,22 @@ const Caisse: React.FC<CaisseProps> = ({
   const rendu = encaisse === '' ? null : Number(encaisse) - total;
   const nbPieces = lignes.reduce((a, l) => a + l.qte, 0);
 
-  const client = clients.find(c => c.id === clientId) || null;
 
   const reset = () => {
     setLignes([]); setRemiseGlobale(''); setEncaisse(''); setClientId('');
-    setClientLibre(''); setErreur(null); setRecherche('');
+    setClientLibre(''); setErreur(null); setRecherche(''); setClientQuery('');
   };
 
   const valider = async () => {
     if (lignes.length === 0) return;
     if (lignes.some(l => !(Number(l.prix) > 0))) {
       setErreur(tx(lang, { fr: 'Une ligne est sans prix.', ar: 'كاين سطر بلا ثمن.', en: 'A line has no price.', es: 'Una linea no tiene precio.', pt: 'Uma linha sem preco.', tr: 'Bir satirin fiyati yok.' }));
+      return;
+    }
+    // Une facture se rattache a une FICHE client : sans elle, elle ne
+    // remonterait dans aucun compte, et le gros ne se vend pas anonymement.
+    if (factureRequise && !client) {
+      setErreur(tx(lang, { fr: 'Choisissez un client : une facture ne peut pas etre anonyme.', ar: 'اختر زبوناً: الفاتورة ما تكونش مجهولة.', en: 'Pick a customer: an invoice cannot be anonymous.', es: 'Elija un cliente: una factura no puede ser anonima.', pt: 'Escolha um cliente: uma fatura nao pode ser anonima.', tr: 'Bir musteri secin: fatura anonim olamaz.' }));
       return;
     }
     setSaving(true); setErreur(null);
@@ -320,6 +361,8 @@ const Caisse: React.FC<CaisseProps> = ({
       paiement,
       remiseGlobale: remise,
       total,
+      typeVente: typeEffectif,
+      facture: factureRequise,
     });
     setSaving(false);
     if (msg) { setErreur(msg); pip(false); return; }
@@ -344,11 +387,24 @@ const Caisse: React.FC<CaisseProps> = ({
     recu: tx(lang, { fr: 'Recu', ar: 'المدفوع', en: 'Received', es: 'Recibido', pt: 'Recebido', tr: 'Alinan' }),
     rendu: tx(lang, { fr: 'A rendre', ar: 'الصرف', en: 'Change', es: 'Cambio', pt: 'Troco', tr: 'Para ustu' }),
     encaisser: tx(lang, { fr: 'Encaisser', ar: 'خلّص', en: 'Charge', es: 'Cobrar', pt: 'Cobrar', tr: 'Tahsil et' }),
+    chercherClient: tx(lang, { fr: 'Chercher un client…', ar: 'قلّب على زبون…', en: 'Search a customer…', es: 'Buscar un cliente…', pt: 'Procurar cliente…', tr: 'Musteri ara…' }),
+    nouveauClient: tx(lang, { fr: 'Nouveau client', ar: 'زبون جديد', en: 'New customer', es: 'Nuevo cliente', pt: 'Novo cliente', tr: 'Yeni musteri' }),
+    aucunClient: tx(lang, { fr: 'Aucun client trouve.', ar: 'ما لقيت حتى زبون.', en: 'No customer found.', es: 'Ningun cliente encontrado.', pt: 'Nenhum cliente encontrado.', tr: 'Musteri bulunamadi.' }),
+    retirerClient: tx(lang, { fr: 'Retirer le client', ar: 'إزالة الزبون', en: 'Remove customer', es: 'Quitar cliente', pt: 'Remover cliente', tr: 'Musteriyi kaldir' }),
+    typeDuClient: tx(lang, { fr: 'Le segment vient de la fiche du client.', ar: 'الصنف جاي من بطاقة الزبون.', en: 'The segment comes from the customer record.', es: 'El segmento viene de la ficha del cliente.', pt: 'O segmento vem da ficha do cliente.', tr: 'Segment musteri kartindan gelir.' }),
+    factureAuto: tx(lang, { fr: 'Facture automatique', ar: 'فاتورة أوتوماتيكية', en: 'Automatic invoice', es: 'Factura automatica', pt: 'Fatura automatica', tr: 'Otomatik fatura' }),
+    imposee: tx(lang, { fr: 'imposee en gros', ar: 'إجبارية فالجملة', en: 'required for wholesale', es: 'obligatoria al por mayor', pt: 'obrigatoria no grosso', tr: 'toptanda zorunlu' }),
     retour: tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' }),
     rienEnStock: tx(lang, { fr: 'Aucune piece en stock.', ar: 'ما كاين حتى قطعة فالستوك.', en: 'No item in stock.', es: 'Ninguna pieza en stock.', pt: 'Nenhuma peca em stock.', tr: 'Stokta parca yok.' }),
     videz: tx(lang, { fr: 'Vider', ar: 'فرّغ', en: 'Clear', es: 'Vaciar', pt: 'Limpar', tr: 'Temizle' }),
     statique: tx(lang, { fr: "Mode statique : la caisse a besoin du serveur pour enregistrer une vente.", ar: 'الوضع الساكن: الصندوق كيحتاج السيرفر باش يسجّل البيعة.', en: 'Static mode: the checkout needs the server to record a sale.', es: 'Modo estatico: la caja necesita el servidor.', pt: 'Modo estatico: a caixa precisa do servidor.', tr: 'Statik mod: kasa sunucuya ihtiyac duyar.' }),
   };
+
+  const typesVente: Array<{ v: TypeVente; l: string }> = [
+    { v: 'BOUTIQUE', l: tx(lang, { fr: 'Ma boutique', ar: 'محلّي', en: 'My shop', es: 'Mi tienda', pt: 'Minha loja', tr: 'Magazam' }) },
+    { v: 'DETAIL', l: tx(lang, { fr: 'Detail', ar: 'بالتقسيط', en: 'Retail', es: 'Detalle', pt: 'Retalho', tr: 'Perakende' }) },
+    { v: 'GROS', l: tx(lang, { fr: 'Gros', ar: 'بالجملة', en: 'Wholesale', es: 'Por mayor', pt: 'Grosso', tr: 'Toptan' }) },
+  ];
 
   const modes: Array<{ v: CaissePaiement; l: string }> = [
     { v: 'ESPECES', l: tx(lang, { fr: 'Especes', ar: 'نقداً', en: 'Cash', es: 'Efectivo', pt: 'Dinheiro', tr: 'Nakit' }) },
@@ -570,27 +626,117 @@ const Caisse: React.FC<CaisseProps> = ({
           </div>
 
           <div className="border-t border-slate-200 dark:border-dk-border p-4 space-y-3">
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted pointer-events-none" />
-                <select
-                  value={clientId}
-                  onChange={e => setClientId(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            {/* Le type de vente commande le tarif ET le document : en gros on
+                facture un revendeur nomme, au comptoir on remet un ticket. */}
+            <div className="grid grid-cols-3 gap-1.5">
+              {typesVente.map(t => (
+                <button
+                  key={t.v}
+                  onClick={() => setTypeVente(t.v)}
+                  disabled={!!client}
+                  title={client ? T.typeDuClient : undefined}
+                  className={`px-2 py-2 rounded-xl text-[11px] font-bold border transition-colors ${
+                    typeEffectif === t.v
+                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
+                  } ${client ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
-                  <option value="">{T.passage}</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
-                </select>
+                  {t.l}
+                </button>
+              ))}
+            </div>
+
+            {/* Le client : on le reconnait a sa photo, on le trouve en tapant,
+                et on le cree sans quitter le comptoir. */}
+            {client ? (
+              <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border">
+                {client.photo
+                  ? <img src={client.photo} alt="" className="w-9 h-9 rounded-lg object-cover flex-none" />
+                  : <div className="w-9 h-9 rounded-lg bg-white dark:bg-dk-surface flex-none flex items-center justify-center"><User className="w-4 h-4 text-slate-400 dark:text-dk-muted" /></div>}
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-slate-800 dark:text-dk-text truncate">{client.nom}</span>
+                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                    {[client.type, client.tel, client.ville].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+                <button
+                  onClick={() => { setClientId(''); setClientQuery(''); }}
+                  className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400"
+                  aria-label={T.retirerClient}
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              {!clientId && (
+            ) : (
+              <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted pointer-events-none" />
+                    <input
+                      value={clientQuery}
+                      onChange={e => setClientQuery(e.target.value)}
+                      placeholder={T.chercherClient}
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                    />
+                  </div>
+                  {onCreateClient && (
+                    <button
+                      onClick={onCreateClient}
+                      title={T.nouveauClient}
+                      className="shrink-0 px-3 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                {clientQuery.trim() !== '' && (
+                  <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border">
+                    {clientsTrouves.length === 0 && (
+                      <p className="p-3 text-[11px] text-slate-400 dark:text-dk-muted">{T.aucunClient}</p>
+                    )}
+                    {clientsTrouves.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setClientId(c.id); setClientQuery(''); }}
+                        className="w-full flex items-center gap-2 p-2 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                      >
+                        {c.photo
+                          ? <img src={c.photo} alt="" className="w-8 h-8 rounded-lg object-cover flex-none" />
+                          : <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dk-elevated flex-none" />}
+                        <span className="min-w-0">
+                          <span className="block text-xs font-bold text-slate-800 dark:text-dk-text truncate">{c.nom}</span>
+                          <span className="block text-[10px] text-slate-500 dark:text-dk-muted truncate">
+                            {[c.type, c.tel, c.ville].filter(Boolean).join(' · ')}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Vente au comptoir sans fiche : un nom libre suffit, et il
+                    apparaitra sur le ticket. */}
                 <input
                   value={clientLibre}
                   onChange={e => setClientLibre(e.target.value)}
-                  placeholder={T.client}
-                  className="flex-1 px-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  placeholder={T.passage}
+                  className="w-full px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                 />
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* La facture : un reglage, pas une question a chaque vente. En
+                gros elle est imposee — un revendeur part toujours avec. */}
+            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft">
+              <input
+                type="checkbox"
+                checked={factureRequise}
+                disabled={typeEffectif === 'GROS'}
+                onChange={e => setFactureAuto(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 dark:border-dk-border"
+              />
+              {T.factureAuto}
+              {typeEffectif === 'GROS' && <span className="text-slate-400 dark:text-dk-muted">({T.imposee})</span>}
+            </label>
 
             <div className="grid grid-cols-4 gap-1.5">
               {modes.map(m => (

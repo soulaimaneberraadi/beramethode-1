@@ -17,7 +17,7 @@ import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
 import { ean13FromDigits, ean13Variant, renderEAN13, parseScanCode } from '../lib/barcode';
 import { buildZplForCells, buildZplTestLabel, type ZplCell } from '../lib/zpl';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
-import Caisse, { type CaisseLigne, type CaissePaiement } from './Caisse';
+import Caisse, { type CaisseLigne, type CaissePaiement, type TypeVente } from './Caisse';
 import { lsGetMig, lsSet } from '../lib/storageKeys';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
@@ -2595,6 +2595,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     paiement: CaissePaiement;
     remiseGlobale: number;
     total: number;
+    typeVente: TypeVente;
+    facture: boolean;
   }): Promise<string | null> => {
     if (IS_STATIC) {
       return tx(lang,{fr:"Mode statique : aucune vente ne peut etre enregistree.",ar:'الوضع الساكن: ما يمكن تسجيل حتى بيعة.',en:'Static mode: no sale can be recorded.',es:'Modo estatico: no se puede registrar la venta.',pt:'Modo estatico: nao e possivel registar a venda.',tr:'Statik mod: satis kaydedilemez.'});
@@ -2606,6 +2608,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       parModele.set(l.model.id, arr);
     });
     let faites = 0;
+    const batchs: string[] = [];
     try {
       for (const [modelId, lignes] of parModele) {
         // Un prix unitaire par sortie : quand un modele a plusieurs prix dans
@@ -2625,7 +2628,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             prix_unitaire: prixUnitaire,
             date_sortie: new Date().toISOString().slice(0, 10),
             canal: 'MAGASIN',
-            note: `CAISSE ${payload.paiement}`,
+            note: `CAISSE ${payload.typeVente} ${payload.paiement}`,
             lignes: lignes.map(l => ({ couleur: l.couleur, taille: l.taille, quantite: l.qte })),
           }),
         });
@@ -2634,7 +2637,33 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           const base = body.message || tx(lang,{fr:'La sortie a ete refusee.',ar:'تم رفض الإخراج.',en:'The exit was rejected.',es:'La salida fue rechazada.',pt:'A saida foi recusada.',tr:'Cikis reddedildi.'});
           return faites === 0 ? base : `${base} (${faites} ${tx(lang,{fr:'deja enregistrees',ar:'مسجّلة سلفاً',en:'already recorded',es:'ya registradas',pt:'ja registadas',tr:'zaten kaydedildi'})})`;
         }
+        if (body.batch_id) batchs.push(String(body.batch_id));
         faites++;
+      }
+
+      // La facture ne se rattache qu'a une FICHE client. Les sorties qui
+      // viennent d'etre ecrites sont retrouvees par leur batch : l'API de
+      // sortie ne rend pas les identifiants de lignes.
+      if (payload.facture && payload.clientId && batchs.length > 0) {
+        const rows = await fetch('/api/subcontract/stock-sorties', { credentials: 'include' })
+          .then(r => (r.ok ? r.json() : []))
+          .catch(() => []);
+        const sortieIds = (Array.isArray(rows) ? rows : [])
+          .filter((r: any) => batchs.includes(String(r.batch_id)) && !r.facture_id)
+          .map((r: any) => String(r.id));
+        if (sortieIds.length > 0) {
+          const fres = await fetch('/api/subcontract/clients/facturer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ clientId: payload.clientId, sortieIds, discount: payload.remiseGlobale }),
+          });
+          if (!fres.ok) {
+            const fb = await fres.json().catch(() => ({}));
+            // La vente EST passee : le dire, sinon on la refera.
+            return `${tx(lang,{fr:'Vente enregistree, mais la facture a echoue.',ar:'تسجّلت البيعة، لكن الفاتورة فشلت.',en:'Sale recorded, but the invoice failed.',es:'Venta registrada, pero la factura fallo.',pt:'Venda registada, mas a fatura falhou.',tr:'Satis kaydedildi, fakat fatura basarisiz.'})} ${fb.message || ''}`.trim();
+          }
+        }
       }
       return null;
     } finally {
@@ -10423,6 +10452,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         lang={lang}
         isStatic={IS_STATIC}
         initialRecherche={caisseRecherche}
+        onCreateClient={() => { setCaisseOpen(false); setActiveTab('clients'); }}
         onEncaisser={encaisserCaisse}
       />
 
