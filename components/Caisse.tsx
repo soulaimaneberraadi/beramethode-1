@@ -459,7 +459,7 @@ const Caisse: React.FC<CaisseProps> = ({
               value={recherche}
               onChange={e => setRecherche(e.target.value)}
               placeholder={T.chercher}
-              className="w-full pl-9 pr-3 py-3 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full pl-9 pr-3 py-3 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
             />
           </div>
           {/* Le rayon : un modèle par vignette. */}
@@ -472,7 +472,7 @@ const Caisse: React.FC<CaisseProps> = ({
                 <button
                   key={c.model.id}
                   onClick={() => setModeleOuvert(c.model)}
-                  className="p-2 sm:p-2.5 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-left hover:border-indigo-400 dark:hover:border-dk-accent hover:shadow-sm transition-all active:scale-[0.98] flex flex-col"
+                  className="p-2 sm:p-2.5 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-left hover:border-slate-400 dark:hover:border-dk-accent hover:shadow-sm transition-all active:scale-[0.98] flex flex-col"
                 >
                   <Vignette model={c.model} className="w-full aspect-[4/3] sm:aspect-square" />
                   <span className="block mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
@@ -540,7 +540,7 @@ const Caisse: React.FC<CaisseProps> = ({
                             onClick={() => ajouter(modeleOuvert, g.couleur, t.taille)}
                             className={`px-3 py-2 rounded-xl border text-center min-w-[64px] transition-colors ${
                               reste > 0
-                                ? 'bg-slate-50 dark:bg-dk-elevated border-slate-200 dark:border-dk-border hover:border-indigo-400 dark:hover:border-dk-accent'
+                                ? 'bg-slate-50 dark:bg-dk-elevated border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'
                                 : 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border opacity-50 cursor-not-allowed'
                             }`}
                           >
@@ -571,23 +571,6 @@ const Caisse: React.FC<CaisseProps> = ({
               )}
             </div>
           </div>
-          {lignes.length > 0 && (
-            <div className="hidden">
-              <button
-                disabled={saving || isStatic}
-                onClick={valider}
-                className={`w-full py-2.5 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all ${
-                  saving || isStatic
-                    ? 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm active:scale-[0.98]'
-                }`}
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                {T.encaisser} · {fmt(total)} {currency}
-              </button>
-            </div>
-          )}
-
           <div className="max-h-[40vh] lg:max-h-none lg:flex-1 lg:min-h-0 lg:overflow-y-auto overflow-y-auto divide-y divide-slate-100 dark:divide-dk-border shrink-0 lg:shrink">
             {lignes.length === 0 && (
               <p className="p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.vide}</p>
@@ -640,7 +623,7 @@ const Caisse: React.FC<CaisseProps> = ({
                       const v = e.target.value === '' ? 0 : Number(e.target.value);
                       setLignes(prev => prev.map(x => x.key === l.key ? { ...x, prix: v, prixTouched: true } : x));
                     }}
-                    className="w-[72px] sm:w-20 px-2 py-1.5 rounded-lg text-right text-[13px] sm:text-sm font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40 placeholder:text-slate-400"
+                    className="w-[72px] sm:w-20 px-2 py-1.5 rounded-lg text-right text-[13px] sm:text-sm font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 placeholder:text-slate-400"
                   />
                   <span className="w-[64px] sm:w-20 text-right text-[13px] sm:text-sm font-black text-slate-800 dark:text-dk-text truncate">
                     {fmt(l.qte * (Number(l.prix) || 0))}
@@ -656,7 +639,7 @@ const Caisse: React.FC<CaisseProps> = ({
             ))}
           </div>
 
-          <div className="border-t border-slate-200 dark:border-dk-border p-3 sm:p-4 space-y-2.5 sm:space-y-3 shrink-0 pb-[max(16px,env(safe-area-inset-bottom))] bg-white dark:bg-dk-surface sticky bottom-0 z-10 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+          <div className="border-t border-slate-200 dark:border-dk-border p-3 sm:p-4 space-y-2.5 sm:space-y-3 shrink-0 bg-white dark:bg-dk-surface">
             {/* Le type de vente commande le tarif ET le document : en gros on
                 facture un revendeur nomme, au comptoir on remet un ticket. */}
             <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
@@ -707,7 +690,7 @@ const Caisse: React.FC<CaisseProps> = ({
                       value={clientQuery}
                       onChange={e => setClientQuery(e.target.value)}
                       placeholder={T.chercherClient}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
                     />
                   </div>
                   {onCreateClient && (
@@ -750,7 +733,7 @@ const Caisse: React.FC<CaisseProps> = ({
                   value={clientLibre}
                   onChange={e => setClientLibre(e.target.value)}
                   placeholder={T.passage}
-                  className="w-full px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                  className="w-full px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
                 />
               </div>
             )}
@@ -776,7 +759,7 @@ const Caisse: React.FC<CaisseProps> = ({
                   onClick={() => setPaiement(m.v)}
                   className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
                     paiement === m.v
-                      ? 'bg-indigo-600 dark:bg-dk-accent text-white border-transparent shadow-sm'
+                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
                       : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
                   }`}
                 >
@@ -785,7 +768,7 @@ const Caisse: React.FC<CaisseProps> = ({
               ))}
             </div>
 
-            <div className="flex items-center gap-2 text-sm bg-slate-50 dark:bg-dk-elevated/50 rounded-xl px-3 py-2 border border-slate-100 dark:border-dk-border/50">
+            <div className="flex items-center gap-2 text-sm">
               <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0">{T.remise}</span>
               <input
                 type="number"
@@ -793,48 +776,54 @@ const Caisse: React.FC<CaisseProps> = ({
                 value={remiseGlobale}
                 placeholder="0"
                 onChange={e => setRemiseGlobale(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-20 sm:w-24 px-2 py-1.5 rounded-lg text-right font-bold bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40 text-sm"
+                className="w-20 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
               />
+              {paiement === 'ESPECES' && (
+                <>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0 ml-1">{T.recu}</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={encaisse}
+                    placeholder="0"
+                    onChange={e => setEncaisse(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-20 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
+                  />
+                </>
+              )}
               <div className="flex-1 min-w-0" />
-              <span className="text-[10px] sm:text-xs font-bold uppercase text-slate-500 dark:text-dk-muted shrink-0">{T.total}</span>
-              <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-dk-text shrink-0">
-                {fmt(total)} <span className="text-xs sm:text-sm font-bold text-slate-500 dark:text-dk-muted">{currency}</span>
-              </span>
+              {paiement === 'ESPECES' && rendu != null && (
+                <span className={`text-xs font-extrabold shrink-0 ${rendu < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-dk-text-soft'}`}>
+                  {T.rendu} : {fmt(rendu)} {currency}
+                </span>
+              )}
             </div>
 
-            {paiement === 'ESPECES' && (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500 dark:text-dk-muted">{T.recu}</span>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={encaisse}
-                  placeholder="0"
-                  onChange={e => setEncaisse(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-24 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                />
-                <div className="flex-1" />
-                {rendu != null && (
-                  <span className={`text-sm font-extrabold ${rendu < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                    {T.rendu} : {fmt(rendu)} {currency}
-                  </span>
-                )}
-              </div>
-            )}
-
             {erreur && (
-              <p className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4" /> {erreur}
+              <p className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-px" /> <span>{erreur}</span>
               </p>
             )}
+          </div>
 
+          {/* La barre du bas ne bouge jamais. Sur un telephone l'ecran defile,
+              et le geste qui conclut la vente doit rester sous le pouce : un
+              bouton qu'il faut aller chercher fait rescanner l'article
+              « pour voir », et le stock finit par mentir. */}
+          <div className="sticky bottom-0 z-10 shrink-0 flex items-center gap-3 px-3 sm:px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-white dark:bg-dk-surface border-t border-slate-200 dark:border-dk-border">
+            <div className="min-w-0">
+              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.total}</span>
+              <span className="block text-xl sm:text-2xl font-black text-slate-900 dark:text-dk-text leading-none truncate">
+                {fmt(total)} <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{currency}</span>
+              </span>
+            </div>
             <button
               disabled={lignes.length === 0 || saving || isStatic}
               onClick={valider}
-              className={`w-full py-3.5 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all ${
+              className={`flex-1 py-3.5 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all ${
                 lignes.length === 0 || saving || isStatic
                   ? 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                  : 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent dark:hover:bg-dk-accent/90 text-white active:scale-[0.99]'
               }`}
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
