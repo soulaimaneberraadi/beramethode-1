@@ -561,6 +561,16 @@ const Caisse: React.FC<CaisseProps> = ({
         <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
           <ScanLine className="w-4 h-4 animate-pulse" /> {T.scan}
         </span>
+        {/* Le panier, en discret, tout en haut : savoir combien de pieces sont
+            engagees sans quitter le rayon des yeux. */}
+        {nbPieces > 0 && (
+          <button
+            onClick={() => setVoletMobile('panier')}
+            className="ml-1 sm:ml-2 px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 dark:text-dk-muted bg-slate-100/70 dark:bg-dk-elevated/60 shrink-0 lg:cursor-default"
+          >
+            {T.panier} · {nbPieces}
+          </button>
+        )}
         <div className="flex-1 min-w-0" />
         {/* La journee : le seul detour permis depuis le comptoir, parce que
             c'est la ou l'on repare une vente qui vient de partir de travers. */}
@@ -767,9 +777,9 @@ const Caisse: React.FC<CaisseProps> = ({
               tailles s'ouvre dessous. Au comptoir on ajoute souvent deux
               vetements differents d'affilee : refermer le rayon a chaque
               fois faisait retaper la recherche. */}
-          <div className={modeleOuvert
-            ? 'flex gap-2 overflow-x-auto overscroll-contain shrink-0 pb-1 -mx-1 px-1'
-            : 'grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 content-start flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2 auto-rows-max'}>
+          <div className="flex-1 min-h-0 flex flex-col sm:flex-row gap-3 overflow-hidden">
+          <div className={`grid gap-2 sm:gap-3 content-start flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2 auto-rows-max ${
+            modeleOuvert ? 'grid-cols-2 xl:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4'}`}>
               {catalogue.length === 0 && (
                 <p className="col-span-full p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.rienEnStock}</p>
               )}
@@ -778,12 +788,11 @@ const Caisse: React.FC<CaisseProps> = ({
                   key={c.model.id}
                   onClick={() => setModeleOuvert(m => (m?.id === c.model.id ? null : c.model))}
                   className={`p-2 sm:p-2.5 rounded-xl bg-white dark:bg-dk-surface border text-left hover:shadow-sm transition-all active:scale-[0.98] flex flex-col ${
-                    modeleOuvert ? 'w-24 shrink-0' : ''
-                  } ${modeleOuvert?.id === c.model.id
+                    modeleOuvert?.id === c.model.id
                     ? 'border-slate-900 dark:border-dk-accent ring-1 ring-slate-900/10'
                     : 'border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'}`}
                 >
-                  <Vignette model={c.model} className={modeleOuvert ? 'w-full aspect-square' : 'w-full aspect-[4/3] sm:aspect-square'} />
+                  <Vignette model={c.model} className="w-full aspect-[4/3] sm:aspect-square" />
                   <span className="block mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
                     {c.model.meta_data?.nom_modele || c.model.id}
                   </span>
@@ -806,19 +815,15 @@ const Caisse: React.FC<CaisseProps> = ({
               ))}
           </div>
 
-          {/* Le modèle ouvert : couleur d'abord, taille ensuite. */}
+          {/* Le modele ouvert : couleur d'abord, taille ensuite. Il occupe sa
+              PROPRE colonne, a droite du rayon : la liste des modeles garde
+              toute sa hauteur meme quand ils sont nombreux, et il n'y a plus
+              de bouton retour a chercher pour revenir au rayon. */}
           {modeleOuvert && (
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2">
-              <div className="flex items-center gap-3 mb-3">
-                <button
-                  onClick={() => setModeleOuvert(null)}
-                  className="p-2 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-white dark:hover:bg-dk-elevated"
-                  aria-label={T.retour}
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
+            <div className="sm:w-[300px] xl:w-[340px] shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 sm:border-l sm:border-slate-200 sm:dark:border-dk-border sm:pl-3">
+              <div className="flex items-center gap-2.5 mb-3">
                 <Vignette model={modeleOuvert} className="w-9 h-9" />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <span className="block text-sm font-extrabold text-slate-800 dark:text-dk-text truncate">
                     {modeleOuvert.meta_data?.nom_modele || modeleOuvert.id}
                   </span>
@@ -861,8 +866,15 @@ const Caisse: React.FC<CaisseProps> = ({
                   </div>
                 ))}
               </div>
+              <button
+                onClick={() => setModeleOuvert(null)}
+                className="mt-3 w-full py-2 rounded-xl border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-elevated"
+              >
+                {T.retour}
+              </button>
             </div>
           )}
+          </div>
         </div>
 
         {/* Droite : le panier et l'encaissement. */}
