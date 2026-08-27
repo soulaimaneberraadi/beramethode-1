@@ -166,6 +166,13 @@ async function startServer() {
 
   app.disable('x-powered-by');
 
+  // Derrière un reverse proxy (Vercel, Nginx, Cloudflare…), sans ceci req.ip vaut
+  // l'IP du proxy : tous les utilisateurs partagent alors le même compteur de
+  // rate-limit et reçoivent un 429 en même temps. On fait confiance au 1er hop.
+  if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
+
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
@@ -215,7 +222,7 @@ async function startServer() {
   }
 
   // Rate limiting is ON by default — only disabled in explicit development mode
-  const isDev = process.env.NODE_ENV === 'development';
+  const isDev = process.env.NODE_ENV !== 'production';
   const isLoopbackRequest = (req: express.Request): boolean => {
     const ip = req.ip || req.socket.remoteAddress || '';
     const host = (req.hostname || req.headers.host || '').split(':')[0];
@@ -232,7 +239,7 @@ async function startServer() {
     // Skip the SSE stream (one long-lived connection per dashboard tab —
     // counting it against the request budget would penalize live users)
     // and skip entirely in dev.
-    skip: (req) => isDev || req.path === '/api/dashboard/kpis/stream',
+    skip: (req) => isDev || isLoopbackRequest(req) || req.path === '/api/dashboard/kpis/stream',
     handler: (_req, res) => {
       res.status(429).json({ message: 'Trop de requêtes. Réessayez dans 15 minutes.' });
     },
