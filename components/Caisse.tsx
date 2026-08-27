@@ -10,6 +10,7 @@
  * pas l'interface.
  */
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { ModelData } from '../types';
 import { tx } from '../lib/i18n';
 import { fmt } from '../app/constants';
@@ -179,6 +180,10 @@ const Caisse: React.FC<CaisseProps> = ({
   const [saving, setSaving] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [encaisse, setEncaisse] = useState<number | ''>('');
+  /** Telephone : le rayon et le panier ne tiennent pas cote a cote. On en
+   *  montre UN seul, plein ecran, et une barre du bas fait la navette. Sur
+   *  grand ecran les deux volets reviennent, et cet etat n'a plus d'effet. */
+  const [voletMobile, setVoletMobile] = useState<'rayon' | 'panier'>('rayon');
   const lignesRef = useRef<CaisseLigne[]>([]);
   lignesRef.current = lignes;
 
@@ -367,8 +372,16 @@ const Caisse: React.FC<CaisseProps> = ({
   /** Ouverture depuis un modèle : on part de sa grille, l'opérateur n'a pas à
    *  retaper le nom qu'il vient de cliquer. */
   useEffect(() => {
-    if (open) setRecherche(initialRecherche || '');
+    if (open) { setRecherche(initialRecherche || ''); setVoletMobile('rayon'); }
   }, [open, initialRecherche]);
+
+  /** Plein cadre : la page derriere ne doit pas defiler sous le comptoir. */
+  useEffect(() => {
+    if (!open) return;
+    const avant = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = avant; };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -470,6 +483,8 @@ const Caisse: React.FC<CaisseProps> = ({
     if (msg) { setErreur(msg); pip(false); return; }
     pip(true);
     reset();
+    // Vente close : le comptoir repart du rayon, pas d'un panier vide.
+    setVoletMobile('rayon');
     setFlash({ ok: true, msg: tx(lang, { fr: 'Vente enregistrée.', ar: 'تسجّلت البيعة.', en: 'Sale recorded.', es: 'Venta registrada.', pt: 'Venda registada.', tr: 'Satis kaydedildi.' }) });
   };
 
@@ -498,6 +513,8 @@ const Caisse: React.FC<CaisseProps> = ({
     imposee: tx(lang, { fr: 'imposee en gros', ar: 'إجبارية فالجملة', en: 'required for wholesale', es: 'obligatoria al por mayor', pt: 'obrigatoria no grosso', tr: 'toptanda zorunlu' }),
     retour: tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' }),
     rienEnStock: tx(lang, { fr: 'Aucune piece en stock.', ar: 'ما كاين حتى قطعة فالستوك.', en: 'No item in stock.', es: 'Ninguna pieza en stock.', pt: 'Nenhuma peca em stock.', tr: 'Stokta parca yok.' }),
+    voirPanier: tx(lang, { fr: 'Voir le panier', ar: 'شوف السلّة', en: 'View cart', es: 'Ver la cesta', pt: 'Ver o cesto', tr: 'Sepeti gor' }),
+    auRayon: tx(lang, { fr: 'Au rayon', ar: 'للرفوف', en: 'Back to shelf', es: 'Al estante', pt: 'As prateleiras', tr: 'Rafa don' }),
     videz: tx(lang, { fr: 'Vider', ar: 'فرّغ', en: 'Clear', es: 'Vaciar', pt: 'Limpar', tr: 'Temizle' }),
     journee: tx(lang, { fr: 'Journee', ar: 'اليومية', en: 'Day', es: 'Jornada', pt: 'Jornada', tr: 'Gun' }),
     tickets: tx(lang, { fr: 'Tickets', ar: 'التيكيات', en: 'Tickets', es: 'Tickets', pt: 'Talões', tr: 'Fisler' }),
@@ -525,8 +542,11 @@ const Caisse: React.FC<CaisseProps> = ({
     { v: 'VIREMENT', l: tx(lang, { fr: 'Virement', ar: 'تحويل', en: 'Transfer', es: 'Transferencia', pt: 'Transferencia', tr: 'Havale' }) },
   ];
 
-  return (
-    <div className="fixed top-12 left-0 right-0 bottom-0 z-[80] bg-slate-100 dark:bg-dk-bg flex flex-col overflow-hidden">
+  /* Portal sur <body> : un ancetre anime (transform Framer Motion) redefinit
+   * le repere des elements `fixed`, et l'ecran plein cadre se retrouvait
+   * decale sous l'entete, laissant depasser la barre d'outils de la page. */
+  return createPortal(
+    <div className="fixed inset-0 z-[120] bg-slate-100 dark:bg-dk-bg flex flex-col overflow-hidden">
       {/* Barre du haut : ce que la caisse fait, et comment en sortir. */}
       <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border shrink-0">
         <Store className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />
@@ -704,9 +724,9 @@ const Caisse: React.FC<CaisseProps> = ({
         </div>
       )}
 
-      <div className={`flex-1 min-h-0 flex-col lg:flex-row overflow-y-auto lg:overflow-hidden overscroll-contain ${journeeOuverte ? 'hidden' : 'flex'}`}>
+      <div className={`flex-1 min-h-0 flex-col lg:flex-row overflow-hidden overscroll-contain ${journeeOuverte ? 'hidden' : 'flex'}`}>
         {/* Gauche : la recherche manuelle, pour les tikis illisibles. */}
-        <div className="flex flex-col lg:w-1/2 lg:min-h-0 p-3 sm:p-4 gap-3 shrink-0 lg:shrink lg:overflow-hidden bg-slate-50/50 dark:bg-transparent">
+        <div className={`flex-col flex-1 min-h-0 lg:w-1/2 p-3 sm:p-4 gap-3 overflow-hidden bg-slate-50/50 dark:bg-transparent lg:flex ${voletMobile === 'rayon' ? 'flex' : 'hidden'}`}>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted" />
             <input
@@ -718,7 +738,7 @@ const Caisse: React.FC<CaisseProps> = ({
           </div>
           {/* Le rayon : un modèle par vignette. */}
           {!modeleOuvert && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 content-start lg:flex-1 lg:min-h-0 lg:overflow-y-auto pb-2 auto-rows-max">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 content-start flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2 auto-rows-max">
               {catalogue.length === 0 && (
                 <p className="col-span-full p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.rienEnStock}</p>
               )}
@@ -754,7 +774,7 @@ const Caisse: React.FC<CaisseProps> = ({
 
           {/* Le modèle ouvert : couleur d'abord, taille ensuite. */}
           {modeleOuvert && (
-            <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto pb-2">
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2">
               <div className="flex items-center gap-3 mb-3">
                 <button
                   onClick={() => setModeleOuvert(null)}
@@ -812,11 +832,21 @@ const Caisse: React.FC<CaisseProps> = ({
         </div>
 
         {/* Droite : le panier et l'encaissement. */}
-        <div className="flex flex-col lg:w-1/2 lg:min-h-0 bg-white dark:bg-dk-surface border-t lg:border-t-0 lg:border-l border-slate-200 dark:border-dk-border shrink-0 lg:shrink lg:overflow-hidden">
+        <div className={`flex-col flex-1 min-h-0 lg:w-1/2 bg-white dark:bg-dk-surface lg:border-l border-slate-200 dark:border-dk-border overflow-hidden lg:flex ${voletMobile === 'panier' ? 'flex' : 'hidden'}`}>
           <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-dk-border shrink-0">
-            <span className="text-xs font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted shrink-0">
-              {T.panier} · {nbPieces}
-            </span>
+            <div className="flex items-center gap-2 min-w-0">
+              {/* Telephone : revenir au rayon sans quitter la vente. */}
+              <button
+                onClick={() => setVoletMobile('rayon')}
+                className="lg:hidden -ml-1 p-1.5 rounded-lg text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                aria-label={T.auRayon}
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted shrink-0">
+                {T.panier} · {nbPieces}
+              </span>
+            </div>
             <div className="flex items-center gap-2 shrink-0">
               {lignes.length > 0 && (
                 <button onClick={reset} className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline px-2 py-1">
@@ -825,7 +855,7 @@ const Caisse: React.FC<CaisseProps> = ({
               )}
             </div>
           </div>
-          <div className="max-h-[40vh] lg:max-h-none lg:flex-1 lg:min-h-0 lg:overflow-y-auto overflow-y-auto divide-y divide-slate-100 dark:divide-dk-border shrink-0 lg:shrink">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100 dark:divide-dk-border">
             {lignes.length === 0 && (
               <p className="p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.vide}</p>
             )}
@@ -893,7 +923,7 @@ const Caisse: React.FC<CaisseProps> = ({
             ))}
           </div>
 
-          <div className="border-t border-slate-200 dark:border-dk-border p-3 sm:p-4 space-y-2.5 sm:space-y-3 shrink-0 bg-white dark:bg-dk-surface">
+          <div className="border-t border-slate-200 dark:border-dk-border p-3 sm:p-4 space-y-2.5 sm:space-y-3 shrink-0 bg-white dark:bg-dk-surface max-h-[45vh] overflow-y-auto overscroll-contain lg:max-h-none lg:overflow-visible">
             {/* Le type de vente commande le tarif ET le document : en gros on
                 facture un revendeur nomme, au comptoir on remet un ticket. */}
             <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
@@ -1086,7 +1116,33 @@ const Caisse: React.FC<CaisseProps> = ({
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Telephone : depuis le rayon, le panier reste a un pouce. Le total y
+          est deja lisible, pour ne pas avoir a changer de volet juste pour
+          verifier ce qu'on est en train de facturer. */}
+      {!journeeOuverte && voletMobile === 'rayon' && (
+        <div className="lg:hidden shrink-0 flex items-center gap-3 px-3 py-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-white dark:bg-dk-surface border-t border-slate-200 dark:border-dk-border">
+          <div className="min-w-0">
+            <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.total}</span>
+            <span className="block text-lg font-black text-slate-900 dark:text-dk-text leading-none truncate">
+              {fmt(total)} <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{currency}</span>
+            </span>
+          </div>
+          <button
+            onClick={() => setVoletMobile('panier')}
+            disabled={lignes.length === 0}
+            className={`flex-1 py-3 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all ${
+              lignes.length === 0
+                ? 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'
+                : 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white active:scale-[0.99]'
+            }`}
+          >
+            {T.voirPanier} · {nbPieces}
+          </button>
+        </div>
+      )}
+    </div>,
+    document.body,
   );
 };
 
