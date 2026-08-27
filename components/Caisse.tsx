@@ -762,19 +762,28 @@ const Caisse: React.FC<CaisseProps> = ({
               className="w-full pl-9 pr-3 py-3 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
             />
           </div>
-          {/* Le rayon : un modèle par vignette. */}
-          {!modeleOuvert && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 content-start flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2 auto-rows-max">
+          {/* Le rayon : un modele par vignette. Il NE DISPARAIT PAS quand on
+              ouvre un modele — il se replie en bandeau, et la grille des
+              tailles s'ouvre dessous. Au comptoir on ajoute souvent deux
+              vetements differents d'affilee : refermer le rayon a chaque
+              fois faisait retaper la recherche. */}
+          <div className={modeleOuvert
+            ? 'flex gap-2 overflow-x-auto overscroll-contain shrink-0 pb-1 -mx-1 px-1'
+            : 'grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 content-start flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2 auto-rows-max'}>
               {catalogue.length === 0 && (
                 <p className="col-span-full p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.rienEnStock}</p>
               )}
               {catalogue.map(c => (
                 <button
                   key={c.model.id}
-                  onClick={() => setModeleOuvert(c.model)}
-                  className="p-2 sm:p-2.5 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-left hover:border-slate-400 dark:hover:border-dk-accent hover:shadow-sm transition-all active:scale-[0.98] flex flex-col"
+                  onClick={() => setModeleOuvert(m => (m?.id === c.model.id ? null : c.model))}
+                  className={`p-2 sm:p-2.5 rounded-xl bg-white dark:bg-dk-surface border text-left hover:shadow-sm transition-all active:scale-[0.98] flex flex-col ${
+                    modeleOuvert ? 'w-24 shrink-0' : ''
+                  } ${modeleOuvert?.id === c.model.id
+                    ? 'border-slate-900 dark:border-dk-accent ring-1 ring-slate-900/10'
+                    : 'border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'}`}
                 >
-                  <Vignette model={c.model} className="w-full aspect-[4/3] sm:aspect-square" />
+                  <Vignette model={c.model} className={modeleOuvert ? 'w-full aspect-square' : 'w-full aspect-[4/3] sm:aspect-square'} />
                   <span className="block mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
                     {c.model.meta_data?.nom_modele || c.model.id}
                   </span>
@@ -795,8 +804,7 @@ const Caisse: React.FC<CaisseProps> = ({
                   </span>
                 </button>
               ))}
-            </div>
-          )}
+          </div>
 
           {/* Le modèle ouvert : couleur d'abord, taille ensuite. */}
           {modeleOuvert && (
@@ -809,7 +817,7 @@ const Caisse: React.FC<CaisseProps> = ({
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </button>
-                <Vignette model={modeleOuvert} className="w-12 h-12" />
+                <Vignette model={modeleOuvert} className="w-9 h-9" />
                 <div className="min-w-0">
                   <span className="block text-sm font-extrabold text-slate-800 dark:text-dk-text truncate">
                     {modeleOuvert.meta_data?.nom_modele || modeleOuvert.id}
