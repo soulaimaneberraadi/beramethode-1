@@ -546,7 +546,14 @@ const Caisse: React.FC<CaisseProps> = ({
    * le repere des elements `fixed`, et l'ecran plein cadre se retrouvait
    * decale sous l'entete, laissant depasser la barre d'outils de la page. */
   return createPortal(
-    <div className="fixed inset-0 z-[120] bg-slate-100 dark:bg-dk-bg flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-[120] flex flex-col bg-slate-900/40 pt-2 lg:bg-transparent lg:pt-0">
+      {/* Telephone : une feuille qui monte du bas, comme les fiches du reste
+          de l'application — coins arrondis et poignee. Sur grand ecran la
+          feuille occupe tout, et l'habillage disparait. */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-slate-100 dark:bg-dk-bg rounded-t-3xl shadow-2xl lg:rounded-none lg:shadow-none">
+        <div className="lg:hidden shrink-0 flex justify-center pt-2.5 pb-1 bg-white dark:bg-dk-surface">
+          <span className="h-1.5 w-10 rounded-full bg-slate-300 dark:bg-dk-border" />
+        </div>
       {/* Barre du haut : ce que la caisse fait, et comment en sortir. */}
       <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border shrink-0">
         <Store className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />
@@ -1141,6 +1148,7 @@ const Caisse: React.FC<CaisseProps> = ({
           </button>
         </div>
       )}
+      </div>
     </div>,
     document.body,
   );

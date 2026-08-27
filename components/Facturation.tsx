@@ -136,7 +136,7 @@ export default function Facturation({ t }: FacturationProps) {
     }
 
     const renderStatsRow = () => (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
             <div className="border border-slate-200 dark:border-dk-border rounded-lg p-4 bg-slate-50/60 dark:bg-dk-surface">
                 <span className="text-[11px] font-medium text-slate-500 dark:text-dk-muted uppercase tracking-wide">Total TTC</span>
                 <p className="text-[15px] font-semibold text-slate-900 dark:text-dk-text tabular-nums mt-1">
@@ -170,7 +170,7 @@ export default function Facturation({ t }: FacturationProps) {
     );
 
     const renderSearch = () => (
-        <div className="relative flex-1 max-w-md">
+        <div className="relative flex-1 w-full sm:max-w-md">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 text-slate-400" strokeWidth={1.75} />
             <input
                 type="text"
@@ -183,12 +183,12 @@ export default function Facturation({ t }: FacturationProps) {
     );
 
     const renderDateFilter = () => (
-        <div className="bg-slate-100/60 dark:bg-dk-elevated rounded-md p-0.5 inline-flex">
+        <div className="bg-slate-100/60 dark:bg-dk-elevated rounded-md p-0.5 inline-flex max-w-full overflow-x-auto no-scrollbar">
             {(['all', 'today', 'week', 'month'] as const).map(key => (
                 <button
                     key={key}
                     onClick={() => setDateFilter(key)}
-                    className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-all ${
+                    className={`px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap transition-all ${
                         dateFilter === key
                             ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]'
                             : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
@@ -346,7 +346,7 @@ export default function Facturation({ t }: FacturationProps) {
 
     const renderPendingTab = () => (
         <div className="space-y-5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 text-slate-400" strokeWidth={1.75} />
                     <h2 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text">Factures non payées</h2>
@@ -362,7 +362,7 @@ export default function Facturation({ t }: FacturationProps) {
 
     return (
         <div className="space-y-5">
-            <div className="flex items-center justify-between h-14 border-b border-slate-100 dark:border-dk-border">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-0 py-3 sm:py-0 sm:h-14 border-b border-slate-100 dark:border-dk-border">
                 <div className="flex items-center gap-2.5">
                     <Receipt className="w-4 text-slate-400" strokeWidth={1.75} />
                     <h1 className="text-[15px] font-semibold text-slate-900 dark:text-dk-text">Dashboard Facturation</h1>
@@ -371,10 +371,10 @@ export default function Facturation({ t }: FacturationProps) {
                     )}
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="bg-slate-100/60 dark:bg-dk-elevated rounded-md p-0.5 inline-flex">
+                    <div className="bg-slate-100/60 dark:bg-dk-elevated rounded-md p-0.5 inline-flex flex-1 sm:flex-none">
                         <button
                             onClick={() => setView('dashboard')}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all ${
+                            className={`flex items-center justify-center flex-1 sm:flex-none gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap transition-all ${
                                 view === 'dashboard'
                                     ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]'
                                     : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
@@ -385,7 +385,7 @@ export default function Facturation({ t }: FacturationProps) {
                         </button>
                         <button
                             onClick={() => setView('pending')}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all ${
+                            className={`flex items-center justify-center flex-1 sm:flex-none gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap transition-all ${
                                 view === 'pending'
                                     ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]'
                                     : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
@@ -418,14 +418,14 @@ export default function Facturation({ t }: FacturationProps) {
 
                     {renderTypeCounts()}
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3">
                         {renderSearch()}
                         {renderDateFilter()}
                     </div>
 
                     {searchTerm ? renderSearchResults() : (
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="col-span-2 space-y-3">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                            <div className="lg:col-span-2 space-y-3">
                                 {renderRecentActivity()}
                             </div>
                             <div className="space-y-3">
