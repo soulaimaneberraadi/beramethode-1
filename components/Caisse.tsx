@@ -731,6 +731,25 @@ const Caisse: React.FC<CaisseProps> = ({
         </div>
       )}
 
+      {!journeeOuverte && (
+        <div className="lg:hidden shrink-0 flex gap-1 px-3 pb-2 pt-1 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border">
+          {([
+            { v: 'rayon' as const, l: T.auRayon },
+            { v: 'panier' as const, l: `${T.panier} · ${nbPieces}` },
+          ]).map(o => (
+            <button
+              key={o.v}
+              onClick={() => setVoletMobile(o.v)}
+              className={`flex-1 py-2 rounded-xl text-xs font-extrabold transition-colors ${voletMobile === o.v
+                ? 'bg-slate-900 dark:bg-dk-accent text-white'
+                : 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted'}`}
+            >
+              {o.l}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className={`flex-1 min-h-0 flex-col lg:flex-row overflow-hidden overscroll-contain ${journeeOuverte ? 'hidden' : 'flex'}`}>
         {/* Gauche : la recherche manuelle, pour les tikis illisibles. */}
         <div className={`flex-col flex-1 min-h-0 lg:w-1/2 p-3 sm:p-4 gap-3 overflow-hidden bg-slate-50/50 dark:bg-transparent lg:flex ${voletMobile === 'rayon' ? 'flex' : 'hidden'}`}>
@@ -843,13 +862,6 @@ const Caisse: React.FC<CaisseProps> = ({
           <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-dk-border shrink-0">
             <div className="flex items-center gap-2 min-w-0">
               {/* Telephone : revenir au rayon sans quitter la vente. */}
-              <button
-                onClick={() => setVoletMobile('rayon')}
-                className="lg:hidden -ml-1 p-1.5 rounded-lg text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated"
-                aria-label={T.auRayon}
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
               <span className="text-xs font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted shrink-0">
                 {T.panier} · {nbPieces}
               </span>
@@ -1137,12 +1149,7 @@ const Caisse: React.FC<CaisseProps> = ({
           </div>
           <button
             onClick={() => setVoletMobile('panier')}
-            disabled={lignes.length === 0}
-            className={`flex-1 py-3 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all ${
-              lignes.length === 0
-                ? 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'
-                : 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white active:scale-[0.99]'
-            }`}
+            className="flex-1 py-3 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white active:scale-[0.99] transition-all"
           >
             {T.voirPanier} · {nbPieces}
           </button>
