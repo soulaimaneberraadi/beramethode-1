@@ -17,6 +17,7 @@ import { resolveScan, attachScannerListener } from '../lib/scanner';
 import type { AtelierClient } from './soustraitance/ClientsPanel';
 import {
   X, ScanLine, Search, Trash2, Plus, Minus, Loader2, AlertTriangle, User, Store, Check, ArrowLeft,
+  Receipt, RotateCcw, Banknote,
 } from 'lucide-react';
 
 export type CaisseLigne = {
@@ -33,6 +34,39 @@ export type CaisseLigne = {
 };
 
 export type TypeVente = 'BOUTIQUE' | 'DETAIL' | 'GROS';
+
+/** Une vente au comptoir telle que le serveur la rend : un ticket regroupe
+ *  toutes les sorties de stock d'un meme encaissement, quel que soit le
+ *  nombre de modeles vendus. */
+export interface CaisseTicket {
+  ticket: string;
+  heure: string | null;
+  clientId: string | null;
+  clientNom: string | null;
+  modePaiement: string | null;
+  typeVente: string | null;
+  factureId: string | null;
+  factureNumero: string | null;
+  factureStatut: string | null;
+  pieces: number;
+  total: number;
+  lignes: Array<{
+    id: string;
+    modelId: string;
+    modelNom: string;
+    couleur: string | null;
+    taille: string | null;
+    quantite: number;
+    prixUnitaire: number;
+  }>;
+}
+
+export interface CaisseJournal {
+  date: string;
+  tickets: CaisseTicket[];
+  parMode: Record<string, { pieces: number; total: number; tickets: number }>;
+  totaux: { tickets: number; pieces: number; total: number };
+}
 
 export type CaissePaiement = 'ESPECES' | 'CARTE' | 'CHEQUE' | 'VIREMENT';
 
@@ -68,6 +102,10 @@ export interface CaisseProps {
   initialRecherche?: string;
   /** Ouvre la création d'un client sans quitter le comptoir. */
   onCreateClient?: () => void;
+  /** Un ticket vient d'etre annule : les pieces sont revenues au stock, et
+   *  l'ecran appelant doit relire ses mouvements. Sans ca, la caisse
+   *  continuerait de croire la marchandise vendue. */
+  onTicketAnnule?: () => void | Promise<void>;
 }
 
 const FACTURE_AUTO_KEY = 'bera_caisse_facture_auto';
@@ -118,7 +156,7 @@ const Vignette: React.FC<{ model: ModelData; className?: string }> = ({ model, c
 
 const Caisse: React.FC<CaisseProps> = ({
   open, onClose, candidats, clients, stockMatrix, currency, lang, onEncaisser, isStatic,
-  initialRecherche, onCreateClient,
+  initialRecherche, onCreateClient, onTicketAnnule,
 }) => {
   const [lignes, setLignes] = useState<CaisseLigne[]>([]);
   const [clientId, setClientId] = useState<string>('');
@@ -143,6 +181,65 @@ const Caisse: React.FC<CaisseProps> = ({
   const [encaisse, setEncaisse] = useState<number | ''>('');
   const lignesRef = useRef<CaisseLigne[]>([]);
   lignesRef.current = lignes;
+
+  /* ── La journee ───────────────────────────────────────────────────────────
+   *  Le soir, la question est toujours la meme : combien de tickets, et
+   *  combien dans chaque mode de reglement. Le journal la pose au serveur —
+   *  jamais au panier a l'ecran, qui ne connait que la vente en cours.
+   */
+  const [journeeOuverte, setJourneeOuverte] = useState(false);
+  const [journalJour, setJournalJour] = useState(() => new Date().toISOString().slice(0, 10));
+  const [journal, setJournal] = useState<CaisseJournal | null>(null);
+  const [journalCharge, setJournalCharge] = useState(false);
+  const [journalErreur, setJournalErreur] = useState<string | null>(null);
+  /** Ticket dont l'annulation attend confirmation : au comptoir, un clic de
+   *  travers ne doit pas defaire une vente encaissee. */
+  const [ticketAConfirmer, setTicketAConfirmer] = useState<string | null>(null);
+  const [annulEnCours, setAnnulEnCours] = useState<string | null>(null);
+
+  const chargerJournal = useCallback(async (jour: string) => {
+    if (isStatic) { setJournal(null); setJournalErreur(null); return; }
+    setJournalCharge(true);
+    setJournalErreur(null);
+    try {
+      const res = await fetch(`/api/subcontract/caisse/journal?date=${encodeURIComponent(jour)}`, { credentials: 'include' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.message || 'HTTP ' + res.status);
+      setJournal(body as CaisseJournal);
+    } catch (err: any) {
+      setJournal(null);
+      setJournalErreur(err?.message || String(err));
+    } finally {
+      setJournalCharge(false);
+    }
+  }, [isStatic]);
+
+  useEffect(() => {
+    if (!open || !journeeOuverte) return;
+    void chargerJournal(journalJour);
+  }, [open, journeeOuverte, journalJour, chargerJournal]);
+
+  /** Annule un ticket : les pieces reviennent au stock cote serveur, et
+   *  l'ecran appelant relit ses mouvements pour que le rayon suive. */
+  const annulerTicket = useCallback(async (ticket: string) => {
+    setAnnulEnCours(ticket);
+    setJournalErreur(null);
+    try {
+      const res = await fetch(`/api/subcontract/caisse/ticket/${encodeURIComponent(ticket)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.message || 'HTTP ' + res.status);
+      setTicketAConfirmer(null);
+      await chargerJournal(journalJour);
+      await onTicketAnnule?.();
+    } catch (err: any) {
+      setJournalErreur(err?.message || String(err));
+    } finally {
+      setAnnulEnCours(null);
+    }
+  }, [chargerJournal, journalJour, onTicketAnnule]);
 
   const client = clients.find(c => c.id === clientId) || null;
   /** Le client fiche impose son segment : son tarif est deja negocie. */
@@ -402,6 +499,16 @@ const Caisse: React.FC<CaisseProps> = ({
     retour: tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' }),
     rienEnStock: tx(lang, { fr: 'Aucune piece en stock.', ar: 'ما كاين حتى قطعة فالستوك.', en: 'No item in stock.', es: 'Ninguna pieza en stock.', pt: 'Nenhuma peca em stock.', tr: 'Stokta parca yok.' }),
     videz: tx(lang, { fr: 'Vider', ar: 'فرّغ', en: 'Clear', es: 'Vaciar', pt: 'Limpar', tr: 'Temizle' }),
+    journee: tx(lang, { fr: 'Journee', ar: 'اليومية', en: 'Day', es: 'Jornada', pt: 'Jornada', tr: 'Gun' }),
+    tickets: tx(lang, { fr: 'Tickets', ar: 'التيكيات', en: 'Tickets', es: 'Tickets', pt: 'Talões', tr: 'Fisler' }),
+    pieces: tx(lang, { fr: 'Pieces', ar: 'القطع', en: 'Items', es: 'Piezas', pt: 'Pecas', tr: 'Parca' }),
+    encaisseJour: tx(lang, { fr: 'Encaisse', ar: 'المحصّل', en: 'Collected', es: 'Cobrado', pt: 'Cobrado', tr: 'Tahsil edilen' }),
+    aucunTicket: tx(lang, { fr: 'Aucune vente ce jour.', ar: 'ما كاين حتى بيعة فهاد النهار.', en: 'No sale on this day.', es: 'Ninguna venta este dia.', pt: 'Nenhuma venda neste dia.', tr: 'Bu gun satis yok.' }),
+    annuler: tx(lang, { fr: 'Annuler le ticket', ar: 'إلغاء التيكي', en: 'Cancel ticket', es: 'Anular ticket', pt: 'Anular talao', tr: 'Fisi iptal et' }),
+    confirmerAnnul: tx(lang, { fr: 'Confirmer : les pieces reviennent au stock', ar: 'أكّد: القطع كترجع للستوك', en: 'Confirm: items return to stock', es: 'Confirmar: las piezas vuelven al stock', pt: 'Confirmar: as pecas voltam ao stock', tr: 'Onayla: parcalar stoga doner' }),
+    renoncer: tx(lang, { fr: 'Renoncer', ar: 'تراجع', en: 'Cancel', es: 'Renunciar', pt: 'Desistir', tr: 'Vazgec' }),
+    modeAutre: tx(lang, { fr: 'Non precise', ar: 'غير محدّد', en: 'Unspecified', es: 'Sin precisar', pt: 'Nao indicado', tr: 'Belirtilmemis' }),
+    journeeStatique: tx(lang, { fr: "Mode statique : la journee de caisse vient du serveur.", ar: 'الوضع الساكن: يومية الصندوق كتجي من السيرفر.', en: 'Static mode: the cash journal comes from the server.', es: 'Modo estatico: la jornada viene del servidor.', pt: 'Modo estatico: a jornada vem do servidor.', tr: 'Statik mod: kasa gunlugu sunucudan gelir.' }),
     statique: tx(lang, { fr: "Mode statique : la caisse a besoin du serveur pour enregistrer une vente.", ar: 'الوضع الساكن: الصندوق كيحتاج السيرفر باش يسجّل البيعة.', en: 'Static mode: the checkout needs the server to record a sale.', es: 'Modo estatico: la caja necesita el servidor.', pt: 'Modo estatico: a caixa precisa do servidor.', tr: 'Statik mod: kasa sunucuya ihtiyac duyar.' }),
   };
 
@@ -428,6 +535,17 @@ const Caisse: React.FC<CaisseProps> = ({
           <ScanLine className="w-4 h-4 animate-pulse" /> {T.scan}
         </span>
         <div className="flex-1 min-w-0" />
+        {/* La journee : le seul detour permis depuis le comptoir, parce que
+            c'est la ou l'on repare une vente qui vient de partir de travers. */}
+        <button
+          onClick={() => setJourneeOuverte(v => !v)}
+          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold transition-colors shrink-0 ${journeeOuverte
+            ? 'bg-slate-800 dark:bg-dk-accent text-white'
+            : 'text-slate-600 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
+        >
+          <Receipt className="w-4 h-4" />
+          <span className="hidden sm:inline">{T.journee}</span>
+        </button>
         <button
           onClick={onClose}
           className="p-2 rounded-xl text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors shrink-0"
@@ -450,7 +568,143 @@ const Caisse: React.FC<CaisseProps> = ({
         </div>
       )}
 
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden overscroll-contain">
+      {/* La journee de caisse. Elle REMPLACE l'ecran de vente au lieu de le
+          recouvrir a moitie : au comptoir, deux ecrans a moitie visibles font
+          scanner un article dans le vide. */}
+      {journeeOuverte && (
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2 px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shrink-0">
+            <input
+              type="date"
+              value={journalJour}
+              onChange={e => { setJournalJour(e.target.value); setTicketAConfirmer(null); }}
+              className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm font-bold text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+            />
+            {journalCharge && <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-dk-muted" />}
+            <div className="flex-1 min-w-0" />
+            <div className="flex items-center gap-3 sm:gap-5 text-right">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.tickets}</p>
+                <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">{journal?.totaux.tickets ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.pieces}</p>
+                <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">{journal?.totaux.pieces ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.encaisseJour}</p>
+                <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">{fmt(journal?.totaux.total ?? 0)} {currency}</p>
+              </div>
+            </div>
+          </div>
+
+          {isStatic && (
+            <div className="px-3 sm:px-5 py-2 text-xs font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 flex items-center gap-2 shrink-0">
+              <AlertTriangle className="w-4 h-4 shrink-0" /> <span className="truncate">{T.journeeStatique}</span>
+            </div>
+          )}
+          {journalErreur && (
+            <div className="px-3 sm:px-5 py-2 text-xs font-bold bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 shrink-0">
+              {journalErreur}
+            </div>
+          )}
+
+          {/* Le fond de caisse, mode par mode : c'est ce qu'on compare aux
+              billets qu'on a dans la main. */}
+          {journal && Object.keys(journal.parMode).length > 0 && (
+            <div className="flex flex-wrap gap-2 px-3 sm:px-5 py-3 shrink-0">
+              {Object.entries(journal.parMode).map(([mode, agg]) => (
+                <div key={mode} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border">
+                  <Banknote className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted">
+                      {modes.find(m => m.v === mode)?.l || T.modeAutre}
+                    </p>
+                    <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">
+                      {fmt(agg.total)} {currency}
+                      <span className="ml-1.5 text-[10px] font-bold text-slate-400 dark:text-dk-muted">({agg.tickets})</span>
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-5 pb-4 space-y-2">
+            {!journalCharge && (journal?.tickets.length ?? 0) === 0 && (
+              <p className="p-8 text-center text-xs text-slate-400 dark:text-dk-muted">{T.aucunTicket}</p>
+            )}
+            {journal?.tickets.map(t => (
+              <div key={t.ticket} className="rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border overflow-hidden">
+                <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b border-slate-100 dark:border-dk-border">
+                  <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-dk-muted">{t.ticket}</span>
+                  {t.clientNom && (
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-slate-700 dark:text-dk-text">
+                      <User className="w-3 h-3" />{t.clientNom}
+                    </span>
+                  )}
+                  <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-dk-elevated text-[10px] font-bold text-slate-600 dark:text-dk-muted">
+                    {modes.find(m => m.v === t.modePaiement)?.l || T.modeAutre}
+                  </span>
+                  {t.factureNumero && (
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-[10px] font-bold text-indigo-700 dark:text-indigo-400">
+                      {t.factureNumero}
+                    </span>
+                  )}
+                  <div className="flex-1 min-w-0" />
+                  <span className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">{fmt(t.total)} {currency}</span>
+                  {ticketAConfirmer === t.ticket ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => void annulerTicket(t.ticket)}
+                        disabled={annulEnCours === t.ticket}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold hover:bg-rose-700 disabled:opacity-60 transition-colors"
+                      >
+                        {annulEnCours === t.ticket
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <RotateCcw className="w-3.5 h-3.5" />}
+                        {T.confirmerAnnul}
+                      </button>
+                      <button
+                        onClick={() => setTicketAConfirmer(null)}
+                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
+                      >
+                        {T.renoncer}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setTicketAConfirmer(t.ticket)}
+                      disabled={isStatic}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 disabled:opacity-40 transition-colors"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{T.annuler}</span>
+                    </button>
+                  )}
+                </div>
+                <div className="divide-y divide-slate-50 dark:divide-dk-border/50">
+                  {t.lignes.map(l => (
+                    <div key={l.id} className="flex items-center gap-2 px-3 py-1.5 text-[11px]">
+                      <span className="font-bold text-slate-700 dark:text-dk-text truncate">{l.modelNom}</span>
+                      <span className="text-slate-400 dark:text-dk-muted truncate">
+                        {[l.couleur, l.taille].filter(Boolean).join(' / ') || '—'}
+                      </span>
+                      <div className="flex-1 min-w-0" />
+                      <span className="text-slate-500 dark:text-dk-muted tabular-nums">{l.quantite} x {fmt(l.prixUnitaire)}</span>
+                      <span className="font-bold text-slate-700 dark:text-dk-text tabular-nums w-20 text-right">
+                        {fmt(l.quantite * l.prixUnitaire)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className={`flex-1 min-h-0 flex-col lg:flex-row overflow-y-auto lg:overflow-hidden overscroll-contain ${journeeOuverte ? 'hidden' : 'flex'}`}>
         {/* Gauche : la recherche manuelle, pour les tikis illisibles. */}
         <div className="flex flex-col lg:w-1/2 lg:min-h-0 p-3 sm:p-4 gap-3 shrink-0 lg:shrink lg:overflow-hidden bg-slate-50/50 dark:bg-transparent">
           <div className="relative">

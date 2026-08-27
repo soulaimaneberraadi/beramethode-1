@@ -81,6 +81,7 @@ import {
   deleteSubcontractExpense,
 } from './server/subcontractController';
 import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice, createCommandeNormale } from './server/clientsController';
+import { getCaisseJournal, annulerTicketCaisse } from './server/caisseController';
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
 import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat, checkStockIntegrity, repairStockIntegrity } from './server/achatsController';
 import { sendZpl } from './server/printBridge';
@@ -676,6 +677,10 @@ async function startServer() {
   // Commande « normale » : plusieurs modèles sur une seule commande de vente.
   app.post('/api/subcontract/commandes', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createCommandeNormale);
   app.delete('/api/subcontract/stock-sorties/batch/:batchId', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteStockSortieBatch);
+  // Journee de caisse : les tickets du comptoir, et leur annulation. Declarees
+  // avant /api/subcontract/:id pour la meme raison que « stock-entries ».
+  app.get('/api/subcontract/caisse/journal', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getCaisseJournal);
+  app.delete('/api/subcontract/caisse/ticket/:ticket', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), annulerTicketCaisse);
   // Facture de VENTE construite à partir de sorties déjà réalisées — c'est ce
   // qui relie enfin « ce qui est sorti » à « ce qui est payé ».
   app.post('/api/subcontract/clients/facturer', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createClientInvoice);

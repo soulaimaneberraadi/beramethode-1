@@ -1185,6 +1185,25 @@ try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN canal TEXT'); } catch { /
 try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN external_order_ref TEXT'); } catch { /* colonne déjà présente */ }
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_ext_ref ON st_stock_sorties (owner_id, external_order_ref)'); } catch { /* index déjà présent */ }
 
+// Mode de règlement et segment tarifaire d'une vente au comptoir. Ils étaient
+// jusqu'ici écrasés dans la note (« CAISSE DETAIL ESPECES ») : lisible à l'œil,
+// mais incalculable. Or la clôture de journée est exactement la question
+// « combien en espèces, combien par carte ? » — un total qu'on ne peut pas
+// tirer d'un texte libre sans risquer de se tromper sur de l'argent.
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN mode_paiement TEXT'); } catch { /* colonne déjà présente */ }
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN type_vente TEXT'); } catch { /* colonne déjà présente */ }
+// Référence du TICKET de caisse. Une vente au comptoir portant plusieurs
+// modèles produit une sortie (un lot) PAR modèle : le lot ne peut donc pas
+// servir d'identifiant de vente. Sans cette référence, annuler un ticket
+// n'en rendrait qu'un morceau au stock, et le journal de la journée
+// compterait une même vente plusieurs fois.
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN ticket_ref TEXT'); } catch { /* colonne déjà présente */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_ticket ON st_stock_sorties (owner_id, ticket_ref)'); } catch { /* index déjà présent */ }
+// Le journal de caisse interroge toujours (entreprise, canal, jour) : sans cet
+// index, chaque ouverture de la journée balaierait toutes les sorties de
+// l'historique.
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_canal_date ON st_stock_sorties (owner_id, canal, date_sortie)'); } catch { /* index déjà présent */ }
+
 // Canal d'application d'un tarif. NULL = tous canaux (comportement historique).
 // Le même modèle ne se vend pas au même prix en gros, en boutique physique et
 // en ligne : la vente en ligne porte des frais de livraison et une commission

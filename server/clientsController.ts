@@ -15,6 +15,11 @@ import { generateNumero } from './facturationController';
 
 const TYPES = new Set(['GROS', 'DETAIL', 'BOUTIQUE']);
 
+/** Modes de règlement acceptés au comptoir. Tout autre libellé est écarté
+ *  plutôt que stocké : un mode inconnu ferait un total de clôture qui ne
+ *  tombe juste dans aucune colonne. */
+const MODES_PAIEMENT = new Set(['ESPECES', 'CARTE', 'CHEQUE', 'VIREMENT']);
+
 /** Sens de la relation. Voir la migration `st_clients.role` : la même entreprise
  *  peut nous acheter ET nous vendre, et deux registres séparés obligeaient à
  *  saisir deux fois la même ICE. 'CLIENT' reste le défaut, donc aucune fiche
@@ -555,16 +560,27 @@ export const createStockSortie = (req: Request, res: Response) => {
         const canalDemande = String(body.canal ?? '').trim().toUpperCase();
         const canal = canalDemande === 'MAGASIN' ? 'MAGASIN' : (CANAUX.has(canalDemande) && canalDemande !== 'ONLINE' ? canalDemande : null);
 
+        // Mode de règlement et segment tarifaire : stockés en colonnes, pas
+        // dilués dans la note. La clôture de journée additionne de l'argent —
+        // elle ne peut pas dépendre du parsing d'un texte libre.
+        const modePaiement = MODES_PAIEMENT.has(String(body.mode_paiement ?? '').trim().toUpperCase())
+            ? String(body.mode_paiement).trim().toUpperCase() : null;
+        const typeVente = TYPES.has(String(body.type_vente ?? '').trim().toUpperCase())
+            ? String(body.type_vente).trim().toUpperCase() : null;
+        // Référence de ticket : fournie par la caisse, identique pour tous les
+        // modèles d'un même encaissement. Absente ailleurs (sortie atelier).
+        const ticketRef = String(body.ticket_ref ?? '').trim().slice(0, 40) || null;
+
         const insert = db.prepare(`
-            INSERT INTO st_stock_sorties (id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire, batch_id, facture_id, note, date_sortie, canal)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_stock_sorties (id, owner_id, modelId, client_id, client_nom, couleur, taille, quantite, prix_unitaire, batch_id, facture_id, note, date_sortie, canal, mode_paiement, type_vente, ticket_ref)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         // Transaction : une sortie est un tout. La moitié des cellules écrites
         // laisserait un stock faux sans que rien ne le signale.
         db.transaction(() => {
             for (const l of lignes) {
                 insert.run(randomUUID(), companyId, modelId, body.client_id || null, body.client_nom || null,
-                    l.couleur, l.taille, l.quantite, l.prix_unitaire, batchId, body.facture_id || null, body.note || null, date, canal);
+                    l.couleur, l.taille, l.quantite, l.prix_unitaire, batchId, body.facture_id || null, body.note || null, date, canal, modePaiement, typeVente, ticketRef);
             }
         })();
 

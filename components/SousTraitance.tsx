@@ -2592,11 +2592,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     total: number;
     recu: number | null;
     rendu: number | null;
-  }, batchId: string) => {
+  }, ticketRef: string) => {
     const now = new Date();
     const ticket: TicketData = {
       marque: tikiSettings.brand || '',
-      numero: `TK-${now.toISOString().slice(0, 10).replace(/-/g, '')}-${(batchId || String(now.getTime())).slice(0, 4).toUpperCase()}`,
+      // Le numero imprime EST la reference enregistree : c'est ce qui permet
+      // de retrouver — et d'annuler — la vente a partir du ticket que le
+      // client rapporte au comptoir.
+      numero: ticketRef || `TK-${now.getTime().toString(36).toUpperCase()}`,
       date: now.toLocaleString(dateLocale),
       lignes: payload.lignes.map(l => ({
         nom: l.model.meta_data?.nom_modele || l.model.id,
@@ -2660,6 +2663,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     });
     let faites = 0;
     const batchs: string[] = [];
+    // Reference du ticket : une vente multi-modeles produit une sortie PAR
+    // modele. Sans cette cle commune, la journee de caisse compterait la meme
+    // vente plusieurs fois et son annulation n'en rendrait qu'un morceau.
+    const ticketRef = `TK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     try {
       for (const [modelId, lignes] of parModele) {
         // Un prix unitaire par sortie : quand un modele a plusieurs prix dans
@@ -2679,6 +2686,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             prix_unitaire: prixUnitaire,
             date_sortie: new Date().toISOString().slice(0, 10),
             canal: 'MAGASIN',
+            mode_paiement: payload.paiement,
+            type_vente: payload.typeVente,
+            ticket_ref: ticketRef,
             note: `CAISSE ${payload.typeVente} ${payload.paiement}`,
             lignes: lignes.map(l => ({ couleur: l.couleur, taille: l.taille, quantite: l.qte })),
           }),
@@ -2716,7 +2726,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           }
         }
       }
-      imprimerTicket(payload, batchs[0] || '');
+      imprimerTicket(payload, ticketRef);
       return null;
     } finally {
       // Le stock affiche doit suivre, meme apres un echec partiel.
@@ -10506,6 +10516,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         initialRecherche={caisseRecherche}
         onCreateClient={() => { setCaisseOpen(false); setActiveTab('clients'); }}
         onEncaisser={encaisserCaisse}
+        onTicketAnnule={loadStockMovements}
       />
 
       {/* Sortie de stock : client du registre + grille couleur x taille. */}
