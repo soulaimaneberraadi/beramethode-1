@@ -27,6 +27,11 @@ const enabled = Boolean(OWNER_EMAIL && OWNER_PASSWORD) && SERVER_SYNC_ENABLED;
 
 let channel: RealtimeChannel | null = null;
 let lastAppliedAt = 0;
+/** Durée pendant laquelle une suppression reste opposable. Alignée sur
+ *  `TOMBSTONE_KEEP_MS` d'`apiShim.ts` et de `cloudSync.ts` : les trois
+ *  décrivent le même fait, et une divergence ferait revenir des lignes. */
+const TOMBSTONE_KEEP_MS = 365 * 24 * 60 * 60 * 1000;
+
 let isApplyingRemote = false;
 
 // Skip a remote change if we just pushed it ourselves (avoid echo loop).
@@ -93,7 +98,14 @@ const getLocalOwnerId = (): number | null => {
   }
 };
 
-const applyArrayToTable = (table: string, items: any[], ownerId: number | null, idField = 'id') => {
+const applyArrayToTable = (
+  table: string,
+  items: any[],
+  ownerId: number | null,
+  idField = 'id',
+  /** Ce que l'utilisateur a supprime : ces lignes ne se reinstallent pas. */
+  supprimes?: Map<string, number>,
+) => {
   if (!Array.isArray(items) || items.length === 0) return 0;
   const enforceOwner = ownerId != null && tableHasColumn(table, 'owner_id');
   // Generic upsert without REPLACE: REPLACE deletes the old row first, which can
@@ -101,6 +113,14 @@ const applyArrayToTable = (table: string, items: any[], ownerId: number | null, 
   let n = 0;
   for (const item of items) {
     if (!item || typeof item !== 'object') continue;
+    // Une suppression volontaire prime sur la copie restee dans le cloud,
+    // sauf si la ligne a ete ree-ditee APRES coup ailleurs.
+    const supprimeLe = supprimes?.get(String((item as any)[idField]));
+    if (supprimeLe != null) {
+      const edit = (item as any).updatedAt || (item as any).updated_at;
+      const e = edit ? new Date(edit).getTime() : 0;
+      if (!(Number.isFinite(e) && e > supprimeLe)) continue;
+    }
     // Garde multi-tenant : si la table possède owner_id et que la ligne
     // entrante porte un owner_id d'un AUTRE tenant, on la rejette (jamais
     // d'écrasement inter-sociétés). Sinon on force l'owner local.
@@ -141,11 +161,37 @@ const applyArrayToTable = (table: string, items: any[], ownerId: number | null, 
   return n;
 };
 
+/**
+ * Ce que l'utilisateur a supprimé, lu AVANT toute réinsertion.
+ *
+ * L'ordre compte : on lisait les pierres tombales à la fin, après avoir déjà
+ * réinstallé les lignes du cloud, et on ne les appliquait qu'au-delà d'une
+ * heure. Résultat : la ligne revenait, repartait dans le cloud au push
+ * suivant, et le cycle recommençait indéfiniment.
+ */
+const lireSupprimes = (snapshot: any): Map<string, Map<string, number>> => {
+  const parType = new Map<string, Map<string, number>>();
+  const ts = snapshot?.beramethode_tombstones || snapshot?.tombstones;
+  if (!Array.isArray(ts)) return parType;
+  const now = Date.now();
+  for (const t of ts) {
+    if (!t?.id || !t?.type) continue;
+    const d = t.deleted_at ? new Date(t.deleted_at).getTime() : 0;
+    if (!d || now - d >= TOMBSTONE_KEEP_MS) continue;
+    const m = parType.get(t.type) || new Map<string, number>();
+    const id = String(t.id);
+    if (!m.has(id) || d > (m.get(id) as number)) m.set(id, d);
+    parType.set(t.type, m);
+  }
+  return parType;
+};
+
 export const mergeSnapshotIntoSqlite = (snapshot: any, localOwnerId: number) => {
   if (!snapshot || typeof snapshot !== 'object') return;
   isApplyingRemote = true;
   const start = Date.now();
   const summary: Record<string, number> = {};
+  const supprimes = lireSupprimes(snapshot);
   try {
     // Models — table has (id, user_id, data); the `data` column holds the
     // full model JSON. The snapshot stores models as raw JSON objects.
@@ -162,8 +208,18 @@ export const mergeSnapshotIntoSqlite = (snapshot: any, localOwnerId: number) => 
       `);
       const existingStmt = db.prepare('SELECT data FROM models WHERE id = ? AND owner_id = ?');
       let n = 0;
+      const modelesSupprimes = supprimes.get('models');
       for (const model of snapshot.beramethode_library) {
         if (!model?.id) continue;
+        // Supprimé ici : on ne le réinstalle pas. Sauf s'il a été ré-édité
+        // APRÈS la suppression — quelqu'un l'a repris ailleurs, et écraser
+        // ce travail serait pire que de laisser revenir une ligne.
+        const supprimeLe = modelesSupprimes?.get(String(model.id));
+        if (supprimeLe != null) {
+          const edit = model.updatedAt || model.updated_at;
+          const e = edit ? new Date(edit).getTime() : 0;
+          if (!(Number.isFinite(e) && e > supprimeLe)) continue;
+        }
         try {
           let modelToStore = model;
           const existingRow = existingStmt.get(String(model.id), localOwnerId) as { data?: string } | undefined;
@@ -187,11 +243,11 @@ export const mergeSnapshotIntoSqlite = (snapshot: any, localOwnerId: number) => 
 
     // Planning events — full row mirror, columns vary
     if (Array.isArray(snapshot.beramethode_planning)) {
-      summary.planning = applyArrayToTable('planning_events', snapshot.beramethode_planning, localOwnerId);
+      summary.planning = applyArrayToTable('planning_events', snapshot.beramethode_planning, localOwnerId, 'id', supprimes.get('planning'));
     }
 
     if (Array.isArray(snapshot.beramethode_suivis)) {
-      summary.suivis = applyArrayToTable('suivi_data', snapshot.beramethode_suivis, localOwnerId);
+      summary.suivis = applyArrayToTable('suivi_data', snapshot.beramethode_suivis, localOwnerId, 'id', supprimes.get('suivi'));
     }
 
     // Tables that mirror SQLite directly via __sqlite_export__
@@ -199,13 +255,13 @@ export const mergeSnapshotIntoSqlite = (snapshot: any, localOwnerId: number) => 
     if (exp && typeof exp === 'object') {
       // `exp.workers` (table legacy `workers`) est volontairement ignoré :
       // les employés vivent uniquement dans hr_workers (voir exp.hr.workers).
-      if (exp.workerSkills) summary.workerSkills = applyArrayToTable('worker_skills', exp.workerSkills, localOwnerId);
-      if (exp.posteSuivi) summary.posteSuivi = applyArrayToTable('poste_suivi', exp.posteSuivi, localOwnerId);
-      if (exp.magasin?.products) summary.magasinProducts = applyArrayToTable('magasin_products', exp.magasin.products, localOwnerId);
-      if (exp.magasin?.lots) summary.magasinLots = applyArrayToTable('magasin_lots', exp.magasin.lots, localOwnerId);
-      if (exp.magasin?.mouvements) summary.magasinMouvements = applyArrayToTable('magasin_mouvements', exp.magasin.mouvements, localOwnerId);
-      if (exp.hr?.workers) summary.hrWorkers = applyArrayToTable('hr_workers', exp.hr.workers, localOwnerId);
-      if (exp.hr?.avances) summary.hrAvances = applyArrayToTable('hr_avances', exp.hr.avances, localOwnerId);
+      if (exp.workerSkills) summary.workerSkills = applyArrayToTable('worker_skills', exp.workerSkills, localOwnerId, 'id', supprimes.get('worker-skills'));
+      if (exp.posteSuivi) summary.posteSuivi = applyArrayToTable('poste_suivi', exp.posteSuivi, localOwnerId, 'id', supprimes.get('poste-suivi'));
+      if (exp.magasin?.products) summary.magasinProducts = applyArrayToTable('magasin_products', exp.magasin.products, localOwnerId, 'id', supprimes.get('magasin/products'));
+      if (exp.magasin?.lots) summary.magasinLots = applyArrayToTable('magasin_lots', exp.magasin.lots, localOwnerId, 'id', supprimes.get('magasin/lots'));
+      if (exp.magasin?.mouvements) summary.magasinMouvements = applyArrayToTable('magasin_mouvements', exp.magasin.mouvements, localOwnerId, 'id', supprimes.get('magasin/mouvements'));
+      if (exp.hr?.workers) summary.hrWorkers = applyArrayToTable('hr_workers', exp.hr.workers, localOwnerId, 'id', supprimes.get('hr/workers'));
+      if (exp.hr?.avances) summary.hrAvances = applyArrayToTable('hr_avances', exp.hr.avances, localOwnerId, 'id', supprimes.get('hr/avances'));
     }
 
     // Tombstones — apply hard delete on SQLite for entries past their 1h
@@ -237,7 +293,11 @@ export const mergeSnapshotIntoSqlite = (snapshot: any, localOwnerId: number) => 
       for (const t of tombstones) {
         if (!t?.id || !t?.type) continue;
         const deletedAt = t.deleted_at ? new Date(t.deleted_at).getTime() : 0;
+        // Encore restaurable : la Corbeille doit pouvoir rendre la ligne.
         if (!deletedAt || now - deletedAt < ONE_HOUR) continue;
+        // Passé un an, la pierre tombale ne vaut plus rien et la ligne a
+        // disparu depuis longtemps : inutile de rejouer la suppression.
+        if (now - deletedAt >= TOMBSTONE_KEEP_MS) continue;
         const table = TYPE_TO_TABLE[t.type];
         if (table) { safeDeleteById(table, t.id, localOwnerId); purged++; }
       }
