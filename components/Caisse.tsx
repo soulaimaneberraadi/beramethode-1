@@ -130,6 +130,8 @@ type ChampCle = 'typeVente' | 'client' | 'facture' | 'paiement' | 'remise';
 type MiseEnPage = {
   /** L'ordre des blocs de reglage, tel que ce poste les a ranges. */
   ordre: ChampCle[];
+  /** Ou se pose la grille couleur/taille du modele ouvert. */
+  grille: 'gauche' | 'droite' | 'panier';
   /** Le panier passe a gauche : certains caissiers sont gauchers, et sur un
    *  ecran tactile la main qui compose cache la colonne qu'elle touche. */
   panierAGauche: boolean;
@@ -144,6 +146,7 @@ const ORDRE_DEFAUT: ChampCle[] = ['typeVente', 'client', 'facture', 'paiement', 
 
 const MISE_EN_PAGE_DEFAUT: MiseEnPage = {
   ordre: ORDRE_DEFAUT,
+  grille: 'droite',
   panierAGauche: false,
   largeurPanier: 'moyen',
   photos: true,
@@ -255,6 +258,12 @@ const Caisse: React.FC<CaisseProps> = ({
   }, [mep]);
   /** Glisser-deposer des blocs de reglage, en mode mise en page. */
   const [blocTire, setBlocTire] = useState<ChampCle | null>(null);
+  /** La grille du modele est en train d'etre deplacee d'une colonne a l'autre. */
+  const [grilleTiree, setGrilleTiree] = useState(false);
+  const poserGrille = useCallback((ou: MiseEnPage['grille']) => {
+    setGrilleTiree(false);
+    setMep(m => ({ ...m, grille: ou }));
+  }, []);
   const deplacerBloc = useCallback((tire: ChampCle, cible: ChampCle) => {
     setMep(m => {
       const suite = m.ordre.filter(k => k !== tire);
@@ -601,6 +610,10 @@ const Caisse: React.FC<CaisseProps> = ({
     moyen: tx(lang, { fr: 'Moyen', ar: 'متوسّط', en: 'Medium', es: 'Medio', pt: 'Medio', tr: 'Orta' }),
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
+    grille: tx(lang, { fr: 'Grille du modele', ar: 'شبكة الموديل', en: 'Model grid', es: 'Rejilla del modelo', pt: 'Grelha do modelo', tr: 'Model tablosu' }),
+    aGauche: tx(lang, { fr: 'A gauche', ar: 'على اليسار', en: 'Left', es: 'A la izquierda', pt: 'A esquerda', tr: 'Solda' }),
+    aDroite: tx(lang, { fr: 'A droite', ar: 'على اليمين', en: 'Right', es: 'A la derecha', pt: 'A direita', tr: 'Sagda' }),
+    dansPanier: tx(lang, { fr: 'Dans le panier', ar: 'فالسلّة', en: 'In the cart', es: 'En la cesta', pt: 'No cesto', tr: 'Sepette' }),
     glisser: tx(lang, { fr: 'Prenez un bloc a la souris pour le ranger ailleurs.', ar: 'شدّ الكتلة بالماوس وحرّكها فين بغيتي.', en: 'Drag a block with the mouse to reorder it.', es: 'Arrastre un bloque con el raton para reordenarlo.', pt: 'Arraste um bloco com o rato para o reordenar.', tr: 'Bir blogu fareyle surukleyerek siralayin.' }),
     champs: tx(lang, { fr: 'Champs affiches', ar: 'الحقول الظاهرة', en: 'Visible fields', es: 'Campos visibles', pt: 'Campos visiveis', tr: 'Gorunen alanlar' }),
     champMasque: tx(lang, { fr: 'Masquer un champ ne change rien a la vente enregistree.', ar: 'إخفاء حقل ما كيبدّلش البيعة المسجّلة.', en: 'Hiding a field does not change the recorded sale.', es: 'Ocultar un campo no cambia la venta registrada.', pt: 'Ocultar um campo nao muda a venda registada.', tr: 'Bir alani gizlemek kaydedilen satisi degistirmez.' }),
@@ -633,6 +646,82 @@ const Caisse: React.FC<CaisseProps> = ({
     { v: 'CHEQUE', l: tx(lang, { fr: 'Cheque', ar: 'شيك', en: 'Cheque', es: 'Cheque', pt: 'Cheque', tr: 'Cek' }) },
     { v: 'VIREMENT', l: tx(lang, { fr: 'Virement', ar: 'تحويل', en: 'Transfer', es: 'Transferencia', pt: 'Transferencia', tr: 'Havale' }) },
   ];
+
+  /* La grille couleur/taille du modele ouvert. Elle vit dans une variable
+   * parce que le poste choisit OU la poser : a droite du rayon, a sa gauche,
+   * ou en tete du panier, au-dessus du client. */
+  const panneauModele = modeleOuvert ? (
+    <div
+      draggable={reglagesOuverts}
+      onDragStart={() => setGrilleTiree(true)}
+      onDragEnd={() => setGrilleTiree(false)}
+      className={`shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 ${
+        mep.grille === 'panier'
+          ? 'w-full border-b border-slate-200 dark:border-dk-border p-3'
+          // Classes ecrites en entier : Tailwind ne voit que ce qui est
+          // litteral dans le source, un `sm:${...}` assemble ne serait
+          // jamais genere.
+          : mep.grille === 'gauche'
+            ? 'sm:w-[300px] xl:w-[340px] sm:border-r sm:pr-3 sm:border-slate-200 sm:dark:border-dk-border'
+            : 'sm:w-[300px] xl:w-[340px] sm:border-l sm:pl-3 sm:border-slate-200 sm:dark:border-dk-border'
+      } ${reglagesOuverts ? 'cursor-grab active:cursor-grabbing rounded-xl border border-dashed border-slate-300 dark:border-dk-border p-2' : ''}`}
+    >
+
+            <div className="sm:w-[300px] xl:w-[340px] shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 sm:border-l sm:border-slate-200 sm:dark:border-dk-border sm:pl-3">
+              <div className="flex items-center gap-2.5 mb-3">
+                {mep.photos && <Vignette model={modeleOuvert} className="w-9 h-9" />}
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-extrabold text-slate-800 dark:text-dk-text truncate">
+                    {modeleOuvert.meta_data?.nom_modele || modeleOuvert.id}
+                  </span>
+                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                    {modeleOuvert.meta_data?.reference || ''}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {grilleModele.map(g => (
+                  <div key={g.couleur} className="rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border p-3">
+                    <span className="flex items-center gap-2 mb-2">
+                      <span
+                        className="w-4 h-4 rounded-full border border-slate-300 dark:border-dk-border flex-none"
+                        style={teinteDe(g.couleur) ? { backgroundColor: teinteDe(g.couleur)! } : undefined}
+                      />
+                      <span className="text-xs font-extrabold text-slate-800 dark:text-dk-text">{g.couleur || '—'}</span>
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {g.tailles.map(t => {
+                        const reste = restantDe(modeleOuvert.id, g.couleur, t.taille);
+                        return (
+                          <button
+                            key={t.taille}
+                            disabled={reste <= 0}
+                            onClick={() => ajouter(modeleOuvert, g.couleur, t.taille)}
+                            className={`px-3 py-2 rounded-xl border text-center min-w-[64px] transition-colors ${
+                              reste > 0
+                                ? 'bg-slate-50 dark:bg-dk-elevated border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'
+                                : 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border opacity-50 cursor-not-allowed'
+                            }`}
+                          >
+                            <span className="block text-xs font-extrabold text-slate-800 dark:text-dk-text">{t.taille || '—'}</span>
+                            <span className="block text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{reste}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setModeleOuvert(null)}
+                className="mt-3 w-full py-2 rounded-xl border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-elevated"
+              >
+                {T.retour}
+              </button>
+            </div>
+    </div>
+  ) : null;
 
   /* Les blocs de reglage de la vente, ranges par cle : c'est cette table
    * que l'ordre choisi par le poste vient parcourir. */
@@ -906,6 +995,23 @@ const Caisse: React.FC<CaisseProps> = ({
             </div>
           </div>
 
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.grille}</span>
+            <div className="flex gap-1.5">
+              {([['gauche', T.aGauche], ['droite', T.aDroite], ['panier', T.dansPanier]] as Array<[MiseEnPage['grille'], string]>).map(([v, l]) => (
+                <button
+                  key={v}
+                  onClick={() => poserGrille(v)}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${mep.grille === v
+                    ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                    : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.champs}</span>
             <div className="flex flex-wrap gap-1.5">
@@ -1121,7 +1227,18 @@ const Caisse: React.FC<CaisseProps> = ({
               tailles s'ouvre dessous. Au comptoir on ajoute souvent deux
               vetements differents d'affilee : refermer le rayon a chaque
               fois faisait retaper la recherche. */}
-          <div className="flex-1 min-h-0 flex flex-col sm:flex-row gap-3 overflow-hidden">
+          <div
+            className={`flex-1 min-h-0 flex flex-col gap-3 overflow-hidden ${mep.grille === 'gauche' ? 'sm:flex-row-reverse' : 'sm:flex-row'} ${
+              grilleTiree ? 'rounded-xl ring-2 ring-dashed ring-slate-400' : ''}`}
+            onDragOver={e => { if (grilleTiree) e.preventDefault(); }}
+            onDrop={e => {
+              if (!grilleTiree) return;
+              // Depose a gauche ou a droite selon la moitie survolee : le
+              // caissier vise une colonne, pas un bouton de reglage.
+              const r = e.currentTarget.getBoundingClientRect();
+              poserGrille(e.clientX < r.left + r.width / 2 ? 'gauche' : 'droite');
+            }}
+          >
           <div className={`grid gap-2 sm:gap-3 content-start flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2 auto-rows-max ${
             modeleOuvert ? 'grid-cols-2 xl:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4'}`}>
               {catalogue.length === 0 && (
@@ -1159,71 +1276,19 @@ const Caisse: React.FC<CaisseProps> = ({
               ))}
           </div>
 
-          {/* Le modele ouvert : couleur d'abord, taille ensuite. Il occupe sa
-              PROPRE colonne, a droite du rayon : la liste des modeles garde
-              toute sa hauteur meme quand ils sont nombreux, et il n'y a plus
-              de bouton retour a chercher pour revenir au rayon. */}
-          {modeleOuvert && (
-            <div className="sm:w-[300px] xl:w-[340px] shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 sm:border-l sm:border-slate-200 sm:dark:border-dk-border sm:pl-3">
-              <div className="flex items-center gap-2.5 mb-3">
-                {mep.photos && <Vignette model={modeleOuvert} className="w-9 h-9" />}
-                <div className="min-w-0 flex-1">
-                  <span className="block text-sm font-extrabold text-slate-800 dark:text-dk-text truncate">
-                    {modeleOuvert.meta_data?.nom_modele || modeleOuvert.id}
-                  </span>
-                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
-                    {modeleOuvert.meta_data?.reference || ''}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {grilleModele.map(g => (
-                  <div key={g.couleur} className="rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border p-3">
-                    <span className="flex items-center gap-2 mb-2">
-                      <span
-                        className="w-4 h-4 rounded-full border border-slate-300 dark:border-dk-border flex-none"
-                        style={teinteDe(g.couleur) ? { backgroundColor: teinteDe(g.couleur)! } : undefined}
-                      />
-                      <span className="text-xs font-extrabold text-slate-800 dark:text-dk-text">{g.couleur || '—'}</span>
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      {g.tailles.map(t => {
-                        const reste = restantDe(modeleOuvert.id, g.couleur, t.taille);
-                        return (
-                          <button
-                            key={t.taille}
-                            disabled={reste <= 0}
-                            onClick={() => ajouter(modeleOuvert, g.couleur, t.taille)}
-                            className={`px-3 py-2 rounded-xl border text-center min-w-[64px] transition-colors ${
-                              reste > 0
-                                ? 'bg-slate-50 dark:bg-dk-elevated border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'
-                                : 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border opacity-50 cursor-not-allowed'
-                            }`}
-                          >
-                            <span className="block text-xs font-extrabold text-slate-800 dark:text-dk-text">{t.taille || '—'}</span>
-                            <span className="block text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{reste}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={() => setModeleOuvert(null)}
-                className="mt-3 w-full py-2 rounded-xl border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-elevated"
-              >
-                {T.retour}
-              </button>
-            </div>
-          )}
+          {mep.grille !== 'panier' && panneauModele}
           </div>
         </div>
 
         {/* Droite : le panier et l'encaissement. */}
         <div className={`flex-col flex-1 min-h-0 bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border overflow-hidden lg:flex lg:flex-none ${LARGEURS[mep.largeurPanier]} ${mep.panierAGauche ? 'lg:border-r' : 'lg:border-l'} ${voletMobile === 'panier' ? 'flex' : 'hidden'}`}>
-          <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-dk-border shrink-0">
+          {mep.grille === 'panier' && panneauModele}
+          <div
+            className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-dk-border shrink-0 ${
+              grilleTiree ? 'ring-2 ring-dashed ring-slate-400 rounded-xl' : ''}`}
+            onDragOver={e => { if (grilleTiree) e.preventDefault(); }}
+            onDrop={() => { if (grilleTiree) poserGrille('panier'); }}
+          >
             <div className="flex items-center gap-2 min-w-0">
               {/* Telephone : revenir au rayon sans quitter la vente. */}
               <span className="text-xs font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted shrink-0">
