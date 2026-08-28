@@ -730,6 +730,7 @@ const Caisse: React.FC<CaisseProps> = ({
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
     enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
+    coteACote: tx(lang, { fr: 'Cote a cote', ar: 'حدا بعضياتهم', en: 'Side by side', es: 'Lado a lado', pt: 'Lado a lado', tr: 'Yan yana' }),
     demiLigne: tx(lang, { fr: 'Pleine ligne ou demi-ligne', ar: 'سطر كامل ولا نص سطر', en: 'Full width or half width', es: 'Linea completa o media', pt: 'Linha inteira ou metade', tr: 'Tam satir veya yarim' }),
     tirer: tx(lang, { fr: 'Tirez pour redimensionner (double-clic : taille d’origine)', ar: 'شدّ باش تبدّل الحجم (دبل كليك: الحجم الأصلي)', en: 'Drag to resize (double-click to reset)', es: 'Arrastre para redimensionar (doble clic: original)', pt: 'Arraste para redimensionar (duplo clique: original)', tr: 'Boyutlandirmak icin surukleyin (cift tiklama: varsayilan)' }),
     grille: tx(lang, { fr: 'Grille du modele', ar: 'شبكة الموديل', en: 'Model grid', es: 'Rejilla del modelo', pt: 'Grelha do modelo', tr: 'Model tablosu' }),
@@ -1555,37 +1556,42 @@ const Caisse: React.FC<CaisseProps> = ({
                 draggable={reglagesOuverts}
                 onDragStart={() => setBlocTire(k)}
                 onDragEnd={() => { setBlocTire(null); setSurvol(null); }}
-                onDragOver={e => {
-                  if (!reglagesOuverts || !blocTire || blocTire === k) return;
-                  e.preventDefault();
-                  const r = e.currentTarget.getBoundingClientRect();
-                  // Dernier tiers droit : « a cote de ». Le reste : « avant ».
-                  const mode = e.clientX > r.left + r.width * 0.66 ? 'cote' : 'avant';
-                  setSurvol(s => (s?.cle === k && s.mode === mode ? s : { cle: k, mode }));
-                }}
                 onDragLeave={() => setSurvol(s => (s?.cle === k ? null : s))}
-                onDrop={e => {
-                  e.preventDefault();
-                  if (blocTire && blocTire !== k) {
-                    if (survol?.cle === k && survol.mode === 'cote') partagerLigne(blocTire, k);
-                    else deplacerBloc(blocTire, k);
-                  }
-                  setSurvol(null);
-                  setBlocTire(null);
-                }}
+
                 style={vue.hauteurs[k] ? { height: vue.hauteurs[k] } : undefined}
                 className={`${vue.demis[k] ? 'w-[calc(50%-0.375rem)]' : 'w-full'} ${vue.hauteurs[k] ? 'overflow-y-auto overscroll-contain' : ''} ${k === 'lignes' && !vue.hauteurs[k] && !vue.demis[k] ? 'flex-1 min-h-[120px] overflow-y-auto overscroll-contain' : ''}${k === 'lignes' && vue.demis[k] ? ' min-h-[120px] overflow-y-auto overscroll-contain' : ''} ${reglagesOuverts
                   ? `relative rounded-xl border border-dashed pl-4 pr-8 py-2 cursor-grab active:cursor-grabbing transition-colors ${blocTire === k ? 'border-slate-800 dark:border-dk-accent bg-slate-50 dark:bg-dk-elevated opacity-60' : 'border-slate-300 dark:border-dk-border'}`
                   : ''}`}
               >
+                {/* Pendant le glisser, le bloc survole s'ouvre en deux cibles
+                    visibles : le haut range AVANT lui, la moitie droite le met
+                    A COTE. Une zone qu'on voit vaut mieux qu'un seuil devine. */}
+                {reglagesOuverts && blocTire && blocTire !== k && (
+                  <>
+                    <div
+                      onDragOver={e => { e.preventDefault(); setSurvol({ cle: k, mode: 'avant' }); }}
+                      onDrop={e => { e.preventDefault(); deplacerBloc(blocTire, k); setSurvol(null); setBlocTire(null); }}
+                      className={`absolute inset-y-0 left-0 right-1/2 z-20 rounded-l-xl border-2 border-dashed transition-colors ${
+                        survol?.cle === k && survol.mode === 'avant'
+                          ? 'border-slate-800 dark:border-dk-accent bg-slate-900/5'
+                          : 'border-transparent'}`}
+                    />
+                    <div
+                      onDragOver={e => { e.preventDefault(); setSurvol({ cle: k, mode: 'cote' }); }}
+                      onDrop={e => { e.preventDefault(); partagerLigne(blocTire, k); setSurvol(null); setBlocTire(null); }}
+                      className={`absolute inset-y-0 right-0 left-1/2 z-20 rounded-r-xl border-2 border-dashed flex items-center justify-center transition-colors ${
+                        survol?.cle === k && survol.mode === 'cote'
+                          ? 'border-slate-800 dark:border-dk-accent bg-slate-900/5'
+                          : 'border-slate-300 dark:border-dk-border'}`}
+                    >
+                      <span className="text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-dk-muted pointer-events-none">
+                        {T.coteACote}
+                      </span>
+                    </div>
+                  </>
+                )}
                 {reglagesOuverts && (
                   <>
-                    {/* La moitie de ligne qui s'ouvre sous le bloc tire. */}
-                    {survol?.cle === k && (
-                      <span className={survol.mode === 'cote'
-                        ? 'absolute right-0 top-1 bottom-1 w-1.5 rounded-full bg-slate-800 dark:bg-dk-accent'
-                        : 'absolute left-0 right-0 -top-1 h-1.5 rounded-full bg-slate-800 dark:bg-dk-accent'} />
-                    )}
                     <GripVertical className="absolute left-0.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300 dark:text-dk-muted pointer-events-none" />
                     {/* Pleine ligne ou demi-ligne : deux blocs courts tiennent
                         alors cote a cote. */}
