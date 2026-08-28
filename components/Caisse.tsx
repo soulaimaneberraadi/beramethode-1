@@ -125,7 +125,7 @@ const MISE_EN_PAGE_KEY = 'bera_caisse_mise_en_page';
  * le mode de reglement masque reste celui qui part avec la vente — sinon un
  * ecran simplifie ferait vendre au mauvais prix.
  */
-type ChampCle = 'typeVente' | 'client' | 'facture' | 'paiement' | 'remise';
+type ChampCle = 'lignes' | 'typeVente' | 'client' | 'facture' | 'paiement' | 'remise';
 
 type MiseEnPage = {
   /** L'ordre des blocs de reglage, tel que ce poste les a ranges. */
@@ -134,6 +134,10 @@ type MiseEnPage = {
    *  meme ligne. Court (remise, facture), ils gagnent a etre cote a cote ;
    *  long (client), ils etouffent. C'est au poste de trancher. */
   demis: Partial<Record<ChampCle, boolean>>;
+  /** Hauteur imposee a un bloc, en pixels. Ce qui deborde y defile : le
+   *  panier merite souvent plus de place que les reglages, et l'inverse
+   *  arrive aussi quand on vend deux pieces a la fois. */
+  hauteurs: Partial<Record<ChampCle, number>>;
   /** Ou se pose la grille couleur/taille du modele ouvert. */
   grille: 'gauche' | 'droite' | 'panier';
   /** Le panier passe a gauche : certains caissiers sont gauchers, et sur un
@@ -150,7 +154,7 @@ type MiseEnPage = {
   champs: Record<ChampCle, boolean>;
 };
 
-const ORDRE_DEFAUT: ChampCle[] = ['typeVente', 'client', 'facture', 'paiement', 'remise'];
+const ORDRE_DEFAUT: ChampCle[] = ['lignes', 'typeVente', 'client', 'facture', 'paiement', 'remise'];
 
 const MISE_EN_PAGE_DEFAUT: MiseEnPage = {
   ordre: ORDRE_DEFAUT,
@@ -160,7 +164,8 @@ const MISE_EN_PAGE_DEFAUT: MiseEnPage = {
   panierAGauche: false,
   largeurPanier: 50,
   photos: true,
-  champs: { typeVente: true, client: true, facture: true, paiement: true, remise: true },
+  champs: { lignes: true, typeVente: true, client: true, facture: true, paiement: true, remise: true },
+  hauteurs: {},
 };
 
 const lireMiseEnPage = (): MiseEnPage => {
@@ -186,6 +191,7 @@ const lireMiseEnPage = (): MiseEnPage => {
       largeurGrille,
       ordre,
       demis: { ...(brut.demis && typeof brut.demis === 'object' ? brut.demis : {}) },
+      hauteurs: { ...(brut.hauteurs && typeof brut.hauteurs === 'object' ? brut.hauteurs : {}) },
       champs: { ...MISE_EN_PAGE_DEFAUT.champs, ...(brut.champs || {}) },
     };
   } catch { return MISE_EN_PAGE_DEFAUT; }
@@ -308,6 +314,24 @@ const Caisse: React.FC<CaisseProps> = ({
     return () => mq.removeEventListener('change', suivre);
   }, []);
   const [redim, setRedim] = useState<'panier' | 'grille' | null>(null);
+  const [redimBloc, setRedimBloc] = useState<{ cle: ChampCle; y: number; depart: number } | null>(null);
+  useEffect(() => {
+    if (!redimBloc) return;
+    const bouger = (e: MouseEvent) => {
+      const h = borne(redimBloc.depart + (e.clientY - redimBloc.y), 64, 900);
+      majVue(m => ({ ...m, hauteurs: { ...m.hauteurs, [redimBloc.cle]: h } }));
+    };
+    const lacher = () => setRedimBloc(null);
+    window.addEventListener('mousemove', bouger);
+    window.addEventListener('mouseup', lacher);
+    const avant = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+    return () => {
+      window.removeEventListener('mousemove', bouger);
+      window.removeEventListener('mouseup', lacher);
+      document.body.style.userSelect = avant;
+    };
+  }, [redimBloc, majVue]);
   useEffect(() => {
     if (!redim) return;
     const bouger = (e: MouseEvent) => {
@@ -814,6 +838,75 @@ const Caisse: React.FC<CaisseProps> = ({
   /* Les blocs de reglage de la vente, ranges par cle : c'est cette table
    * que l'ordre choisi par le poste vient parcourir. */
   const blocsReglage: Record<ChampCle, React.ReactNode> = {
+    lignes: (<>
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100 dark:divide-dk-border">
+            {lignes.length === 0 && (
+              <p className="p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.vide}</p>
+            )}
+            {lignes.map(l => (
+              <div key={l.key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 px-3 sm:px-4 py-3">
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  {vue.photos && <Vignette model={l.model} className="w-10 h-10 sm:w-10 sm:h-10" />}
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-[13px] sm:text-sm font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
+                      {l.model.meta_data?.nom_modele || l.model.id}
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-dk-border flex-none"
+                        style={teinteDe(l.couleur) ? { backgroundColor: teinteDe(l.couleur)! } : undefined}
+                      />
+                      {[l.couleur, l.taille].filter(Boolean).join(' · ') || '—'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
+                    className="sm:hidden p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                  <div className="flex items-center gap-1 bg-slate-50 dark:bg-dk-elevated rounded-full p-0.5 border border-slate-200 dark:border-dk-border">
+                    <button
+                      onClick={() => setLignes(prev => prev.flatMap(x => x.key !== l.key ? [x] : (x.qte > 1 ? [{ ...x, qte: x.qte - 1 }] : [])))}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated shadow-sm active:scale-95 transition-transform"
+                    >
+                      <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </button>
+                    <span className="w-6 sm:w-8 text-center text-sm font-black text-slate-800 dark:text-dk-text">{l.qte}</span>
+                    <button
+                      onClick={() => ajouter(l.model, l.couleur, l.taille)}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated shadow-sm active:scale-95 transition-transform"
+                    >
+                      <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </button>
+                  </div>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={l.prix === 0 ? '' : l.prix}
+                    placeholder="0.00"
+                    onChange={e => {
+                      const v = e.target.value === '' ? 0 : Number(e.target.value);
+                      setLignes(prev => prev.map(x => x.key === l.key ? { ...x, prix: v, prixTouched: true } : x));
+                    }}
+                    className="w-[72px] sm:w-20 px-2 py-1.5 rounded-lg text-right text-[13px] sm:text-sm font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 placeholder:text-slate-400"
+                  />
+                  <span className="w-[64px] sm:w-20 text-right text-[13px] sm:text-sm font-black text-slate-800 dark:text-dk-text truncate">
+                    {fmt(l.qte * (Number(l.prix) || 0))}
+                  </span>
+                  <button
+                    onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
+                    className="hidden sm:flex p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+    </>),
     typeVente: (<>
             <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               {typesVente.map(t => (
@@ -1106,6 +1199,7 @@ const Caisse: React.FC<CaisseProps> = ({
             <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.champs}</span>
             <div className="flex flex-wrap gap-1.5">
               {([
+                ['lignes', T.panier],
                 ['typeVente', typesVente.map(t => t.l).join(' / ')],
                 ['client', T.client],
                 ['facture', T.factureAuto],
@@ -1439,75 +1533,7 @@ const Caisse: React.FC<CaisseProps> = ({
               )}
             </div>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100 dark:divide-dk-border">
-            {lignes.length === 0 && (
-              <p className="p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.vide}</p>
-            )}
-            {lignes.map(l => (
-              <div key={l.key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 px-3 sm:px-4 py-3">
-                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                  {vue.photos && <Vignette model={l.model} className="w-10 h-10 sm:w-10 sm:h-10" />}
-                  <div className="flex-1 min-w-0">
-                    <span className="block text-[13px] sm:text-sm font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
-                      {l.model.meta_data?.nom_modele || l.model.id}
-                    </span>
-                    <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-dk-muted truncate">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-dk-border flex-none"
-                        style={teinteDe(l.couleur) ? { backgroundColor: teinteDe(l.couleur)! } : undefined}
-                      />
-                      {[l.couleur, l.taille].filter(Boolean).join(' · ') || '—'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
-                    className="sm:hidden p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                  <div className="flex items-center gap-1 bg-slate-50 dark:bg-dk-elevated rounded-full p-0.5 border border-slate-200 dark:border-dk-border">
-                    <button
-                      onClick={() => setLignes(prev => prev.flatMap(x => x.key !== l.key ? [x] : (x.qte > 1 ? [{ ...x, qte: x.qte - 1 }] : [])))}
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated shadow-sm active:scale-95 transition-transform"
-                    >
-                      <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    </button>
-                    <span className="w-6 sm:w-8 text-center text-sm font-black text-slate-800 dark:text-dk-text">{l.qte}</span>
-                    <button
-                      onClick={() => ajouter(l.model, l.couleur, l.taille)}
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated shadow-sm active:scale-95 transition-transform"
-                    >
-                      <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    </button>
-                  </div>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={l.prix === 0 ? '' : l.prix}
-                    placeholder="0.00"
-                    onChange={e => {
-                      const v = e.target.value === '' ? 0 : Number(e.target.value);
-                      setLignes(prev => prev.map(x => x.key === l.key ? { ...x, prix: v, prixTouched: true } : x));
-                    }}
-                    className="w-[72px] sm:w-20 px-2 py-1.5 rounded-lg text-right text-[13px] sm:text-sm font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 placeholder:text-slate-400"
-                  />
-                  <span className="w-[64px] sm:w-20 text-right text-[13px] sm:text-sm font-black text-slate-800 dark:text-dk-text truncate">
-                    {fmt(l.qte * (Number(l.prix) || 0))}
-                  </span>
-                  <button
-                    onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
-                    className="hidden sm:flex p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="border-t border-slate-200 dark:border-dk-border p-3 sm:p-4 flex flex-wrap gap-2.5 sm:gap-3 shrink-0 bg-white dark:bg-dk-surface max-h-[45vh] overflow-y-auto overscroll-contain lg:max-h-none lg:overflow-visible">
+          <div className="flex-1 min-h-0 content-start p-3 sm:p-4 flex flex-wrap gap-2.5 sm:gap-3 bg-white dark:bg-dk-surface overflow-y-auto overscroll-contain">
             {/* Les reglages de la vente, dans l'ordre voulu par ce poste.
                 En mode mise en page, chaque bloc se prend a la souris et se
                 depose ailleurs : le caissier range son ecran comme il range
@@ -1519,7 +1545,8 @@ const Caisse: React.FC<CaisseProps> = ({
                 onDragStart={() => setBlocTire(k)}
                 onDragEnd={() => setBlocTire(null)}
                 onDragOver={e => { if (reglagesOuverts && blocTire && blocTire !== k) { e.preventDefault(); deplacerBloc(blocTire, k); } }}
-                className={`${vue.demis[k] ? 'w-[calc(50%-0.375rem)]' : 'w-full'} ${reglagesOuverts
+                style={vue.hauteurs[k] ? { height: vue.hauteurs[k] } : undefined}
+                className={`${vue.demis[k] ? 'w-[calc(50%-0.375rem)]' : 'w-full'} ${vue.hauteurs[k] ? 'overflow-y-auto overscroll-contain' : ''} ${k === 'lignes' && !vue.hauteurs[k] ? 'flex-1 min-h-[120px] overflow-y-auto overscroll-contain' : ''} ${reglagesOuverts
                   ? `relative rounded-xl border border-dashed pl-4 pr-8 py-2 cursor-grab active:cursor-grabbing transition-colors ${blocTire === k ? 'border-slate-800 dark:border-dk-accent bg-slate-50 dark:bg-dk-elevated opacity-60' : 'border-slate-300 dark:border-dk-border'}`
                   : ''}`}
               >
@@ -1535,6 +1562,14 @@ const Caisse: React.FC<CaisseProps> = ({
                     >
                       {vue.demis[k] ? '½' : '1'}
                     </button>
+                    {/* Le bord du bas se tire : chaque bloc prend la hauteur
+                        qu'il merite. Double-clic, et il reprend la sienne. */}
+                    <div
+                      onMouseDown={e => { e.preventDefault(); setRedimBloc({ cle: k, y: e.clientY, depart: e.currentTarget.parentElement?.getBoundingClientRect().height || 0 }); }}
+                      onDoubleClick={() => majVue(m => { const h = { ...m.hauteurs }; delete h[k]; return { ...m, hauteurs: h }; })}
+                      title={T.tirer}
+                      className="absolute left-2 right-2 -bottom-0.5 h-1.5 rounded-full cursor-row-resize bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent"
+                    />
                   </>
                 )}
                 {blocsReglage[k]}
