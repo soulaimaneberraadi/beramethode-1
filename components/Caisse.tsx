@@ -130,6 +130,10 @@ type ChampCle = 'typeVente' | 'client' | 'facture' | 'paiement' | 'remise';
 type MiseEnPage = {
   /** L'ordre des blocs de reglage, tel que ce poste les a ranges. */
   ordre: ChampCle[];
+  /** Les blocs mis en demi-largeur : deux d'entre eux tiennent alors sur la
+   *  meme ligne. Court (remise, facture), ils gagnent a etre cote a cote ;
+   *  long (client), ils etouffent. C'est au poste de trancher. */
+  demis: Partial<Record<ChampCle, boolean>>;
   /** Ou se pose la grille couleur/taille du modele ouvert. */
   grille: 'gauche' | 'droite' | 'panier';
   /** Le panier passe a gauche : certains caissiers sont gauchers, et sur un
@@ -150,6 +154,7 @@ const ORDRE_DEFAUT: ChampCle[] = ['typeVente', 'client', 'facture', 'paiement', 
 
 const MISE_EN_PAGE_DEFAUT: MiseEnPage = {
   ordre: ORDRE_DEFAUT,
+  demis: {},
   grille: 'droite',
   largeurGrille: 320,
   panierAGauche: false,
@@ -180,6 +185,7 @@ const lireMiseEnPage = (): MiseEnPage => {
       largeurPanier,
       largeurGrille,
       ordre,
+      demis: { ...(brut.demis && typeof brut.demis === 'object' ? brut.demis : {}) },
       champs: { ...MISE_EN_PAGE_DEFAUT.champs, ...(brut.champs || {}) },
     };
   } catch { return MISE_EN_PAGE_DEFAUT; }
@@ -689,6 +695,7 @@ const Caisse: React.FC<CaisseProps> = ({
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
     enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
+    demiLigne: tx(lang, { fr: 'Pleine ligne ou demi-ligne', ar: 'سطر كامل ولا نص سطر', en: 'Full width or half width', es: 'Linea completa o media', pt: 'Linha inteira ou metade', tr: 'Tam satir veya yarim' }),
     tirer: tx(lang, { fr: 'Tirez pour redimensionner (double-clic : taille d’origine)', ar: 'شدّ باش تبدّل الحجم (دبل كليك: الحجم الأصلي)', en: 'Drag to resize (double-click to reset)', es: 'Arrastre para redimensionar (doble clic: original)', pt: 'Arraste para redimensionar (duplo clique: original)', tr: 'Boyutlandirmak icin surukleyin (cift tiklama: varsayilan)' }),
     grille: tx(lang, { fr: 'Grille du modele', ar: 'شبكة الموديل', en: 'Model grid', es: 'Rejilla del modelo', pt: 'Grelha do modelo', tr: 'Model tablosu' }),
     aGauche: tx(lang, { fr: 'A gauche', ar: 'على اليسار', en: 'Left', es: 'A la izquierda', pt: 'A esquerda', tr: 'Solda' }),
@@ -1500,7 +1507,7 @@ const Caisse: React.FC<CaisseProps> = ({
             ))}
           </div>
 
-          <div className="border-t border-slate-200 dark:border-dk-border p-3 sm:p-4 space-y-2.5 sm:space-y-3 shrink-0 bg-white dark:bg-dk-surface max-h-[45vh] overflow-y-auto overscroll-contain lg:max-h-none lg:overflow-visible">
+          <div className="border-t border-slate-200 dark:border-dk-border p-3 sm:p-4 flex flex-wrap gap-2.5 sm:gap-3 shrink-0 bg-white dark:bg-dk-surface max-h-[45vh] overflow-y-auto overscroll-contain lg:max-h-none lg:overflow-visible">
             {/* Les reglages de la vente, dans l'ordre voulu par ce poste.
                 En mode mise en page, chaque bloc se prend a la souris et se
                 depose ailleurs : le caissier range son ecran comme il range
@@ -1512,12 +1519,23 @@ const Caisse: React.FC<CaisseProps> = ({
                 onDragStart={() => setBlocTire(k)}
                 onDragEnd={() => setBlocTire(null)}
                 onDragOver={e => { if (reglagesOuverts && blocTire && blocTire !== k) { e.preventDefault(); deplacerBloc(blocTire, k); } }}
-                className={reglagesOuverts
-                  ? `relative rounded-xl border border-dashed pl-4 pr-2 py-2 cursor-grab active:cursor-grabbing transition-colors ${blocTire === k ? 'border-slate-800 dark:border-dk-accent bg-slate-50 dark:bg-dk-elevated opacity-60' : 'border-slate-300 dark:border-dk-border'}`
-                  : ''}
+                className={`${vue.demis[k] ? 'w-[calc(50%-0.375rem)]' : 'w-full'} ${reglagesOuverts
+                  ? `relative rounded-xl border border-dashed pl-4 pr-8 py-2 cursor-grab active:cursor-grabbing transition-colors ${blocTire === k ? 'border-slate-800 dark:border-dk-accent bg-slate-50 dark:bg-dk-elevated opacity-60' : 'border-slate-300 dark:border-dk-border'}`
+                  : ''}`}
               >
                 {reglagesOuverts && (
-                  <GripVertical className="absolute left-0.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300 dark:text-dk-muted pointer-events-none" />
+                  <>
+                    <GripVertical className="absolute left-0.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300 dark:text-dk-muted pointer-events-none" />
+                    {/* Pleine ligne ou demi-ligne : deux blocs courts tiennent
+                        alors cote a cote. */}
+                    <button
+                      onClick={() => majVue(m => ({ ...m, demis: { ...m.demis, [k]: !m.demis[k] } }))}
+                      title={T.demiLigne}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 px-1.5 py-1 rounded-md text-[10px] font-black text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                    >
+                      {vue.demis[k] ? '½' : '1'}
+                    </button>
+                  </>
                 )}
                 {blocsReglage[k]}
               </div>
