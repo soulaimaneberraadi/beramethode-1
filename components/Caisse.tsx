@@ -293,6 +293,17 @@ const Caisse: React.FC<CaisseProps> = ({
   /** Repliees par defaut : au comptoir on veut un nom et un telephone. Elles
    *  s'ouvrent d'elles-memes en gros, ou la facture les reclame. */
   const [quickPlusOuvert, setQuickPlusOuvert] = useState(false);
+  const [quickClientNotes, setQuickClientNotes] = useState('');
+  /** La photo sert a reconnaitre le client au comptoir plus vite qu'un nom :
+   *  c'est la meme vignette que dans la fiche complete. Elle voyage en
+   *  data-URL, comme le reste des images de l'application. */
+  const [quickClientPhoto, setQuickClientPhoto] = useState<string>('');
+  const choisirPhoto = (f: File | null) => {
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => setQuickClientPhoto(String(r.result || ''));
+    r.readAsDataURL(f);
+  };
 
   const [ficheIce, setFicheIce] = useState('');
   const [ficheRc, setFicheRc] = useState('');
@@ -580,6 +591,8 @@ const Caisse: React.FC<CaisseProps> = ({
           rc: quickClientRc.trim() || null,
           adresse: quickClientAdresse.trim() || null,
           ifFiscal: quickClientIf.trim() || null,
+          notes: quickClientNotes.trim() || null,
+          photo: quickClientPhoto || null,
           email: quickClientEmail.trim() || null,
           role: quickClientDoubleRole ? 'LES_DEUX' : 'CLIENT',
         }),
@@ -592,6 +605,7 @@ const Caisse: React.FC<CaisseProps> = ({
       setQuickClientNom(''); setQuickClientTel(''); setQuickClientVille(''); setQuickClientDoubleRole(false); setQuickClientTypes(['DETAIL']);
       setQuickClientIce(''); setQuickClientRc(''); setQuickClientAdresse('');
       setQuickClientIf(''); setQuickClientEmail(''); setQuickPlusOuvert(false);
+      setQuickClientNotes(''); setQuickClientPhoto('');
       setFlash({ ok: true, msg: 'Client créé.' });
     } catch (e: any) {
       setQuickClientError(e?.message || String(e));
@@ -960,6 +974,9 @@ const Caisse: React.FC<CaisseProps> = ({
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
     enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
+    ajouterPhoto: tx(lang, { fr: 'Ajouter une photo', ar: 'زيد تصويرة', en: 'Add a photo', es: 'Anadir una foto', pt: 'Adicionar foto', tr: 'Fotograf ekle' }),
+    changerPhoto: tx(lang, { fr: 'Changer la photo', ar: 'بدّل التصويرة', en: 'Change photo', es: 'Cambiar la foto', pt: 'Mudar a foto', tr: 'Fotografi degistir' }),
+    notes: tx(lang, { fr: 'Notes (livraison, habitudes, remises convenues…)', ar: 'ملاحظات (التسليم، العادات، التخفيضات المتّفق عليها…)', en: 'Notes (delivery, habits, agreed discounts…)', es: 'Notas (entrega, habitos, descuentos…)', pt: 'Notas (entrega, habitos, descontos…)', tr: 'Notlar (teslimat, aliskanliklar, indirimler…)' }),
     plusInfos: tx(lang, { fr: 'Informations complementaires', ar: 'معلومات إضافية', en: 'More information', es: 'Informacion adicional', pt: 'Informacoes adicionais', tr: 'Ek bilgiler' }),
     infosFacture: tx(lang, { fr: 'Pour la facture', ar: 'ديال الفاتورة', en: 'For the invoice', es: 'Para la factura', pt: 'Para a fatura', tr: 'Fatura icin' }),
     adresse: tx(lang, { fr: 'Adresse', ar: 'العنوان', en: 'Address', es: 'Direccion', pt: 'Endereco', tr: 'Adres' }),
@@ -1405,6 +1422,16 @@ const Caisse: React.FC<CaisseProps> = ({
                         </button>
                       ) : (
                         <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-dk-border">
+                          {/* La photo d'abord : au comptoir on reconnait un
+                              visage avant de lire un nom. */}
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            {quickClientPhoto
+                              ? <img src={quickClientPhoto} alt="" className="w-12 h-12 rounded-xl object-cover flex-none border border-slate-200 dark:border-dk-border" />
+                              : <span className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-dk-elevated flex-none flex items-center justify-center"><User className="w-5 h-5 text-slate-400 dark:text-dk-muted" /></span>}
+                            <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted">{quickClientPhoto ? T.changerPhoto : T.ajouterPhoto}</span>
+                            <input type="file" accept="image/*" className="hidden" onChange={e => choisirPhoto(e.target.files?.[0] || null)} />
+                          </label>
+
                           <span className="block text-[10px] font-extrabold uppercase tracking-wide text-amber-700 dark:text-amber-400">{T.infosFacture}</span>
                           <div className="grid grid-cols-2 gap-2">
                             <input value={quickClientIce} onChange={e => setQuickClientIce(e.target.value)} placeholder="ICE" className="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
@@ -1418,6 +1445,13 @@ const Caisse: React.FC<CaisseProps> = ({
                           {quickClientTypes.includes('GROS') && !quickClientIce.trim() && (
                             <p className="text-[10px] text-amber-600 dark:text-amber-400">{T.iceManquant}</p>
                           )}
+                          <textarea
+                            value={quickClientNotes}
+                            onChange={e => setQuickClientNotes(e.target.value)}
+                            placeholder={T.notes}
+                            rows={2}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40 resize-y"
+                          />
                         </div>
                       )}
 
