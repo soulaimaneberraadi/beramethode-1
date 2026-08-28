@@ -18,7 +18,7 @@ import { resolveScan, attachScannerListener } from '../lib/scanner';
 import type { AtelierClient } from './soustraitance/ClientsPanel';
 import {
   X, ScanLine, Search, Trash2, Plus, Minus, Loader2, AlertTriangle, User, Store, Check, ArrowLeft,
-  Receipt, RotateCcw, Banknote,
+  Receipt, RotateCcw, Banknote, MoreVertical, Eye, EyeOff, ArrowLeftRight, RefreshCw,
 } from 'lucide-react';
 
 export type CaisseLigne = {
@@ -110,6 +110,62 @@ export interface CaisseProps {
 }
 
 const FACTURE_AUTO_KEY = 'bera_caisse_facture_auto';
+const MISE_EN_PAGE_KEY = 'bera_caisse_mise_en_page';
+
+/**
+ * Reglages d'affichage du comptoir.
+ *
+ * Un poste de caisse n'est pas l'autre : sur un grand ecran on veut tout
+ * voir, sur un portable il faut choisir. Plutot que d'imposer une mise en
+ * page moyenne qui ne va a personne, chaque poste range la sienne — elle est
+ * gardee en local, elle ne suit pas le compte d'un poste a l'autre.
+ *
+ * Ce sont des reglages d'AFFICHAGE : masquer un champ ne change jamais ce qui
+ * est enregistre. Le segment tarifaire masque reste celui qui est actif, et
+ * le mode de reglement masque reste celui qui part avec la vente — sinon un
+ * ecran simplifie ferait vendre au mauvais prix.
+ */
+type MiseEnPage = {
+  /** Le panier passe a gauche : certains caissiers sont gauchers, et sur un
+   *  ecran tactile la main qui compose cache la colonne qu'elle touche. */
+  panierAGauche: boolean;
+  /** Part de l'ecran laissee au panier sur grand ecran. */
+  largeurPanier: 'etroit' | 'moyen' | 'large';
+  /** Vignettes photo : sur un petit ecran, une liste de noms tient plus. */
+  photos: boolean;
+  champs: {
+    typeVente: boolean;
+    client: boolean;
+    facture: boolean;
+    paiement: boolean;
+    remise: boolean;
+  };
+};
+
+const MISE_EN_PAGE_DEFAUT: MiseEnPage = {
+  panierAGauche: false,
+  largeurPanier: 'moyen',
+  photos: true,
+  champs: { typeVente: true, client: true, facture: true, paiement: true, remise: true },
+};
+
+const lireMiseEnPage = (): MiseEnPage => {
+  try {
+    const brut = JSON.parse(localStorage.getItem(MISE_EN_PAGE_KEY) || 'null');
+    if (!brut || typeof brut !== 'object') return MISE_EN_PAGE_DEFAUT;
+    return {
+      ...MISE_EN_PAGE_DEFAUT,
+      ...brut,
+      champs: { ...MISE_EN_PAGE_DEFAUT.champs, ...(brut.champs || {}) },
+    };
+  } catch { return MISE_EN_PAGE_DEFAUT; }
+};
+
+const LARGEURS: Record<MiseEnPage['largeurPanier'], string> = {
+  etroit: 'lg:w-2/5',
+  moyen: 'lg:w-1/2',
+  large: 'lg:w-3/5',
+};
 
 const cellKey = (c: string, t: string) => `${c || ''}|${t || ''}`;
 
@@ -184,6 +240,14 @@ const Caisse: React.FC<CaisseProps> = ({
    *  montre UN seul, plein ecran, et une barre du bas fait la navette. Sur
    *  grand ecran les deux volets reviennent, et cet etat n'a plus d'effet. */
   const [voletMobile, setVoletMobile] = useState<'rayon' | 'panier'>('rayon');
+  const [mep, setMep] = useState<MiseEnPage>(lireMiseEnPage);
+  const [reglagesOuverts, setReglagesOuverts] = useState(false);
+  useEffect(() => {
+    try { localStorage.setItem(MISE_EN_PAGE_KEY, JSON.stringify(mep)); } catch { /* le reglage vaut alors pour cette session */ }
+  }, [mep]);
+  const basculerChamp = useCallback((k: keyof MiseEnPage['champs']) => {
+    setMep(m => ({ ...m, champs: { ...m.champs, [k]: !m.champs[k] } }));
+  }, []);
   const lignesRef = useRef<CaisseLigne[]>([]);
   lignesRef.current = lignes;
 
@@ -513,6 +577,16 @@ const Caisse: React.FC<CaisseProps> = ({
     imposee: tx(lang, { fr: 'imposee en gros', ar: 'إجبارية فالجملة', en: 'required for wholesale', es: 'obligatoria al por mayor', pt: 'obrigatoria no grosso', tr: 'toptanda zorunlu' }),
     retour: tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' }),
     rienEnStock: tx(lang, { fr: 'Aucune piece en stock.', ar: 'ما كاين حتى قطعة فالستوك.', en: 'No item in stock.', es: 'Ninguna pieza en stock.', pt: 'Nenhuma peca em stock.', tr: 'Stokta parca yok.' }),
+    reglages: tx(lang, { fr: 'Mise en page', ar: 'ترتيب الشاشة', en: 'Layout', es: 'Disposicion', pt: 'Disposicao', tr: 'Yerlesim' }),
+    panierAGauche: tx(lang, { fr: 'Panier a gauche', ar: 'السلّة على اليسار', en: 'Cart on the left', es: 'Cesta a la izquierda', pt: 'Cesto a esquerda', tr: 'Sepet solda' }),
+    largeur: tx(lang, { fr: 'Largeur du panier', ar: 'عرض السلّة', en: 'Cart width', es: 'Ancho de la cesta', pt: 'Largura do cesto', tr: 'Sepet genisligi' }),
+    etroit: tx(lang, { fr: 'Etroit', ar: 'ضيّق', en: 'Narrow', es: 'Estrecho', pt: 'Estreito', tr: 'Dar' }),
+    moyen: tx(lang, { fr: 'Moyen', ar: 'متوسّط', en: 'Medium', es: 'Medio', pt: 'Medio', tr: 'Orta' }),
+    large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
+    photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
+    champs: tx(lang, { fr: 'Champs affiches', ar: 'الحقول الظاهرة', en: 'Visible fields', es: 'Campos visibles', pt: 'Campos visiveis', tr: 'Gorunen alanlar' }),
+    champMasque: tx(lang, { fr: 'Masquer un champ ne change rien a la vente enregistree.', ar: 'إخفاء حقل ما كيبدّلش البيعة المسجّلة.', en: 'Hiding a field does not change the recorded sale.', es: 'Ocultar un campo no cambia la venta registrada.', pt: 'Ocultar um campo nao muda a venda registada.', tr: 'Bir alani gizlemek kaydedilen satisi degistirmez.' }),
+    defaut: tx(lang, { fr: 'Reglages par defaut', ar: 'الإعدادات الأصلية', en: 'Reset layout', es: 'Ajustes originales', pt: 'Definicoes originais', tr: 'Varsayilana don' }),
     voirPanier: tx(lang, { fr: 'Voir le panier', ar: 'شوف السلّة', en: 'View cart', es: 'Ver la cesta', pt: 'Ver o cesto', tr: 'Sepeti gor' }),
     auRayon: tx(lang, { fr: 'Au rayon', ar: 'للرفوف', en: 'Back to shelf', es: 'Al estante', pt: 'As prateleiras', tr: 'Rafa don' }),
     videz: tx(lang, { fr: 'Vider', ar: 'فرّغ', en: 'Clear', es: 'Vaciar', pt: 'Limpar', tr: 'Temizle' }),
@@ -583,6 +657,17 @@ const Caisse: React.FC<CaisseProps> = ({
           <Receipt className="w-4 h-4" />
           <span className="hidden sm:inline">{T.journee}</span>
         </button>
+        {/* Trois points : la mise en page du comptoir. Un poste n'est pas
+            l'autre, et le caissier range son ecran une fois pour toutes. */}
+        <button
+          onClick={() => setReglagesOuverts(v => !v)}
+          className={`p-2 rounded-xl transition-colors shrink-0 ${reglagesOuverts
+            ? 'bg-slate-800 dark:bg-dk-accent text-white'
+            : 'text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
+          aria-label={T.reglages}
+        >
+          <MoreVertical className="w-5 h-5" />
+        </button>
         <button
           onClick={onClose}
           className="p-2 rounded-xl text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors shrink-0"
@@ -591,6 +676,82 @@ const Caisse: React.FC<CaisseProps> = ({
           <X className="w-5 h-5" />
         </button>
       </div>
+
+      {reglagesOuverts && (
+        <div className="shrink-0 border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 sm:px-5 py-3 space-y-3 max-h-[55vh] overflow-y-auto overscroll-contain">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{T.reglages}</span>
+            <div className="flex-1" />
+            <button
+              onClick={() => setMep(MISE_EN_PAGE_DEFAUT)}
+              className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:text-slate-800 dark:hover:text-dk-text"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> {T.defaut}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setMep(m => ({ ...m, panierAGauche: !m.panierAGauche }))}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors ${mep.panierAGauche
+                ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5" /> {T.panierAGauche}
+            </button>
+            <button
+              onClick={() => setMep(m => ({ ...m, photos: !m.photos }))}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors ${mep.photos
+                ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+            >
+              {mep.photos ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} {T.photos}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.largeur}</span>
+            <div className="flex gap-1.5">
+              {(['etroit', 'moyen', 'large'] as const).map(l => (
+                <button
+                  key={l}
+                  onClick={() => setMep(m => ({ ...m, largeurPanier: l }))}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${mep.largeurPanier === l
+                    ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                    : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+                >
+                  {l === 'etroit' ? T.etroit : l === 'moyen' ? T.moyen : T.large}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.champs}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                ['typeVente', typesVente.map(t => t.l).join(' / ')],
+                ['client', T.client],
+                ['facture', T.factureAuto],
+                ['paiement', T.reglement],
+                ['remise', T.remise],
+              ] as Array<[keyof MiseEnPage['champs'], string]>).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => basculerChamp(k)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${mep.champs[k]
+                    ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                    : 'bg-slate-50 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border line-through'}`}
+                >
+                  {mep.champs[k] ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  <span className="truncate max-w-[160px]">{label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-400 dark:text-dk-muted">{T.champMasque}</p>
+          </div>
+        </div>
+      )}
 
       {flash && (
         <div className={`px-3 sm:px-5 py-2 text-xs font-bold shrink-0 ${flash.ok
@@ -760,9 +921,9 @@ const Caisse: React.FC<CaisseProps> = ({
         </div>
       )}
 
-      <div className={`flex-1 min-h-0 flex-col lg:flex-row overflow-hidden overscroll-contain ${journeeOuverte ? 'hidden' : 'flex'}`}>
+      <div className={`flex-1 min-h-0 flex-col overflow-hidden overscroll-contain ${mep.panierAGauche ? 'lg:flex-row-reverse' : 'lg:flex-row'} ${journeeOuverte ? 'hidden' : 'flex'}`}>
         {/* Gauche : la recherche manuelle, pour les tikis illisibles. */}
-        <div className={`flex-col flex-1 min-h-0 lg:w-1/2 p-3 sm:p-4 gap-3 overflow-hidden bg-slate-50/50 dark:bg-transparent lg:flex ${voletMobile === 'rayon' ? 'flex' : 'hidden'}`}>
+        <div className={`flex-col flex-1 min-h-0 p-3 sm:p-4 gap-3 overflow-hidden bg-slate-50/50 dark:bg-transparent lg:flex ${voletMobile === 'rayon' ? 'flex' : 'hidden'}`}>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted" />
             <input
@@ -792,7 +953,7 @@ const Caisse: React.FC<CaisseProps> = ({
                     ? 'border-slate-900 dark:border-dk-accent ring-1 ring-slate-900/10'
                     : 'border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'}`}
                 >
-                  <Vignette model={c.model} className="w-full aspect-[4/3] sm:aspect-square" />
+                  {mep.photos && <Vignette model={c.model} className="w-full aspect-[4/3] sm:aspect-square" />}
                   <span className="block mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
                     {c.model.meta_data?.nom_modele || c.model.id}
                   </span>
@@ -822,7 +983,7 @@ const Caisse: React.FC<CaisseProps> = ({
           {modeleOuvert && (
             <div className="sm:w-[300px] xl:w-[340px] shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 sm:border-l sm:border-slate-200 sm:dark:border-dk-border sm:pl-3">
               <div className="flex items-center gap-2.5 mb-3">
-                <Vignette model={modeleOuvert} className="w-9 h-9" />
+                {mep.photos && <Vignette model={modeleOuvert} className="w-9 h-9" />}
                 <div className="min-w-0 flex-1">
                   <span className="block text-sm font-extrabold text-slate-800 dark:text-dk-text truncate">
                     {modeleOuvert.meta_data?.nom_modele || modeleOuvert.id}
@@ -878,7 +1039,7 @@ const Caisse: React.FC<CaisseProps> = ({
         </div>
 
         {/* Droite : le panier et l'encaissement. */}
-        <div className={`flex-col flex-1 min-h-0 lg:w-1/2 bg-white dark:bg-dk-surface lg:border-l border-slate-200 dark:border-dk-border overflow-hidden lg:flex ${voletMobile === 'panier' ? 'flex' : 'hidden'}`}>
+        <div className={`flex-col flex-1 min-h-0 bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border overflow-hidden lg:flex lg:flex-none ${LARGEURS[mep.largeurPanier]} ${mep.panierAGauche ? 'lg:border-r' : 'lg:border-l'} ${voletMobile === 'panier' ? 'flex' : 'hidden'}`}>
           <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-dk-border shrink-0">
             <div className="flex items-center gap-2 min-w-0">
               {/* Telephone : revenir au rayon sans quitter la vente. */}
@@ -901,7 +1062,7 @@ const Caisse: React.FC<CaisseProps> = ({
             {lignes.map(l => (
               <div key={l.key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 px-3 sm:px-4 py-3">
                 <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                  <Vignette model={l.model} className="w-10 h-10 sm:w-10 sm:h-10" />
+                  {mep.photos && <Vignette model={l.model} className="w-10 h-10 sm:w-10 sm:h-10" />}
                   <div className="flex-1 min-w-0">
                     <span className="block text-[13px] sm:text-sm font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
                       {l.model.meta_data?.nom_modele || l.model.id}
@@ -965,6 +1126,7 @@ const Caisse: React.FC<CaisseProps> = ({
           <div className="border-t border-slate-200 dark:border-dk-border p-3 sm:p-4 space-y-2.5 sm:space-y-3 shrink-0 bg-white dark:bg-dk-surface max-h-[45vh] overflow-y-auto overscroll-contain lg:max-h-none lg:overflow-visible">
             {/* Le type de vente commande le tarif ET le document : en gros on
                 facture un revendeur nomme, au comptoir on remet un ticket. */}
+            {mep.champs.typeVente && (
             <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               {typesVente.map(t => (
                 <button
@@ -982,10 +1144,11 @@ const Caisse: React.FC<CaisseProps> = ({
                 </button>
               ))}
             </div>
+            )}
 
             {/* Le client : on le reconnait a sa photo, on le trouve en tapant,
                 et on le cree sans quitter le comptoir. */}
-            {client ? (
+            {mep.champs.client && (client ? (
               <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border">
                 {client.photo
                   ? <img src={client.photo} alt="" className="w-9 h-9 rounded-lg object-cover flex-none" />
@@ -1059,10 +1222,11 @@ const Caisse: React.FC<CaisseProps> = ({
                   className="w-full px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
                 />
               </div>
-            )}
+            ))}
 
             {/* La facture : un reglage, pas une question a chaque vente. En
                 gros elle est imposee — un revendeur part toujours avec. */}
+            {mep.champs.facture && (
             <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft">
               <input
                 type="checkbox"
@@ -1074,7 +1238,9 @@ const Caisse: React.FC<CaisseProps> = ({
               {T.factureAuto}
               {typeEffectif === 'GROS' && <span className="text-slate-400 dark:text-dk-muted">({T.imposee})</span>}
             </label>
+            )}
 
+            {mep.champs.paiement && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
               {modes.map(m => (
                 <button
@@ -1090,7 +1256,9 @@ const Caisse: React.FC<CaisseProps> = ({
                 </button>
               ))}
             </div>
+            )}
 
+            {mep.champs.remise && (
             <div className="flex items-center gap-2 text-sm">
               <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0">{T.remise}</span>
               <input
@@ -1121,6 +1289,7 @@ const Caisse: React.FC<CaisseProps> = ({
                 </span>
               )}
             </div>
+            )}
 
             {erreur && (
               <p className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
