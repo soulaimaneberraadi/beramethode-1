@@ -299,6 +299,7 @@ const Caisse: React.FC<CaisseProps> = ({
   /** Repliees par defaut : au comptoir on veut un nom et un telephone. Elles
    *  s'ouvrent d'elles-memes en gros, ou la facture les reclame. */
   const [quickPlusOuvert, setQuickPlusOuvert] = useState(false);
+  const [doublon, setDoublon] = useState<AtelierClient | null>(null);
   const [quickClientNotes, setQuickClientNotes] = useState('');
   /** La photo sert a reconnaitre le client au comptoir plus vite qu'un nom :
    *  c'est la meme vignette que dans la fiche complete. Elle voyage en
@@ -604,10 +605,29 @@ const Caisse: React.FC<CaisseProps> = ({
     setQuickClientOpen(true);
   };
 
-  const creerClientRapide = async () => {
+  /** Une fiche en double coupe en deux l'historique et l'encours d'un meme
+   *  acheteur : on ne s'en apercoit qu'au moment de relancer un impaye. Avant
+   *  de creer, on regarde donc si le telephone ou le nom existent deja. */
+  const doublonProbable = (): AtelierClient | null => {
+    const nom = quickClientNom.trim().toLowerCase().replace(/\s+/g, ' ');
+    const tel = quickClientTel.replace(/\D/g, '');
+    if (!nom && !tel) return null;
+    return clients.find(c => {
+      const telC = String(c.tel || '').replace(/\D/g, '');
+      if (tel && telC && tel === telC) return true;
+      return !!nom && String(c.nom || '').trim().toLowerCase().replace(/\s+/g, ' ') === nom;
+    }) || null;
+  };
+
+  const creerClientRapide = async (forcer = false) => {
     if (isStatic) return;
     const nom = quickClientNom.trim();
     if (!nom) { setQuickClientError('Le nom est obligatoire.'); return; }
+    if (!forcer) {
+      const jumeau = doublonProbable();
+      if (jumeau) { setDoublon(jumeau); return; }
+    }
+    setDoublon(null);
     setQuickClientSaving(true);
     setQuickClientError(null);
     try {
@@ -1015,6 +1035,9 @@ const Caisse: React.FC<CaisseProps> = ({
     ajouterPhoto: tx(lang, { fr: 'Ajouter une photo', ar: 'زيد تصويرة', en: 'Add a photo', es: 'Anadir una foto', pt: 'Adicionar foto', tr: 'Fotograf ekle' }),
     changerPhoto: tx(lang, { fr: 'Changer la photo', ar: 'بدّل التصويرة', en: 'Change photo', es: 'Cambiar la foto', pt: 'Mudar a foto', tr: 'Fotografi degistir' }),
     notes: tx(lang, { fr: 'Notes (livraison, habitudes, remises convenues…)', ar: 'ملاحظات (التسليم، العادات، التخفيضات المتّفق عليها…)', en: 'Notes (delivery, habits, agreed discounts…)', es: 'Notas (entrega, habitos, descuentos…)', pt: 'Notas (entrega, habitos, descontos…)', tr: 'Notlar (teslimat, aliskanliklar, indirimler…)' }),
+    dejaConnu: tx(lang, { fr: 'Une fiche existe deja :', ar: 'كاينة بطاقة من قبل:', en: 'A record already exists:', es: 'Ya existe una ficha:', pt: 'Ja existe uma ficha:', tr: 'Zaten bir kart var:' }),
+    utiliserFiche: tx(lang, { fr: 'Utiliser cette fiche', ar: 'استعمل هاد البطاقة', en: 'Use this record', es: 'Usar esta ficha', pt: 'Usar esta ficha', tr: 'Bu karti kullan' }),
+    creerQuandMeme: tx(lang, { fr: 'Creer quand meme', ar: 'صايب واحدة جديدة', en: 'Create anyway', es: 'Crear de todos modos', pt: 'Criar mesmo assim', tr: 'Yine de olustur' }),
     plusInfos: tx(lang, { fr: 'Informations complementaires', ar: 'معلومات إضافية', en: 'More information', es: 'Informacion adicional', pt: 'Informacoes adicionais', tr: 'Ek bilgiler' }),
     infosFacture: tx(lang, { fr: 'Pour la facture', ar: 'ديال الفاتورة', en: 'For the invoice', es: 'Para la factura', pt: 'Para a fatura', tr: 'Fatura icin' }),
     adresse: tx(lang, { fr: 'Adresse', ar: 'العنوان', en: 'Address', es: 'Direccion', pt: 'Endereco', tr: 'Adres' }),
@@ -1512,13 +1535,37 @@ const Caisse: React.FC<CaisseProps> = ({
                         </span>
                       </label>
                       {quickClientError && <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400">{quickClientError}</p>}
+                      {/* Un homonyme, ou le meme numero : presque toujours la
+                          meme personne. On propose sa fiche avant d'en creer
+                          une seconde qui couperait son historique en deux. */}
+                      {doublon && (
+                        <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 space-y-2">
+                          <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                            {T.dejaConnu} « {doublon.nom} »{doublon.tel ? ` · ${doublon.tel}` : ''}
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => { setClientId(doublon.id); setDoublon(null); setQuickClientOpen(false); setClientQuery(''); }}
+                              className="flex-1 py-2 rounded-xl text-[11px] font-extrabold bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white"
+                            >
+                              {T.utiliserFiche}
+                            </button>
+                            <button
+                              onClick={() => creerClientRapide(true)}
+                              className="flex-1 py-2 rounded-xl text-[11px] font-bold text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800/50"
+                            >
+                              {T.creerQuandMeme}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2 px-3 py-2 border-t border-slate-100 dark:border-dk-border bg-slate-50/60 dark:bg-dk-elevated/40">
                       <button onClick={() => setQuickClientOpen(false)} className="flex-1 py-2 rounded-xl text-[11px] font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border hover:bg-white dark:hover:bg-dk-surface">
                         {T.renoncer}
                       </button>
                       <button
-                        onClick={creerClientRapide}
+                        onClick={() => creerClientRapide()}
                         disabled={quickClientSaving || !quickClientNom.trim()}
                         className={`flex-1 py-2 rounded-xl text-[11px] font-extrabold flex items-center justify-center gap-1.5 ${quickClientSaving || !quickClientNom.trim()
                           ? 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'
