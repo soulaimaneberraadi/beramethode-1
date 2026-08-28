@@ -18,7 +18,7 @@ import { resolveScan, attachScannerListener } from '../lib/scanner';
 import type { AtelierClient } from './soustraitance/ClientsPanel';
 import {
   X, ScanLine, Search, Trash2, Plus, Minus, Loader2, AlertTriangle, User, Store, Check, ArrowLeft,
-  Receipt, RotateCcw, Banknote, MoreVertical, Eye, EyeOff, ArrowLeftRight, RefreshCw, GripVertical,
+  Receipt, RotateCcw, Banknote,
 } from 'lucide-react';
 
 export type CaisseLigne = {
@@ -110,98 +110,6 @@ export interface CaisseProps {
 }
 
 const FACTURE_AUTO_KEY = 'bera_caisse_facture_auto';
-const MISE_EN_PAGE_KEY = 'bera_caisse_mise_en_page';
-
-/**
- * Reglages d'affichage du comptoir.
- *
- * Un poste de caisse n'est pas l'autre : sur un grand ecran on veut tout
- * voir, sur un portable il faut choisir. Plutot que d'imposer une mise en
- * page moyenne qui ne va a personne, chaque poste range la sienne — elle est
- * gardee en local, elle ne suit pas le compte d'un poste a l'autre.
- *
- * Ce sont des reglages d'AFFICHAGE : masquer un champ ne change jamais ce qui
- * est enregistre. Le segment tarifaire masque reste celui qui est actif, et
- * le mode de reglement masque reste celui qui part avec la vente — sinon un
- * ecran simplifie ferait vendre au mauvais prix.
- */
-type ChampCle = 'lignes' | 'typeVente' | 'client' | 'facture' | 'paiement' | 'remise';
-
-type MiseEnPage = {
-  /** L'ordre des blocs de reglage, tel que ce poste les a ranges. */
-  ordre: ChampCle[];
-  /** Les blocs mis en demi-largeur : deux d'entre eux tiennent alors sur la
-   *  meme ligne. Court (remise, facture), ils gagnent a etre cote a cote ;
-   *  long (client), ils etouffent. C'est au poste de trancher. */
-  demis: Partial<Record<ChampCle, boolean>>;
-  /** Hauteur imposee a un bloc, en pixels. Ce qui deborde y defile : le
-   *  panier merite souvent plus de place que les reglages, et l'inverse
-   *  arrive aussi quand on vend deux pieces a la fois. */
-  hauteurs: Partial<Record<ChampCle, number>>;
-  /** Ou se pose la grille couleur/taille du modele ouvert. */
-  grille: 'gauche' | 'droite' | 'panier';
-  /** Le panier passe a gauche : certains caissiers sont gauchers, et sur un
-   *  ecran tactile la main qui compose cache la colonne qu'elle touche. */
-  panierAGauche: boolean;
-  /** Part de l'ecran laissee au panier sur grand ecran, en pourcentage.
-   *  Libre : on attrape la separation et on tire. Les paliers ne sont plus
-   *  que des raccourcis vers trois valeurs de ce meme reglage. */
-  largeurPanier: number;
-  /** Largeur de la colonne du modele ouvert, en pixels. */
-  largeurGrille: number;
-  /** Vignettes photo : sur un petit ecran, une liste de noms tient plus. */
-  photos: boolean;
-  champs: Record<ChampCle, boolean>;
-};
-
-const ORDRE_DEFAUT: ChampCle[] = ['lignes', 'typeVente', 'client', 'facture', 'paiement', 'remise'];
-
-const MISE_EN_PAGE_DEFAUT: MiseEnPage = {
-  ordre: ORDRE_DEFAUT,
-  demis: {},
-  grille: 'droite',
-  largeurGrille: 320,
-  panierAGauche: false,
-  largeurPanier: 50,
-  photos: true,
-  champs: { lignes: true, typeVente: true, client: true, facture: true, paiement: true, remise: true },
-  hauteurs: {},
-};
-
-const lireMiseEnPage = (): MiseEnPage => {
-  try {
-    const brut = JSON.parse(localStorage.getItem(MISE_EN_PAGE_KEY) || 'null');
-    if (!brut || typeof brut !== 'object') return MISE_EN_PAGE_DEFAUT;
-    // Un ordre garde en local peut avoir vieilli : on respecte ce qu'il dit
-    // encore, puis on rajoute les blocs qu'il ne connait pas. Sans ca, une
-    // version qui ajoute un reglage le rendrait invisible sur les postes
-    // deja regles — et un reglage de vente invisible fait vendre a cote.
-    const vus = Array.isArray(brut.ordre) ? brut.ordre.filter((k: any) => ORDRE_DEFAUT.includes(k)) : [];
-    const ordre = [...new Set([...vus, ...ORDRE_DEFAUT])] as ChampCle[];
-    // Les anciens reglages nommaient la largeur ('moyen') : elle est passee
-    // en pourcentage, une valeur non numerique retombe sur le defaut.
-    const largeurPanier = typeof brut.largeurPanier === 'number'
-      ? borne(brut.largeurPanier, 20, 75) : MISE_EN_PAGE_DEFAUT.largeurPanier;
-    const largeurGrille = typeof brut.largeurGrille === 'number'
-      ? borne(brut.largeurGrille, 200, 700) : MISE_EN_PAGE_DEFAUT.largeurGrille;
-    return {
-      ...MISE_EN_PAGE_DEFAUT,
-      ...brut,
-      largeurPanier,
-      largeurGrille,
-      ordre,
-      demis: { ...(brut.demis && typeof brut.demis === 'object' ? brut.demis : {}) },
-      hauteurs: { ...(brut.hauteurs && typeof brut.hauteurs === 'object' ? brut.hauteurs : {}) },
-      champs: { ...MISE_EN_PAGE_DEFAUT.champs, ...(brut.champs || {}) },
-    };
-  } catch { return MISE_EN_PAGE_DEFAUT; }
-};
-
-/** Bornes : en dessous, une colonne ne montre plus rien d'utile ; au-dessus,
- *  elle etouffe l'autre. On borne au lieu d'interdire, pour que la poignee
- *  reste attrapable dans tous les cas. */
-const borne = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
-const PALIERS: Array<[string, number]> = [['etroit', 38], ['moyen', 50], ['large', 62]];
 
 const cellKey = (c: string, t: string) => `${c || ''}|${t || ''}`;
 
@@ -276,106 +184,6 @@ const Caisse: React.FC<CaisseProps> = ({
    *  montre UN seul, plein ecran, et une barre du bas fait la navette. Sur
    *  grand ecran les deux volets reviennent, et cet etat n'a plus d'effet. */
   const [voletMobile, setVoletMobile] = useState<'rayon' | 'panier'>('rayon');
-  const [mep, setMep] = useState<MiseEnPage>(lireMiseEnPage);
-  /* Une mise en page en cours d'essai. On la VOIT tout de suite — regler a
-   * l'aveugle ne veut rien dire — mais elle ne remplace celle du poste que
-   * si le caissier l'enregistre. Refermer sans enregistrer rend l'ecran
-   * d'avant, intact. */
-  const [brouillon, setBrouillon] = useState<MiseEnPage | null>(null);
-  const brouillonRef = useRef<MiseEnPage | null>(null);
-  brouillonRef.current = brouillon;
-  const vue = brouillon ?? mep;
-  const reglagesOuverts = brouillon !== null;
-  const ouvrirReglages = useCallback(() => setBrouillon(b => (b ? null : { ...mep })), [mep]);
-  const majBrouillon = useCallback((f: (m: MiseEnPage) => MiseEnPage) => {
-    setBrouillon(b => f(b ?? MISE_EN_PAGE_DEFAUT));
-  }, []);
-  /** Ecrit la ou l'ecran regarde : le brouillon si on est en train de regler,
-   *  la mise en page du poste sinon. */
-  const majVue = useCallback((f: (m: MiseEnPage) => MiseEnPage) => {
-    setBrouillon(b => (b ? f(b) : null));
-    setMep(m => (brouillonRef.current ? m : f(m)));
-  }, []);
-  useEffect(() => {
-    try { localStorage.setItem(MISE_EN_PAGE_KEY, JSON.stringify(mep)); } catch { /* le reglage vaut alors pour cette session */ }
-  }, [mep]);
-  /** Glisser-deposer des blocs de reglage, en mode mise en page. */
-  const [blocTire, setBlocTire] = useState<ChampCle | null>(null);
-  /* Les separations se tirent a la souris. On ne redimensionne qu'a partir
-   * de lg : en dessous, les volets sont plein ecran l'un apres l'autre, une
-   * largeur en pourcentage n'y veut rien dire. */
-  const conteneurRef = useRef<HTMLDivElement>(null);
-  const rayonRef = useRef<HTMLDivElement>(null);
-  const [estLarge, setEstLarge] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches);
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1024px)');
-    const suivre = () => setEstLarge(mq.matches);
-    mq.addEventListener('change', suivre);
-    return () => mq.removeEventListener('change', suivre);
-  }, []);
-  const [redim, setRedim] = useState<'panier' | 'grille' | null>(null);
-  const [redimBloc, setRedimBloc] = useState<{ cle: ChampCle; y: number; depart: number } | null>(null);
-  useEffect(() => {
-    if (!redimBloc) return;
-    const bouger = (e: MouseEvent) => {
-      const h = borne(redimBloc.depart + (e.clientY - redimBloc.y), 64, 900);
-      majVue(m => ({ ...m, hauteurs: { ...m.hauteurs, [redimBloc.cle]: h } }));
-    };
-    const lacher = () => setRedimBloc(null);
-    window.addEventListener('mousemove', bouger);
-    window.addEventListener('mouseup', lacher);
-    const avant = document.body.style.userSelect;
-    document.body.style.userSelect = 'none';
-    return () => {
-      window.removeEventListener('mousemove', bouger);
-      window.removeEventListener('mouseup', lacher);
-      document.body.style.userSelect = avant;
-    };
-  }, [redimBloc, majVue]);
-  useEffect(() => {
-    if (!redim) return;
-    const bouger = (e: MouseEvent) => {
-      if (redim === 'panier') {
-        const r = conteneurRef.current?.getBoundingClientRect();
-        if (!r || r.width === 0) return;
-        const part = mep.panierAGauche ? (e.clientX - r.left) : (r.right - e.clientX);
-        majVue(m => ({ ...m, largeurPanier: borne((part / r.width) * 100, 20, 75) }));
-      } else {
-        const r = rayonRef.current?.getBoundingClientRect();
-        if (!r) return;
-        const px = mep.grille === 'gauche' ? (e.clientX - r.left) : (r.right - e.clientX);
-        majVue(m => ({ ...m, largeurGrille: borne(px, 200, 700) }));
-      }
-    };
-    const lacher = () => setRedim(null);
-    window.addEventListener('mousemove', bouger);
-    window.addEventListener('mouseup', lacher);
-    // Pendant le tirage, la selection de texte suivrait le curseur.
-    const avant = document.body.style.userSelect;
-    document.body.style.userSelect = 'none';
-    return () => {
-      window.removeEventListener('mousemove', bouger);
-      window.removeEventListener('mouseup', lacher);
-      document.body.style.userSelect = avant;
-    };
-  }, [redim, mep.panierAGauche, mep.grille, majVue]);
-
-  /** La grille du modele est en train d'etre deplacee d'une colonne a l'autre. */
-  const [grilleTiree, setGrilleTiree] = useState(false);
-  const poserGrille = useCallback((ou: MiseEnPage['grille']) => {
-    setGrilleTiree(false);
-    majBrouillon(m => ({ ...m, grille: ou }));
-  }, [majBrouillon]);
-  const deplacerBloc = useCallback((tire: ChampCle, cible: ChampCle) => {
-    majBrouillon(m => {
-      const suite = m.ordre.filter(k => k !== tire);
-      suite.splice(suite.indexOf(cible), 0, tire);
-      return { ...m, ordre: suite };
-    });
-  }, [majBrouillon]);
-  const basculerChamp = useCallback((k: ChampCle) => {
-    majBrouillon(m => ({ ...m, champs: { ...m.champs, [k]: !m.champs[k] } }));
-  }, [majBrouillon]);
   const lignesRef = useRef<CaisseLigne[]>([]);
   lignesRef.current = lignes;
 
@@ -577,16 +385,10 @@ const Caisse: React.FC<CaisseProps> = ({
 
   useEffect(() => {
     if (!open) return;
-    // Echap ferme d'abord le panneau de mise en page : sinon un reglage en
-    // cours ferait sortir de la caisse, panier compris.
-    const onEsc = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      if (brouillon !== null) { setBrouillon(null); return; }
-      onClose();
-    };
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onEsc);
     return () => document.removeEventListener('keydown', onEsc);
-  }, [open, onClose, brouillon]);
+  }, [open, onClose]);
 
   /** Le catalogue du comptoir : un modèle par vignette, avec sa photo et ce
    *  qu'il reste VRAIMENT (stock des mouvements, jamais les compteurs de
@@ -711,24 +513,6 @@ const Caisse: React.FC<CaisseProps> = ({
     imposee: tx(lang, { fr: 'imposee en gros', ar: 'إجبارية فالجملة', en: 'required for wholesale', es: 'obligatoria al por mayor', pt: 'obrigatoria no grosso', tr: 'toptanda zorunlu' }),
     retour: tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' }),
     rienEnStock: tx(lang, { fr: 'Aucune piece en stock.', ar: 'ما كاين حتى قطعة فالستوك.', en: 'No item in stock.', es: 'Ninguna pieza en stock.', pt: 'Nenhuma peca em stock.', tr: 'Stokta parca yok.' }),
-    reglages: tx(lang, { fr: 'Mise en page', ar: 'ترتيب الشاشة', en: 'Layout', es: 'Disposicion', pt: 'Disposicao', tr: 'Yerlesim' }),
-    panierAGauche: tx(lang, { fr: 'Panier a gauche', ar: 'السلّة على اليسار', en: 'Cart on the left', es: 'Cesta a la izquierda', pt: 'Cesto a esquerda', tr: 'Sepet solda' }),
-    largeur: tx(lang, { fr: 'Largeur du panier', ar: 'عرض السلّة', en: 'Cart width', es: 'Ancho de la cesta', pt: 'Largura do cesto', tr: 'Sepet genisligi' }),
-    etroit: tx(lang, { fr: 'Etroit', ar: 'ضيّق', en: 'Narrow', es: 'Estrecho', pt: 'Estreito', tr: 'Dar' }),
-    moyen: tx(lang, { fr: 'Moyen', ar: 'متوسّط', en: 'Medium', es: 'Medio', pt: 'Medio', tr: 'Orta' }),
-    large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
-    photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
-    enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
-    demiLigne: tx(lang, { fr: 'Pleine ligne ou demi-ligne', ar: 'سطر كامل ولا نص سطر', en: 'Full width or half width', es: 'Linea completa o media', pt: 'Linha inteira ou metade', tr: 'Tam satir veya yarim' }),
-    tirer: tx(lang, { fr: 'Tirez pour redimensionner (double-clic : taille d’origine)', ar: 'شدّ باش تبدّل الحجم (دبل كليك: الحجم الأصلي)', en: 'Drag to resize (double-click to reset)', es: 'Arrastre para redimensionar (doble clic: original)', pt: 'Arraste para redimensionar (duplo clique: original)', tr: 'Boyutlandirmak icin surukleyin (cift tiklama: varsayilan)' }),
-    grille: tx(lang, { fr: 'Grille du modele', ar: 'شبكة الموديل', en: 'Model grid', es: 'Rejilla del modelo', pt: 'Grelha do modelo', tr: 'Model tablosu' }),
-    aGauche: tx(lang, { fr: 'A gauche', ar: 'على اليسار', en: 'Left', es: 'A la izquierda', pt: 'A esquerda', tr: 'Solda' }),
-    aDroite: tx(lang, { fr: 'A droite', ar: 'على اليمين', en: 'Right', es: 'A la derecha', pt: 'A direita', tr: 'Sagda' }),
-    dansPanier: tx(lang, { fr: 'Dans le panier', ar: 'فالسلّة', en: 'In the cart', es: 'En la cesta', pt: 'No cesto', tr: 'Sepette' }),
-    glisser: tx(lang, { fr: 'Prenez un bloc a la souris pour le ranger ailleurs.', ar: 'شدّ الكتلة بالماوس وحرّكها فين بغيتي.', en: 'Drag a block with the mouse to reorder it.', es: 'Arrastre un bloque con el raton para reordenarlo.', pt: 'Arraste um bloco com o rato para o reordenar.', tr: 'Bir blogu fareyle surukleyerek siralayin.' }),
-    champs: tx(lang, { fr: 'Champs affiches', ar: 'الحقول الظاهرة', en: 'Visible fields', es: 'Campos visibles', pt: 'Campos visiveis', tr: 'Gorunen alanlar' }),
-    champMasque: tx(lang, { fr: 'Masquer un champ ne change rien a la vente enregistree.', ar: 'إخفاء حقل ما كيبدّلش البيعة المسجّلة.', en: 'Hiding a field does not change the recorded sale.', es: 'Ocultar un campo no cambia la venta registrada.', pt: 'Ocultar um campo nao muda a venda registada.', tr: 'Bir alani gizlemek kaydedilen satisi degistirmez.' }),
-    defaut: tx(lang, { fr: 'Reglages par defaut', ar: 'الإعدادات الأصلية', en: 'Reset layout', es: 'Ajustes originales', pt: 'Definicoes originais', tr: 'Varsayilana don' }),
     voirPanier: tx(lang, { fr: 'Voir le panier', ar: 'شوف السلّة', en: 'View cart', es: 'Ver la cesta', pt: 'Ver o cesto', tr: 'Sepeti gor' }),
     auRayon: tx(lang, { fr: 'Au rayon', ar: 'للرفوف', en: 'Back to shelf', es: 'Al estante', pt: 'As prateleiras', tr: 'Rafa don' }),
     videz: tx(lang, { fr: 'Vider', ar: 'فرّغ', en: 'Clear', es: 'Vaciar', pt: 'Limpar', tr: 'Temizle' }),
@@ -758,314 +542,6 @@ const Caisse: React.FC<CaisseProps> = ({
     { v: 'VIREMENT', l: tx(lang, { fr: 'Virement', ar: 'تحويل', en: 'Transfer', es: 'Transferencia', pt: 'Transferencia', tr: 'Havale' }) },
   ];
 
-  /* La grille couleur/taille du modele ouvert. Elle vit dans une variable
-   * parce que le poste choisit OU la poser : a droite du rayon, a sa gauche,
-   * ou en tete du panier, au-dessus du client. */
-  const panneauModele = modeleOuvert ? (
-    <div
-      draggable={reglagesOuverts}
-      onDragStart={() => setGrilleTiree(true)}
-      onDragEnd={() => setGrilleTiree(false)}
-      style={estLarge && vue.grille !== 'panier' ? { width: vue.largeurGrille } : undefined}
-      className={`shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 ${
-        vue.grille === 'panier'
-          ? 'w-full border-b border-slate-200 dark:border-dk-border p-3'
-          // Classes ecrites en entier : Tailwind ne voit que ce qui est
-          // litteral dans le source, un `sm:${...}` assemble ne serait
-          // jamais genere.
-          : vue.grille === 'gauche'
-            ? 'sm:w-[300px] xl:w-[340px] sm:pr-3'
-            : 'sm:w-[300px] xl:w-[340px] sm:pl-3'
-      } ${reglagesOuverts ? 'cursor-grab active:cursor-grabbing rounded-xl border border-dashed border-slate-300 dark:border-dk-border p-2' : ''}`}
-    >
-
-            <div className="sm:w-[300px] xl:w-[340px] shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 sm:border-l sm:border-slate-200 sm:dark:border-dk-border sm:pl-3">
-              <div className="flex items-center gap-2.5 mb-3">
-                {vue.photos && <Vignette model={modeleOuvert} className="w-9 h-9" />}
-                <div className="min-w-0 flex-1">
-                  <span className="block text-sm font-extrabold text-slate-800 dark:text-dk-text truncate">
-                    {modeleOuvert.meta_data?.nom_modele || modeleOuvert.id}
-                  </span>
-                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
-                    {modeleOuvert.meta_data?.reference || ''}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {grilleModele.map(g => (
-                  <div key={g.couleur} className="rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border p-3">
-                    <span className="flex items-center gap-2 mb-2">
-                      <span
-                        className="w-4 h-4 rounded-full border border-slate-300 dark:border-dk-border flex-none"
-                        style={teinteDe(g.couleur) ? { backgroundColor: teinteDe(g.couleur)! } : undefined}
-                      />
-                      <span className="text-xs font-extrabold text-slate-800 dark:text-dk-text">{g.couleur || '—'}</span>
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      {g.tailles.map(t => {
-                        const reste = restantDe(modeleOuvert.id, g.couleur, t.taille);
-                        return (
-                          <button
-                            key={t.taille}
-                            disabled={reste <= 0}
-                            onClick={() => ajouter(modeleOuvert, g.couleur, t.taille)}
-                            className={`px-3 py-2 rounded-xl border text-center min-w-[64px] transition-colors ${
-                              reste > 0
-                                ? 'bg-slate-50 dark:bg-dk-elevated border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'
-                                : 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border opacity-50 cursor-not-allowed'
-                            }`}
-                          >
-                            <span className="block text-xs font-extrabold text-slate-800 dark:text-dk-text">{t.taille || '—'}</span>
-                            <span className="block text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{reste}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={() => setModeleOuvert(null)}
-                className="mt-3 w-full py-2 rounded-xl border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-elevated"
-              >
-                {T.retour}
-              </button>
-            </div>
-    </div>
-  ) : null;
-
-  /* Les blocs de reglage de la vente, ranges par cle : c'est cette table
-   * que l'ordre choisi par le poste vient parcourir. */
-  const blocsReglage: Record<ChampCle, React.ReactNode> = {
-    lignes: (<>
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100 dark:divide-dk-border">
-            {lignes.length === 0 && (
-              <p className="p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.vide}</p>
-            )}
-            {lignes.map(l => (
-              <div key={l.key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 px-3 sm:px-4 py-3">
-                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                  {vue.photos && <Vignette model={l.model} className="w-10 h-10 sm:w-10 sm:h-10" />}
-                  <div className="flex-1 min-w-0">
-                    <span className="block text-[13px] sm:text-sm font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
-                      {l.model.meta_data?.nom_modele || l.model.id}
-                    </span>
-                    <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-dk-muted truncate">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-dk-border flex-none"
-                        style={teinteDe(l.couleur) ? { backgroundColor: teinteDe(l.couleur)! } : undefined}
-                      />
-                      {[l.couleur, l.taille].filter(Boolean).join(' · ') || '—'}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
-                    className="sm:hidden p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                  <div className="flex items-center gap-1 bg-slate-50 dark:bg-dk-elevated rounded-full p-0.5 border border-slate-200 dark:border-dk-border">
-                    <button
-                      onClick={() => setLignes(prev => prev.flatMap(x => x.key !== l.key ? [x] : (x.qte > 1 ? [{ ...x, qte: x.qte - 1 }] : [])))}
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated shadow-sm active:scale-95 transition-transform"
-                    >
-                      <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    </button>
-                    <span className="w-6 sm:w-8 text-center text-sm font-black text-slate-800 dark:text-dk-text">{l.qte}</span>
-                    <button
-                      onClick={() => ajouter(l.model, l.couleur, l.taille)}
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated shadow-sm active:scale-95 transition-transform"
-                    >
-                      <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                    </button>
-                  </div>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={l.prix === 0 ? '' : l.prix}
-                    placeholder="0.00"
-                    onChange={e => {
-                      const v = e.target.value === '' ? 0 : Number(e.target.value);
-                      setLignes(prev => prev.map(x => x.key === l.key ? { ...x, prix: v, prixTouched: true } : x));
-                    }}
-                    className="w-[72px] sm:w-20 px-2 py-1.5 rounded-lg text-right text-[13px] sm:text-sm font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 placeholder:text-slate-400"
-                  />
-                  <span className="w-[64px] sm:w-20 text-right text-[13px] sm:text-sm font-black text-slate-800 dark:text-dk-text truncate">
-                    {fmt(l.qte * (Number(l.prix) || 0))}
-                  </span>
-                  <button
-                    onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
-                    className="hidden sm:flex p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-    </>),
-    typeVente: (<>
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-              {typesVente.map(t => (
-                <button
-                  key={t.v}
-                  onClick={() => setTypeVente(t.v)}
-                  disabled={!!client}
-                  title={client ? T.typeDuClient : undefined}
-                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
-                    typeEffectif === t.v
-                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent shadow-sm'
-                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
-                  } ${client ? 'opacity-60 cursor-not-allowed' : ''}`}
-                >
-                  {t.l}
-                </button>
-              ))}
-            </div>
-    </>),
-    client: (<>{client ? (
-              <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border">
-                {client.photo
-                  ? <img src={client.photo} alt="" className="w-9 h-9 rounded-lg object-cover flex-none" />
-                  : <div className="w-9 h-9 rounded-lg bg-white dark:bg-dk-surface flex-none flex items-center justify-center"><User className="w-4 h-4 text-slate-400 dark:text-dk-muted" /></div>}
-                <div className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold text-slate-800 dark:text-dk-text truncate">{client.nom}</span>
-                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
-                    {[client.type, client.tel, client.ville].filter(Boolean).join(' · ')}
-                  </span>
-                </div>
-                <button
-                  onClick={() => { setClientId(''); setClientQuery(''); }}
-                  className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400"
-                  aria-label={T.retirerClient}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted pointer-events-none" />
-                    <input
-                      value={clientQuery}
-                      onChange={e => setClientQuery(e.target.value)}
-                      placeholder={T.chercherClient}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
-                    />
-                  </div>
-                  {onCreateClient && (
-                    <button
-                      onClick={onCreateClient}
-                      title={T.nouveauClient}
-                      className="shrink-0 px-3 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                {clientQuery.trim() !== '' && (
-                  <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border">
-                    {clientsTrouves.length === 0 && (
-                      <p className="p-3 text-[11px] text-slate-400 dark:text-dk-muted">{T.aucunClient}</p>
-                    )}
-                    {clientsTrouves.map(c => (
-                      <button
-                        key={c.id}
-                        onClick={() => { setClientId(c.id); setClientQuery(''); }}
-                        className="w-full flex items-center gap-2 p-2 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated"
-                      >
-                        {c.photo
-                          ? <img src={c.photo} alt="" className="w-8 h-8 rounded-lg object-cover flex-none" />
-                          : <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dk-elevated flex-none" />}
-                        <span className="min-w-0">
-                          <span className="block text-xs font-bold text-slate-800 dark:text-dk-text truncate">{c.nom}</span>
-                          <span className="block text-[10px] text-slate-500 dark:text-dk-muted truncate">
-                            {[c.type, c.tel, c.ville].filter(Boolean).join(' · ')}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {/* Vente au comptoir sans fiche : un nom libre suffit, et il
-                    apparaitra sur le ticket. */}
-                <input
-                  value={clientLibre}
-                  onChange={e => setClientLibre(e.target.value)}
-                  placeholder={T.passage}
-                  className="w-full px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
-                />
-              </div>
-            )}
-    </>),
-    facture: (<>
-            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft">
-              <input
-                type="checkbox"
-                checked={factureRequise}
-                disabled={typeEffectif === 'GROS'}
-                onChange={e => setFactureAuto(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 dark:border-dk-border"
-              />
-              {T.factureAuto}
-              {typeEffectif === 'GROS' && <span className="text-slate-400 dark:text-dk-muted">({T.imposee})</span>}
-            </label>
-    </>),
-    paiement: (<>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              {modes.map(m => (
-                <button
-                  key={m.v}
-                  onClick={() => setPaiement(m.v)}
-                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
-                    paiement === m.v
-                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
-                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
-                  }`}
-                >
-                  {m.l}
-                </button>
-              ))}
-            </div>
-    </>),
-    remise: (<>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0">{T.remise}</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={remiseGlobale}
-                placeholder="0"
-                onChange={e => setRemiseGlobale(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-20 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
-              />
-              {paiement === 'ESPECES' && (
-                <>
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0 ml-1">{T.recu}</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={encaisse}
-                    placeholder="0"
-                    onChange={e => setEncaisse(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-20 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
-                  />
-                </>
-              )}
-              <div className="flex-1 min-w-0" />
-              {paiement === 'ESPECES' && rendu != null && (
-                <span className={`text-xs font-extrabold shrink-0 ${rendu < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-dk-text-soft'}`}>
-                  {T.rendu} : {fmt(rendu)} {currency}
-                </span>
-              )}
-            </div>
-    </>),
-  };
-
   /* Portal sur <body> : un ancetre anime (transform Framer Motion) redefinit
    * le repere des elements `fixed`, et l'ecran plein cadre se retrouvait
    * decale sous l'entete, laissant depasser la barre d'outils de la page. */
@@ -1074,7 +550,7 @@ const Caisse: React.FC<CaisseProps> = ({
       {/* Telephone : une feuille qui monte du bas, comme les fiches du reste
           de l'application — coins arrondis et poignee. Sur grand ecran la
           feuille occupe tout, et l'habillage disparait. */}
-      <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-slate-100 dark:bg-dk-bg rounded-t-3xl shadow-2xl lg:rounded-none lg:shadow-none">
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-slate-100 dark:bg-dk-bg rounded-t-3xl shadow-2xl lg:rounded-none lg:shadow-none">
         <div className="lg:hidden shrink-0 flex justify-center pt-2.5 pb-1 bg-white dark:bg-dk-surface">
           <span className="h-1.5 w-10 rounded-full bg-slate-300 dark:bg-dk-border" />
         </div>
@@ -1107,17 +583,6 @@ const Caisse: React.FC<CaisseProps> = ({
           <Receipt className="w-4 h-4" />
           <span className="hidden sm:inline">{T.journee}</span>
         </button>
-        {/* Trois points : la mise en page du comptoir. Un poste n'est pas
-            l'autre, et le caissier range son ecran une fois pour toutes. */}
-        <button
-          onClick={ouvrirReglages}
-          className={`p-2 rounded-xl transition-colors shrink-0 ${reglagesOuverts
-            ? 'bg-slate-800 dark:bg-dk-accent text-white'
-            : 'text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
-          aria-label={T.reglages}
-        >
-          <MoreVertical className="w-5 h-5" />
-        </button>
         <button
           onClick={onClose}
           className="p-2 rounded-xl text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors shrink-0"
@@ -1126,124 +591,6 @@ const Caisse: React.FC<CaisseProps> = ({
           <X className="w-5 h-5" />
         </button>
       </div>
-
-      {/* Les reglages tiennent sur une bande fine sous l'entete : tout sur
-          une ligne quand l'ecran le permet, et l'ecran de vente reste
-          visible dessous — c'est lui qu'on est en train de regler. */}
-      {reglagesOuverts && (
-        <div className="shrink-0 border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 sm:px-5 py-2 flex flex-wrap items-center gap-x-4 gap-y-2 max-h-[45vh] overflow-y-auto overscroll-contain">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{T.reglages}</span>
-            <button
-              onClick={() => setBrouillon(MISE_EN_PAGE_DEFAUT)}
-              className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:text-slate-800 dark:hover:text-dk-text"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> {T.defaut}
-            </button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => majBrouillon(m => ({ ...m, panierAGauche: !m.panierAGauche }))}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors ${vue.panierAGauche
-                ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
-                : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
-            >
-              <ArrowLeftRight className="w-3.5 h-3.5" /> {T.panierAGauche}
-            </button>
-            <button
-              onClick={() => majBrouillon(m => ({ ...m, photos: !m.photos }))}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors ${vue.photos
-                ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
-                : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
-            >
-              {vue.photos ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} {T.photos}
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.largeur}</span>
-            <div className="flex gap-1.5">
-              {PALIERS.map(([nom, pct]) => (
-                <button
-                  key={nom}
-                  onClick={() => majBrouillon(m => ({ ...m, largeurPanier: pct }))}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${Math.round(vue.largeurPanier) === pct
-                    ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
-                    : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
-                >
-                  {nom === 'etroit' ? T.etroit : nom === 'moyen' ? T.moyen : T.large}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.grille}</span>
-            <div className="flex gap-1.5">
-              {([['gauche', T.aGauche], ['droite', T.aDroite], ['panier', T.dansPanier]] as Array<[MiseEnPage['grille'], string]>).map(([v, l]) => (
-                <button
-                  key={v}
-                  onClick={() => poserGrille(v)}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${vue.grille === v
-                    ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
-                    : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2" title={T.champMasque}>
-            <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.champs}</span>
-            <div className="flex flex-wrap gap-1.5">
-              {([
-                ['lignes', T.panier],
-                ['typeVente', typesVente.map(t => t.l).join(' / ')],
-                ['client', T.client],
-                ['facture', T.factureAuto],
-                ['paiement', T.reglement],
-                ['remise', T.remise],
-              ] as Array<[ChampCle, string]>).map(([k, label]) => (
-                <button
-                  key={k}
-                  onClick={() => basculerChamp(k)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${vue.champs[k]
-                    ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
-                    : 'bg-slate-50 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border line-through'}`}
-                >
-                  {vue.champs[k] ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                  <span className="truncate max-w-[160px]">{label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <span className="hidden xl:flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-dk-muted">
-            <GripVertical className="w-3.5 h-3.5" /> {T.glisser}
-          </span>
-
-          <div className="flex-1 min-w-0" />
-
-          {/* Rien n'est garde tant que ce n'est pas confirme : un ecran de
-              caisse deregle par megarde se retrouve tel quel le lendemain. */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setBrouillon(null)}
-              className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated"
-            >
-              {T.renoncer}
-            </button>
-            <button
-              onClick={() => { if (brouillon) setMep(brouillon); setBrouillon(null); }}
-              className="px-3 py-1.5 rounded-lg text-[11px] font-extrabold text-white bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent flex items-center gap-1.5"
-            >
-              <Check className="w-3.5 h-3.5" /> {T.enregistrer}
-            </button>
-          </div>
-        </div>
-      )}
 
       {flash && (
         <div className={`px-3 sm:px-5 py-2 text-xs font-bold shrink-0 ${flash.ok
@@ -1413,9 +760,9 @@ const Caisse: React.FC<CaisseProps> = ({
         </div>
       )}
 
-      <div ref={conteneurRef} className={`flex-1 min-h-0 flex-col overflow-hidden overscroll-contain ${vue.panierAGauche ? 'lg:flex-row-reverse' : 'lg:flex-row'} ${journeeOuverte ? 'hidden' : 'flex'}`}>
+      <div className={`flex-1 min-h-0 flex-col lg:flex-row overflow-hidden overscroll-contain ${journeeOuverte ? 'hidden' : 'flex'}`}>
         {/* Gauche : la recherche manuelle, pour les tikis illisibles. */}
-        <div className={`flex-col flex-1 min-h-0 p-3 sm:p-4 gap-3 overflow-hidden bg-slate-50/50 dark:bg-transparent lg:flex ${voletMobile === 'rayon' ? 'flex' : 'hidden'}`}>
+        <div className={`flex-col flex-1 min-h-0 lg:w-1/2 p-3 sm:p-4 gap-3 overflow-hidden bg-slate-50/50 dark:bg-transparent lg:flex ${voletMobile === 'rayon' ? 'flex' : 'hidden'}`}>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted" />
             <input
@@ -1430,19 +777,7 @@ const Caisse: React.FC<CaisseProps> = ({
               tailles s'ouvre dessous. Au comptoir on ajoute souvent deux
               vetements differents d'affilee : refermer le rayon a chaque
               fois faisait retaper la recherche. */}
-          <div
-            ref={rayonRef}
-            className={`flex-1 min-h-0 flex flex-col gap-3 overflow-hidden ${vue.grille === 'gauche' ? 'sm:flex-row-reverse' : 'sm:flex-row'} ${
-              grilleTiree ? 'rounded-xl ring-2 ring-dashed ring-slate-400' : ''}`}
-            onDragOver={e => { if (grilleTiree) e.preventDefault(); }}
-            onDrop={e => {
-              if (!grilleTiree) return;
-              // Depose a gauche ou a droite selon la moitie survolee : le
-              // caissier vise une colonne, pas un bouton de reglage.
-              const r = e.currentTarget.getBoundingClientRect();
-              poserGrille(e.clientX < r.left + r.width / 2 ? 'gauche' : 'droite');
-            }}
-          >
+          <div className="flex-1 min-h-0 flex flex-col sm:flex-row gap-3 overflow-hidden">
           <div className={`grid gap-2 sm:gap-3 content-start flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2 auto-rows-max ${
             modeleOuvert ? 'grid-cols-2 xl:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4'}`}>
               {catalogue.length === 0 && (
@@ -1457,7 +792,7 @@ const Caisse: React.FC<CaisseProps> = ({
                     ? 'border-slate-900 dark:border-dk-accent ring-1 ring-slate-900/10'
                     : 'border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'}`}
                 >
-                  {vue.photos && <Vignette model={c.model} className="w-full aspect-[4/3] sm:aspect-square" />}
+                  <Vignette model={c.model} className="w-full aspect-[4/3] sm:aspect-square" />
                   <span className="block mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
                     {c.model.meta_data?.nom_modele || c.model.id}
                   </span>
@@ -1480,45 +815,71 @@ const Caisse: React.FC<CaisseProps> = ({
               ))}
           </div>
 
-          {/* La colonne du modele se retaille elle aussi : sa poignee se glisse
-              entre le rayon et elle, du bon cote selon ou elle est posee. */}
-          {modeleOuvert && vue.grille !== 'panier' && (
-            <div
-              onMouseDown={() => setRedim('grille')}
-              onDoubleClick={() => majVue(m => ({ ...m, largeurGrille: MISE_EN_PAGE_DEFAUT.largeurGrille }))}
-              title={T.tirer}
-              className={`hidden lg:block shrink-0 w-2 rounded-full cursor-col-resize transition-colors ${redim === 'grille'
-                ? 'bg-slate-400 dark:bg-dk-accent'
-                : 'bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent'}`}
-            />
+          {/* Le modele ouvert : couleur d'abord, taille ensuite. Il occupe sa
+              PROPRE colonne, a droite du rayon : la liste des modeles garde
+              toute sa hauteur meme quand ils sont nombreux, et il n'y a plus
+              de bouton retour a chercher pour revenir au rayon. */}
+          {modeleOuvert && (
+            <div className="sm:w-[300px] xl:w-[340px] shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 sm:border-l sm:border-slate-200 sm:dark:border-dk-border sm:pl-3">
+              <div className="flex items-center gap-2.5 mb-3">
+                <Vignette model={modeleOuvert} className="w-9 h-9" />
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-extrabold text-slate-800 dark:text-dk-text truncate">
+                    {modeleOuvert.meta_data?.nom_modele || modeleOuvert.id}
+                  </span>
+                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                    {modeleOuvert.meta_data?.reference || ''}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {grilleModele.map(g => (
+                  <div key={g.couleur} className="rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border p-3">
+                    <span className="flex items-center gap-2 mb-2">
+                      <span
+                        className="w-4 h-4 rounded-full border border-slate-300 dark:border-dk-border flex-none"
+                        style={teinteDe(g.couleur) ? { backgroundColor: teinteDe(g.couleur)! } : undefined}
+                      />
+                      <span className="text-xs font-extrabold text-slate-800 dark:text-dk-text">{g.couleur || '—'}</span>
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {g.tailles.map(t => {
+                        const reste = restantDe(modeleOuvert.id, g.couleur, t.taille);
+                        return (
+                          <button
+                            key={t.taille}
+                            disabled={reste <= 0}
+                            onClick={() => ajouter(modeleOuvert, g.couleur, t.taille)}
+                            className={`px-3 py-2 rounded-xl border text-center min-w-[64px] transition-colors ${
+                              reste > 0
+                                ? 'bg-slate-50 dark:bg-dk-elevated border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'
+                                : 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border opacity-50 cursor-not-allowed'
+                            }`}
+                          >
+                            <span className="block text-xs font-extrabold text-slate-800 dark:text-dk-text">{t.taille || '—'}</span>
+                            <span className="block text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{reste}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setModeleOuvert(null)}
+                className="mt-3 w-full py-2 rounded-xl border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-elevated"
+              >
+                {T.retour}
+              </button>
+            </div>
           )}
-          {vue.grille !== 'panier' && panneauModele}
           </div>
         </div>
 
-        {/* La separation se tire : chaque comptoir donne au panier la place
-            qu'il lui faut, sans passer par un reglage. */}
-        <div
-          onMouseDown={() => setRedim('panier')}
-          onDoubleClick={() => majVue(m => ({ ...m, largeurPanier: MISE_EN_PAGE_DEFAUT.largeurPanier }))}
-          title={T.tirer}
-          className={`hidden lg:block shrink-0 w-2 cursor-col-resize transition-colors ${redim === 'panier'
-            ? 'bg-slate-400 dark:bg-dk-accent'
-            : 'bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent'} ${journeeOuverte ? 'hidden' : ''}`}
-        />
-
         {/* Droite : le panier et l'encaissement. */}
-        <div
-          style={estLarge ? { width: `${vue.largeurPanier}%` } : undefined}
-          className={`flex-col flex-1 min-h-0 bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border overflow-hidden lg:flex lg:flex-none ${voletMobile === 'panier' ? 'flex' : 'hidden'}`}
-        >
-          {vue.grille === 'panier' && panneauModele}
-          <div
-            className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-dk-border shrink-0 ${
-              grilleTiree ? 'ring-2 ring-dashed ring-slate-400 rounded-xl' : ''}`}
-            onDragOver={e => { if (grilleTiree) e.preventDefault(); }}
-            onDrop={() => { if (grilleTiree) poserGrille('panier'); }}
-          >
+        <div className={`flex-col flex-1 min-h-0 lg:w-1/2 bg-white dark:bg-dk-surface lg:border-l border-slate-200 dark:border-dk-border overflow-hidden lg:flex ${voletMobile === 'panier' ? 'flex' : 'hidden'}`}>
+          <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-dk-border shrink-0">
             <div className="flex items-center gap-2 min-w-0">
               {/* Telephone : revenir au rayon sans quitter la vente. */}
               <span className="text-xs font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted shrink-0">
@@ -1533,52 +894,233 @@ const Caisse: React.FC<CaisseProps> = ({
               )}
             </div>
           </div>
-          <div className="flex-1 min-h-0 content-start p-3 sm:p-4 flex flex-wrap gap-2.5 sm:gap-3 bg-white dark:bg-dk-surface overflow-y-auto overscroll-contain">
-            {/* Les reglages de la vente, dans l'ordre voulu par ce poste.
-                En mode mise en page, chaque bloc se prend a la souris et se
-                depose ailleurs : le caissier range son ecran comme il range
-                son comptoir. */}
-            {vue.ordre.map(k => vue.champs[k] ? (
-              <div
-                key={k}
-                draggable={reglagesOuverts}
-                onDragStart={() => setBlocTire(k)}
-                onDragEnd={() => setBlocTire(null)}
-                onDragOver={e => { if (reglagesOuverts && blocTire && blocTire !== k) { e.preventDefault(); deplacerBloc(blocTire, k); } }}
-                style={vue.hauteurs[k] ? { height: vue.hauteurs[k] } : undefined}
-                className={`${vue.demis[k] ? 'w-[calc(50%-0.375rem)]' : 'w-full'} ${vue.hauteurs[k] ? 'overflow-y-auto overscroll-contain' : ''} ${k === 'lignes' && !vue.hauteurs[k] && !vue.demis[k] ? 'flex-1 min-h-[120px] overflow-y-auto overscroll-contain' : ''}${k === 'lignes' && vue.demis[k] ? ' min-h-[120px] overflow-y-auto overscroll-contain' : ''} ${reglagesOuverts
-                  ? `relative rounded-xl border border-dashed pl-4 pr-8 py-2 cursor-grab active:cursor-grabbing transition-colors ${blocTire === k ? 'border-slate-800 dark:border-dk-accent bg-slate-50 dark:bg-dk-elevated opacity-60' : 'border-slate-300 dark:border-dk-border'}`
-                  : ''}`}
-              >
-                {reglagesOuverts && (
-                  <>
-                    <GripVertical className="absolute left-0.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300 dark:text-dk-muted pointer-events-none" />
-                    {/* Pleine ligne ou demi-ligne : deux blocs courts tiennent
-                        alors cote a cote. */}
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100 dark:divide-dk-border">
+            {lignes.length === 0 && (
+              <p className="p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.vide}</p>
+            )}
+            {lignes.map(l => (
+              <div key={l.key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 px-3 sm:px-4 py-3">
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  <Vignette model={l.model} className="w-10 h-10 sm:w-10 sm:h-10" />
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-[13px] sm:text-sm font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
+                      {l.model.meta_data?.nom_modele || l.model.id}
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-dk-border flex-none"
+                        style={teinteDe(l.couleur) ? { backgroundColor: teinteDe(l.couleur)! } : undefined}
+                      />
+                      {[l.couleur, l.taille].filter(Boolean).join(' · ') || '—'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
+                    className="sm:hidden p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                  <div className="flex items-center gap-1 bg-slate-50 dark:bg-dk-elevated rounded-full p-0.5 border border-slate-200 dark:border-dk-border">
                     <button
-                      type="button"
-                      draggable={false}
-                      onMouseDown={e => e.stopPropagation()}
-                      onClick={e => { e.stopPropagation(); majVue(m => ({ ...m, demis: { ...m.demis, [k]: !m.demis[k] } })); }}
-                      title={T.demiLigne}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 px-1.5 py-1 rounded-md text-[10px] font-black text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                      onClick={() => setLignes(prev => prev.flatMap(x => x.key !== l.key ? [x] : (x.qte > 1 ? [{ ...x, qte: x.qte - 1 }] : [])))}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated shadow-sm active:scale-95 transition-transform"
                     >
-                      {vue.demis[k] ? '½' : '1'}
+                      <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     </button>
-                    {/* Le bord du bas se tire : chaque bloc prend la hauteur
-                        qu'il merite. Double-clic, et il reprend la sienne. */}
-                    <div
-                      draggable={false}
-                      onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setRedimBloc({ cle: k, y: e.clientY, depart: e.currentTarget.parentElement?.getBoundingClientRect().height || 0 }); }}
-                      onDoubleClick={() => majVue(m => { const h = { ...m.hauteurs }; delete h[k]; return { ...m, hauteurs: h }; })}
-                      title={T.tirer}
-                      className="absolute left-2 right-2 -bottom-0.5 h-1.5 rounded-full cursor-row-resize bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent"
-                    />
-                  </>
-                )}
-                {blocsReglage[k]}
+                    <span className="w-6 sm:w-8 text-center text-sm font-black text-slate-800 dark:text-dk-text">{l.qte}</span>
+                    <button
+                      onClick={() => ajouter(l.model, l.couleur, l.taille)}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated shadow-sm active:scale-95 transition-transform"
+                    >
+                      <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </button>
+                  </div>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={l.prix === 0 ? '' : l.prix}
+                    placeholder="0.00"
+                    onChange={e => {
+                      const v = e.target.value === '' ? 0 : Number(e.target.value);
+                      setLignes(prev => prev.map(x => x.key === l.key ? { ...x, prix: v, prixTouched: true } : x));
+                    }}
+                    className="w-[72px] sm:w-20 px-2 py-1.5 rounded-lg text-right text-[13px] sm:text-sm font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 placeholder:text-slate-400"
+                  />
+                  <span className="w-[64px] sm:w-20 text-right text-[13px] sm:text-sm font-black text-slate-800 dark:text-dk-text truncate">
+                    {fmt(l.qte * (Number(l.prix) || 0))}
+                  </span>
+                  <button
+                    onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
+                    className="hidden sm:flex p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            ) : null)}
+            ))}
+          </div>
+
+          <div className="border-t border-slate-200 dark:border-dk-border p-3 sm:p-4 space-y-2.5 sm:space-y-3 shrink-0 bg-white dark:bg-dk-surface max-h-[45vh] overflow-y-auto overscroll-contain lg:max-h-none lg:overflow-visible">
+            {/* Le type de vente commande le tarif ET le document : en gros on
+                facture un revendeur nomme, au comptoir on remet un ticket. */}
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+              {typesVente.map(t => (
+                <button
+                  key={t.v}
+                  onClick={() => setTypeVente(t.v)}
+                  disabled={!!client}
+                  title={client ? T.typeDuClient : undefined}
+                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
+                    typeEffectif === t.v
+                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent shadow-sm'
+                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
+                  } ${client ? 'opacity-60 cursor-not-allowed' : ''}`}
+                >
+                  {t.l}
+                </button>
+              ))}
+            </div>
+
+            {/* Le client : on le reconnait a sa photo, on le trouve en tapant,
+                et on le cree sans quitter le comptoir. */}
+            {client ? (
+              <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border">
+                {client.photo
+                  ? <img src={client.photo} alt="" className="w-9 h-9 rounded-lg object-cover flex-none" />
+                  : <div className="w-9 h-9 rounded-lg bg-white dark:bg-dk-surface flex-none flex items-center justify-center"><User className="w-4 h-4 text-slate-400 dark:text-dk-muted" /></div>}
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-slate-800 dark:text-dk-text truncate">{client.nom}</span>
+                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                    {[client.type, client.tel, client.ville].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+                <button
+                  onClick={() => { setClientId(''); setClientQuery(''); }}
+                  className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400"
+                  aria-label={T.retirerClient}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted pointer-events-none" />
+                    <input
+                      value={clientQuery}
+                      onChange={e => setClientQuery(e.target.value)}
+                      placeholder={T.chercherClient}
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                    />
+                  </div>
+                  {onCreateClient && (
+                    <button
+                      onClick={onCreateClient}
+                      title={T.nouveauClient}
+                      className="shrink-0 px-3 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                {clientQuery.trim() !== '' && (
+                  <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border">
+                    {clientsTrouves.length === 0 && (
+                      <p className="p-3 text-[11px] text-slate-400 dark:text-dk-muted">{T.aucunClient}</p>
+                    )}
+                    {clientsTrouves.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setClientId(c.id); setClientQuery(''); }}
+                        className="w-full flex items-center gap-2 p-2 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                      >
+                        {c.photo
+                          ? <img src={c.photo} alt="" className="w-8 h-8 rounded-lg object-cover flex-none" />
+                          : <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dk-elevated flex-none" />}
+                        <span className="min-w-0">
+                          <span className="block text-xs font-bold text-slate-800 dark:text-dk-text truncate">{c.nom}</span>
+                          <span className="block text-[10px] text-slate-500 dark:text-dk-muted truncate">
+                            {[c.type, c.tel, c.ville].filter(Boolean).join(' · ')}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Vente au comptoir sans fiche : un nom libre suffit, et il
+                    apparaitra sur le ticket. */}
+                <input
+                  value={clientLibre}
+                  onChange={e => setClientLibre(e.target.value)}
+                  placeholder={T.passage}
+                  className="w-full px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                />
+              </div>
+            )}
+
+            {/* La facture : un reglage, pas une question a chaque vente. En
+                gros elle est imposee — un revendeur part toujours avec. */}
+            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft">
+              <input
+                type="checkbox"
+                checked={factureRequise}
+                disabled={typeEffectif === 'GROS'}
+                onChange={e => setFactureAuto(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 dark:border-dk-border"
+              />
+              {T.factureAuto}
+              {typeEffectif === 'GROS' && <span className="text-slate-400 dark:text-dk-muted">({T.imposee})</span>}
+            </label>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {modes.map(m => (
+                <button
+                  key={m.v}
+                  onClick={() => setPaiement(m.v)}
+                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
+                    paiement === m.v
+                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
+                  }`}
+                >
+                  {m.l}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0">{T.remise}</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={remiseGlobale}
+                placeholder="0"
+                onChange={e => setRemiseGlobale(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-20 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
+              />
+              {paiement === 'ESPECES' && (
+                <>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0 ml-1">{T.recu}</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={encaisse}
+                    placeholder="0"
+                    onChange={e => setEncaisse(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-20 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
+                  />
+                </>
+              )}
+              <div className="flex-1 min-w-0" />
+              {paiement === 'ESPECES' && rendu != null && (
+                <span className={`text-xs font-extrabold shrink-0 ${rendu < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-dk-text-soft'}`}>
+                  {T.rendu} : {fmt(rendu)} {currency}
+                </span>
+              )}
+            </div>
 
             {erreur && (
               <p className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
