@@ -1,19 +1,25 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { ModelData, SubcontractOrder, PlanningEvent, SubcontractorProfile, DEFAULT_COMMERCIAL_SETTINGS } from '../types';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { resolveStock, MagasinItem } from '../lib/magasinMatch';
 import { fmt } from '../app/constants';
 import { computeModelCostPrice, prixPlancher, estSousPlancher, SOUS_COUT_NOTE_PREFIX } from '../lib/costPrice';
-import { resolveCommercialAccess } from '../app/accessControl';
+import { resolveCommercialAccess, SALE_PRICE_FIELD } from '../app/accessControl';
 import { useAuth } from '../src/context/AuthContext';
 import { usePermissions } from '../src/context/PermissionsContext';
-import { diffOrderVsModelGrid, orderGridToModel } from '../utils/subcontractGrid';
+import { diffOrderVsModelGrid, orderGridToModel, normalizeLabel, type OrderGrid } from '../utils/subcontractGrid';
 import InlineInvoiceList from './InlineInvoiceList';
 import FactureUploader from './FactureUploader';
 import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
 import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
+import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
+import { ean13FromDigits, ean13Variant, renderEAN13, parseScanCode } from '../lib/barcode';
+import { buildZplForCells, buildZplTestLabel, type ZplCell } from '../lib/zpl';
+import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
+import Caisse, { type CaisseLigne, type CaissePaiement, type TypeVente } from './Caisse';
+import { buildTicketHtml, buildTicketZpl, parsePrinterHosts, type TicketData } from '../lib/ticket';
+import { lsGetMig, lsSet } from '../lib/storageKeys';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
@@ -21,7 +27,7 @@ import {
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
   AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil, Table,
-  Receipt, Warehouse
+  Receipt, Warehouse, Barcode, ScanLine, Store, MoreVertical, Upload
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
@@ -562,6 +568,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [orderPendingDelete, setOrderPendingDelete] = useState<SubcontractOrder | null>(null);
   const [isDeletingOrder, setIsDeletingOrder] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  /** Plein écran des fenêtres denses (grille de réception, frais, factures,
+   *  mouvements de stock). Sur un grand écran, les lire dans une fenêtre
+   *  étroite oblige à faire défiler pour comparer ce qui devrait se voir d'un
+   *  seul coup. Le choix est PARTAGÉ par tout le module et retenu tant que
+   *  l'onglet reste ouvert : celui qui agrandit une fois veut le même confort
+   *  à la fenêtre suivante. */
+  const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
   const [detailOrder, setDetailOrder] = useState<SubcontractOrder | null>(null);
 
   // Form States (Orders)
@@ -616,8 +629,30 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [saleClientIce, setSaleClientIce] = useState('');
   const [saleClientRc, setSaleClientRc] = useState('');
   const [saleClientAdresse, setSaleClientAdresse] = useState('');
+  const [saleClientVille, setSaleClientVille] = useState('');
+  /** Type du client — GROS = revendeur au carton · DETAIL = client final ·
+   *  BOUTIQUE = point de vente. Repris de la fiche client quand il est choisi
+   *  dans « Client enregistré », modifiable ensuite (le registre propose). */
+  const [saleClientType, setSaleClientType] = useState<'GROS' | 'DETAIL' | 'BOUTIQUE'>('DETAIL');
   const [saleClientTel, setSaleClientTel] = useState('');
   const [saleClientEmail, setSaleClientEmail] = useState('');
+  /** Création d'un client « sur le tas » depuis la facture de vente : attendre
+   *  d'aller dans l'onglet Clients casse le geste. Formulaire complet — type,
+   *  ville et adresse — pour que la fiche soit réutilisable à la sortie suivante. */
+  const [saleNewClientOpen, setSaleNewClientOpen] = useState(false);
+  const [saleNewClient, setSaleNewClient] = useState<{
+    nom: string;
+    type: 'GROS' | 'DETAIL' | 'BOUTIQUE';
+    ice: string;
+    rc: string;
+    tel: string;
+    email: string;
+    adresse: string;
+    ville: string;
+    notes: string;
+  }>({ nom: '', type: 'DETAIL', ice: '', rc: '', tel: '', email: '', adresse: '', ville: '', notes: '' });
+  const [saleNewClientSaving, setSaleNewClientSaving] = useState(false);
+  const [saleNewClientError, setSaleNewClientError] = useState<string | null>(null);
   const [saleQuantity, setSaleQuantity] = useState<number>(0);
   /** Prix unitaire de vente : VIDE tant qu'aucune valeur fiable n'existe.
    *  Jamais de valeur devinée — le champ est `required`, l'utilisateur tranche. */
@@ -674,14 +709,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         credentials: 'include',
         body: JSON.stringify(patch),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.message || '');
+      }
       setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, ...patch } : o)));
       setDetailOrder(prev => (prev && prev.id === order.id ? { ...prev, ...patch } : prev));
       setStockEntryOrder(prev => (prev && prev.id === order.id ? { ...prev, ...patch } : prev));
       setFinishForm(null);
       setStockEntryOrder(null);
-    } catch {
-      setStockEntryError(tx(lang,{fr:'La clôture a échoué.',ar:'فشل الإغلاق.',en:'Closing failed.',es:'El cierre falló.',pt:'O encerramento falhou.',tr:'Kapatma başarısız.'}));
+    } catch (err: any) {
+      setStockEntryError(err?.message || tx(lang,{fr:'La clôture a échoué.',ar:'فشل الإغلاق.',en:'Closing failed.',es:'El cierre falló.',pt:'O encerramento falhou.',tr:'Kapatma başarısız.'}));
     } finally {
       setFinishSaving(false);
     }
@@ -908,6 +946,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [expenseAmount, setExpenseAmount] = useState<number | ''>('');
   const [expenseScopeMode, setExpenseScopeMode] = useState<'ALL' | 'PARTIAL'>('ALL');
   const [expenseQuantityScope, setExpenseQuantityScope] = useState<number | ''>('');
+  /** À QUI ce frais est-il dû, et l'a-t-on réglé ? Un libellé et un montant ne
+   *  répondaient ni à « combien dois-je encore au transporteur ? » ni à « cette
+   *  ligne est-elle déjà payée ? ». Le tiers est facultatif — un frais interne
+   *  n'a pas de fournisseur — mais dès qu'il est renseigné, la ligne apparaît
+   *  dans le compte de ce fournisseur. */
+  const [expenseTiersId, setExpenseTiersId] = useState('');
+  const [expenseFactureRef, setExpenseFactureRef] = useState('');
+  const [expenseMontantPaye, setExpenseMontantPaye] = useState<number | ''>('');
 
   // ---- C : facture de sous-traitance (ce que VOUS payez au sous-traitant) ---
   const [isCostInvoiceModalOpen, setIsCostInvoiceModalOpen] = useState(false);
@@ -1018,8 +1064,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
      *  l'opérateur DÉCIDE — un tarif résolu ne doit jamais écraser sa saisie. */
     prixTouched: boolean;
   } | null>(null);
+  /** Caisse : la vente au comptoir vit dans son propre ecran plein cadre.
+   *  Elle partage le stock et l'API de sortie, rien d'autre. */
+  const [caisseOpen, setCaisseOpen] = useState(false);
+  const [caisseRecherche, setCaisseRecherche] = useState('');
+  const caisseOpenRef = useRef(false);
+  caisseOpenRef.current = caisseOpen;
+
   const [sortieSaving, setSortieSaving] = useState(false);
   const [sortieError, setSortieError] = useState<string | null>(null);
+  /** Proposition de facturation juste après une sortie de stock : la sortie est
+   *  enregistrée, on demande si l'utilisateur veut créer une facture tout de
+   *  suite. Vieux réflexe des cahiers — la facture suit la sortie, pas l'inverse. */
+  const [sortieInvoicePrompt, setSortieInvoicePrompt] = useState<{
+    clientId: string | null;
+    clientNom: string | null;
+  } | null>(null);
   /** Tarif résolu par le serveur pour (modèle, client, quantité). `source` dit
    *  D'OÙ vient le prix : un montant qui apparaît sans qu'on sache pourquoi
    *  n'est pas utilisable en confiance devant un client. */
@@ -1027,16 +1087,287 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     { prix: number | null; source: 'CLIENT' | 'TYPE' | 'CATALOGUE' | 'NONE'; qty_min: number | null; type_client: string | null } | null
   >(null);
   const [sortieTarifLoading, setSortieTarifLoading] = useState(false);
+  /** Les TROIS colonnes de la grille (détail, gros, boutique), affichées côte à
+   *  côte comme sur le tiki : au moment de vendre, l'opérateur doit voir ce que
+   *  vaut l'article pour un client de passage ET pour un revendeur, pas
+   *  seulement le prix déjà résolu pour le client sélectionné. `null` = aucun
+   *  tarif saisi pour ce type, ce qui doit se voir plutôt que se deviner. */
+  const [sortieTarifsParType, setSortieTarifsParType] = useState<Record<string, number | null>>({});
   /** Motif obligatoire d'une vente sous le prix plancher (politique 'CONFIRM').
    *  Il part dans la note de la sortie, préfixé, pour rester retrouvable. */
   const [sortieMotif, setSortieMotif] = useState('');
   /** Étape de confirmation « vente à perte » : le premier clic sur Enregistrer
    *  ouvre la demande de motif, le second enregistre réellement. */
   const [sortieConfirmSousCout, setSortieConfirmSousCout] = useState(false);
+  /** Sélecteur de client de la sortie de stock : deux clients homonymes ne se
+   *  distinguent qu'à la photo et aux coordonnées — un <select> texte seul
+   *  les rend indiscernables. */
+  const [clientPickerOpen, setClientPickerOpen] = useState(false);
+  const [clientPickerSearch, setClientPickerSearch] = useState('');
+  /** Ajout rapide d'un client SANS quitter la sortie de stock : attendre que
+   *  l'opérateur referme le formulaire, aille dans l'onglet Clients, crée la
+   *  fiche puis revienne casse le geste — le client se crée là où on en a
+   *  besoin, avec juste le minimum (nom + téléphone), le reste se complète
+   *  plus tard depuis sa fiche. */
+  const [clientQuickAdd, setClientQuickAdd] = useState(false);
+  const [clientQuickAddNom, setClientQuickAddNom] = useState('');
+  const [clientQuickAddTel, setClientQuickAddTel] = useState('');
+  /** Création rapide côté sortie de stock : le type, la ville et l'adresse sont
+   *  saisis dès la fiche pour que la sortie suivante les retrouve. */
+  const [clientQuickAddType, setClientQuickAddType] = useState<'GROS' | 'DETAIL' | 'BOUTIQUE'>('DETAIL');
+  const [clientQuickAddVille, setClientQuickAddVille] = useState('');
+  const [clientQuickAddAdresse, setClientQuickAddAdresse] = useState('');
+  const [clientQuickAddIce, setClientQuickAddIce] = useState('');
+  const [clientQuickAddRc, setClientQuickAddRc] = useState('');
+  const [clientQuickAddSaving, setClientQuickAddSaving] = useState(false);
+  const [clientQuickAddError, setClientQuickAddError] = useState<string | null>(null);
   /** Compteur de requêtes : chaque frappe dans la grille change la quantité et
    *  relance une résolution. Sans ce garde, une réponse lente écraserait une
    *  réponse plus récente et proposerait le tarif d'une autre quantité. */
   const sortieTarifSeq = useRef(0);
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * Commande « normale » : plusieurs modèles sur UNE commande de vente.
+   * Le client a besoin de plus d'un modèle → un seul ordre, un seul client,
+   * un seul total, et une facture qui regroupe tout. Chaque ligne porte son
+   * propre tarif résolu (modèle + quantité + client) et son propre garde-fou
+   * « vente à perte ».
+   * ────────────────────────────────────────────────────────────────────── */
+  const [commandeOpen, setCommandeOpen] = useState(false);
+  const [commandeClientId, setCommandeClientId] = useState('');
+  const [commandeDate, setCommandeDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [commandeNote, setCommandeNote] = useState('');
+  const [commandeLignes, setCommandeLignes] = useState<Array<{
+    modelId: string;
+    prix: number | '';
+    /** Vrai dès que l'opérateur a touché le prix de la ligne : le serveur
+     *  PROPOSE, l'opérateur DÉCIDE — un tarif résolu ne doit jamais écraser
+     *  sa saisie. */
+    prixTouched: boolean;
+    /** Grille couleur × taille de CE modèle (comme la sortie classique) :
+     *  chaque cellule porte la quantité sortie pour (couleur, taille). */
+    grid: Record<string, number | ''>;
+  }>>([]);
+  const [commandeSaving, setCommandeSaving] = useState(false);
+  const [commandeError, setCommandeError] = useState<string | null>(null);
+  /** Tarifs résolus par modèle (le prix est une propriété du MODÈLE × quantité
+   *  × client, pas de la ligne : deux lignes du même modèle partagent le prix). */
+  const [commandePrix, setCommandePrix] = useState<Record<string, number | ''>>({});
+  const [commandePrixLoading, setCommandePrixLoading] = useState(false);
+  const commandePrixSeq = useRef(0);
+  /** Les TROIS colonnes par modèle (détail, gros, boutique), indépendamment du
+   *  client sélectionné — comme sur la sortie classique et le tiki. Sans elles,
+   *  cet écran ne montrait que le tarif déjà résolu pour le client choisi,
+   *  impossible de vérifier le prix grossiste avant de vendre au détail. */
+  const [commandeTarifsParType, setCommandeTarifsParType] = useState<Record<string, Record<string, number | null>>>({});
+  /** Motif obligatoire d'une vente sous le prix plancher (politique 'CONFIRM'). */
+  const [commandeMotif, setCommandeMotif] = useState('');
+  const [commandeConfirmSousCout, setCommandeConfirmSousCout] = useState(false);
+  /** Sélecteur de modèle de la commande : même esprit que le sélecteur de
+   *  client — photo + nom + Réf + dispo — pour que l'opérateur reconnaisse le
+   *  modèle avant de l'ajouter. Un clic sur une ligne = ajout immédiat. */
+  const [commandeModelPickerOpen, setCommandeModelPickerOpen] = useState(false);
+  const [commandeModelSearch, setCommandeModelSearch] = useState('');
+  /** Sélecteur de client de la commande : photo/avatar + coordonnées, comme le
+   *  sélecteur de la sortie de stock — deux homonymes ne se distinguent qu'à la
+   *  photo et aux coordonnées. */
+  const [commandeClientPickerOpen, setCommandeClientPickerOpen] = useState(false);
+  const [commandeClientSearch, setCommandeClientSearch] = useState('');
+  const commandeLigneTotalQty = (l: { grid: Record<string, number | ''> }): number =>
+    Object.values(l.grid).reduce<number>((a, v) => a + (Number(v) || 0), 0);
+  const commandeTotalQty = useMemo(
+    () => commandeLignes.reduce((a, l) => a + commandeLigneTotalQty(l), 0),
+    [commandeLignes]
+  );
+  const commandeTotalHT = useMemo(
+    () => commandeLignes.reduce((a, l) => a + commandeLigneTotalQty(l) * (Number(l.prix) || 0), 0),
+    [commandeLignes]
+  );
+
+  const openCommande = () => {
+    setCommandeOpen(true);
+    setCommandeClientId('');
+    setCommandeDate(new Date().toISOString().split('T')[0]);
+    setCommandeNote('');
+    setCommandeLignes([]);
+    setCommandePrix({});
+    setCommandeTarifsParType({});
+    setCommandeError(null);
+    setCommandeMotif('');
+    setCommandeConfirmSousCout(false);
+  };
+
+  const addCommandeLigne = (modelId: string) => {
+    setCommandeLignes(prev =>
+      prev.some(l => l.modelId === modelId)
+        ? prev
+        : [...prev, { modelId, prix: '', prixTouched: false, grid: {} }]
+    );
+  };
+
+  const removeCommandeLigne = (index: number) => {
+    setCommandeLignes(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const setCommandeLigneCell = (index: number, cell: string, value: number | '') => {
+    setCommandeLignes(prev => prev.map((l, i) => (i === index ? { ...l, grid: { ...l.grid, [cell]: value } } : l)));
+  };
+
+  const setCommandeLignePrix = (index: number, prix: number | '') => {
+    setCommandeLignes(prev => prev.map((l, i) => (i === index ? { ...l, prix, prixTouched: true } : l)));
+  };
+
+  /** Résolution des tarifs ligne par ligne (même service que la sortie
+   *  classique, avec la quantité TOTALE de la ligne). Debounce + compteur de
+   *  séquence : une réponse lente ne doit pas écraser une réponse récente. */
+  useEffect(() => {
+    if (IS_STATIC || !commandeOpen) return;
+    const targets = commandeLignes.filter(l => l.modelId && commandeLigneTotalQty(l) > 0);
+    if (targets.length === 0) {
+      setCommandePrix({});
+      setCommandePrixLoading(false);
+      return;
+    }
+    const seq = ++commandePrixSeq.current;
+    const ctrl = new AbortController();
+    setCommandePrixLoading(true);
+    const timer = setTimeout(() => {
+      Promise.all(
+        targets.map(l => {
+          const qs = new URLSearchParams({ modelId: l.modelId, qty: String(commandeLigneTotalQty(l)) });
+          if (commandeClientId) qs.set('clientId', commandeClientId);
+          return fetch(`/api/prix/resolve?${qs.toString()}`, { credentials: 'include', signal: ctrl.signal })
+            .then(r => (r.ok ? r.json() : null))
+            .then(d => ({ modelId: l.modelId, prix: d?.prix == null ? null : Number(d.prix) }))
+            .catch(() => ({ modelId: l.modelId, prix: null }));
+        })
+      ).then(results => {
+        if (seq !== commandePrixSeq.current) return;
+        const map: Record<string, number | ''> = {};
+        results.forEach(r => { map[r.modelId] = r.prix == null ? '' : Number(Number(r.prix).toFixed(2)); });
+        setCommandePrix(map);
+        // Pré-remplissage UNIQUEMENT tant que l'opérateur n'a pas saisi le prix
+        // de la ligne lui-même : le serveur propose, l'opérateur décide.
+        setCommandeLignes(prev => {
+          let changed = false;
+          const next = prev.map(l => {
+            const r = results.find(x => x.modelId === l.modelId);
+            const proposé = r?.prix == null ? null : Number(Number(r.prix).toFixed(2));
+            if (proposé != null && !l.prixTouched && l.prix !== proposé) {
+              changed = true;
+              return { ...l, prix: proposé };
+            }
+            return l;
+          });
+          return changed ? next : prev;
+        });
+        setCommandePrixLoading(false);
+      });
+    }, 350);
+    return () => { ctrl.abort(); clearTimeout(timer); };
+  }, [commandeLignes, commandeClientId, commandeOpen]);
+
+  /** Les trois colonnes, indépendamment du client : elles servent à COMPARER,
+   *  donc elles ne doivent pas changer quand on choisit un client précis
+   *  (contrairement à `commandePrix` ci-dessus, qui lui suit le client). */
+  useEffect(() => {
+    if (IS_STATIC || !commandeOpen) return;
+    const targets = commandeLignes.filter(l => l.modelId && commandeLigneTotalQty(l) > 0);
+    if (targets.length === 0) { setCommandeTarifsParType({}); return; }
+    let alive = true;
+    Promise.all(targets.map(async l => {
+      const qty = String(commandeLigneTotalQty(l));
+      const pairs = await Promise.all((['DETAIL', 'GROS', 'BOUTIQUE'] as const).map(t =>
+        fetch(`/api/prix/resolve?modelId=${encodeURIComponent(l.modelId)}&qty=${qty}&type=${t}`, { credentials: 'include' })
+          .then(r => (r.ok ? r.json() : null))
+          .then((d: any) => [t, d?.source === 'TYPE' ? Number(d.prix) : null] as const)
+          .catch(() => [t, null] as const)
+      ));
+      return [l.modelId, Object.fromEntries(pairs)] as const;
+    })).then(entries => { if (alive) setCommandeTarifsParType(Object.fromEntries(entries)); });
+    return () => { alive = false; };
+  }, [commandeLignes, commandeOpen]);
+
+  const submitCommande = async () => {
+    if (!commandeOpen) return;
+    const lignes = commandeLignes
+      .map(l => ({
+        modelId: l.modelId,
+        prix_unitaire: Number(l.prix) || 0,
+        cells: Object.entries(l.grid)
+          .map(([k, v]) => {
+            const [couleur, taille] = k.split('|');
+            return { couleur, taille, quantite: Math.floor(Number(v) || 0) };
+          })
+          .filter(c => c.quantite > 0),
+      }))
+      .filter(l => l.modelId && l.cells.length > 0);
+
+    if (lignes.length === 0) {
+      setCommandeError(tx(lang,{fr:'Saisissez au moins une quantité.',ar:'دخّل على الأقل كمية وحدة.',en:'Enter at least one quantity.',es:'Introduzca al menos una cantidad.',pt:'Introduza pelo menos uma quantidade.',tr:'En az bir miktar girin.'}));
+      return;
+    }
+    const client = atelierClients.find(c => c.id === commandeClientId);
+    if (!client) {
+      setCommandeError(tx(lang,{fr:'Choisissez un client.',ar:'اختر زبوناً.',en:'Choose a client.',es:'Elija un cliente.',pt:'Escolha um cliente.',tr:'Bir müşteri seçin.'}));
+      return;
+    }
+
+    // Garde-fou « vente à perte ». La MÊME règle est rejouée côté serveur
+    // (server/commercialPolicy.ts) : celle-ci est le confort, celle-là la loi.
+    if (commandeSousPlancher) {
+      if (venteSousCoutPolicy === 'BLOCK') {
+        setCommandeError(tx(lang,{fr:`Vente sous le prix plancher refusée par les réglages de l'entreprise.`,ar:'البيع تحت الثمن الأدنى مرفوض حسب إعدادات الشركة.',en:'Sale below the floor price is refused by the company settings.',es:'La venta por debajo del precio mínimo esta rechazada por los ajustes de la empresa.',pt:'A venda abaixo do preco minimo e recusada pelas definicoes da empresa.',tr:'Taban fiyatin altinda satis sirket ayarlarinca reddedildi.'}));
+        return;
+      }
+      if (venteSousCoutPolicy === 'CONFIRM') {
+        if (!commandeConfirmSousCout) {
+          setCommandeConfirmSousCout(true);
+          setCommandeError(null);
+          return;
+        }
+        if (!commandeMotif.trim()) {
+          setCommandeError(tx(lang,{fr:'Motif obligatoire pour vendre sous le prix plancher.',ar:'السبب إجباري باش تبيع تحت الثمن الأدنى.',en:'A reason is required to sell below the floor price.',es:'Motivo obligatorio para vender por debajo del precio minimo.',pt:'Motivo obrigatorio para vender abaixo do preco minimo.',tr:'Taban fiyatin altinda satis icin gerekce zorunlu.'}));
+          return;
+        }
+      }
+    }
+
+    const note = commandeSousPlancher && venteSousCoutPolicy === 'CONFIRM' && commandeMotif.trim()
+      ? `${SOUS_COUT_NOTE_PREFIX} ${commandeMotif.trim()}`
+      : (commandeNote.trim() || null);
+
+    setCommandeSaving(true);
+    setCommandeError(null);
+    try {
+      const res = await fetch('/api/subcontract/commandes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          client_id: client?.id || null,
+          client_nom: client?.nom || null,
+          date_sortie: commandeDate,
+          note,
+          lignes,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || tx(lang,{fr:'La commande a été refusée.',ar:'تم رفض الأمر.',en:'The order was refused.',es:'El pedido fue rechazado.',pt:'A encomenda foi recusada.',tr:'Sipariş reddedildi.'}));
+      await loadStockMovements();
+      setCommandeOpen(false);
+      setCommandeMotif('');
+      setCommandeConfirmSousCout(false);
+      // La commande vient d'être enregistrée : proposer immédiatement la facture.
+      if (client?.id) {
+        setSortieInvoicePrompt({ clientId: client.id, clientNom: client.nom });
+      }
+    } catch (err: any) {
+      setCommandeError(err.message);
+    } finally {
+      setCommandeSaving(false);
+    }
+  };
 
   // ── Politique commerciale : TOUJOURS lue via `?? DEFAULT_COMMERCIAL_SETTINGS`,
   //    jamais en dur — c'est tout l'intérêt d'avoir sorti ces règles du code.
@@ -1047,6 +1378,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     ...DEFAULT_COMMERCIAL_SETTINGS.clientTypeLabels,
     ...(settings?.clientTypeLabels || {}),
   };
+
+  // ── Boutique en ligne : état de synchronisation par modèle, en une seule
+  //    requête pour toute la liste. Si aucune boutique n'est branchée,
+  //    `boutiqueOk` reste faux et RIEN ne s'affiche — pas de colonne vide.
+  const { etats: storeSyncEtats, boutiqueOk: storeBoutiqueOk } = useStoreSyncStates();
 
   /** Quantité totale saisie dans la grille : c'est elle qui décide du palier
    *  tarifaire, donc chaque modification relance la résolution du prix. */
@@ -1110,13 +1446,32 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     return () => { ctrl.abort(); clearTimeout(timer); };
   }, [sortieModelId, sortieClientId, sortieTotalQty]);
 
-  const openSortieModal = (model: ModelData, salePrice: number | null) => {
+  /** Les trois colonnes, indépendamment du client sélectionné : elles servent
+   *  à COMPARER, donc elles ne doivent pas changer quand on choisit un client
+   *  précis (contrairement à `sortieTarif` ci-dessus, qui lui suit le client). */
+  useEffect(() => {
+    if (!sortieModelId || IS_STATIC) { setSortieTarifsParType({}); return; }
+    let alive = true;
+    const qty = String(sortieTotalQty);
+    Promise.all((['DETAIL', 'GROS', 'BOUTIQUE'] as const).map(t =>
+      fetch(`/api/prix/resolve?modelId=${encodeURIComponent(sortieModelId)}&qty=${qty}&type=${t}`, { credentials: 'include' })
+        .then(r => (r.ok ? r.json() : null))
+        .then((d: any) => [t, d?.source === 'TYPE' ? Number(d.prix) : null] as const)
+        .catch(() => [t, null] as const)
+    )).then(pairs => { if (alive) setSortieTarifsParType(Object.fromEntries(pairs)); });
+    return () => { alive = false; };
+  }, [sortieModelId, sortieTotalQty]);
+
+  /** Ouvre la sortie de stock d'un modèle. `prefillGrid` permet au lecteur de
+   *  code-barres de pré-remplir la case (taille, couleur) qu'il vient de
+   *  scanner — puis l'opérateur ajuste les quantités à la main. */
+  const openSortieModal = (model: ModelData, salePrice: number | null, prefillGrid?: Record<string, number>) => {
     setSortieForm({
       model,
       clientId: '',
       prix: salePrice != null && salePrice > 0 ? Number(salePrice.toFixed(2)) : '',
       date: new Date().toISOString().split('T')[0],
-      grid: {},
+      grid: { ...(prefillGrid || {}) },
       prixTouched: false,
     });
     setSortieError(null);
@@ -1124,6 +1479,1273 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setSortieMotif('');
     setSortieConfirmSousCout(false);
   };
+
+  // ── Lecteur de code-barres (laser / USB : se comporte comme un clavier).
+  //    On n'intercepte QUE les rafales très rapides (un vrai lecteur expédie
+  //    tout le code en quelques ms puis Enter) ; la frappe manuelle reste libre.
+  const scanBufRef = useRef('');
+  const scanLastRef = useRef(0);
+  const scanActiveRef = useRef(false);
+  const sortieFormRef = useRef(sortieForm);
+  sortieFormRef.current = sortieForm;
+  /** Miroir de `modelStockStats` (déclaré plus bas) pour que le lecteur
+   *  puisse lire le prix de vente sans dépendre de l'ordre de déclaration. */
+  const modelStockStatsRef = useRef<Array<{ model: ModelData; salePrice: number | null; remainingStock: number }>>([]);
+
+  const playPip = useCallback((ok: boolean) => {
+    try {
+      const Ctx = (window.AudioContext || (window as any).webkitAudioContext) as typeof AudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.type = 'sine';
+      o.frequency.value = ok ? 1318.5 : 330;
+      const t = ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.22, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + (ok ? 0.09 : 0.22));
+      o.start(t);
+      o.stop(t + (ok ? 0.11 : 0.24));
+      o.onended = () => { try { void ctx.close(); } catch { /* noop */ } };
+    } catch { /* pas de son disponible */ }
+  }, []);
+
+  /** Déchiffre un EAN-13 « variante » (13 chiffres, taille × couleur) :
+   *  1) la carte enregistrée dans `meta_data.variantCodes` (écrite à
+   *     l'impression : fiable même si la fiche est réordonnée plus tard) ;
+   *  2) à défaut, régénération brute : on rejoue la formule pour chaque
+   *     modèle × taille × couleur jusqu'à trouver le code exact. */
+  /** Un article acheté n'est PAS un modèle : pas de gamme, pas de chrono, pas
+   *  d'équilibrage. Il vit dans sa propre table (voir plus bas, section
+   *  MARCHANDISE ACHETÉE) — seule sa liste est déclarée ici, en avance, parce
+   *  que les deux fonctions juste en dessous doivent savoir si un identifiant
+   *  désigne un article plutôt qu'un modèle. */
+  type ArticleAchete = {
+    id: string;
+    nom: string;
+    reference: string | null;
+    photo: string | null;
+    colors: Array<{ id: string; name: string }>;
+    sizes: string[];
+    notes: string | null;
+    variantCodes?: Record<string, { taille: string; couleur: string }>;
+  };
+  const [articles, setArticles] = useState<ArticleAchete[]>([]);
+
+  /** Donne à un article la FORME d'un modèle, le temps de l'affichage. Tout le
+   *  reste du module (grille de stock, sorties, étiquettes, factures) travaille
+   *  déjà sur cette forme : la réécrire pour les articles aurait doublé le code
+   *  et les occasions de diverger. */
+  const articleAsModel = (a: ArticleAchete): ModelData => ({
+    id: a.id,
+    filename: a.nom,
+    image: a.photo || null,
+    ficheData: { colors: a.colors, sizes: a.sizes } as any,
+    meta_data: {
+      nom_modele: a.nom,
+      reference: a.reference || '',
+      date_creation: '',
+      total_temps: 0,
+      effectif: 0,
+      sizes: a.sizes,
+      colors: a.colors,
+    } as ModelData['meta_data'],
+    gamme_operatoire: [],
+  });
+
+
+  const resolveVariantByEAN = useCallback((ean13: string): { model: ModelData; taille: string; couleur: string } | null => {
+    const key = ean13.trim();
+    // Un article acheté n'est pas dans `models` : sans ce passage, un tiki
+    // imprimé pour lui se scannait pour rien — le lecteur ne trouvait jamais
+    // le code, même si `saveArticleVariantCode` l'avait bien enregistré.
+    const candidats: ModelData[] = [...models, ...articles.map(articleAsModel)];
+    for (const m of candidats) {
+      const map = (m.meta_data as any)?.variantCodes;
+      const hit = map && map[key];
+      if (hit && typeof hit.taille === 'string' && typeof hit.couleur === 'string') {
+        return { model: m, taille: hit.taille, couleur: hit.couleur };
+      }
+    }
+    for (const m of candidats) {
+      const fiche: any = m.ficheData || {};
+      const sizes: string[] = fiche.sizes || [];
+      const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+      const base = ean13FromDigits(String(m.id)).slice(0, 10);
+      for (let si = 0; si < sizes.length; si++) {
+        for (let ci = 0; ci < colors.length; ci++) {
+          if (ean13Variant(base, si, ci) === key) {
+            return { model: m, taille: sizes[si], couleur: colors[ci]?.name || '' };
+          }
+        }
+      }
+    }
+    return null;
+  }, [models, articles]);
+
+  const traiterScan = useCallback((code: string) => {
+    setStockSearch('');
+    const p = parseScanCode(code);
+    if (!p?.ref) { playPip(false); return; }
+    const norm = (s?: string) => (s || '').trim().toUpperCase();
+    let model: ModelData | undefined;
+    let taille = p.taille;
+    let couleur = p.couleur;
+    // EAN-13 variante pure (13 chiffres, sans % ni *): on déchiffre taille/couleur.
+    if (!taille && !couleur && /^\d{13}$/.test(p.ref)) {
+      const hit = resolveVariantByEAN(p.ref);
+      if (hit) { model = hit.model; taille = hit.taille; couleur = hit.couleur; }
+    }
+    if (!model) {
+      // Même repli pour un article acheté : sa référence ou son nom doivent
+      // pouvoir être reconnus au scan comme pour n'importe quel modèle.
+      const candidats: ModelData[] = [...models, ...articles.map(articleAsModel)];
+      model =
+        candidats.find(m => norm(m.meta_data?.reference) === norm(p.ref)) ||
+        candidats.find(m => norm(m.meta_data?.nom_modele) === norm(p.ref));
+    }
+    if (!model) { playPip(false); return; }
+    const fiche: any = model.ficheData || {};
+    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+    const sizes: string[] = fiche.sizes || [];
+    const color = couleur ? colors.find(c => norm(c.name) === norm(couleur)) : undefined;
+    const size = taille ? sizes.find(s => norm(s) === norm(taille)) : undefined;
+    // La case n'existe que si les DEUX (taille, couleur) correspondent à la
+    // grille du modèle — sinon on ouvre simplement la sortie sans rien remplir.
+    const key = `${color?.name ?? ''}|${size ?? ''}`;
+    const stat = modelStockStatsRef.current.find(it => it.model.id === model.id);
+    const current = sortieFormRef.current;
+    if (current?.model.id === model.id && key !== '|') {
+      // Déjà en sortie pour CE modèle : on incrémente la case scannée sans
+      // toucher au client ni au prix déjà choisis (chaque pièce = +1).
+      setSortieForm(prev => prev ? { ...prev, grid: { ...prev.grid, [key]: (Number(prev.grid[key]) || 0) + 1 } } : prev);
+      playPip(true);
+      return;
+    }
+    const prefill: Record<string, number> = {};
+    if (key !== '|') prefill[key] = 1;
+    openSortieModal(model, stat?.salePrice ?? null, prefill);
+    playPip(true);
+  }, [models, articles, resolveVariantByEAN, playPip]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // La caisse a son propre lecteur : deux ecouteurs sur le meme scan
+      // ajouteraient la piece deux fois.
+      if (caisseOpenRef.current) return;
+      const now = performance.now();
+      const gap = now - scanLastRef.current;
+      scanLastRef.current = now;
+      const terminator = e.key === 'Enter' || e.key === 'Tab';
+      if (terminator) {
+        if (scanActiveRef.current && scanBufRef.current.length >= 3) {
+          const code = scanBufRef.current;
+          scanBufRef.current = '';
+          scanActiveRef.current = false;
+          e.preventDefault();
+          traiterScan(code);
+        } else {
+          scanBufRef.current = '';
+          scanActiveRef.current = false;
+        }
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) {
+        scanBufRef.current = '';
+        scanActiveRef.current = false;
+        return;
+      }
+      if (gap < 35) {
+        scanActiveRef.current = true;
+        scanBufRef.current += e.key;
+        e.preventDefault();
+      } else {
+        scanActiveRef.current = false;
+        scanBufRef.current = e.key;
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [traiterScan]);
+
+  // ── Étiquettes « tiki » : deux modes.
+  //   - interne  : un EAN-13 PAR taille × couleur, déchiffré par le lecteur
+  //                (le code remplit la grille de sortie tout seul).
+  //   - externe  : UN EAN-13 par modèle (la « porte ») + prix — celui que le
+  //                magasin lit directement comme un code standard.
+  //   Les quantités à imprimer viennent de la commande (grille couleur × taille)
+  //   et restent modifiables dans le tableau avant impression.
+  const [labelModel, setLabelModel] = useState<ModelData | null>(null);
+  const [labelMode, setLabelMode] = useState<'interne' | 'externe'>('interne');
+  const [labelGrid, setLabelGrid] = useState<Record<string, number>>({});
+  // En mode externe le magasin ne voit que la taille : les quantités sont
+  // agrégées par taille (le même modèle porte tous les tiki d'une taille).
+  const [labelExterneGrid, setLabelExterneGrid] = useState<Record<string, number>>({});
+  const [labelPrice, setLabelPrice] = useState<number>(0);
+  const labelCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  /** Ce qui figure sur le tiki. Une étiquette de 30 mm de haut ne tient pas
+   *  tout : c'est l'opérateur qui tranche, pas nous. Le prix reste décoché par
+   *  défaut en interne (l'atelier n'affiche pas un prix client sur ses bacs). */
+  const [labelFields, setLabelFields] = useState<{
+    marque: boolean; ref: boolean; taille: boolean; couleur: boolean; prix: boolean; code: boolean;
+  }>({ marque: true, ref: true, taille: true, couleur: true, prix: false, code: true });
+
+  /** Marque imprimée en tête d'étiquette. Le logo de l'entreprise (Admin >
+   *  Entreprise) est utilisé s'il existe ; sinon la raison sociale en toutes
+   *  lettres. Le texte reste modifiable : une marque commerciale n'est pas
+   *  toujours la raison sociale. */
+  const [labelBrand, setLabelBrand] = useState('');
+
+  /** Colonne de tarif imprimée sur l'étiquette. Un même article ne porte pas le
+   *  même prix au carton et au comptoir : c'est la grille `st_prix` qui tranche,
+   *  pas une saisie de mémoire. 'MANUEL' = l'opérateur a fixé le prix lui-même
+   *  (solde, salon) et aucun tarif ne doit l'écraser. */
+  type TikiTarif = 'DETAIL' | 'GROS' | 'BOUTIQUE' | 'MANUEL';
+  const [labelTarif, setLabelTarif] = useState<TikiTarif>('DETAIL');
+  /** Prix résolu par la grille pour chaque colonne : `null` = aucun tarif saisi
+   *  pour ce type, ce qui doit se voir au lieu de se deviner. */
+  const [labelTarifs, setLabelTarifs] = useState<Record<string, number | null>>({});
+  const [labelTarifsLoading, setLabelTarifsLoading] = useState(false);
+  const [labelUseLogo, setLabelUseLogo] = useState(true);
+
+  /** Format physique de l'étiquette, en millimètres. Une thermique tire un
+   *  rouleau de largeur FIXE : imprimer sur une page « auto » décale tout le
+   *  rouleau. On génère donc une page par étiquette, à la taille exacte. */
+  const LABEL_SIZES: Array<{ id: string; w: number; h: number }> = [
+    { id: '40x30', w: 40, h: 30 },
+    { id: '50x30', w: 50, h: 30 },
+    { id: '60x40', w: 60, h: 40 },
+    { id: '60x30', w: 60, h: 30 },
+  ];
+  const [labelSize, setLabelSize] = useState<{ w: number; h: number }>({ w: 50, h: 30 });
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * Réglages du tiki, VALABLES POUR TOUS LES MODÈLES.
+   * La marque et le logo ne changent pas d'un modèle à l'autre : les ressaisir
+   * à chaque impression était une corvée et une source de fautes de frappe sur
+   * une étiquette qui part chez le client. Ils sont donc réglés une fois, et
+   * l'impression reste libre de s'en écarter pour un tirage particulier.
+   * ────────────────────────────────────────────────────────────────────── */
+  const TIKI_SETTINGS_KEY = 'beramethode_tiki_settings';
+  /** Où se pose le logo par rapport au nom de la marque. Un logo n'a pas de
+   *  place « naturelle » : selon sa forme (carré, bandeau, rond) il se met à
+   *  gauche du nom, à droite, au-dessus, ou en pied d'étiquette. */
+  type TikiLogoPos = 'left' | 'right' | 'top' | 'bottom-left' | 'bottom-right';
+  type TikiSettings = {
+    brand: string;
+    /** Logo propre à l'étiquette (data-URL), tel que chargé — JAMAIS déjà
+     *  seuillé. Le noir et blanc est recalculé à l'affichage : un seuil figé
+     *  dans l'image effaçait les logos clairs sans possibilité de revenir en
+     *  arrière. Vide = on retombe sur le logo de l'entreprise. */
+    logo: string;
+    useLogo: boolean;
+    /** Conversion en noir pur pour la thermique (elle n'a pas d'encre). */
+    logoMono: boolean;
+    /** Seuil de luminance de cette conversion — réglable, car un logo clair
+     *  disparaît sous un seuil trop bas et un logo sombre devient un pâté. */
+    logoThreshold: number;
+    logoPos: TikiLogoPos;
+    size: { w: number; h: number };
+    fields: { marque: boolean; ref: boolean; taille: boolean; couleur: boolean; prix: boolean; code: boolean };
+    groupBy: 'taille' | 'couleur';
+    /** 'browser' = le rendu HTML habituel (@page à la taille exacte, marche
+     *  avec n'importe quel pilote). 'zpl' = envoi direct des commandes ZPL à
+     *  une imprimante réseau — nécessaire quand le pilote ne respecte pas la
+     *  taille du rouleau. Le logo n'est imprimé qu'en mode navigateur : le
+     *  convertir en bitmap ZPL sans imprimante sous la main pour vérifier
+     *  chaque octet produirait des étiquettes corrompues plutôt qu'absentes. */
+    printMode: 'browser' | 'zpl';
+    zplHost: string;
+    zplPort: number;
+    /** Résolution de l'imprimante — 203 dpi (bureau) ou 300 dpi (industrielle).
+     *  Détermine la conversion millimètres → points du flux ZPL. */
+    zplDpi: number;
+  };
+  const DEFAULT_TIKI_SETTINGS: TikiSettings = {
+    brand: '',
+    logo: '',
+    useLogo: true,
+    logoMono: true,
+    logoThreshold: 0.62,
+    logoPos: 'left',
+    size: { w: 50, h: 30 },
+    fields: { marque: true, ref: true, taille: true, couleur: true, prix: false, code: true },
+    groupBy: 'taille',
+    printMode: 'browser',
+    zplHost: '',
+    zplPort: 9100,
+    zplDpi: 203,
+  };
+  const [tikiSettings, setTikiSettings] = useState<TikiSettings>(DEFAULT_TIKI_SETTINGS);
+  const [tikiSettingsOpen, setTikiSettingsOpen] = useState(false);
+  const [tikiDraft, setTikiDraft] = useState<TikiSettings>(DEFAULT_TIKI_SETTINGS);
+  const [stockMenuOpen, setStockMenuOpen] = useState(false);
+  /** Statut de l'envoi ZPL — partagé entre le bouton « Imprimer » de la fiche
+   *  tiki et le bouton « Tester » des réglages, les deux passent par le même
+   *  relais serveur et peuvent échouer pour les mêmes raisons réseau. */
+  const [zplSending, setZplSending] = useState(false);
+  const [zplError, setZplError] = useState<string | null>(null);
+
+  /** Envoie un flux ZPL déjà construit au relais serveur (`printBridge.ts`),
+   *  qui ouvre lui-même la connexion TCP — le navigateur ne le peut pas.
+   *  Retourne `true` si l'envoi a réussi, pour que l'appelant décide de la
+   *  suite (fermer la fiche, marquer la référence...). */
+  const sendZplToPrinter = async (data: string, host: string, port: number): Promise<boolean> => {
+    setZplSending(true);
+    setZplError(null);
+    try {
+      const res = await fetch('/api/print/zpl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ host, port, data }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || tx(lang,{fr:"Échec de l'impression réseau.",ar:'فشل الطبع عبر الشبكة.',en:'Network print failed.',es:'Error de impresión en red.',pt:'Falha na impressão em rede.',tr:'Ağ üzerinden yazdırma başarısız.'}));
+      }
+      return true;
+    } catch (err: any) {
+      setZplError(err?.message || tx(lang,{fr:"Échec de l'impression réseau.",ar:'فشل الطبع عبر الشبكة.',en:'Network print failed.',es:'Error de impresión en red.',pt:'Falha na impressão em rede.',tr:'Ağ üzerinden yazdırma başarısız.'}));
+      return false;
+    } finally {
+      setZplSending(false);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      const raw = lsGetMig(TIKI_SETTINGS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      // Fusion champ par champ : un réglage enregistré avant l'ajout d'une
+      // option ne doit pas faire disparaître cette option.
+      setTikiSettings({
+        ...DEFAULT_TIKI_SETTINGS,
+        ...parsed,
+        size: { ...DEFAULT_TIKI_SETTINGS.size, ...(parsed?.size || {}) },
+        fields: { ...DEFAULT_TIKI_SETTINGS.fields, ...(parsed?.fields || {}) },
+      });
+    } catch { /* réglages illisibles : on garde les valeurs par défaut */ }
+  }, []);
+
+  /* ── Contrôle d'intégrité du stock ───────────────────────────────────────
+   * Une entrée en stock appartient toujours à une commande ou à un achat.
+   * Quand ce parent disparaissait sans emporter ses entrées, celles-ci
+   * restaient comptées dans le disponible ET dans la valorisation, sans être
+   * visibles nulle part : un modèle affichait 1060 pièces pour 470 reçues.
+   * La fuite est colmatée, mais rien ne permettait de VOIR ce qui traîne déjà.
+   * Ce contrôle le montre, et ne retire rien sans un clic explicite : enlever
+   * des pièces du stock est une décision comptable.
+   * ────────────────────────────────────────────────────────────────────── */
+  const [integriteOpen, setIntegriteOpen] = useState(false);
+  const [integriteLoading, setIntegriteLoading] = useState(false);
+  const [integriteRepairing, setIntegriteRepairing] = useState(false);
+  const [integriteError, setIntegriteError] = useState<string | null>(null);
+  const [integriteResultat, setIntegriteResultat] = useState<{
+    orphelins: Array<{ order_id: string; modelId: string | null; modelNom: string | null; lignes: number; quantite: number }>;
+    totalPieces: number;
+  } | null>(null);
+  /** Message de fin : ce qui a été retiré, et ce qui a été laissé en place. */
+  const [integriteFait, setIntegriteFait] = useState<string | null>(null);
+
+  const ouvrirIntegrite = async () => {
+    setStockMenuOpen(false);
+    setIntegriteOpen(true);
+    setIntegriteError(null);
+    setIntegriteResultat(null);
+    setIntegriteFait(null);
+    if (IS_STATIC) return;
+    setIntegriteLoading(true);
+    try {
+      const res = await fetch('/api/subcontract/stock-integrity', { credentials: 'include' });
+      if (!res.ok) throw new Error();
+      setIntegriteResultat(await res.json());
+    } catch {
+      setIntegriteError(tx(lang,{fr:'Le contrôle a échoué.',ar:'فشل الفحص.',en:'The check failed.',es:'La comprobación falló.',pt:'A verificação falhou.',tr:'Kontrol başarısız.'}));
+    } finally {
+      setIntegriteLoading(false);
+    }
+  };
+
+  const reparerIntegrite = async () => {
+    setIntegriteRepairing(true);
+    setIntegriteError(null);
+    try {
+      const res = await fetch('/api/subcontract/stock-integrity/repair', { method: 'POST', credentials: 'include' });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.message || '');
+      const pieces = Number(body?.piecesRetirees) || 0;
+      const ignores: any[] = Array.isArray(body?.ignores) ? body.ignores : [];
+      setIntegriteResultat({ orphelins: [], totalPieces: 0 });
+      setIntegriteFait(
+        ignores.length > 0
+          ? tx(lang,{
+              fr:`${pieces} pièces retirées. ${ignores.length} modèle(s) laissé(s) en place : leurs pièces sont déjà sorties du stock, les retirer rendrait le disponible négatif.`,
+              ar:`تحيّدو ${pieces} قطعة. ${ignores.length} موديل تخلّاو كيف ما هوما: القطع ديالهم خرجات ديجا، وتحييدهم غادي يخلّي المتوفّر بالسالب.`,
+              en:`${pieces} pieces removed. ${ignores.length} model(s) left as is: their pieces already left the stock, removing them would make the available negative.`,
+              es:`${pieces} piezas retiradas. ${ignores.length} modelo(s) sin cambios: sus piezas ya salieron del stock.`,
+              pt:`${pieces} peças retiradas. ${ignores.length} modelo(s) inalterado(s): as suas peças já saíram do stock.`,
+              tr:`${pieces} parça kaldırıldı. ${ignores.length} model olduğu gibi bırakıldı: parçaları stoktan çıkmış durumda.`
+            })
+          : tx(lang,{
+              fr:`${pieces} pièces retirées. Le stock est cohérent.`,
+              ar:`تحيّدو ${pieces} قطعة. المخزون ولّى متماسك.`,
+              en:`${pieces} pieces removed. The stock is coherent.`,
+              es:`${pieces} piezas retiradas. El stock es coherente.`,
+              pt:`${pieces} peças retiradas. O stock está coerente.`,
+              tr:`${pieces} parça kaldırıldı. Stok tutarlı.`
+            })
+      );
+      await loadStockMovements();
+    } catch (err: any) {
+      setIntegriteError(err?.message || tx(lang,{fr:'La correction a échoué.',ar:'فشل التصحيح.',en:'The repair failed.',es:'La corrección falló.',pt:'A correção falhou.',tr:'Düzeltme başarısız.'}));
+    } finally {
+      setIntegriteRepairing(false);
+    }
+  };
+
+  const openTikiSettings = () => {
+    setTikiDraft(tikiSettings);
+    setTikiSettingsOpen(true);
+    setStockMenuOpen(false);
+    setZplError(null);
+  };
+
+  const saveTikiSettings = () => {
+    setTikiSettings(tikiDraft);
+    try { lsSet(TIKI_SETTINGS_KEY, JSON.stringify(tikiDraft)); } catch { /* quota plein */ }
+    setTikiSettingsOpen(false);
+  };
+
+  /** Une thermique n'a pas d'encre : elle noircit le papier, ou pas. Un logo en
+   *  couleur ou en dégradé y sort en aplats sales, et un logo clair n'y sort
+   *  pas du tout. On le convertit donc en NOIR PUR sur fond transparent dès le
+   *  chargement : ce qui est stocké est ce qui sortira.
+   *  Seuil sur la luminance perçue (Rec. 601) — sous le seuil = noir opaque,
+   *  au-dessus = transparent (le papier fait le blanc). Les pixels déjà
+   *  transparents le restent. */
+  const monochromeForThermal = (canvas: HTMLCanvasElement, threshold: number): void => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    let data: ImageData;
+    try { data = ctx.getImageData(0, 0, canvas.width, canvas.height); }
+    catch { return; } // canvas « teinté » par une image d'une autre origine
+    const px = data.data;
+    for (let i = 0; i < px.length; i += 4) {
+      if (px[i + 3] < 128) { px[i + 3] = 0; continue; }
+      const lum = (0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]) / 255;
+      if (lum < threshold) { px[i] = 0; px[i + 1] = 0; px[i + 2] = 0; px[i + 3] = 255; }
+      else { px[i + 3] = 0; }
+    }
+    ctx.putImageData(data, 0, 0);
+  };
+
+  /** Le logo part dans la synchro : un PNG d'appareil photo ferait grossir le
+   *  snapshot pour rien. On le réduit à 600 px de large — bien au-delà de ce
+   *  qu'une thermique 203 dpi peut restituer sur quelques millimètres.
+   *  L'image est rangée TELLE QUELLE : le noir et blanc est appliqué à
+   *  l'affichage, pour rester réglable après coup. */
+  const onTikiLogoFile = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = String(reader.result || '');
+      const img = new window.Image();
+      img.onload = () => {
+        const maxW = 600;
+        const ratio = img.width > maxW ? maxW / img.width : 1;
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.width * ratio));
+        c.height = Math.max(1, Math.round(img.height * ratio));
+        const ctx = c.getContext('2d');
+        if (!ctx) { setTikiDraft(prev => ({ ...prev, logo: src, useLogo: true })); return; }
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        setTikiDraft(prev => ({ ...prev, logo: c.toDataURL('image/png'), useLogo: true }));
+      };
+      img.onerror = () => setTikiDraft(prev => ({ ...prev, logo: src, useLogo: true }));
+      img.src = src;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  /** Ordre d'impression. Le rouleau sort dans l'ordre où on écrit les pages :
+   *  regrouper par taille puis par couleur permet de vider un bac avant de
+   *  passer au suivant, au lieu de trier 460 tiki mélangés à la main. */
+  const [labelGroupBy, setLabelGroupBy] = useState<'taille' | 'couleur'>('taille');
+
+  /** Interroge la grille pour les trois colonnes à l'ouverture de l'étiqueteuse.
+   *  Trois requêtes plutôt qu'un prix unique : l'opérateur doit VOIR ce que
+   *  vaut l'article au carton et au comptoir avant de choisir ce qu'il colle
+   *  dessus. La quantité vaut 0 — une étiquette ne connaît pas la taille de la
+   *  commande à venir, donc aucun palier volume ne s'applique. */
+  useEffect(() => {
+    if (!labelModel || IS_STATIC) { setLabelTarifs({}); return; }
+    let alive = true;
+    const modelId = labelModel.id;
+    setLabelTarifsLoading(true);
+    Promise.all((['DETAIL', 'GROS', 'BOUTIQUE'] as const).map(t =>
+      fetch(`/api/prix/resolve?modelId=${encodeURIComponent(modelId)}&qty=0&type=${t}`, { credentials: 'include' })
+        .then(r => (r.ok ? r.json() : null))
+        .then((d: any) => [t, d?.prix == null ? null : Number(d.prix)] as const)
+        .catch(() => [t, null] as const)
+    ))
+      .then(pairs => { if (alive) setLabelTarifs(Object.fromEntries(pairs)); })
+      .finally(() => { if (alive) setLabelTarifsLoading(false); });
+    return () => { alive = false; };
+  }, [labelModel]);
+
+  /** Sauvegarde la référence d'un modèle via la même règle que les autres
+   *  écritures : on relit la version à jour puis on poste le patch complet. */
+  /** Même geste que `writeModelReference`, côté article acheté : sans elle, la
+   *  référence imprimée sur le tiki d'un article ne se sauvegardait jamais
+   *  (l'article n'existe pas dans `models`, où l'ancienne écriture cherchait). */
+  const writeArticleReference = useCallback(async (articleId: string, reference: string) => {
+    const local = articles.find(a => a.id === articleId);
+    if (!local || (local.reference || '').trim() === reference.trim()) return;
+    try {
+      const res = await fetch('/api/subcontract/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ ...local, reference: reference.trim() }),
+      });
+      if (!res.ok) return;
+      const saved = await res.json();
+      setArticles(prev => prev.map(a => (a.id === articleId ? saved : a)));
+    } catch { /* silencieux */ }
+  }, [articles]);
+
+  const writeModelReference = useCallback(async (modelId: string, reference: string) => {
+    if (!modelId || modelId === 'MANUAL') return;
+    if (articles.some(a => a.id === modelId)) { void writeArticleReference(modelId, reference); return; }
+    const local = models.find(m => m.id === modelId);
+    if (!local) return;
+    if ((local.meta_data?.reference || '').trim() === reference.trim()) return;
+    try {
+      let base: ModelData = local;
+      if (!IS_STATIC) {
+        const fresh = await fetch('/api/models', { credentials: 'include' });
+        if (fresh.ok) {
+          const list = await fresh.json();
+          const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
+          if (found) base = found;
+        }
+      }
+      if ((base.meta_data?.reference || '').trim() === reference.trim()) return;
+      const updated: ModelData = {
+        ...base,
+        meta_data: { ...(base.meta_data || {}), reference: reference.trim() } as ModelData['meta_data'],
+        updatedAt: new Date().toISOString(),
+      };
+      if (!IS_STATIC) {
+        const res = await fetch('/api/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(updated),
+        });
+        if (!res.ok) return;
+      }
+      setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+    } catch { /* silencieux */ }
+  }, [models, articles, writeArticleReference]);
+
+  /** Géométrie de l'étiquette, en millimètres — LA source unique partagée par
+   *  l'impression et les aperçus. Tant que l'aperçu avait ses propres tailles
+   *  en pixels, il mentait : la marque débordait sur un 60x30 et disparaissait
+   *  du cadre, alors que l'impression, elle, réduisait tout.
+   *
+   *  Le format est FIXE (c'est le rouleau acheté), donc c'est le contenu qui
+   *  s'adapte. Sans ce calcul, une ligne de trop faisait écraser l'en-tête par
+   *  le moteur de mise en page jusqu'à le faire disparaître — sur le papier
+   *  aussi, pas seulement à l'écran. On mesure donc ce que le contenu demande,
+   *  on donne au code-barres ce qui reste (dans des bornes lisibles), et on
+   *  réduit la typographie du facteur qui manque.
+   *  Les corps sont en points (1 pt = 0,3528 mm) comme la feuille de style. */
+  const PT = 0.3528;
+  const tikiGeometryMm = (
+    w: number,
+    h: number,
+    opts?: { head?: boolean; logo?: boolean; logoPos?: TikiLogoPos; rows?: number; code?: boolean }
+  ) => {
+    const head = opts?.head ?? true;
+    const logo = opts?.logo ?? false;
+    const logoPos = opts?.logoPos ?? 'left';
+    const rows = opts?.rows ?? 3;
+    const code = opts?.code ?? true;
+    // Le logo partage la ligne du nom (gauche/droite), prend la sienne
+    // (au-dessus), ou descend en pied — trois encombrements differents.
+    const logoInHead = logo && (logoPos === 'left' || logoPos === 'right');
+    const logoOwnLine = logo && logoPos === 'top';
+    const logoInFoot = logo && (logoPos === 'bottom-left' || logoPos === 'bottom-right');
+
+    const padX = 1.8, padTop = 1.2, padBottom = 1, band = 1.6;
+    const base = Math.min(1, h / 30);
+
+    // Tailles nominales, avant ajustement.
+    let nameMm = 9.5 * base * PT;
+    let rowMm = 7.5 * base * PT;
+    let valMm = 8.5 * base * PT;
+    let priceMm = 8.5 * 1.25 * base * PT;
+    let codeMm = 6.8 * base * PT;
+    let logoH = h * 0.22;
+
+    const content = Math.max(0, h - band - padTop - padBottom);
+    const nameH = head ? nameMm * 1.15 : 0;
+    // Sur la meme ligne, c'est le plus haut des deux qui compte ; sur sa propre
+    // ligne, les deux s'additionnent.
+    const headH = logoInHead
+      ? Math.max(nameH, logoH)
+      : logoOwnLine
+        ? logoH + 0.4 + nameH
+        : nameH;
+    const rowsH = rows * (valMm * 1.35);
+    const codeLineH = code ? codeMm * 1.25 : 0;
+    const footH = logoInFoot ? Math.max(codeLineH, logoH) : codeLineH;
+    const textNeeded = headH + rowsH + footH;
+
+    // Le code-barres est l'élément qu'on lit à la machine : il garde une
+    // hauteur minimale même serré, sinon le lecteur ne le voit plus.
+    const bcH = Math.max(5, Math.min(h * 0.32, content - textNeeded));
+    const remaining = Math.max(0, content - bcH);
+    const fit = textNeeded > 0 ? Math.min(1, remaining / textNeeded) : 1;
+
+    nameMm *= fit; rowMm *= fit; valMm *= fit;
+    priceMm *= fit; codeMm *= fit; logoH *= fit;
+
+    return { padX, padTop, padBottom, band, logoH, nameMm, rowMm, valMm, priceMm, codeMm, bcH };
+  };
+
+  /** La même géométrie ramenée en pixels pour un aperçu de largeur donnée :
+   *  l'aperçu est alors une maquette à l'échelle, pas une approximation. */
+  const tikiPreviewMetrics = (
+    w: number,
+    h: number,
+    boxW: number,
+    opts?: { head?: boolean; logo?: boolean; logoPos?: TikiLogoPos; rows?: number; code?: boolean }
+  ) => {
+    const g = tikiGeometryMm(w, h, opts);
+    const k = boxW / Math.max(1, w);
+    const px = (mm: number) => mm * k;
+    return {
+      boxW,
+      boxH: Math.round(h * k),
+      padX: px(g.padX), padTop: px(g.padTop), padBottom: px(g.padBottom),
+      band: px(g.band),
+      logoH: px(g.logoH),
+      name: px(g.nameMm), row: px(g.rowMm), val: px(g.valMm),
+      price: px(g.priceMm), code: px(g.codeMm),
+      bcH: px(g.bcH),
+    };
+  };
+
+  /** Logo effectivement imprimé : celui réglé pour l'étiquette, sinon celui de
+   *  l'entreprise. Deux sources, une seule règle de priorité. */
+  const tikiLogoSrc = useMemo(
+    () => (tikiSettings.logo || '').trim() || (companyIdentity.logo || '').trim(),
+    [tikiSettings.logo, companyIdentity.logo]
+  );
+
+  /** Applique le noir et blanc à une source et rend une data-URL prête à
+   *  imprimer. Asynchrone parce qu'une image doit être décodée avant d'être
+   *  lue pixel par pixel. */
+  const renderMonoLogo = useCallback((src: string, threshold: number): Promise<string> =>
+    new Promise(resolve => {
+      if (!src) { resolve(''); return; }
+      const img = new window.Image();
+      img.onload = () => {
+        const c = document.createElement('canvas');
+        c.width = img.width; c.height = img.height;
+        const ctx = c.getContext('2d');
+        if (!ctx) { resolve(src); return; }
+        ctx.drawImage(img, 0, 0);
+        monochromeForThermal(c, threshold);
+        try { resolve(c.toDataURL('image/png')); } catch { resolve(src); }
+      };
+      img.onerror = () => resolve(src);
+      img.src = src;
+    }), []);
+
+  /** Logo effectivement imprimé, seuillé selon le réglage courant. Recalculé
+   *  quand la source ou le seuil change — l'aperçu suit le curseur en direct. */
+  const [tikiLogo, setTikiLogo] = useState('');
+  useEffect(() => {
+    let alive = true;
+    if (!tikiLogoSrc) { setTikiLogo(''); return; }
+    if (!tikiSettings.logoMono) { setTikiLogo(tikiLogoSrc); return; }
+    void renderMonoLogo(tikiLogoSrc, tikiSettings.logoThreshold).then(out => { if (alive) setTikiLogo(out); });
+    return () => { alive = false; };
+  }, [tikiLogoSrc, tikiSettings.logoMono, tikiSettings.logoThreshold, renderMonoLogo]);
+
+  /** Même rendu, mais pour le brouillon des réglages : le curseur de seuil doit
+   *  se voir AVANT d'enregistrer, sinon on règle à l'aveugle. */
+  const tikiDraftLogoSrc = useMemo(
+    () => (tikiDraft.logo || '').trim() || (companyIdentity.logo || '').trim(),
+    [tikiDraft.logo, companyIdentity.logo]
+  );
+  const [tikiDraftLogo, setTikiDraftLogo] = useState('');
+  useEffect(() => {
+    let alive = true;
+    if (!tikiDraftLogoSrc) { setTikiDraftLogo(''); return; }
+    if (!tikiDraft.logoMono) { setTikiDraftLogo(tikiDraftLogoSrc); return; }
+    void renderMonoLogo(tikiDraftLogoSrc, tikiDraft.logoThreshold).then(out => { if (alive) setTikiDraftLogo(out); });
+    return () => { alive = false; };
+  }, [tikiDraftLogoSrc, tikiDraft.logoMono, tikiDraft.logoThreshold, renderMonoLogo]);
+
+  const refModele = useMemo(() => {
+    if (!labelModel) return '';
+    return (labelModel.meta_data?.reference || '').trim() || ean13FromDigits(labelModel.id);
+  }, [labelModel]);
+
+  /** EAN-13 « variante » d'une cellule (taille × couleur) — formule identique
+   *  côté lecteur, donc déchiffrable par notre programme. */
+  const variantCodeFor = useCallback((model: ModelData, couleur: string, taille: string): string => {
+    const fiche: any = model.ficheData || {};
+    const sizes: string[] = fiche.sizes || [];
+    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+    const si = Math.max(0, sizes.indexOf(taille));
+    const ci = Math.max(0, colors.findIndex(c => c.name === couleur));
+    return ean13Variant(ean13FromDigits(String(model.id)).slice(0, 10), si, ci);
+  }, []);
+
+  /** Cellule de prévisualisation : la première qui a une quantité, sinon la
+   *  première de la grille du modèle. */
+  const labelPreview = useMemo<{ code: string; couleur: string; taille: string }>(() => {
+    if (!labelModel) return { code: '', couleur: '', taille: '' };
+    const fiche: any = labelModel.ficheData || {};
+    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+    const sizes: string[] = fiche.sizes || [];
+    let sel: { couleur: string; taille: string } | null = null;
+    for (const [k, v] of Object.entries(labelGrid)) {
+      if (Number(v) > 0) { const [c, t] = k.split('|'); sel = { couleur: c, taille: t }; break; }
+    }
+    if (!sel && colors[0] && sizes[0]) sel = { couleur: colors[0].name, taille: sizes[0] };
+    if (!sel) return { code: '', couleur: '', taille: '' };
+    return { code: variantCodeFor(labelModel, sel.couleur, sel.taille), couleur: sel.couleur, taille: sel.taille };
+  }, [labelModel, labelGrid, variantCodeFor]);
+
+  useEffect(() => {
+    const canvas = labelCanvasRef.current;
+    if (!labelModel || !canvas) return;
+    if (labelMode === 'interne') {
+      if (labelPreview.code) renderEAN13(canvas, labelPreview.code, { height: 58, module: 2 });
+    } else {
+      renderEAN13(canvas, refModele, { height: 58, module: 2 });
+    }
+  }, [labelModel, labelMode, labelPreview, refModele]);
+
+  /** Même geste que `saveVariantCode`, côté article acheté : sans elle, un
+   *  code imprimé sur le tiki d'un article n'était jamais mémorisé — l'article
+   *  n'existe pas dans `models`, où l'ancienne écriture cherchait, et le
+   *  lecteur scannait un code que rien ne savait déchiffrer. */
+  const saveArticleVariantCode = useCallback(async (articleId: string, code: string, taille: string, couleur: string) => {
+    if (!code) return;
+    const local = articles.find(a => a.id === articleId);
+    if (!local) return;
+    const prev = local.variantCodes || {};
+    if (prev[code]?.taille === taille && prev[code]?.couleur === couleur) return;
+    try {
+      const res = await fetch('/api/subcontract/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ ...local, variantCodes: { ...prev, [code]: { taille, couleur } } }),
+      });
+      if (!res.ok) return;
+      const saved = await res.json();
+      setArticles(prevList => prevList.map(a => (a.id === articleId ? saved : a)));
+    } catch { /* silencieux */ }
+  }, [articles]);
+
+  /** Sauvegarde la carte code → (taille, couleur) dans `meta_data.variantCodes`.
+   *  C'est LE moyen fiable pour le lecteur : il lit la carte au lieu de
+   *  deviner d'après l'ordre de la fiche (qui peut changer plus tard). */
+  const saveVariantCode = useCallback(async (modelId: string, code: string, taille: string, couleur: string) => {
+    if (!modelId || modelId === 'MANUAL' || !code) return;
+    if (articles.some(a => a.id === modelId)) { void saveArticleVariantCode(modelId, code, taille, couleur); return; }
+    const local = models.find(m => m.id === modelId);
+    if (!local) return;
+    const prevLocal = (local.meta_data as any)?.variantCodes || {};
+    if (prevLocal[code]?.taille === taille && prevLocal[code]?.couleur === couleur) return;
+    try {
+      let base: ModelData = local;
+      if (!IS_STATIC) {
+        const fresh = await fetch('/api/models', { credentials: 'include' });
+        if (fresh.ok) {
+          const list = await fresh.json();
+          const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
+          if (found) base = found;
+        }
+      }
+      const prev = (base.meta_data as any)?.variantCodes || {};
+      if (prev[code]?.taille === taille && prev[code]?.couleur === couleur) return;
+      const updated: ModelData = {
+        ...base,
+        meta_data: { ...(base.meta_data || {}), variantCodes: { ...prev, [code]: { taille, couleur } } } as ModelData['meta_data'],
+        updatedAt: new Date().toISOString(),
+      };
+      if (!IS_STATIC) {
+        const res = await fetch('/api/models', {
+          credentials: 'include',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated),
+        });
+        if (!res.ok) return;
+      }
+      setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+    } catch { /* silencieux */ }
+  }, [models, articles, saveArticleVariantCode]);
+
+  const openLabel = (model: ModelData, opts?: { grid?: OrderGrid; price?: number }) => {
+    const fiche: any = model.ficheData || {};
+    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+    const sizes: string[] = fiche.sizes || [];
+    // Grille de la commande, indexée par libellé normalisé, pour pré-remplir
+    // le tableau des étiquettes (une quantité par taille × couleur).
+    const orderByNorm: Record<string, Record<string, number>> = {};
+    Object.entries(opts?.grid || {}).forEach(([cname, sizesObj]) => {
+      const inner: Record<string, number> = {};
+      Object.entries(sizesObj || {}).forEach(([sname, q]) => { inner[normalizeLabel(sname)] = Number(q) || 0; });
+      orderByNorm[normalizeLabel(cname)] = inner;
+    });
+    const grid: Record<string, number> = {};
+    colors.forEach(c => {
+      const byNorm = orderByNorm[normalizeLabel(c.name)] || {};
+      sizes.forEach(s => {
+        const key = `${c.name}|${s}`;
+        grid[key] = byNorm[normalizeLabel(s)] || 0;
+      });
+    });
+    setLabelModel(model);
+    setLabelMode('interne');
+    setLabelGrid(grid);
+    // Agrégation par taille pour le mode externe (le magasin ignore la couleur).
+    const externe: Record<string, number> = {};
+    Object.entries(grid).forEach(([k, q]) => {
+      const [, s] = k.split('|');
+      externe[s] = (externe[s] || 0) + (Number(q) || 0);
+    });
+    setLabelExterneGrid(externe);
+    // Le prix qui part sur l'étiquette est celui de la carte Stock & Ventes
+    // (« Prix de vente »). Il reste modifiable ici : une série soldée ou une
+    // remise salon ne doit pas obliger à changer le prix du modèle.
+    const pv = Number(opts?.price) || 0;
+    setLabelPrice(pv);
+    // Les réglages généraux donnent le point de départ ; l'impression peut
+    // s'en écarter pour un tirage sans que le réglage change.
+    // Le prix ne s'imprime que s'il en existe un : cocher la ligne pour la voir
+    // sortir vide serait un tiki de marque sans son information principale.
+    setLabelFields({ ...tikiSettings.fields, prix: pv > 0 });
+    // Le prix de la carte est un point de départ manuel ; dès qu'une grille
+    // répond, l'opérateur peut basculer sur la colonne qui l'intéresse.
+    setLabelTarif('MANUEL');
+    setLabelTarifs({});
+    setLabelSize(tikiSettings.size);
+    setLabelGroupBy(tikiSettings.groupBy);
+    setLabelBrand((tikiSettings.brand || companyIdentity.nom || '').trim());
+    setLabelUseLogo(tikiSettings.useLogo && Boolean(tikiLogo));
+    setZplError(null);
+  };
+
+  const imprimerTiki = async () => {
+    if (!labelModel) return;
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const nom = labelModel.meta_data?.nom_modele || labelModel.id;
+    const fiche: any = labelModel.ficheData || {};
+    const ficheSizes: string[] = fiche.sizes || [];
+    const ficheColors: Array<{ id: string; name: string }> = fiche.colors || [];
+    const cells: Array<{ couleur: string; taille: string; qty: number }> = [];
+    if (labelMode === 'externe') {
+      // Un tiki par taille : toutes les couleurs d'une meme taille partagent le
+      // code « porte » du modele, le magasin n'a que la taille a voir.
+      Object.entries(labelExterneGrid).forEach(([taille, v]) => {
+        const qty = Math.floor(Number(v) || 0);
+        if (qty <= 0) return;
+        cells.push({ couleur: '', taille, qty });
+      });
+    } else {
+      Object.entries(labelGrid).forEach(([k, v]) => {
+        const qty = Math.floor(Number(v) || 0);
+        if (qty <= 0) return;
+        const [couleur, taille] = k.split('|');
+        cells.push({ couleur, taille, qty });
+      });
+    }
+    if (cells.length === 0) return;
+
+    // Le rouleau sort dans l'ordre ou les pages sont ecrites. Sans tri, une
+    // grille de 460 pieces sort melangee et il faut la retrier a la main.
+    // Trie, un bac se remplit d'un bloc avant de passer au suivant. L'ordre de
+    // la fiche fait foi (S, M, L, XL — pas l'alphabet, qui mettrait L avant S).
+    const rankSize = (t: string) => { const i = ficheSizes.indexOf(t); return i < 0 ? 9999 : i; };
+    const rankColor = (c: string) => { const i = ficheColors.findIndex(x => x.name === c); return i < 0 ? 9999 : i; };
+    cells.sort((a, b) => {
+      const primary = labelGroupBy === 'taille'
+        ? rankSize(a.taille) - rankSize(b.taille)
+        : rankColor(a.couleur) - rankColor(b.couleur);
+      if (primary !== 0) return primary;
+      return labelGroupBy === 'taille'
+        ? rankColor(a.couleur) - rankColor(b.couleur)
+        : rankSize(a.taille) - rankSize(b.taille);
+    });
+
+    // Code par cellule, calculé une seule fois : partagé par les deux voies
+    // d'impression (HTML et ZPL) au lieu d'être recalculé différemment
+    // dans chacune, ce qui garantirait tôt ou tard une divergence.
+    const codeFor = (cell: { couleur: string; taille: string }): string =>
+      labelMode === 'interne' ? variantCodeFor(labelModel, cell.couleur, cell.taille) : refModele;
+
+    // Effets de bord communs aux deux voies : la référence du modèle et la
+    // carte code -> variante ne dépendent pas de la façon dont on a imprimé.
+    const finishSideEffects = () => {
+      if (!(labelModel.meta_data?.reference || '').trim()) {
+        void writeModelReference(labelModel.id, refModele);
+      }
+      if (labelMode === 'interne') {
+        cells.forEach(cell => {
+          void saveVariantCode(labelModel.id, codeFor(cell), cell.taille, cell.couleur);
+        });
+      }
+    };
+
+    // ── Impression réseau (ZPL direct) ─────────────────────────────────────
+    // Le rendu HTML reste la voie par défaut ; celle-ci ne sert qu'aux
+    // imprimantes pilotées en ZPL/EPL direct sur le port 9100, quand leur
+    // pilote ne respecte pas la taille exacte du rouleau. Le logo n'est
+    // jamais envoyé ici — voir `lib/zpl.ts`.
+    if (tikiSettings.printMode === 'zpl') {
+      const host = tikiSettings.zplHost.trim();
+      if (!host) {
+        setZplError(tx(lang,{fr:"Aucune imprimante réseau réglée — configurez-la dans Paramètres du tiki.",ar:'ما كاين حتى طابعة شبكة معدّة — عدّلها ف إعدادات التيكي.',en:'No network printer configured — set it up in Label settings.',es:'Ninguna impresora de red configurada — configúrela en Ajustes de la etiqueta.',pt:'Nenhuma impressora de rede configurada — configure em Definições da etiqueta.',tr:'Ağ yazıcısı ayarlanmadı — Etiket ayarlarından yapılandırın.'}));
+        return;
+      }
+      const zplCells: ZplCell[] = cells.map(cell => ({
+        code: codeFor(cell),
+        ref: refModele,
+        taille: cell.taille,
+        couleur: labelMode === 'externe' ? '' : cell.couleur,
+        prix: labelFields.prix && labelPrice > 0 ? `${labelPrice.toLocaleString()} ${currency}` : undefined,
+        qty: cell.qty,
+      }));
+      const data = buildZplForCells(zplCells, {
+        widthMm: labelSize.w,
+        heightMm: labelSize.h,
+        dpi: tikiSettings.zplDpi,
+        brand: (labelBrand || '').trim() || nom,
+        fields: labelFields,
+      });
+      const ok = await sendZplToPrinter(data, host, tikiSettings.zplPort);
+      if (ok) finishSideEffects();
+      return;
+    }
+
+    // ── Impression navigateur (HTML, @page à la taille exacte) ────────────
+    // Un seul rendu par code distinct (le meme code sert a toutes les pieces
+    // d'une meme cellule — imprimer 500 S-rouge = un rendu + 500 copies).
+    const imgs: Record<string, string> = {};
+    const imgFor = (code: string): string => {
+      if (!imgs[code]) {
+        const c = document.createElement('canvas');
+        renderEAN13(c, code, { height: 34, module: 2 });
+        imgs[code] = c.toDataURL('image/png');
+      }
+      return imgs[code];
+    };
+
+    // « Marque / logo » gouverne le bloc de marque en entier : decocher la case
+    // et voir le logo sortir quand meme serait un piege.
+    const logo = labelFields.marque && labelUseLogo ? tikiLogo : '';
+    const brand = (labelBrand || '').trim();
+    // Le rouleau est d'une taille FIXE : c'est le contenu qui s'y plie. On
+    // compte les lignes réellement demandées pour que la typographie soit
+    // réduite juste ce qu'il faut, au lieu de laisser l'en-tête se faire
+    // écraser jusqu'à disparaître du papier.
+    const rowCount =
+      (labelFields.ref ? 1 : 0) +
+      (labelFields.taille ? 1 : 0) +
+      (labelFields.couleur && labelMode !== 'externe' ? 1 : 0) +
+      (labelFields.prix && labelPrice > 0 ? 1 : 0);
+    const { w: lw, h: lh } = labelSize;
+    const logoPos = tikiSettings.logoPos;
+    const g = tikiGeometryMm(lw, lh, {
+      head: labelFields.marque,
+      logo: Boolean(logo),
+      logoPos,
+      rows: rowCount,
+      code: labelFields.code,
+    });
+    // Millimètres -> points pour la feuille de style d'impression.
+    const mmToPt = (mm: number) => (mm / PT).toFixed(2);
+    const fsName = mmToPt(g.nameMm);
+    const fsRow = mmToPt(g.rowMm);
+    const fsVal = mmToPt(g.valMm);
+    const fsCode = mmToPt(g.codeMm);
+    const fsPrice = mmToPt(g.priceMm);
+    const bcH = g.bcH.toFixed(2);
+    const logoH = g.logoH.toFixed(2);
+
+    let labels = '';
+    cells.forEach(cell => {
+      const code = codeFor(cell);
+      const img = imgFor(code);
+      const isExterne = labelMode === 'externe';
+      // Chaque donnee sur sa propre ligne, en-tete de marque + bandeau colore.
+      const rows: string[] = [];
+      if (labelFields.ref) rows.push('<div class="row"><span>Ref</span><b>' + esc(refModele) + '</b></div>');
+      if (labelFields.taille && cell.taille) rows.push('<div class="row"><span>Taille</span><b>' + esc(cell.taille) + '</b></div>');
+      if (labelFields.couleur && !isExterne && cell.couleur) rows.push('<div class="row"><span>Couleur</span><b>' + esc(cell.couleur) + '</b></div>');
+      if (labelFields.prix && labelPrice > 0) rows.push('<div class="row price"><span>Prix</span><b>' + labelPrice.toLocaleString() + ' ' + esc(currency) + '</b></div>');
+      const rowsHtml = rows.join('');
+      // Le logo et le nom ne s'excluent pas : une marque se reconnait aux deux.
+      // Le logo se pose ou l'operateur l'a mis ; le nom garde sa ligne.
+      const nmHtml = labelFields.marque
+        ? '<div class="nm">' + esc(brand || nom).toUpperCase() + '</div>'
+        : '';
+      const logoHtml = logo ? '<img src="' + logo + '" class="logo" alt="" />' : '';
+      let head = '';
+      let foot = '';
+      if (logoHtml && logoPos === 'left') head = '<div class="hd">' + logoHtml + nmHtml + '</div>';
+      else if (logoHtml && logoPos === 'right') head = '<div class="hd hd-r">' + nmHtml + logoHtml + '</div>';
+      else if (logoHtml && logoPos === 'top') head = logoHtml + nmHtml;
+      else if (logoHtml) {
+        // bottom-left / bottom-right : le logo descend en pied, a cote du code.
+        head = nmHtml;
+        foot = '<div class="ft' + (logoPos === 'bottom-right' ? ' ft-r' : '') + '">' + logoHtml + '</div>';
+      } else head = nmHtml;
+      // Pied : le code sous les barres et, le cas echeant, le logo — sur la
+      // MEME ligne, sinon le logo volerait une ligne au contenu.
+      const codeHtml = labelFields.code ? '<div class="code">' + esc(code) + '</div>' : '';
+      const footRow = foot
+        ? '<div class="footrow' + (logoPos === 'bottom-right' ? ' footrow-r' : '') + '">' +
+            (logoPos === 'bottom-right' ? codeHtml + foot : foot + codeHtml) +
+          '</div>'
+        : codeHtml;
+      for (let i = 0; i < cell.qty; i++) {
+        labels += [
+          '<div class="lbl">',
+          '<div class="band" style="background:' + (isExterne ? '#059669' : '#4f46e5') + '"></div>',
+          head,
+          rowsHtml,
+          '<img src="' + img + '" class="bc" alt="" />',
+          footRow,
+          '</div>',
+        ].join('');
+      }
+    });
+    const w = window.open('', '_blank');
+    w?.document.write(
+      '<!doctype html><html><head><style>' +
+        // Une page = une etiquette, a la taille EXACTE du rouleau. Sans cette
+        // regle le pilote thermique centre l'etiquette sur une page A4 et le
+        // rouleau se decale d'une etiquette a l'autre.
+        '@page { size: ' + lw + 'mm ' + lh + 'mm; margin: 0; }' +
+        'html, body { margin: 0; padding: 0; }' +
+        'body { font-family: "Helvetica Neue", Arial, sans-serif; }' +
+        '.lbl { width: ' + lw + 'mm; height: ' + lh + 'mm; padding: 1.2mm 1.8mm 1mm; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; background: #fff; page-break-after: always; break-after: page; }' +
+        '.lbl:last-child { page-break-after: auto; break-after: auto; }' +
+        // Sans `flex-shrink: 0`, le moteur ecrase l'en-tete en premier des que
+        // le contenu depasse d'un cheveu : le logo disparaissait du papier.
+        '.lbl > * { flex: 0 0 auto; }' +
+        '.band { height: 1.6mm; margin: -1.2mm -1.8mm 0.8mm -1.8mm; }' +
+        '.logo { max-height: ' + logoH + 'mm; max-width: 45%; object-fit: contain; align-self: flex-start; }' +
+        // En-tete sur une ligne : logo et nom cote a cote, alignes au milieu.
+        '.hd { display: flex; align-items: center; gap: 1mm; min-width: 0; }' +
+        '.hd .nm { min-width: 0; flex: 1 1 auto; }' +
+        '.hd-r { justify-content: space-between; }' +
+        '.hd .logo { align-self: center; flex: 0 0 auto; }' +
+        // Pied : le logo partage la ligne du code au lieu d'en voler une.
+        '.footrow { display: flex; align-items: center; gap: 1mm; }' +
+        '.footrow .code { flex: 1 1 auto; }' +
+        '.ft { flex: 0 0 auto; display: flex; }' +
+        '.ft .logo { align-self: center; }' +
+        '.nm { text-transform: uppercase; letter-spacing: 1px; font-size: ' + fsName + 'pt; font-weight: 800; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' +
+        '.row { display: flex; justify-content: space-between; align-items: baseline; font-size: ' + fsRow + 'pt; line-height: 1.35; color: #444; text-transform: uppercase; letter-spacing: 0.3px; }' +
+        '.row b { font-size: ' + fsVal + 'pt; color: #000; font-weight: 700; text-transform: none; letter-spacing: 0; }' +
+        '.row.price b { font-size: ' + fsPrice + 'pt; }' +
+        '.bc { height: ' + bcH + 'mm; width: 100%; margin-top: auto; object-fit: contain; image-rendering: pixelated; }' +
+        '.code { font-size: ' + fsCode + 'pt; letter-spacing: 0.8px; color: #222; font-family: monospace; text-align: center; }' +
+        '</style></head><body>' + labels +
+        '<' + 'script>window.print();</' + 'script></body></html>'
+    );
+    w?.document.close();
+    // La reference et la carte code -> variante sont sauvegardees seulement a
+    // l'impression : voir `finishSideEffects` plus haut.
+    finishSideEffects();
+  };
+
+
+  /** Le ticket part TOUT SEUL apres l'encaissement : au comptoir, un ticket
+   *  qu'il faut penser a demander est un ticket qu'on oublie. Le rendu
+   *  navigateur reste la voie par defaut ; en mode ZPL, le meme ticket va
+   *  d'un coup a toutes les imprimantes reglees (caisse, atelier, reserve). */
+  const imprimerTicket = (payload: {
+    lignes: CaisseLigne[];
+    clientNom: string | null;
+    paiement: CaissePaiement;
+    remiseGlobale: number;
+    total: number;
+    recu: number | null;
+    rendu: number | null;
+  }, ticketRef: string) => {
+    const now = new Date();
+    const ticket: TicketData = {
+      marque: tikiSettings.brand || '',
+      // Le numero imprime EST la reference enregistree : c'est ce qui permet
+      // de retrouver — et d'annuler — la vente a partir du ticket que le
+      // client rapporte au comptoir.
+      numero: ticketRef || `TK-${now.getTime().toString(36).toUpperCase()}`,
+      date: now.toLocaleString(dateLocale),
+      lignes: payload.lignes.map(l => ({
+        nom: l.model.meta_data?.nom_modele || l.model.id,
+        couleur: l.couleur,
+        taille: l.taille,
+        qte: l.qte,
+        prix: Number(l.prix) || 0,
+      })),
+      sousTotal: payload.total + payload.remiseGlobale,
+      remise: payload.remiseGlobale,
+      total: payload.total,
+      paiement: payload.paiement,
+      recu: payload.recu,
+      rendu: payload.rendu,
+      clientNom: payload.clientNom,
+      currency,
+    };
+
+    const hosts = tikiSettings.printMode === 'zpl' ? parsePrinterHosts(tikiSettings.zplHost) : [];
+    if (hosts.length > 0) {
+      const zpl = buildTicketZpl(ticket, tikiSettings.zplDpi);
+      // Chaque imprimante recoit sa copie : un echec sur l'une ne prive pas
+      // les autres, et la vente est deja enregistree de toute facon.
+      hosts.forEach(h => { void sendZplToPrinter(zpl, h, tikiSettings.zplPort); });
+      return;
+    }
+    const w = window.open('', '_blank', 'width=380,height=640');
+    w?.document.write(buildTicketHtml(ticket));
+    w?.document.close();
+  };
+
+  /** Encaissement de la caisse.
+   *
+   *  L'API de sortie de stock traite UN modele a la fois : un panier
+   *  multi-modeles se traduit donc en une sortie par modele. Ce n'est pas
+   *  atomique — si la troisieme echoue, les deux premieres sont deja
+   *  enregistrees — alors on s'arrete a la premiere erreur et on dit
+   *  exactement ce qui est passe, plutot que de laisser croire que rien
+   *  n'a bouge.
+   */
+  const encaisserCaisse = async (payload: {
+    lignes: CaisseLigne[];
+    clientId: string | null;
+    clientNom: string | null;
+    paiement: CaissePaiement;
+    remiseGlobale: number;
+    total: number;
+    typeVente: TypeVente;
+    facture: boolean;
+    recu: number | null;
+    rendu: number | null;
+  }): Promise<string | null> => {
+    if (IS_STATIC) {
+      return tx(lang,{fr:"Mode statique : aucune vente ne peut etre enregistree.",ar:'الوضع الساكن: ما يمكن تسجيل حتى بيعة.',en:'Static mode: no sale can be recorded.',es:'Modo estatico: no se puede registrar la venta.',pt:'Modo estatico: nao e possivel registar a venda.',tr:'Statik mod: satis kaydedilemez.'});
+    }
+    const parModele = new Map<string, CaisseLigne[]>();
+    payload.lignes.forEach(l => {
+      const arr = parModele.get(l.model.id) || [];
+      arr.push(l);
+      parModele.set(l.model.id, arr);
+    });
+    let faites = 0;
+    const batchs: string[] = [];
+    // Reference du ticket : une vente multi-modeles produit une sortie PAR
+    // modele. Sans cette cle commune, la journee de caisse compterait la meme
+    // vente plusieurs fois et son annulation n'en rendrait qu'un morceau.
+    const ticketRef = `TK-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    try {
+      for (const [modelId, lignes] of parModele) {
+        // Un prix unitaire par sortie : quand un modele a plusieurs prix dans
+        // le panier, on envoie la moyenne ponderee pour que le total encaisse
+        // reste exact au centime.
+        const qte = lignes.reduce((a, l) => a + l.qte, 0);
+        const montant = lignes.reduce((a, l) => a + l.qte * (Number(l.prix) || 0), 0);
+        const prixUnitaire = qte > 0 ? Number((montant / qte).toFixed(2)) : 0;
+        const res = await fetch('/api/subcontract/stock-sorties', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            modelId,
+            client_id: payload.clientId,
+            client_nom: payload.clientNom,
+            prix_unitaire: prixUnitaire,
+            date_sortie: new Date().toISOString().slice(0, 10),
+            canal: 'MAGASIN',
+            mode_paiement: payload.paiement,
+            type_vente: payload.typeVente,
+            ticket_ref: ticketRef,
+            note: `CAISSE ${payload.typeVente} ${payload.paiement}`,
+            lignes: lignes.map(l => ({ couleur: l.couleur, taille: l.taille, quantite: l.qte })),
+          }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const base = body.message || tx(lang,{fr:'La sortie a ete refusee.',ar:'تم رفض الإخراج.',en:'The exit was rejected.',es:'La salida fue rechazada.',pt:'A saida foi recusada.',tr:'Cikis reddedildi.'});
+          return faites === 0 ? base : `${base} (${faites} ${tx(lang,{fr:'deja enregistrees',ar:'مسجّلة سلفاً',en:'already recorded',es:'ya registradas',pt:'ja registadas',tr:'zaten kaydedildi'})})`;
+        }
+        if (body.batch_id) batchs.push(String(body.batch_id));
+        faites++;
+      }
+
+      // La facture ne se rattache qu'a une FICHE client. Les sorties qui
+      // viennent d'etre ecrites sont retrouvees par leur batch : l'API de
+      // sortie ne rend pas les identifiants de lignes.
+      if (payload.facture && payload.clientId && batchs.length > 0) {
+        const rows = await fetch('/api/subcontract/stock-sorties', { credentials: 'include' })
+          .then(r => (r.ok ? r.json() : []))
+          .catch(() => []);
+        const sortieIds = (Array.isArray(rows) ? rows : [])
+          .filter((r: any) => batchs.includes(String(r.batch_id)) && !r.facture_id)
+          .map((r: any) => String(r.id));
+        if (sortieIds.length > 0) {
+          const fres = await fetch('/api/subcontract/clients/facturer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ clientId: payload.clientId, sortieIds, discount: payload.remiseGlobale }),
+          });
+          if (!fres.ok) {
+            const fb = await fres.json().catch(() => ({}));
+            // La vente EST passee : le dire, sinon on la refera.
+            return `${tx(lang,{fr:'Vente enregistree, mais la facture a echoue.',ar:'تسجّلت البيعة، لكن الفاتورة فشلت.',en:'Sale recorded, but the invoice failed.',es:'Venta registrada, pero la factura fallo.',pt:'Venda registada, mas a fatura falhou.',tr:'Satis kaydedildi, fakat fatura basarisiz.'})} ${fb.message || ''}`.trim();
+          }
+        }
+      }
+      imprimerTicket(payload, ticketRef);
+      return null;
+    } finally {
+      // Le stock affiche doit suivre, meme apres un echec partiel.
+      await loadStockMovements();
+    }
+  };
+
+  /** Ouvre la caisse sur un modele : c'est le geste de vente au comptoir,
+   *  la ou la sortie de stock classique reste le geste de gestion. */
+  const openCaisse = (model: ModelData) => {
+    setCaisseRecherche(model.meta_data?.nom_modele || model.meta_data?.reference || '');
+    setCaisseOpen(true);
+  };
+
+  /** Modeles ET articles achetes : la caisse lit le meme tiki que le magasin. */
+  const caisseCandidats = useMemo(
+    () => [...models, ...articles.map(articleAsModel)],
+    [models, articles],
+  );
 
   const submitSortie = async () => {
     if (!sortieForm) return;
@@ -1191,6 +2813,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setSortieForm(null);
       setSortieMotif('');
       setSortieConfirmSousCout(false);
+      // La sortie vient d'être enregistrée : proposer immédiatement la facture,
+      // mais seulement si le client est connu (une facture sans client ne se
+      // rattache à aucune fiche).
+      if (client?.id) {
+        setSortieInvoicePrompt({ clientId: client.id, clientNom: client.nom });
+      }
     } catch (err: any) {
       setSortieError(err.message);
     } finally {
@@ -1226,6 +2854,49 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     }
   };
 
+  /** Création minimale d'un client depuis le sélecteur de la sortie de stock :
+   *  attendre la fin de la saisie pour aller dans l'onglet Clients casse le
+   *  geste. Nom + téléphone suffisent ici, le reste se complète depuis sa fiche. */
+  const handleQuickAddClient = async () => {
+    const nom = clientQuickAddNom.trim();
+    if (!nom) return;
+    setClientQuickAddSaving(true);
+    setClientQuickAddError(null);
+    try {
+      const res = await fetch('/api/subcontract/clients', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nom,
+          tel: clientQuickAddTel.trim() || undefined,
+          type: clientQuickAddType,
+          ville: clientQuickAddVille.trim() || undefined,
+          adresse: clientQuickAddAdresse.trim() || undefined,
+          ice: clientQuickAddIce.trim() || undefined,
+          rc: clientQuickAddRc.trim() || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const created = await res.json();
+      setAtelierClients(prev => [...prev, created]);
+      setSortieForm(prev => prev && ({ ...prev, clientId: created.id }));
+      setClientQuickAdd(false);
+      setClientQuickAddNom('');
+      setClientQuickAddTel('');
+      setClientQuickAddType('DETAIL');
+      setClientQuickAddVille('');
+      setClientQuickAddAdresse('');
+      setClientQuickAddIce('');
+      setClientQuickAddRc('');
+      setClientPickerOpen(false);
+    } catch {
+      setClientQuickAddError(tx(lang,{fr:"La création a échoué.",ar:'فشل الإنشاء.',en:'Creation failed.',es:'La creación falló.',pt:'A criação falhou.',tr:'Oluşturma başarısız.'}));
+    } finally {
+      setClientQuickAddSaving(false);
+    }
+  };
+
   /* ---- Navigation entre fiches (modèle ↔ client) ---- */
   const openEntitySheet = (target: SheetTarget) => setEntityStack([target]);
   const pushEntitySheet = (target: SheetTarget) => setEntityStack(prev => [...prev, target]);
@@ -1238,6 +2909,316 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setEntityStack([]);
     setActiveTab('clients');
     setPendingEditClientId(String(client.id));
+  };
+
+  /* ──────────────────────────────────────────────────────────────────────
+   * MARCHANDISE ACHETÉE POUR REVENTE.
+   * Un article acheté n'est PAS un modèle : pas de gamme, pas de chrono, pas
+   * d'équilibrage, et surtout pas sa place dans la bibliothèque — il y ferait
+   * du bruit dans l'ingénierie, la coupe et le planning. Il vit donc dans sa
+   * propre table et ne prend la forme d'un modèle qu'au moment de l'affichage.
+   * (Le type `ArticleAchete` et l'état `articles` sont déclarés plus haut,
+   * avant `writeModelReference`/`saveVariantCode` qui doivent savoir si un
+   * identifiant désigne un article plutôt qu'un modèle.) */
+  type AchatLigne = {
+    id: string;
+    articleId: string;
+    tiersId: string | null;
+    tiersNom: string | null;
+    dateAchat: string | null;
+    prixAchat: number;
+    factureRef: string | null;
+    montantPaye: number;
+    quantite: number;
+    note: string | null;
+  };
+  const [achats, setAchats] = useState<AchatLigne[]>([]);
+  /** Prix de vente des articles achetés. Ils n'ont pas de fiche de coût où le
+   *  ranger : la grille `st_prix` fait foi, colonne « catalogue ». */
+  const [articleSalePrices, setArticleSalePrices] = useState<Record<string, number | null>>({});
+
+  const loadArticlesEtAchats = useCallback(async () => {
+    if (IS_STATIC) return;
+    try {
+      const [ra, rb] = await Promise.all([
+        fetch('/api/subcontract/articles', { credentials: 'include' }),
+        fetch('/api/subcontract/achats', { credentials: 'include' }),
+      ]);
+      if (ra.ok) setArticles(await ra.json());
+      if (rb.ok) setAchats(await rb.json());
+    } catch { /* réseau : on garde ce qui est déjà affiché */ }
+  }, []);
+
+  useEffect(() => { void loadArticlesEtAchats(); }, [loadArticlesEtAchats]);
+
+  /** Prix de vente catalogue d'un article — résolu par la grille des tarifs.
+   *  `null` = aucun prix saisi, ce qui doit se voir plutôt que de se deviner. */
+  useEffect(() => {
+    if (IS_STATIC || articles.length === 0) return;
+    let alive = true;
+    Promise.all(articles.map(a =>
+      fetch(`/api/prix/resolve?modelId=${encodeURIComponent(a.id)}&qty=0`, { credentials: 'include' })
+        .then(r => (r.ok ? r.json() : null))
+        .then((d: any) => [a.id, d?.prix == null ? null : Number(d.prix)] as const)
+        .catch(() => [a.id, null] as const)
+    )).then(pairs => { if (alive) setArticleSalePrices(Object.fromEntries(pairs)); });
+    return () => { alive = false; };
+  }, [articles]);
+
+  const salePriceOf = (articleId: string): number | null => articleSalePrices[articleId] ?? null;
+
+  /* ── Écran d'achat ──────────────────────────────────────────────────────
+   * Volontairement court : une photo, un prix payé, une grille tailles ×
+   * couleurs, une date, un fournisseur. Rien des jalons d'une commande de
+   * sous-traitance (proto, bon d'envoi, défauts) — ils n'ont aucun sens pour
+   * de la marchandise déjà finie, et les afficher ferait croire qu'il reste
+   * des étapes à suivre.
+   * ──────────────────────────────────────────────────────────────────── */
+  const [achatOpen, setAchatOpen] = useState(false);
+  const [achatSaving, setAchatSaving] = useState(false);
+  const [achatError, setAchatError] = useState<string | null>(null);
+  /** Article visé : soit un article déjà connu (réassort), soit un nouveau. */
+  const [achatArticleId, setAchatArticleId] = useState<string>('');
+  const [achatNom, setAchatNom] = useState('');
+  const [achatReference, setAchatReference] = useState('');
+  const [achatPhoto, setAchatPhoto] = useState('');
+  const [achatPrix, setAchatPrix] = useState<number | ''>('');
+  /** Une note propre à CET achat — un carton abîmé, un délai promis, un accord
+   *  particulier. Distincte des notes de l'article (qui décrivent l'objet, pas
+   *  la transaction) : elle vit sur `st_achats.note`, pas sur `st_articles`. */
+  const [achatNote, setAchatNote] = useState('');
+  const [achatDate, setAchatDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [achatTiersId, setAchatTiersId] = useState('');
+  const [achatFactureRef, setAchatFactureRef] = useState('');
+  const [achatMontantPaye, setAchatMontantPaye] = useState<number | ''>('');
+  const [achatGrid, setAchatGrid] = useState<Record<string, number | ''>>({});
+  /** Création d'un fournisseur sans quitter l'écran : aller le saisir dans
+   *  l'onglet Tiers puis revenir casse le geste et fait perdre la saisie. */
+  const [achatNewTiers, setAchatNewTiers] = useState(false);
+  const [achatNewTiersNom, setAchatNewTiersNom] = useState('');
+  const [achatNewTiersTel, setAchatNewTiersTel] = useState('');
+  const [achatNewTiersVille, setAchatNewTiersVille] = useState('');
+  const [achatNewTiersSaving, setAchatNewTiersSaving] = useState(false);
+
+  /** Suppression d'un article acheté. Le serveur refuse déjà (409) si des
+   *  mouvements de stock existent — on affiche alors ce qu'il répond plutôt
+   *  que de laisser le bouton ne rien faire. */
+  const [pendingDeleteArticle, setPendingDeleteArticle] = useState<{ id: string; nom: string } | null>(null);
+  const [deletingArticleId, setDeletingArticleId] = useState<string | null>(null);
+  const [deleteArticleError, setDeleteArticleError] = useState<string | null>(null);
+
+  const confirmDeleteArticle = async () => {
+    if (!pendingDeleteArticle) return;
+    setDeletingArticleId(pendingDeleteArticle.id);
+    setDeleteArticleError(null);
+    try {
+      const res = await fetch(`/api/subcontract/articles/${encodeURIComponent(pendingDeleteArticle.id)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.message || '');
+      }
+      setArticles(prev => prev.filter(a => a.id !== pendingDeleteArticle.id));
+      setAchats(prev => prev.filter(a => a.articleId !== pendingDeleteArticle.id));
+      setPendingDeleteArticle(null);
+    } catch (err: any) {
+      setDeleteArticleError(err?.message || tx(lang,{fr:'La suppression a échoué.',ar:'فشل الحذف.',en:'Deletion failed.',es:'Error al eliminar.',pt:'Falha ao eliminar.',tr:'Silme başarısız.'}));
+    } finally {
+      setDeletingArticleId(null);
+    }
+  };
+
+  /** Couleurs et tailles se composent comme dans la répartition d'une fiche
+   *  technique : on ajoute une pastille de couleur et des tailles une à une.
+   *  Une saisie « libre séparée par des virgules » obligeait à retaper toute la
+   *  ligne pour corriger une couleur, et ne montrait pas la couleur réelle. */
+  const [achatColorList, setAchatColorList] = useState<Array<{ id: string; name: string }>>([]);
+  const [achatSizeList, setAchatSizeList] = useState<string[]>([]);
+  const [achatNewColorHex, setAchatNewColorHex] = useState('#4f46e5');
+  const [achatNewColorName, setAchatNewColorName] = useState('');
+  const [achatNewSizes, setAchatNewSizes] = useState('');
+
+  const achatColors = useMemo(() => achatColorList.map(c => c.name), [achatColorList]);
+  const achatSizes = achatSizeList;
+
+  /** Plusieurs tailles d'un coup (« 36 38 40 ») : c'est ainsi qu'on les lit sur
+   *  un bon de commande, pas une par une. Les doublons sont ignorés en silence
+   *  — les ajouter créerait deux colonnes identiques dans la grille. */
+  const addAchatSizes = () => {
+    const parts = achatNewSizes.split(/[\s,;]+/).map(x => x.trim()).filter(Boolean);
+    if (parts.length === 0) return;
+    setAchatSizeList(prev => {
+      const next = [...prev];
+      parts.forEach(t => { if (!next.some(x => x.toLowerCase() === t.toLowerCase())) next.push(t); });
+      return next;
+    });
+    setAchatNewSizes('');
+  };
+
+  const removeAchatSize = (taille: string) => {
+    setAchatSizeList(prev => prev.filter(t => t !== taille));
+    // Les quantités de la colonne partent avec elle : les garder ferait un
+    // total qui ne correspond à aucune case visible.
+    setAchatGrid(prev => {
+      const next: Record<string, number | ''> = {};
+      Object.entries(prev).forEach(([k, v]) => { if (k.split('|')[1] !== taille) next[k] = v; });
+      return next;
+    });
+  };
+
+  const addAchatColor = () => {
+    const name = achatNewColorName.trim() || achatNewColorHex;
+    if (achatColorList.some(c => c.name.toLowerCase() === name.toLowerCase())) return;
+    setAchatColorList(prev => [...prev, { id: achatNewColorHex, name }]);
+    setAchatNewColorName('');
+  };
+
+  const removeAchatColor = (name: string) => {
+    setAchatColorList(prev => prev.filter(c => c.name !== name));
+    setAchatGrid(prev => {
+      const next: Record<string, number | ''> = {};
+      Object.entries(prev).forEach(([k, v]) => { if (k.split('|')[0] !== name) next[k] = v; });
+      return next;
+    });
+  };
+  const achatTotalQty = useMemo(
+    () => Object.values(achatGrid).reduce<number>((a, v) => a + (Number(v) || 0), 0),
+    [achatGrid]
+  );
+  const achatTotalCout = achatTotalQty * (Number(achatPrix) || 0);
+
+  const openAchat = (article?: ArticleAchete) => {
+    setAchatOpen(true);
+    setAchatError(null);
+    setAchatSaving(false);
+    setAchatArticleId(article?.id || '');
+    setAchatNom(article?.nom || '');
+    setAchatReference(article?.reference || '');
+    setAchatPhoto(article?.photo || '');
+    setAchatColorList(article?.colors ? article.colors.map(c => ({ id: c.id || '#4f46e5', name: c.name })) : []);
+    setAchatSizeList(article?.sizes ? [...article.sizes] : []);
+    setAchatNewColorName('');
+    setAchatNewSizes('');
+    setAchatPrix('');
+    setAchatDate(new Date().toISOString().split('T')[0]);
+    setAchatTiersId('');
+    setAchatFactureRef('');
+    setAchatMontantPaye('');
+    setAchatNote('');
+    setAchatGrid({});
+    setAchatNewTiers(false);
+    setAchatNewTiersNom('');
+    setAchatNewTiersTel('');
+    setAchatNewTiersVille('');
+  };
+
+  const createAchatTiers = async () => {
+    const nom = achatNewTiersNom.trim();
+    if (!nom) return;
+    setAchatNewTiersSaving(true);
+    try {
+      const res = await fetch('/api/subcontract/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        // Créé d'emblée comme FOURNISSEUR : on le saisit depuis un achat, donc
+        // c'est bien lui qui nous vend.
+        body: JSON.stringify({ nom, role: 'FOURNISSEUR', tel: achatNewTiersTel.trim() || null, ville: achatNewTiersVille.trim() || null }),
+      });
+      if (!res.ok) throw new Error();
+      const saved = await res.json();
+      const list = await fetch('/api/subcontract/clients', { credentials: 'include' });
+      if (list.ok) setAtelierClients(await list.json());
+      setAchatTiersId(String(saved.id));
+      setAchatNewTiers(false);
+      setAchatNewTiersNom('');
+      setAchatNewTiersTel('');
+      setAchatNewTiersVille('');
+    } catch {
+      setAchatError(tx(lang,{fr:'La création du fournisseur a échoué.',ar:'فشل إنشاء المورّد.',en:'Creating the supplier failed.',es:'Error al crear el proveedor.',pt:'Falha ao criar o fornecedor.',tr:'Tedarikçi oluşturulamadı.'}));
+    } finally {
+      setAchatNewTiersSaving(false);
+    }
+  };
+
+  const submitAchat = async () => {
+    const nom = achatNom.trim();
+    if (!nom) {
+      setAchatError(tx(lang,{fr:'Donnez un nom au modèle.',ar:'عطي اسم للموديل.',en:'Give the model a name.',es:'Dé un nombre al modelo.',pt:'Dê um nome ao modelo.',tr:'Modele bir ad verin.'}));
+      return;
+    }
+    if (!(Number(achatPrix) >= 0) || achatPrix === '') {
+      setAchatError(tx(lang,{fr:"Indiquez le prix d'achat à la pièce.",ar:'حدّد ثمن الشرا للقطعة.',en:'Enter the purchase price per piece.',es:'Indique el precio de compra por pieza.',pt:'Indique o preço de compra por peça.',tr:'Parça başına alış fiyatını girin.'}));
+      return;
+    }
+    if (achatTotalQty <= 0) {
+      setAchatError(tx(lang,{fr:'Saisissez au moins une quantité dans la grille.',ar:'دخّل على الأقل كمية وحدة فالشبكة.',en:'Enter at least one quantity in the grid.',es:'Introduzca al menos una cantidad en la cuadrícula.',pt:'Introduza pelo menos uma quantidade na grelha.',tr:'Izgaraya en az bir miktar girin.'}));
+      return;
+    }
+
+    setAchatSaving(true);
+    setAchatError(null);
+    try {
+      // 1. L'article (créé ou mis à jour) — c'est lui qui portera le stock.
+      const resArt = await fetch('/api/subcontract/articles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          id: achatArticleId || undefined,
+          nom,
+          reference: achatReference.trim() || null,
+          photo: achatPhoto || null,
+          colors: achatColorList,
+          sizes: achatSizeList,
+        }),
+      });
+      if (!resArt.ok) throw new Error((await resArt.json().catch(() => null))?.message || '');
+      const article = await resArt.json();
+
+      // 2. L'achat + les entrées en stock, en une seule écriture côté serveur.
+      const lignes = Object.entries(achatGrid)
+        .map(([k, v]) => {
+          const [couleur, taille] = k.split('|');
+          return { couleur, taille, quantite: Number(v) || 0 };
+        })
+        .filter(l => l.quantite > 0);
+
+      const resAchat = await fetch('/api/subcontract/achats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          articleId: article.id,
+          tiersId: achatTiersId || null,
+          dateAchat: achatDate,
+          prixAchat: Number(achatPrix) || 0,
+          factureRef: achatFactureRef.trim() || null,
+          montantPaye: Number(achatMontantPaye) || 0,
+          note: achatNote.trim() || null,
+          lignes,
+        }),
+      });
+      if (!resAchat.ok) throw new Error((await resAchat.json().catch(() => null))?.message || '');
+
+      await loadArticlesEtAchats();
+      await loadStockMovements();
+      setAchatOpen(false);
+      // 3. Le prix de vente : ouvre directement la fiche des tarifs (détail,
+      //    gros, boutique) au lieu d'un champ isolé qui écrivait en silence
+      //    dans la même grille — un seul chemin d'écriture pour `st_prix`,
+      //    avec la marge suggérée et la confirmation avant enregistrement.
+      //    Seulement si l'opérateur a le droit de fixer un prix : sinon la
+      //    fiche s'ouvrirait pour ne rien lui laisser faire.
+      if (canSetPriceHere) void openPrixSheet(articleAsModel(article), Number(achatPrix) || null);
+      return;
+    } catch (err: any) {
+      setAchatError(err?.message || tx(lang,{fr:"L'enregistrement de l'achat a échoué.",ar:'فشل تسجيل الشرا.',en:'Saving the purchase failed.',es:'Error al guardar la compra.',pt:'Falha ao guardar a compra.',tr:'Alış kaydedilemedi.'}));
+    } finally {
+      setAchatSaving(false);
+    }
   };
 
   /** Stock disponible par modèle, cellule par cellule : entrées ACCEPTÉES moins
@@ -1262,6 +3243,25 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     return map;
   }, [allStockEntries, allStockSorties]);
 
+  /** Le stock réel, remis à la forme attendue par l'étiqueteuse (couleur →
+   *  taille → quantité). Une étiquette se colle sur une pièce QUI EXISTE : on
+   *  part des mouvements, pas de la quantité commandée. Les cellules vides ou
+   *  négatives sont écartées — imprimer un tiki pour une pièce déjà vendue
+   *  serait du papier perdu et une référence en double dans le magasin. */
+  const stockGridForLabel = (modelId: string): OrderGrid => {
+    const matrix = stockMatrixByModel.get(modelId);
+    const grid: OrderGrid = {};
+    if (!matrix) return grid;
+    matrix.forEach((qty, key) => {
+      if (!(qty > 0)) return;
+      const sep = key.indexOf('|');
+      const couleur = key.slice(0, sep);
+      const taille = key.slice(sep + 1);
+      if (!couleur || !taille) return;
+      (grid[couleur] ||= {})[taille] = qty;
+    });
+    return grid;
+  };
 
   // Tab 4 (Groups) States
   const { lang } = useLang();
@@ -1285,6 +3285,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     // champ inconnu (deny par défaut), et s'appuyer dessus ferait brutalement
     // disparaître le coût chez des ateliers qui le voyaient hier.
     hiddenFields: perms.fields['model.prix_revient']?.view === false ? ['model.prix_revient'] : [],
+    // Même principe pour l'écriture du prix de vente : seul un `edit:false`
+    // déclaré ferme la porte. Champ non déclaré = aucune restriction, sinon
+    // un « Chef d'atelier » perdrait l'édition sans que personne ne l'ait voulu.
+    priceFieldEdit: perms.fields[SALE_PRICE_FIELD]?.edit === false ? false : undefined,
   }), [perms, user, settings]);
   const canSeeCostHere = commercialAccess.canSeeCost;
   const canSetPriceHere = commercialAccess.canSetPrice;
@@ -1613,7 +3617,316 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     }
   };
 
+  /** Écrit le drapeau « publié dans la boutique en ligne » (`ficheData.storePublished`).
+   *
+   *  Décalque exact de `writeModelClientPrice` : `POST /api/models` remplace le
+   *  modèle entier, donc on relit la version fraîche avant d'écrire pour ne pas
+   *  effacer le travail de l'ingénierie. Publication VOLONTAIRE : ce chemin
+   *  n'est emprunté que sur un clic explicite dans la fiche modèle, jamais
+   *  déclenché par une synchronisation ou un import. */
+  const writeModelStorePublished = async (modelId: string, published: boolean): Promise<boolean> => {
+    if (!modelId || modelId === 'MANUAL') return false;
+    const local = models.find(m => m.id === modelId);
+    if (!local) return false;
+
+    try {
+      let base: ModelData = local;
+      if (!IS_STATIC) {
+        const fresh = await fetch('/api/models', { credentials: 'include' });
+        if (!fresh.ok) return false;
+        const list = await fresh.json();
+        const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
+        if (!found) return false;
+        base = found;
+      }
+
+      const updated: ModelData = {
+        ...base,
+        ficheData: { ...(base.ficheData as any), storePublished: published },
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (!IS_STATIC) {
+        const res = await fetch('/api/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(updated),
+        });
+        if (!res.ok) return false;
+      }
+      setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+      return true;
+    } catch (err) {
+      console.error('[SousTraitance] sync publication boutique → modèle', err);
+      return false;
+    }
+  };
+
   /** Valide l'édition en ligne du prix de vente (Entrée ou perte de focus). */
+  /* ── Fiche des prix de vente ────────────────────────────────────────────
+   * Un article ne se vend pas au même prix au carton, en boutique et au
+   * comptoir. Le champ unique de la carte obligeait à retenir de tête les deux
+   * autres prix et à les retaper à chaque étiquette et à chaque vente — c'est
+   * ainsi qu'on vend du gros au prix du détail. Les trois colonnes vivent donc
+   * au même endroit, dans la grille `st_prix`, et alimentent le tiki, la sortie
+   * de stock et la facture.
+   * ──────────────────────────────────────────────────────────────────────── */
+  /** LES CANAUX DE VENTE.
+   *
+   *  Deux natures différentes, qu'il ne faut pas confondre :
+   *   - `type` : À QUI l'on vend (segment client). Le grossiste enlève au
+   *     carton, le client final achète à la pièce. Résolu par `st_prix.type_client`.
+   *   - `canal` : PAR OÙ l'on vend, avec NOS propres moyens. Ma boutique et ma
+   *     boutique en ligne ne sont pas des clients : ce sont mes points de vente,
+   *     et chacun porte ses propres frais. Résolu par `st_prix.canal`.
+   *
+   *  La confusion était là avant : « Boutique » désignait un client-boutique,
+   *  ce qui ne laissait aucune place au prix de MA boutique ni à celui de MA
+   *  vente en ligne — celle-là même que la synchronisation pousse au magasin. */
+  type CanalVente = {
+    id: string;
+    kind: 'type' | 'canal';
+    /** Valeur envoyée au serveur : `type_client` ou `canal` selon `kind`. */
+    code: string | null;
+    label: string;
+    hint: string;
+    /** Frais propres à CE canal, en plus du revient — livraison, emballage,
+     *  publicité, commission… Chaque canal a les siens : une vente en gros peut
+     *  coûter un transport et une palette, une vente en ligne un livreur et de
+     *  la publicité. La règle est la même partout, seules les lignes changent. */
+    fraisKey: string | null;
+  };
+  const canauxVente: CanalVente[] = [
+    {
+      id: 'CATALOGUE', kind: 'type', code: null, fraisKey: 'CATALOGUE',
+      label: tx(lang,{fr:'Catalogue',ar:'الكتالوج',en:'Catalogue',es:'Catálogo',pt:'Catálogo',tr:'Katalog'}),
+      hint: tx(lang,{fr:'Le prix par défaut, quand aucun autre ne s\'applique.',ar:'الثمن الافتراضي، ملي ما كيتطبّق حتى واحد آخر.',en:'The default price, when no other applies.',es:'El precio por defecto, cuando ningún otro se aplica.',pt:'O preço por omissão, quando nenhum outro se aplica.',tr:'Başka hiçbiri geçerli değilken varsayılan fiyat.'}),
+    },
+    {
+      id: 'GROS', kind: 'type', code: 'GROS', fraisKey: 'GROS',
+      label: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}),
+      hint: tx(lang,{fr:'Revendeur qui enlève au carton.',ar:'بائع بالجملة كياخد بالكرطون.',en:'Reseller collecting by the carton.',es:'Revendedor que retira por cartón.',pt:'Revendedor que levanta à caixa.',tr:'Koli ile alan bayi.'}),
+    },
+    {
+      id: 'DETAIL', kind: 'type', code: 'DETAIL', fraisKey: 'DETAIL',
+      label: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}),
+      hint: tx(lang,{fr:'Client final, à la pièce.',ar:'العميل النهائي، بالقطعة.',en:'End customer, per piece.',es:'Cliente final, por pieza.',pt:'Cliente final, à peça.',tr:'Son müşteri, parça başına.'}),
+    },
+    {
+      id: 'BOUTIQUE', kind: 'type', code: 'BOUTIQUE', fraisKey: 'BOUTIQUE',
+      label: tx(lang,{fr:'Boutique (client)',ar:'محل (زبون)',en:'Shop (client)',es:'Tienda (cliente)',pt:'Loja (cliente)',tr:'Mağaza (müşteri)'}),
+      hint: tx(lang,{fr:'Un point de vente qui m\'achète pour revendre.',ar:'نقطة بيع كتشري مني باش تعاود تبيع.',en:'A shop that buys from me to resell.',es:'Un punto de venta que me compra para revender.',pt:'Um ponto de venda que me compra para revender.',tr:'Benden alıp satan bir satış noktası.'}),
+    },
+    {
+      id: 'MAGASIN', kind: 'canal', code: 'MAGASIN', fraisKey: 'MAGASIN',
+      label: tx(lang,{fr:'Ma boutique',ar:'محلّي',en:'My shop',es:'Mi tienda',pt:'A minha loja',tr:'Mağazam'}),
+      hint: tx(lang,{fr:'Mon propre point de vente — c\'est ce prix que la caisse déduira du stock.',ar:'نقطة البيع ديالي — هاد الثمن هو اللي غادي تنقص بيه الكيسة من المخزون.',en:'My own point of sale — this is the price the till will deduct from stock.',es:'Mi propio punto de venta — este precio es el que la caja descontará del stock.',pt:'O meu ponto de venda — é este preço que a caixa deduzirá do stock.',tr:'Kendi satış noktam — kasanın stoktan düşeceği fiyat budur.'}),
+    },
+    {
+      id: 'ONLINE', kind: 'canal', code: 'ONLINE', fraisKey: 'ONLINE',
+      label: tx(lang,{fr:'En ligne',ar:'أونلاين',en:'Online',es:'En línea',pt:'Online',tr:'Çevrimiçi'}),
+      hint: tx(lang,{fr:'Ma boutique en ligne — c\'est ce prix que la synchronisation pousse à la plateforme.',ar:'المتجر ديالي أونلاين — هاد الثمن هو اللي كتصيفطو المزامنة للمنصّة.',en:'My online store — this is the price the sync pushes to the platform.',es:'Mi tienda en línea — este precio es el que la sincronización envía a la plataforma.',pt:'A minha loja online — é este preço que a sincronização envia para a plataforma.',tr:'Çevrimiçi mağazam — senkronizasyonun platforma gönderdiği fiyat budur.'}),
+    },
+  ];
+  const CANAL_IDS = canauxVente.map(c => c.id);
+
+  /* ── Frais propres à un canal ────────────────────────────────────────────
+   * Vendre en ligne ne coûte pas que la marchandise : il y a le livreur,
+   * l'emballage, la publicité, parfois la commission de la plateforme. Les
+   * ignorer fait croire à une marge qui n'existe pas — c'est le piège classique
+   * de la vente en ligne, où le chiffre d'affaires monte pendant que l'argent
+   * descend.
+   *
+   * Chaque ligne est soit un MONTANT par pièce, soit un POURCENTAGE du prix de
+   * vente (une commission de plateforme se compte ainsi, pas en dirhams fixes).
+   * Les frais sont GLOBAUX au canal, pas par modèle : le livreur coûte le même
+   * prix quel que soit l'article qu'il transporte.
+   * ────────────────────────────────────────────────────────────────────── */
+  const CANAL_FRAIS_KEY = 'beramethode_canal_frais';
+  type FraisCanal = {
+    id: string;
+    label: string;
+    /** `''` = pas encore saisi, ce qui n'est PAS zéro. Un champ pré-rempli de
+     *  « 0 » oblige à l'effacer avant d'écrire : sans cela le zéro reste devant
+     *  et « 40 » s'affiche « 040 ». Convention suivie partout dans ce fichier. */
+    montant: number | '';
+    mode: 'FIXE' | 'PCT';
+  };
+  const DEFAULT_CANAL_FRAIS: Record<string, FraisCanal[]> = {
+    CATALOGUE: [], GROS: [], DETAIL: [], BOUTIQUE: [], MAGASIN: [], ONLINE: [],
+  };
+  const [canalFrais, setCanalFrais] = useState<Record<string, FraisCanal[]>>(DEFAULT_CANAL_FRAIS);
+
+  useEffect(() => {
+    try {
+      const raw = lsGetMig(CANAL_FRAIS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        setCanalFrais({ ...DEFAULT_CANAL_FRAIS, ...parsed });
+      }
+    } catch { /* réglages illisibles : on garde les valeurs par défaut */ }
+  }, []);
+
+  const persistCanalFrais = (next: Record<string, FraisCanal[]>) => {
+    setCanalFrais(next);
+    try { lsSet(CANAL_FRAIS_KEY, JSON.stringify(next)); } catch { /* quota plein */ }
+  };
+
+  const addFraisCanal = (canalId: string) => {
+    const next = {
+      ...canalFrais,
+      [canalId]: [...(canalFrais[canalId] || []), { id: `f${Date.now()}`, label: '', montant: '' as number | '', mode: 'FIXE' as const }],
+    };
+    persistCanalFrais(next);
+  };
+
+  const updateFraisCanal = (canalId: string, fraisId: string, patch: Partial<FraisCanal>) => {
+    const next = {
+      ...canalFrais,
+      [canalId]: (canalFrais[canalId] || []).map(f => (f.id === fraisId ? { ...f, ...patch } : f)),
+    };
+    persistCanalFrais(next);
+  };
+
+  const removeFraisCanal = (canalId: string, fraisId: string) => {
+    const next = { ...canalFrais, [canalId]: (canalFrais[canalId] || []).filter(f => f.id !== fraisId) };
+    persistCanalFrais(next);
+  };
+
+  /** Total des frais d'un canal pour un prix de vente donné. Les pourcentages
+   *  se calculent sur le PRIX, pas sur le revient : une commission de 10 % est
+   *  prélevée sur ce que paie le client, pas sur ce que l'article m'a coûté. */
+  const totalFraisCanal = (canalId: string | null, prixVente: number): number => {
+    if (!canalId) return 0;
+    return (canalFrais[canalId] || []).reduce((a, f) => {
+      const m = Number(f.montant) || 0;
+      return a + (f.mode === 'PCT' ? (prixVente * m) / 100 : m);
+    }, 0);
+  };
+
+  const [prixSheetModel, setPrixSheetModel] = useState<ModelData | null>(null);
+  const [prixSheetRevient, setPrixSheetRevient] = useState<number | null>(null);
+  const [prixSheetLoading, setPrixSheetLoading] = useState(false);
+  const [prixSheetSaving, setPrixSheetSaving] = useState(false);
+  const [prixSheetError, setPrixSheetError] = useState<string | null>(null);
+  /** Valeurs par canal. `''` = non saisi, ce qui n'est PAS zéro : un prix
+   *  absent doit rester absent, pas devenir gratuit. */
+  const [prixSheetVals, setPrixSheetVals] = useState<Record<string, number | ''>>(
+    Object.fromEntries(CANAL_IDS.map(id => [id, '' as number | ''])),
+  );
+  /** Colonne dont le détail du calcul est déplié. Un prix suggéré qu'on ne peut
+   *  pas ouvrir est un chiffre tombé du ciel : on doit pouvoir vérifier d'où il
+   *  sort avant de l'appliquer. */
+  const [prixSheetOpenCalc, setPrixSheetOpenCalc] = useState<string | null>(null);
+  /** Un prix de vente ne se modifie pas d'un clic distrait : il descend
+   *  aussitôt sur les étiquettes, les sorties de stock et les factures. On
+   *  affiche donc ce qui va être écrit — ancien prix contre nouveau — et on
+   *  attend une confirmation explicite. */
+  const [prixSheetConfirm, setPrixSheetConfirm] = useState<Array<{
+    id: string; label: string; avant: number | ''; apres: number;
+  }> | null>(null);
+  /** Valeurs telles qu'elles étaient à l'ouverture : c'est la comparaison qui
+   *  rend la confirmation utile, pas la simple répétition des nouvelles. */
+  const [prixSheetInitial, setPrixSheetInitial] = useState<Record<string, number | ''>>({});
+
+  const openPrixSheet = async (model: ModelData, revient: number | null) => {
+    const vide = Object.fromEntries(CANAL_IDS.map(id => [id, '' as number | ''])) as Record<string, number | ''>;
+    setPrixSheetModel(model);
+    setPrixSheetRevient(revient);
+    setPrixSheetError(null);
+    setPrixSheetVals(vide);
+    setPrixSheetOpenCalc(null);
+    setPrixSheetConfirm(null);
+    setPrixSheetInitial({});
+    if (IS_STATIC) return;
+    setPrixSheetLoading(true);
+    try {
+      // Une requête par canal : la résolution répond ce qui S'APPLIQUERAIT
+      // réellement, repli catalogue compris. Lire la table brute afficherait
+      // des cases vides là où un tarif catalogue prend pourtant le relais.
+      const entries = await Promise.all(canauxVente.map(async c => {
+        const qs = new URLSearchParams({ modelId: model.id, qty: '0' });
+        if (c.kind === 'type' && c.code) qs.set('type', c.code);
+        if (c.kind === 'canal' && c.code) qs.set('canal', c.code);
+        const r = await fetch(`/api/prix/resolve?${qs.toString()}`, { credentials: 'include' });
+        const d = r.ok ? await r.json() : null;
+        // On n'affiche QUE le tarif PROPRE à ce canal : recopier le catalogue
+        // ferait croire qu'un prix gros ou un prix en ligne a été décidé.
+        if (c.kind === 'type' && c.code && d?.source !== 'TYPE') return [c.id, ''] as const;
+        if (c.kind === 'canal' && d?.canal !== c.code) return [c.id, ''] as const;
+        return [c.id, d?.prix == null ? '' : Number(d.prix)] as const;
+      }));
+      const chargees = Object.fromEntries(entries) as Record<string, number | ''>;
+      setPrixSheetVals(chargees);
+      setPrixSheetInitial(chargees);
+    } catch {
+      setPrixSheetError(tx(lang,{fr:'Impossible de lire les tarifs.',ar:'تعذّر قراءة الأثمنة.',en:'Could not read the prices.',es:'No se pudieron leer las tarifas.',pt:'Não foi possível ler os preços.',tr:'Fiyatlar okunamadı.'}));
+    } finally {
+      setPrixSheetLoading(false);
+    }
+  };
+
+  /** Première étape : on ne touche à rien, on montre ce qui VA changer. Un prix
+   *  de vente descend aussitôt sur les étiquettes, les sorties de stock et les
+   *  factures — le modifier d'un clic distrait se paie sur des ventes réelles. */
+  const demanderConfirmationPrix = () => {
+    const changements = canauxVente
+      .map(c => ({ id: c.id, label: c.label, avant: prixSheetInitial[c.id] ?? '', apres: Number(prixSheetVals[c.id]) }))
+      // Une colonne vide n'est pas un prix de zéro : on ne l'écrit pas, donc
+      // elle n'a rien à faire dans le récapitulatif.
+      .filter(c => prixSheetVals[c.id] !== '' && c.apres > 0)
+      // Ni les colonnes inchangées : les lister noierait le vrai changement.
+      .filter(c => !(c.avant !== '' && Math.abs(Number(c.avant) - c.apres) < 0.0001));
+
+    if (changements.length === 0) { setPrixSheetModel(null); return; }
+    setPrixSheetConfirm(changements);
+  };
+
+  const savePrixSheet = async () => {
+    if (!prixSheetModel) return;
+    setPrixSheetSaving(true);
+    setPrixSheetError(null);
+    try {
+      const modelId = prixSheetModel.id;
+      for (const c of canauxVente) {
+        const v = prixSheetVals[c.id];
+        // Un canal laissé vide n'est pas un prix de zéro : on ne l'écrit pas,
+        // et le tarif catalogue continue de s'appliquer là.
+        if (v === '' || !(Number(v) > 0)) continue;
+        await fetch('/api/prix', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            modelId,
+            prix: Number(v),
+            qty_min: 0,
+            // Segment client OU canal de vente, jamais les deux : ce sont deux
+            // portées distinctes dans `st_prix`, les mélanger rendrait la
+            // résolution ambiguë.
+            type_client: c.kind === 'type' ? c.code : null,
+            canal: c.kind === 'canal' ? c.code : null,
+          }),
+        });
+      }
+      // Le prix de la carte reste celui du catalogue : c'est le repli, donc le
+      // chiffre qui a du sens quand on ne sait pas encore à qui l'on vend.
+      const cat = prixSheetVals.CATALOGUE;
+      if (cat !== '' && Number(cat) > 0 && !prixSheetModel.id.startsWith('__')) {
+        const isArticle = articles.some(a => a.id === modelId);
+        if (isArticle) setArticleSalePrices(prev => ({ ...prev, [modelId]: Number(cat) }));
+        else await writeModelClientPrice(modelId, Number(cat));
+      }
+      setPrixSheetModel(null);
+    } catch {
+      setPrixSheetError(tx(lang,{fr:"L'enregistrement des tarifs a échoué.",ar:'فشل حفظ الأثمنة.',en:'Saving the prices failed.',es:'Error al guardar las tarifas.',pt:'Falha ao guardar os preços.',tr:'Fiyatlar kaydedilemedi.'}));
+    } finally {
+      setPrixSheetSaving(false);
+    }
+  };
+
   const commitInlinePrice = async (modelId: string) => {
     const raw = editingPriceValue.trim();
     const parsed = raw === '' ? 0 : Number(raw.replace(',', '.'));
@@ -1740,7 +4053,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ label, amount, quantityScope }),
+        body: JSON.stringify({
+          label,
+          amount,
+          quantityScope,
+          tiersId: expenseTiersId || null,
+          factureRef: expenseFactureRef.trim() || null,
+          // Un montant payé vide vaut zéro : « rien de réglé », jamais un
+          // règlement inventé. Le serveur replafonne au montant dû.
+          montantPaye: Number(expenseMontantPaye) || 0,
+        }),
       });
       if (!res.ok) {
         const err: any = new Error(String(res.status));
@@ -1751,6 +4073,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       setExpenseAmount('');
       setExpenseScopeMode('ALL');
       setExpenseQuantityScope('');
+      setExpenseTiersId('');
+      setExpenseFactureRef('');
+      setExpenseMontantPaye('');
       await syncExpensesToModel(order, await loadExpenses(order.id));
     } catch (err: any) {
       console.error('[SousTraitance] add expense', err);
@@ -2299,6 +4624,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       sortiesCount: number;
       /** Nombre de commandes de sous-traitance distinctes ayant produit ce modèle. */
       ordersCount: number;
+      /** D'OÙ vient la marchandise. « Ce que j'ai fait faire » et « ce que j'ai
+       *  acheté pour revendre » ne se pilotent pas pareil : la première a un
+       *  prix de revient calculé (matière + façon + frais), la seconde a un
+       *  prix payé. Les confondre dans une même liste sans le dire ferait lire
+       *  une marge pour l'autre. */
+      origine: 'SOUS_TRAITANCE' | 'ACHAT';
+      /** Fournisseur du dernier achat — vide pour la sous-traitance. */
+      fournisseurNom?: string | null;
+      /** Date du dernier achat, déjà formatée. */
+      dateAchat?: string | null;
     }> = [];
 
     models.forEach(model => {
@@ -2355,6 +4690,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       const remaining = isVentile
         ? Math.max(0, entered - exited)
         : Math.max(0, produced - sold);
+
+      // « Produit » doit venir de la MÊME source que « restant », sinon la carte
+      // se contredit : on a vu PRODUIT 470 / SORTI 49 / RESTANT 1011, ce qui est
+      // arithmétiquement impossible et fait douter de tous les autres chiffres.
+      // La cause : `produced` comptait les quantités acceptées des COMMANDES,
+      // tandis que `restant` comptait les MOUVEMENTS de stock — deux réalités
+      // qui divergent dès qu'une entrée est saisie sans commande, ou corrigée
+      // après coup. Quand le détail existe, c'est lui qui fait foi, ici comme
+      // partout ailleurs dans cet onglet.
+      const producedShown = isVentile ? entered : produced;
       // Le repli n'est pas un détail cosmétique : sans entrée ventilée, la grille
       // de sortie est vide et la vente est IMPOSSIBLE. L'écran doit donc l'avouer
       // au lieu d'afficher un stock vert qui ne peut pas être vendu.
@@ -2381,7 +4726,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
       list.push({
         model,
-        producedQty: produced,
+        producedQty: producedShown,
         soldQty: exited > 0 ? exited : sold,
         exitedQty: exited,
         invoicedQty: sold,
@@ -2394,11 +4739,94 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         status: activeStatus,
         sortiesCount: sortieBatches.size,
         ordersCount,
+        origine: 'SOUS_TRAITANCE',
+      });
+    });
+
+    // ── Marchandise ACHETÉE ────────────────────────────────────────────────
+    // Elle n'est pas dans `models` — un article acheté n'a ni gamme ni chrono,
+    // et l'inscrire dans la bibliothèque le ferait remonter dans l'ingénierie,
+    // la coupe et le planning. On lui donne ici la FORME d'un modèle, le temps
+    // de l'affichage, pour que la grille de stock, les sorties, les étiquettes
+    // et les factures marchent sans une deuxième écriture du même code.
+    articles.forEach(article => {
+      const achatsArticle = achats.filter(a => a.articleId === article.id);
+      const entrees = allStockEntries.filter(e => e.modelId === article.id && e.qualite === 'ACCEPTED');
+      const sortiesArt = allStockSorties.filter(so => so.modelId === article.id);
+
+      const producedQty = entrees.reduce((a, e) => a + (Number(e.quantite) || 0), 0);
+      const exitedQty = sortiesArt.reduce((a, so) => a + (Number(so.quantite) || 0), 0);
+
+      let invoicedQty = 0;
+      invoices.forEach(inv => {
+        (inv.lignes || []).forEach((line: any) => {
+          if (line.modelId && line.modelId === article.id) invoicedQty += line.qte || 0;
+        });
+      });
+
+      // Le revient d'un article acheté est le prix PAYÉ, pondéré par les
+      // quantités : deux réassorts à des prix différents ne se résument pas au
+      // dernier prix vu, qui ferait mentir la valeur du stock.
+      let coutTotal = 0;
+      let qtyTotal = 0;
+      achatsArticle.forEach(a => {
+        const q = Number(a.quantite) || 0;
+        coutTotal += q * (Number(a.prixAchat) || 0);
+        qtyTotal += q;
+      });
+      const price = qtyTotal > 0 ? coutTotal / qtyTotal : null;
+
+      const sortieBatches = new Set(sortiesArt.map(so => so.batch_id || so.id));
+      const dernier = achatsArticle[0] || null;
+
+      list.push({
+        model: articleAsModel(article),
+        producedQty,
+        soldQty: invoicedQty,
+        exitedQty,
+        invoicedQty,
+        remainingStock: Math.max(0, producedQty - exitedQty),
+        // Un article acheté est ventilé par construction : sa grille est saisie
+        // couleur par couleur au moment de l'achat, jamais en total global.
+        isVentile: true,
+        stockSource: 'DETAIL',
+        price,
+        salePrice: salePriceOf(article.id),
+        startDate: dernier?.dateAchat ? fmtDate(dernier.dateAchat) : '—',
+        status: producedQty > exitedQty ? 'FINISHED' : 'INACTIVE',
+        sortiesCount: sortieBatches.size,
+        ordersCount: achatsArticle.length,
+        origine: 'ACHAT',
+        fournisseurNom: dernier?.tiersNom ?? null,
+        dateAchat: dernier?.dateAchat ? fmtDate(dernier.dateAchat) : null,
       });
     });
 
     return list;
-  }, [models, orders, invoices, settings, lang, dateLocale, allStockEntries, allStockSorties]);
+  }, [models, orders, invoices, settings, lang, dateLocale, allStockEntries, allStockSorties, articles, achats, articleSalePrices]);
+  modelStockStatsRef.current = modelStockStats;
+
+  /** Modèles sélectionnables pour la commande « normale » : uniquement ceux
+   *  avec du stock VENDABLE (réception détaillée faite, reste > 0). Un modèle
+   *  non ventilé ou épuisé dans la liste serait une promesse de vente
+   *  impossible à tenir. */
+  const commandeModelOptions = useMemo(
+    () => modelStockStats.filter(it => it.stockSource === 'DETAIL' && it.remainingStock > 0),
+    [modelStockStats]
+  );
+
+  /** Au moins une ligne de la commande sous le plancher → le garde-fou
+   *  « vente à perte » se déclenche pour TOUTE la commande, comme sur la
+   *  sortie classique. */
+  const commandeSousPlancher: boolean = useMemo(
+    () => commandeLignes.some(l => {
+      if (commandeLigneTotalQty(l) <= 0) return false;
+      const stat = modelStockStats.find(it => it.model.id === l.modelId);
+      if (!stat) return false;
+      return estSousPlancher(Number(l.prix) || 0, prixPlancher(stat.price, margeMinimale));
+    }),
+    [commandeLignes, modelStockStats, margeMinimale]
+  );
 
   /** Liste réellement affichée : recherche libre (modèle ou client) + un filtre
    *  par intention. « Non ventilé » isole les lignes qui bloquent une vente. */
@@ -2408,7 +4836,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       if (q) {
         const nom = (it.model.meta_data?.nom_modele || '').toLowerCase();
         const client = (it.model.ficheData?.client || '').toLowerCase();
-        if (!nom.includes(q) && !client.includes(q)) return false;
+        const ref = (it.model.meta_data?.reference || '').toLowerCase();
+        if (!nom.includes(q) && !client.includes(q) && !ref.includes(q)) return false;
       }
       if (stockFilter === 'inStock') return it.remainingStock > 0;
       if (stockFilter === 'noPrice') return !(it.salePrice != null && it.salePrice > 0);
@@ -2419,17 +4848,31 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
   /** Indicateurs de tête. La valeur est calculée au prix de REVIENT (valorisation
    *  comptable du stock) et ignore les modèles sans prix fiable plutôt que de
-   *  leur inventer un montant. */
+   *  leur inventer un montant.
+   *
+   *  Ils portent sur TOUT le stock, jamais sur la liste filtrée : « valeur du
+   *  stock » est un montant comptable, il ne peut pas changer parce qu'on tape
+   *  une lettre dans la recherche. C'était le cas — la valeur bougeait à chaque
+   *  frappe et à chaque clic de filtre, ce qui rendait le chiffre inutilisable
+   *  et faisait douter du calcul lui-même.
+   *
+   *  Le nombre de pièces sans prix de vente reste lui aussi global : c'est une
+   *  alerte sur le catalogue entier, pas sur ce qu'on regarde à l'instant. */
   const stockKpis = useMemo(() => {
     let value = 0, available = 0, exited = 0, noPrice = 0;
-    filteredStockStats.forEach(it => {
+    modelStockStats.forEach(it => {
       available += it.remainingStock;
       exited += it.exitedQty;
       if (it.price != null) value += it.remainingStock * it.price;
       if (!(it.salePrice != null && it.salePrice > 0)) noPrice += 1;
     });
     return { value, available, exited, noPrice };
-  }, [filteredStockStats]);
+  }, [modelStockStats]);
+
+  /** Vrai quand la liste affichée ne montre PAS tout le stock. Sans ce repère,
+   *  l'écart entre les indicateurs (globaux) et les cartes (filtrées) passe
+   *  pour une erreur de calcul. */
+  const stockListeFiltree = filteredStockStats.length !== modelStockStats.length;
 
   /** Totaux du pied de tableau — un stock ne se lit pas ligne à ligne. */
   const stockTotals = useMemo(() => {
@@ -2667,6 +5110,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       subcontractorRating: formSubcontractorRating,
       subcontractorAvailabilityDate: formSubcontractorAvailabilityDate || null,
       prestationType: formPrestationType,
+      st_mode: formStMode,
       tissuFournisseur: formTissuFournisseur,
       fournituresFournisseur: formFournituresFournisseur,
       conditionnementFournisseur: formConditionnementFournisseur,
@@ -2724,8 +5168,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  le modèle (orderId / orderQty) sans toucher au mode de calcul.
    *  La désactivation reste manuelle : on ne coupe jamais un lien tout seul.
    *
-   *  Le mode explicite choisi dans le formulaire prime ; sinon il est déduit des
-   *  fournisseurs de la commande (`inferSubcontractMode`, prudent par défaut). */
+   *  Le mode explicite choisi dans le formulaire (`st_mode`) prime ; sinon il est
+   *  déduit des fournisseurs de la commande (`inferSubcontractMode`, prudent par
+   *  défaut). */
   const syncOrderToModel = async (order: SubcontractOrder, mode?: StMode) => {
     const price = Number(order.pricePerPiece) || 0;
     await writeModelSoustraitance(order.modelId, {
@@ -2733,7 +5178,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       // `orderId` n'est écrit que s'il est connu : juste après la création, la
       // réponse de l'API peut ne pas le porter — la réconciliation le posera.
       ...(order.id ? { orderId: order.id } : {}),
-      mode: mode ?? inferSubcontractMode(order),
+      mode: mode ?? order.st_mode ?? inferSubcontractMode(order),
       prix: price,
       orderQty: Number(order.totalQuantity) || 0,
     });
@@ -2780,9 +5225,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setFormSubcontractorRating(order.subcontractorRating || 5);
     setFormSubcontractorAvailabilityDate(order.subcontractorAvailabilityDate || '');
 
-    // Valeur initiale du sélecteur explicite (A6) : déduite de TOUS les champs
+    // Valeur initiale du sélecteur explicite : le mode stocké sur la commande
+    // fait foi (choix de l'utilisateur), sinon on le déduit de TOUS les champs
     // fournisseur, pas du seul tissu, et conservatrice en cas d'ambiguïté.
-    setFormStMode(inferSubcontractMode(order));
+    setFormStMode((order.st_mode as StMode) || inferSubcontractMode(order));
     setFormPrestationType(order.prestationType || 'CMT');
     setFormTissuFournisseur(order.tissuFournisseur || 'CLIENT');
     setFormFournituresFournisseur(order.fournituresFournisseur || 'CLIENT');
@@ -2853,6 +5299,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       subcontractorRating: formSubcontractorRating,
       subcontractorAvailabilityDate: formSubcontractorAvailabilityDate || null,
       prestationType: formPrestationType,
+      st_mode: formStMode,
       tissuFournisseur: formTissuFournisseur,
       fournituresFournisseur: formFournituresFournisseur,
       conditionnementFournisseur: formConditionnementFournisseur,
@@ -3152,6 +5599,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     setSaleClientIce('');
     setSaleClientRc('');
     setSaleClientAdresse('');
+    setSaleClientVille('');
+    setSaleClientType('DETAIL');
     setSaleClientTel('');
     setSaleClientEmail('');
     setSaleQuantity(item.remainingStock);
@@ -3189,6 +5638,45 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       }));
     } finally {
       setSaleNumberLoading(false);
+    }
+  };
+
+  /** Crée un client depuis la facture de vente, puis remplit la facture avec sa
+   *  fiche (type, ville, adresse compris). Le registre sert ensuite de source
+   *  pour les sorties suivantes. */
+  const handleCreateSaleClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const nom = saleNewClient.nom.trim();
+    if (!nom) {
+      setSaleNewClientError(tx(lang,{fr:'Le nom du client est obligatoire.',ar:'اسم العميل إجباري.',en:'Client name is required.',es:'El nombre del cliente es obligatorio.',pt:'O nome do cliente é obrigatório.',tr:'Müşteri adı zorunludur.'}));
+      return;
+    }
+    setSaleNewClientSaving(true);
+    setSaleNewClientError(null);
+    try {
+      const res = await fetch('/api/subcontract/clients', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...saleNewClient, nom }),
+      });
+      if (!res.ok) throw new Error();
+      const created = await res.json();
+      setAtelierClients(prev => [...prev.filter(c => c.id !== created.id), created]);
+      setSaleClient(created.nom || '');
+      setSaleClientIce(created.ice || '');
+      setSaleClientRc(created.rc || '');
+      setSaleClientTel(created.tel || '');
+      setSaleClientEmail(created.email || '');
+      setSaleClientAdresse(created.adresse || '');
+      setSaleClientVille(created.ville || '');
+      setSaleClientType((created.type as any) || 'DETAIL');
+      setSaleNewClientOpen(false);
+      setSaleNewClient({ nom: '', type: 'DETAIL', ice: '', rc: '', tel: '', email: '', adresse: '', ville: '', notes: '' });
+    } catch {
+      setSaleNewClientError(tx(lang,{fr:"La création du client a échoué.",ar:'فشل إنشاء العميل.',en:'Client creation failed.',es:'La creación del cliente falló.',pt:'A criação do cliente falhou.',tr:'Müşteri oluşturma başarısız.'}));
+    } finally {
+      setSaleNewClientSaving(false);
     }
   };
 
@@ -3235,7 +5723,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       tiers_nom: saleClient,
       tiers_ice: saleClientIce || null,
       tiers_rc: saleClientRc || null,
+      tiers_type: saleClientType || null,
       tiers_adresse: saleClientAdresse || null,
+      tiers_ville: saleClientVille || null,
       tiers_tel: saleClientTel || null,
       tiers_email: saleClientEmail || null,
       date_facture: new Date().toISOString().split('T')[0],
@@ -4649,7 +7139,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  un atelier qui imprime deux styles de facture différents selon qu'il
    *  achète ou qu'il vend finit par perdre confiance dans ses propres papiers. */
   const handlePrintClientInvoice = (
-    facture: { numero: string; tiers_nom?: string; date_facture: string; date_echeance: string | null; taux_tva: number; total_ht: number; total_tva: number; total_ttc: number; lignes: any[] },
+    facture: { numero: string; tiers_nom?: string; date_facture: string; date_echeance: string | null; taux_tva: number; total_ht: number; total_tva: number; total_ttc: number; montant_paye?: number; lignes: any[] },
     client: { nom: string; ice?: string | null; rc?: string | null; adresse?: string | null; tel?: string | null; email?: string | null; photo?: string | null } | null,
     grid: { couleurs: string[]; tailles: string[]; byCell: Map<string, number> },
   ) => {
@@ -4661,14 +7151,45 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const money = (v: number) => `${esc(fmt(v))} ${esc(currency)}`;
     const clientThumb = inlineThumbHtml(client?.photo || '', 18);
     const words = amountInWords(facture.total_ttc, currency);
+    const ref = /FAC/i.test(String(facture.numero)) ? String(facture.numero) : `FAC-${String(facture.numero)}`;
 
-    const lineRows = (facture.lignes || []).map(l => `
+    const lineRows = (() => {
+      // Groupement par modèle : une seule vignette par modèle, posée en tête de
+      // groupe, puis ses lignes couleur/taille en dessous. Chaque modèle de la
+      // facture est ainsi visible — même avec des dizaines de lignes, pas de
+      // répétition de la même photo. La remise commerciale, sans modèle, reste
+      // une simple ligne (photo vide → pas de titre de groupe).
+      const groups: { nom: string; photo: string; rows: any[] }[] = [];
+      (facture.lignes || []).forEach(l => {
+        const byId = models.find(m => m.id === l.modelId);
+        const nom = byId?.meta_data?.nom_modele || String(l.designation || '').split(' — ')[0].trim() || '—';
+        const photo = (byId?.image || byId?.meta_data?.photo_url) ? (byId.image || byId.meta_data.photo_url) : '';
+        const key = byId ? String(l.modelId) : nom;
+        let g = groups.find(x => x.nom === key);
+        if (!g) { g = { nom: key, photo, rows: [] }; groups.push(g); }
+        g.rows.push(l);
+      });
+      let lineCounter = 0;
+      const lineNo = () => String(++lineCounter);
+      const lineCell = (l: any) => `
               <tr>
+                <td class="row-num">${esc(lineNo())}</td>
                 <td class="c-desc"><span class="label">${esc(l.designation || '—')}</span></td>
                 <td class="num">${esc((Number(l.quantite) || 0).toLocaleString(dateLocale))} pcs</td>
                 <td class="num">${money(Number(l.prix_unitaire) || 0)}</td>
                 <td class="num strong">${money(Number(l.total) || 0)}</td>
-              </tr>`).join('');
+              </tr>`;
+      return groups.map(g => `
+              ${g.photo ? `
+              <tr class="model-head">
+                <td class="row-num"></td>
+                <td class="c-desc" colspan="4">
+                  <span class="model-title">${inlineThumbHtml(g.photo, 36)}${esc(g.nom)}</span>
+                </td>
+              </tr>` : ''}
+              ${g.rows.map(lineCell).join('')}
+            `).join('');
+    })();
 
     const gridBlock = (grid.couleurs.length > 1 || grid.tailles.length > 1) ? `
             <table class="lines" style="margin-top:10px;">
@@ -4713,104 +7234,112 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         <head>
           <title>${esc(tx(lang,{fr:'Facture de Vente',ar:'فاتورة بيع',en:'Sale Invoice',es:'Factura de Venta',pt:'Fatura de Venda',tr:'Satış Faturası'}))} - ${esc(facture.numero)}</title>
           <style>
+            /* Fiche reprise du « Bon d'envoi de sous-traitance » : même grammaire
+               visuelle (accent indigo, cartouches gris, en-têtes lavés, totaux
+               indigo) pour que tous les documents de la sous-traitance se
+               reconnaissent d'un coup d'œil. */
             * { box-sizing: border-box; }
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #16202e; padding: 16px; line-height: 1.35; font-size: 11px; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; padding: 16px; line-height: 1.35; font-size: 11px; }
             .invoice-box { max-width: 820px; margin: auto; }
             .num, .amount { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; white-space: nowrap; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 1.5px solid #16202e; padding-bottom: 8px; }
-            .header-rule { border-bottom: 0.5px solid #16202e; margin-bottom: 12px; padding-top: 1.5px; }
-            .logo { font-size: 17px; font-weight: 800; letter-spacing: -.01em; color: #16202e; }
-            .doc-title { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: .10em; color: #16202e; }
-            .doc-meta { margin-top: 5px; font-size: 10px; color: #16202e; }
-            .doc-meta div { margin-top: 1px; }
-            .doc-meta .k { color: #667085; }
-            .doc-meta .v { font-weight: 700; }
-            .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 12px; }
-            .party { padding: 0 14px; }
-            .party:first-child { padding-left: 0; }
-            .party:last-child { border-left: 0.5px solid #ccd3dc; }
-            .party-title { font-size: 7.5px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: .12em; }
-            .party-name { font-size: 12px; font-weight: 800; color: #16202e; margin-top: 3px; }
-            .party-line { font-size: 10px; color: #4a5568; margin-top: 2px; }
-            table { width: 100%; border-collapse: collapse; }
-            .lines { margin-bottom: 10px; }
-            .lines th { padding: 5px 8px; text-align: left; font-size: 8px; color: #16202e; font-weight: 700; text-transform: uppercase; letter-spacing: .09em;
-                        border-top: 0.75px solid #16202e; border-bottom: 0.75px solid #16202e; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 2px solid #6366f1; padding-bottom: 10px; margin-bottom: 12px; }
+            .title { font-size: 18px; font-weight: 900; color: #1e1b4b; }
+            .doc-title { font-size: 18px; font-weight: 900; color: #4f46e5; }
+            .doc-meta { margin-top: 5px; font-size: 10.5px; color: #64748b; font-weight: 700; }
+            .doc-meta div { margin-top: 2px; }
+            .meta-section { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+            .box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 10px; border-radius: 8px; }
+            .box-title { font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: .04em; }
+            .box-val { font-size: 12px; font-weight: 800; color: #0f172a; margin-top: 2px; }
+            .party-line { font-size: 9.5px; color: #475569; font-weight: 600; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+            .lines th { background: #f1f5f9; padding: 6px 8px; text-align: left; font-size: 9px; color: #475569; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; }
             .lines th.num { text-align: right; }
-            .lines td { padding: 5px 8px; border-bottom: 0.5px solid #e3e8ee; vertical-align: top; }
-            .lines tr:last-child td { border-bottom: 0.75px solid #16202e; }
+            .lines td { padding: 5px 8px; border-bottom: 1px solid #eef2f7; vertical-align: top; font-size: 11px; }
+            .lines tr:last-child td { border-bottom: 1px solid #cbd5e1; }
             .lines .c-desc { padding-left: 0; }
             .lines td.num:last-child, .lines th.num:last-child { padding-right: 0; }
-            .label { font-weight: 600; color: #16202e; }
+            .row-num { width: 26px; text-align: center; color: #94a3b8; font-weight: 700; }
+            .label { font-weight: 700; color: #0f172a; }
             .strong { font-weight: 700; }
-            .summary { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; margin-top: 10px; }
+            .summary { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; margin-top: 4px; }
+            .words { border-left: 2px solid #6366f1; padding: 2px 0 2px 9px; }
+            .words-title { font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: .04em; }
+            .words-fr { font-weight: 700; margin-top: 2px; font-size: 11px; color: #0f172a; }
+            .words-ar { direction: rtl; font-size: 11px; font-weight: 700; margin-top: 1px; color: #0f172a; }
             .total-table { width: 100%; }
-            .total-table td { padding: 3px 0; border: none; font-size: 10.5px; }
-            .total-table td:first-child { color: #4a5568; }
+            .total-table td { padding: 4px 0; border: none; font-size: 10.5px; }
+            .total-table td:first-child { color: #475569; }
             .total-table td:last-child { font-weight: 700; }
-            .sub-rule td { border-top: 0.5px solid #ccd3dc !important; }
-            .total-row td { background: #16202e; color: #ffffff; font-weight: 800; font-size: 12.5px; padding: 6px 8px; letter-spacing: .02em; }
+            .sub-rule td { border-top: 0.5px solid #cbd5e1 !important; }
+            .total-row td { background: #4f46e5; color: #ffffff; font-weight: 800; font-size: 12.5px; padding: 6px 8px; letter-spacing: .02em; }
             .total-row td:first-child { color: #ffffff; text-transform: uppercase; font-size: 10px; letter-spacing: .09em; }
-            .words { border-left: 2px solid #16202e; padding: 2px 0 2px 9px; }
-            .words-title { font-size: 7.5px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: .10em; }
-            .words-fr { font-weight: 700; margin-top: 2px; font-size: 10.5px; }
-            .words-ar { direction: rtl; font-size: 10.5px; font-weight: 700; margin-top: 1px; }
-            .legal { font-size: 8.5px; color: #4a5568; line-height: 1.5; margin-top: 12px; padding: 0; }
+            .legal { font-size: 8.5px; color: #475569; line-height: 1.5; margin-top: 12px; padding: 0; }
             .legal ul { margin: 3px 0 0; padding-left: 12px; }
-            .legal-title { font-size: 7.5px; text-transform: uppercase; color: #667085; font-weight: 700; letter-spacing: .10em; }
-            .signatures { display: flex; justify-content: space-between; gap: 24px; margin-top: 26px; }
-            .sig-box { width: 210px; border-top: 0.5px solid #16202e; text-align: center; padding-top: 4px; font-size: 8.5px; color: #4a5568; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
-            .footer { margin-top: 12px; text-align: center; font-size: 8.5px; color: #667085; border-top: 0.5px solid #e3e8ee; padding-top: 6px; }
+            .legal-title { font-size: 8px; text-transform: uppercase; color: #64748b; font-weight: 800; letter-spacing: .04em; }
+            .signatures { display: flex; justify-content: space-between; gap: 24px; margin-top: 22px; }
+            .sig-box { width: 210px; border-top: 1px dashed #cbd5e1; text-align: center; padding-top: 6px; font-size: 9px; color: #475569; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
+            .footer { margin-top: 12px; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
             .thumb { display: inline-block; vertical-align: middle; margin-right: 6px; }
             .thumb img { height: 18px; width: 18px; object-fit: cover; border: 0.5px solid #ccd3dc; border-radius: 3px; }
             @page { size: A4; margin: 10mm 10mm; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
-            tr, .party, .words, .signatures, .summary { break-inside: avoid; page-break-inside: avoid; }
+            tr, .box, .words, .signatures, .summary { break-inside: avoid; page-break-inside: avoid; }
             @media print {
               body { padding: 0; font-size: 10.5px; }
               .invoice-box { max-width: none; }
-              .signatures { margin-top: 18px; }
-              .total-row td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              .signatures { margin-top: 16px; }
+              .total-row td, .lines th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             }
           </style>
         </head>
         <body>
           <div class="invoice-box">
             <div class="header">
-              <div>
-                <div style="display:flex;align-items:center;gap:12px;">
-                  ${companyIdentity.logo ? `<img src="${esc(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
-                  <div class="logo">${esc(companyIdentity.nom || '')}</div>
-                </div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                ${companyIdentity.logo ? `<img src="${esc(companyIdentity.logo)}" alt="" style="height:44px;width:auto;object-fit:contain;" />` : ''}
+                <div class="title">${esc(companyIdentity.nom || '')}</div>
               </div>
               <div style="text-align: right;">
                 <div class="doc-title">${esc(tx(lang,{fr:'FACTURE DE VENTE',ar:'فاتورة بيع',en:'SALE INVOICE',es:'FACTURA DE VENTA',pt:'FATURA DE VENDA',tr:'SATIŞ FATURASI'}))}</div>
                 <div class="doc-meta">
-                  <div class="v">${esc(tx(lang,{fr:'Facture n°',ar:'فاتورة رقم',en:'Invoice no.',es:'Factura n.º',pt:'Fatura n.º',tr:'Fatura no'}))} ${esc(facture.numero)}</div>
-                  <div><span class="k">${esc(tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'}))} :</span> <span class="v">${esc(fmtDate(facture.date_facture))}</span></div>
-                  ${facture.date_echeance ? `<div><span class="k">${esc(tx(lang,{fr:'Échéance',ar:'تاريخ الاستحقاق',en:'Due date',es:'Vencimiento',pt:'Vencimento',tr:'Vade'}))} :</span> <span class="v">${esc(fmtDate(facture.date_echeance))}</span></div>` : ''}
+                  <div>REF: ${esc(ref)}</div>
+                  <div>${esc(tx(lang,{fr:'Date',ar:'التاريخ',en:'Date',es:'Fecha',pt:'Data',tr:'Tarih'}))} : ${esc(fmtDate(facture.date_facture))}</div>
+                  ${facture.date_echeance ? `<div>${esc(tx(lang,{fr:'Échéance',ar:'تاريخ الاستحقاق',en:'Due date',es:'Vencimiento',pt:'Vencimento',tr:'Vade'}))} : ${esc(fmtDate(facture.date_echeance))}</div>` : ''}
                 </div>
               </div>
             </div>
-            <div class="header-rule"></div>
 
-            <div class="parties">
-              <div class="party">
-                <div class="party-title">${esc(tx(lang,{fr:'Émetteur',ar:'المصدر',en:'Issuer',es:'Emisor',pt:'Emitente',tr:'Düzenleyen'}))}</div>
-                <div class="party-name">${esc(companyIdentity.nom || tx(lang,{fr:'Entreprise non renseignée',ar:'الشركة غير محدَّدة',en:'Company not set',es:'Empresa no indicada',pt:'Empresa não indicada',tr:'Şirket belirtilmedi'}))}</div>
+            <div class="meta-section">
+              <div class="box">
+                <div class="box-title">${esc(tx(lang,{fr:'Émetteur',ar:'المصدر',en:'Issuer',es:'Emisor',pt:'Emitente',tr:'Düzenleyen'}))}</div>
+                <div class="box-val">${esc(companyIdentity.nom || tx(lang,{fr:'Entreprise non renseignée',ar:'الشركة غير محدَّدة',en:'Company not set',es:'Empresa no indicada',pt:'Empresa não indicada',tr:'Şirket belirtilmedi'}))}</div>
                 ${issuerLines}
               </div>
-              <div class="party">
-                <div class="party-title">${esc(tx(lang,{fr:'Client',ar:'الزبون',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'}))}</div>
-                <div class="party-name">${clientThumb}${esc(client?.nom || facture.tiers_nom || '—')}</div>
+              <div class="box">
+                <div class="box-title">${esc(tx(lang,{fr:'Client',ar:'الزبون',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'}))}</div>
+                <div class="box-val">${clientThumb}${esc(client?.nom || facture.tiers_nom || '—')}</div>
                 ${recipientLines}
+              </div>
+              <div class="box">
+                <div class="box-title">${esc(tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'}))}</div>
+                <div class="box-val">${esc(ref)}</div>
+                <div class="party-line">${esc(tx(lang,{fr:'Facturé le',ar:'فوتر في',en:'Invoiced on',es:'Facturado el',pt:'Faturado em',tr:'Fatura tarihi'}))} : ${esc(fmtDate(facture.date_facture))}</div>
+                ${facture.date_echeance ? `<div class="party-line">${esc(tx(lang,{fr:'Échéance',ar:'تاريخ الاستحقاق',en:'Due date',es:'Vencimiento',pt:'Vencimento',tr:'Vade'}))} : ${esc(fmtDate(facture.date_echeance))}</div>` : ''}
+              </div>
+              <div class="box">
+                <div class="box-title">${esc(tx(lang,{fr:'TVA',ar:'الضريبة على القيمة المضافة',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'}))}</div>
+                <div class="box-val">${esc(facture.taux_tva)}%</div>
+                <div class="party-line">${esc(tx(lang,{fr:'Total HT',ar:'المجموع دون الضريبة',en:'Total excl. tax',es:'Total sin IVA',pt:'Total sem IVA',tr:'KDV hariç toplam'}))} : ${money(facture.total_ht)}</div>
+                <div class="party-line">${esc(tx(lang,{fr:'TOTAL TTC',ar:'المجموع مع الضريبة',en:'TOTAL INCL. TAX',es:'TOTAL CON IVA',pt:'TOTAL COM IVA',tr:'TOPLAM (KDV DAHİL)'}))} : ${money(facture.total_ttc)}</div>
               </div>
             </div>
 
             <table class="lines">
               <thead>
                 <tr>
+                  <th class="row-num" style="text-align:center;">#</th>
                   <th>${esc(tx(lang,{fr:'Désignation',ar:'البيان',en:'Description',es:'Designación',pt:'Designação',tr:'Açıklama'}))}</th>
                   <th class="num">${esc(tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'}))}</th>
                   <th class="num">${esc(tx(lang,{fr:'Prix Unitaire',ar:'السعر الوحدة',en:'Unit Price',es:'Precio Unitario',pt:'Preço Unitário',tr:'Birim Fiyat'}))}</th>
@@ -4843,6 +7372,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <td>${esc(tx(lang,{fr:'TOTAL TTC',ar:'المجموع مع الضريبة',en:'TOTAL INCL. TAX',es:'TOTAL CON IVA',pt:'TOTAL COM IVA',tr:'TOPLAM (KDV DAHİL)'}))}</td>
                   <td class="num">${money(facture.total_ttc)}</td>
                 </tr>
+                ${(facture.montant_paye || 0) > 0 ? `
+                <tr>
+                  <td>${esc(tx(lang,{fr:'Déjà payé',ar:'المؤدى سابقاً',en:'Already paid',es:'Ya pagado',pt:'Já pago',tr:'Ödenmiş'}))}</td>
+                  <td class="num">&minus; ${money(facture.montant_paye || 0)}</td>
+                </tr>
+                <tr class="sub-rule">
+                  <td>${esc(tx(lang,{fr:'Reste à payer',ar:'الباقي للأداء',en:'Balance due',es:'Resto a pagar',pt:'Restante a pagar',tr:'Kalan borç'}))}</td>
+                  <td class="num strong">${money(facture.total_ttc - (facture.montant_paye || 0))}</td>
+                </tr>` : ''}
               </table>
             </div>
 
@@ -4877,7 +7415,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           <div className="space-y-0.5">
             <span className="text-[10px] font-black text-indigo-600 dark:text-dk-accent uppercase tracking-widest block">{tx(lang,{fr:'Plateforme Industrielle',ar:'المنصة الصناعية',en:'Industrial Platform',es:'Plataforma Industrial',pt:'Plataforma Industrial',tr:'Endüstriyel Platform'})}</span>
             <h1 className="text-lg lg:text-xl font-black tracking-tight text-slate-900 dark:text-dk-text">
-              {tx(lang,{fr:'Sous-traitance & Monawla',ar:'المقاولة من الباطن ومناولة',en:'Subcontracting & Monawla',es:'Subcontratación & Monawla',pt:'Subcontratação & Monawla',tr:'Taşeronluk & Monawla'})}
+              {tx(lang,{fr:'Sous-traitance',ar:'المقاولة من الباطن',en:'Subcontracting',es:'Subcontratación',pt:'Subcontratação',tr:'Taşeronluk'})}
             </h1>
           </div>
           {activeTab === 'orders' && (
@@ -4893,6 +7431,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       </div>
 
       {/* Modern Pill-Style Tabs Bar - Compact */}
+      <div className="flex items-center gap-2">
       <div className="flex bg-white dark:bg-dk-surface p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/60 overflow-x-auto gap-0.5 shadow-sm dark:shadow-none max-w-max scrollbar-none shrink-0">
         <button
           onClick={() => setActiveTab('orders')}
@@ -4920,8 +7459,64 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'clients' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
         >
           <Users className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
-          <span>{tx(lang,{fr:'Clients',ar:'الزبناء',en:'Clients',es:'Clientes',pt:'Clientes',tr:'Müşteriler'})}</span>
+          <span>{tx(lang,{fr:'Tiers',ar:'الأطراف',en:'Contacts',es:'Terceros',pt:'Terceiros',tr:'Taraflar'})}</span>
         </button>
+      </div>
+
+        {/* Réglages de la page, à l'écart des onglets : ce sont des choses
+            qu'on règle une fois puis qu'on oublie. Un bouton pleine largeur
+            pour ça volerait la place des actions du quotidien. Réservé à
+            Stock & Ventes : le tiki ne se règle que là où on l'imprime. */}
+        {activeTab === 'stock' && (
+        <div className="relative ml-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => setStockMenuOpen(v => !v)}
+            title={tx(lang,{fr:'Réglages',ar:'الإعدادات',en:'Settings',es:'Ajustes',pt:'Definições',tr:'Ayarlar'})}
+            className={`p-2 rounded-xl border transition-colors ${
+              stockMenuOpen
+                ? 'bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent'
+                : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border/60 hover:text-slate-800 dark:hover:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated'
+            }`}
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+          {stockMenuOpen && (
+            <>
+              {/* Un clic à côté ferme : pas de menu qui reste collé à l'écran. */}
+              <div className="fixed inset-0 z-40" onClick={() => setStockMenuOpen(false)} />
+              <div className="absolute right-0 top-full mt-1.5 z-50 w-56 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg dark:shadow-dk-lg overflow-hidden py-1">
+                <button
+                  type="button"
+                  onClick={openTikiSettings}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[12px] font-bold text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                >
+                  <Barcode className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />
+                  <span className="min-w-0">
+                    {tx(lang,{fr:'Paramètres du tiki',ar:'إعدادات التيكي',en:'Label settings',es:'Ajustes de la etiqueta',pt:'Definições da etiqueta',tr:'Etiket ayarları'})}
+                    <span className="block font-medium text-[10px] text-slate-400 dark:text-dk-muted mt-0.5 leading-snug">
+                      {tx(lang,{fr:'Marque, logo et format, pour tous les modèles',ar:'العلامة والشعار والقياس، لكل الموديلات',en:'Brand, logo and format, for every model',es:'Marca, logo y formato, para todos los modelos',pt:'Marca, logo e formato, para todos os modelos',tr:'Tüm modeller için marka, logo ve format'})}
+                    </span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={ouvrirIntegrite}
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[12px] font-bold text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors border-t border-slate-100 dark:border-dk-border"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="min-w-0">
+                    {tx(lang,{fr:'Vérifier le stock',ar:'تحقّق من المخزون',en:'Check the stock',es:'Verificar el stock',pt:'Verificar o stock',tr:'Stoğu kontrol et'})}
+                    <span className="block font-medium text-[10px] text-slate-400 dark:text-dk-muted mt-0.5 leading-snug">
+                      {tx(lang,{fr:'Trouve les pièces rattachées à une commande disparue',ar:'كيلقى القطع المربوطة بطلبية ما بقاتش',en:'Finds pieces attached to a vanished order',es:'Encuentra las piezas ligadas a un pedido desaparecido',pt:'Encontra as peças ligadas a uma encomenda desaparecida',tr:'Kaybolmuş bir siparişe bağlı parçaları bulur'})}
+                    </span>
+                  </span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+        )}
       </div>
 
       {/* ERROR BANNER */}
@@ -5623,32 +8218,52 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 {/* Valorisation au cout : masquee en bloc quand le cloisonnement
                     commercial est actif. Afficher 0 serait une information FAUSSE. */}
                 {canSeeCostHere && (
-                  <div className="shrink-0 min-w-[150px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                    <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
-                      {tx(lang,{fr:'Valeur du stock (revient)',ar:'قيمة المخزون (بالتكلفة)',en:'Stock value (cost)',es:'Valor del stock (coste)',pt:'Valor do stock (custo)',tr:'Stok degeri (maliyet)'})}
-                    </span>
-                    <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm whitespace-nowrap">{fmt(stockKpis.value)} {currency}</span>
+                  <div className="shrink-0 min-w-[160px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                      <Coins className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
+                        {tx(lang,{fr:'Valeur du stock (revient)',ar:'قيمة المخزون (بالتكلفة)',en:'Stock value (cost)',es:'Valor del stock (coste)',pt:'Valor do stock (custo)',tr:'Stok degeri (maliyet)'})}
+                      </span>
+                      <span className="block font-bold text-slate-800 dark:text-dk-text text-sm whitespace-nowrap">{fmt(stockKpis.value)} {currency}</span>
+                    </div>
                   </div>
                 )}
-                <div className="shrink-0 min-w-[150px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
-                    {tx(lang,{fr:'Pièces disponibles',ar:'القطع المتوفّرة',en:'Available pieces',es:'Piezas disponibles',pt:'Pecas disponiveis',tr:'Mevcut parca'})}
-                  </span>
-                  <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm">{stockKpis.available.toLocaleString(dateLocale)}</span>
+                <div className="shrink-0 min-w-[160px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+                    <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
+                      {tx(lang,{fr:'Pièces disponibles',ar:'القطع المتوفّرة',en:'Available pieces',es:'Piezas disponibles',pt:'Pecas disponiveis',tr:'Mevcut parca'})}
+                    </span>
+                    <span className="block font-bold text-emerald-700 dark:text-emerald-400 text-sm">{stockKpis.available.toLocaleString(dateLocale)}</span>
+                  </div>
                 </div>
-                <div className="shrink-0 min-w-[150px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
-                    {tx(lang,{fr:'Pièces sorties',ar:'القطع المخرَجة',en:'Pieces exited',es:'Piezas salidas',pt:'Pecas saidas',tr:'Cikan parca'})}
-                  </span>
-                  <span className="block mt-1 font-bold text-slate-800 dark:text-dk-text text-sm">{stockKpis.exited.toLocaleString(dateLocale)}</span>
+                <div className="shrink-0 min-w-[160px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                    <Truck className="w-4 h-4 text-slate-500 dark:text-dk-muted" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
+                      {tx(lang,{fr:'Pièces sorties',ar:'القطع المخرَجة',en:'Pieces exited',es:'Piezas salidas',pt:'Pecas saidas',tr:'Cikan parca'})}
+                    </span>
+                    <span className="block font-bold text-slate-700 dark:text-dk-text-soft text-sm">{stockKpis.exited.toLocaleString(dateLocale)}</span>
+                  </div>
                 </div>
-                <div className="shrink-0 min-w-[190px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3">
-                  <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
-                    {tx(lang,{fr:'Modèles sans prix de vente',ar:'موديلات بلا ثمن بيع',en:'Models without sale price',es:'Modelos sin precio de venta',pt:'Modelos sem preco de venda',tr:'Satis fiyati olmayan model'})}
-                  </span>
-                  <span className={`block mt-1 font-bold text-sm ${stockKpis.noPrice > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-dk-text'}`}>
-                    {stockKpis.noPrice.toLocaleString(dateLocale)}
-                  </span>
+                <div className="shrink-0 min-w-[190px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3.5 py-3 flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${stockKpis.noPrice > 0 ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-slate-100 dark:bg-dk-elevated'}`}>
+                    <AlertTriangle className={`w-4 h-4 ${stockKpis.noPrice > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-dk-muted'}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
+                      {tx(lang,{fr:'Modèles sans prix de vente',ar:'موديلات بلا ثمن بيع',en:'Models without sale price',es:'Modelos sin precio de venta',pt:'Modelos sem preco de venda',tr:'Satis fiyati olmayan model'})}
+                    </span>
+                    <span className={`block font-bold text-sm ${stockKpis.noPrice > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-dk-text'}`}>
+                      {stockKpis.noPrice.toLocaleString(dateLocale)}
+                    </span>
+                  </div>
                 </div>
                 </div>
               </div>
@@ -5696,6 +8311,27 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl pl-9 pr-3 py-2 text-[12px] text-slate-800 dark:text-dk-text placeholder:text-slate-400 dark:placeholder:text-dk-muted outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
                   />
                 </div>
+                {/* La caisse s'ouvre sur TOUT le rayon : au comptoir, on ne
+                    sait pas d'avance quel modele le client va poser. */}
+                <button
+                  type="button"
+                  onClick={() => { setCaisseRecherche(''); setCaisseOpen(true); }}
+                  className="shrink-0 flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-dk-accent dark:hover:bg-dk-accent/90 shadow-sm dark:shadow-none transition-all border border-indigo-600 dark:border-transparent"
+                >
+                  <Store className="w-3.5 h-3.5" />
+                  {tx(lang,{fr:'Caisse',ar:'الصندوق',en:'Checkout',es:'Caja',pt:'Caixa',tr:'Kasa'})}
+                </button>
+                {/* Acheter n'est pas commander : ici on fait entrer de la
+                    marchandise DÉJÀ FINIE, sans gamme ni jalons. Deux gestes
+                    distincts, deux boutons distincts. */}
+                <button
+                  type="button"
+                  onClick={() => openAchat()}
+                  className="hidden lg:flex shrink-0 items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold text-white bg-sky-600 hover:bg-sky-700 shadow-sm dark:shadow-none transition-all border border-sky-600"
+                >
+                  <Warehouse className="w-3.5 h-3.5" />
+                  {tx(lang,{fr:'Nouveau modèle en stock',ar:'موديل جديد فالمخزون',en:'New model in stock',es:'Nuevo modelo en stock',pt:'Novo modelo em stock',tr:'Stokta yeni model'})}
+                </button>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {([
                     { id: 'all', label: tx(lang,{fr:'Tous',ar:'الكل',en:'All',es:'Todos',pt:'Todos',tr:'Tumu'}) },
@@ -5723,75 +8359,141 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               )}
 
-              {/* Vue mobile : cartes (le tableau ci-dessous devient illisible sous md) */}
-              <div className={stockViewMode === 'table' ? 'md:hidden space-y-3' : 'grid grid-cols-1 md:grid-cols-2 gap-3'}>
-                {filteredStockStats.map(item => (
-                  <div key={item.model.id} className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none p-4 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
+              {/* Les indicateurs du haut portent sur TOUT le stock ; la liste,
+                  elle, est filtrée. Sans ce repère l'écart entre les deux passe
+                  pour une erreur de calcul. */}
+              {stockListeFiltree && filteredStockStats.length > 0 && (
+                <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                  {tx(lang,{
+                    fr:`${filteredStockStats.length} modèle(s) affiché(s) sur ${modelStockStats.length}. Les indicateurs ci-dessus portent sur la totalité du stock.`,
+                    ar:`${filteredStockStats.length} موديل بايْن من ${modelStockStats.length}. المؤشّرات اللي فوق كتهضر على المخزون كامل.`,
+                    en:`${filteredStockStats.length} of ${modelStockStats.length} models shown. The indicators above cover the whole stock.`,
+                    es:`${filteredStockStats.length} de ${modelStockStats.length} modelos mostrados. Los indicadores de arriba cubren todo el stock.`,
+                    pt:`${filteredStockStats.length} de ${modelStockStats.length} modelos apresentados. Os indicadores acima cobrem todo o stock.`,
+                    tr:`${modelStockStats.length} modelden ${filteredStockStats.length} tanesi gösteriliyor. Yukarıdaki göstergeler tüm stoğu kapsar.`
+                  })}
+                </p>
+              )}
+
+               {/* Vue mobile : cartes (le tableau ci-dessous devient illisible sous md) */}
+              <div className={stockViewMode === 'table' ? 'md:hidden space-y-3' : 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3'}>
+                {filteredStockStats.map(item => {
+                  const progress = item.producedQty > 0 ? Math.min(100, Math.round((item.exitedQty / item.producedQty) * 100)) : 0;
+                  const displayName = (item.model.meta_data.nom_modele || '').trim() || item.model.id.slice(0, 8);
+                  return (
+                  <div key={item.model.id} className="group bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none p-4 space-y-3 hover:shadow-md hover:border-indigo-200 dark:hover:border-dk-accent/30 transition-all cursor-pointer">
+                    <div className="flex items-start gap-3">
+                      <div className="w-14 h-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl overflow-hidden shrink-0 flex items-center justify-center shadow-sm">
                         {item.model.image ? (
                           <img src={item.model.image} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <Package className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
+                          <Package className="w-6 h-6 text-slate-300 dark:text-dk-muted" />
                         )}
                       </div>
-                      {/* Le nom du modèle n'est plus une étiquette morte : il ouvre
-                          sa fiche (stock ventilé, marge, acheteurs, historique). */}
                       <div className="flex-1 min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
-                          className="font-semibold block text-slate-800 dark:text-dk-text truncate text-left hover:text-indigo-600 dark:hover:text-dk-accent hover:underline underline-offset-2 transition-colors w-full"
-                        >
-                          {item.model.meta_data.nom_modele}
-                        </button>
-                        <span className="text-[9px] text-indigo-600 dark:text-dk-accent block font-normal uppercase">
-                          {tx(lang,{fr:'Client:',ar:'العميل:',en:'Client:',es:'Cliente:',pt:'Cliente:',tr:'Müşteri:'})}{' '}
-                          {item.model.ficheData?.client ? (
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
+                            className="font-bold block text-slate-800 dark:text-dk-text truncate text-left hover:text-indigo-600 dark:hover:text-dk-accent hover:underline underline-offset-2 transition-colors min-w-0 text-[13px] leading-tight"
+                          >
+                            {displayName}
+                          </button>
+                          {storeBoutiqueOk && (
+                            <StoreSyncDot
+                              etat={storeSyncEtats.get(item.model.id) ?? 'NONE'}
+                              onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
+                              lang={lang}
+                            />
+                          )}
+                        </div>
+                        {item.model.ficheData?.client ? (
+                          <span className="text-[10px] text-slate-500 dark:text-dk-muted block font-medium truncate">
+                            <span className="text-slate-400 dark:text-dk-muted">{tx(lang,{fr:'Client',ar:'العميل',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})} · </span>
                             <button
                               type="button"
                               onClick={() => openEntitySheet({ kind: 'client', clientNom: item.model.ficheData?.client })}
-                              className="hover:underline underline-offset-2 uppercase"
+                              className="hover:underline underline-offset-2 font-semibold text-slate-600 dark:text-dk-text-soft uppercase"
                             >
                               {item.model.ficheData.client}
                             </button>
-                          ) : 'N/A'}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-300 dark:text-dk-muted block italic">{tx(lang,{fr:'Sans client',ar:'بلا عميل',en:'No client',es:'Sin cliente',pt:'Sem cliente',tr:'Müşteri yok'})}</span>
+                        )}
+                        {/* D'ou vient la marchandise. Ce que j'ai fait faire et ce
+                            que j'ai achete pour revendre ne se lisent pas pareil :
+                            l'un a un revient calcule, l'autre un prix paye. */}
+                        <span className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded border text-[9px] font-bold ${
+                          item.origine === 'ACHAT'
+                            ? 'bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-800/50'
+                            : 'bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                        }`}>
+                          {item.origine === 'ACHAT' ? <Warehouse className="w-2.5 h-2.5" /> : <Truck className="w-2.5 h-2.5" />}
+                          {item.origine === 'ACHAT'
+                            ? tx(lang,{fr:'Acheté',ar:'مشرِي',en:'Bought',es:'Comprado',pt:'Comprado',tr:'Satın alındı'})
+                            : tx(lang,{fr:'Sous-traitance',ar:'سوطراطونس',en:'Subcontracted',es:'Subcontratado',pt:'Subcontratado',tr:'Fason'})}
                         </span>
+                        {item.origine === 'ACHAT' && item.fournisseurNom && (
+                          <span className="block text-[9px] text-slate-400 dark:text-dk-muted mt-0.5 truncate">
+                            {item.fournisseurNom}{item.dateAchat ? ` · ${item.dateAchat}` : ''}
+                          </span>
+                        )}
                       </div>
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase whitespace-nowrap shrink-0 ${
-                        item.status === 'FINISHED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
-                        item.status === 'IN_PRODUCTION' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50' :
-                        'bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
-                      }`}>
-                        {item.status === 'FINISHED' ? tx(lang,{fr:'Terminé',ar:'منتهٍ',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'}) :
-                         item.status === 'IN_PRODUCTION' ? tx(lang,{fr:'En production',ar:'قيد الإنتاج',en:'In production',es:'En producción',pt:'Em produção',tr:'Üretimde'}) :
-                         tx(lang,{fr:'Inactif',ar:'غير نشط',en:'Inactive',es:'Inactivo',pt:'Inativo',tr:'Pasif'})}
-                      </span>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full uppercase whitespace-nowrap shrink-0 border ${
+                          item.status === 'FINISHED' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/40' :
+                          item.status === 'IN_PRODUCTION' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/40' :
+                          'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${item.status === 'FINISHED' ? 'bg-emerald-500' : item.status === 'IN_PRODUCTION' ? 'bg-indigo-500 animate-pulse' : 'bg-slate-400'}`} />
+                          {item.status === 'FINISHED' ? tx(lang,{fr:'Terminé',ar:'منتهٍ',en:'Finished',es:'Terminado',pt:'Terminado',tr:'Bitti'}) :
+                           item.status === 'IN_PRODUCTION' ? tx(lang,{fr:'En production',ar:'قيد الإنتاج',en:'In production',es:'En producción',pt:'Em produção',tr:'Üretimde'}) :
+                           tx(lang,{fr:'Inactif',ar:'غير نشط',en:'Inactive',es:'Inactivo',pt:'Inativo',tr:'Pasif'})}
+                        </span>
+                        {/* Seuls les articles ACHETÉS se suppriment ici : un modèle
+                            de sous-traitance vient d'une vraie commande, le supprimer
+                            depuis cette carte n'aurait pas de sens. */}
+                        {item.origine === 'ACHAT' && (
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); setDeleteArticleError(null); setPendingDeleteArticle({ id: item.model.id, nom: displayName }); }}
+                            title={tx(lang,{fr:'Supprimer cet article',ar:'حذف هاد السلعة',en:'Delete this article',es:'Eliminar este artículo',pt:'Eliminar este artigo',tr:'Bu ürünü sil'})}
+                            className="p-1 rounded-lg text-slate-300 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {/* Barre de progression : produit → sorti */}
+                    <div className="h-1.5 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${item.status === 'FINISHED' ? 'bg-emerald-500' : 'bg-indigo-500'}`} style={{ width: `${progress}%` }} />
                     </div>
 
                     <div className="grid grid-cols-4 gap-1.5 text-center">
-                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Produit',ar:'المنتج',en:'Produced',es:'Producido',pt:'Produzido',tr:'Üretilen'})}</span>
-                        <span className="block font-bold text-slate-800 dark:text-dk-text text-xs">{item.producedQty.toLocaleString(dateLocale)}</span>
+                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-xl py-2.5 border border-transparent group-hover:border-slate-100 dark:group-hover:border-dk-border/50 transition-colors">
+                        <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Produit',ar:'المنتج',en:'Produced',es:'Producido',pt:'Produzido',tr:'Üretilen'})}</span>
+                        <span className="block font-extrabold text-slate-800 dark:text-dk-text text-[13px] mt-0.5">{item.producedQty.toLocaleString(dateLocale)}</span>
                       </div>
-                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Sorti',ar:'مخرَج',en:'Exited',es:'Salido',pt:'Saido',tr:'Cikan'})}</span>
-                        <span className="block font-bold text-slate-700 dark:text-dk-text-soft text-xs">{item.exitedQty.toLocaleString(dateLocale)}</span>
+                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-xl py-2.5 border border-transparent group-hover:border-slate-100 dark:group-hover:border-dk-border/50 transition-colors">
+                        <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Sorti',ar:'مخرَج',en:'Exited',es:'Salido',pt:'Saido',tr:'Cikan'})}</span>
+                        <span className="block font-extrabold text-slate-700 dark:text-dk-text-soft text-[13px] mt-0.5">{item.exitedQty.toLocaleString(dateLocale)}</span>
                       </div>
-                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Facturé',ar:'مفوتر',en:'Invoiced',es:'Facturado',pt:'Faturado',tr:'Faturali'})}</span>
+                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-xl py-2.5 border border-transparent group-hover:border-slate-100 dark:group-hover:border-dk-border/50 transition-colors">
+                        <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Facturé',ar:'مفوتر',en:'Invoiced',es:'Facturado',pt:'Faturado',tr:'Faturali'})}</span>
                         <span
                           title={item.exitedQty !== item.invoicedQty ? tx(lang,{fr:"Écart entre les pièces sorties du stock et les pièces facturées.",ar:'فرق بين القطع المخرَجة من المخزون والقطع المفوترة.',en:'Gap between pieces exited from stock and pieces invoiced.',es:'Diferencia entre las piezas salidas y las facturadas.',pt:'Diferenca entre as pecas saidas e as faturadas.',tr:'Stoktan cikan ile faturalanan parca arasindaki fark.'}) : undefined}
-                          className={`block font-bold text-xs ${item.exitedQty !== item.invoicedQty ? 'text-rose-600 dark:text-rose-400' : 'text-indigo-600 dark:text-dk-accent'}`}
+                          className={`block font-extrabold text-[13px] mt-0.5 ${item.exitedQty !== item.invoicedQty ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-dk-muted'}`}
                         >
                           {item.invoicedQty.toLocaleString(dateLocale)}
                         </span>
                       </div>
-                      <div className="bg-slate-50 dark:bg-dk-bg/60 rounded-lg py-2">
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Restant',ar:'المتبقي',en:'Remaining',es:'Restante',pt:'Restante',tr:'Kalan'})}</span>
+                      <div className="bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl py-2.5 border border-emerald-100 dark:border-emerald-900/30">
+                        <span className="block text-[9px] uppercase tracking-wide text-emerald-600/70 dark:text-emerald-400/70 font-bold">{tx(lang,{fr:'Restant',ar:'المتبقي',en:'Remaining',es:'Restante',pt:'Restante',tr:'Kalan'})}</span>
                         <span
                           title={item.stockSource === 'FALLBACK' ? tx(lang,{fr:"Stock non détaillé par couleur et taille : ce total vient des compteurs de la commande.",ar:'المخزون غير مفصّل باللون والمقاس: هاد المجموع جاي من عدّادات الطلبية.',en:'Stock not itemised by color and size: this total comes from the order counters.',es:'Stock sin desglose por color y talla: este total viene de los contadores del pedido.',pt:'Stock sem desdobramento por cor e tamanho: este total vem dos contadores da encomenda.',tr:'Stok renk ve bedene gore ayrilmamis: bu toplam siparis sayaclarindan geliyor.'}) : undefined}
-                          className={`block font-bold text-xs ${item.stockSource === 'FALLBACK' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}
+                          className={`block font-extrabold text-[13px] mt-0.5 ${item.stockSource === 'FALLBACK' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}
                         >
                           {item.remainingStock.toLocaleString(dateLocale)}
                         </span>
@@ -5805,11 +8507,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </span>
                     )}
 
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-start justify-between pt-2 border-t border-slate-100 dark:border-dk-border/50">
                       <div>
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Date lancement',ar:'تاريخ الإطلاق',en:'Launch date',es:'Fecha de inicio',pt:'Data de lançamento',tr:'Başlangıç tarihi'})}</span>
-                        <span className="text-slate-600 dark:text-dk-text-soft text-[11px]">{item.startDate}</span>
-                        {/* Compte les gestes (sorties, commandes), pas les pièces. */}
+                        <span className="flex items-center gap-1 text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold"><Calendar className="w-3 h-3" />{tx(lang,{fr:'Date lancement',ar:'تاريخ الإطلاق',en:'Launch date',es:'Fecha de inicio',pt:'Data de lançamento',tr:'Başlangıç tarihi'})}</span>
+                        <span className="text-slate-700 dark:text-dk-text-soft text-[11px] font-medium mt-0.5 block">{item.startDate}</span>
                         <span className="block text-[10px] text-slate-400 dark:text-dk-muted mt-1">
                           {tx(lang,{fr:'sorties',ar:'مرّات الخروج',en:'exits',es:'salidas',pt:'saidas',tr:'cikislar'})} : {item.sortiesCount.toLocaleString(dateLocale)}
                           {' · '}
@@ -5817,7 +8518,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         </span>
                       </div>
                       <div className="text-right">
-                        <span className="block text-[9px] uppercase text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Prix de vente',ar:'ثمن البيع',en:'Sale price',es:'Precio de venta',pt:'Preço de venda',tr:'Satis fiyati'})}</span>
+                        <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Prix de vente',ar:'ثمن البيع',en:'Sale price',es:'Precio de venta',pt:'Preço de venda',tr:'Satis fiyati'})}</span>
                         {editingPriceModelId === item.model.id ? (
                           <input
                             type="number"
@@ -5831,21 +8532,21 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                               if (e.key === 'Escape') setEditingPriceModelId(null);
                             }}
-                            className="w-24 text-right bg-slate-50 dark:bg-dk-bg border border-indigo-500 dark:border-dk-accent rounded-lg px-2 py-1 text-[11px] text-slate-800 dark:text-dk-text outline-none"
+                            className="w-28 text-right bg-slate-50 dark:bg-dk-bg border border-indigo-500 dark:border-dk-accent rounded-lg px-2 py-1.5 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-500/30"
                           />
                         ) : canSetPriceHere ? (
                           <button
                             type="button"
-                            onClick={() => { setEditingPriceModelId(item.model.id); setEditingPriceValue(item.salePrice != null && item.salePrice > 0 ? String(item.salePrice) : ''); }}
-                            className="inline-flex items-center gap-1 font-semibold text-slate-800 dark:text-dk-text text-[11px] hover:text-indigo-600 dark:hover:text-dk-accent transition-colors"
+                            title={tx(lang,{fr:'Ouvrir les tarifs (détail, gros, boutique)',ar:'فتح الأثمنة (تقسيط، جملة، محل)',en:'Open the prices (retail, wholesale, store)',es:'Abrir las tarifas (detalle, mayorista, tienda)',pt:'Abrir os preços (retalho, grosso, loja)',tr:'Fiyatları aç (perakende, toptan, mağaza)'})}
+                            onClick={() => { void openPrixSheet(item.model, item.price); }}
+                            className="inline-flex items-center gap-1.5 font-extrabold text-slate-800 dark:text-dk-text text-[13px] hover:text-indigo-600 dark:hover:text-dk-accent transition-colors mt-0.5"
                           >
-                            {item.salePrice != null && item.salePrice > 0 ? `${fmt(item.salePrice)} ${currency}` : '—'}
-                            {savingPriceModelId === item.model.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pencil className="w-3 h-3" />}
+                            {item.salePrice != null && item.salePrice > 0 ? `${fmt(item.salePrice)} ${currency}` : <span className="text-slate-300 dark:text-dk-muted font-semibold italic text-[11px]">{tx(lang,{fr:'— Prix non défini',ar:'— بلا ثمن',en:'— No price',es:'— Sin precio',pt:'— Sem preço',tr:'— Fiyat yok'})}</span>}
+                            {savingPriceModelId === item.model.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pencil className="w-3 h-3 text-slate-300 dark:text-dk-muted group-hover:text-indigo-500" />}
                           </button>
                         ) : (
-                          /* Sans droit de fixer les prix : lecture seule, pas de leurre cliquable. */
-                          <span className="font-semibold text-slate-800 dark:text-dk-text text-[11px]">
-                            {item.salePrice != null && item.salePrice > 0 ? `${fmt(item.salePrice)} ${currency}` : '—'}
+                          <span className="font-extrabold text-slate-800 dark:text-dk-text text-[13px] mt-0.5 block">
+                            {item.salePrice != null && item.salePrice > 0 ? `${fmt(item.salePrice)} ${currency}` : <span className="text-slate-300 dark:text-dk-muted font-semibold italic text-[11px]">{tx(lang,{fr:'— Prix non défini',ar:'— بلا ثمن',en:'— No price',es:'— Sin precio',pt:'— Sem preço',tr:'— Fiyat yok'})}</span>}
                           </span>
                         )}
                         {canSeeCostHere && (
@@ -5866,17 +8567,51 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         {tx(lang,{fr:'Ventiler',ar:'فصّل',en:'Itemise',es:'Desglosar',pt:'Desdobrar',tr:'Ayrintila'})}
                       </button>
                     ) : (
-                      <button
-                        disabled={item.remainingStock <= 0}
-                        onClick={() => openSortieModal(item.model, item.salePrice)}
-                        className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
-                          item.remainingStock > 0
-                            ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white'
-                            : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
-                        }`}
-                      >
-                        {tx(lang,{fr:'Sortie Facture',ar:'إخراج فاتورة',en:'Issue Invoice',es:'Emitir Factura',pt:'Emitir Fatura',tr:'Fatura Kes'})}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          disabled={item.remainingStock <= 0}
+                          onClick={() => openCaisse(item.model)}
+                          className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
+                            item.remainingStock > 0
+                              ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white'
+                              : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
+                          }`}
+                        >
+                          {tx(lang,{fr:'Caisse',ar:'الصندوق',en:'Checkout',es:'Caja',pt:'Caixa',tr:'Kasa'})}
+                        </button>
+                        {/* Deux gestes distincts, deux boutons : la caisse vend
+                            au comptoir, la facture livre un client du registre.
+                            Fondre les deux avait fait perdre la facturation. */}
+                        <button
+                          type="button"
+                          disabled={item.remainingStock <= 0}
+                          onClick={() => openSortieModal(item.model, item.salePrice)}
+                          title={tx(lang,{fr:'Sortie de stock + facture client',ar:'إخراج من المخزون + فاتورة زبون',en:'Stock exit + customer invoice',es:'Salida de stock + factura',pt:'Saida de stock + fatura',tr:'Stok cikisi + fatura'})}
+                          className={`shrink-0 p-2.5 rounded-xl border transition-colors ${
+                            item.remainingStock > 0
+                              ? 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent hover:bg-indigo-50 dark:hover:bg-dk-accent/10'
+                              : 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border text-slate-300 dark:text-dk-muted/50 cursor-not-allowed'
+                          }`}
+                        >
+                          <Receipt className="w-4 h-4" />
+                        </button>
+                        {/* Le tiki se colle sur les pièces EN STOCK : la grille
+                            part des mouvements réels, pas de la quantité
+                            commandée. Sans pièce disponible, rien à étiqueter. */}
+                        <button
+                          type="button"
+                          disabled={item.remainingStock <= 0}
+                          onClick={() => openLabel(item.model, { grid: stockGridForLabel(item.model.id), price: item.salePrice ?? undefined })}
+                          title={tx(lang,{fr:'Imprimer le tiki (code-barres)',ar:'طباعة الملصق (الباركود)',en:'Print the barcode label',es:'Imprimir la etiqueta de código',pt:'Imprimir a etiqueta de código',tr:'Barkod etiketi yazdır'})}
+                          className={`shrink-0 p-2.5 rounded-xl border transition-colors ${
+                            item.remainingStock > 0
+                              ? 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:text-indigo-600 dark:hover:text-dk-accent hover:bg-indigo-50 dark:hover:bg-dk-accent/10'
+                              : 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border text-slate-300 dark:text-dk-muted/50 cursor-not-allowed'
+                          }`}
+                        >
+                          <Barcode className="w-4 h-4" />
+                        </button>
+                      </div>
                     )}
 
                     {item.stockSource === 'FALLBACK' && expandedStockModel === item.model.id && (
@@ -5892,7 +8627,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       </p>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className={stockViewMode === 'table' ? 'hidden md:block bg-white dark:bg-dk-surface rounded-3xl border border-slate-200 dark:border-dk-border/60 shadow-sm dark:shadow-none overflow-hidden' : 'hidden'}>
@@ -5941,6 +8677,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                   >
                                     {item.model.meta_data.nom_modele}
                                   </button>
+                                  {/* Pastille boutique en ligne : discrète, à côté du
+                                      nom, et rien du tout si aucune boutique n'est
+                                      branchée. Un clic ouvre la fiche du modèle. */}
+                                  {storeBoutiqueOk && (
+                                    <StoreSyncDot
+                                      etat={storeSyncEtats.get(item.model.id) ?? 'NONE'}
+                                      onClick={() => openEntitySheet({ kind: 'model', modelId: item.model.id })}
+                                      lang={lang}
+                                    />
+                                  )}
                                   <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase whitespace-nowrap ${
                                     item.status === 'FINISHED' ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50' :
                                     item.status === 'IN_PRODUCTION' ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/50' :
@@ -6101,17 +8847,31 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 {tx(lang,{fr:'Ventiler',ar:'فصّل',en:'Itemise',es:'Desglosar',pt:'Desdobrar',tr:'Ayrintila'})}
                               </button>
                             ) : (
+                              <>
                               <button
                                 disabled={item.remainingStock <= 0}
                                 onClick={() => openSortieModal(item.model, item.salePrice)}
+                                title={tx(lang,{fr:'Sortie de stock + facture client',ar:'إخراج من المخزون + فاتورة زبون',en:'Stock exit + customer invoice',es:'Salida de stock + factura',pt:'Saida de stock + fatura',tr:'Stok cikisi + fatura'})}
+                                className={`mr-2 px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                                  item.remainingStock > 0
+                                    ? 'border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                                    : 'border-slate-200 dark:border-dk-border text-slate-300 dark:text-dk-muted/50 cursor-not-allowed'
+                                }`}
+                              >
+                                {tx(lang,{fr:'Facture',ar:'فاتورة',en:'Invoice',es:'Factura',pt:'Fatura',tr:'Fatura'})}
+                              </button>
+                              <button
+                                disabled={item.remainingStock <= 0}
+                                onClick={() => openCaisse(item.model)}
                                 className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-none ${
                                   item.remainingStock > 0
                                     ? 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white hover:scale-[1.02]'
                                     : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed border border-slate-200 dark:border-dk-border'
                                 }`}
                               >
-                                {tx(lang,{fr:'Sortie Facture',ar:'إخراج فاتورة',en:'Issue Invoice',es:'Emitir Factura',pt:'Emitir Fatura',tr:'Fatura Kes'})}
+                                {tx(lang,{fr:'Caisse',ar:'الصندوق',en:'Checkout',es:'Caja',pt:'Caixa',tr:'Kasa'})}
                               </button>
+                              </>
                             )}
                           </td>
                         </tr>
@@ -6228,6 +8988,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   </table>
                 </div>
               </div>
+
             </div>
           )}
 
@@ -6235,29 +8996,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       )}
 
       {/* ======================================= */}
-      {typeof document !== 'undefined' && isChoiceModalOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fadeIn">
-          <div className="absolute inset-0 bg-slate-900/70 dark:bg-black/70 backdrop-blur-md" onClick={() => setIsChoiceModalOpen(false)} />
-          <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-xl overflow-hidden flex flex-col border border-slate-200 dark:border-dk-border">
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-2xl">
-                  <Plus className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-slate-800 dark:text-dk-text text-sm sm:text-base">
-                    {tx(lang, { fr: "Créer une Commande", ar: "إنشاء أمر", en: "Create an Order" })}
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-dk-muted">
-                    {tx(lang, { fr: "Choisissez comment vous souhaitez commencer", ar: "اختر كيف تريد البدء", en: "Choose how you want to start" })}
-                  </p>
-                </div>
-              </div>
-              <button onClick={() => setIsChoiceModalOpen(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+      {isChoiceModalOpen && (
+        /* Petit choix de départ : pas de bouton plein écran, agrandir deux
+           cartes à tout l'écran n'apporterait rien. */
+        <SheetModal
+          onClose={() => setIsChoiceModalOpen(false)}
+          title={tx(lang, { fr: "Créer une Commande", ar: "إنشاء أمر", en: "Create an Order", es: "Crear un pedido", pt: "Criar uma encomenda", tr: "Sipariş oluştur" })}
+          subtitle={tx(lang, { fr: "Choisissez comment vous souhaitez commencer", ar: "اختر كيف تريد البدء", en: "Choose how you want to start", es: "Elija cómo desea empezar", pt: "Escolha como pretende começar", tr: "Nasıl başlamak istediğinizi seçin" })}
+          icon={<div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-xl shrink-0"><Plus className="w-5 h-5" /></div>}
+          size="lg"
+          zClass="z-[9999]"
+          bare
+        >
+            <div className="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 space-y-3 sm:space-y-4">
               <div
                 onClick={() => {
                   setIsChoiceModalOpen(false);
@@ -6271,13 +9022,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-extrabold text-slate-800 dark:text-dk-text text-sm group-hover:text-indigo-600 dark:group-hover:text-dk-accent transition-colors">
-                    {tx(lang, { fr: "Créer un nouveau modèle", ar: "إنشاء موديل جديد", en: "Create a new model" })}
+                    {tx(lang, { fr: "Créer un nouveau modèle", ar: "إنشاء موديل جديد", en: "Create a new model", es: "Crear un modelo nuevo", pt: "Criar um novo modelo", tr: "Yeni model oluştur" })}
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-dk-muted mt-1 leading-relaxed">
                     {tx(lang, {
                       fr: "Rediriger vers la bibliothèque pour concevoir un nouveau modèle de A à Z avec sa gamme opératoire.",
                       ar: "التوجيه إلى المكتبة لتصميم موديل جديد وتحديد التسلسل التشغيلي والتكلفة.",
-                      en: "Redirect to the library to design a new model with operational sequence."
+                      en: "Redirect to the library to design a new model with operational sequence.",
+                      es: "Ir a la biblioteca para diseñar un modelo nuevo de principio a fin con su gama operativa.",
+                      pt: "Ir para a biblioteca para conceber um novo modelo de raiz com a sua gama operatória.",
+                      tr: "Yeni bir modeli operasyon akışıyla birlikte baştan sona tasarlamak için kütüphaneye gidin."
                     })}
                   </p>
                 </div>
@@ -6292,37 +9046,40 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-extrabold text-slate-800 dark:text-dk-text text-sm group-hover:text-indigo-600 dark:group-hover:text-dk-accent transition-colors">
-                    {tx(lang, { fr: "Sélectionner un modèle existant", ar: "اختيار موديل موجود من القائمة", en: "Select an existing model" })}
+                    {tx(lang, { fr: "Sélectionner un modèle existant", ar: "اختيار موديل موجود من القائمة", en: "Select an existing model", es: "Seleccionar un modelo existente", pt: "Selecionar um modelo existente", tr: "Mevcut bir modeli seç" })}
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-dk-muted mt-1 leading-relaxed">
                     {tx(lang, {
                       fr: "Sélectionner un modèle déjà enregistré dans votre catalogue pour lancer immédiatement la commande de sous-traitance.",
                       ar: "اختيار موديل مسجل في الكتالوج لبدء أمر المقاولة الفرعية مباشرة.",
-                      en: "Select a model saved in catalog to immediately start the order."
+                      en: "Select a model saved in catalog to immediately start the order.",
+                      es: "Seleccione un modelo ya guardado en su catálogo para lanzar de inmediato el pedido de subcontratación.",
+                      pt: "Selecione um modelo já guardado no seu catálogo para lançar de imediato a encomenda de subcontratação.",
+                      tr: "Fason siparişini hemen başlatmak için kataloğunuzda kayıtlı bir model seçin."
                     })}
                   </p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-dk-accent group-hover:translate-x-1 transition-all shrink-0" />
               </div>
             </div>
-          </div>
-        </div>
-      , document.body)}
+        </SheetModal>
+      )}
       {/* ======================================= */}
           {isAddModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/50">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                <Truck className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
-                <span>{tx(lang,{fr:'Nouvelle Commande de Sous-traitance',ar:'أمر مقاولة من الباطن جديد',en:'New Subcontract Order',es:'Nuevo Pedido de Subcontratación',pt:'Nova Encomenda de Subcontratação',tr:'Yeni Taşeron Siparişi'})}</span>
-              </h2>
-              <button onClick={() => setIsAddModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddOrder} className="flex-1 overflow-y-auto p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
+        /* Plein écran : la répartition couleur x taille est une grille dense,
+           illisible dans une fenêtre étroite dès que les coloris se multiplient. */
+        <SheetModal
+          onClose={() => setIsAddModalOpen(false)}
+          title={tx(lang,{fr:'Nouvelle Commande de Sous-traitance',ar:'أمر مقاولة من الباطن جديد',en:'New Subcontract Order',es:'Nuevo Pedido de Subcontratación',pt:'Nova Encomenda de Subcontratação',tr:'Yeni Taşeron Siparişi'})}
+          icon={<Truck className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
+          size="xl"
+          zClass="z-[200]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop={false}
+          bare
+        >
+            <form onSubmit={handleAddOrder} className="flex-1 overflow-y-auto min-h-0 p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <ModelPickerField
                   lang={lang}
@@ -6541,15 +9298,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       desc: tx(lang,{fr:'Il fournit tout (matière + façon) → Coût = Prix seul.',ar:'كيوفّر كلشي (المواد + الخياطة) → التكلفة = الثمن فقط.',en:'They supply everything (materials + making) → Cost = Price only.',es:'Aporta todo (material + confección) → Coste = Solo el precio.',pt:'Fornece tudo (material + confeção) → Custo = Apenas o preço.',tr:'Her şeyi sağlar (malzeme + dikim) → Maliyet = Sadece fiyat.'}),
                     },
                   ].map(opt => {
-                    const isActive = (formTissuFournisseur === 'SUBCONTRACTOR' ? 'complet' : 'facon') === opt.mode;
+                    const isActive = formStMode === opt.mode;
                     return (
                       <button
                         key={opt.mode}
                         type="button"
                         onClick={() => {
                           const asSub = opt.mode === 'complet' ? 'SUBCONTRACTOR' : 'CLIENT';
+                          setFormStMode(opt.mode);
                           setFormTissuFournisseur(asSub);
                           setFormFournituresFournisseur(asSub);
+                          setFormConditionnementFournisseur(asSub);
                           setFormPrestationType(opt.mode === 'complet' ? 'CMT' : 'FACON_PURE');
                         }}
                         className={`text-left p-3 rounded-xl border transition-all ${isActive ? 'border-indigo-500 dark:border-dk-accent bg-indigo-50 dark:bg-dk-accent/20' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:border-slate-300 dark:hover:border-dk-border'}`}
@@ -6608,27 +9367,29 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </SheetModal>
       )}
 
       {/* ======================================= */}
       {/* EDIT ORDER MODAL */}
       {/* ======================================= */}
       {isEditModalOpen && selectedOrder && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/50">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                <Edit2 className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
-                <span>{tx(lang,{fr:'Modifier la Commande de Sous-traitance',ar:'تعديل أمر المقاولة من الباطن',en:'Edit Subcontract Order',es:'Editar Pedido de Subcontratación',pt:'Editar Encomenda de Subcontratação',tr:'Taşeron Siparişini Düzenle'})}</span>
-              </h2>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleEditOrder} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs text-slate-600 dark:text-dk-text-soft">
+        /* Même grille dense que la création : plein écran disponible. */
+        <SheetModal
+          onClose={() => setIsEditModalOpen(false)}
+          title={tx(lang,{fr:'Modifier la Commande de Sous-traitance',ar:'تعديل أمر المقاولة من الباطن',en:'Edit Subcontract Order',es:'Editar Pedido de Subcontratación',pt:'Editar Encomenda de Subcontratação',tr:'Taşeron Siparişini Düzenle'})}
+          icon={<Edit2 className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
+          size="xl"
+          zClass="z-[200]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop={false}
+          bare
+        >
+            {/* Le formulaire est la colonne ; seul son corps défile, pour que la
+                barre d'actions du bas reste visible en permanence. */}
+            <form onSubmit={handleEditOrder} className="flex-1 flex flex-col min-h-0 text-xs text-slate-600 dark:text-dk-text-soft">
+            <div className="flex-1 overflow-y-auto min-h-0 overscroll-contain p-6 space-y-6">
               {(
                 <div className="space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -6867,7 +9628,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 );
               })()}
 
-              <div className="flex gap-3 justify-between items-center border-t border-slate-200 dark:border-dk-border pt-4 mt-6">
+              {/* La suppression descend AVEC la page : elle n'a pas sa place à
+                  côté d'Enregistrer, sous le pouce, en permanence. On la trouve
+                  en allant la chercher, ce qui est le bon effort pour un geste
+                  irréversible. */}
+              <div className="border-t border-slate-200 dark:border-dk-border pt-4 mt-6">
                 <button
                   type="button"
                   onClick={() => setOrderPendingDelete(selectedOrder)}
@@ -6875,35 +9640,46 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 >
                   {tx(lang,{fr:'Supprimer la commande',ar:'حذف الطلبية',en:'Delete order',es:'Eliminar pedido',pt:'Eliminar encomenda',tr:'Siparişi sil'})}
                 </button>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditModalOpen(false)}
-                    className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
-                  >
-                    {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={actionLoading}
-                    className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
-                  >
-                    {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                    <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
-                  </button>
-                </div>
               </div>
+            </div>
+
+            {/* Barre d'actions collée au bas : Annuler et Enregistrer restent
+                atteignables sans avoir à remonter toute la fiche. */}
+            <div className="shrink-0 flex gap-3 justify-end items-center px-5 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3 border-t border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/40">
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+              >
+                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+              </button>
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-6 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-500 dark:border-dk-accent/50"
+              >
+                {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
+              </button>
+            </div>
             </form>
-          </div>
-        </div>
+        </SheetModal>
       )}
 
       {/* ======================================= */}
       {/* CONFIRMATION DE SUPPRESSION DE COMMANDE */}
       {/* ======================================= */}
-      {orderPendingDelete && createPortal(
-        <div className="fixed inset-0 bg-slate-950/30 dark:bg-dk-bg/50 backdrop-blur-[2px] flex items-center justify-center z-[500] p-4">
-          <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-md p-6 text-slate-700 dark:text-dk-text">
+      {orderPendingDelete && (
+        /* Confirmation courte : pas de plein écran, agrandir une question de
+           deux lignes n'aurait aucun sens. Le fond n'est pas cliquable :
+           une suppression ne doit pas s'annuler par un clic distrait. */
+        <SheetModal
+          onClose={() => { if (!isDeletingOrder) setOrderPendingDelete(null); }}
+          size="md"
+          zClass="z-[500]"
+          closeOnBackdrop={false}
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-6"
+        >
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40">
                 <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
@@ -6940,9 +9716,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <span>{tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}</span>
               </button>
             </div>
-          </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
 
       {/* ======================================= */}
@@ -6960,9 +9734,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         const question = isOn
           ? tx(lang,{fr:`Repasser « ${name} » en attente ?`,ar:`ترجاع «${name}» للانتظار؟`,en:`Set “${name}” back to pending?`,es:`¿Volver a poner «${name}» en espera?`,pt:`Voltar “${name}” a pendente?`,tr:`“${name}” tekrar beklemeye alınsın mı?`})
           : tx(lang,{fr:`Confirmer « ${name} » comme fait ?`,ar:`تأكيد «${name}» كمُنجَز؟`,en:`Confirm “${name}” as done?`,es:`¿Confirmar «${name}» como hecho?`,pt:`Confirmar “${name}” como feito?`,tr:`“${name}” tamamlandı olarak onaylansın mı?`});
-        return createPortal(
-          <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setMilestoneConfirm(null)}>
-            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+        return (
+          /* Question de deux lignes : feuille sur téléphone, mais pas de plein écran. */
+          <SheetModal
+            onClose={() => setMilestoneConfirm(null)}
+            size="sm"
+            zClass="z-[240]"
+            bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+          >
               <div className="flex items-start gap-2.5">
                 <ClipboardCheck className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0 mt-0.5" />
                 <div className="min-w-0">
@@ -6988,30 +9767,28 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   {tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
                 </button>
               </div>
-            </div>
-          </div>,
-          document.body
+          </SheetModal>
         );
       })()}
 
       {/* Entrées en stock : la saisie se fait sur la MÊME grille couleur x taille
           que la fiche du modèle, et chaque saisie reste consultable telle quelle. */}
-      {stockEntryOrder && stockEntryMatrix && createPortal(
-        <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setStockEntryOrder(null)}>
-          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-3xl max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between sticky top-0 bg-white dark:bg-dk-surface z-10">
-              <h3 className="text-[13px] font-bold text-slate-900 dark:text-dk-text flex items-center gap-2 min-w-0">
-                <Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span className="truncate">
-                  {tx(lang,{fr:'Entrées en stock',ar:'إدخالات المخزون',en:'Stock entries',es:'Entradas en stock',pt:'Entradas em stock',tr:'Stok girisleri'})}
-                  {' — '}{stockEntryOrder.modelName || stockEntryOrder.modelId}
-                </span>
-              </h3>
-              <button onClick={() => setStockEntryOrder(null)} className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
+      {stockEntryOrder && stockEntryMatrix && (
+        /* Plein écran : la saisie ET l'historique sont des grilles
+           couleur x taille — sur un grand écran, il faut pouvoir les lire
+           d'un seul coup au lieu de faire défiler colonne par colonne. */
+        <SheetModal
+          onClose={() => setStockEntryOrder(null)}
+          title={`${tx(lang,{fr:'Entrées en stock',ar:'إدخالات المخزون',en:'Stock entries',es:'Entradas en stock',pt:'Entradas em stock',tr:'Stok girisleri'})} — ${stockEntryOrder.modelName || stockEntryOrder.modelId}`}
+          icon={<Package className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+          size="xl"
+          zClass="z-[240]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop
+          bare
+        >
+          <div className="flex-1 overflow-y-auto min-h-0">
             <div className="p-5 space-y-5">
               {/* Grille de saisie : chaque cellule affiche ce qu'il RESTE à recevoir
                   pour cette couleur et cette taille. Saisir en aveugle un total
@@ -7240,45 +10017,744 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </div>
             </div>
           </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
 
-      {/* Sortie de stock : client du registre + grille couleur x taille. */}
-      {sortieForm && createPortal(
-        <div className="fixed inset-0 z-[245] flex items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSortieForm(null)}>
-          <div className="bg-white dark:bg-dk-surface rounded-none sm:rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-none sm:max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[88vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between sticky top-0 bg-white dark:bg-dk-surface z-10">
-              <h3 className="text-[13px] font-bold text-slate-900 dark:text-dk-text flex items-center gap-2 min-w-0">
-                <Truck className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />
-                <span className="truncate">
-                  {tx(lang,{fr:'Sortie de stock',ar:'إخراج من المخزون',en:'Stock exit',es:'Salida de stock',pt:'Saida de stock',tr:'Stok cikisi'})}
-                  {' — '}{sortieForm.model.meta_data?.nom_modele || sortieForm.model.id}
-                </span>
-              </h3>
-              <button onClick={() => setSortieForm(null)} className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {/* Commande « normale » : plusieurs modèles, un seul client, une seule
+          facture. Même langage visuel que la Fiche de Commande Sous-traitance
+          (cartes, étiquettes, grille résumé) — ordinateur ou téléphone. */}
+      {commandeOpen && (
+        <SheetModal
+          onClose={() => { if (!commandeSaving) setCommandeOpen(false); }}
+          title={tx(lang,{fr:'Nouvelle Commande',ar:'أمر جديد',en:'New Order',es:'Nuevo Pedido',pt:'Nova Encomenda',tr:'Yeni Sipariş'})}
+          subtitle={tx(lang,{fr:'Plusieurs modèles sur un même ordre, un seul total',ar:'عدة موديلات في أمر واحد، مجموع واحد',en:'Multiple models in one order, one total',es:'Varios modelos en un pedido, un solo total',pt:'Vários modelos numa encomenda, um só total',tr:'Tek siparişte birden çok model, tek toplam'})}
+          icon={<div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-xl shrink-0"><Plus className="w-5 h-5" /></div>}
+          size="lg"
+          zClass="z-[255]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop
+          bare
+        >
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-5 space-y-4">
+              {/* Client + date — le client occupe l'espace, la date reste étroite
+                  comme sur la fiche de commande. */}
+              <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_180px] gap-3 sm:gap-4">
+                <div className="bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
+                  <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest block">
+                    {tx(lang,{fr:'Client',ar:'الزبون',en:'Client',es:'Cliente',pt:'Cliente',tr:'Müşteri'})}
+                  </span>
+                  {(() => {
+                    const selected = atelierClients.find(c => c.id === commandeClientId) || null;
+                    const q = commandeClientSearch.trim().toLowerCase();
+                    const filtered = q
+                      ? atelierClients.filter(c => [c.nom, c.ice, c.rc, c.tel, c.ville].filter(Boolean).some(v => String(v).toLowerCase().includes(q)))
+                      : atelierClients;
+                    return (
+                      <div className="relative mt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => { setCommandeClientPickerOpen(o => !o); setCommandeClientSearch(''); }}
+                          className="w-full flex items-center gap-2 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        >
+                          {selected ? (
+                            selected.photo ? (
+                              <img src={selected.photo} alt="" className="w-6 h-6 rounded-full object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
+                            ) : (
+                              <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 font-bold text-[9px] bg-indigo-50 dark:bg-dk-accent/15 text-indigo-600 dark:text-dk-accent">
+                                {selected.nom.trim().slice(0, 2).toUpperCase()}
+                              </span>
+                            )
+                          ) : (
+                            <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted">
+                              <Users className="w-3 h-3" />
+                            </span>
+                          )}
+                          <span className="flex-1 text-left truncate font-bold">
+                            {selected
+                              ? `${selected.nom}${selected.ice ? ` · ICE ${selected.ice}` : ''}`
+                              : tx(lang,{fr:'— Choisir un client —',ar:'— اختر زبوناً —',en:'— Choose a client —',es:'— Elija un cliente —',pt:'— Escolha um cliente —',tr:'— Bir müşteri seçin —'})}
+                          </span>
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted shrink-0" />
+                        </button>
 
+                        {commandeClientPickerOpen && (
+                          <div className="absolute z-20 mt-1 w-full min-w-[280px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg dark:shadow-dk-elevated overflow-hidden">
+                            <div className="p-2 border-b border-slate-100 dark:border-dk-border">
+                              <input
+                                type="text"
+                                autoFocus
+                                value={commandeClientSearch}
+                                onChange={e => setCommandeClientSearch(e.target.value)}
+                                placeholder={tx(lang,{fr:'Rechercher…',ar:'بحث…',en:'Search…',es:'Buscar…',pt:'Pesquisar…',tr:'Ara…'})}
+                                className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                              />
+                            </div>
+                            <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 dark:divide-dk-border">
+                              {filtered.length === 0 && (
+                                <p className="text-[11px] italic text-slate-400 dark:text-dk-muted text-center py-4">
+                                  {tx(lang,{fr:'Aucun client trouvé.',ar:'لا يوجد زبون.',en:'No client found.',es:'Ningún cliente encontrado.',pt:'Nenhum cliente encontrado.',tr:'Müşteri bulunamadı.'})}
+                                </p>
+                              )}
+                              {filtered.map(c => {
+                                const active = c.id === commandeClientId;
+                                return (
+                                  <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => { setCommandeClientId(c.id); setCommandeClientPickerOpen(false); }}
+                                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${active ? 'bg-indigo-50 dark:bg-dk-accent/10' : 'hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+                                  >
+                                    {c.photo ? (
+                                      <img src={c.photo} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
+                                    ) : (
+                                      <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-[10px] bg-indigo-50 dark:bg-dk-accent/15 text-indigo-600 dark:text-dk-accent">
+                                        {c.nom.trim().slice(0, 2).toUpperCase()}
+                                      </span>
+                                    )}
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block text-[12px] font-bold text-slate-800 dark:text-dk-text truncate">{c.nom}</span>
+                                      <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">
+                                        {[c.type, c.ville, c.tel, c.ice && `ICE ${c.ice}`].filter(Boolean).join(' · ') || '—'}
+                                      </span>
+                                    </span>
+                                    {active && <Check className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+                <div className="bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
+                  <span className="text-[9px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest block">
+                    {tx(lang,{fr:'Date de sortie',ar:'تاريخ الإخراج',en:'Exit date',es:'Fecha de salida',pt:'Data de saída',tr:'Çıkış tarihi'})}
+                  </span>
+                  <input
+                    type="date"
+                    value={commandeDate}
+                    onChange={e => setCommandeDate(e.target.value)}
+                    className="mt-1.5 w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                  />
+                </div>
+              </div>
+
+              {/* Modèles : chaque ligne = une carte avec photo + grille couleur × taille
+                  (comme la sortie classique). Le stock dispo s'affiche par
+                  cellule, pas au global. */}
+              <div className="space-y-3">
+                {commandeLignes.length === 0 && (
+                  <p className="text-[11px] italic text-slate-400 dark:text-dk-muted text-center py-4">
+                    {tx(lang,{fr:'Ajoutez au moins un modèle ci-dessous.',ar:'أضِف موديلاً واحداً على الأقل أدناه.',en:'Add at least one model below.',es:'Añada al menos un modelo abajo.',pt:'Adicione pelo menos um modelo abaixo.',tr:'Aşağıya en az bir model ekleyin.'})}
+                  </p>
+                )}
+                {commandeLignes.map((l, i) => {
+                  const stat = modelStockStats.find(it => it.model.id === l.modelId);
+                  const model = stat?.model;
+                  const fiche: any = model?.ficheData || {};
+                  const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+                  const sizes: string[] = fiche.sizes || [];
+                  const matrix = stockMatrixByModel.get(l.modelId) || new Map<string, number>();
+                  const dispoCell = (c: string, t: string) => matrix.get(`${c}|${t}`) || 0;
+                  const lineQty = commandeLigneTotalQty(l);
+                  const lineTotal = lineQty * (Number(l.prix) || 0);
+                  const cout = stat?.price ?? null;
+                  const plancher = prixPlancher(cout, margeMinimale);
+                  const sousPlancher = plancher != null && estSousPlancher(Number(l.prix) || 0, plancher);
+                  return (
+                    <div key={l.modelId} className={`bg-white dark:bg-dk-surface border rounded-xl p-3 ${sousPlancher ? 'border-rose-300 dark:border-rose-800/60' : 'border-slate-200 dark:border-dk-border'}`}>
+                      {/* En-tête de la carte : photo + nom + Réf + dispo + prix + retirer. */}
+                      <div className="flex items-center gap-3">
+                        {model?.image ? (
+                          <img src={model.image} alt="" className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                            <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <span className="font-bold text-slate-800 dark:text-dk-text block truncate text-[12px]">{model?.meta_data?.nom_modele || l.modelId}</span>
+                          <span className="text-[10px] text-slate-400 dark:text-dk-muted block">
+                            {tx(lang,{fr:'Réf:',ar:'المرجع:',en:'Ref:',es:'Ref:',pt:'Ref:',tr:'Ref:'})} {model?.meta_data?.reference || tx(lang,{fr:'Aucune',ar:'لا يوجد',en:'None',es:'Ninguna',pt:'Nenhuma',tr:'Yok'})}
+                          </span>
+                          {sousPlancher && (
+                            <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              {tx(lang,{fr:'sous le prix plancher',ar:'تحت الثمن الأدنى',en:'below floor price',es:'bajo el precio mínimo',pt:'abaixo do preço mínimo',tr:'taban fiyatın altında'})}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-right">
+                            <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Prix',ar:'الثمن',en:'Price',es:'Precio',pt:'Preço',tr:'Fiyat'})}</span>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={l.prix === '' ? '' : l.prix}
+                              onChange={e => setCommandeLignePrix(i, e.target.value === '' ? '' : Number(e.target.value))}
+                              placeholder={tx(lang,{fr:'auto…',ar:'تلقائي…',en:'auto…',es:'auto…',pt:'auto…',tr:'otomatik…'})}
+                              className={`w-24 bg-slate-50 dark:bg-dk-bg border rounded-lg px-2 py-1.5 text-[12px] font-bold text-center outline-none focus:border-indigo-500 dark:focus:border-dk-accent ${sousPlancher ? 'border-rose-300 dark:border-rose-800/60 text-rose-600 dark:text-rose-400' : 'border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text'}`}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeCommandeLigne(i)}
+                            aria-label={tx(lang,{fr:'Retirer',ar:'إزالة',en:'Remove',es:'Quitar',pt:'Remover',tr:'Kaldır'})}
+                            className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Les trois colonnes, visibles ensemble : au moment de
+                          vendre, il faut voir ce que vaut le modèle au comptoir
+                          ET pour un revendeur — pas seulement le tarif déjà
+                          résolu pour le client choisi. Un clic pose le prix. */}
+                      {lineQty > 0 && (() => {
+                        const tarifsLigne = commandeTarifsParType[l.modelId] || {};
+                        return (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                            {([
+                              { id: 'DETAIL', label: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}) },
+                              { id: 'GROS', label: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}) },
+                              { id: 'BOUTIQUE', label: tx(lang,{fr:'Boutique',ar:'المحل',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'}) },
+                            ] as const).map(t => {
+                              const val = tarifsLigne[t.id];
+                              const missing = val == null;
+                              const active = !missing && Number(l.prix) === val;
+                              return (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  disabled={missing}
+                                  onClick={() => setCommandeLignePrix(i, Number(Number(val).toFixed(2)))}
+                                  title={missing
+                                    ? tx(lang,{fr:'Aucun tarif saisi pour ce type dans la grille des prix.',ar:'ما كاين حتى ثمن مسجّل لهاد النوع فشبكة الأثمنة.',en:'No price set for this type in the price grid.',es:'Ningún precio definido para este tipo en la cuadrícula.',pt:'Nenhum preço definido para este tipo na grelha.',tr:'Fiyat listesinde bu tür için fiyat yok.'})
+                                    : undefined}
+                                  className={`px-2 py-1 rounded-lg text-[9px] font-bold border transition-colors flex items-center gap-1 ${
+                                    missing
+                                      ? 'bg-slate-50 dark:bg-dk-bg text-slate-300 dark:text-dk-muted/50 border-slate-200 dark:border-dk-border cursor-not-allowed'
+                                      : active
+                                        ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent'
+                                        : 'bg-white dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent/40'
+                                  }`}
+                                >
+                                  {active && <Check className="w-2.5 h-2.5" />}
+                                  {t.label}
+                                  <span className={`font-mono ${missing ? '' : active ? 'opacity-90' : 'text-slate-400 dark:text-dk-muted'}`}>
+                                    {missing ? '—' : fmt(Number(val))}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Grille couleur × taille de CE modèle — mêmes règles que la
+                          sortie : case grisée quand le stock est à zéro, saisie
+                          plafonnée au dispo de la cellule. */}
+                      {colors.length === 0 || sizes.length === 0 ? (
+                        <p className="mt-2 text-[11px] text-amber-700 dark:text-amber-400 font-semibold">
+                          {tx(lang,{fr:"Ce modèle n'a ni couleurs ni tailles : complétez sa grille dans la fiche de coût.",ar:'هاد الموديل ما عندو لا ألوان لا مقاسات: كمّل الشبكة ف بطاقة التكلفة.',en:'This model has no colors or sizes: complete its grid in the cost sheet.',es:'Este modelo no tiene colores ni tallas: complete su rejilla en la ficha de coste.',pt:'Este modelo nao tem cores nem tamanhos: complete a grelha na ficha de custo.',tr:'Bu modelin rengi veya bedeni yok: maliyet kartindaki izgarayi tamamlayin.'})}
+                        </p>
+                      ) : (
+                        <div className="relative mt-2.5 border border-slate-200 dark:border-dk-border rounded-xl overflow-hidden">
+                          <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white dark:from-dk-surface to-transparent sm:hidden z-10" aria-hidden="true" />
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[11px]">
+                              <thead className="bg-slate-50 dark:bg-dk-bg/60 text-slate-400 dark:text-dk-muted uppercase text-[9px] border-b border-slate-200 dark:border-dk-border">
+                                <tr>
+                                  <th className="px-3 py-2 text-left font-medium">{tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'})}</th>
+                                  {sizes.map(sz => <th key={sz} className="px-2 py-2 text-center font-medium">{sz}</th>)}
+                                  <th className="px-3 py-2 text-right font-medium">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                                {colors.map(c => {
+                                  const rowTotal = sizes.reduce((a, sz) => a + (Number(l.grid[`${c.name}|${sz}`]) || 0), 0);
+                                  return (
+                                    <tr key={c.id}>
+                                      <td className="px-3 py-1.5 font-bold text-slate-700 dark:text-dk-text-soft whitespace-nowrap">
+                                        <span className="inline-flex items-center gap-1.5"><ColorDot hex={colorHexOf(c.name)} />{c.name}</span>
+                                      </td>
+                                      {sizes.map(sz => {
+                                        const k = `${c.name}|${sz}`;
+                                        const d = dispoCell(c.name, sz);
+                                        return (
+                                          <td key={sz} className="px-1 py-1.5 text-center">
+                                            <input
+                                              type="number"
+                                              min={0}
+                                              max={d}
+                                              disabled={d <= 0}
+                                              placeholder={d > 0 ? String(d) : '—'}
+                                              value={l.grid[k] ?? ''}
+                                              onChange={e => setCommandeLigneCell(i, k, e.target.value === '' ? '' : Math.min(d, Math.max(0, parseInt(e.target.value) || 0)))}
+                                              title={`${tx(lang,{fr:'Disponible',ar:'المتوفّر',en:'Available',es:'Disponible',pt:'Disponivel',tr:'Mevcut'})} : ${d}`}
+                                              className={`w-14 text-center rounded-lg px-1 py-1 text-[11px] outline-none border ${
+                                                d <= 0
+                                                  ? 'bg-slate-50 dark:bg-dk-bg/40 border-transparent text-slate-300 dark:text-dk-muted'
+                                                  : 'bg-slate-50 dark:bg-dk-bg border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent'
+                                              }`}
+                                            />
+                                          </td>
+                                        );
+                                      })}
+                                      <td className="px-3 py-1.5 text-right font-bold text-slate-700 dark:text-dk-text-soft">{rowTotal || '—'}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                              <tfoot className="bg-slate-50 dark:bg-dk-bg/60 border-t border-slate-200 dark:border-dk-border">
+                                <tr>
+                                  <td className="px-3 py-2 font-bold uppercase text-[9px] text-slate-500 dark:text-dk-muted">Total</td>
+                                  {sizes.map(sz => {
+                                    const t = colors.reduce((a, c) => a + (Number(l.grid[`${c.name}|${sz}`]) || 0), 0);
+                                    return <td key={sz} className="px-2 py-2 text-center font-bold text-slate-600 dark:text-dk-text-soft">{t || '—'}</td>;
+                                  })}
+                                  <td className="px-3 py-2 text-right font-extrabold text-indigo-600 dark:text-dk-accent">{lineQty || '—'}</td>
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                          <div className="px-4 py-2 border-t border-slate-100 dark:border-dk-border text-[10px] text-slate-500 dark:text-dk-muted flex items-center justify-between gap-2">
+                            <span>
+                              {tx(lang,{fr:'Le gris dans chaque case indique le stock disponible.',ar:'الرقم الرمادي ف كل خانة كيبيّن المخزون المتوفّر.',en:'The grey number in each cell shows available stock.',es:'El numero gris de cada celda indica el stock disponible.',pt:'O numero cinzento em cada celula mostra o stock disponivel.',tr:'Her hucredeki gri sayi mevcut stogu gosterir.'})}
+                            </span>
+                            <b className="tabular-nums whitespace-nowrap">{lineTotal.toLocaleString(dateLocale)} {currency}</b>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Ajouter un modèle : uniquement les modèles avec du stock vendable,
+                  et pas deux fois le même. */}
+              {commandeModelOptions.length === 0 ? (
+                <p className="text-[11px] italic text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  {tx(lang,{fr:'Aucun modèle vendable : détaillez les réceptions par couleur et taille dans l\'onglet Commandes.',ar:'لا يوجد موديل قابل للبيع: فصّل الاستلامات باللون والمقاس في علامة الطلبيات.',en:'No sellable model: itemise the receptions by color and size in the Orders tab.',es:'Ningún modelo vendible: detalle las recepciones por color y talla en la pestaña Pedidos.',pt:'Nenhum modelo vendível: detalhe as recepções por cor e tamanho no separador Encomendas.',tr:'Satılabilir model yok: Siparişler sekmesinde kabulleri renk ve bedene göre ayırın.'})}
+                </p>
+              ) : (
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => { setCommandeModelPickerOpen(o => !o); setCommandeModelSearch(''); }}
+                    className="w-full flex items-center gap-2 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-2.5 py-2 text-[12px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                  >
+                    <span className="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-dk-accent/15 flex items-center justify-center shrink-0">
+                      <Plus className="w-3.5 h-3.5 text-indigo-600 dark:text-dk-accent" />
+                    </span>
+                    <span className="flex-1 text-left truncate">
+                      {tx(lang,{fr:'Ajouter un modèle…',ar:'أضِف موديلاً…',en:'Add a model…',es:'Añadir un modelo…',pt:'Adicionar um modelo…',tr:'Bir model ekle…'})}
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted shrink-0" />
+                  </button>
+
+                  {commandeModelPickerOpen && (() => {
+                    const q = commandeModelSearch.trim().toLowerCase();
+                    const available = commandeModelOptions
+                      .filter(o => !commandeLignes.some(l => l.modelId === o.model.id))
+                      .filter(o => {
+                        if (!q) return true;
+                        const nom = o.model.meta_data?.nom_modele || '';
+                        const ref = o.model.meta_data?.reference || '';
+                        return nom.toLowerCase().includes(q) || ref.toLowerCase().includes(q);
+                      });
+                    return (
+                      <div className="absolute z-20 mt-1 w-full min-w-[300px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg dark:shadow-dk-elevated overflow-hidden">
+                        <div className="p-2 border-b border-slate-100 dark:border-dk-border">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={commandeModelSearch}
+                            onChange={e => setCommandeModelSearch(e.target.value)}
+                            placeholder={tx(lang,{fr:'Rechercher un modèle…',ar:'ابحث عن موديل…',en:'Search a model…',es:'Buscar un modelo…',pt:'Pesquisar um modelo…',tr:'Bir model ara…'})}
+                            className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                          />
+                        </div>
+                        <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-dk-border">
+                          {available.length === 0 && (
+                            <p className="text-[11px] italic text-slate-400 dark:text-dk-muted text-center py-4">
+                              {tx(lang,{fr:'Tous les modèles sont déjà ajoutés.',ar:'كل الموديلات مضافة مسبقاً.',en:'All models are already added.',es:'Todos los modelos ya están añadidos.',pt:'Todos os modelos já foram adicionados.',tr:'Tüm modeller zaten eklendi.'})}
+                            </p>
+                          )}
+                          {available.map(o => {
+                            const model = o.model;
+                            return (
+                              <button
+                                type="button"
+                                key={model.id}
+                                onClick={() => { addCommandeLigne(model.id); setCommandeModelPickerOpen(false); }}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                              >
+                                {model.image ? (
+                                  <img src={model.image} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
+                                ) : (
+                                  <span className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                                    <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
+                                  </span>
+                                )}
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-[12px] font-bold text-slate-800 dark:text-dk-text truncate">{model.meta_data?.nom_modele || model.id}</span>
+                                  <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">
+                                    {tx(lang,{fr:'Réf:',ar:'المرجع:',en:'Ref:',es:'Ref:',pt:'Ref:',tr:'Ref:'})} {model.meta_data?.reference || tx(lang,{fr:'Aucune',ar:'لا يوجد',en:'None',es:'Ninguna',pt:'Nenhuma',tr:'Yok'})}
+                                    {' · '}
+                                    {tx(lang,{fr:'dispo',ar:'متوفر',en:'avail.',es:'disponible',pt:'dispon.',tr:'mevcut'})} : {o.remainingStock.toLocaleString(dateLocale)}
+                                  </span>
+                                </span>
+                                <Plus className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Récapitulatif — mêmes lignes que la sortie de stock. */}
+              <div className="bg-slate-50 dark:bg-dk-surface/75 rounded-2xl p-5 border border-slate-200 dark:border-dk-border space-y-3">
+                <h4 className="font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wider text-[10px] border-b border-slate-200 dark:border-dk-border pb-2">
+                  {tx(lang,{fr:'Récapitulatif',ar:'الملخص',en:'Summary',es:'Resumen',pt:'Resumo',tr:'Özet'})}
+                </h4>
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Pièces',ar:'قطع',en:'Pieces',es:'Piezas',pt:'Peças',tr:'Parça'})}</span>
+                  <span className="text-slate-800 dark:text-dk-text">{commandeTotalQty.toLocaleString(dateLocale)}</span>
+                </div>
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'Montant HT',ar:'المبلغ HT',en:'HT Amount',es:'Importe HT',pt:'Valor HT',tr:'HT Tutarı'})}</span>
+                  <span className="text-slate-800 dark:text-dk-text">{commandeTotalHT.toLocaleString(dateLocale)} {currency}</span>
+                </div>
+                <div className="flex justify-between text-xs font-semibold">
+                  <span className="text-slate-500 dark:text-dk-muted">{tx(lang,{fr:'TVA',ar:'TVA',en:'VAT',es:'IVA',pt:'IVA',tr:'KDV'})} ({saleTvaRate}%)</span>
+                  <span className="text-slate-800 dark:text-dk-text">{((commandeTotalHT * saleTvaRate) / 100).toLocaleString(dateLocale)} {currency}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold border-t border-slate-200 dark:border-dk-border pt-2 text-indigo-600 dark:text-dk-accent">
+                  <span>{tx(lang,{fr:'Total TTC',ar:'الإجمالي TTC',en:'Total TTC',es:'Total TTC',pt:'Total TTC',tr:'Toplam TTC'})}</span>
+                  <span>{((commandeTotalHT * (1 + saleTvaRate / 100))).toLocaleString(dateLocale)} {currency}</span>
+                </div>
+              </div>
+
+              {/* Note interne — reprise du motif de dérogation si vente à perte. */}
+              <div className="space-y-1">
+                <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">
+                  {tx(lang,{fr:'Note interne / Observation',ar:'ملاحظة داخلية',en:'Internal Note / Remark',es:'Nota interna / Observación',pt:'Nota interna / Observação',tr:'Dahili Not / Gözlem'})}
+                </label>
+                <textarea
+                  value={commandeNote}
+                  onChange={e => setCommandeNote(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 outline-none h-16 text-[12px] text-slate-800 dark:text-dk-text focus:border-indigo-500 dark:focus:border-dk-accent"
+                />
+              </div>
+
+              {commandeConfirmSousCout && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 space-y-2">
+                  <span className="text-[11px] font-bold text-amber-900 dark:text-amber-300 block flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    {tx(lang,{fr:'Vente sous le prix plancher : motif obligatoire.',ar:'بيع تحت الثمن الأدنى: السبب إجباري.',en:'Sale below the floor price: reason required.',es:'Venta por debajo del precio mínimo: motivo obligatorio.',pt:'Venda abaixo do preço mínimo: motivo obrigatório.',tr:'Taban fiyatın altında satış: gerekçe zorunlu.'})}
+                  </span>
+                  <input
+                    type="text"
+                    autoFocus
+                    value={commandeMotif}
+                    onChange={e => setCommandeMotif(e.target.value)}
+                    placeholder={tx(lang,{fr:'Motif de la dérogation…',ar:'سبب الترخيص…',en:'Reason for the exception…',es:'Motivo de la excepción…',pt:'Motivo da exceção…',tr:'İstisna gerekçesi…'})}
+                    className="w-full bg-white dark:bg-dk-surface border border-amber-300 dark:border-amber-800/60 rounded-lg px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-amber-500"
+                  />
+                </div>
+              )}
+
+              {commandeError && (
+                <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 rounded-xl px-3 py-2">
+                  {commandeError}
+                </p>
+              )}
+
+              <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
+                <button
+                  type="button"
+                  onClick={() => { if (!commandeSaving) setCommandeOpen(false); }}
+                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                >
+                  {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                </button>
+                <button
+                  type="button"
+                  disabled={commandeSaving}
+                  onClick={submitCommande}
+                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent disabled:opacity-50"
+                >
+                  {commandeSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{tx(lang,{fr:'Enregistrer la Commande',ar:'حفظ الأمر',en:'Save Order',es:'Guardar Pedido',pt:'Guardar Encomenda',tr:'Siparişi Kaydet'})}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </SheetModal>
+      )}
+
+      <Caisse
+        open={caisseOpen}
+        onClose={() => setCaisseOpen(false)}
+        candidats={caisseCandidats}
+        clients={atelierClients}
+        stockMatrix={stockMatrixByModel}
+        currency={currency}
+        lang={lang}
+        isStatic={IS_STATIC}
+        initialRecherche={caisseRecherche}
+        onCreateClient={() => { setCaisseOpen(false); setActiveTab('clients'); }}
+        onClientsChanged={loadAtelierClients}
+        onEncaisser={encaisserCaisse}
+        onTicketAnnule={loadStockMovements}
+      />
+
+      {/* Sortie de stock : client du registre + grille couleur x taille. */}
+      {sortieForm && (
+        /* Plein écran : grille couleur x taille + récapitulatif des quantités. */
+        <SheetModal
+          onClose={() => setSortieForm(null)}
+          title={`${tx(lang,{fr:'Sortie de stock',ar:'إخراج من المخزون',en:'Stock exit',es:'Salida de stock',pt:'Saida de stock',tr:'Stok cikisi'})} — ${sortieForm.model.meta_data?.nom_modele || sortieForm.model.id}`}
+          icon={<Truck className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />}
+          size="xl"
+          zClass="z-[245]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop
+          bare
+        >
+          <div className="flex-1 overflow-y-auto min-h-0">
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
                     {tx(lang,{fr:'Client',ar:'الزبون',en:'Client',es:'Cliente',pt:'Cliente',tr:'Musteri'})}
                   </label>
-                  <select
-                    value={sortieForm.clientId}
-                    onChange={e => setSortieForm(prev => prev && ({ ...prev, clientId: e.target.value }))}
-                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
-                  >
-                    <option value="">{tx(lang,{fr:'— Aucun —',ar:'— بلا —',en:'— None —',es:'— Ninguno —',pt:'— Nenhum —',tr:'— Yok —'})}</option>
-                    {atelierClients.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.nom}{c.type === 'GROS' ? ` · ${tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  {(() => {
+                    const selected = atelierClients.find(c => c.id === sortieForm.clientId) || null;
+                    const q = clientPickerSearch.trim().toLowerCase();
+                    const filtered = q
+                      ? atelierClients.filter(c => [c.nom, c.ice, c.rc, c.tel, c.ville].filter(Boolean).some(v => String(v).toLowerCase().includes(q)))
+                      : atelierClients;
+                    return (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => { setClientPickerOpen(o => !o); setClientPickerSearch(''); }}
+                          className="w-full flex items-center gap-2 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        >
+                          {selected ? (
+                            selected.photo ? (
+                              <img src={selected.photo} alt="" className="w-6 h-6 rounded-full object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
+                            ) : (
+                              <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 font-bold text-[9px] bg-indigo-50 dark:bg-dk-accent/15 text-indigo-600 dark:text-dk-accent">
+                                {selected.nom.trim().slice(0, 2).toUpperCase()}
+                              </span>
+                            )
+                          ) : (
+                            <span className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted">
+                              <Users className="w-3 h-3" />
+                            </span>
+                          )}
+                          <span className="flex-1 text-left truncate">
+                            {selected
+                              ? `${selected.nom}${selected.ice ? ` · ICE ${selected.ice}` : ''}`
+                              : tx(lang,{fr:'— Aucun —',ar:'— بلا —',en:'— None —',es:'— Ninguno —',pt:'— Nenhum —',tr:'— Yok —'})}
+                          </span>
+                        </button>
+
+                        {clientPickerOpen && (
+                          <div className="absolute z-20 mt-1 w-full min-w-[320px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl shadow-lg dark:shadow-dk-elevated overflow-hidden">
+                            {clientQuickAdd ? (
+                              <div className="p-3 space-y-2">
+                                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">
+                                  {tx(lang,{fr:'Nouveau client',ar:'زبون جديد',en:'New client',es:'Nuevo cliente',pt:'Novo cliente',tr:'Yeni müşteri'})}
+                                </p>
+                                {clientQuickAddError && <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{clientQuickAddError}</p>}
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={clientQuickAddNom}
+                                  onChange={e => setClientQuickAddNom(e.target.value)}
+                                  placeholder={tx(lang,{fr:'Nom / Raison sociale',ar:'الاسم',en:'Name',es:'Nombre',pt:'Nome',tr:'Ad'})}
+                                  className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                />
+                                <input
+                                  type="text"
+                                  value={clientQuickAddTel}
+                                  onChange={e => setClientQuickAddTel(e.target.value)}
+                                  placeholder={tx(lang,{fr:'Téléphone (facultatif)',ar:'الهاتف (اختياري)',en:'Phone (optional)',es:'Teléfono (opcional)',pt:'Telefone (opcional)',tr:'Telefon (isteğe bağlı)'})}
+                                  className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                />
+                                <div className="space-y-1">
+                                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase text-[8px]">{tx(lang,{fr:'Type',ar:'النوع',en:'Type',es:'Tipo',pt:'Tipo',tr:'Tip'})}</label>
+                                  <div className="grid grid-cols-3 gap-1">
+                                    {([
+                                      ['GROS', tx(lang,{fr:'Gros',ar:'جملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})],
+                                      ['DETAIL', tx(lang,{fr:'Détail',ar:'تفصيل',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'})],
+                                      ['BOUTIQUE', tx(lang,{fr:'Boutique',ar:'محلّ',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'})],
+                                    ] as const).map(([val, label]) => {
+                                      const active = clientQuickAddType === val;
+                                      const colors = val === 'GROS'
+                                        ? active
+                                          ? 'bg-amber-500 border-amber-500 text-white'
+                                          : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20'
+                                        : val === 'DETAIL'
+                                          ? active
+                                            ? 'bg-emerald-500 border-emerald-500 text-white'
+                                            : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20'
+                                          : active
+                                            ? 'bg-sky-500 border-sky-500 text-white'
+                                            : 'bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20';
+                                      return (
+                                        <button
+                                          key={val}
+                                          type="button"
+                                          onClick={() => setClientQuickAddType(val as any)}
+                                          className={`px-1.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors ${colors}`}
+                                        >
+                                          {label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase text-[8px]">ICE</label>
+                                    <input
+                                      type="text"
+                                      value={clientQuickAddIce}
+                                      onChange={e => setClientQuickAddIce(e.target.value)}
+                                      placeholder="ICE"
+                                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase text-[8px]">RC</label>
+                                    <input
+                                      type="text"
+                                      value={clientQuickAddRc}
+                                      onChange={e => setClientQuickAddRc(e.target.value)}
+                                      placeholder="RC"
+                                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-1">
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase text-[8px]">{tx(lang,{fr:'Ville',ar:'المدينة',en:'City',es:'Ciudad',pt:'Cidade',tr:'Şehir'})}</label>
+                                    <input
+                                      type="text"
+                                      value={clientQuickAddVille}
+                                      onChange={e => setClientQuickAddVille(e.target.value)}
+                                      placeholder={tx(lang,{fr:'Ville',ar:'المدينة',en:'City',es:'Ciudad',pt:'Cidade',tr:'Şehir'})}
+                                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase text-[8px]">{tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'})}</label>
+                                    <input
+                                      type="text"
+                                      value={clientQuickAddAdresse}
+                                      onChange={e => setClientQuickAddAdresse(e.target.value)}
+                                      placeholder={tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'})}
+                                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-1.5 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-end gap-1.5 pt-1">
+                                  <button type="button" onClick={() => { setClientQuickAdd(false); setClientQuickAddError(null); }} className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[10px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors">
+                                    {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={!clientQuickAddNom.trim() || clientQuickAddSaving}
+                                    onClick={handleQuickAddClient}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[10px] hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                                  >
+                                    {clientQuickAddSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                                    {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={clientPickerSearch}
+                                  onChange={e => setClientPickerSearch(e.target.value)}
+                                  placeholder={tx(lang,{fr:'Rechercher…',ar:'بحث…',en:'Search…',es:'Buscar…',pt:'Procurar…',tr:'Ara…'})}
+                                  className="w-full px-3 py-2 text-[12px] border-b border-slate-100 dark:border-dk-border outline-none bg-transparent text-slate-800 dark:text-dk-text"
+                                />
+                                <div className="max-h-56 overflow-y-auto border-b border-slate-100 dark:border-dk-border">
+                                  <button
+                                    type="button"
+                                    onClick={() => { setSortieForm(prev => prev && ({ ...prev, clientId: '' })); setClientPickerOpen(false); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                                  >
+                                    {tx(lang,{fr:'— Aucun —',ar:'— بلا —',en:'— None —',es:'— Ninguno —',pt:'— Nenhum —',tr:'— Yok —'})}
+                                  </button>
+                                  {filtered.length === 0 ? (
+                                    <p className="px-3 py-2 text-[10px] text-slate-400 dark:text-dk-muted">
+                                      {tx(lang,{fr:'Aucun résultat.',ar:'ما كاينة حتى نتيجة.',en:'No result.',es:'Ningún resultado.',pt:'Nenhum resultado.',tr:'Sonuç yok.'})}
+                                    </p>
+                                  ) : filtered.map(c => (
+                                    <button
+                                      key={c.id}
+                                      type="button"
+                                      onClick={() => { setSortieForm(prev => prev && ({ ...prev, clientId: c.id })); setClientPickerOpen(false); }}
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                                    >
+                                      {c.photo ? (
+                                        <img src={c.photo} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
+                                      ) : (
+                                        <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-[10px] bg-indigo-50 dark:bg-dk-accent/15 text-indigo-600 dark:text-dk-accent">
+                                          {c.nom.trim().slice(0, 2).toUpperCase()}
+                                        </span>
+                                      )}
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block text-[11px] font-semibold text-slate-800 dark:text-dk-text truncate">
+                                          {c.nom}{c.type === 'GROS' ? ` · ${tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})}` : ''}
+                                        </span>
+                                        <span className="block text-[9px] text-slate-400 dark:text-dk-muted truncate">
+                                          <span className={`font-bold ${c.type === 'GROS' ? 'text-amber-600 dark:text-amber-400' : c.type === 'BOUTIQUE' ? 'text-sky-600 dark:text-sky-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                            {c.type === 'GROS' ? tx(lang,{fr:'Gros',ar:'جملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}) : c.type === 'BOUTIQUE' ? tx(lang,{fr:'Boutique',ar:'محلّ',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'}) : tx(lang,{fr:'Détail',ar:'تفصيل',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'})}
+                                          </span>
+                                          {' · '}
+                                          {[c.ice && `ICE ${c.ice}`, c.rc && `RC ${c.rc}`, c.tel, c.ville, c.adresse].filter(Boolean).join(' · ') || '—'}
+                                        </span>
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => { setClientQuickAdd(true); setClientQuickAddNom(clientPickerSearch); setClientQuickAddType('DETAIL'); setClientQuickAddVille(''); setClientQuickAddAdresse(''); setClientQuickAddIce(''); setClientQuickAddRc(''); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2.5 text-[11px] font-bold text-indigo-600 dark:text-dk-accent bg-indigo-50/60 dark:bg-dk-accent/10 hover:bg-indigo-100 dark:hover:bg-dk-accent/20 transition-colors"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  {tx(lang,{fr:'Ajouter un client',ar:'زيادة زبون',en:'Add a client',es:'Añadir un cliente',pt:'Adicionar um cliente',tr:'Müşteri ekle'})}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {atelierClients.length === 0 && (
                     <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
                       {tx(lang,{fr:"Aucun client enregistré — ajoutez-le dans l'onglet Clients.",ar:'ما كاين حتى زبون مسجّل — زيدو ف تبويب Clients.',en:'No client recorded — add one in the Clients tab.',es:'Ningun cliente registrado — anadalo en la pestana Clientes.',pt:'Nenhum cliente registado — adicione no separador Clientes.',tr:'Kayitli musteri yok — Musteriler sekmesinden ekleyin.'})}
@@ -7289,6 +10765,45 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
                     {tx(lang,{fr:'Prix unitaire',ar:'ثمن الوحدة',en:'Unit price',es:'Precio unitario',pt:'Preco unitario',tr:'Birim fiyat'})}
                   </label>
+                  {/* Les trois colonnes, visibles ensemble : au moment de vendre,
+                      il faut voir ce que vaut l'article au comptoir ET pour un
+                      revendeur, pas seulement le tarif déjà résolu pour le client
+                      choisi. Un clic pose le prix, comme sur le tiki. */}
+                  <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                    {([
+                      { id: 'DETAIL', label: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}) },
+                      { id: 'GROS', label: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}) },
+                      { id: 'BOUTIQUE', label: tx(lang,{fr:'Boutique',ar:'المحل',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'}) },
+                    ] as const).map(t => {
+                      const val = sortieTarifsParType[t.id];
+                      const missing = val == null;
+                      const active = !missing && Number(sortieForm.prix) === val;
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          disabled={missing}
+                          onClick={() => setSortieForm(prev => prev && ({ ...prev, prix: Number(Number(val).toFixed(2)), prixTouched: true }))}
+                          title={missing
+                            ? tx(lang,{fr:'Aucun tarif saisi pour ce type dans la grille des prix.',ar:'ما كاين حتى ثمن مسجّل لهاد النوع فشبكة الأثمنة.',en:'No price set for this type in the price grid.',es:'Ningún precio definido para este tipo en la cuadrícula.',pt:'Nenhum preço definido para este tipo na grelha.',tr:'Fiyat listesinde bu tür için fiyat yok.'})
+                            : undefined}
+                          className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors flex items-center gap-1.5 ${
+                            missing
+                              ? 'bg-slate-50 dark:bg-dk-bg text-slate-300 dark:text-dk-muted/50 border-slate-200 dark:border-dk-border cursor-not-allowed'
+                              : active
+                                ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent'
+                                : 'bg-white dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent/40'
+                          }`}
+                        >
+                          {active && <Check className="w-3 h-3" />}
+                          {t.label}
+                          <span className={`font-mono ${missing ? '' : active ? 'opacity-90' : 'text-slate-400 dark:text-dk-muted'}`}>
+                            {missing ? '—' : fmt(Number(val))}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                   <input
                     type="number"
                     min={0}
@@ -7319,8 +10834,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                     )}
                   </p>
                   {/* Le tarif reste une PROPOSITION dès que l'opérateur a saisi
-                      son propre prix : on l'offre, on ne l'impose pas. */}
-                  {sortieForm.prixTouched && sortieTarif?.prix != null && Number(sortieForm.prix) !== sortieTarif.prix && (
+                      son propre prix : on l'offre, on ne l'impose pas.
+                      Réservé au tarif NÉGOCIÉ avec CE client : les colonnes
+                      détail/gros/boutique ci-dessus couvrent déjà le tarif par
+                      type, ce bouton ne reste utile que pour le prix propre à
+                      ce client précis — sinon il ferait doublon. */}
+                  {sortieForm.prixTouched && sortieTarif?.source === 'CLIENT' && sortieTarif.prix != null && Number(sortieForm.prix) !== sortieTarif.prix && (
                     <button
                       type="button"
                       onClick={() => setSortieForm(prev => prev && ({ ...prev, prix: Number((sortieTarif.prix as number).toFixed(2)) }))}
@@ -7514,8 +11033,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{sortieError}</p>
               )}
             </div>
+          </div>
 
-            <div className="px-5 py-3 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-dk-surface">
+            <div className="shrink-0 px-5 py-3 border-t border-slate-100 dark:border-dk-border flex flex-wrap justify-end gap-2 bg-white dark:bg-dk-surface">
               <button
                 type="button"
                 onClick={() => setSortieForm(null)}
@@ -7539,15 +11059,60 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   : tx(lang,{fr:'Enregistrer la sortie',ar:'حفظ الإخراج',en:'Save the exit',es:'Guardar la salida',pt:'Guardar a saida',tr:'Cikisi kaydet'})}
               </button>
             </div>
-          </div>
-        </div>,
-        document.body
+        </SheetModal>
+      )}
+
+      {/* Proposition de facture juste après une sortie de stock enregistrée. */}
+      {sortieInvoicePrompt && (
+        <SheetModal
+          onClose={() => setSortieInvoicePrompt(null)}
+          title={tx(lang,{fr:'Créer une facture ?',ar:'إنشاء فاتورة؟',en:'Create an invoice?',es:'¿Crear una factura?',pt:'Criar uma fatura?',tr:'Fatura oluşturulsun mu?'})}
+          icon={<Receipt className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0" />}
+          size="sm"
+          zClass="z-[260]"
+          closeOnBackdrop
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+        >
+            <div className="flex items-start gap-2.5">
+              <Receipt className="w-4 h-4 text-indigo-600 dark:text-dk-accent shrink-0 mt-0.5" />
+              <div className="text-[12px] text-slate-600 dark:text-dk-text-soft leading-relaxed">
+                {tx(lang,{fr:'La sortie a été enregistrée. Voulez-vous facturer les sorties non facturées de ce client maintenant ?',ar:'تم حفظ الإخراج. هل تريد فوترة الإخراجات غير المفوترة لهذا الزبون الآن؟',en:'The exit has been saved. Do you want to invoice this client\'s unbilled exits now?',es:'La salida ha sido registrada. ¿Quiere facturar las salidas sin facturar de este cliente ahora?',pt:'A saída foi registada. Quer faturar as saídas não faturadas deste cliente agora?',tr:'Çıkış kaydedildi. Bu müşterinin faturasız çıkışlarını şimdi faturalamak ister misiniz?'})}
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setSortieInvoicePrompt(null)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+              >
+                {tx(lang,{fr:'Non',ar:'لا',en:'No',es:'No',pt:'Não',tr:'Hayır'})}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = sortieInvoicePrompt;
+                  setSortieInvoicePrompt(null);
+                  openEntitySheet({ kind: 'client', clientId: p.clientId, clientNom: p.clientNom, autoInvoice: true });
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors"
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                {tx(lang,{fr:'Oui, facturer',ar:'نعم، فوترة',en:'Yes, invoice',es:'Sí, facturar',pt:'Sim, faturar',tr:'Evet, faturala'})}
+              </button>
+            </div>
+        </SheetModal>
       )}
 
       {/* Clôture de commande + évaluation du sous-traitant. */}
-      {finishForm && createPortal(
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setFinishForm(null)}>
-          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+      {finishForm && (
+        /* Clôture courte (note + commentaire) : aucun tableau, pas de plein écran. */
+        <SheetModal
+          onClose={() => setFinishForm(null)}
+          size="sm"
+          zClass="z-[250]"
+          closeOnBackdrop
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+        >
             <div className="flex items-start gap-2.5">
               <CheckSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
               <div className="min-w-0">
@@ -7610,15 +11175,19 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 {tx(lang,{fr:'Terminer',ar:'إنهاء',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
               </button>
             </div>
-          </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
 
       {/* Confirmation de suppression d'une entrée en stock. */}
-      {batchPendingDelete && createPortal(
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setBatchPendingDelete(null)}>
-          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+      {batchPendingDelete && (
+        /* Confirmation courte : pas de plein écran. */
+        <SheetModal
+          onClose={() => setBatchPendingDelete(null)}
+          size="sm"
+          zClass="z-[250]"
+          closeOnBackdrop
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+        >
             <div className="flex items-start gap-2.5">
               <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
               <div className="min-w-0">
@@ -7656,15 +11225,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}
               </button>
             </div>
-          </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
 
       {/* Confirmation d'un jalon libre (bascule ou suppression). */}
-      {customConfirm && createPortal(
-        <div className="fixed inset-0 z-[240] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setCustomConfirm(null)}>
-          <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+      {customConfirm && (
+        /* Confirmation courte : pas de plein écran. */
+        <SheetModal
+          onClose={() => setCustomConfirm(null)}
+          size="sm"
+          zClass="z-[240]"
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+        >
             <div className="flex items-start gap-2.5">
               {customConfirm.action === 'remove'
                 ? <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
@@ -7709,9 +11281,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   : tx(lang,{fr:'Confirmer',ar:'تأكيد',en:'Confirm',es:'Confirmar',pt:'Confirmar',tr:'Onayla'})}
               </button>
             </div>
-          </div>
-        </div>,
-        document.body
+        </SheetModal>
       )}
 
       {/* Fiches d'entité — modèle et client, avec pile de navigation croisée. */}
@@ -7736,21 +11306,30 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           canSeeCost={canSeeCostHere}
           canSetPrice={canSetPriceHere}
           clientTypeLabels={clientTypeLabels}
+          onSetModelStorePublished={writeModelStorePublished}
         />
       )}
 
       {isDetailModalOpen && detailOrder && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[85vh] text-slate-700 dark:text-dk-text">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base">{tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}</h2>
-              <button onClick={() => setIsDetailModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
-              <div className="grid grid-cols-2 gap-4">
+        /* Téléphone : feuille qui monte du bas, comme la modale « Nouvel ordre »
+           du Planning — le pouce atteint les boutons, et le contexte derrière
+           reste visible. Ordinateur : fenêtre centrée, agrandissable. */
+        <SheetModal
+          onClose={() => setIsDetailModalOpen(false)}
+          title={tx(lang,{fr:'Fiche de Commande Sous-traitance',ar:'بطاقة أمر المقاولة من الباطن',en:'Subcontract Order Sheet',es:'Ficha de Pedido de Subcontratación',pt:'Ficha de Encomenda de Subcontratação',tr:'Taşeron Sipariş Kartı'})}
+          size="lg"
+          zClass="z-[150]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop={false}
+          bare
+        >
+            <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-6 text-xs">
+              {/* Une seule colonne sur telephone : a deux colonnes, « SOUS-
+                  TRAITANT » se coupait en deux lignes et « Voir sa fiche »
+                  chevauchait la carte voisine. Deux cartes lisibles l'une sous
+                  l'autre valent mieux que deux cartes serrees cote a cote. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {(() => {
                   const profile = subcontractorProfiles.find(p => p.name === detailOrder.subcontractorName);
                   return (
@@ -7787,7 +11366,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
                 <div className="col-span-2 sm:col-span-1 flex items-center gap-3">
                   {(() => {
                     const matchedModel = models.find(m => m.id === detailOrder.modelId);
@@ -7842,7 +11421,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 const st: any = (matchedModel.ficheData as any)?.soustraitance;
                 if (!st?.active) return null;
 
-                const inferred = inferSubcontractMode(detailOrder);
+                // Le mode ATTENDU est le choix explicite stocké sur la commande
+                // (st_mode) ; à défaut on le déduit des fournisseurs. La fiche de
+                // coût doit refléter ce que l'utilisateur a décidé, pas une
+                // re-déduction qui viendrait contredire son choix.
+                const inferred = (detailOrder.st_mode as StMode) || inferSubcontractMode(detailOrder);
                 const current: StMode = st.mode === 'complet' ? 'complet' : 'facon';
                 // Cas partiel : le sous-traitant fournit une partie des matières
                 // seulement. Aucun mode ne le représente exactement — on le signale
@@ -8195,7 +11778,25 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                               {exp.quantity_scope == null
                                 ? tx(lang,{fr:'Toute la commande',ar:'الطلبية كاملة',en:'Whole order',es:'Todo el pedido',pt:'Toda a encomenda',tr:'Tüm sipariş'})
                                 : `${exp.quantity_scope.toLocaleString()} pcs ${tx(lang,{fr:'sur',ar:'من',en:'of',es:'de',pt:'de',tr:'/'})} ${detailOrder.totalQuantity.toLocaleString()}`}
+                              {/* Le fournisseur et le reste du, la ou on lit la
+                                  ligne : sans eux il faut ouvrir sa fiche pour
+                                  savoir a qui et combien on doit encore. */}
+                              {(exp as any).tiersNom && <> · <span className="font-semibold text-sky-700 dark:text-sky-400">{(exp as any).tiersNom}</span></>}
+                              {(exp as any).factureRef && <> · {(exp as any).factureRef}</>}
                             </p>
+                            {(() => {
+                              const paye = Number((exp as any).montantPaye) || 0;
+                              const reste = Math.max(0, (Number(exp.amount) || 0) - paye);
+                              if (paye <= 0) return null;
+                              return (
+                                <p className="text-[10px] font-semibold">
+                                  <span className="text-emerald-600 dark:text-emerald-400">{fmt(paye)} {currency} {tx(lang,{fr:'payé',ar:'مخلَّص',en:'paid',es:'pagado',pt:'pago',tr:'ödendi'})}</span>
+                                  {reste > 0
+                                    ? <span className="text-rose-600 dark:text-rose-400"> · {fmt(reste)} {currency} {tx(lang,{fr:'reste',ar:'باقي',en:'left',es:'resta',pt:'resta',tr:'kalan'})}</span>
+                                    : <span className="text-emerald-600 dark:text-emerald-400"> · {tx(lang,{fr:'soldé',ar:'مسدَّد',en:'settled',es:'saldado',pt:'saldado',tr:'kapandı'})}</span>}
+                                </p>
+                              );
+                            })()}
                           </div>
                           <span className="font-bold text-slate-700 dark:text-dk-text-soft shrink-0">{fmt(exp.amount)} {currency}</span>
                           {/* Justificatif du frais, même mécanique que les factures
@@ -8252,6 +11853,58 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         />
                       </div>
                     </div>
+
+                    {/* Le fournisseur, sa facture, et ce qui a deja ete regle.
+                        Sans ces trois champs, la question « combien je lui dois
+                        encore ? » se repond en fouillant les commandes une par
+                        une, et la piece justificative se cherche de memoire. */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="space-y-1">
+                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                          {tx(lang,{fr:'Fournisseur',ar:'المورّد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}
+                        </label>
+                        <select
+                          value={expenseTiersId}
+                          onChange={(e) => setExpenseTiersId(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-2 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        >
+                          <option value="">{tx(lang,{fr:'— Aucun —',ar:'— بلا —',en:'— None —',es:'— Ninguno —',pt:'— Nenhum —',tr:'— Yok —'})}</option>
+                          {atelierClients
+                            .filter(c => { const r = (c as any).role || 'CLIENT'; return r === 'FOURNISSEUR' || r === 'LES_DEUX'; })
+                            .map(c => <option key={c.id} value={String(c.id)}>{c.nom}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                          {tx(lang,{fr:'N° de facture',ar:'رقم الفاتورة',en:'Invoice no.',es:'N.º de factura',pt:'N.º de fatura',tr:'Fatura no'})}
+                        </label>
+                        <input
+                          type="text"
+                          value={expenseFactureRef}
+                          onChange={(e) => setExpenseFactureRef(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-2 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                          {tx(lang,{fr:'Déjà payé',ar:'المخلَّص',en:'Already paid',es:'Ya pagado',pt:'Já pago',tr:'Ödenen'})} ({currency})
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={expenseMontantPaye}
+                          onChange={(e) => setExpenseMontantPaye(e.target.value === '' ? '' : Math.max(0, parseFloat(e.target.value) || 0))}
+                          placeholder="0"
+                          className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 py-2 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                        />
+                      </div>
+                    </div>
+                    {atelierClients.filter(c => { const r = (c as any).role || 'CLIENT'; return r === 'FOURNISSEUR' || r === 'LES_DEUX'; }).length === 0 && (
+                      <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                        {tx(lang,{fr:'Aucun fournisseur au registre — marquez un tiers comme « Il nous vend » dans l\'onglet Tiers pour pouvoir lui rattacher des frais.',ar:'ما كاين حتى مورّد فالسجلّ — علّم شي طرف بـ«كيبيع لينا» ف علامة الأطراف باش تقدر تربط ليه المصاريف.',en:'No supplier in the registry — mark a contact as « They sell to us » in the Contacts tab to attach expenses to them.',es:'Ningún proveedor en el registro — marque un tercero como « Nos vende » en la pestaña Terceros para poder asignarle gastos.',pt:'Nenhum fornecedor no registo — marque um terceiro como « Vende-nos » no separador Terceiros para lhe atribuir despesas.',tr:'Kayıtta tedarikçi yok — masraf bağlayabilmek için Taraflar sekmesinde bir tarafı « Bize satar » olarak işaretleyin.'})}
+                      </p>
+                    )}
 
                     <div className="flex flex-wrap items-end gap-2.5">
                       <div className="flex rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden">
@@ -8426,20 +12079,26 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               )}
             </div>
 
-            <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap gap-2 sm:gap-3 items-center text-xs font-bold sticky bottom-0">
+            {/* Téléphone : une grille, pas un `flex-wrap`. En repli libre les
+                quatre boutons retombaient en lignes ineégales, de largeurs
+                differentes, et l'oeil ne trouvait plus l'action principale.
+                Ici l'entrée en stock tient toute la largeur (c'est le geste du
+                jour), les deux documents se partagent la ligne suivante, et
+                Fermer ferme la marche. Sur ordinateur, la rangée d'origine. */}
+            <div className="bg-slate-50 dark:bg-dk-bg border-t border-slate-100 dark:border-dk-border px-4 sm:px-6 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center text-xs font-bold sticky bottom-0">
               {/* L'entrée en stock est une opération de production, pas un
                   document : elle reste à gauche, séparée des actions
                   d'impression et de facturation. */}
               <button
                 onClick={() => openStockEntries(detailOrder)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-none transition-all mr-auto"
+                className="col-span-2 sm:col-auto bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 sm:py-2 rounded-xl flex items-center justify-center sm:justify-start gap-1.5 shadow-sm dark:shadow-none transition-all sm:mr-auto"
               >
                 <Package className="w-4 h-4" />
                 <span>{tx(lang,{fr:'Entrer en stock',ar:'إدخال للمخزون',en:'Add to stock',es:'Entrar en stock',pt:'Entrar em stock',tr:'Stoğa gir'})}</span>
               </button>
               <button 
                 onClick={() => openBonEnvoiModal(detailOrder)}
-                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-none transition-all"
+                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2.5 sm:py-2 rounded-xl flex items-center justify-center sm:justify-start gap-1.5 shadow-sm dark:shadow-none transition-all"
                 title={tx(lang,{fr:"Préparer le bon avant impression",ar:'تحضير المذكرة قبل الطباعة',en:'Prepare the note before printing',es:'Preparar el bono antes de imprimir',pt:'Preparar a nota antes de imprimir',tr:'Yazdırmadan önce irsaliyeyi hazırla'})}
               >
                 <Printer className="w-4 h-4" />
@@ -8447,7 +12106,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </button>
               <button
                 onClick={() => openCostInvoiceModal(detailOrder)}
-                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm dark:shadow-none transition-all"
+                className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-4 py-2.5 sm:py-2 rounded-xl flex items-center justify-center sm:justify-start gap-1.5 shadow-sm dark:shadow-none transition-all"
                 title={tx(lang,{fr:'Facture de ce que vous devez payer au sous-traitant',ar:'فاتورة ديال اللي خاصك تخلّص للمقاول من الباطن',en:'Invoice of what you owe the subcontractor',es:'Factura de lo que debe pagar al subcontratista',pt:'Fatura do que deve pagar ao subcontratado',tr:'Taşerona ödemeniz gerekenin faturası'})}
               >
                 <Coins className="w-4 h-4" />
@@ -8455,17 +12114,2017 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               </button>
               <button
                 onClick={() => setIsDetailModalOpen(false)}
-                className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow dark:shadow-dk-sm transition-all border border-indigo-600 dark:border-dk-accent"
+                className="col-span-2 sm:col-auto bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow dark:shadow-dk-sm transition-all border border-indigo-600 dark:border-dk-accent"
               >
                 {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
               </button>
             </div>
-          </div>
-        </div>
+        </SheetModal>
       )}
 
       {/* ======================================= */}
-      {/* C — FACTURE SOUS-TRAITANCE (À PAYER)   */}
+      {/* TIKI — Étiquette code-barres du modèle  */}
+      {/* Le lecteur lit REF%TAILLE%COULEUR : il */}
+      {/* identifie le modèle et remplit la case */}
+      {/* taille×couleur de la grille de sortie. */}
+      {/* ======================================= */}
+      {/* ======================================= */}
+      {/* CONTRÔLE D'INTÉGRITÉ DU STOCK         */}
+      {/* ======================================= */}
+      {integriteOpen && (
+        <SheetModal
+          onClose={() => { if (!integriteRepairing) setIntegriteOpen(false); }}
+          title={tx(lang,{fr:'Vérifier le stock',ar:'تحقّق من المخزون',en:'Check the stock',es:'Verificar el stock',pt:'Verificar o stock',tr:'Stoğu kontrol et'})}
+          subtitle={tx(lang,{fr:'Pièces rattachées à une commande ou un achat qui n\'existe plus',ar:'قطع مربوطة بطلبية ولا شرا ما بقاش كاين',en:'Pieces attached to an order or purchase that no longer exists',es:'Piezas ligadas a un pedido o compra que ya no existe',pt:'Peças ligadas a uma encomenda ou compra que já não existe',tr:'Artık var olmayan bir siparişe veya alışa bağlı parçalar'})}
+          icon={<div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-xl shrink-0"><ShieldCheck className="w-5 h-5" /></div>}
+          size="md"
+          zClass="z-[260]"
+          closeOnBackdrop
+          bare
+        >
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-5 space-y-4">
+              {integriteError && (
+                <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span className="text-[11px] font-semibold leading-relaxed">{integriteError}</span>
+                </div>
+              )}
+
+              {integriteLoading && (
+                <div className="flex items-center gap-2 text-slate-400 dark:text-dk-muted text-[11px] font-semibold py-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {tx(lang,{fr:'Contrôle en cours…',ar:'الفحص جاري…',en:'Checking…',es:'Comprobando…',pt:'A verificar…',tr:'Kontrol ediliyor…'})}
+                </div>
+              )}
+
+              {integriteFait && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400">
+                  <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span className="text-[11px] font-semibold leading-relaxed">{integriteFait}</span>
+                </div>
+              )}
+
+              {!integriteLoading && !integriteFait && integriteResultat && (
+                integriteResultat.orphelins.length === 0 ? (
+                  <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400">
+                    <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span className="text-[11px] font-semibold leading-relaxed">
+                      {tx(lang,{fr:'Tout est cohérent : chaque pièce en stock est rattachée à une commande ou à un achat.',ar:'كلشي متماسك: كل قطعة فالمخزون مربوطة بطلبية ولا بشرا.',en:'Everything is coherent: every piece in stock is attached to an order or a purchase.',es:'Todo es coherente: cada pieza en stock está ligada a un pedido o a una compra.',pt:'Tudo coerente: cada peça em stock está ligada a uma encomenda ou a uma compra.',tr:'Her şey tutarlı: stoktaki her parça bir siparişe veya alışa bağlı.'})}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="rounded-2xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300 leading-snug">
+                          {tx(lang,{
+                            fr:`${integriteResultat.totalPieces.toLocaleString(dateLocale)} pièces sont comptées dans le stock alors que la commande ou l'achat qui les a fait entrer n'existe plus. Elles gonflent le disponible ET la valeur du stock.`,
+                            ar:`${integriteResultat.totalPieces.toLocaleString(dateLocale)} قطعة محسوبة فالمخزون والحال أن الطلبية ولا الشرا اللي دخّلهم ما بقاش كاين. كينفخو المتوفّر وقيمة المخزون.`,
+                            en:`${integriteResultat.totalPieces.toLocaleString(dateLocale)} pieces are counted in stock while the order or purchase that brought them in no longer exists. They inflate both the available and the stock value.`,
+                            es:`${integriteResultat.totalPieces.toLocaleString(dateLocale)} piezas se cuentan en el stock aunque el pedido o la compra que las trajo ya no existe.`,
+                            pt:`${integriteResultat.totalPieces.toLocaleString(dateLocale)} peças são contadas no stock embora a encomenda ou compra que as trouxe já não exista.`,
+                            tr:`${integriteResultat.totalPieces.toLocaleString(dateLocale)} parça stokta sayılıyor ancak onları getiren sipariş veya alış artık yok.`
+                          })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface divide-y divide-slate-100 dark:divide-dk-border">
+                      {integriteResultat.orphelins.map(o => (
+                        <div key={o.order_id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-[11px]">
+                          <div className="min-w-0">
+                            <span className="block font-bold text-slate-800 dark:text-dk-text truncate">
+                              {o.modelNom || o.modelId || '—'}
+                            </span>
+                            <span className="block text-[9px] text-slate-400 dark:text-dk-muted font-mono truncate">
+                              {String(o.order_id).slice(0, 14)} · {o.lignes} {tx(lang,{fr:'lignes',ar:'سطور',en:'lines',es:'líneas',pt:'linhas',tr:'satır'})}
+                            </span>
+                          </div>
+                          <span className="font-extrabold text-amber-700 dark:text-amber-400 shrink-0">
+                            {Number(o.quantite).toLocaleString(dateLocale)} {tx(lang,{fr:'pcs',ar:'قطعة',en:'pcs',es:'pzs',pt:'pcs',tr:'adet'})}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Ce qui est SORTI du stock est un fait : on ne le réécrit
+                        pas pour arranger un total. Le dire évite de croire à un
+                        oubli quand une ligne reste après la correction. */}
+                    <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                      {tx(lang,{fr:'Un modèle dont ces pièces sont déjà sorties du stock sera laissé en place : les retirer rendrait le disponible négatif.',ar:'الموديل اللي القطع ديالو خرجات ديجا غادي يتخلّى كيف ما هو: تحييدهم غادي يخلّي المتوفّر بالسالب.',en:'A model whose pieces have already left the stock will be left as is: removing them would make the available negative.',es:'Un modelo cuyas piezas ya salieron del stock se dejará como está: retirarlas haría negativo el disponible.',pt:'Um modelo cujas peças já saíram do stock será deixado como está: retirá-las tornaria o disponível negativo.',tr:'Parçaları stoktan çıkmış bir model olduğu gibi bırakılır: kaldırmak mevcudu negatif yapardı.'})}
+                    </p>
+                  </>
+                )
+              )}
+
+              <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
+                <button
+                  type="button"
+                  disabled={integriteRepairing}
+                  onClick={() => setIntegriteOpen(false)}
+                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                >
+                  {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
+                </button>
+                {!integriteFait && (integriteResultat?.orphelins.length ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    disabled={integriteRepairing}
+                    onClick={reparerIntegrite}
+                    className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md disabled:opacity-60"
+                  >
+                    {integriteRepairing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    {tx(lang,{fr:'Retirer ces pièces',ar:'حيّد هاد القطع',en:'Remove these pieces',es:'Retirar estas piezas',pt:'Retirar estas peças',tr:'Bu parçaları kaldır'})}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </SheetModal>
+      )}
+
+      {/* ======================================= */}
+      {/* TARIFS DE VENTE D'UN MODÈLE           */}
+      {/* ======================================= */}
+      {prixSheetModel && (() => {
+        const revient = prixSheetRevient;
+
+        // Les taux viennent de la configuration — marge minimale, marge
+        // atelier, marge boutique, TVA — jamais d'un coefficient inventé ici.
+        const tauxTva = Number(settings?.tva) || 0;
+        const margeAtelier = Number(settings?.marginAtelier) || 0;
+        const margeBoutique = Number(settings?.marginBoutique) || 0;
+
+        // Chaque canal supporte une marge différente parce qu'il ne rend pas le
+        // même service : le grossiste enlève le carton entier et ne coûte rien
+        // en vitrine, ma boutique immobilise, expose et reprend.
+        const tauxPour = (id: string): number => {
+          if (id === 'GROS') return Math.max(margeMinimale, margeAtelier);
+          if (id === 'BOUTIQUE' || id === 'MAGASIN' || id === 'ONLINE') return Math.max(margeMinimale, margeAtelier + margeBoutique);
+          return Math.max(margeMinimale, margeAtelier + margeBoutique / 2);
+        };
+
+        /** Coût RÉEL d'une vente sur ce canal : le revient plus les frais qui
+         *  n'existent que là (livreur, emballage, publicité). Les ignorer fait
+         *  lire une marge qui n'existe pas — c'est le piège de la vente en
+         *  ligne, où le chiffre d'affaires monte pendant que l'argent descend. */
+        const coutReel = (canal: CanalVente, prixVente: number): number | null => {
+          if (revient == null || !(revient > 0)) return null;
+          return revient + totalFraisCanal(canal.fraisKey, prixVente);
+        };
+
+        /** Marge réelle : mesurée sur le coût complet du canal, pas sur le seul
+         *  revient. Un prix en ligne qui couvre l'article mais pas le livreur
+         *  n'est pas une vente rentable, et doit se voir comme telle. */
+        const marge = (canal: CanalVente, v: number | '') => {
+          const prix = Number(v);
+          if (v === '' || !(prix > 0)) return null;
+          const cout = coutReel(canal, prix);
+          if (cout == null) return null;
+          return { pct: ((prix - cout) / prix) * 100, cout, perte: prix < cout };
+        };
+
+        /** Prix SUGGÉRÉ, pas imposé.
+         *  Les frais en pourcentage se prélèvent sur le PRIX, or le prix dépend
+         *  des frais : on résout l'équation au lieu de boucler.
+         *    prix = (revient + fixes + prix·pct/100) · (1 + marge/100)
+         *  d'où prix = (revient + fixes)·k / (1 − k·pct/100), avec k = 1+marge/100.
+         *  Sans cette résolution, une commission de plateforme serait comptée
+         *  sur un prix qui ne tient pas compte d'elle-même — donc sous-estimée. */
+        const suggestion = (canal: CanalVente): { ht: number; ttc: number; taux: number; fixes: number; pct: number } | null => {
+          if (revient == null || !(revient > 0)) return null;
+          const lignes = canal.fraisKey ? (canalFrais[canal.fraisKey] || []) : [];
+          const fixes = lignes.filter(f => f.mode === 'FIXE').reduce((a, f) => a + (Number(f.montant) || 0), 0);
+          const pct = lignes.filter(f => f.mode === 'PCT').reduce((a, f) => a + (Number(f.montant) || 0), 0);
+          const taux = tauxPour(canal.id);
+          const k = 1 + taux / 100;
+          const denom = 1 - (k * pct) / 100;
+          // Des frais en pourcentage qui absorbent tout le prix rendent
+          // l'équation insoluble : mieux vaut ne rien suggérer qu'un montant
+          // négatif ou infini.
+          if (denom <= 0.05) return null;
+          const ht = ((revient + fixes) * k) / denom;
+          return { ht, ttc: ht * (1 + tauxTva / 100), taux, fixes, pct };
+        };
+
+        const cols = canauxVente;
+        return (
+          <SheetModal
+            onClose={() => { if (!prixSheetSaving) setPrixSheetModel(null); }}
+            title={tx(lang,{fr:'Prix de vente',ar:'أثمنة البيع',en:'Sale prices',es:'Precios de venta',pt:'Preços de venda',tr:'Satış fiyatları'})}
+            subtitle={prixSheetModel.meta_data?.nom_modele || prixSheetModel.id}
+            icon={<div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-xl shrink-0"><Coins className="w-5 h-5" /></div>}
+            size="md"
+            zClass="z-[250]"
+            fullscreen={denseFullscreen}
+            onToggleFullscreen={toggleDenseFullscreen}
+            closeOnBackdrop
+            bare
+          >
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="p-5 space-y-4">
+                {prixSheetError && (
+                  <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span className="text-[11px] font-semibold leading-relaxed">{prixSheetError}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 rounded-2xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/60 p-3">
+                  {prixSheetModel.image ? (
+                    <img src={prixSheetModel.image} alt="" className="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0">
+                      <Package className="w-5 h-5 text-slate-400 dark:text-dk-muted" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-slate-800 dark:text-dk-text truncate text-sm">{prixSheetModel.meta_data?.nom_modele || prixSheetModel.id}</p>
+                    {canSeeCostHere && (
+                      <p className="text-[10px] text-slate-400 dark:text-dk-muted mt-0.5">
+                        {tx(lang,{fr:'Revient',ar:'التكلفة',en:'Cost',es:'Coste',pt:'Custo',tr:'Maliyet'})} : {revient == null ? '—' : `${fmt(revient)} ${currency}`}
+                      </p>
+                    )}
+                  </div>
+                  {prixSheetLoading && <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-dk-muted shrink-0" />}
+                </div>
+
+                <div className="space-y-2.5">
+                  {cols.map(col => {
+                    const v = prixSheetVals[col.id];
+                    const m = marge(col, v);
+                    const sug = suggestion(col);
+                    const open = prixSheetOpenCalc === col.id;
+                    const lignesFrais = col.fraisKey ? (canalFrais[col.fraisKey] || []) : [];
+                    return (
+                      <div key={col.id} className={`rounded-2xl border bg-white dark:bg-dk-surface p-3 ${
+                        col.kind === 'canal'
+                          ? 'border-sky-200 dark:border-sky-800/50'
+                          : 'border-slate-200 dark:border-dk-border'
+                      }`}>
+                        {/* Sur téléphone la ligne se casse : le libellé garde
+                            toute la largeur, le champ passe dessous au lieu
+                            d'écraser le texte à trois mots par ligne. */}
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                          <div className="min-w-0 flex-1">
+                            <span className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-dk-text-soft text-[12px]">
+                              {col.kind === 'canal' && (
+                                col.id === 'ONLINE'
+                                  ? <Store className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                                  : <Warehouse className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                              )}
+                              {col.label}
+                            </span>
+                            <span className="block text-[10px] text-slate-400 dark:text-dk-muted leading-snug mt-0.5">{col.hint}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={v}
+                              onChange={e => setPrixSheetVals(prev => ({ ...prev, [col.id]: e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0) }))}
+                              placeholder="—"
+                              className={`w-28 text-right rounded-xl px-3 py-2 text-[12px] font-bold outline-none border bg-slate-50 dark:bg-dk-bg text-slate-800 dark:text-dk-text ${
+                                m?.perte
+                                  ? 'border-rose-400 dark:border-rose-500 focus:border-rose-500'
+                                  : 'border-slate-200 dark:border-dk-border focus:border-indigo-500 dark:focus:border-dk-accent'
+                              }`}
+                            />
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">{currency}</span>
+                          </div>
+                        </div>
+
+                        {m != null && (
+                          <p className={`mt-1.5 text-[10px] font-bold ${m.perte ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                            {m.perte
+                              ? `${tx(lang,{fr:'Sous le coût réel',ar:'تحت التكلفة الحقيقية',en:'Below the real cost',es:'Por debajo del coste real',pt:'Abaixo do custo real',tr:'Gerçek maliyetin altında'})} (${fmt(Number(m.cout.toFixed(2)))} ${currency}) — ${tx(lang,{fr:'vente à perte.',ar:'بيع بالخسارة.',en:'selling at a loss.',es:'venta a pérdida.',pt:'venda com prejuízo.',tr:'zararına satış.'})}`
+                              : `${tx(lang,{fr:'Marge',ar:'الهامش',en:'Margin',es:'Margen',pt:'Margem',tr:'Marj'})} : ${m.pct.toFixed(1)} %`}
+                          </p>
+                        )}
+
+                        {sug && (
+                          <div className="mt-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {/* Un clic pose la valeur : lire un chiffre puis
+                                  le retaper à côté est une occasion de faute. */}
+                              <button
+                                type="button"
+                                onClick={() => setPrixSheetVals(prev => ({ ...prev, [col.id]: Number(sug.ht.toFixed(2)) }))}
+                                className="text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                              >
+                                {tx(lang,{fr:'Suggéré',ar:'مقترح',en:'Suggested',es:'Sugerido',pt:'Sugerido',tr:'Önerilen'})} : {fmt(Number(sug.ht.toFixed(2)))} {currency}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPrixSheetOpenCalc(open ? null : col.id)}
+                                title={tx(lang,{fr:'D\'où vient ce chiffre',ar:'منين جا هاد الرقم',en:'Where this figure comes from',es:'De dónde sale esta cifra',pt:'De onde vem este número',tr:'Bu rakam nereden geliyor'})}
+                                className="w-4 h-4 rounded border border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted hover:text-sky-600 hover:border-sky-400 flex items-center justify-center transition-colors"
+                              >
+                                {open ? <X className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5" />}
+                              </button>
+                            </div>
+
+                            {open && (
+                              <div className="mt-1.5 rounded-xl bg-slate-50 dark:bg-dk-bg/60 border border-slate-200 dark:border-dk-border p-2.5 space-y-1 text-[10px]">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-slate-500 dark:text-dk-muted font-semibold">{tx(lang,{fr:'Revient',ar:'التكلفة',en:'Cost',es:'Coste',pt:'Custo',tr:'Maliyet'})}</span>
+                                  <span className="font-bold text-slate-700 dark:text-dk-text-soft">{fmt(revient!)} {currency}</span>
+                                </div>
+
+                                {/* Le détail des frais du canal, ligne par ligne :
+                                    « + 42 DH de frais » sans dire lesquels ne se
+                                    vérifie pas contre une facture. */}
+                                {lignesFrais.map(f => (
+                                  <div key={f.id} className="flex items-center justify-between gap-2">
+                                    <span className="text-slate-500 dark:text-dk-muted font-semibold truncate">
+                                      + {f.label || tx(lang,{fr:'Frais',ar:'مصروف',en:'Fee',es:'Gasto',pt:'Despesa',tr:'Masraf'})}
+                                      {f.mode === 'PCT' ? ` ${Number(f.montant) || 0} %` : ''}
+                                    </span>
+                                    <span className="font-bold text-slate-700 dark:text-dk-text-soft shrink-0">
+                                      {fmt(Number((f.mode === 'PCT' ? (sug.ht * (Number(f.montant) || 0)) / 100 : Number(f.montant) || 0).toFixed(2)))} {currency}
+                                    </span>
+                                  </div>
+                                ))}
+
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-slate-500 dark:text-dk-muted font-semibold">
+                                    + {tx(lang,{fr:'Marge',ar:'الهامش',en:'Margin',es:'Margen',pt:'Margem',tr:'Marj'})} {sug.taux.toFixed(1)} %
+                                  </span>
+                                  <span className="font-bold text-slate-700 dark:text-dk-text-soft">
+                                    {fmt(Number((sug.ht - revient! - sug.fixes - (sug.ht * sug.pct) / 100).toFixed(2)))} {currency}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200 dark:border-dk-border">
+                                  <span className="font-black uppercase tracking-wide text-slate-600 dark:text-dk-text-soft">
+                                    {tx(lang,{fr:'Prix HT',ar:'الثمن دون الضريبة',en:'Price excl. tax',es:'Precio sin IVA',pt:'Preço sem IVA',tr:'KDV hariç fiyat'})}
+                                  </span>
+                                  <span className="font-extrabold text-sky-600 dark:text-sky-400">{fmt(Number(sug.ht.toFixed(2)))} {currency}</span>
+                                </div>
+
+                                {tauxTva > 0 && (
+                                  <div className="flex items-center justify-between gap-2 text-slate-500 dark:text-dk-muted">
+                                    <span className="font-semibold">{tx(lang,{fr:'Avec TVA',ar:'مع الضريبة',en:'With VAT',es:'Con IVA',pt:'Com IVA',tr:'KDV dahil'})} {tauxTva} %</span>
+                                    <span className="font-bold">{fmt(Number(sug.ttc.toFixed(2)))} {currency}</span>
+                                  </div>
+                                )}
+
+                                <p className="pt-1 text-slate-400 dark:text-dk-muted leading-snug">
+                                  {tx(lang,{fr:'Taux repris de la configuration (marge minimale, marge atelier, marge boutique, TVA).',ar:'النسب مأخوذة من الإعدادات (الهامش الأدنى، هامش الورشة، هامش المحل، الضريبة).',en:'Rates taken from the configuration (minimum margin, workshop margin, store margin, VAT).',es:'Tasas tomadas de la configuración (margen mínimo, margen taller, margen tienda, IVA).',pt:'Taxas retiradas da configuração (margem mínima, margem oficina, margem loja, IVA).',tr:'Oranlar yapılandırmadan alınır (asgari marj, atölye marjı, mağaza marjı, KDV).'})}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Frais du canal, modifiables ici. Ils sont GLOBAUX :
+                            le livreur coûte le même prix quel que soit l'article
+                            qu'il transporte, on ne les ressaisit pas par modèle. */}
+                        {col.fraisKey && (
+                          <div className="mt-2 pt-2 border-t border-dashed border-slate-200 dark:border-dk-border space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                                {tx(lang,{fr:'Frais de ce canal',ar:'مصاريف هاد القناة',en:'Costs of this channel',es:'Gastos de este canal',pt:'Custos deste canal',tr:'Bu kanalın masrafları'})}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => addFraisCanal(col.fraisKey!)}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                              >
+                                <Plus className="w-3 h-3" />
+                                {tx(lang,{fr:'Ajouter',ar:'زيد',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}
+                              </button>
+                            </div>
+
+                            {lignesFrais.length === 0 ? (
+                              <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                                {tx(lang,{fr:'Aucun frais — livraison, emballage, publicité, commission… Sans eux, la marge affichée est plus belle que la réalité.',ar:'ما كاين حتى مصروف — التوصيل، التغليف، الإشهار، العمولة… بلاهم، الهامش اللي كيبان أزين من الحقيقة.',en:'No costs — delivery, packaging, ads, commission… Without them, the margin shown is prettier than reality.',es:'Ningún gasto — entrega, embalaje, publicidad, comisión… Sin ellos, el margen mostrado es más bonito que la realidad.',pt:'Nenhum custo — entrega, embalagem, publicidade, comissão… Sem eles, a margem exibida é mais bonita do que a realidade.',tr:'Masraf yok — teslimat, ambalaj, reklam, komisyon… Bunlar olmadan gösterilen marj gerçekten daha güzeldir.'})}
+                              </p>
+                            ) : lignesFrais.map(f => (
+                              <div key={f.id} className="flex items-center gap-1.5">
+                                <input
+                                  type="text"
+                                  value={f.label}
+                                  onChange={e => updateFraisCanal(col.fraisKey!, f.id, { label: e.target.value })}
+                                  placeholder={tx(lang,{fr:'Livraison, emballage…',ar:'التوصيل، التغليف…',en:'Delivery, packaging…',es:'Entrega, embalaje…',pt:'Entrega, embalagem…',tr:'Teslimat, ambalaj…'})}
+                                  className="flex-1 min-w-0 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-[11px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                                />
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  value={f.montant}
+                                  placeholder="0"
+                                  onChange={e => updateFraisCanal(col.fraisKey!, f.id, { montant: e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0) })}
+                                  className="w-16 text-right bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                                />
+                                {/* Une commission de plateforme se compte en
+                                    pourcentage du prix, pas en dirhams fixes. */}
+                                <button
+                                  type="button"
+                                  onClick={() => updateFraisCanal(col.fraisKey!, f.id, { mode: f.mode === 'FIXE' ? 'PCT' : 'FIXE' })}
+                                  title={tx(lang,{fr:'Montant fixe ou pourcentage du prix',ar:'مبلغ ثابت ولا نسبة من الثمن',en:'Fixed amount or percentage of the price',es:'Importe fijo o porcentaje del precio',pt:'Montante fixo ou percentagem do preço',tr:'Sabit tutar veya fiyatın yüzdesi'})}
+                                  className="w-9 shrink-0 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-bg text-[10px] font-bold text-slate-600 dark:text-dk-text-soft hover:border-sky-400 transition-colors"
+                                >
+                                  {f.mode === 'PCT' ? '%' : currency}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => removeFraisCanal(col.fraisKey!, f.id)}
+                                  className="p-1 shrink-0 rounded-lg text-slate-300 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {prixSheetConfirm && (
+                  <div className="rounded-2xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300 leading-snug">
+                        {tx(lang,{
+                          fr:'Ces tarifs partiront aussitôt sur les étiquettes, les sorties de stock et les factures. Vérifiez avant de confirmer.',
+                          ar:'هاد الأثمنة غادي تمشي دغيا للتيكي وإخراج المخزون والفواتير. تحقّق قبل ما تأكّد.',
+                          en:'These prices go straight onto the labels, the stock exits and the invoices. Check before confirming.',
+                          es:'Estas tarifas irán de inmediato a las etiquetas, las salidas de stock y las facturas. Verifique antes de confirmar.',
+                          pt:'Estes preços vão de imediato para as etiquetas, as saídas de stock e as faturas. Verifique antes de confirmar.',
+                          tr:'Bu fiyatlar hemen etiketlere, stok çıkışlarına ve faturalara gider. Onaylamadan önce kontrol edin.'
+                        })}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-white dark:bg-dk-surface border border-amber-200 dark:border-amber-800/40 divide-y divide-amber-100 dark:divide-dk-border">
+                      {prixSheetConfirm.map(c => (
+                        <div key={c.id} className="flex items-center justify-between gap-3 px-3 py-2 text-[11px]">
+                          <span className="font-bold text-slate-700 dark:text-dk-text-soft">{c.label}</span>
+                          <span className="flex items-center gap-2 shrink-0">
+                            <span className="text-slate-400 dark:text-dk-muted line-through">
+                              {c.avant === '' ? '—' : `${fmt(Number(c.avant))} ${currency}`}
+                            </span>
+                            <ArrowRight className="w-3 h-3 text-slate-400 dark:text-dk-muted" />
+                            <span className="font-extrabold text-emerald-600 dark:text-emerald-400">{fmt(c.apres)} {currency}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2 justify-end">
+                      <button
+                        type="button"
+                        disabled={prixSheetSaving}
+                        onClick={() => setPrixSheetConfirm(null)}
+                        className="px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                      >
+                        {tx(lang,{fr:'Revenir corriger',ar:'رجع صلّح',en:'Go back and edit',es:'Volver a corregir',pt:'Voltar e corrigir',tr:'Geri dön ve düzelt'})}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={prixSheetSaving}
+                        onClick={savePrixSheet}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] disabled:opacity-60 transition-colors"
+                      >
+                        {prixSheetSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                        {tx(lang,{fr:'Confirmer les tarifs',ar:'أكّد الأثمنة',en:'Confirm the prices',es:'Confirmar las tarifas',pt:'Confirmar os preços',tr:'Fiyatları onayla'})}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Le lien entre ces cases et le reste du programme, dit une
+                    fois : sans cela on ne sait pas ce que l'on vient de régler. */}
+                <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                  {tx(lang,{
+                    fr:'Ces tarifs alimentent le tiki, la sortie de stock et la facture : le prix proposé suit le type du client choisi. Une case laissée vide n\'est pas un prix de zéro — le tarif catalogue prend le relais.',
+                    ar:'هاد الأثمنة كتغذّي التيكي وإخراج المخزون والفاتورة: الثمن المقترح كيتبع نوع العميل المختار. خانة خاوية ماشي ثمن صفر — ثمن الكتالوج كياخد البلاصة.',
+                    en:'These prices feed the label, the stock exit and the invoice: the proposed price follows the chosen client type. An empty box is not a price of zero — the catalogue price takes over.',
+                    es:'Estas tarifas alimentan la etiqueta, la salida de stock y la factura: el precio propuesto sigue el tipo de cliente elegido. Una casilla vacía no es un precio de cero — se aplica la tarifa de catálogo.',
+                    pt:'Estes preços alimentam a etiqueta, a saída de stock e a fatura: o preço proposto segue o tipo de cliente escolhido. Uma caixa vazia não é um preço de zero — aplica-se o preço de catálogo.',
+                    tr:'Bu fiyatlar etiketi, stok çıkışını ve faturayı besler: önerilen fiyat seçilen müşteri türünü izler. Boş kutu sıfır fiyat değildir — katalog fiyatı devreye girer.'
+                  })}
+                </p>
+
+                <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4 sticky bottom-0 -mx-5 -mb-5 px-5 pb-5 bg-white/95 dark:bg-dk-surface/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-dk-surface/80">
+                  <button
+                    type="button"
+                    disabled={prixSheetSaving}
+                    onClick={() => setPrixSheetModel(null)}
+                    className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                  >
+                    {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={prixSheetSaving || prixSheetLoading}
+                    onClick={demanderConfirmationPrix}
+                    className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 disabled:opacity-60 border border-indigo-600 dark:border-dk-accent"
+                  >
+                    {prixSheetSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </SheetModal>
+        );
+      })()}
+
+      {/* Confirmation courte : pas de plein écran pour une suppression. */}
+      {pendingDeleteArticle && (
+        <SheetModal
+          onClose={() => { if (!deletingArticleId) setPendingDeleteArticle(null); }}
+          size="sm"
+          zClass="z-[260]"
+          closeOnBackdrop
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 space-y-4"
+        >
+          <div className="flex items-start gap-2.5">
+            <Trash2 className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[13px] font-bold text-slate-800 dark:text-dk-text">
+                {tx(lang,{fr:`Supprimer « ${pendingDeleteArticle.nom} » ?`,ar:`حذف «${pendingDeleteArticle.nom}»؟`,en:`Delete “${pendingDeleteArticle.nom}”?`,es:`¿Eliminar «${pendingDeleteArticle.nom}»?`,pt:`Eliminar “${pendingDeleteArticle.nom}”?`,tr:`“${pendingDeleteArticle.nom}” silinsin mi?`})}
+              </p>
+              <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-1 leading-relaxed">
+                {tx(lang,{fr:'Impossible si des pièces sont déjà entrées ou sorties en stock — l\'historique doit rester exact.',ar:'ما تقدرش إلا كانت شي قطع دخلات ولا خرجات للمخزون — التاريخ خاصو يبقى صحيح.',en:'Not possible if pieces have already entered or exited stock — the history must stay accurate.',es:'No es posible si ya hay piezas entradas o salidas del stock — el historial debe permanecer exacto.',pt:'Não é possível se já houver peças entradas ou saídas em stock — o histórico deve permanecer exato.',tr:'Stoğa giriş veya çıkış yapılmışsa mümkün değil — geçmiş doğru kalmalı.'})}
+              </p>
+              {deleteArticleError && (
+                <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 mt-2">{deleteArticleError}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              disabled={!!deletingArticleId}
+              onClick={() => setPendingDeleteArticle(null)}
+              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+            >
+              {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+            </button>
+            <button
+              type="button"
+              disabled={!!deletingArticleId}
+              onClick={confirmDeleteArticle}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] disabled:opacity-60 transition-colors"
+            >
+              {deletingArticleId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              {tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}
+            </button>
+          </div>
+        </SheetModal>
+      )}
+
+      {/* ======================================= */}
+      {/* ACHAT DE MARCHANDISE FINIE            */}
+      {/* ======================================= */}
+      {achatOpen && (
+        <SheetModal
+          onClose={() => { if (!achatSaving) setAchatOpen(false); }}
+          title={tx(lang,{fr:'Nouveau modèle en stock',ar:'موديل جديد فالمخزون',en:'New model in stock',es:'Nuevo modelo en stock',pt:'Novo modelo em stock',tr:'Stokta yeni model'})}
+          subtitle={tx(lang,{fr:'Un modèle acheté fini, qui entre directement en stock',ar:'موديل مشرِي جاهز، كيدخل مباشرة للمخزون',en:'A finished model, bought and put straight into stock',es:'Un modelo comprado terminado, que entra directo al stock',pt:'Um modelo comprado acabado, que entra diretamente em stock',tr:'Satın alınan hazır bir model, doğrudan stoğa girer'})}
+          icon={<div className="p-2 bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 rounded-xl shrink-0"><Warehouse className="w-5 h-5" /></div>}
+          size="lg"
+          zClass="z-[255]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop
+          bare
+        >
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-5 space-y-4">
+              {achatError && (
+                <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span className="text-[11px] font-semibold leading-relaxed">{achatError}</span>
+                </div>
+              )}
+
+              {/* Réassort : reprendre un article déjà acheté évite d'en créer un
+                  deuxième sous un nom légèrement différent, ce qui couperait le
+                  stock en deux lignes. */}
+              {articles.length > 0 && (
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                    {tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}
+                  </label>
+                  <select
+                    value={achatArticleId}
+                    onChange={e => {
+                      const a = articles.find(x => x.id === e.target.value);
+                      if (a) openAchat(a); else { setAchatArticleId(''); setAchatNom(''); setAchatReference(''); setAchatPhoto(''); setAchatColorList([]); setAchatSizeList([]); setAchatGrid({}); }
+                    }}
+                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                  >
+                    <option value="">{tx(lang,{fr:'— Nouveau modèle —',ar:'— موديل جديد —',en:'— New model —',es:'— Nuevo modelo —',pt:'— Novo modelo —',tr:'— Yeni model —'})}</option>
+                    {articles.map(a => <option key={a.id} value={a.id}>{a.nom}</option>)}
+                  </select>
+                  {achatArticleId && (
+                    <p className="mt-1 text-[10px] text-sky-600 dark:text-sky-400 font-semibold">
+                      {tx(lang,{fr:'Réassort : les quantités s\'ajoutent au stock existant.',ar:'إعادة تموين: الكميات كتزاد للستوك الموجود.',en:'Restock: quantities add to the existing stock.',es:'Reposición: las cantidades se suman al stock existente.',pt:'Reabastecimento: as quantidades somam-se ao stock existente.',tr:'Yeniden stok: miktarlar mevcut stoğa eklenir.'})}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Photo + identité. La photo n'est pas décorative : dans une
+                  liste de stock, c'est elle qu'on reconnaît avant le nom. */}
+              <div className="flex items-start gap-3">
+                <label className="w-24 h-24 rounded-xl border border-dashed border-slate-300 dark:border-dk-border bg-slate-50 dark:bg-dk-bg flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:border-sky-400 transition-colors">
+                  {achatPhoto
+                    ? <img src={achatPhoto} alt="" className="w-full h-full object-cover" />
+                    : <span className="flex flex-col items-center gap-1 text-slate-400 dark:text-dk-muted"><Upload className="w-5 h-5" /><span className="text-[9px] font-bold">{tx(lang,{fr:'Photo',ar:'صورة',en:'Photo',es:'Foto',pt:'Foto',tr:'Fotoğraf'})}</span></span>}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      e.currentTarget.value = '';
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        // Réduction avant stockage : la photo part dans la
+                        // synchro, une image d'appareil photo la ferait gonfler.
+                        const img = new window.Image();
+                        img.onload = () => {
+                          const maxW = 640;
+                          const ratio = img.width > maxW ? maxW / img.width : 1;
+                          const c = document.createElement('canvas');
+                          c.width = Math.max(1, Math.round(img.width * ratio));
+                          c.height = Math.max(1, Math.round(img.height * ratio));
+                          const ctx = c.getContext('2d');
+                          if (!ctx) { setAchatPhoto(String(reader.result || '')); return; }
+                          ctx.drawImage(img, 0, 0, c.width, c.height);
+                          setAchatPhoto(c.toDataURL('image/jpeg', 0.82));
+                        };
+                        img.onerror = () => setAchatPhoto(String(reader.result || ''));
+                        img.src = String(reader.result || '');
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+                <div className="flex-1 min-w-0 space-y-2.5">
+                  <div>
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                      {tx(lang,{fr:'Nom du modèle *',ar:'اسم الموديل *',en:'Model name *',es:'Nombre del modelo *',pt:'Nome do modelo *',tr:'Model adı *'})}
+                    </label>
+                    <input type="text" value={achatNom} onChange={e => setAchatNom(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                      {tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'})}
+                    </label>
+                    <input type="text" value={achatReference} onChange={e => setAchatReference(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Répartition tailles × couleurs — la MÊME composition que la
+                  fiche technique : on ajoute une pastille de couleur et des
+                  tailles au fur et à mesure, et les totaux se lisent en bord de
+                  grille. Une saisie « séparée par des virgules » obligeait à
+                  retaper toute la ligne pour corriger une couleur, et ne
+                  montrait pas la couleur réelle. */}
+              <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface overflow-hidden">
+                <div className="bg-slate-50 dark:bg-dk-bg/60 px-4 py-3 border-b border-slate-200 dark:border-dk-border flex flex-wrap items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 font-bold text-slate-500 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                    <LayoutGrid className="w-3.5 h-3.5 text-sky-500" />
+                    {tx(lang,{fr:'Répartition (Tailles / Couleurs)',ar:'التوزيع (المقاسات / الألوان)',en:'Distribution (Sizes / Colors)',es:'Distribución (Tallas / Colores)',pt:'Distribuição (Tamanhos / Cores)',tr:'Dağılım (Bedenler / Renkler)'})}
+                  </span>
+                  <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-lg p-1 border border-slate-200 dark:border-dk-border">
+                    <input
+                      type="text"
+                      value={achatNewSizes}
+                      onChange={e => setAchatNewSizes(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAchatSizes(); } }}
+                      placeholder={tx(lang,{fr:'Ajouter Tailles (ex: 36 38 40)',ar:'أضف مقاسات (مثال: 36 38 40)',en:'Add Sizes (e.g. 36 38 40)',es:'Añadir Tallas (ej: 36 38 40)',pt:'Adicionar Tamanhos (ex: 36 38 40)',tr:'Beden Ekle (örn: 36 38 40)'})}
+                      className="bg-transparent text-[11px] px-2 outline-none w-48 max-w-[45vw] text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 dark:placeholder:text-dk-muted font-semibold"
+                    />
+                    <button type="button" onClick={addAchatSizes} className="bg-white dark:bg-dk-surface rounded p-1 shadow-sm dark:shadow-none hover:text-sky-600 transition-colors">
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Ajout d'une couleur : la pastille d'abord, le nom ensuite —
+                    c'est la couleur qu'on reconnaît dans la grille, pas le mot. */}
+                <div className="bg-slate-50 dark:bg-dk-bg px-4 py-2.5 border-b border-slate-200 dark:border-dk-border flex flex-wrap gap-2 items-center">
+                  <label className="relative flex items-center justify-center cursor-pointer shrink-0" title={tx(lang,{fr:'Choisir une couleur',ar:'اختر لوناً',en:'Pick a color',es:'Elegir un color',pt:'Escolher uma cor',tr:'Renk seç'})}>
+                    <input type="color" value={achatNewColorHex} onChange={e => setAchatNewColorHex(e.target.value)} className="opacity-0 absolute inset-0 w-full h-full cursor-pointer" />
+                    <div className="w-6 h-6 rounded-md border-2 border-slate-300 dark:border-dk-border shadow-sm cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: achatNewColorHex }} />
+                  </label>
+                  <input
+                    type="text"
+                    value={achatNewColorName}
+                    onChange={e => setAchatNewColorName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAchatColor(); } }}
+                    placeholder={tx(lang,{fr:'Nom de la couleur…',ar:'اسم اللون…',en:'Color name…',es:'Nombre del color…',pt:'Nome da cor…',tr:'Renk adı…'})}
+                    className="flex-1 min-w-[120px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-dk-text-soft outline-none focus:border-sky-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={addAchatColor}
+                    className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-colors"
+                  >
+                    <Plus className="w-3 h-3" /> {tx(lang,{fr:'Ajouter',ar:'إضافة',en:'Add',es:'Añadir',pt:'Adicionar',tr:'Ekle'})}
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px] border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border">
+                        <th className="py-2.5 px-3 text-left font-bold border-r border-slate-200 dark:border-dk-border min-w-[120px] whitespace-nowrap">
+                          {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
+                        </th>
+                        {achatSizeList.length === 0 && (
+                          <th className="py-2 px-4 text-center font-normal italic text-slate-400 dark:text-dk-muted border-r border-slate-200 dark:border-dk-border min-w-[100px]">
+                            {tx(lang,{fr:'(Ajouter tailles)',ar:'(أضف مقاسات)',en:'(Add sizes)',es:'(Añadir tallas)',pt:'(Adicionar tamanhos)',tr:'(Beden ekle)'})}
+                          </th>
+                        )}
+                        {achatSizeList.map(t => (
+                          <th key={t} className="py-2 px-2 text-center font-bold border-r border-slate-200 dark:border-dk-border min-w-[54px] relative group">
+                            {t}
+                            <button
+                              type="button"
+                              onClick={() => removeAchatSize(t)}
+                              title={tx(lang,{fr:'Supprimer la taille',ar:'حذف المقاس',en:'Remove the size',es:'Eliminar la talla',pt:'Remover o tamanho',tr:'Bedeni kaldır'})}
+                              className="absolute top-0 right-0 p-0.5 text-slate-300 dark:text-dk-muted hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </th>
+                        ))}
+                        <th className="py-2 px-3 text-center font-black bg-slate-200 dark:bg-dk-elevated text-slate-800 dark:text-dk-text w-20">TOTAL</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                      {achatColorList.length === 0 && (
+                        <tr>
+                          <td colSpan={achatSizeList.length + (achatSizeList.length === 0 ? 3 : 2)} className="py-8 text-center text-slate-400 dark:text-dk-muted italic">
+                            {tx(lang,{fr:'Ajoutez des couleurs pour commencer la répartition.',ar:'زيد ألوان باش تبدا التوزيع.',en:'Add colors to start the distribution.',es:'Añada colores para comenzar la distribución.',pt:'Adicione cores para iniciar a distribuição.',tr:'Dağılıma başlamak için renk ekleyin.'})}
+                          </td>
+                        </tr>
+                      )}
+                      {achatColorList.map(c => {
+                        const ligne = achatSizeList.reduce((a, t) => a + (Number(achatGrid[`${c.name}|${t}`]) || 0), 0);
+                        return (
+                          <tr key={c.name} className="hover:bg-slate-50 dark:hover:bg-dk-elevated/60 group">
+                            <td className="py-2 px-3 border-r border-slate-200 dark:border-dk-border font-bold text-slate-700 dark:text-dk-text-soft">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="flex items-center gap-2 min-w-0">
+                                  <span className="w-3 h-3 rounded-full shrink-0 shadow-sm border border-black/10" style={{ backgroundColor: c.id }} />
+                                  <span className="truncate">{c.name}</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeAchatColor(c.name)}
+                                  title={tx(lang,{fr:'Supprimer la couleur',ar:'حذف اللون',en:'Remove the color',es:'Eliminar el color',pt:'Remover a cor',tr:'Rengi kaldır'})}
+                                  className="p-0.5 text-slate-300 dark:text-dk-muted hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </td>
+                            {achatSizeList.length === 0 && <td className="border-r border-slate-200 dark:border-dk-border" />}
+                            {achatSizeList.map(t => {
+                              const key = `${c.name}|${t}`;
+                              return (
+                                <td key={key} className="p-1 border-r border-slate-100 dark:border-dk-border">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={achatGrid[key] ?? ''}
+                                    onChange={e => setAchatGrid(prev => ({ ...prev, [key]: e.target.value === '' ? '' : Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
+                                    className="w-full min-w-[48px] bg-transparent text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:bg-sky-50 dark:focus:bg-sky-950/30 rounded py-1"
+                                  />
+                                </td>
+                              );
+                            })}
+                            <td className="py-2 px-3 text-center font-black bg-slate-50 dark:bg-dk-bg/60 text-slate-800 dark:text-dk-text">{ligne.toLocaleString(dateLocale)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    {achatColorList.length > 0 && achatSizeList.length > 0 && (
+                      <tfoot>
+                        <tr className="bg-slate-50 dark:bg-dk-bg/60 border-t border-slate-200 dark:border-dk-border">
+                          <td className="py-2 px-3 text-right font-bold text-slate-500 dark:text-dk-muted border-r border-slate-200 dark:border-dk-border uppercase text-[9px] tracking-wide">TOTAL</td>
+                          {achatSizeList.map(t => {
+                            const col = achatColorList.reduce((a, c) => a + (Number(achatGrid[`${c.name}|${t}`]) || 0), 0);
+                            return <td key={t} className="py-2 px-2 text-center font-bold text-slate-700 dark:text-dk-text-soft border-r border-slate-100 dark:border-dk-border">{col.toLocaleString(dateLocale)}</td>;
+                          })}
+                          <td className="py-2 px-3 text-center font-black bg-sky-600 text-white">{achatTotalQty.toLocaleString(dateLocale)}</td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              </div>
+
+              {/* Prix payé et date. Le prix payé EST le revient : il n'y a ni
+                  matière ni main-d'œuvre à additionner. Le prix de VENTE ne se
+                  saisit plus ici — la fiche des tarifs (détail, gros, boutique)
+                  s'ouvre juste après, avec la marge suggérée à partir de ce
+                  prix : un seul chemin d'écriture, avec confirmation. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                    {tx(lang,{fr:'Prix d\'achat / pièce *',ar:'ثمن الشرا / القطعة *',en:'Purchase price / piece *',es:'Precio de compra / pieza *',pt:'Preço de compra / peça *',tr:'Alış fiyatı / parça *'})} ({currency})
+                  </label>
+                  <input type="number" min={0} step="0.01" value={achatPrix} onChange={e => setAchatPrix(e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
+                    {tx(lang,{fr:'Date d\'achat',ar:'تاريخ الشرا',en:'Purchase date',es:'Fecha de compra',pt:'Data de compra',tr:'Alış tarihi'})}
+                  </label>
+                  <input type="date" value={achatDate} onChange={e => setAchatDate(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                </div>
+              </div>
+
+              {/* Fournisseur — choisi dans le registre, ou créé sur place :
+                  aller le saisir ailleurs puis revenir ferait perdre la saisie. */}
+              <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-4 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                    {tx(lang,{fr:'Fournisseur',ar:'المورّد',en:'Supplier',es:'Proveedor',pt:'Fornecedor',tr:'Tedarikçi'})}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAchatNewTiers(v => !v)}
+                    className="text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:underline"
+                  >
+                    {achatNewTiers
+                      ? tx(lang,{fr:'Choisir dans la liste',ar:'اختر من اللائحة',en:'Pick from the list',es:'Elegir de la lista',pt:'Escolher da lista',tr:'Listeden seç'})
+                      : tx(lang,{fr:'+ Nouveau fournisseur',ar:'+ مورّد جديد',en:'+ New supplier',es:'+ Nuevo proveedor',pt:'+ Novo fornecedor',tr:'+ Yeni tedarikçi'})}
+                  </button>
+                </div>
+
+                {achatNewTiers ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                    <input type="text" value={achatNewTiersNom} onChange={e => setAchatNewTiersNom(e.target.value)} placeholder={tx(lang,{fr:'Nom *',ar:'الاسم *',en:'Name *',es:'Nombre *',pt:'Nome *',tr:'Ad *'})} className="sm:col-span-2 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                    <input type="text" value={achatNewTiersTel} onChange={e => setAchatNewTiersTel(e.target.value)} placeholder={tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                    <input type="text" value={achatNewTiersVille} onChange={e => setAchatNewTiersVille(e.target.value)} placeholder={tx(lang,{fr:'Ville',ar:'المدينة',en:'City',es:'Ciudad',pt:'Cidade',tr:'Şehir'})} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                    <button
+                      type="button"
+                      disabled={achatNewTiersSaving || !achatNewTiersNom.trim()}
+                      onClick={createAchatTiers}
+                      className="sm:col-span-4 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-[11px] disabled:opacity-60 transition-colors"
+                    >
+                      {achatNewTiersSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                      {tx(lang,{fr:'Créer le fournisseur',ar:'إنشاء المورّد',en:'Create the supplier',es:'Crear el proveedor',pt:'Criar o fornecedor',tr:'Tedarikçiyi oluştur'})}
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={achatTiersId}
+                    onChange={e => setAchatTiersId(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                  >
+                    <option value="">{tx(lang,{fr:'— Aucun —',ar:'— بلا —',en:'— None —',es:'— Ninguno —',pt:'— Nenhum —',tr:'— Yok —'})}</option>
+                    {atelierClients
+                      .filter(c => { const r = (c as any).role || 'CLIENT'; return r === 'FOURNISSEUR' || r === 'LES_DEUX'; })
+                      .map(c => <option key={c.id} value={String(c.id)}>{c.nom}</option>)}
+                  </select>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input type="text" value={achatFactureRef} onChange={e => setAchatFactureRef(e.target.value)} placeholder={tx(lang,{fr:'N° de facture',ar:'رقم الفاتورة',en:'Invoice no.',es:'N.º de factura',pt:'N.º de fatura',tr:'Fatura no'})} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                  <input type="number" min={0} step="0.01" value={achatMontantPaye} onChange={e => setAchatMontantPaye(e.target.value === '' ? '' : Math.max(0, Number(e.target.value) || 0))} placeholder={`${tx(lang,{fr:'Déjà payé',ar:'المخلَّص',en:'Already paid',es:'Ya pagado',pt:'Já pago',tr:'Ödenen'})} (${currency})`} className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500" />
+                </div>
+                {/* Une remarque sur CET achat — carton abîmé, délai promis,
+                    accord particulier — distincte des notes de l'article, qui
+                    décrivent l'objet, pas la transaction. */}
+                <input
+                  type="text"
+                  value={achatNote}
+                  onChange={e => setAchatNote(e.target.value)}
+                  placeholder={tx(lang,{fr:'Note sur cet achat (facultatif)',ar:'ملاحظة على هاد الشرا (اختياري)',en:'Note on this purchase (optional)',es:'Nota sobre esta compra (opcional)',pt:'Nota sobre esta compra (opcional)',tr:'Bu alışla ilgili not (isteğe bağlı)'})}
+                  className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                />
+              </div>
+
+              {/* Total : le chiffre qu'on vérifie contre la facture du
+                  fournisseur avant de valider. */}
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800/50 px-4 py-3">
+                <span className="text-[11px] font-bold text-sky-700 dark:text-sky-400">
+                  {achatTotalQty.toLocaleString(dateLocale)} {tx(lang,{fr:'pièces',ar:'قطعة',en:'pieces',es:'piezas',pt:'peças',tr:'parça'})}
+                </span>
+                <span className="text-sm font-black text-sky-700 dark:text-sky-400">
+                  {fmt(achatTotalCout)} {currency}
+                </span>
+              </div>
+
+              <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
+                <button
+                  type="button"
+                  disabled={achatSaving}
+                  onClick={() => setAchatOpen(false)}
+                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                >
+                  {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                </button>
+                <button
+                  type="button"
+                  disabled={achatSaving}
+                  onClick={submitAchat}
+                  className="bg-sky-600 hover:bg-sky-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md flex items-center gap-2 disabled:opacity-60 border border-sky-600"
+                >
+                  {achatSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>{tx(lang,{fr:'Entrer en stock',ar:'إدخال للمخزون',en:'Add to stock',es:'Entrar en stock',pt:'Entrar em stock',tr:'Stoğa gir'})}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </SheetModal>
+      )}
+
+      {/* ======================================= */}
+      {/* PARAMÈTRES DU TIKI — valables pour TOUS les modèles.  */}
+      {/* ======================================= */}
+      {tikiSettingsOpen && (() => {
+        // Le logo est imprimé sur ~22 % de la hauteur. On donne le chiffre en
+        // millimètres ET en points d'impression : « faites un logo correct »
+        // n'aide personne devant un graphiste.
+        const logoMm = (tikiDraft.size.h * 0.22);
+        const logoDots = Math.round(logoMm * 8); // 203 dpi ≈ 8 points/mm
+        const draftLogo = tikiDraftLogo;
+        const draftRows =
+          (tikiDraft.fields.ref ? 1 : 0) +
+          (tikiDraft.fields.taille ? 1 : 0) +
+          (tikiDraft.fields.couleur ? 1 : 0) +
+          (tikiDraft.fields.prix ? 1 : 0);
+        const showDraftLogo = tikiDraft.useLogo && Boolean(draftLogo);
+        const dpos = tikiDraft.logoPos;
+        const m = tikiPreviewMetrics(tikiDraft.size.w, tikiDraft.size.h, 220, {
+          head: tikiDraft.fields.marque,
+          logo: showDraftLogo,
+          logoPos: dpos,
+          rows: draftRows,
+          code: tikiDraft.fields.code,
+        });
+        return (
+          <SheetModal
+            onClose={() => setTikiSettingsOpen(false)}
+            title={tx(lang,{fr:'Paramètres du tiki',ar:'إعدادات التيكي',en:'Label settings',es:'Ajustes de la etiqueta',pt:'Definições da etiqueta',tr:'Etiket ayarları'})}
+            subtitle={tx(lang,{fr:'Réglés une fois, appliqués à tous les modèles',ar:'تُضبط مرّة واحدة، وتُطبَّق على كل الموديلات',en:'Set once, applied to every model',es:'Configurado una vez, aplicado a todos los modelos',pt:'Definido uma vez, aplicado a todos os modelos',tr:'Bir kez ayarlanır, tüm modellere uygulanır'})}
+            icon={<div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-xl shrink-0"><Settings className="w-5 h-5" /></div>}
+            size="md"
+            zClass="z-[170]"
+            closeOnBackdrop
+            bare
+          >
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <div className="p-5 space-y-4">
+
+                {/* Logo : le cœur d'un tiki de marque. */}
+                <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-4 space-y-3">
+                  <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                    {tx(lang,{fr:'Logo de la marque',ar:'شعار العلامة',en:'Brand logo',es:'Logo de la marca',pt:'Logo da marca',tr:'Marka logosu'})}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-20 h-20 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg flex items-center justify-center overflow-hidden shrink-0">
+                      {draftLogo
+                        ? <img src={draftLogo} alt="" className="max-w-full max-h-full object-contain" />
+                        : <Barcode className="w-6 h-6 text-slate-300 dark:text-dk-muted" />}
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft text-[11px] font-bold cursor-pointer hover:border-indigo-300 dark:hover:border-dk-accent/40 transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        {tx(lang,{fr:'Choisir une image',ar:'اختر صورة',en:'Choose an image',es:'Elegir una imagen',pt:'Escolher uma imagem',tr:'Bir görsel seç'})}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => { onTikiLogoFile(e.target.files?.[0] || null); e.currentTarget.value = ''; }}
+                        />
+                      </label>
+                      {(tikiDraft.logo || '').trim() && (
+                        <button
+                          type="button"
+                          onClick={() => setTikiDraft(prev => ({ ...prev, logo: '' }))}
+                          className="ml-2 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-[11px] font-bold hover:bg-rose-100 dark:hover:bg-rose-950/50 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {tx(lang,{fr:'Retirer',ar:'حيّد',en:'Remove',es:'Quitar',pt:'Remover',tr:'Kaldır'})}
+                        </button>
+                      )}
+                      {/* Le chiffre exact vaut mieux qu'un conseil vague : sur
+                          une thermique 203 dpi, un logo trop fin disparaît. */}
+                      <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                        {tx(lang,{
+                          fr:`Imprimé sur ${logoMm.toFixed(1)} mm de haut (~${logoDots} points à 203 dpi). Un PNG à fond transparent, trait épais, sans dégradé — une thermique n'imprime qu'en noir.`,
+                          ar:`كيتطبع على ${logoMm.toFixed(1)} مم علو (~${logoDots} نقطة ف 203 dpi). PNG بخلفية شفافة وخط غليظ بلا تدرّج — الطابعة الحرارية كتطبع غير بالكحل.`,
+                          en:`Printed ${logoMm.toFixed(1)} mm tall (~${logoDots} dots at 203 dpi). A transparent PNG, thick strokes, no gradients — a thermal printer only prints black.`,
+                          es:`Impreso a ${logoMm.toFixed(1)} mm de alto (~${logoDots} puntos a 203 dpi). PNG con fondo transparente, trazo grueso, sin degradados — una térmica solo imprime en negro.`,
+                          pt:`Impresso com ${logoMm.toFixed(1)} mm de altura (~${logoDots} pontos a 203 dpi). PNG com fundo transparente, traço grosso, sem gradientes — uma térmica só imprime a preto.`,
+                          tr:`${logoMm.toFixed(1)} mm yükseklikte basılır (203 dpi'de ~${logoDots} nokta). Şeffaf arka planlı PNG, kalın çizgi, gradyansız — termal yazıcı yalnızca siyah basar.`
+                        })}
+                      </p>
+                      {/* Avoir un logo et vouloir imprimer le nom sont deux
+                          choses differentes : le choix reste explicite. */}
+                      {draftLogo && (
+                        <button
+                          type="button"
+                          onClick={() => setTikiDraft(prev => ({ ...prev, useLogo: !prev.useLogo }))}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                            tikiDraft.useLogo
+                              ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent'
+                              : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                          }`}
+                        >
+                          {tikiDraft.useLogo && <Check className="w-3 h-3" />}
+                          {tikiDraft.useLogo
+                            ? tx(lang,{fr:'Logo imprimé',ar:'الشعار مطبوع',en:'Logo printed',es:'Logo impreso',pt:'Logo impresso',tr:'Logo basılıyor'})
+                            : tx(lang,{fr:'Texte imprimé',ar:'النص مطبوع',en:'Text printed',es:'Texto impreso',pt:'Texto impresso',tr:'Metin basılıyor'})}
+                        </button>
+                      )}
+                      {!(tikiDraft.logo || '').trim() && (companyIdentity.logo || '').trim() && (
+                        <p className="text-[10px] text-indigo-600 dark:text-dk-accent font-semibold leading-snug">
+                          {tx(lang,{fr:'Aucun logo propre au tiki : celui de l\'entreprise est utilisé.',ar:'ما كاين شعار خاص بالتيكي: كيتستعمل ديال الشركة.',en:'No label-specific logo: the company one is used.',es:'Sin logo propio de la etiqueta: se usa el de la empresa.',pt:'Sem logo próprio da etiqueta: é usado o da empresa.',tr:'Etikete özel logo yok: şirket logosu kullanılır.'})}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Position et rendu : deux réglages qui n'existent que
+                      lorsqu'un logo est effectivement chargé. */}
+                  {draftLogo && (
+                    <>
+                      <div>
+                        <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                          {tx(lang,{fr:'Place du logo',ar:'بلاصة الشعار',en:'Logo position',es:'Posición del logo',pt:'Posição do logo',tr:'Logo konumu'})}
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {([
+                            { id: 'left', label: tx(lang,{fr:'À gauche du nom',ar:'على يسار الاسم',en:'Left of the name',es:'A la izquierda del nombre',pt:'À esquerda do nome',tr:'Adın solunda'}) },
+                            { id: 'right', label: tx(lang,{fr:'À droite du nom',ar:'على يمين الاسم',en:'Right of the name',es:'A la derecha del nombre',pt:'À direita do nome',tr:'Adın sağında'}) },
+                            { id: 'top', label: tx(lang,{fr:'Au-dessus du nom',ar:'فوق الاسم',en:'Above the name',es:'Encima del nombre',pt:'Acima do nome',tr:'Adın üstünde'}) },
+                            { id: 'bottom-left', label: tx(lang,{fr:'En bas à gauche',ar:'تحت على اليسار',en:'Bottom left',es:'Abajo a la izquierda',pt:'Em baixo à esquerda',tr:'Altta solda'}) },
+                            { id: 'bottom-right', label: tx(lang,{fr:'En bas à droite',ar:'تحت على اليمين',en:'Bottom right',es:'Abajo a la derecha',pt:'Em baixo à direita',tr:'Altta sağda'}) },
+                          ] as const).map(o => (
+                            <button
+                              key={o.id}
+                              type="button"
+                              onClick={() => setTikiDraft(prev => ({ ...prev, logoPos: o.id }))}
+                              className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                                tikiDraft.logoPos === o.id
+                                  ? 'bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent'
+                                  : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent/40'
+                              }`}
+                            >
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
+                        <p className="mt-1.5 text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                          {tx(lang,{fr:'Le logo et le nom de la marque s\'impriment ensemble : cochez « Marque / logo » pour garder le nom.',ar:'الشعار والاسم كيتطبعو مع بعضهم: شعّل «Marque / logo» باش يبقى الاسم.',en:'Logo and brand name print together: keep « Brand / logo » ticked to show the name.',es:'El logo y el nombre se imprimen juntos: mantenga « Marca / logo » marcado para ver el nombre.',pt:'O logo e o nome são impressos juntos: mantenha « Marca / logo » assinalado para ver o nome.',tr:'Logo ve marka adı birlikte basılır: adı görmek için « Marka / logo » işaretli kalsın.'})}
+                        </p>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                            {tx(lang,{fr:'Rendu thermique',ar:'العرض الحراري',en:'Thermal rendering',es:'Renderizado térmico',pt:'Renderização térmica',tr:'Termal işleme'})}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setTikiDraft(prev => ({ ...prev, logoMono: !prev.logoMono }))}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors ${
+                              tikiDraft.logoMono
+                                ? 'bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent'
+                                : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                            }`}
+                          >
+                            {tikiDraft.logoMono && <Check className="w-3 h-3" />}
+                            {tx(lang,{fr:'Noir et blanc',ar:'كحل وبيض',en:'Black and white',es:'Blanco y negro',pt:'Preto e branco',tr:'Siyah beyaz'})}
+                          </button>
+                        </div>
+                        {tikiDraft.logoMono && (
+                          <>
+                            <input
+                              type="range"
+                              min={5}
+                              max={95}
+                              value={Math.round(tikiDraft.logoThreshold * 100)}
+                              onChange={e => setTikiDraft(prev => ({ ...prev, logoThreshold: Number(e.target.value) / 100 }))}
+                              className="w-full accent-indigo-600 dark:accent-dk-accent"
+                            />
+                            {/* Un curseur sans repere se regle a l'aveugle : on
+                                dit dans quel sens il agit. */}
+                            <div className="flex items-center justify-between text-[9px] font-semibold text-slate-400 dark:text-dk-muted">
+                              <span>{tx(lang,{fr:'Plus fin',ar:'أرقّ',en:'Thinner',es:'Más fino',pt:'Mais fino',tr:'Daha ince'})}</span>
+                              <span className="font-mono">{Math.round(tikiDraft.logoThreshold * 100)}</span>
+                              <span>{tx(lang,{fr:'Plus épais',ar:'أغلظ',en:'Thicker',es:'Más grueso',pt:'Mais grosso',tr:'Daha kalın'})}</span>
+                            </div>
+                            <p className="mt-1 text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                              {tx(lang,{fr:'Un logo clair disparaît si le seuil est trop bas ; poussez-le vers la droite jusqu\'à le voir dans l\'aperçu.',ar:'شعار فاتح كيختافى إلا كانت العتبة قليلة؛ زيدها لليمين حتى تشوفو فالمعاينة.',en:'A light logo vanishes if the threshold is too low; push it right until it shows in the preview.',es:'Un logo claro desaparece si el umbral es bajo; súbalo hasta verlo en la vista previa.',pt:'Um logo claro desaparece se o limiar for baixo; aumente-o até o ver na pré-visualização.',tr:'Açık renkli logo eşik düşükse kaybolur; önizlemede görünene kadar sağa itin.'})}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Marque + format par défaut. */}
+                <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-4 space-y-4">
+                  <div>
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Nom de la marque',ar:'اسم العلامة',en:'Brand name',es:'Nombre de la marca',pt:'Nome da marca',tr:'Marka adı'})}
+                    </label>
+                    <input
+                      type="text"
+                      value={tikiDraft.brand}
+                      onChange={e => setTikiDraft(prev => ({ ...prev, brand: e.target.value }))}
+                      placeholder={companyIdentity.nom || ''}
+                      className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text placeholder:font-normal placeholder:text-slate-400 dark:placeholder:text-dk-muted outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                    />
+                    <p className="mt-1 text-[10px] text-slate-400 dark:text-dk-muted">
+                      {tx(lang,{fr:'Imprimé quand aucun logo n\'est utilisé.',ar:'كيتطبع ملي ما كيتستعملش الشعار.',en:'Printed when no logo is used.',es:'Impreso cuando no se usa ningún logo.',pt:'Impresso quando nenhum logo é usado.',tr:'Logo kullanılmadığında basılır.'})}
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Format du rouleau (mm)',ar:'قياس الرول (مم)',en:'Roll format (mm)',es:'Formato del rollo (mm)',pt:'Formato do rolo (mm)',tr:'Rulo formatı (mm)'})}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {LABEL_SIZES.map(sz => {
+                        const on = tikiDraft.size.w === sz.w && tikiDraft.size.h === sz.h;
+                        return (
+                          <button
+                            key={sz.id}
+                            type="button"
+                            onClick={() => setTikiDraft(prev => ({ ...prev, size: { w: sz.w, h: sz.h } }))}
+                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                              on
+                                ? 'bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent'
+                                : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent/40'
+                            }`}
+                          >
+                            {sz.id}
+                          </button>
+                        );
+                      })}
+                      <span className="mx-1 text-slate-300 dark:text-dk-border">|</span>
+                      <input
+                        type="number"
+                        min={10}
+                        value={tikiDraft.size.w}
+                        onChange={e => setTikiDraft(prev => ({ ...prev, size: { ...prev.size, w: Math.max(10, Number(e.target.value) || 10) } }))}
+                        className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                      />
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">×</span>
+                      <input
+                        type="number"
+                        min={10}
+                        value={tikiDraft.size.h}
+                        onChange={e => setTikiDraft(prev => ({ ...prev, size: { ...prev.size, h: Math.max(10, Number(e.target.value) || 10) } }))}
+                        className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Champs par défaut',ar:'الحقول الافتراضية',en:'Default fields',es:'Campos por defecto',pt:'Campos por omissão',tr:'Varsayılan alanlar'})}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([
+                        { id: 'marque', label: tx(lang,{fr:'Marque / logo',ar:'العلامة / الشعار',en:'Brand / logo',es:'Marca / logo',pt:'Marca / logo',tr:'Marka / logo'}) },
+                        { id: 'ref', label: tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'}) },
+                        { id: 'taille', label: tx(lang,{fr:'Taille',ar:'المقاس',en:'Size',es:'Talla',pt:'Tamanho',tr:'Beden'}) },
+                        { id: 'couleur', label: tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'}) },
+                        { id: 'prix', label: tx(lang,{fr:'Prix',ar:'الثمن',en:'Price',es:'Precio',pt:'Preço',tr:'Fiyat'}) },
+                        { id: 'code', label: tx(lang,{fr:'Code sous le barres',ar:'الكود تحت الباركود',en:'Code under barcode',es:'Código bajo el código de barras',pt:'Código sob o código de barras',tr:'Barkod altındaki kod'}) },
+                      ] as const).map(f => {
+                        const on = tikiDraft.fields[f.id];
+                        return (
+                          <button
+                            key={f.id}
+                            type="button"
+                            onClick={() => setTikiDraft(prev => ({ ...prev, fields: { ...prev.fields, [f.id]: !prev.fields[f.id] } }))}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                              on
+                                ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent'
+                                : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent/40'
+                            }`}
+                          >
+                            {on && <Check className="w-3 h-3" />}
+                            {f.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Ordre de sortie',ar:'ترتيب الخروج',en:'Print order',es:'Orden de salida',pt:'Ordem de saída',tr:'Çıkış sırası'})}
+                    </span>
+                    <div className="inline-flex rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
+                      {([
+                        { id: 'taille', label: tx(lang,{fr:'Par taille, puis couleur',ar:'بالمقاس ثم اللون',en:'By size, then color',es:'Por talla, luego color',pt:'Por tamanho, depois cor',tr:'Bedene, sonra renge göre'}) },
+                        { id: 'couleur', label: tx(lang,{fr:'Par couleur, puis taille',ar:'باللون ثم المقاس',en:'By color, then size',es:'Por color, luego talla',pt:'Por cor, depois tamanho',tr:'Renge, sonra bedene göre'}) },
+                      ] as const).map((o, i) => (
+                        <button
+                          key={o.id}
+                          type="button"
+                          onClick={() => setTikiDraft(prev => ({ ...prev, groupBy: o.id }))}
+                          className={`px-3 py-2 text-[10px] font-bold transition-colors ${i > 0 ? 'border-l border-slate-200 dark:border-dk-border' : ''} ${
+                            tikiDraft.groupBy === o.id
+                              ? 'bg-slate-800 dark:bg-dk-accent text-white'
+                              : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                          }`}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Impression réseau (ZPL) : le rendu HTML reste la voie par
+                    défaut ; celle-ci ne sert qu'aux imprimantes pilotées en
+                    ZPL/EPL direct, quand le pilote ne respecte pas la taille
+                    exacte du rouleau. Le logo n'est envoyé qu'en navigateur —
+                    le dire évite de le chercher en vain sur le papier. */}
+                <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-4 space-y-3">
+                  <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px]">
+                    {tx(lang,{fr:'Mode d\'impression',ar:'نمط الطباعة',en:'Print mode',es:'Modo de impresión',pt:'Modo de impressão',tr:'Yazdırma modu'})}
+                  </span>
+                  <div className="inline-flex rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
+                    {([
+                      { id: 'browser', label: tx(lang,{fr:'Navigateur',ar:'المتصفّح',en:'Browser',es:'Navegador',pt:'Navegador',tr:'Tarayıcı'}) },
+                      { id: 'zpl', label: tx(lang,{fr:'Réseau (ZPL)',ar:'شبكة (ZPL)',en:'Network (ZPL)',es:'Red (ZPL)',pt:'Rede (ZPL)',tr:'Ağ (ZPL)'}) },
+                    ] as const).map((o, i) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => setTikiDraft(prev => ({ ...prev, printMode: o.id }))}
+                        className={`px-3 py-2 text-[10px] font-bold transition-colors ${i > 0 ? 'border-l border-slate-200 dark:border-dk-border' : ''} ${
+                          tikiDraft.printMode === o.id
+                            ? 'bg-slate-800 dark:bg-dk-accent text-white'
+                            : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                        }`}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                    {tikiDraft.printMode === 'zpl'
+                      ? tx(lang,{fr:'Les commandes sont envoyées directement à l\'imprimante via le réseau. Le logo n\'est pas envoyé dans ce mode.',ar:'الأوامر كتصيفط مباشرة للطابعة عبر الشبكة. الشعار ما كيتصيفطش فهاد النمط.',en:'Commands are sent directly to the printer over the network. The logo is not sent in this mode.',es:'Los comandos se envían directamente a la impresora por red. El logo no se envía en este modo.',pt:'Os comandos são enviados diretamente para a impressora pela rede. O logo não é enviado neste modo.',tr:'Komutlar ağ üzerinden doğrudan yazıcıya gönderilir. Bu modda logo gönderilmez.'})
+                      : tx(lang,{fr:'Ouvre une fenêtre d\'impression standard — fonctionne avec n\'importe quel pilote.',ar:'كيحل نافذة طباعة عادية — كيخدم مع أي driver.',en:'Opens a standard print window — works with any driver.',es:'Abre una ventana de impresión estándar — funciona con cualquier controlador.',pt:'Abre uma janela de impressão padrão — funciona com qualquer controlador.',tr:'Standart bir yazdırma penceresi açar — herhangi bir sürücüyle çalışır.'})}
+                  </p>
+
+                  {tikiDraft.printMode === 'zpl' && (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input
+                          type="text"
+                          value={tikiDraft.zplHost}
+                          onChange={e => setTikiDraft(prev => ({ ...prev, zplHost: e.target.value }))}
+                          placeholder={tx(lang,{fr:'IP, ou plusieurs separees par des virgules',ar:'عنوان IP، أو عدة عناوين مفصولة بفواصل',en:'IP, or several separated by commas',es:'IP, o varias separadas por comas',pt:'IP, ou varias separadas por virgulas',tr:'IP, veya virgulle ayrilmis birkac tane'})}
+                          title={tx(lang,{fr:'Plusieurs adresses = le ticket de caisse part sur toutes en meme temps.',ar:'عدة عناوين = تذكرة الصندوق كتمشي لكلهم فنفس الوقت.',en:'Several addresses = the receipt goes to all of them at once.',es:'Varias direcciones = el ticket sale en todas a la vez.',pt:'Varios enderecos = o talao sai em todas ao mesmo tempo.',tr:'Birden fazla adres = fis hepsine ayni anda gider.'})}
+                          className="sm:col-span-2 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-mono text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                        />
+                        <input
+                          type="number"
+                          min={1}
+                          max={65535}
+                          value={tikiDraft.zplPort}
+                          onChange={e => setTikiDraft(prev => ({ ...prev, zplPort: Math.max(1, Math.min(65535, Number(e.target.value) || 9100)) }))}
+                          placeholder="9100"
+                          className="bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-mono text-slate-800 dark:text-dk-text outline-none focus:border-sky-500"
+                        />
+                      </div>
+                      <div>
+                        <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                          {tx(lang,{fr:'Résolution de l\'imprimante',ar:'دقّة الطابعة',en:'Printer resolution',es:'Resolución de la impresora',pt:'Resolução da impressora',tr:'Yazıcı çözünürlüğü'})}
+                        </span>
+                        <div className="inline-flex rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
+                          {([203, 300] as const).map((d, i) => (
+                            <button
+                              key={d}
+                              type="button"
+                              onClick={() => setTikiDraft(prev => ({ ...prev, zplDpi: d }))}
+                              className={`px-3 py-2 text-[10px] font-bold transition-colors ${i > 0 ? 'border-l border-slate-200 dark:border-dk-border' : ''} ${
+                                tikiDraft.zplDpi === d
+                                  ? 'bg-slate-800 dark:bg-dk-accent text-white'
+                                  : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                              }`}
+                            >
+                              {d} dpi
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={zplSending || !tikiDraft.zplHost.trim()}
+                        onClick={async () => {
+                          const data = buildZplTestLabel(tikiDraft.size.w, tikiDraft.size.h, tikiDraft.zplDpi);
+                          await sendZplToPrinter(data, tikiDraft.zplHost.trim(), tikiDraft.zplPort);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-sky-200 dark:border-sky-800/50 bg-sky-50 dark:bg-sky-950/20 text-sky-700 dark:text-sky-400 font-bold text-[11px] hover:bg-sky-100 dark:hover:bg-sky-950/40 disabled:opacity-60 transition-colors"
+                      >
+                        {zplSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
+                        {tx(lang,{fr:'Tester l\'impression',ar:'جرّب الطباعة',en:'Test the print',es:'Probar la impresión',pt:'Testar a impressão',tr:'Baskıyı test et'})}
+                      </button>
+                      {zplError && (
+                        <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 leading-snug">{zplError}</p>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Aperçu à la proportion réelle du format choisi. */}
+                <div>
+                  <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                    {tx(lang,{fr:'Aperçu',ar:'المعاينة',en:'Preview',es:'Vista previa',pt:'Pré-visualização',tr:'Önizleme'})}
+                  </span>
+                  <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-4 flex justify-center">
+                    <div
+                      style={{
+                        width: m.boxW, height: m.boxH,
+                        paddingLeft: m.padX, paddingRight: m.padX,
+                        paddingTop: m.band + m.padTop, paddingBottom: m.padBottom,
+                      }}
+                      className="relative overflow-hidden max-w-full rounded-lg border-2 border-dashed border-indigo-300 dark:border-indigo-500/40 flex flex-col"
+                    >
+                      <div style={{ height: m.band }} className="absolute inset-x-0 top-0 bg-indigo-500" />
+                      {(() => {
+                        const nm = tikiDraft.fields.marque ? (
+                          <div style={{ fontSize: m.name }} className="font-extrabold uppercase tracking-[0.12em] leading-tight text-slate-900 dark:text-dk-text truncate min-w-0 flex-1">{(tikiDraft.brand || companyIdentity.nom || 'MARQUE')}</div>
+                        ) : null;
+                        const lg = showDraftLogo ? (
+                          <img src={draftLogo} alt="" style={{ height: m.logoH }} className="max-w-[45%] object-contain shrink-0" />
+                        ) : null;
+                        if (lg && dpos === 'left') return <div className="flex items-center gap-1.5 shrink-0 min-w-0">{lg}{nm}</div>;
+                        if (lg && dpos === 'right') return <div className="flex items-center gap-1.5 justify-between shrink-0 min-w-0">{nm}{lg}</div>;
+                        if (lg && dpos === 'top') return <div className="shrink-0 min-w-0">{lg}{nm}</div>;
+                        return nm ? <div className="shrink-0 min-w-0 flex">{nm}</div> : null;
+                      })()}
+                      <div>
+                        {([
+                          tikiDraft.fields.ref && { k: 'Réf', v: '1234567890128' },
+                          tikiDraft.fields.taille && { k: 'Taille', v: 'M' },
+                          tikiDraft.fields.couleur && { k: 'Couleur', v: 'Noir' },
+                          tikiDraft.fields.prix && { k: 'Prix', v: `350 ${currency}`, price: true },
+                        ].filter(Boolean) as Array<{ k: string; v: string; price?: boolean }>).map(r => (
+                          <div key={r.k} style={{ fontSize: m.row }} className="flex items-baseline justify-between leading-[1.35] text-slate-500 dark:text-dk-muted uppercase tracking-wide">
+                            <span>{r.k}</span>
+                            <span
+                              style={{ fontSize: r.price ? m.price : m.val }}
+                              className={`normal-case tracking-normal font-bold truncate ${r.price ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-dk-text'}`}
+                            >{r.v}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-center mt-auto shrink-0">
+                        <div style={{ height: m.bcH }} className="w-full bg-[repeating-linear-gradient(90deg,#111_0,#111_2px,transparent_2px,transparent_4px)] dark:bg-[repeating-linear-gradient(90deg,#e5e7eb_0,#e5e7eb_2px,transparent_2px,transparent_4px)]" />
+                      </div>
+                      {(() => {
+                        const codeEl = tikiDraft.fields.code ? (
+                          <div style={{ fontSize: m.code }} className="flex-1 text-center font-mono tracking-widest leading-tight text-slate-500 dark:text-dk-muted min-w-0">1234567890128</div>
+                        ) : <div className="flex-1" />;
+                        const footLogo = showDraftLogo && (dpos === 'bottom-left' || dpos === 'bottom-right')
+                          ? <img src={draftLogo} alt="" style={{ height: m.logoH }} className="max-w-[45%] object-contain shrink-0" />
+                          : null;
+                        if (!footLogo) return tikiDraft.fields.code ? <div className="flex shrink-0">{codeEl}</div> : null;
+                        return (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {dpos === 'bottom-right' ? <>{codeEl}{footLogo}</> : <>{footLogo}{codeEl}</>}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setTikiSettingsOpen(false)}
+                    className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                  >
+                    {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveTikiSettings}
+                    className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </SheetModal>
+        );
+      })()}
+
+      {labelModel && (
+        <SheetModal
+          onClose={() => setLabelModel(null)}
+          title={tx(lang,{fr:'Imprimer le tiki',ar:'طباعة الملصق',en:'Print the label',es:'Imprimir la etiqueta',pt:'Imprimir a etiqueta',tr:'Etiketi yazdır'})}
+          subtitle={tx(lang,{fr:'Étiquette code-barres à coller sur le produit',ar:'ملصق باركود يُلصق على المنتج',en:'Barcode label to stick on the product',es:'Etiqueta de código para pegar en el producto',pt:'Etiqueta de código para colar no produto',tr:'Ürüne yapıştırılacak barkod etiketi'})}
+          icon={<div className="p-2 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent rounded-xl shrink-0"><Barcode className="w-5 h-5" /></div>}
+          size="md"
+          zClass="z-[160]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop
+          bare
+        >
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <div className="p-5 space-y-4">
+              {/* Modèle + référence (le code imprimé devient le code du modèle). */}
+              <div className="relative overflow-hidden rounded-2xl border border-indigo-100 dark:border-dk-border bg-gradient-to-br from-indigo-50/90 via-white to-white dark:from-indigo-950/40 dark:via-dk-surface dark:to-dk-surface p-4 flex items-center gap-3">
+                <div className="absolute -right-8 -top-10 w-28 h-28 rounded-full bg-indigo-200/50 dark:bg-indigo-900/30 blur-2xl pointer-events-none" />
+                {labelModel.image ? (
+                  <img src={labelModel.image} alt="" className="w-14 h-14 rounded-xl object-cover ring-2 ring-white dark:ring-dk-surface shadow-md shrink-0" />
+                ) : (
+                  <div className="w-14 h-14 rounded-xl bg-slate-200 dark:bg-dk-elevated flex items-center justify-center shrink-0 ring-2 ring-white dark:ring-dk-surface shadow-md">
+                    <Package className="w-6 h-6 text-slate-400 dark:text-dk-muted" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1 relative">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-800 dark:text-dk-text block truncate text-sm">{labelModel.meta_data?.nom_modele || labelModel.id}</span>
+                    {(labelModel.meta_data?.reference || '').trim() ? null : (
+                      <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider">
+                        <Sparkles className="w-2.5 h-2.5" /> auto
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-400 dark:text-dk-muted block mt-0.5">
+                    {tx(lang,{fr:'Réf:',ar:'المرجع:',en:'Ref:',es:'Ref:',pt:'Ref:',tr:'Ref:'})}{' '}
+                    <span className="font-mono font-bold text-indigo-600 dark:text-dk-accent">{refModele}</span>
+                  </span>
+                </div>
+                <div className="relative flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-white/70 dark:bg-dk-surface/70 border border-indigo-100 dark:border-dk-border shrink-0">
+                  <Barcode className="w-5 h-5 text-indigo-500 dark:text-dk-accent" />
+                  <span className="text-[9px] font-black text-slate-500 dark:text-dk-muted whitespace-nowrap">
+                    {Object.values(labelMode === 'externe' ? labelExterneGrid : labelGrid).reduce((a, v) => a + (Math.floor(Number(v) || 0)), 0).toLocaleString()}{' '}
+                    {tx(lang,{fr:'tiki',ar:'ملصق',en:'labels',es:'tiki',pt:'tiki',tr:'etiket'})}
+                  </span>
+                </div>
+              </div>
+
+              {/* Choix du mode : interne (remplit la grille) ou externe (magasin). */}
+              <div>
+                <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                  {tx(lang,{fr:'Type d\'étiquette',ar:'نوع الملصق',en:'Label type',es:'Tipo de etiqueta',pt:'Tipo de etiqueta',tr:'Etiket türü'})}
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setLabelMode('interne')}
+                    className={`relative px-3 py-3 rounded-xl text-left transition-all border ${labelMode === 'interne' ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent shadow-md dark:shadow-dk-md' : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent/40'}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`p-1.5 rounded-lg ${labelMode === 'interne' ? 'bg-white/20' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-dk-accent'}`}>
+                        <ScanLine className="w-4 h-4" />
+                      </span>
+                      <span className="text-[12px] font-black">{tx(lang,{fr:'Interne',ar:'داخلي',en:'Internal',es:'Interno',pt:'Interno',tr:'Dahili'})}</span>
+                      {labelMode === 'interne' && <Check className="w-4 h-4 ml-auto" />}
+                    </div>
+                    <span className={`block mt-1.5 text-[9px] leading-snug ${labelMode === 'interne' ? 'text-indigo-100 dark:text-dk-text-soft/80' : 'text-slate-400 dark:text-dk-muted'}`}>
+                      {tx(lang,{fr:'Un code par taille × couleur : le lecteur remplit la grille.',ar:'كود لكل مقاس × لون: القارئ يملأ الشبكة.',en:'One code per size × color: the scanner fills the grid.',es:'Un código por talla × color: el escáner rellena la cuadrícula.',pt:'Um código por tamanho × cor: o leitor preenche a grade.',tr:'Beden × renk başına kod: tarayıcı ızgarayı doldurur.'})}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLabelMode('externe')}
+                    className={`relative px-3 py-3 rounded-xl text-left transition-all border ${labelMode === 'externe' ? 'bg-emerald-600 dark:bg-emerald-600 text-white border-emerald-600 shadow-md dark:shadow-dk-md' : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-emerald-300 dark:hover:border-emerald-500/40'}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`p-1.5 rounded-lg ${labelMode === 'externe' ? 'bg-white/20' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400'}`}>
+                        <Store className="w-4 h-4" />
+                      </span>
+                      <span className="text-[12px] font-black">{tx(lang,{fr:'Externe (magasin)',ar:'خارجي (المتجر)',en:'External (store)',es:'Externo (tienda)',pt:'Externo (loja)',tr:'Harici (mağaza)'})}</span>
+                      {labelMode === 'externe' && <Check className="w-4 h-4 ml-auto" />}
+                    </div>
+                    <span className={`block mt-1.5 text-[9px] leading-snug ${labelMode === 'externe' ? 'text-emerald-100 dark:text-emerald-50/90' : 'text-slate-400 dark:text-dk-muted'}`}>
+                      {tx(lang,{fr:'Un seul code par modèle, le magasin lit la taille.',ar:'كود واحد لكل موديل، المتجر يقرأ المقاس فقط.',en:'One code per model, the store reads the size.',es:'Un solo código por modelo, la tienda lee la talla.',pt:'Um código por modelo, a loja lê o tamanho.',tr:'Model başına tek kod, mağaza bedeni okur.'})}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tableau des quantités d'étiquettes, modifiable avant impression.
+                  Interne : une par taille × couleur. Externe : le magasin ne voit
+                  que la taille, les quantités sont agrégées par taille. */}
+              {(() => {
+                const fiche: any = labelModel.ficheData || {};
+                const colors: Array<{ id: string; name: string }> = fiche.colors || [];
+                const sizes: string[] = fiche.sizes || [];
+                const total = labelMode === 'externe'
+                  ? Object.values(labelExterneGrid).reduce((a, v) => a + (Math.floor(Number(v) || 0)), 0)
+                  : Object.values(labelGrid).reduce((a, v) => a + (Math.floor(Number(v) || 0)), 0);
+                return (
+                  <div>
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {labelMode === 'externe'
+                        ? tx(lang,{fr:'Nombre d\'étiquettes par taille',ar:'عدد الملصقات لكل مقاس',en:'Number of labels per size',es:'Número de etiquetas por talla',pt:'Número de etiquetas por tamanho',tr:'Beden başına etiket sayısı'})
+                        : tx(lang,{fr:'Nombre d\'étiquettes par taille × couleur',ar:'عدد الملصقات لكل مقاس × لون',en:'Number of labels per size × color',es:'Número de etiquetas por talla × color',pt:'Número de etiquetas por tamanho × cor',tr:'Beden × renk başına etiket sayısı'})}
+                    </label>
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-sm dark:shadow-none">
+                      {labelMode === 'externe' ? (
+                        <table className="w-full border-collapse text-[11px]">
+                          <thead>
+                            <tr className="bg-gradient-to-r from-emerald-50 to-slate-50 dark:from-emerald-950/40 dark:to-dk-surface/75">
+                              <th className="p-2 text-left font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap border-b border-slate-200 dark:border-dk-border">
+                                {tx(lang,{fr:'Taille',ar:'المقاس',en:'Size',es:'Talla',pt:'Tamanho',tr:'Beden'})}
+                              </th>
+                              <th className="p-2 text-center font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap border-b border-slate-200 dark:border-dk-border">
+                                {tx(lang,{fr:'Étiquettes',ar:'ملصقات',en:'Labels',es:'Etiquetas',pt:'Etiquetas',tr:'Etiketler'})}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sizes.map(s => (
+                              <tr key={s} className="hover:bg-slate-50 dark:hover:bg-dk-bg/60 transition-colors">
+                                <td className="p-2 font-semibold text-slate-600 dark:text-dk-text-soft border-b border-slate-100 dark:border-dk-border whitespace-nowrap">{s}</td>
+                                <td className="p-1.5 border-b border-l border-slate-100 dark:border-dk-border text-center">
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={labelExterneGrid[s] || ''}
+                                    placeholder="0"
+                                    onChange={e => setLabelExterneGrid(prev => ({ ...prev, [s]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
+                                    className="w-16 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-1.5 py-1 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-emerald-500 dark:focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 dark:focus:ring-emerald-500/30"
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse text-[11px]">
+                            <thead>
+                              <tr className="bg-gradient-to-r from-indigo-50 to-slate-50 dark:from-indigo-950/40 dark:to-dk-surface/75">
+                                <th className="p-2 text-left font-bold text-indigo-700 dark:text-indigo-400 whitespace-nowrap border-b border-slate-200 dark:border-dk-border">
+                                  {tx(lang,{fr:'Couleur \\ Taille',ar:'اللون \\ المقاس',en:'Color \\ Size',es:'Color \\ Talla',pt:'Cor \\ Tamanho',tr:'Renk \\ Beden'})}
+                                </th>
+                                {sizes.map(s => (
+                                  <th key={s} className="p-2 text-center font-bold text-indigo-600 dark:text-indigo-400 border-b border-l border-slate-200 dark:border-dk-border whitespace-nowrap">{s}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {colors.map(c => (
+                                <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-dk-bg/60 transition-colors">
+                                  <td className="p-2 font-semibold text-slate-600 dark:text-dk-text-soft border-b border-slate-100 dark:border-dk-border whitespace-nowrap max-w-[120px] truncate">{c.name}</td>
+                                  {sizes.map(s => {
+                                    const key = `${c.name}|${s}`;
+                                    return (
+                                      <td key={key} className="p-1.5 border-b border-l border-slate-100 dark:border-dk-border">
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          value={labelGrid[key] || ''}
+                                          placeholder="0"
+                                          onChange={e => setLabelGrid(prev => ({ ...prev, [key]: Math.max(0, Math.floor(Number(e.target.value) || 0)) }))}
+                                          className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-1.5 py-1 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-500/30"
+                                        />
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black ${labelMode === 'externe' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400'}`}>
+                        {tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}
+                        <span className="rounded-full bg-white dark:bg-dk-surface px-1.5 py-0.5 border border-current/20">
+                          {total.toLocaleString()}
+                        </span>
+                        <span className="font-semibold">{tx(lang,{fr:'étiquettes',ar:'ملصق',en:'labels',es:'etiquetas',pt:'etiquetas',tr:'etiket'})}</span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Ce qui figure sur le tiki, et à quelle taille il sort.
+                  Une étiquette de 30 mm ne tient pas six lignes : c'est
+                  l'opérateur qui choisit ce qu'il garde, pas nous. */}
+              <div className="rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface p-4 space-y-4">
+                <div>
+                  <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                    {tx(lang,{fr:'Contenu de l\'étiquette',ar:'محتوى الملصق',en:'Label content',es:'Contenido de la etiqueta',pt:'Conteúdo da etiqueta',tr:'Etiket içeriği'})}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {([
+                      { id: 'marque', label: tx(lang,{fr:'Marque / logo',ar:'العلامة / الشعار',en:'Brand / logo',es:'Marca / logo',pt:'Marca / logo',tr:'Marka / logo'}) },
+                      { id: 'ref', label: tx(lang,{fr:'Référence',ar:'المرجع',en:'Reference',es:'Referencia',pt:'Referência',tr:'Referans'}) },
+                      { id: 'taille', label: tx(lang,{fr:'Taille',ar:'المقاس',en:'Size',es:'Talla',pt:'Tamanho',tr:'Beden'}) },
+                      { id: 'couleur', label: tx(lang,{fr:'Couleur',ar:'اللون',en:'Color',es:'Color',pt:'Cor',tr:'Renk'}) },
+                      { id: 'prix', label: tx(lang,{fr:'Prix',ar:'الثمن',en:'Price',es:'Precio',pt:'Preço',tr:'Fiyat'}) },
+                      { id: 'code', label: tx(lang,{fr:'Code sous le barres',ar:'الكود تحت الباركود',en:'Code under barcode',es:'Código bajo el código de barras',pt:'Código sob o código de barras',tr:'Barkod altındaki kod'}) },
+                    ] as const).map(f => {
+                      const on = labelFields[f.id];
+                      // La couleur n'existe pas sur un tiki magasin : le code
+                      // « porte » est unique par modèle, pas par variante.
+                      const disabled = f.id === 'couleur' && labelMode === 'externe';
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => setLabelFields(prev => ({ ...prev, [f.id]: !prev[f.id] }))}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                            disabled
+                              ? 'bg-slate-50 dark:bg-dk-bg text-slate-300 dark:text-dk-muted/50 border-slate-200 dark:border-dk-border cursor-not-allowed'
+                              : on
+                                ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent'
+                                : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent/40'
+                          }`}
+                        >
+                          {on && !disabled && <Check className="w-3 h-3" />}
+                          {f.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Marque : le logo enregistré dans Admin > Entreprise prime,
+                    mais une marque commerciale n'est pas toujours la raison
+                    sociale — le texte reste donc modifiable. */}
+                {labelFields.marque && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                        {tx(lang,{fr:'Nom de la marque',ar:'اسم العلامة',en:'Brand name',es:'Nombre de la marca',pt:'Nome da marca',tr:'Marka adı'})}
+                      </label>
+                      <input
+                        type="text"
+                        value={labelBrand}
+                        onChange={e => setLabelBrand(e.target.value)}
+                        placeholder={labelModel.meta_data?.nom_modele || ''}
+                        className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text placeholder:font-normal placeholder:text-slate-400 dark:placeholder:text-dk-muted outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      {tikiLogo ? (
+                        <button
+                          type="button"
+                          onClick={() => setLabelUseLogo(v => !v)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-bold transition-colors ${
+                            labelUseLogo
+                              ? 'bg-indigo-50 dark:bg-dk-accent/10 text-indigo-700 dark:text-dk-accent border-indigo-200 dark:border-dk-accent/40'
+                              : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'
+                          }`}
+                        >
+                          <img src={tikiLogo} alt="" className="w-7 h-7 rounded object-contain bg-white shrink-0" />
+                          <span className="text-left leading-tight">
+                            {labelUseLogo
+                              ? tx(lang,{fr:'Logo imprimé',ar:'الشعار مطبوع',en:'Logo printed',es:'Logo impreso',pt:'Logo impresso',tr:'Logo basılıyor'})
+                              : tx(lang,{fr:'Utiliser le logo',ar:'استعمل الشعار',en:'Use the logo',es:'Usar el logo',pt:'Usar o logo',tr:'Logoyu kullan'})}
+                          </span>
+                          {labelUseLogo && <Check className="w-4 h-4 ml-auto shrink-0" />}
+                        </button>
+                      ) : (
+                        <p className="text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                          {tx(lang,{fr:'Aucun logo — ajoutez-le dans Paramètres du tiki pour l\'imprimer à la place du texte.',ar:'ما كاين حتى شعار — زيدو ف «إعدادات التيكي» باش يتطبع بدل النص.',en:'No logo — add one in Label settings to print it instead of the text.',es:'Ningún logo — añádalo en Ajustes de la etiqueta para imprimirlo en lugar del texto.',pt:'Nenhum logo — adicione em Definições da etiqueta para o imprimir em vez do texto.',tr:'Logo yok — metin yerine basmak için Etiket ayarlarına ekleyin.'})}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Prix : celui de la carte Stock & Ventes, modifiable ici.
+                    Une série soldée ne doit pas obliger à changer le prix du
+                    modèle — le tiki est un tirage, pas une décision de tarif. */}
+                {labelFields.prix && (
+                  <div>
+                    <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Prix imprimé',ar:'الثمن المطبوع',en:'Printed price',es:'Precio impreso',pt:'Preço impresso',tr:'Basılan fiyat'})}
+                    </label>
+                    {/* Un même article ne vaut pas le même prix au carton et au
+                        comptoir. On montre les trois colonnes de la grille et
+                        l'opérateur colle celle qui correspond au destinataire —
+                        au lieu de retaper un prix de mémoire. */}
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      {([
+                        { id: 'DETAIL', label: tx(lang,{fr:'Détail',ar:'التقسيط',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'}) },
+                        { id: 'GROS', label: tx(lang,{fr:'Gros',ar:'الجملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'}) },
+                        { id: 'BOUTIQUE', label: tx(lang,{fr:'Boutique',ar:'المحل',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'}) },
+                      ] as const).map(t => {
+                        const val = labelTarifs[t.id];
+                        const missing = val == null;
+                        return (
+                          <button
+                            key={t.id}
+                            type="button"
+                            disabled={missing}
+                            onClick={() => { setLabelTarif(t.id); setLabelPrice(Number(val) || 0); }}
+                            title={missing
+                              ? tx(lang,{fr:'Aucun tarif saisi pour ce type dans la grille des prix.',ar:'ما كاين حتى ثمن مسجّل لهاد النوع فشبكة الأثمنة.',en:'No price set for this type in the price grid.',es:'Ningún precio definido para este tipo en la cuadrícula.',pt:'Nenhum preço definido para este tipo na grelha.',tr:'Fiyat listesinde bu tür için fiyat yok.'})
+                              : undefined}
+                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors flex items-center gap-1.5 ${
+                              missing
+                                ? 'bg-slate-50 dark:bg-dk-bg text-slate-300 dark:text-dk-muted/50 border-slate-200 dark:border-dk-border cursor-not-allowed'
+                                : labelTarif === t.id
+                                  ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 dark:border-dk-accent'
+                                  : 'bg-white dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent/40'
+                            }`}
+                          >
+                            {labelTarif === t.id && !missing && <Check className="w-3 h-3" />}
+                            {t.label}
+                            <span className={`font-mono ${missing ? '' : labelTarif === t.id ? 'opacity-90' : 'text-slate-400 dark:text-dk-muted'}`}>
+                              {missing ? '—' : fmt(Number(val))}
+                            </span>
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => setLabelTarif('MANUEL')}
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                          labelTarif === 'MANUEL'
+                            ? 'bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent'
+                            : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent/40'
+                        }`}
+                      >
+                        {tx(lang,{fr:'Manuel',ar:'يدوي',en:'Manual',es:'Manual',pt:'Manual',tr:'Elle'})}
+                      </button>
+                      {labelTarifsLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400 dark:text-dk-muted" />}
+                    </div>
+                    {!labelTarifsLoading && !IS_STATIC && Object.keys(labelTarifs).length > 0 && Object.values(labelTarifs).every(v => v == null) && (
+                      <p className="mb-2 text-[10px] text-amber-600 dark:text-amber-400 font-semibold leading-snug">
+                        {tx(lang,{fr:'Aucun tarif dans la grille pour ce modèle — le prix ci-dessous reste une saisie manuelle.',ar:'ما كاين حتى ثمن فالشبكة لهاد الموديل — الثمن اللي تحت بقا إدخال يدوي.',en:'No price in the grid for this model — the price below stays a manual entry.',es:'Ningún precio en la cuadrícula para este modelo — el precio de abajo sigue siendo manual.',pt:'Nenhum preço na grelha para este modelo — o preço abaixo continua manual.',tr:'Bu model için listede fiyat yok — aşağıdaki fiyat elle girilmiş kalır.'})}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={labelPrice || ''}
+                        onChange={e => { setLabelPrice(Math.max(0, Number(e.target.value) || 0)); setLabelTarif('MANUEL'); }}
+                        className="w-36 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                      />
+                      <span className="text-[11px] font-bold text-slate-400 dark:text-dk-muted">{currency}</span>
+                      {labelPrice <= 0 && (
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                          {tx(lang,{fr:'Sans prix, la ligne ne sera pas imprimée.',ar:'بلا ثمن، السطر ما غاديش يتطبع.',en:'Without a price, the line will not be printed.',es:'Sin precio, la línea no se imprimirá.',pt:'Sem preço, a linha não será impressa.',tr:'Fiyat olmadan satır basılmaz.'})}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Format physique : une thermique tire un rouleau de largeur
+                    FIXE. Imprimer sur une page « auto » décale tout le rouleau. */}
+                <div>
+                  <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                    {tx(lang,{fr:'Format du rouleau (mm)',ar:'قياس الرول (مم)',en:'Roll format (mm)',es:'Formato del rollo (mm)',pt:'Formato do rolo (mm)',tr:'Rulo formatı (mm)'})}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {LABEL_SIZES.map(sz => {
+                      const on = labelSize.w === sz.w && labelSize.h === sz.h;
+                      return (
+                        <button
+                          key={sz.id}
+                          type="button"
+                          onClick={() => setLabelSize({ w: sz.w, h: sz.h })}
+                          className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                            on
+                              ? 'bg-slate-800 dark:bg-dk-accent text-white border-slate-800 dark:border-dk-accent'
+                              : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent/40'
+                          }`}
+                        >
+                          {sz.id}
+                        </button>
+                      );
+                    })}
+                    <span className="mx-1 text-slate-300 dark:text-dk-border">|</span>
+                    <input
+                      type="number"
+                      min={10}
+                      value={labelSize.w}
+                      onChange={e => setLabelSize(prev => ({ ...prev, w: Math.max(10, Number(e.target.value) || 10) }))}
+                      className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                    />
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">×</span>
+                    <input
+                      type="number"
+                      min={10}
+                      value={labelSize.h}
+                      onChange={e => setLabelSize(prev => ({ ...prev, h: Math.max(10, Number(e.target.value) || 10) }))}
+                      className="w-14 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 text-center text-[11px] font-bold text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent"
+                    />
+                  </div>
+                  <p className="mt-1.5 text-[10px] text-slate-400 dark:text-dk-muted leading-snug">
+                    {tx(lang,{fr:'Une page par étiquette, à la taille exacte : choisissez le même format dans le pilote de l\'imprimante.',ar:'صفحة لكل ملصق بالقياس المضبوط: اختر نفس القياس ف driver ديال الطابعة.',en:'One page per label, at the exact size: choose the same format in the printer driver.',es:'Una página por etiqueta, al tamaño exacto: elija el mismo formato en el controlador de la impresora.',pt:'Uma página por etiqueta, no tamanho exato: escolha o mesmo formato no controlador da impressora.',tr:'Etiket başına bir sayfa, tam boyutta: yazıcı sürücüsünde aynı formatı seçin.'})}
+                  </p>
+                </div>
+
+                {/* Ordre de sortie : le rouleau sort dans l'ordre des pages.
+                    Regrouper évite de retrier 460 tiki mélangés à la main. */}
+                {labelMode === 'interne' && (
+                  <div>
+                    <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Ordre de sortie',ar:'ترتيب الخروج',en:'Print order',es:'Orden de salida',pt:'Ordem de saída',tr:'Çıkış sırası'})}
+                    </span>
+                    <div className="inline-flex rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
+                      {([
+                        { id: 'taille', label: tx(lang,{fr:'Par taille, puis couleur',ar:'بالمقاس ثم اللون',en:'By size, then color',es:'Por talla, luego color',pt:'Por tamanho, depois cor',tr:'Bedene, sonra renge göre'}) },
+                        { id: 'couleur', label: tx(lang,{fr:'Par couleur, puis taille',ar:'باللون ثم المقاس',en:'By color, then size',es:'Por color, luego talla',pt:'Por cor, depois tamanho',tr:'Renge, sonra bedene göre'}) },
+                      ] as const).map((o, i) => (
+                        <button
+                          key={o.id}
+                          type="button"
+                          onClick={() => setLabelGroupBy(o.id)}
+                          className={`px-3 py-2 text-[10px] font-bold transition-colors ${i > 0 ? 'border-l border-slate-200 dark:border-dk-border' : ''} ${
+                            labelGroupBy === o.id
+                              ? 'bg-slate-800 dark:bg-dk-accent text-white'
+                              : 'bg-white dark:bg-dk-bg text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated'
+                          }`}
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Aperçu de l'étiquette telle qu'elle sera imprimée. */}
+              {(() => {
+                const pvFiche: any = labelModel.ficheData || {};
+                const pvSizes: string[] = pvFiche.sizes || [];
+                const pvColors: Array<{ id: string; name: string }> = pvFiche.colors || [];
+                let pvTaille = '';
+                let pvCouleur = '';
+                if (labelMode === 'externe') {
+                  for (const s of pvSizes) { if ((labelExterneGrid[s] ?? 0) > 0) { pvTaille = s; break; } }
+                  if (!pvTaille && pvSizes[0]) pvTaille = pvSizes[0];
+                } else {
+                  pvTaille = labelPreview.taille;
+                  pvCouleur = labelPreview.couleur;
+                }
+                // L'aperçu montre EXACTEMENT ce que la page imprimée portera :
+                // mêmes champs, même en-tête, même proportion que le rouleau.
+                const mockRows: Array<{ k: string; v: string; price?: boolean }> = [];
+                if (labelFields.ref) mockRows.push({ k: 'Réf', v: refModele });
+                if (labelFields.taille && pvTaille) mockRows.push({ k: 'Taille', v: pvTaille });
+                if (labelFields.couleur && labelMode !== 'externe' && pvCouleur) mockRows.push({ k: 'Couleur', v: pvCouleur });
+                if (labelFields.prix && labelPrice > 0) mockRows.push({ k: 'Prix', v: `${labelPrice.toLocaleString()} ${currency}`, price: true });
+                const pvLogo = labelFields.marque && labelUseLogo ? tikiLogo : '';
+                const pvBrand = (labelBrand || '').trim() || (labelModel.meta_data?.nom_modele || labelModel.id);
+                // Maquette à l'échelle : mêmes millimètres que l'impression,
+                // ramenés à la largeur du cadre.
+                const pvPos = tikiSettings.logoPos;
+                const m = tikiPreviewMetrics(labelSize.w, labelSize.h, 230, {
+                  head: labelFields.marque,
+                  logo: Boolean(pvLogo),
+                  logoPos: pvPos,
+                  rows: mockRows.length,
+                  code: labelFields.code,
+                });
+                return (
+                  <div>
+                    <span className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1.5">
+                      {tx(lang,{fr:'Aperçu de l\'étiquette',ar:'معاينة الملصق',en:'Label preview',es:'Vista previa de la etiqueta',pt:'Pré-visualização da etiqueta',tr:'Etiket önizlemesi'})}
+                    </span>
+                    <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border p-4">
+                      <div className="flex justify-center">
+                        <div
+                          style={{
+                            width: m.boxW, height: m.boxH,
+                            paddingLeft: m.padX, paddingRight: m.padX,
+                            paddingTop: m.band + m.padTop, paddingBottom: m.padBottom,
+                          }}
+                          className={`relative overflow-hidden max-w-full rounded-lg border-2 border-dashed flex flex-col ${labelMode === 'externe' ? 'border-emerald-300 dark:border-emerald-500/40' : 'border-indigo-300 dark:border-indigo-500/40'}`}
+                        >
+                          <div style={{ height: m.band }} className={`absolute inset-x-0 top-0 ${labelMode === 'externe' ? 'bg-emerald-500' : 'bg-indigo-500'}`} />
+                          {(() => {
+                            // Même composition que l'impression : le nom garde
+                            // sa ligne, le logo se pose où il a été réglé.
+                            const nm = labelFields.marque ? (
+                              <div style={{ fontSize: m.name }} className="font-extrabold uppercase tracking-[0.12em] leading-tight text-slate-900 dark:text-dk-text truncate min-w-0 flex-1">{pvBrand}</div>
+                            ) : null;
+                            const lg = pvLogo ? (
+                              <img src={pvLogo} alt="" style={{ height: m.logoH }} className="max-w-[45%] object-contain shrink-0" />
+                            ) : null;
+                            if (lg && pvPos === 'left') return <div className="flex items-center gap-1.5 shrink-0 min-w-0">{lg}{nm}</div>;
+                            if (lg && pvPos === 'right') return <div className="flex items-center gap-1.5 justify-between shrink-0 min-w-0">{nm}{lg}</div>;
+                            if (lg && pvPos === 'top') return <div className="shrink-0 min-w-0">{lg}{nm}</div>;
+                            return nm ? <div className="shrink-0 min-w-0 flex">{nm}</div> : null;
+                          })()}
+                          <div>
+                            {mockRows.map(r => (
+                              <div key={r.k} style={{ fontSize: m.row }} className="flex items-baseline justify-between leading-[1.35] text-slate-500 dark:text-dk-muted uppercase tracking-wide">
+                                <span>{r.k}</span>
+                                <span
+                                  style={{ fontSize: r.price ? m.price : m.val }}
+                                  className={`normal-case tracking-normal font-bold truncate ${r.price ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-dk-text'}`}
+                                >{r.v}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-center mt-auto shrink-0">
+                            <canvas ref={labelCanvasRef} style={{ height: m.bcH, width: '100%' }} />
+                          </div>
+                          {(() => {
+                            const codeEl = labelFields.code ? (
+                              <div style={{ fontSize: m.code }} className="flex-1 text-center font-mono tracking-widest leading-tight text-slate-500 dark:text-dk-muted min-w-0">
+                                {labelMode === 'interne' ? labelPreview.code : refModele}
+                              </div>
+                            ) : <div className="flex-1" />;
+                            const footLogo = pvLogo && (pvPos === 'bottom-left' || pvPos === 'bottom-right')
+                              ? <img src={pvLogo} alt="" style={{ height: m.logoH }} className="max-w-[45%] object-contain shrink-0" />
+                              : null;
+                            if (!footLogo) return labelFields.code ? <div className="flex shrink-0">{codeEl}</div> : null;
+                            return (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {pvPos === 'bottom-right' ? <>{codeEl}{footLogo}</> : <>{footLogo}{codeEl}</>}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-center gap-1.5 mt-3 text-[10px] font-semibold text-slate-400 dark:text-dk-muted">
+                        {labelMode === 'interne' ? (
+                          <>
+                            <ScanLine className="w-3.5 h-3.5 text-indigo-500 dark:text-dk-accent" />
+                            <span>
+                              {tx(lang,{fr:'Le lecteur déchiffre ce code et remplit la grille automatiquement.',ar:'القارئ يفك شفرة هذا الكود ويملأ الشبكة تلقائياً.',en:'The scanner decodes this code and fills the grid automatically.',es:'El escáner decodifica este código y rellena la cuadrícula automáticamente.',pt:'O leitor decodifica este código e preenche a grade automaticamente.',tr:'Tarayıcı bu kodu çözer ve ızgarayı otomatik doldurur.'})}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Store className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
+                            <span>
+                              {tx(lang,{fr:'Un seul code par modèle : le magasin le lit directement, seule la taille est affichée.',ar:'كود واحد لكل موديل: المتجر يقرؤه مباشرة، المقاس فقط معروض.',en:'One code per model: the store reads it directly, only the size is shown.',es:'Un solo código por modelo: la tienda lo lee directamente, solo se muestra la talla.',pt:'Um código por modelo: a loja lê diretamente, apenas o tamanho é exibido.',tr:'Model başına tek kod: mağaza doğrudan okur, yalnızca beden gösterilir.'})}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {tikiSettings.printMode === 'zpl' && zplError && (
+                <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 text-rose-700 dark:text-rose-400">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span className="text-[11px] font-semibold leading-relaxed">{zplError}</span>
+                </div>
+              )}
+
+              <div className="flex gap-3 justify-end border-t border-slate-200 dark:border-dk-border pt-4">
+                <button
+                  type="button"
+                  onClick={() => setLabelModel(null)}
+                  className="px-4 py-2 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
+                >
+                  {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                </button>
+                <button
+                  type="button"
+                  disabled={zplSending}
+                  onClick={() => { void imprimerTiki(); }}
+                  className={`${labelMode === 'externe' ? 'bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-500 border-emerald-600 dark:border-emerald-600' : 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 border-indigo-600 dark:border-dk-accent'} text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 disabled:opacity-60`}
+                >
+                  {zplSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                  <span>
+                    {tikiSettings.printMode === 'zpl'
+                      ? (zplSending
+                          ? tx(lang,{fr:'Envoi…',ar:'كيتصيفط…',en:'Sending…',es:'Enviando…',pt:'A enviar…',tr:'Gönderiliyor…'})
+                          : tx(lang,{fr:'Envoyer à l\'imprimante',ar:'صيفط للطابعة',en:'Send to printer',es:'Enviar a la impresora',pt:'Enviar para a impressora',tr:'Yazıcıya gönder'}))
+                      : tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}
+                  </span>
+                  <span className="hidden sm:inline text-[10px] font-semibold opacity-80">
+                    {Object.values(labelMode === 'externe' ? labelExterneGrid : labelGrid).reduce((a, v) => a + (Math.floor(Number(v) || 0)), 0).toLocaleString()}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </SheetModal>
+      )}
       {/* Distincte de la facture de VENTE : ici */}
       {/* on facture ce que VOUS devez au        */}
       {/* sous-traitant pour cette commande.     */}
@@ -8475,19 +14134,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         const inv = buildCostInvoice(order, Number(costInvoiceQty) || 0);
         const identityIncomplete = !companyIdentity.nom || !companyIdentity.ice;
         return (
-          <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
-            <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[90vh] text-slate-800 dark:text-dk-text">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
-                <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                  <Coins className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
-                  <span>{tx(lang,{fr:'Facture de sous-traitance (à payer)',ar:'فاتورة المقاولة من الباطن (للأداء)',en:'Subcontract invoice (payable)',es:'Factura de subcontratación (a pagar)',pt:'Fatura de subcontratação (a pagar)',tr:'Taşeron faturası (ödenecek)'})}</span>
-                </h2>
-                <button onClick={() => setIsCostInvoiceModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
+          <SheetModal
+            onClose={() => setIsCostInvoiceModalOpen(false)}
+            title={tx(lang,{fr:'Facture de sous-traitance (à payer)',ar:'فاتورة المقاولة من الباطن (للأداء)',en:'Subcontract invoice (payable)',es:'Factura de subcontratación (a pagar)',pt:'Fatura de subcontratação (a pagar)',tr:'Taşeron faturası (ödenecek)'})}
+            icon={<Coins className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
+            size="lg"
+            zClass="z-[200]"
+            fullscreen={denseFullscreen}
+            onToggleFullscreen={toggleDenseFullscreen}
+            closeOnBackdrop={false}
+            bare
+          >
+              <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
                   <div className="min-w-0">
                     <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'})}</span>
@@ -9050,8 +14708,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <span>{tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}</span>
                 </button>
               </div>
-            </div>
-          </div>
+          </SheetModal>
         );
       })()}
 
@@ -9097,19 +14754,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           { k: 'adresse' as const, label: tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'}) },
         ]);
         return (
-          <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[200] flex items-center justify-center p-0 sm:p-4 overflow-y-auto">
-            <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-2xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[90vh] text-slate-800 dark:text-dk-text">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
-                <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                  <Truck className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
-                  <span>{tx(lang,{fr:"Bon d'envoi — préparation",ar:'مذكرة الإرسال — التحضير',en:'Delivery note — preparation',es:'Nota de envío — preparación',pt:'Nota de remessa — preparação',tr:'Sevk irsaliyesi — hazırlık'})}</span>
-                </h2>
-                <button onClick={() => setIsBonEnvoiModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
+          <SheetModal
+            onClose={() => setIsBonEnvoiModalOpen(false)}
+            title={tx(lang,{fr:"Bon d'envoi — préparation",ar:'مذكرة الإرسال — التحضير',en:'Delivery note — preparation',es:'Nota de envío — preparación',pt:'Nota de remessa — preparação',tr:'Sevk irsaliyesi — hazırlık'})}
+            icon={<Truck className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
+            size="lg"
+            zClass="z-[200]"
+            fullscreen={denseFullscreen}
+            onToggleFullscreen={toggleDenseFullscreen}
+            closeOnBackdrop={false}
+            bare
+          >
+              <div className="flex-1 overflow-y-auto min-h-0 p-6 space-y-5 text-xs text-slate-600 dark:text-dk-text-soft">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 dark:bg-dk-surface/75 p-4 rounded-xl border border-slate-200 dark:border-dk-border">
                   <div className="min-w-0">
                     <span className="text-slate-500 dark:text-dk-muted font-semibold block uppercase text-[10px]">{tx(lang,{fr:'Sous-traitant',ar:'المقاول من الباطن',en:'Subcontractor',es:'Subcontratista',pt:'Subcontratado',tr:'Taşeron'})}</span>
@@ -9425,8 +15081,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   <span>{tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}</span>
                 </button>
               </div>
-            </div>
-          </div>
+          </SheetModal>
         );
       })()}
 
@@ -9434,19 +15089,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {/* SALE INVOICE MODAL (TAB 3 ACTION) */}
       {/* ======================================= */}
       {isSaleModalOpen && selectedModelForSale && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-none sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-none sm:max-w-4xl overflow-hidden flex flex-col h-[100dvh] sm:h-auto max-h-none sm:max-h-[90vh] text-slate-800 dark:text-dk-text">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-surface/55">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600 dark:text-dk-accent" />
-                <span>{tx(lang,{fr:'Générer une facture de sortie de stock (Vente)',ar:'إنشاء فاتورة إخراج من المخزون (بيع)',en:'Generate stock exit invoice (Sale)',es:'Generar factura de salida de stock (Venta)',pt:'Gerar fatura de saída de stock (Venda)',tr:'Stok çıkış faturası oluştur (Satış)'})}</span>
-              </h2>
-              <button onClick={() => setIsSaleModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveSaleInvoice} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs text-slate-700 dark:text-dk-text-soft">
+        /* Plein écran : lignes de facture et quantités par taille se lisent mal
+           dans une fenêtre étroite. */
+        <SheetModal
+          onClose={() => setIsSaleModalOpen(false)}
+          title={tx(lang,{fr:'Générer une facture de sortie de stock (Vente)',ar:'إنشاء فاتورة إخراج من المخزون (بيع)',en:'Generate stock exit invoice (Sale)',es:'Generar factura de salida de stock (Venta)',pt:'Gerar fatura de saída de stock (Venda)',tr:'Stok çıkış faturası oluştur (Satış)'})}
+          icon={<FileText className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
+          size="xl"
+          zClass="z-[150]"
+          fullscreen={denseFullscreen}
+          onToggleFullscreen={toggleDenseFullscreen}
+          closeOnBackdrop={false}
+          bare
+        >
+            <form onSubmit={handleSaveSaleInvoice} className="flex-1 overflow-y-auto min-h-0 p-6 space-y-6 text-xs text-slate-700 dark:text-dk-text-soft">
               {/* Invoice structured details */}
               <div className="bg-slate-50 dark:bg-dk-surface/75 rounded-2xl p-4 border border-slate-200 dark:border-dk-border space-y-4">
                 <h3 className="font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider text-[9px]">{tx(lang,{fr:'Informations Facture',ar:'معلومات الفاتورة',en:'Invoice Information',es:'Información de Factura',pt:'Informações da Fatura',tr:'Fatura Bilgileri'})}</h3>
@@ -9479,7 +15135,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                           setSaleClient(c.nom);
                           setSaleClientIce(c.ice || '');
                           setSaleClientRc(c.rc || '');
-                          setSaleClientAdresse([c.adresse, c.ville].filter(Boolean).join(', '));
+                          setSaleClientAdresse(c.adresse || '');
+                          setSaleClientVille(c.ville || '');
+                          setSaleClientType(c.type || 'DETAIL');
                           setSaleClientTel(c.tel || '');
                           setSaleClientEmail(c.email || '');
                         }}
@@ -9498,6 +15156,110 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                         ))}
                       </select>
                     </div>
+                  )}
+
+                  <div className="sm:col-span-2">
+                    <button
+                      type="button"
+                      onClick={() => { setSaleNewClientOpen(v => !v); setSaleNewClientError(null); }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-indigo-300 dark:border-dk-accent/50 text-indigo-600 dark:text-dk-accent-text font-bold text-[11px] hover:bg-indigo-50 dark:hover:bg-dk-accent/10 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      {saleNewClientOpen
+                        ? tx(lang,{fr:'Fermer le formulaire',ar:'إغلاق النموذج',en:'Close the form',es:'Cerrar el formulario',pt:'Fechar o formulário',tr:'Formu kapat'})
+                        : tx(lang,{fr:'Nouveau client',ar:'عميل جديد',en:'New client',es:'Nuevo cliente',pt:'Novo cliente',tr:'Yeni müşteri'})}
+                    </button>
+                  </div>
+
+                  {saleNewClientOpen && (
+                    <form onSubmit={handleCreateSaleClient} className="sm:col-span-2 space-y-3 p-4 rounded-2xl border border-indigo-200 dark:border-dk-accent/40 bg-indigo-50/40 dark:bg-dk-accent/10">
+                      <p className="text-[10px] font-bold text-indigo-700 dark:text-dk-accent-text uppercase tracking-wider">
+                        {tx(lang,{fr:'Enregistrer un nouveau client',ar:'تسجيل عميل جديد',en:'Register a new client',es:'Registrar un nuevo cliente',pt:'Registar um novo cliente',tr:'Yeni müşteri kaydet'})}
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">{tx(lang,{fr:'Nom / Raison sociale *',ar:'الاسم / الاسم التجاري *',en:'Name / Company *',es:'Nombre / Razón social *',pt:'Nome / Razão social *',tr:'Ad / Ticari unvan *'})}</label>
+                          <input type="text" value={saleNewClient.nom} onChange={e => setSaleNewClient({ ...saleNewClient, nom: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" required />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">{tx(lang,{fr:'Type de client',ar:'نوع العميل',en:'Client type',es:'Tipo de cliente',pt:'Tipo de cliente',tr:'Müşteri tipi'})}</label>
+                          <div className="grid grid-cols-3 gap-1">
+                            {([
+                              ['GROS', tx(lang,{fr:'Gros',ar:'جملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})],
+                              ['DETAIL', tx(lang,{fr:'Détail',ar:'تفصيل',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'})],
+                              ['BOUTIQUE', tx(lang,{fr:'Boutique',ar:'محلّ',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'})],
+                            ] as const).map(([val, label]) => {
+                              const active = saleNewClient.type === val;
+                              const colors = val === 'GROS'
+                                ? active
+                                  ? 'bg-amber-500 border-amber-500 text-white'
+                                  : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20'
+                                : val === 'DETAIL'
+                                  ? active
+                                    ? 'bg-emerald-500 border-emerald-500 text-white'
+                                    : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20'
+                                  : active
+                                    ? 'bg-sky-500 border-sky-500 text-white'
+                                    : 'bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20';
+                              return (
+                                <button
+                                  key={val}
+                                  type="button"
+                                  onClick={() => setSaleNewClient({ ...saleNewClient, type: val as any })}
+                                  className={`px-1.5 py-1.5 rounded-lg border text-[11px] font-bold transition-colors ${colors}`}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">ICE</label>
+                          <input type="text" value={saleNewClient.ice} onChange={e => setSaleNewClient({ ...saleNewClient, ice: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">RC</label>
+                          <input type="text" value={saleNewClient.rc} onChange={e => setSaleNewClient({ ...saleNewClient, rc: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">{tx(lang,{fr:'Téléphone',ar:'الهاتف',en:'Phone',es:'Teléfono',pt:'Telefone',tr:'Telefon'})}</label>
+                          <input type="text" value={saleNewClient.tel} onChange={e => setSaleNewClient({ ...saleNewClient, tel: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">Email</label>
+                          <input type="email" value={saleNewClient.email} onChange={e => setSaleNewClient({ ...saleNewClient, email: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">{tx(lang,{fr:'Ville',ar:'المدينة',en:'City',es:'Ciudad',pt:'Cidade',tr:'Şehir'})}</label>
+                          <input type="text" value={saleNewClient.ville} onChange={e => setSaleNewClient({ ...saleNewClient, ville: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase text-[10px]">{tx(lang,{fr:'Adresse',ar:'العنوان',en:'Address',es:'Dirección',pt:'Morada',tr:'Adres'})}</label>
+                          <input type="text" value={saleNewClient.adresse} onChange={e => setSaleNewClient({ ...saleNewClient, adresse: e.target.value })} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent" />
+                        </div>
+                      </div>
+                      {saleNewClientError && (
+                        <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">{saleNewClientError}</p>
+                      )}
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setSaleNewClientOpen(false)}
+                          className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold text-[11px] hover:bg-slate-50 dark:hover:bg-dk-elevated transition-colors"
+                        >
+                          {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={saleNewClientSaving}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 dark:bg-dk-accent text-white font-bold text-[11px] hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                        >
+                          {saleNewClientSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                          {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
+                        </button>
+                      </div>
+                    </form>
                   )}
 
                   <div className="space-y-1">
@@ -9519,6 +15281,52 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       onChange={(e) => setSaleClientIce(e.target.value)}
                       className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
                       placeholder="ICE"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang,{fr:'Type de client',ar:'نوع العميل',en:'Client type',es:'Tipo de cliente',pt:'Tipo de cliente',tr:'Müşteri tipi'})}</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([
+                        ['GROS', tx(lang,{fr:'Gros',ar:'جملة',en:'Wholesale',es:'Mayorista',pt:'Grosso',tr:'Toptan'})],
+                        ['DETAIL', tx(lang,{fr:'Détail',ar:'تفصيل',en:'Retail',es:'Detalle',pt:'Retalho',tr:'Perakende'})],
+                        ['BOUTIQUE', tx(lang,{fr:'Boutique',ar:'محلّ',en:'Store',es:'Tienda',pt:'Loja',tr:'Mağaza'})],
+                      ] as const).map(([val, label]) => {
+                        const active = saleClientType === val;
+                        const colors = val === 'GROS'
+                          ? active
+                            ? 'bg-amber-500 border-amber-500 text-white'
+                            : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20'
+                          : val === 'DETAIL'
+                            ? active
+                              ? 'bg-emerald-500 border-emerald-500 text-white'
+                              : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20'
+                            : active
+                              ? 'bg-sky-500 border-sky-500 text-white'
+                              : 'bg-sky-50 dark:bg-sky-500/10 border-sky-200 dark:border-sky-500/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-500/20';
+                        return (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setSaleClientType(val as any)}
+                            className={`px-2 py-2.5 rounded-xl border text-[11px] font-bold transition-colors ${colors}`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-500 dark:text-dk-muted uppercase">{tx(lang,{fr:'Ville',ar:'المدينة',en:'City',es:'Ciudad',pt:'Cidade',tr:'Şehir'})}</label>
+                    <input 
+                      type="text"
+                      value={saleClientVille}
+                      onChange={(e) => setSaleClientVille(e.target.value)}
+                      className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:ring-1 focus:ring-indigo-500 dark:focus:ring-dk-accent"
+                      placeholder={tx(lang,{fr:'Ville',ar:'المدينة',en:'City',es:'Ciudad',pt:'Cidade',tr:'Şehir'})}
                     />
                   </div>
                 </div>
@@ -9559,8 +15367,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               {/* Items Grid */}
               <div className="space-y-3">
                 <h3 className="font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider text-[9px]">{tx(lang,{fr:'Lignes de facturation',ar:'بنود الفاتورة',en:'Invoice Lines',es:'Líneas de Facturación',pt:'Linhas de Faturação',tr:'Fatura Kalemleri'})}</h3>
-                <div className="border border-slate-200 dark:border-dk-border rounded-2xl overflow-hidden bg-slate-50 dark:bg-dk-bg/30">
-                  <table className="w-full text-left">
+                {/* `overflow-x-auto` : sur téléphone, les quatre colonnes de la
+                    facture débordent — c'est le tableau qui défile, jamais la page. */}
+                <div className="border border-slate-200 dark:border-dk-border rounded-2xl bg-slate-50 dark:bg-dk-bg/30 overflow-x-auto">
+                  <table className="w-full text-left min-w-[560px]">
                     <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-bold">
                       <tr>
                         <th className="px-4 py-3">{tx(lang,{fr:'Désignation',ar:'البيان',en:'Description',es:'Designación',pt:'Designação',tr:'Açıklama'})}</th>
@@ -9687,46 +15497,43 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </SheetModal>
       )}
 
       {/* ======================================= */}
       {/* IMAGE LIGHTBOX PREVIEW */}
       {/* ======================================= */}
       {imagePreviewSrc && (
-        <div
-          className="fixed inset-0 bg-black/80 z-[220] flex items-center justify-center p-6"
-          onClick={() => setImagePreviewSrc(null)}
+        /* Aperçu : aucun bouton d'agrandissement, l'image occupe déjà la fenêtre. */
+        <SheetModal
+          onClose={() => setImagePreviewSrc(null)}
+          size="xl"
+          zClass="z-[220]"
+          backdropClassName="bg-black/85 backdrop-blur-[2px]"
+          panelClassName="bg-black/95 border border-white/10 shadow-2xl text-white"
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-4 flex items-center justify-center"
         >
-          <button
-            onClick={() => setImagePreviewSrc(null)}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <img src={imagePreviewSrc} alt="" className="max-w-full max-h-full rounded-2xl object-contain" onClick={(e) => e.stopPropagation()} />
-        </div>
+          <img src={imagePreviewSrc} alt="" className="max-w-full max-h-[70vh] rounded-2xl object-contain" />
+        </SheetModal>
       )}
 
       {/* ======================================= */}
       {/* SUBCONTRACTOR PROFILE MODAL */}
       {/* ======================================= */}
       {isProfileModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[210] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative my-auto bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                <Users className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text" />
-                <span>{editingProfile
-                  ? tx(lang,{fr:'Modifier le Sous-traitant',ar:'تعديل المقاول من الباطن',en:'Edit Subcontractor',es:'Editar Subcontratista',pt:'Editar Subcontratado',tr:'Taşeronu Düzenle'})
-                  : tx(lang,{fr:'Nouveau Sous-traitant',ar:'مقاول من الباطن جديد',en:'New Subcontractor',es:'Nuevo Subcontratista',pt:'Novo Subcontratado',tr:'Yeni Taşeron'})}</span>
-              </h2>
-              <button onClick={() => setIsProfileModalOpen(false)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSaveProfile} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs text-slate-600 dark:text-dk-text-soft">
+        /* Formulaire court : pas de tableau, donc pas de bouton plein écran. */
+        <SheetModal
+          onClose={() => setIsProfileModalOpen(false)}
+          title={editingProfile
+            ? tx(lang,{fr:'Modifier le Sous-traitant',ar:'تعديل المقاول من الباطن',en:'Edit Subcontractor',es:'Editar Subcontratista',pt:'Editar Subcontratado',tr:'Taşeronu Düzenle'})
+            : tx(lang,{fr:'Nouveau Sous-traitant',ar:'مقاول من الباطن جديد',en:'New Subcontractor',es:'Nuevo Subcontratista',pt:'Novo Subcontratado',tr:'Yeni Taşeron'})}
+          icon={<Users className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text shrink-0" />}
+          size="lg"
+          zClass="z-[210]"
+          closeOnBackdrop={false}
+          bare
+        >
+            <form onSubmit={handleSaveProfile} className="flex-1 overflow-y-auto min-h-0 p-6 space-y-4 text-xs text-slate-600 dark:text-dk-text-soft">
               <div className="flex items-center gap-4">
                 <div className="shrink-0 space-y-1.5">
                   <label className="relative block cursor-pointer group">
@@ -9970,26 +15777,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </div>
               </div>
             </form>
-          </div>
-        </div>
+        </SheetModal>
       )}
 
       {/* ======================================= */}
       {/* MODEL INFO POPUP (from Bibliothèque) */}
       {/* ======================================= */}
       {modelInfoTarget && (
-        <div className="fixed inset-0 bg-slate-950/20 dark:bg-dk-bg/40 backdrop-blur-[2px] z-[210] flex items-center justify-center p-4" onClick={() => setModelInfoTarget(null)}>
-          <div
-            className="bg-white dark:bg-dk-surface rounded-3xl shadow-2xl dark:shadow-dk-elevated w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh] text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/50">
-              <h2 className="font-bold text-slate-800 dark:text-dk-text text-base">{modelInfoTarget.meta_data.nom_modele}</h2>
-              <button onClick={() => setModelInfoTarget(null)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full transition-colors text-slate-400 dark:text-dk-muted">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-5 space-y-4 overflow-y-auto text-xs">
+        /* Fiche de lecture courte : pas de bouton plein écran. */
+        <SheetModal
+          onClose={() => setModelInfoTarget(null)}
+          title={modelInfoTarget.meta_data.nom_modele}
+          size="lg"
+          zClass="z-[210]"
+          bare
+        >
+            <div className="flex-1 min-h-0 p-5 space-y-4 overflow-y-auto text-xs">
               {modelInfoTarget.image && (
                 <img src={modelInfoTarget.image} alt={modelInfoTarget.meta_data.nom_modele} className="w-full max-h-72 object-contain rounded-2xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg" />
               )}
@@ -10065,8 +15868,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </button>
               )}
             </div>
-          </div>
-        </div>
+        </SheetModal>
       )}
     </div>
   );

@@ -15,7 +15,13 @@ import { pkey } from '../../lib/storageKeys';
 
 const TOMBSTONES_KEY = 'beramethode_tombstones';
 const SQLITE_EXPORT_KEY = '__bera_sqlite_export__';
-const TOMBSTONE_TTL_MS = 60 * 60 * 1000; // 1h
+const TOMBSTONE_TTL_MS = 60 * 60 * 1000; // 1h — fenêtre de restauration
+/** Durée pendant laquelle la suppression reste opposable à la synchro. Une
+ *  pierre tombale pèse ~90 octets : un an d'historique tient sans peine, et
+ *  c'est ce qui empêche le cloud de réinstaller ce qu'on a supprimé. */
+const TOMBSTONE_KEEP_MS = 365 * 24 * 60 * 60 * 1000;
+/** Garde-fou de volume : au-delà, on ne garde que les plus récentes. */
+const MAX_TOMBSTONES = 5000;
 
 const p = (key: string) => pkey(key);
 
@@ -94,14 +100,31 @@ type Tombstone = { type: string; id: string; deleted_at: string };
 const readTombstones = (): Tombstone[] => readJson(TOMBSTONES_KEY) || [];
 const writeTombstones = (ts: Tombstone[]) => writeJson(TOMBSTONES_KEY, ts);
 
+/**
+ * Les identifiants supprimés, SANS limite de corbeille.
+ *
+ * Il y a deux durées, et les confondre faisait ressusciter les données :
+ *  - `TOMBSTONE_TTL_MS` (1 h) = la fenêtre pendant laquelle on peut RESTAURER.
+ *  - `TOMBSTONE_KEEP_MS` (1 an) = la durée pendant laquelle la suppression
+ *    reste OPPOSABLE à la synchro.
+ * En n'utilisant que la première, une suppression cessait d'exister au bout
+ * d'une heure ; la copie restée dans le cloud repassait alors la fusion union
+ * et réinstallait l'élément — 33 modèles supprimés sont revenus ainsi.
+ */
 export const tombstonedIds = (type: string): Set<string> => {
   const now = Date.now();
   const ts = readTombstones().filter(t => {
     if (t.type !== type) return false;
     const d = new Date(t.deleted_at).getTime();
-    return now - d < TOMBSTONE_TTL_MS;
+    return now - d < TOMBSTONE_KEEP_MS;
   });
   return new Set(ts.map(t => String(t.id)));
+};
+
+/** Ce que la Corbeille peut encore rendre : la fenêtre d'une heure. */
+export const restorableTombstones = (): Tombstone[] => {
+  const now = Date.now();
+  return readTombstones().filter(t => now - new Date(t.deleted_at).getTime() < TOMBSTONE_TTL_MS);
 };
 
 export const addTombstone = (type: string, id: string) => {
@@ -115,28 +138,38 @@ const removeTombstone = (type: string, id: string) => {
   writeTombstones(ts);
 };
 
-// Purge tombstones older than 1h AND remove their target rows from storage.
-// Runs opportunistically on each fetch — keeps the local snapshot clean.
+/**
+ * Passé l'heure de grâce, la ligne quitte réellement le stockage — mais la
+ * pierre tombale, elle, RESTE. C'est tout l'inverse d'avant : on effaçait la
+ * preuve de la suppression en même temps que la donnée, et la synchro, ne
+ * voyant plus aucune trace, réinstallait la copie du cloud.
+ * Tourne au fil des appels ; ne coûte rien quand il n'y a rien à faire.
+ */
 const purgeExpiredTombstones = () => {
   const ts = readTombstones();
   if (ts.length === 0) return;
   const now = Date.now();
-  const kept: Tombstone[] = [];
-  const expired: Tombstone[] = [];
+  // 1. Les lignes dont la corbeille a expiré sortent du stockage.
+  const aSupprimer: Record<string, Set<string>> = {};
   for (const t of ts) {
-    const d = new Date(t.deleted_at).getTime();
-    (now - d >= TOMBSTONE_TTL_MS ? expired : kept).push(t);
+    if (now - new Date(t.deleted_at).getTime() < TOMBSTONE_TTL_MS) continue;
+    (aSupprimer[t.type] ||= new Set()).add(String(t.id));
   }
-  if (expired.length === 0) return;
-  // Hard-delete expired rows from their stores.
-  const byType: Record<string, Set<string>> = {};
-  for (const t of expired) (byType[t.type] ||= new Set()).add(String(t.id));
-  for (const [type, ids] of Object.entries(byType)) {
+  for (const [type, ids] of Object.entries(aSupprimer)) {
     const arr = readArray(type);
     const next = arr.filter((it: any) => !ids.has(String(it.id)));
     if (next.length !== arr.length) writeArray(type, next);
   }
-  writeTombstones(kept);
+  // 2. Les pierres tombales ne tombent qu'au bout d'un an, ou si elles
+  //    deviennent trop nombreuses — les plus récentes d'abord.
+  const vivantes = ts.filter(t => now - new Date(t.deleted_at).getTime() < TOMBSTONE_KEEP_MS);
+  const bornees = vivantes.length > MAX_TOMBSTONES
+    ? vivantes
+        .slice()
+        .sort((a, b) => new Date(b.deleted_at).getTime() - new Date(a.deleted_at).getTime())
+        .slice(0, MAX_TOMBSTONES)
+    : vivantes;
+  if (bornees.length !== ts.length) writeTombstones(bornees);
 };
 
 // ─── CRUD helpers ────────────────────────────────────────────────────────────
@@ -267,7 +300,9 @@ const handleGet = (pathname: string): any => {
   // Tombstones inspection endpoint (for Corbeille UI)
   if (/^\/api\/_tombstones$/.test(pathname)) {
     purgeExpiredTombstones();
-    return readTombstones();
+    // La Corbeille ne montre que ce qu'elle peut encore rendre : l'historique
+    // complet sert a la synchro, pas a l'ecran.
+    return restorableTombstones();
   }
   // Generic
   const r = resolveTypeAndId(pathname);
@@ -358,7 +393,7 @@ export const installApiShim = () => {
 export const beraCorbeille = {
   list: (): Tombstone[] => {
     purgeExpiredTombstones();
-    return readTombstones();
+    return restorableTombstones();
   },
   restore: (type: string, id: string): boolean => {
     removeTombstone(type, id);
@@ -367,12 +402,15 @@ export const beraCorbeille = {
     writeArray(type, arr);
     return true;
   },
+  /** Suppression définitive : la ligne part, la pierre tombale RESTE. La
+   *  retirer ici rouvrait la porte au cloud, qui réinstallait aussitôt ce que
+   *  l'utilisateur venait de supprimer pour de bon. */
   hardDelete: (type: string, id: string): boolean => {
     const arr = readArray(type);
     const next = arr.filter((it: any) => String(it.id) !== String(id));
-    if (next.length === arr.length) { removeTombstone(type, id); return false; }
+    addTombstone(type, String(id));
+    if (next.length === arr.length) return false;
     writeArray(type, next);
-    removeTombstone(type, id);
     return true;
   },
   ttlMs: TOMBSTONE_TTL_MS,

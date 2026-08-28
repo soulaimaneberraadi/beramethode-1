@@ -3,6 +3,7 @@ import React, { useMemo, useState, useEffect, useRef, useCallback, useLayoutEffe
 import { createPortal } from 'react-dom';
 import { Operation, Poste, Machine, ComplexityFactor, StandardTime, SavedLayout, ManualLink, FicheData } from '../types';
 import ExcelInput from './ExcelInput';
+import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import { tx } from '../lib/i18n';
 import { loadCompanyIdentity, getCachedCompanyIdentity } from '../lib/companyIdentity';
 import { useLang } from '../src/context/LanguageContext';
@@ -578,6 +579,9 @@ export default function Implantation({
 }: ImplantationProps) {
     const { lang } = useLang();
     const isDark = useIsDark();
+    /* Préférence d'agrandissement partagée : le tableau des opérations d'un
+       poste et la liste des gabarits gagnent tous deux à s'étaler. */
+    const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
 
     const tolerance = ficheData?.toleranceSaturation ?? 115;
     const toleranceRatio = tolerance / 100;
@@ -3754,23 +3758,68 @@ export default function Implantation({
                 )}
             </div>
 
-            {sectionTransferDialog && createPortal(
-                <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4">
-                    <div
-                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-                        onClick={() => resolveSectionTransferDialog('cancel')}
-                    />
-                    <div className="relative bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                        <div className="px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg">
-                            <h3 className="text-sm font-black text-slate-800 dark:text-dk-text uppercase tracking-wide">{tx(lang,{fr:'Changement de catégorie poste',ar:'تغيير فئة المحطة',en:'Station Category Change',es:'Cambio de categoría de puesto',pt:'Mudança de categoria de posto',tr:'İstasyon Kategori Değişikliği'})}</h3>
-                            <p className="text-xs text-slate-500 dark:text-dk-muted mt-1">
-{tx(lang,{fr:'Poste',ar:'المحطة',en:'Station',es:'Puesto',pt:'Posto',tr:'İstasyon'})} <span className="font-bold text-slate-700 dark:text-dk-text-soft">{sectionTransferDialog.posteName}</span> :
-                                                <span className="font-bold"> {SECTION_LABELS[sectionTransferDialog.source]}</span> {tx(lang,{fr:'vers',ar:'إلى',en:'to',es:'a',pt:'para',tr:'→'})}
-                                                <span className="font-bold"> {SECTION_LABELS[sectionTransferDialog.target]}</span>.
-                            </p>
-                        </div>
+            {sectionTransferDialog && (
+                /* Choix court après un glisser-déposer de poste : pas de plein
+                   écran. Le fond ferme en « annuler » — c'est bien le geste
+                   attendu ici, aucune saisie n'est en jeu, et la promesse du
+                   dialogue est résolue proprement par onClose. */
+                <SheetModal
+                    onClose={() => resolveSectionTransferDialog('cancel')}
+                    title={tx(lang,{fr:'Changement de catégorie poste',ar:'تغيير فئة المحطة',en:'Station Category Change',es:'Cambio de categoría de puesto',pt:'Mudança de categoria de posto',tr:'İstasyon Kategori Değişikliği'})}
+                    subtitle={(
+                        <>
+                            {tx(lang,{fr:'Poste',ar:'المحطة',en:'Station',es:'Puesto',pt:'Posto',tr:'İstasyon'})} <span className="font-bold text-slate-700 dark:text-dk-text-soft">{sectionTransferDialog.posteName}</span> :
+                            <span className="font-bold"> {SECTION_LABELS[sectionTransferDialog.source]}</span> {tx(lang,{fr:'vers',ar:'إلى',en:'to',es:'a',pt:'para',tr:'→'})}
+                            <span className="font-bold"> {SECTION_LABELS[sectionTransferDialog.target]}</span>.
+                        </>
+                    )}
+                    size="md"
+                    zClass="z-[9998]"
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 px-5 py-4"
+                    footer={(
+                        /* Quatre actions possibles : en grille sur telephone,
+                           sinon le repli libre donne des lignes inegales. */
+                        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                            <button
+                                onClick={() => resolveSectionTransferDialog('cancel')}
+                                className="px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                            >
+                                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                            </button>
 
-                        <div className="px-5 py-4 space-y-3">
+                            {sectionTransferDialog.mode === 'global-choice' ? (
+                                <>
+                                    <button
+                                        onClick={() => resolveSectionTransferDialog('keep-global')}
+                                        className="col-span-2 sm:col-auto flex items-center justify-center sm:justify-start px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                                    >
+                                        {tx(lang,{fr:'Garder Zone Commune',ar:'الإبقاء على المنطقة المشتركة',en:'Keep Common Zone',es:'Mantener Zona Común',pt:'Manter Zona Comum',tr:'Ortak Bölgeyi Koru'})}
+                                    </button>
+                                    <button
+                                        onClick={() => resolveSectionTransferDialog('set-prep')}
+                                        className="col-span-2 sm:col-auto flex items-center justify-center sm:justify-start px-3 py-2 rounded-lg text-xs font-bold border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                                    >
+                                        {tx(lang,{fr:'Classer Prépa',ar:'تصنيف كتحضير',en:'Classify as Prep',es:'Clasificar como Prep',pt:'Classificar como Prep',tr:'Hazırlık Olarak Sınıflandır'})}
+                                    </button>
+                                    <button
+                                        onClick={() => resolveSectionTransferDialog('set-montage')}
+                                        className="col-span-2 sm:col-auto flex items-center justify-center sm:justify-start px-3 py-2 rounded-lg text-xs font-bold border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/50"
+                                    >
+                                        {tx(lang,{fr:'Classer Montage',ar:'تصنيف كتجميع',en:'Classify as Assembly',es:'Clasificar como Montaje',pt:'Classificar como Montagem',tr:'Montaj Olarak Sınıflandır'})}
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    onClick={() => resolveSectionTransferDialog('confirm-target')}
+                                    className="col-span-2 sm:col-auto flex items-center justify-center sm:justify-start px-3 py-2 rounded-lg text-xs font-bold border border-indigo-200 dark:border-dk-border text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/20 hover:bg-indigo-100 dark:hover:bg-dk-accent/30"
+                                >
+                                    {tx(lang,{fr:'OK déplacer',ar:'موافق نقل',en:'OK Move',es:'OK mover',pt:'OK mover',tr:'Tamam Taşı'})}
+                                </button>
+                            )}
+                        </div>
+                    )}
+                >
+                        <div className="space-y-3">
                             {sectionTransferDialog.mode === 'confirm-transfer' ? (
                                 <p className="text-sm text-slate-600 dark:text-dk-text-soft">
                                     {tx(lang,{fr:'Voulez-vous déplacer ce poste et reclasser ses opérations en',ar:'هل تريد نقل هذه المحطة وإعادة تصنيف عملياتها إلى',en:'Do you want to move this station and reclassify its operations to',es:'¿Desea mover este puesto y reclasificar sus operaciones a',pt:'Deseja mover este posto e reclassificar suas operações para',tr:'Bu istasyonu taşımak ve işlemlerini şuraya yeniden sınıflandırmak istiyor musunuz'})}
@@ -3782,74 +3831,49 @@ export default function Implantation({
                                 </p>
                             )}
                         </div>
-
-                        <div className="px-5 py-4 border-t border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg flex flex-wrap gap-2 justify-end">
-                            <button
-                                onClick={() => resolveSectionTransferDialog('cancel')}
-                                className="px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface hover:bg-slate-100"
-                            >
-                                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
-                            </button>
-
-                            {sectionTransferDialog.mode === 'global-choice' ? (
-                                <>
-                                    <button
-                                        onClick={() => resolveSectionTransferDialog('keep-global')}
-                                        className="px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface hover:bg-slate-100"
-                                    >
-                                        {tx(lang,{fr:'Garder Zone Commune',ar:'الإبقاء على المنطقة المشتركة',en:'Keep Common Zone',es:'Mantener Zona Común',pt:'Manter Zona Comum',tr:'Ortak Bölgeyi Koru'})}
-                                    </button>
-                                    <button
-                                        onClick={() => resolveSectionTransferDialog('set-prep')}
-                                        className="px-3 py-2 rounded-lg text-xs font-bold border border-amber-200 text-amber-700 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100"
-                                    >
-                                        {tx(lang,{fr:'Classer Prépa',ar:'تصنيف كتحضير',en:'Classify as Prep',es:'Clasificar como Prep',pt:'Classificar como Prep',tr:'Hazırlık Olarak Sınıflandır'})}
-                                    </button>
-                                    <button
-                                        onClick={() => resolveSectionTransferDialog('set-montage')}
-                                        className="px-3 py-2 rounded-lg text-xs font-bold border border-sky-200 text-sky-700 bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100"
-                                    >
-                                        {tx(lang,{fr:'Classer Montage',ar:'تصنيف كتجميع',en:'Classify as Assembly',es:'Clasificar como Montaje',pt:'Classificar como Montagem',tr:'Montaj Olarak Sınıflandır'})}
-                                    </button>
-                                </>
-                            ) : (
-                                <button
-                                    onClick={() => resolveSectionTransferDialog('confirm-target')}
-                                    className="px-3 py-2 rounded-lg text-xs font-bold border border-indigo-200 text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 hover:bg-indigo-100"
-                                >
-                                    {tx(lang,{fr:'OK déplacer',ar:'موافق نقل',en:'OK Move',es:'OK mover',pt:'OK mover',tr:'Tamam Taşı'})}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>,
-                document.body
+                </SheetModal>
             )}
 
             {/* ... (Existing Edit Modal & Context Menu Portals - no changes needed there) ... */}
-            {editModal && createPortal(
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-                    {/* BACKDROP */}
-                    <div className="absolute inset-0 bg-slate-900/60 " onClick={closeEditModal} />
-                    {/* MODAL CONTENT */}
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-4xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-                        {/* DYNAMIC HEADER COLOR */}
-                        <div className={`px-6 py-4 border-b flex justify-between items-center shrink-0 ${editModal.color.bg} ${editModal.color.border}`}>
-                            {/* ... same header ... */}
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 bg-white dark:bg-dk-surface rounded-lg shadow-sm dark:shadow-dk-sm border ${editModal.color.border}`}>
-                                    <PenTool className={`w-5 h-5 ${editModal.color.text}`} />
-                                </div>
-                                <div>
-                                    <h3 className={`font-bold text-lg leading-tight ${editModal.color.text}`}>{tx(lang,{fr:'Modifier Poste',ar:'تعديل المحطة',en:'Edit Station',es:'Modificar Puesto',pt:'Modificar Posto',tr:'İstasyonu Düzenle'})} {editModal.data.name}</h3>
-                                    <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-dk-muted opacity-80 flex items-center gap-2">
-                                        {editModal.data.machine}
-                                        <span className="w-px h-3 bg-slate-300"></span>
-                                        {modalOps.length} {tx(lang,{fr:'Opérations',ar:'العمليات',en:'Operations',es:'Operaciones',pt:'Operações',tr:'Operasyonlar'})}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2 ml-auto mr-4">
+            {editModal && (
+                /* Tableau dense des opérations d'un poste : le plein écran est
+                   légitime, on y lit six colonnes. Fond NON cliquable — la
+                   fenêtre porte des champs (opérateur, temps forcé, description
+                   des opérations) qu'un clic à côté ferait perdre. Opérateur et
+                   temps forcé restent en haut du CORPS et non dans l'en-tête :
+                   sur téléphone l'en-tête n'a pas la place de deux champs, et
+                   ces deux-là doivent rester saisissables partout. */
+                <SheetModal
+                    onClose={closeEditModal}
+                    title={`${tx(lang,{fr:'Modifier Poste',ar:'تعديل المحطة',en:'Edit Station',es:'Modificar Puesto',pt:'Modificar Posto',tr:'İstasyonu Düzenle'})} ${editModal.data.name}`}
+                    subtitle={`${editModal.data.machine} · ${modalOps.length} ${tx(lang,{fr:'Opérations',ar:'العمليات',en:'Operations',es:'Operaciones',pt:'Operações',tr:'Operasyonlar'})}`}
+                    icon={<div className={`p-2 bg-white dark:bg-dk-surface rounded-lg shadow-sm dark:shadow-dk-sm border shrink-0 ${editModal.color.border}`}><PenTool className={`w-5 h-5 ${editModal.color.text}`} /></div>}
+                    size="xl"
+                    zClass="z-[9999]"
+                    fullscreen={denseFullscreen}
+                    onToggleFullscreen={toggleDenseFullscreen}
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-auto min-h-0 custom-scrollbar bg-slate-50 dark:bg-dk-bg p-4"
+                    footer={(
+                        /* Fermer / Enregistrer seulement : la suppression du
+                           poste reste en bas du corps, on va la chercher. */
+                        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                            <button
+                                onClick={() => closeEditModal()}
+                                className="px-4 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft rounded-xl text-xs font-bold transition-colors flex items-center justify-center sm:justify-start"
+                            >
+                                {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
+                            </button>
+                            <button
+                                onClick={() => closeEditModal()}
+                                className="col-span-2 sm:col-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md dark:shadow-dk-md shadow-emerald-100 transition-colors flex items-center justify-center sm:justify-start"
+                            >
+                                {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}
+                            </button>
+                        </div>
+                    )}
+                >
+                            <div className="flex flex-wrap items-center gap-2 mb-3">
                                 <div className="relative group">
                                     <User className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />
                                     <input
@@ -3872,10 +3896,10 @@ export default function Implantation({
                                     />
                                 </div>
                             </div>
-                            <button onClick={closeEditModal} className={`p-1.5 hover:bg-white rounded-lg transition-colors ${editModal.color.text}`}><X className="w-5 h-5" /></button>
-                        </div>
-                        {/* SCROLLABLE TABLE BODY */}
-                        <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50 dark:bg-dk-bg p-4">
+                        {/* Le tableau défile horizontalement DANS son conteneur :
+                            six colonnes ne rentrent pas sur un téléphone, et la
+                            page elle-même ne doit jamais partir de travers. */}
+                        <div className="overflow-x-auto">
                             <table className="w-full text-left border-collapse bg-white dark:bg-dk-surface rounded-xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden">
                                 <thead className="bg-slate-100 dark:bg-dk-elevated text-xs font-bold text-slate-500 dark:text-dk-muted uppercase sticky top-0 z-10 shadow-sm dark:shadow-dk-sm">
                                     <tr>
@@ -3965,11 +3989,13 @@ export default function Implantation({
                                 </tfoot>
                             </table>
                         </div>
-                        {/* FOOTER ACTIONS - WITH DELETE CONFIRMATION */}
-                        <div className="p-4 bg-white dark:bg-dk-surface border-t border-slate-200 dark:border-dk-border flex justify-between gap-3 shrink-0 transition-all">
+                        {/* SUPPRESSION DU POSTE — volontairement dans le corps,
+                            tout en bas : un geste irréversible ne se met pas
+                            sous le pouce à côté d'Enregistrer. */}
+                        <div className="mt-4 flex justify-start gap-3 transition-all">
                             {showDeleteConfirm ? (
-                                <div className="flex items-center justify-between w-full bg-rose-50 dark:bg-rose-900/30 p-2 rounded-lg border border-rose-100 animate-in fade-in slide-in-from-bottom-2">
-                                    <div className="flex items-center gap-2 text-rose-700 font-bold text-xs px-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2 w-full bg-rose-50 dark:bg-rose-900/30 p-2 rounded-lg border border-rose-100 dark:border-rose-900/50">
+                                    <div className="flex items-center gap-2 text-rose-700 dark:text-rose-300 font-bold text-xs px-2">
                                         <AlertTriangle className="w-4 h-4" />
                                         <span>{tx(lang,{fr:'Êtes-vous sûr de vouloir supprimer ce poste ?',ar:'هل أنت متأكد من حذف هذه المحطة؟',en:'Are you sure you want to delete this station?',es:'¿Está seguro de eliminar este puesto?',pt:'Tem certeza que deseja excluir este posto?',tr:'Bu istasyonu silmek istediğinize emin misiniz?'})}</span>
                                     </div>
@@ -3989,31 +4015,13 @@ export default function Implantation({
                                     </div>
                                 </div>
                             ) : (
-                                <>
-                                    <button onClick={() => setShowDeleteConfirm(true)} className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm text-slate-500 dark:text-dk-muted">
-                                        <Trash2 className="w-4 h-4" />
-                                        <span>{tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Excluir',tr:'Sil'})}</span>
-                                    </button>
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => closeEditModal()}
-                                            className="px-4 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft rounded-xl text-xs font-bold transition-colors"
-                                        >
-                                            {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
-                                        </button>
-                                        <button
-                                            onClick={() => closeEditModal()}
-                                            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md dark:shadow-dk-md shadow-emerald-100 transition-colors"
-                                        >
-                                            {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}
-                                        </button>
-                                    </div>
-                                </>
+                                <button onClick={() => setShowDeleteConfirm(true)} className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-rose-50 dark:hover:bg-rose-900/30 hover:border-rose-200 dark:hover:border-rose-900/50 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm text-slate-500 dark:text-dk-muted">
+                                    <Trash2 className="w-4 h-4" />
+                                    <span>{tx(lang,{fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Excluir',tr:'Sil'})}</span>
+                                </button>
                             )}
                         </div>
-                    </div>
-                </div>,
-                document.body
+                </SheetModal>
             )}
 
             {/* CONTEXT MENU PORTAL */}
@@ -4068,31 +4076,49 @@ export default function Implantation({
 
             {/* ... (Existing Save/Load Template Modals - NO CHANGES NEEDED) ... */}
             {showSaveTemplateModal && (
-                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setShowSaveTemplateModal(false)} />
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6">
-                        <h3 className="font-bold text-slate-800 dark:text-dk-text text-lg mb-4">{tx(lang,{fr:'Sauvegarder le Gabarit',ar:'حفظ القالب',en:'Save Template',es:'Guardar Plantilla',pt:'Salvar Modelo',tr:'Şablonu Kaydet'})}</h3>
+                /* Un seul champ, mais un champ tapé à la main : fond non
+                   cliquable. Pas de plein écran pour une ligne de texte. */
+                <SheetModal
+                    onClose={() => setShowSaveTemplateModal(false)}
+                    title={tx(lang,{fr:'Sauvegarder le Gabarit',ar:'حفظ القالب',en:'Save Template',es:'Guardar Plantilla',pt:'Salvar Modelo',tr:'Şablonu Kaydet'})}
+                    size="sm"
+                    zClass="z-[1000]"
+                    closeOnBackdrop={false}
+                    footer={(
+                        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                            <button onClick={() => setShowSaveTemplateModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-xs">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
+                            <button onClick={handleSaveTemplate} className="col-span-2 sm:flex-1 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-md dark:shadow-dk-md shadow-indigo-200 transition-colors text-xs">{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}</button>
+                        </div>
+                    )}
+                >
                         <input
                             type="text"
                             autoFocus
                             placeholder={tx(lang,{fr:'Nom du gabarit (ex: Standard T-Shirt)',ar:'اسم القالب (مثال: تيشيرت قياسي)',en:'Template name (e.g.: Standard T-Shirt)',es:'Nombre de plantilla (ej: Camiseta Estándar)',pt:'Nome do modelo (ex: Camiseta Padrão)',tr:'Şablon adı (ör: Standart Tişört)'})}
                             value={templateName}
                             onChange={(e) => setTemplateName(e.target.value)}
-                            className="w-full border border-slate-300 rounded-xl px-4 py-3 mb-6 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-sm font-medium"
+                            className="w-full border border-slate-300 dark:border-dk-border bg-white dark:bg-dk-bg text-slate-800 dark:text-dk-text rounded-xl px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-dk-accent/30 transition-all text-sm font-medium"
                         />
-                        <div className="flex gap-3">
-                            <button onClick={() => setShowSaveTemplateModal(false)} className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-xs">{tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
-                            <button onClick={handleSaveTemplate} className="flex-1 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-md dark:shadow-dk-md shadow-indigo-200 transition-colors text-xs">{tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Salvar',tr:'Kaydet'})}</button>
-                        </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             {printOrientationModal && (
-                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setPrintOrientationModal(false)} />
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-sm relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 z-[1001]">
-                        <h3 className="font-bold text-slate-800 dark:text-dk-text text-lg mb-2">{tx(lang,{fr:"Orientation de l'Impression",ar:'اتجاه الطباعة',en:'Print Orientation',es:'Orientación de Impresión',pt:'Orientação de Impressão',tr:'Yazdırma Yönü'})}</h3>
+                /* Deux choix d'orientation : aucune saisie, aucun plein écran.
+                   Le niveau z-[1000] du dialogue est conservé tel quel. */
+                <SheetModal
+                    onClose={() => setPrintOrientationModal(false)}
+                    title={tx(lang,{fr:"Orientation de l'Impression",ar:'اتجاه الطباعة',en:'Print Orientation',es:'Orientación de Impresión',pt:'Orientação de Impressão',tr:'Yazdırma Yönü'})}
+                    size="sm"
+                    zClass="z-[1000]"
+                    footer={(
+                        <button
+                            onClick={() => setPrintOrientationModal(false)}
+                            className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-dk-border font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-xs"
+                        >
+                            {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                        </button>
+                    )}
+                >
                         <p className="text-xs text-slate-500 dark:text-dk-muted mb-6 leading-relaxed">
                             {tx(lang,{fr:"Choisissez le format d'orientation pour l'exportation du plan d'implantation en PDF / Impression A4 :",ar:'اختر اتجاه التخطيط لتصدير خطة التخطيط إلى PDF / طباعة A4:',en:'Choose the orientation format for exporting the layout plan to PDF / A4 Print:',es:'Elija el formato de orientación para exportar el plano de implantación a PDF / Impresión A4:',pt:'Escolha o formato de orientação para exportar o plano de implantação para PDF / Impressão A4:',tr:'Düzen planını PDF / A4 Yazdırmaya aktarmak için yönlendirme biçimini seçin:'})}
                         </p>
@@ -4123,26 +4149,23 @@ export default function Implantation({
                                 </span>
                                 <Printer className="w-4 h-4 opacity-70 shrink-0" />
                             </button>
-                            <button 
-                                onClick={() => setPrintOrientationModal(false)} 
-                                className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-dk-border font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-xs mt-2"
-                            >
-                                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
-                            </button>
                         </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             {showLoadTemplateModal && (
-                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 " onClick={() => setShowLoadTemplateModal(false)} />
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
-                        <div className="p-4 border-b border-slate-100 dark:border-dk-border flex justify-between items-center bg-slate-50 dark:bg-dk-bg">
-                            <h3 className="font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang,{fr:'Mes Gabarits',ar:'قوالبي',en:'My Templates',es:'Mis Plantillas',pt:'Meus Modelos',tr:'Şablonlarım'})}</h3>
-                            <button onClick={() => setShowLoadTemplateModal(false)}><X className="w-5 h-5 text-slate-400 hover:text-slate-600" /></button>
-                        </div>
-                        <div className="p-2 overflow-y-auto custom-scrollbar flex-1">
+                /* Liste de gabarits : peut devenir longue, le plein écran a du
+                   sens. Aucune saisie, le fond reste donc cliquable. */
+                <SheetModal
+                    onClose={() => setShowLoadTemplateModal(false)}
+                    title={tx(lang,{fr:'Mes Gabarits',ar:'قوالبي',en:'My Templates',es:'Mis Plantillas',pt:'Meus Modelos',tr:'Şablonlarım'})}
+                    size="md"
+                    zClass="z-[1000]"
+                    fullscreen={denseFullscreen}
+                    onToggleFullscreen={toggleDenseFullscreen}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-2"
+                >
+                        <div>
                             {savedLayouts.length === 0 ? (
                                 <div className="text-center py-10 text-slate-400 dark:text-dk-muted text-sm">{tx(lang,{fr:'Aucun gabarit enregistré.',ar:'لا توجد قوالب محفوظة.',en:'No saved templates.',es:'Ninguna plantilla guardada.',pt:'Nenhum modelo salvo.',tr:'Kayıtlı şablon yok.'})}</div>
                             ) : (
@@ -4160,29 +4183,57 @@ export default function Implantation({
                                 ))
                             )}
                         </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             {showExportOptions && (
-                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowExportOptions(false)} />
-                    <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-2xl dark:shadow-dk-elevated w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-100 dark:border-dk-border p-6 flex flex-col">
-                        <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100 dark:border-dk-border">
-                            <h3 className="font-bold text-slate-800 dark:text-dk-text text-lg flex items-center gap-2">
-                                <Printer className="w-5 h-5 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text" />
-                                {tx(lang,{fr:"Options d'export PDF",ar:'خيارات تصدير PDF',en:'PDF Export Options',es:'Opciones de exportación PDF',pt:'Opções de exportação PDF',tr:'PDF Dışa Aktarma Seçenekleri'})}
-                            </h3>
-                            <button onClick={() => setShowExportOptions(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                                <X className="w-5 h-5" />
+                /* Réglages d'export : des cases cochées une à une, on ne les
+                   perd pas sur un clic à côté — fond non cliquable. Pas de
+                   plein écran, la liste d'options tient dans la fenêtre. */
+                <SheetModal
+                    onClose={() => setShowExportOptions(false)}
+                    title={tx(lang,{fr:"Options d'export PDF",ar:'خيارات تصدير PDF',en:'PDF Export Options',es:'Opciones de exportación PDF',pt:'Opções de exportação PDF',tr:'PDF Dışa Aktarma Seçenekleri'})}
+                    icon={<Printer className="w-5 h-5 text-indigo-600 dark:text-dk-accent-text shrink-0" />}
+                    size="md"
+                    zClass="z-[1000]"
+                    closeOnBackdrop={false}
+                    footer={(
+                        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setShowExportOptions(false)}
+                                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-xs"
+                            >
+                                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={executeExport}
+                                disabled={isExporting}
+                                className="col-span-2 sm:flex-1 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-md dark:shadow-dk-md shadow-indigo-100 transition-colors text-xs flex items-center justify-center gap-1.5 disabled:opacity-60"
+                            >
+                                {isExporting ? (
+                                    <>
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        {tx(lang,{fr:'Génération...',ar:'جارٍ التوليد...',en:'Generating...',es:'Generando...',pt:'Gerando...',tr:'Oluşturuluyor...'})}
+                                    </>
+                                ) : (
+                                    <>
+                                        <Printer className="w-3.5 h-3.5" />
+                                        {tx(lang,{fr:'Exporter le PDF',ar:'تصدير PDF',en:'Export PDF',es:'Exportar PDF',pt:'Exportar PDF',tr:'PDF Dışa Aktar'})}
+                                    </>
+                                )}
                             </button>
                         </div>
-
+                    )}
+                >
                         <div className="space-y-6">
                             {/* Format de page */}
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider mb-2.5">{tx(lang,{fr:'Format de page',ar:'تنسيق الصفحة',en:'Page Format',es:'Formato de página',pt:'Formato de página',tr:'Sayfa Biçimi'})}</label>
-                                <div className="grid grid-cols-2 gap-3">
+                                {/* Une colonne sur telephone : ces deux cartes
+                                    portent un titre ET une phrase d'explication. */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <button
                                         type="button"
                                         onClick={() => setExportSettings({ ...exportSettings, pageSize: 'single' })}
@@ -4254,36 +4305,7 @@ export default function Implantation({
                                 </label>
                             </div>
                         </div>
-
-                        <div className="flex gap-3 mt-8">
-                            <button
-                                type="button"
-                                onClick={() => setShowExportOptions(false)}
-                                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-xs"
-                            >
-                                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={executeExport}
-                                disabled={isExporting}
-                                className="flex-1 py-2.5 rounded-xl bg-indigo-600 dark:bg-dk-accent text-white font-bold hover:bg-indigo-700 dark:hover:bg-dk-accent-hover shadow-md dark:shadow-dk-md shadow-indigo-100 transition-colors text-xs flex items-center justify-center gap-1.5"
-                            >
-                                {isExporting ? (
-                                    <>
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                        {tx(lang,{fr:'Génération...',ar:'جارٍ التوليد...',en:'Generating...',es:'Generando...',pt:'Gerando...',tr:'Oluşturuluyor...'})}
-                                    </>
-                                ) : (
-                                    <>
-                                        <Printer className="w-3.5 h-3.5" />
-                                        {tx(lang,{fr:'Exporter le PDF',ar:'تصدير PDF',en:'Export PDF',es:'Exportar PDF',pt:'Exportar PDF',tr:'PDF Dışa Aktar'})}
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
         </div>
     );

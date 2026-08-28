@@ -95,6 +95,15 @@ const activateLocalDataOwner = async (userData: Pick<User, 'id' | 'cloudUserId'>
   }
 };
 
+// 429 (Supabase ou serveur local) : le message brut est en anglais et illisible.
+// On le traduit partout où l'authentification peut échouer.
+const RATE_LIMITED =
+  'Trop de tentatives de connexion. Patientez quelques minutes avant de réessayer.';
+const isRateLimitMessage = (m: string): boolean => {
+  const s = (m || '').toLowerCase();
+  return s.includes('rate limit') || s.includes('too many') || s.includes('429');
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -356,6 +365,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (isUselessMessage(rawMsg)) {
         return { ok: false, message: SERVICE_UNREACHABLE };
       }
+      // 429 côté Supabase : message brut en anglais, illisible pour l'utilisateur.
+      if (isRateLimitMessage(rawMsg)) {
+        return { ok: false, message: RATE_LIMITED };
+      }
       const errMsg = rawMsg;
       // Email exists but not yet confirmed
       if (errMsg.toLowerCase().includes('email not confirmed') || errMsg.toLowerCase().includes('not confirmed')) {
@@ -412,7 +425,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
     });
     if (error) {
-      return { ok: false, message: error.message };
+      return { ok: false, message: isRateLimitMessage(error.message) ? RATE_LIMITED : error.message };
     }
     return { ok: true };
   };
@@ -427,6 +440,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
     });
     if (error || !data.user) {
+      if (isRateLimitMessage(error?.message || '')) {
+        return { ok: false, message: RATE_LIMITED };
+      }
       return { ok: false, message: error?.message || 'Échec inscription.' };
     }
     // Session null = Supabase requires email confirmation before login

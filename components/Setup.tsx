@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'framer-motion';
-import { Building2, User, Users, StopCircle, ChevronRight, ChevronLeft, CheckCircle2, Loader2, AlertCircle, Eye, EyeOff, ImagePlus, ScrollText, X, Sun, Moon, Monitor, SlidersHorizontal } from 'lucide-react';
+import { Building2, User, Users, StopCircle, ChevronRight, ChevronLeft, CheckCircle2, Loader2, AlertCircle, Eye, EyeOff, ImagePlus, ScrollText, Sun, Moon, Monitor, SlidersHorizontal } from 'lucide-react';
 import { AccountType } from '../app/accountTypes';
 import { useTheme, useIsDark } from '../src/context/ThemeContext';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
@@ -8,6 +8,7 @@ import { lsGet, lsSet, pkey, lsGetMig } from '../lib/storageKeys';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useAuth } from '../src/context/AuthContext';
+import SheetModal from './shared/SheetModal';
 import { registerTenantInMaster } from '../src/lib/masterRegistration';
 
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
@@ -1145,46 +1146,24 @@ export default function Setup({ onComplete, onBackToLogin }: Props) {
 
       {/* ── Modal : texte complet des Conditions Générales d'Utilisation ──────── */}
       {showTerms && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm"
-          onClick={() => setShowTerms(false)}
-        >
-          <motion.div
-            dir="ltr"
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            onClick={(e) => e.stopPropagation()}
-            className={`w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl shadow-xl dark:shadow-dk-elevated overflow-hidden ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border'}`}
-          >
-            <div className={`flex items-center justify-between gap-3 px-5 py-4 border-b ${isDark ? 'border-dk-border' : 'border-slate-100 dark:border-dk-border'}`}>
-              <div className="flex items-center gap-2 min-w-0">
-                <ScrollText className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <h3 className="text-sm font-bold text-slate-800 dark:text-dk-text truncate">{tx(lang,{fr:'Conditions G\u00e9n\u00e9rales d\'Utilisation',ar:'\u0627\u0644\u0634\u0631\u0648\u0637 \u0627\u0644\u0639\u0627\u0645\u0629 \u0644\u0644\u0627\u0633\u062a\u062e\u062f\u0627\u0645',en:'Terms and Conditions',es:'T\u00e9rminos y Condiciones de Uso',pt:'Termos e Condi\u00e7\u00f5es de Utiliza\u00e7\u00e3o',tr:'Kullan\u0131m \u015eartlar\u0131'})}</h3>
-              </div>
+        /* Fenêtre de lecture des CGU. Pas de bouton plein écran : un texte
+           juridique étalé sur toute la largeur donne des lignes trop longues,
+           donc moins lisibles. Le fond ferme, comme avant : rien ne s'y saisit.
+           POURQUOI le `dir="ltr"` interne : la coque ne propage pas la
+           direction, et ce texte est rédigé en alphabet latin. */
+        <SheetModal
+          onClose={() => setShowTerms(false)}
+          title={tx(lang,{fr:'Conditions Générales d\'Utilisation',ar:'الشروط العامة للاستخدام',en:'Terms and Conditions',es:'Términos y Condiciones de Uso',pt:'Termos e Condições de Utilização',tr:'Kullanım Şartları'})}
+          icon={<ScrollText className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+          size="lg"
+          zClass="z-50"
+          bodyClassName="flex-1 overflow-y-auto min-h-0 px-5 py-4"
+          footer={
+            <div dir="ltr" className="w-full flex gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setShowTerms(false)}
-                aria-label={tx(lang,{fr:'Fermer',ar:'\u0625\u063a\u0644\u0627\u0642',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
-                className="text-slate-400 dark:text-dk-muted hover:text-slate-600 transition-colors shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className={`overflow-y-auto px-5 py-4 text-xs leading-relaxed space-y-3 ${isDark ? 'text-dk-text' : 'text-slate-600 dark:text-dk-text-soft'}`}>
-              <p className="text-[11px] text-slate-400 dark:text-dk-muted">Version {CGU_VERSION} — {CGU_DATE}</p>
-              {CGU_SECTIONS.map((s) => (
-                <div key={s.title}>
-                  <h4 className="font-semibold text-slate-700 dark:text-dk-text-soft mb-0.5">{s.title}</h4>
-                  <p>{s.body}</p>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-3 px-5 py-4 border-t border-slate-100 dark:border-dk-border">
-              <button
-                type="button"
-                onClick={() => setShowTerms(false)}
-                className="flex-1 py-2.5 px-4 border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-sm"
+                className="flex-1 py-2.5 px-4 border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft font-semibold rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors text-sm flex items-center justify-center"
               >
                 {tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
               </button>
@@ -1197,8 +1176,18 @@ export default function Setup({ onComplete, onBackToLogin }: Props) {
                 {tx(lang,{fr:'J\'accepte',ar:'أوافق',en:'I accept',es:'Acepto',pt:'Aceito',tr:'Kabul ediyorum'})}
               </button>
             </div>
-          </motion.div>
-        </div>
+          }
+        >
+          <div dir="ltr" className="text-xs leading-relaxed space-y-3 text-slate-600 dark:text-dk-text-soft">
+            <p className="text-[11px] text-slate-400 dark:text-dk-muted">Version {CGU_VERSION} — {CGU_DATE}</p>
+            {CGU_SECTIONS.map((s) => (
+              <div key={s.title}>
+                <h4 className="font-semibold text-slate-700 dark:text-dk-text-soft mb-0.5">{s.title}</h4>
+                <p>{s.body}</p>
+              </div>
+            ))}
+          </div>
+        </SheetModal>
       )}
     </div>
   );

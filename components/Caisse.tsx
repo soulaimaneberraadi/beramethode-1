@@ -1,0 +1,2307 @@
+/**
+ * Caisse — vente au comptoir.
+ *
+ * Ce n'est PAS un nouveau stock : c'est une façade sur celui qui existe. Le
+ * scan remplit un panier local, et RIEN ne bouge dans le stock tant que
+ * l'encaissement n'est pas validé — une pièce scannée puis retirée du panier
+ * ne doit jamais avoir été sortie.
+ *
+ * L'écran est plein cadre et sans menus : au comptoir, on regarde le client,
+ * pas l'interface.
+ */
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { ModelData } from '../types';
+import { tx } from '../lib/i18n';
+import { fmt } from '../app/constants';
+import { resolveScan, attachScannerListener } from '../lib/scanner';
+import { sendToCustomerDisplay, autoConnectDisplay, connectDisplay, isWebSerialSupported, getDisplayConfig } from '../lib/customerDisplay';
+import type { AtelierClient } from './soustraitance/ClientsPanel';
+import {
+  X, ScanLine, Search, Trash2, Plus, Minus, Loader2, AlertTriangle, User, Store, Check, ArrowLeft,
+  Receipt, RotateCcw, Banknote, MoreVertical, Eye, EyeOff, ArrowLeftRight, RefreshCw, GripVertical, Copy,
+} from 'lucide-react';
+
+export type CaisseLigne = {
+  /** clé stable : modèle + cellule */
+  key: string;
+  model: ModelData;
+  couleur: string;
+  taille: string;
+  qte: number;
+  /** prix unitaire appliqué (canal MAGASIN par défaut, modifiable) */
+  prix: number;
+  /** l'opérateur a fixé le prix lui-même : le tarif serveur ne l'écrase plus */
+  prixTouched?: boolean;
+  /** remise par ligne en MAD (montant fixe) */
+  remise?: number;
+};
+
+export type TypeVente = 'BOUTIQUE' | 'DETAIL' | 'GROS';
+
+/** Une vente au comptoir telle que le serveur la rend : un ticket regroupe
+ *  toutes les sorties de stock d'un meme encaissement, quel que soit le
+ *  nombre de modeles vendus. */
+export interface CaisseTicket {
+  ticket: string;
+  heure: string | null;
+  clientId: string | null;
+  clientNom: string | null;
+  modePaiement: string | null;
+  typeVente: string | null;
+  factureId: string | null;
+  factureNumero: string | null;
+  factureStatut: string | null;
+  pieces: number;
+  total: number;
+  lignes: Array<{
+    id: string;
+    modelId: string;
+    modelNom: string;
+    couleur: string | null;
+    taille: string | null;
+    quantite: number;
+    prixUnitaire: number;
+  }>;
+}
+
+export interface CaisseJournal {
+  date: string;
+  tickets: CaisseTicket[];
+  parMode: Record<string, { pieces: number; total: number; tickets: number }>;
+  totaux: { tickets: number; pieces: number; total: number };
+}
+
+export type CaissePaiement = 'ESPECES' | 'CARTE' | 'CHEQUE' | 'VIREMENT';
+
+export interface CaisseProps {
+  open: boolean;
+  onClose: () => void;
+  /** modèles ET articles achetés, déjà fondus dans la même forme */
+  candidats: ModelData[];
+  clients: AtelierClient[];
+  /** modelId → « couleur|taille » → quantité réellement disponible */
+  stockMatrix: Map<string, Map<string, number>>;
+  currency: string;
+  lang: string;
+  /** Enregistre la vente. Renvoie un message d'erreur, ou null si tout est passé. */
+  onEncaisser: (payload: {
+    lignes: CaisseLigne[];
+    clientId: string | null;
+    clientNom: string | null;
+    paiement: CaissePaiement;
+    remiseGlobale: number;
+    total: number;
+    /** GROS / DETAIL / BOUTIQUE : le segment tarifaire de la vente. */
+    typeVente: TypeVente;
+    /** Une facture doit suivre cette vente. */
+    facture: boolean;
+    /** Especes : ce que le client a tendu, et ce qu'on lui rend. */
+    recu: number | null;
+    rendu: number | null;
+  }) => Promise<string | null>;
+  /** Mode statique : aucune API, la caisse ne peut pas enregistrer. */
+  isStatic?: boolean;
+  /** Ouverte depuis un modèle précis : sa grille est déjà à l'écran. */
+  initialRecherche?: string;
+  /** Ouvre la création d'un client sans quitter le comptoir. */
+  onCreateClient?: () => void;
+  /** Une fiche client vient d'etre completee depuis la caisse : l'ecran
+   *  appelant relit sa liste, sinon la caisse continue de croire l'ICE
+   *  manquant et le redemande a la vente suivante. */
+  onClientsChanged?: () => void | Promise<void>;
+  /** Un ticket vient d'etre annule : les pieces sont revenues au stock, et
+   *  l'ecran appelant doit relire ses mouvements. Sans ca, la caisse
+   *  continuerait de croire la marchandise vendue. */
+  onTicketAnnule?: () => void | Promise<void>;
+}
+
+const FACTURE_AUTO_KEY = 'bera_caisse_facture_auto';
+const MISE_EN_PAGE_KEY = 'bera_caisse_mise_en_page';
+
+/**
+ * Reglages d'affichage du comptoir.
+ *
+ * Un poste de caisse n'est pas l'autre : sur un grand ecran on veut tout
+ * voir, sur un portable il faut choisir. Plutot que d'imposer une mise en
+ * page moyenne qui ne va a personne, chaque poste range la sienne — elle est
+ * gardee en local, elle ne suit pas le compte d'un poste a l'autre.
+ *
+ * Ce sont des reglages d'AFFICHAGE : masquer un champ ne change jamais ce qui
+ * est enregistre. Le segment tarifaire masque reste celui qui est actif, et
+ * le mode de reglement masque reste celui qui part avec la vente — sinon un
+ * ecran simplifie ferait vendre au mauvais prix.
+ */
+type ChampCle = 'recherche' | 'rayon' | 'grille' | 'lignes' | 'typeVente' | 'client' | 'facture' | 'paiement' | 'remise';
+
+type MiseEnPage = {
+  /** L'ordre des blocs de reglage, tel que ce poste les a ranges. */
+  ordre: ChampCle[];
+  /** Les blocs mis en demi-largeur : deux d'entre eux tiennent alors sur la
+   *  meme ligne. Court (remise, facture), ils gagnent a etre cote a cote ;
+   *  long (client), ils etouffent. C'est au poste de trancher. */
+  demis: Partial<Record<ChampCle, boolean>>;
+  /** Les segments que ce commerce pratique VRAIMENT. Un atelier qui ne vend
+   *  qu'en gros n'a pas a voir « Ma boutique » : un bouton qu'on ne prend
+   *  jamais finit par etre pris par erreur, et la vente part au mauvais
+   *  tarif. Au moins un segment reste toujours actif. */
+  segments: TypeVente[];
+  /** La colonne ou ce poste a range chaque bloc. */
+  colonnes: Partial<Record<ChampCle, 'g' | 'd'>>;
+  /** Hauteur imposee a un bloc, en pixels. Ce qui deborde y defile : le
+   *  panier merite souvent plus de place que les reglages, et l'inverse
+   *  arrive aussi quand on vend deux pieces a la fois. */
+  hauteurs: Partial<Record<ChampCle, number>>;
+  /** Part de la ligne prise par un bloc en demi-largeur, en pourcentage. Deux
+   *  blocs cote a cote ne meritent pas la meme place : un choix de segment
+   *  tient en peu, une liste d'articles jamais. */
+  parts: Partial<Record<ChampCle, number>>;
+  /** Le panier passe a gauche : certains caissiers sont gauchers, et sur un
+   *  ecran tactile la main qui compose cache la colonne qu'elle touche. */
+  panierAGauche: boolean;
+  /** Part de l'ecran laissee au panier sur grand ecran, en pourcentage.
+   *  Libre : on attrape la separation et on tire. Les paliers ne sont plus
+   *  que des raccourcis vers trois valeurs de ce meme reglage. */
+  largeurPanier: number;
+  /** Vignettes photo : sur un petit ecran, une liste de noms tient plus. */
+  photos: boolean;
+  champs: Record<ChampCle, boolean>;
+};
+
+const ORDRE_DEFAUT: ChampCle[] = ['recherche', 'rayon', 'grille', 'lignes', 'typeVente', 'client', 'facture', 'paiement', 'remise'];
+
+/** La colonne d'origine de chaque bloc : le rayon a gauche, la vente a
+ *  droite. Ce n'est qu'un point de depart — un bloc se depose dans l'autre
+ *  colonne, et le poste garde ce choix. */
+const COLONNE_DEFAUT: Record<ChampCle, 'g' | 'd'> = {
+  recherche: 'g', rayon: 'g', grille: 'g',
+  lignes: 'd', typeVente: 'd', client: 'd', facture: 'd', paiement: 'd', remise: 'd',
+};
+
+const MISE_EN_PAGE_DEFAUT: MiseEnPage = {
+  ordre: ORDRE_DEFAUT,
+  demis: {},
+  parts: {},
+  colonnes: {},
+  segments: ['BOUTIQUE', 'DETAIL', 'GROS'],
+  panierAGauche: false,
+  largeurPanier: 50,
+  photos: true,
+  champs: { recherche: true, rayon: true, grille: true, lignes: true, typeVente: true, client: true, facture: true, paiement: true, remise: true },
+  hauteurs: {},
+};
+
+const lireMiseEnPage = (): MiseEnPage => {
+  try {
+    const brut = JSON.parse(localStorage.getItem(MISE_EN_PAGE_KEY) || 'null');
+    if (!brut || typeof brut !== 'object') return MISE_EN_PAGE_DEFAUT;
+    // Un ordre garde en local peut avoir vieilli : on respecte ce qu'il dit
+    // encore, puis on rajoute les blocs qu'il ne connait pas. Sans ca, une
+    // version qui ajoute un reglage le rendrait invisible sur les postes
+    // deja regles — et un reglage de vente invisible fait vendre a cote.
+    const vus = Array.isArray(brut.ordre) ? brut.ordre.filter((k: any) => ORDRE_DEFAUT.includes(k)) : [];
+    const ordre = [...new Set([...vus, ...ORDRE_DEFAUT])] as ChampCle[];
+    // Les anciens reglages nommaient la largeur ('moyen') : elle est passee
+    // en pourcentage, une valeur non numerique retombe sur le defaut.
+    const largeurPanier = typeof brut.largeurPanier === 'number'
+      ? borne(brut.largeurPanier, 20, 75) : MISE_EN_PAGE_DEFAUT.largeurPanier;
+    return {
+      ...MISE_EN_PAGE_DEFAUT,
+      ...brut,
+      largeurPanier,
+      ordre,
+      demis: { ...(brut.demis && typeof brut.demis === 'object' ? brut.demis : {}) },
+      colonnes: { ...(brut.colonnes && typeof brut.colonnes === 'object' ? brut.colonnes : {}) },
+      // Un reglage vide vaudrait une caisse sans tarif : on retombe sur tout.
+      segments: (Array.isArray(brut.segments) ? brut.segments.filter((v: any) => ['BOUTIQUE', 'DETAIL', 'GROS'].includes(v)) : []).length
+        ? brut.segments : MISE_EN_PAGE_DEFAUT.segments,
+      hauteurs: { ...(brut.hauteurs && typeof brut.hauteurs === 'object' ? brut.hauteurs : {}) },
+      parts: { ...(brut.parts && typeof brut.parts === 'object' ? brut.parts : {}) },
+      champs: { ...MISE_EN_PAGE_DEFAUT.champs, ...(brut.champs || {}) },
+    };
+  } catch { return MISE_EN_PAGE_DEFAUT; }
+};
+
+/** Bornes : en dessous, une colonne ne montre plus rien d'utile ; au-dessus,
+ *  elle etouffe l'autre. On borne au lieu d'interdire, pour que la poignee
+ *  reste attrapable dans tous les cas. */
+const borne = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+const PALIERS: Array<[string, number]> = [['etroit', 38], ['moyen', 50], ['large', 62]];
+
+const cellKey = (c: string, t: string) => `${c || ''}|${t || ''}`;
+
+/**
+ * Une pastille de couleur approchée, à partir du NOM saisi dans la fiche —
+ * le modèle ne stocke aucun code hexadécimal. Ce qu'on ne sait pas teindre
+ * reste gris : mieux vaut une pastille neutre qu'une fausse couleur, qui
+ * ferait sortir la mauvaise pièce du rayon.
+ */
+const TEINTES: Array<[RegExp, string]> = [
+  [/noir|black|أسود/i, '#111827'],
+  [/blanc|white|أبيض/i, '#f8fafc'],
+  [/rouge|red|أحمر/i, '#dc2626'],
+  [/bleu|blue|أزرق/i, '#2563eb'],
+  [/marine|navy/i, '#1e3a8a'],
+  [/ciel|sky|turquoise|cyan/i, '#38bdf8'],
+  [/vert|green|أخضر/i, '#16a34a'],
+  [/emeraude|émeraude|emerald/i, '#059669'],
+  [/jaune|yellow|أصفر|dore|doré|gold/i, '#eab308'],
+  [/orange|برتقالي/i, '#f97316'],
+  [/rose|pink|وردي/i, '#ec4899'],
+  [/violet|purple|mauve/i, '#7c3aed'],
+  [/gris|grey|gray|رمادي/i, '#9ca3af'],
+  [/beige|creme|crème|ecru|écru/i, '#e7d8c0'],
+  [/marron|brown|kaki|khaki|بني/i, '#8b5a2b'],
+];
+const teinteDe = (nom: string): string | null => {
+  for (const [re, hex] of TEINTES) if (re.test(nom || '')) return hex;
+  return null;
+};
+
+/** Vignette du modèle : la photo si elle existe, sinon ses initiales. */
+const Vignette: React.FC<{ model: ModelData; className?: string }> = ({ model, className = 'w-12 h-12' }) => {
+  const src = (model as any).image || (model as any).photo || '';
+  const nom = model.meta_data?.nom_modele || '';
+  if (src) {
+    return <img src={src} alt="" className={`${className} rounded-lg object-cover bg-slate-100 dark:bg-dk-elevated flex-none`} />;
+  }
+  return (
+    <div className={`${className} rounded-lg bg-slate-100 dark:bg-dk-elevated flex-none flex items-center justify-center text-[10px] font-black text-slate-400 dark:text-dk-muted`}>
+      {nom.slice(0, 2).toUpperCase() || '—'}
+    </div>
+  );
+};
+
+const Caisse: React.FC<CaisseProps> = ({
+  open, onClose, candidats, clients, stockMatrix, currency, lang, onEncaisser, isStatic,
+  initialRecherche, onCreateClient, onTicketAnnule, onClientsChanged,
+}) => {
+  const [lignes, setLignes] = useState<CaisseLigne[]>([]);
+  const [clientId, setClientId] = useState<string>('');
+  const [clientLibre, setClientLibre] = useState('');
+  const [clientQuery, setClientQuery] = useState('');
+  const [quickClientOpen, setQuickClientOpen] = useState(false);
+  const [quickClientNom, setQuickClientNom] = useState('');
+  const [quickClientTel, setQuickClientTel] = useState('');
+  const [quickClientTypes, setQuickClientTypes] = useState<TypeVente[]>(['DETAIL']);
+  /* L'ICE ne se demande pas a la creation du client — au comptoir, il
+   * allonge la file pour une mention qui ne sert qu'a la facture. On le
+   * rattrape au moment de facturer, sur la fiche deja existante. */
+  /* Un revendeur repart avec une facture : ses mentions legales se saisissent
+   * pendant la creation, la ou on a la personne en face. Pour un client de
+   * detail elles ne s'affichent pas — elles ne servent a rien et ralentissent
+   * le comptoir. */
+  const [quickClientIce, setQuickClientIce] = useState('');
+  const [quickClientRc, setQuickClientRc] = useState('');
+  const [quickClientAdresse, setQuickClientAdresse] = useState('');
+  const [quickClientIf, setQuickClientIf] = useState('');
+  const [quickClientEmail, setQuickClientEmail] = useState('');
+  /** Repliees par defaut : au comptoir on veut un nom et un telephone. Elles
+   *  s'ouvrent d'elles-memes en gros, ou la facture les reclame. */
+  const [quickPlusOuvert, setQuickPlusOuvert] = useState(false);
+  const [doublon, setDoublon] = useState<AtelierClient | null>(null);
+  const [quickClientNotes, setQuickClientNotes] = useState('');
+  /** La photo sert a reconnaitre le client au comptoir plus vite qu'un nom :
+   *  c'est la meme vignette que dans la fiche complete. Elle voyage en
+   *  data-URL, comme le reste des images de l'application. */
+  const [quickClientPhoto, setQuickClientPhoto] = useState<string>('');
+  const choisirPhoto = (f: File | null) => {
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => setQuickClientPhoto(String(r.result || ''));
+    r.readAsDataURL(f);
+  };
+
+  const [ficheIce, setFicheIce] = useState('');
+  const [ficheRc, setFicheRc] = useState('');
+  const [ficheIf, setFicheIf] = useState('');
+  const [ficheAdresse, setFicheAdresse] = useState('');
+  const [ficheEnCours, setFicheEnCours] = useState(false);
+  const [quickClientVille, setQuickClientVille] = useState('');
+  const [quickClientDoubleRole, setQuickClientDoubleRole] = useState(false);
+  const [quickClientSaving, setQuickClientSaving] = useState(false);
+  const [quickClientError, setQuickClientError] = useState<string | null>(null);
+  /** Segment tarifaire choisi a la main quand le client n'a pas de fiche. */
+  const [typeVente, setTypeVente] = useState<TypeVente>('BOUTIQUE');
+  /** Reglage, pas question : celui qui facture toujours ne veut pas cocher a
+   *  chaque vente. Retenu par poste de caisse. */
+  const [factureAuto, setFactureAuto] = useState(() => {
+    try { return localStorage.getItem(FACTURE_AUTO_KEY) === '1'; } catch { return false; }
+  });
+  const [paiement, setPaiement] = useState<CaissePaiement>('ESPECES');
+  const [remiseGlobale, setRemiseGlobale] = useState<number | ''>('');
+  const [recherche, setRecherche] = useState('');
+  /** Modèle ouvert : le comptoir choisit un vêtement, PUIS sa couleur et sa
+   *  taille. Tant qu'aucun n'est ouvert, on montre le rayon. */
+  const [modeleOuvert, setModeleOuvert] = useState<ModelData | null>(null);
+  const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [encaisse, setEncaisse] = useState<number | ''>('');
+  /** Telephone : le rayon et le panier ne tiennent pas cote a cote. On en
+   *  montre UN seul, plein ecran, et une barre du bas fait la navette. Sur
+   *  grand ecran les deux volets reviennent, et cet etat n'a plus d'effet. */
+  const [voletMobile, setVoletMobile] = useState<'rayon' | 'panier'>('rayon');
+  const [mep, setMep] = useState<MiseEnPage>(lireMiseEnPage);
+  /* Une mise en page en cours d'essai. On la VOIT tout de suite — regler a
+   * l'aveugle ne veut rien dire — mais elle ne remplace celle du poste que
+   * si le caissier l'enregistre. Refermer sans enregistrer rend l'ecran
+   * d'avant, intact. */
+  const [brouillon, setBrouillon] = useState<MiseEnPage | null>(null);
+  const brouillonRef = useRef<MiseEnPage | null>(null);
+  brouillonRef.current = brouillon;
+  const vue = brouillon ?? mep;
+  const reglagesOuverts = brouillon !== null;
+  const ouvrirReglages = useCallback(() => setBrouillon(b => (b ? null : { ...mep })), [mep]);
+  const majBrouillon = useCallback((f: (m: MiseEnPage) => MiseEnPage) => {
+    setBrouillon(b => f(b ?? MISE_EN_PAGE_DEFAUT));
+  }, []);
+  /** Ecrit la ou l'ecran regarde : le brouillon si on est en train de regler,
+   *  la mise en page du poste sinon. */
+  const majVue = useCallback((f: (m: MiseEnPage) => MiseEnPage) => {
+    setBrouillon(b => (b ? f(b) : null));
+    setMep(m => (brouillonRef.current ? m : f(m)));
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem(MISE_EN_PAGE_KEY, JSON.stringify(mep)); } catch { /* le reglage vaut alors pour cette session */ }
+  }, [mep]);
+  /** Glisser-deposer des blocs de reglage, en mode mise en page. */
+  const [blocTire, setBlocTire] = useState<ChampCle | null>(null);
+  /** Bloc dont le bord droit est survole : y deposer coupe sa ligne en deux
+   *  et installe les deux blocs cote a cote. C'est le geste attendu — on
+   *  pose un outil A COTE d'un autre, on ne va pas chercher un reglage. */
+  const [survol, setSurvol] = useState<{ cle: ChampCle; mode: 'avant' | 'cote' } | null>(null);
+  const colonneDe = useCallback((k: ChampCle) => vue.colonnes[k] || COLONNE_DEFAUT[k], [vue.colonnes]);
+  const poserColonne = useCallback((k: ChampCle, col: 'g' | 'd') => {
+    majVue(m => ({ ...m, colonnes: { ...m.colonnes, [k]: col } }));
+  }, [majVue]);
+  const partagerLigne = useCallback((tire: ChampCle, cible: ChampCle) => {
+    majVue(m => {
+      const suite = m.ordre.filter(k => k !== tire);
+      suite.splice(suite.indexOf(cible) + 1, 0, tire);
+      return {
+        ...m,
+        ordre: suite,
+        demis: { ...m.demis, [tire]: true, [cible]: true },
+        // Cote a cote veut dire dans la meme colonne : sans ca le bloc
+        // resterait de l'autre cote de l'ecran, « a cote » de rien.
+        colonnes: { ...m.colonnes, [tire]: m.colonnes[cible] || COLONNE_DEFAUT[cible] },
+      };
+    });
+  }, [majVue]);
+  /* Les separations se tirent a la souris. On ne redimensionne qu'a partir
+   * de lg : en dessous, les volets sont plein ecran l'un apres l'autre, une
+   * largeur en pourcentage n'y veut rien dire. */
+  const conteneurRef = useRef<HTMLDivElement>(null);
+  const [estLarge, setEstLarge] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const suivre = () => setEstLarge(mq.matches);
+    mq.addEventListener('change', suivre);
+    return () => mq.removeEventListener('change', suivre);
+  }, []);
+  const [redim, setRedim] = useState<'panier' | null>(null);
+  const [redimBloc, setRedimBloc] = useState<{ cle: ChampCle; y: number; depart: number } | null>(null);
+  const [redimPart, setRedimPart] = useState<{ cle: ChampCle; x: number; depart: number; largeurLigne: number } | null>(null);
+  useEffect(() => {
+    if (!redimPart) return;
+    const bouger = (e: MouseEvent) => {
+      const delta = ((e.clientX - redimPart.x) / redimPart.largeurLigne) * 100;
+      const part = borne(redimPart.depart + delta, 20, 80);
+      majVue(m => {
+        // Le voisin de ligne prend le reste : sans ca, les deux blocs
+        // finiraient par se chevaucher ou laisser un trou.
+        const rangs = m.ordre.filter(c => m.champs[c] && (m.colonnes[c] || COLONNE_DEFAUT[c]) === (m.colonnes[redimPart.cle] || COLONNE_DEFAUT[redimPart.cle]));
+        const i = rangs.indexOf(redimPart.cle);
+        const voisin = rangs.slice(i + 1).find(c => m.demis[c]);
+        const parts = { ...m.parts, [redimPart.cle]: part };
+        if (voisin) parts[voisin] = 100 - part;
+        return { ...m, parts };
+      });
+    };
+    const lacher = () => setRedimPart(null);
+    window.addEventListener('mousemove', bouger);
+    window.addEventListener('mouseup', lacher);
+    const avant = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+    return () => {
+      window.removeEventListener('mousemove', bouger);
+      window.removeEventListener('mouseup', lacher);
+      document.body.style.userSelect = avant;
+    };
+  }, [redimPart, majVue]);
+  useEffect(() => {
+    if (!redimBloc) return;
+    const bouger = (e: MouseEvent) => {
+      const h = borne(redimBloc.depart + (e.clientY - redimBloc.y), 64, 900);
+      majVue(m => ({ ...m, hauteurs: { ...m.hauteurs, [redimBloc.cle]: h } }));
+    };
+    const lacher = () => setRedimBloc(null);
+    window.addEventListener('mousemove', bouger);
+    window.addEventListener('mouseup', lacher);
+    const avant = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+    return () => {
+      window.removeEventListener('mousemove', bouger);
+      window.removeEventListener('mouseup', lacher);
+      document.body.style.userSelect = avant;
+    };
+  }, [redimBloc, majVue]);
+  useEffect(() => {
+    if (!redim) return;
+    const bouger = (e: MouseEvent) => {
+      const r = conteneurRef.current?.getBoundingClientRect();
+      if (!r || r.width === 0) return;
+      const part = mep.panierAGauche ? (e.clientX - r.left) : (r.right - e.clientX);
+      majVue(m => ({ ...m, largeurPanier: borne((part / r.width) * 100, 20, 75) }));
+    };
+    const lacher = () => setRedim(null);
+    window.addEventListener('mousemove', bouger);
+    window.addEventListener('mouseup', lacher);
+    // Pendant le tirage, la selection de texte suivrait le curseur.
+    const avant = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+    return () => {
+      window.removeEventListener('mousemove', bouger);
+      window.removeEventListener('mouseup', lacher);
+      document.body.style.userSelect = avant;
+    };
+  }, [redim, mep.panierAGauche, majVue]);
+
+  /** La grille du modele est en train d'etre deplacee d'une colonne a l'autre. */
+  const deplacerBloc = useCallback((tire: ChampCle, cible: ChampCle) => {
+    majBrouillon(m => {
+      const suite = m.ordre.filter(k => k !== tire);
+      suite.splice(suite.indexOf(cible), 0, tire);
+      return { ...m, ordre: suite, colonnes: { ...m.colonnes, [tire]: m.colonnes[cible] || COLONNE_DEFAUT[cible] } };
+    });
+  }, [majBrouillon]);
+  const basculerChamp = useCallback((k: ChampCle) => {
+    majBrouillon(m => ({ ...m, champs: { ...m.champs, [k]: !m.champs[k] } }));
+  }, [majBrouillon]);
+  const lignesRef = useRef<CaisseLigne[]>([]);
+  lignesRef.current = lignes;
+
+  /* ── La journee ───────────────────────────────────────────────────────────
+   *  Le soir, la question est toujours la meme : combien de tickets, et
+   *  combien dans chaque mode de reglement. Le journal la pose au serveur —
+   *  jamais au panier a l'ecran, qui ne connait que la vente en cours.
+   */
+  const [journeeOuverte, setJourneeOuverte] = useState(false);
+  const [journalJour, setJournalJour] = useState(() => new Date().toISOString().slice(0, 10));
+  const [journal, setJournal] = useState<CaisseJournal | null>(null);
+  const [journalCharge, setJournalCharge] = useState(false);
+  const [journalErreur, setJournalErreur] = useState<string | null>(null);
+  /** Ticket dont l'annulation attend confirmation : au comptoir, un clic de
+   *  travers ne doit pas defaire une vente encaissee. */
+  const [ticketAConfirmer, setTicketAConfirmer] = useState<string | null>(null);
+  const [annulEnCours, setAnnulEnCours] = useState<string | null>(null);
+
+  const chargerJournal = useCallback(async (jour: string) => {
+    if (isStatic) { setJournal(null); setJournalErreur(null); return; }
+    setJournalCharge(true);
+    setJournalErreur(null);
+    try {
+      const res = await fetch(`/api/subcontract/caisse/journal?date=${encodeURIComponent(jour)}`, { credentials: 'include' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.message || 'HTTP ' + res.status);
+      setJournal(body as CaisseJournal);
+    } catch (err: any) {
+      setJournal(null);
+      setJournalErreur(err?.message || String(err));
+    } finally {
+      setJournalCharge(false);
+    }
+  }, [isStatic]);
+
+  useEffect(() => {
+    if (!open || !journeeOuverte) return;
+    void chargerJournal(journalJour);
+  }, [open, journeeOuverte, journalJour, chargerJournal]);
+
+  /** Annule un ticket : les pieces reviennent au stock cote serveur, et
+   *  l'ecran appelant relit ses mouvements pour que le rayon suive. */
+  const annulerTicket = useCallback(async (ticket: string) => {
+    setAnnulEnCours(ticket);
+    setJournalErreur(null);
+    try {
+      const res = await fetch(`/api/subcontract/caisse/ticket/${encodeURIComponent(ticket)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.message || 'HTTP ' + res.status);
+      setTicketAConfirmer(null);
+      await chargerJournal(journalJour);
+      await onTicketAnnule?.();
+    } catch (err: any) {
+      setJournalErreur(err?.message || String(err));
+    } finally {
+      setAnnulEnCours(null);
+    }
+  }, [chargerJournal, journalJour, onTicketAnnule]);
+
+  const client = clients.find(c => c.id === clientId) || null;
+  /** Segments SECONDAIRES d'un client. Le principal vit dans `type` ; ceux-ci
+   *  disent seulement qu'il achete aussi autrement — ils ne changent aucun
+   *  tarif, sinon deux colonnes se disputeraient le meme prix. */
+  const segmentsDe = (c: AtelierClient | null): string[] => {
+    try {
+      const brut = (c as any)?.types;
+      const liste = typeof brut === 'string' ? JSON.parse(brut) : brut;
+      return Array.isArray(liste) ? liste.filter(v => v && v !== (c as any)?.type) : [];
+    } catch { return []; }
+  };
+  const typeEffectif: TypeVente = typeVente;
+  /** Un revendeur repart toujours avec une facture — la case ne se decoche pas. */
+  const factureRequise = typeEffectif === 'GROS' ? true : factureAuto;
+
+  useEffect(() => {
+    if (client?.type && ['BOUTIQUE', 'DETAIL', 'GROS'].includes(client.type)) {
+      setTypeVente(client.type as TypeVente);
+    }
+  }, [client?.id]);
+
+  useEffect(() => {
+    try { localStorage.setItem(FACTURE_AUTO_KEY, factureAuto ? '1' : '0'); } catch { /* stockage refuse : le reglage vaut pour cette session */ }
+  }, [factureAuto]);
+
+  const clientsTrouves = useMemo(() => {
+    const q = clientQuery.trim().toLowerCase();
+    if (!q) return [];
+    return clients
+      .filter(c => [c.nom, c.tel, c.ville, c.ice].filter(Boolean).some(v => String(v).toLowerCase().includes(q)))
+      .slice(0, 20);
+  }, [clientQuery, clients]);
+
+  /** La recherche n'a rien donne alors qu'on a tape quelque chose : c'est le
+   *  moment ou creer une fiche devient le geste attendu. */
+  const aucunTrouve = clientQuery.trim() !== '' && clientsTrouves.length === 0;
+
+  /** Un « pip » sonore : au comptoir on n'a pas le temps de lire un message. */
+  const pip = useCallback((ok: boolean) => {
+    try {
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = ok ? 880 : 220;
+      gain.gain.value = 0.05;
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + (ok ? 0.08 : 0.22));
+    } catch { /* le son est un confort, jamais un blocage */ }
+  }, []);
+
+  /** Un texte qui n'a que des chiffres est un numero : il part dans le
+   *  telephone, pas dans le nom. Retaper ce qu'on vient de taper est le genre
+   *  de detail qui fait qu'on ne cree pas la fiche du tout. */
+  const ouvrirFicheClient = () => {
+    const q = clientQuery.trim();
+    if (q) {
+      const numero = /^[\d\s+().-]{6,}$/.test(q);
+      if (numero) setQuickClientTel(q); else setQuickClientNom(q);
+    }
+    setQuickClientOpen(true);
+  };
+
+  /** Une fiche en double coupe en deux l'historique et l'encours d'un meme
+   *  acheteur : on ne s'en apercoit qu'au moment de relancer un impaye. Avant
+   *  de creer, on regarde donc si le telephone ou le nom existent deja. */
+  const doublonProbable = (): AtelierClient | null => {
+    const nom = quickClientNom.trim().toLowerCase().replace(/\s+/g, ' ');
+    const tel = quickClientTel.replace(/\D/g, '');
+    if (!nom && !tel) return null;
+    return clients.find(c => {
+      const telC = String(c.tel || '').replace(/\D/g, '');
+      if (tel && telC && tel === telC) return true;
+      return !!nom && String(c.nom || '').trim().toLowerCase().replace(/\s+/g, ' ') === nom;
+    }) || null;
+  };
+
+  const creerClientRapide = async (forcer = false) => {
+    if (isStatic) return;
+    const nom = quickClientNom.trim();
+    if (!nom) { setQuickClientError('Le nom est obligatoire.'); return; }
+    if (!forcer) {
+      const jumeau = doublonProbable();
+      if (jumeau) { setDoublon(jumeau); return; }
+    }
+    setDoublon(null);
+    setQuickClientSaving(true);
+    setQuickClientError(null);
+    try {
+      const res = await fetch('/api/subcontract/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          nom,
+          tel: quickClientTel.trim() || null,
+          type: quickClientTypes[0] || 'DETAIL',
+          types: quickClientTypes,
+          ville: quickClientVille.trim() || null,
+          ice: quickClientIce.trim() || null,
+          rc: quickClientRc.trim() || null,
+          adresse: quickClientAdresse.trim() || null,
+          ifFiscal: quickClientIf.trim() || null,
+          notes: quickClientNotes.trim() || null,
+          photo: quickClientPhoto || null,
+          email: quickClientEmail.trim() || null,
+          role: quickClientDoubleRole ? 'LES_DEUX' : 'CLIENT',
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.message || 'Erreur');
+      const newId = body?.id || body?.client?.id;
+      if (newId) setClientId(String(newId));
+      // La liste de l'ecran appelant ne se recharge pas toute seule : sans
+      // cet appel, le client qu'on vient de creer reste introuvable a la
+      // recherche suivante, et on le recree une deuxieme fois.
+      await onClientsChanged?.();
+      setQuickClientOpen(false);
+      setQuickClientNom(''); setQuickClientTel(''); setQuickClientVille(''); setQuickClientDoubleRole(false); setQuickClientTypes(['DETAIL']);
+      setQuickClientIce(''); setQuickClientRc(''); setQuickClientAdresse('');
+      setQuickClientIf(''); setQuickClientEmail(''); setQuickPlusOuvert(false);
+      setQuickClientNotes(''); setQuickClientPhoto('');
+      setFlash({ ok: true, msg: 'Client créé.' });
+    } catch (e: any) {
+      setQuickClientError(e?.message || String(e));
+    } finally {
+      setQuickClientSaving(false);
+    }
+  };
+
+  /** Complete la fiche du client avec son ICE, sans quitter la vente. La
+   *  fiche entiere est renvoyee : l'API de sauvegarde ecrit tous les champs,
+   *  n'en renvoyer qu'un les effacerait. */
+  const completerFiche = useCallback(async () => {
+    if (!client || isStatic) return;
+    const ajouts = {
+      ice: ficheIce.trim() || client.ice || null,
+      rc: ficheRc.trim() || (client as any).rc || null,
+      ifFiscal: ficheIf.trim() || (client as any).ifFiscal || null,
+      adresse: ficheAdresse.trim() || (client as any).adresse || null,
+    };
+    setFicheEnCours(true);
+    try {
+      // La fiche ENTIERE repart : l'API ecrit toutes les colonnes, n'envoyer
+      // que les nouveautes effacerait le reste.
+      const res = await fetch('/api/subcontract/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ ...client, ...ajouts }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setFicheIce(''); setFicheRc(''); setFicheIf(''); setFicheAdresse('');
+      setFlash({ ok: true, msg: tx(lang, { fr: 'Fiche completee.', ar: 'تكمّلت البطاقة.', en: 'Record completed.', es: 'Ficha completada.', pt: 'Ficha completada.', tr: 'Kart tamamlandi.' }) });
+      await onClientsChanged?.();
+    } catch {
+      setFlash({ ok: false, msg: tx(lang, { fr: "La fiche n'a pas ete enregistree.", ar: 'البطاقة ما تسجّلاتش.', en: 'The record was not saved.', es: 'La ficha no se guardo.', pt: 'A ficha nao foi guardada.', tr: 'Kart kaydedilemedi.' }) });
+    } finally {
+      setFicheEnCours(false);
+    }
+  }, [client, ficheIce, ficheRc, ficheIf, ficheAdresse, isStatic, lang, onClientsChanged]);
+
+  /* Le tarif du segment courant, modele par modele. Il s'affiche sur le
+   * rayon et sur la grille : au comptoir on annonce un prix avant de poser
+   * la piece sur le comptoir, pas apres. */
+  const [tarifs, setTarifs] = useState<Record<string, number | null>>({});
+  const [tarifsComparatifs, setTarifsComparatifs] = useState<Record<string, { gros: number | null; boutique: number | null; detail: number | null }>>({});
+  useEffect(() => { setTarifs({}); setTarifsComparatifs({}); }, [typeEffectif, client?.id]);
+
+  const dispoDe = useCallback((modelId: string, couleur: string, taille: string) => {
+    return Number(stockMatrix.get(modelId)?.get(cellKey(couleur, taille)) || 0);
+  }, [stockMatrix]);
+
+  /** Le stock déjà engagé dans le panier compte : sans ça on vendrait deux fois
+   *  la même pièce en scannant le même tiki. */
+  const restantDe = useCallback((modelId: string, couleur: string, taille: string) => {
+    const enPanier = lignesRef.current
+      .filter(l => l.model.id === modelId && l.couleur === couleur && l.taille === taille)
+      .reduce((a, l) => a + l.qte, 0);
+    return dispoDe(modelId, couleur, taille) - enPanier;
+  }, [dispoDe]);
+
+  const ajouter = useCallback((model: ModelData, couleur: string, taille: string) => {
+    const nom = model.meta_data?.nom_modele || '';
+    if (restantDe(model.id, couleur, taille) <= 0) {
+      pip(false);
+      setFlash({ ok: false, msg: tx(lang, {
+        fr: `Rupture : ${nom} ${couleur} ${taille}`.trim(),
+        ar: `نافد: ${nom} ${couleur} ${taille}`.trim(),
+        en: `Out of stock: ${nom} ${couleur} ${taille}`.trim(),
+        es: `Sin stock: ${nom} ${couleur} ${taille}`.trim(),
+        pt: `Sem stock: ${nom} ${couleur} ${taille}`.trim(),
+        tr: `Stok yok: ${nom} ${couleur} ${taille}`.trim(),
+      }) });
+      return;
+    }
+    const key = `${model.id}::${cellKey(couleur, taille)}`;
+    setLignes(prev => {
+      const i = prev.findIndex(l => l.key === key);
+      if (i >= 0) {
+        const copy = [...prev];
+        copy[i] = { ...copy[i], qte: copy[i].qte + 1 };
+        return copy;
+      }
+      return [...prev, { key, model, couleur, taille, qte: 1, prix: 0 }];
+    });
+    pip(true);
+    setFlash({ ok: true, msg: `${nom || model.id} ${couleur} ${taille}`.trim() });
+  }, [restantDe, pip, lang]);
+
+  /** Le tarif « Ma boutique » vient du serveur, comme partout ailleurs : la
+   *  caisse ne recalcule aucun prix, elle demande celui qui fait foi. */
+  /** Segment (ou client) change : les lignes non forcees a la main repassent
+   *  par le serveur. Un panier qui garde le tarif boutique apres un passage
+   *  en gros, c'est de l'argent perdu a chaque vente. */
+  useEffect(() => {
+    setLignes(prev => prev.map(l => (l.prixTouched ? l : { ...l, prix: 0 })));
+  }, [typeEffectif, client?.id]);
+
+  useEffect(() => {
+    if (!open || isStatic) return;
+    const aChercher = lignes.filter(l => !l.prixTouched && l.prix === 0);
+    if (aChercher.length === 0) return;
+    let alive = true;
+    Promise.all(aChercher.map(l =>
+      fetch(`/api/prix/resolve?modelId=${encodeURIComponent(l.model.id)}&qty=${l.qte}&canal=MAGASIN&${client ? `clientId=${encodeURIComponent(client.id)}` : `type=${typeEffectif}`}`, { credentials: 'include' })
+        .then(r => (r.ok ? r.json() : null))
+        .then((d: any) => [l.key, d?.prix == null ? null : Number(d.prix)] as const)
+        .catch(() => [l.key, null] as const)
+    )).then(pairs => {
+      if (!alive) return;
+      const map = new Map(pairs);
+      setLignes(prev => prev.map(l => {
+        const p = map.get(l.key);
+        return p != null && !l.prixTouched ? { ...l, prix: Number(p.toFixed(2)) } : l;
+      }));
+    });
+    return () => { alive = false; };
+  }, [open, isStatic, lignes, client, typeEffectif]);
+
+  useEffect(() => {
+    if (!open || isStatic) return;
+    const modelIds = [...new Set(lignes.map(l => l.model.id))].filter(id => !(id in tarifsComparatifs));
+    if (modelIds.length === 0) return;
+    let alive = true;
+    Promise.all(modelIds.map(id =>
+      Promise.all([
+        fetch(`/api/prix/resolve?modelId=${encodeURIComponent(id)}&qty=1&canal=MAGASIN&type=GROS`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).then((d: any) => d?.prix == null ? null : Number(d.prix)).catch(() => null),
+        fetch(`/api/prix/resolve?modelId=${encodeURIComponent(id)}&qty=1&canal=MAGASIN&type=BOUTIQUE`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).then((d: any) => d?.prix == null ? null : Number(d.prix)).catch(() => null),
+        fetch(`/api/prix/resolve?modelId=${encodeURIComponent(id)}&qty=1&canal=MAGASIN&type=DETAIL`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).then((d: any) => d?.prix == null ? null : Number(d.prix)).catch(() => null),
+      ]).then(([gros, boutique, detail]) => [id, { gros, boutique, detail }] as const)
+    )).then(pairs => {
+      if (!alive) return;
+      setTarifsComparatifs(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
+    });
+    return () => { alive = false; };
+  }, [open, isStatic, lignes, tarifsComparatifs]);
+
+  /** Le lecteur reste actif en permanence tant que la caisse est ouverte. */
+  useEffect(() => {
+    if (!open) return;
+    return attachScannerListener(code => {
+      const hit = resolveScan(candidats, code);
+      if (!hit) {
+        pip(false);
+        setFlash({ ok: false, msg: tx(lang, { fr: 'Tiki inconnu.', ar: 'تيكي غير معروف.', en: 'Unknown label.', es: 'Etiqueta desconocida.', pt: 'Etiqueta desconhecida.', tr: 'Bilinmeyen etiket.' }) });
+        return;
+      }
+      if (!hit.taille && !hit.couleur) {
+        pip(false);
+        setFlash({ ok: false, msg: tx(lang, { fr: 'Tiki sans taille ni couleur : choisissez la pièce à la main.', ar: 'تيكي بلا مقاس ولا لون: اختر القطعة يدوياً.', en: 'Label without size or color: pick the item manually.', es: 'Etiqueta sin talla ni color: elija la pieza a mano.', pt: 'Etiqueta sem tamanho nem cor: escolha a peca a mao.', tr: 'Beden veya renk yok: parcayi elle secin.' }) });
+        setRecherche(hit.model.meta_data?.nom_modele || '');
+        return;
+      }
+      ajouter(hit.model, hit.couleur, hit.taille);
+    });
+  }, [open, candidats, ajouter, pip, lang]);
+
+  /** Le segment courant doit exister : retirer « Ma boutique » alors qu'elle
+   *  etait selectionnee laisserait la vente partir sur un tarif que ce
+   *  commerce ne pratique plus. */
+  useEffect(() => {
+    if (!mep.segments.includes(typeVente)) setTypeVente(mep.segments[0]);
+  }, [mep.segments, typeVente]);
+
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(null), 2200);
+    return () => clearTimeout(t);
+  }, [flash]);
+
+  /** Ouverture depuis un modèle : on part de sa grille, l'opérateur n'a pas à
+   *  retaper le nom qu'il vient de cliquer. */
+  useEffect(() => {
+    if (open) { setRecherche(initialRecherche || ''); setVoletMobile('rayon'); }
+  }, [open, initialRecherche]);
+
+  /** Plein cadre : la page derriere ne doit pas defiler sous le comptoir. */
+  useEffect(() => {
+    if (!open) return;
+    const avant = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = avant; };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    // Echap ferme d'abord le panneau de mise en page : sinon un reglage en
+    // cours ferait sortir de la caisse, panier compris.
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (brouillon !== null) { setBrouillon(null); return; }
+      onClose();
+    };
+    document.addEventListener('keydown', onEsc);
+    return () => document.removeEventListener('keydown', onEsc);
+  }, [open, onClose, brouillon]);
+
+  /** Le catalogue du comptoir : un modèle par vignette, avec sa photo et ce
+   *  qu'il reste VRAIMENT (stock des mouvements, jamais les compteurs de
+   *  commande). Sans photo, l'opérateur cherche un nom au lieu de reconnaître
+   *  un vêtement — c'est plus lent que de fouiller le rayon. */
+  const catalogue = useMemo(() => {
+    const q = recherche.trim().toLowerCase();
+    const out: Array<{ model: ModelData; total: number; couleurs: string[] }> = [];
+    for (const m of candidats) {
+      const cells = stockMatrix.get(m.id);
+      if (!cells) continue;
+      let total = 0;
+      const couleurs = new Set<string>();
+      cells.forEach((qte, k) => {
+        if (qte <= 0) return;
+        total += qte;
+        const c = k.split('|')[0];
+        if (c) couleurs.add(c);
+      });
+      if (total <= 0) continue;
+      if (q) {
+        const nom = String(m.meta_data?.nom_modele || '').toLowerCase();
+        const ref = String(m.meta_data?.reference || '').toLowerCase();
+        if (!nom.includes(q) && !ref.includes(q)) continue;
+      }
+      out.push({ model: m, total, couleurs: [...couleurs] });
+    }
+    return out.sort((a, b) => b.total - a.total);
+  }, [recherche, candidats, stockMatrix]);
+
+  /** Tarifs du rayon visible : on ne demande que ce qui est a l'ecran, et
+   *  une seule fois par modele et par segment. */
+  useEffect(() => {
+    if (!open || isStatic) return;
+    const manquants = catalogue.map(c => c.model.id).filter(id => !(id in tarifs)).slice(0, 40);
+    if (manquants.length === 0) return;
+    let alive = true;
+    Promise.all(manquants.map(id =>
+      fetch(`/api/prix/resolve?modelId=${encodeURIComponent(id)}&qty=1&canal=MAGASIN&${client ? `clientId=${encodeURIComponent(client.id)}` : `type=${typeEffectif}`}`, { credentials: 'include' })
+        .then(r => (r.ok ? r.json() : null))
+        .then((d: any) => [id, d?.prix == null ? null : Number(d.prix)] as const)
+        .catch(() => [id, null] as const)
+    )).then(paires => {
+      if (!alive) return;
+      setTarifs(t => ({ ...t, ...Object.fromEntries(paires) }));
+    });
+    return () => { alive = false; };
+  }, [open, isStatic, catalogue, tarifs, client, typeEffectif]);
+
+  /** Les cellules du modèle ouvert, rangées couleur par couleur : on choisit
+   *  d'abord la couleur (c'est ce que le client montre), puis la taille. */
+  const grilleModele = useMemo(() => {
+    if (!modeleOuvert) return [];
+    const cells = stockMatrix.get(modeleOuvert.id);
+    if (!cells) return [];
+    const parCouleur = new Map<string, Array<{ taille: string; dispo: number }>>();
+    cells.forEach((qte, k) => {
+      if (qte <= 0) return;
+      const [couleur, taille] = k.split('|');
+      const arr = parCouleur.get(couleur) || [];
+      arr.push({ taille, dispo: qte });
+      parCouleur.set(couleur, arr);
+    });
+    return [...parCouleur.entries()].map(([couleur, tailles]) => ({
+      couleur,
+      tailles: tailles.sort((a, b) => a.taille.localeCompare(b.taille, undefined, { numeric: true })),
+    }));
+  }, [modeleOuvert, stockMatrix]);
+
+  const sousTotal = useMemo(
+    () => lignes.reduce((a, l) => a + l.qte * (Number(l.prix) || 0), 0),
+    [lignes],
+  );
+  const remiseLignes = useMemo(() => lignes.reduce((a, l) => a + (Number(l.remise) || 0), 0), [lignes]);
+  const remise = (Number(remiseGlobale) || 0) + remiseLignes;
+  const total = Math.max(0, sousTotal - remise);
+  const rendu = encaisse === '' ? null : Number(encaisse) - total;
+  const nbPieces = lignes.reduce((a, l) => a + l.qte, 0);
+
+  const [displayConnected, setDisplayConnected] = useState(false);
+  const [displayMsg, setDisplayMsg] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  /** La fiche s'ouvre sur le segment de la vente en cours : c'est celui qu'on
+   *  vient d'annoncer au client, il fait un point de depart honnete. */
+  useEffect(() => {
+    if (quickClientOpen) setQuickClientTypes([typeVente]);
+  }, [typeVente, quickClientOpen]);
+
+  useEffect(() => {
+    if (!open) return;
+    autoConnectDisplay().then(ok => setDisplayConnected(ok));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    sendToCustomerDisplay(total, currency);
+  }, [open, total, currency]);
+
+
+  const reset = () => {
+    setLignes([]); setRemiseGlobale(''); setEncaisse(''); setClientId('');
+    setClientLibre(''); setErreur(null); setRecherche(''); setClientQuery('');
+  };
+
+  const valider = async () => {
+    if (lignes.length === 0) return;
+    if (lignes.some(l => !(Number(l.prix) > 0))) {
+      setErreur(tx(lang, { fr: 'Une ligne est sans prix.', ar: 'كاين سطر بلا ثمن.', en: 'A line has no price.', es: 'Una linea no tiene precio.', pt: 'Uma linha sem preco.', tr: 'Bir satirin fiyati yok.' }));
+      return;
+    }
+    // Une facture se rattache a une FICHE client : sans elle, elle ne
+    // remonterait dans aucun compte, et le gros ne se vend pas anonymement.
+    if (factureRequise && !client) {
+      setErreur(tx(lang, { fr: 'Choisissez un client : une facture ne peut pas etre anonyme.', ar: 'اختر زبوناً: الفاتورة ما تكونش مجهولة.', en: 'Pick a customer: an invoice cannot be anonymous.', es: 'Elija un cliente: una factura no puede ser anonima.', pt: 'Escolha um cliente: uma fatura nao pode ser anonima.', tr: 'Bir musteri secin: fatura anonim olamaz.' }));
+      return;
+    }
+    setSaving(true); setErreur(null);
+    const msg = await onEncaisser({
+      lignes,
+      clientId: client?.id || null,
+      clientNom: client?.nom || (clientLibre.trim() || null),
+      paiement,
+      remiseGlobale: remise,
+      total,
+      typeVente: typeEffectif,
+      facture: factureRequise,
+      recu: paiement === 'ESPECES' && encaisse !== '' ? Number(encaisse) : null,
+      rendu: paiement === 'ESPECES' && rendu != null ? rendu : null,
+    });
+    setSaving(false);
+    if (msg) { setErreur(msg); pip(false); return; }
+    pip(true);
+    reset();
+    // Vente close : le comptoir repart du rayon, pas d'un panier vide.
+    setVoletMobile('rayon');
+    setFlash({ ok: true, msg: tx(lang, { fr: 'Vente enregistrée.', ar: 'تسجّلت البيعة.', en: 'Sale recorded.', es: 'Venta registrada.', pt: 'Venda registada.', tr: 'Satis kaydedildi.' }) });
+  };
+
+  if (!open) return null;
+
+  const T = {
+    titre: tx(lang, { fr: 'Caisse', ar: 'الصندوق', en: 'Checkout', es: 'Caja', pt: 'Caixa', tr: 'Kasa' }),
+    scan: tx(lang, { fr: 'Scannez un tiki', ar: 'امسح التيكي', en: 'Scan a label', es: 'Escanee una etiqueta', pt: 'Leia uma etiqueta', tr: 'Etiket okutun' }),
+    chercher: tx(lang, { fr: 'Chercher un article…', ar: 'قلّب على منتج…', en: 'Search an item…', es: 'Buscar un articulo…', pt: 'Procurar artigo…', tr: 'Urun ara…' }),
+    panier: tx(lang, { fr: 'Panier', ar: 'السلّة', en: 'Cart', es: 'Cesta', pt: 'Cesto', tr: 'Sepet' }),
+    vide: tx(lang, { fr: 'Le panier est vide. Scannez un tiki pour commencer.', ar: 'السلّة خاوية. امسح تيكي باش تبدا.', en: 'The cart is empty. Scan a label to start.', es: 'La cesta esta vacia. Escanee una etiqueta.', pt: 'O cesto esta vazio. Leia uma etiqueta.', tr: 'Sepet bos. Baslamak icin etiket okutun.' }),
+    client: tx(lang, { fr: 'Client', ar: 'الزبون', en: 'Customer', es: 'Cliente', pt: 'Cliente', tr: 'Musteri' }),
+    passage: tx(lang, { fr: 'Client de passage', ar: 'زبون عابر', en: 'Walk-in customer', es: 'Cliente ocasional', pt: 'Cliente de passagem', tr: 'Gecici musteri' }),
+    reglement: tx(lang, { fr: 'Reglement', ar: 'طريقة الأداء', en: 'Payment', es: 'Pago', pt: 'Pagamento', tr: 'Odeme' }),
+    remise: tx(lang, { fr: 'Remise', ar: 'التخفيض', en: 'Discount', es: 'Descuento', pt: 'Desconto', tr: 'Indirim' }),
+    total: tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' }),
+    recu: tx(lang, { fr: 'Recu', ar: 'المدفوع', en: 'Received', es: 'Recibido', pt: 'Recebido', tr: 'Alinan' }),
+    rendu: tx(lang, { fr: 'A rendre', ar: 'الصرف', en: 'Change', es: 'Cambio', pt: 'Troco', tr: 'Para ustu' }),
+    encaisser: tx(lang, { fr: 'Encaisser', ar: 'خلّص', en: 'Charge', es: 'Cobrar', pt: 'Cobrar', tr: 'Tahsil et' }),
+    chercherClient: tx(lang, { fr: 'Chercher un client…', ar: 'قلّب على زبون…', en: 'Search a customer…', es: 'Buscar un cliente…', pt: 'Procurar cliente…', tr: 'Musteri ara…' }),
+    nouveauClient: tx(lang, { fr: 'Nouveau client', ar: 'زبون جديد', en: 'New customer', es: 'Nuevo cliente', pt: 'Novo cliente', tr: 'Yeni musteri' }),
+    creerAvec: tx(lang, { fr: 'Creer', ar: 'صايب', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Olustur' }),
+    aucunClient: tx(lang, { fr: 'Aucun client trouve.', ar: 'ما لقيت حتى زبون.', en: 'No customer found.', es: 'Ningun cliente encontrado.', pt: 'Nenhum cliente encontrado.', tr: 'Musteri bulunamadi.' }),
+    retirerClient: tx(lang, { fr: 'Retirer le client', ar: 'إزالة الزبون', en: 'Remove customer', es: 'Quitar cliente', pt: 'Remover cliente', tr: 'Musteriyi kaldir' }),
+    typeDuClient: tx(lang, { fr: 'Le segment vient de la fiche du client.', ar: 'الصنف جاي من بطاقة الزبون.', en: 'The segment comes from the customer record.', es: 'El segmento viene de la ficha del cliente.', pt: 'O segmento vem da ficha do cliente.', tr: 'Segment musteri kartindan gelir.' }),
+    factureAuto: tx(lang, { fr: 'Facture automatique', ar: 'فاتورة أوتوماتيكية', en: 'Automatic invoice', es: 'Factura automatica', pt: 'Fatura automatica', tr: 'Otomatik fatura' }),
+    imposee: tx(lang, { fr: 'imposee en gros', ar: 'إجبارية فالجملة', en: 'required for wholesale', es: 'obligatoria al por mayor', pt: 'obrigatoria no grosso', tr: 'toptanda zorunlu' }),
+    retour: tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' }),
+    rienEnStock: tx(lang, { fr: 'Aucune piece en stock.', ar: 'ما كاين حتى قطعة فالستوك.', en: 'No item in stock.', es: 'Ninguna pieza en stock.', pt: 'Nenhuma peca em stock.', tr: 'Stokta parca yok.' }),
+    reglages: tx(lang, { fr: 'Mise en page', ar: 'ترتيب الشاشة', en: 'Layout', es: 'Disposicion', pt: 'Disposicao', tr: 'Yerlesim' }),
+    panierAGauche: tx(lang, { fr: 'Panier a gauche', ar: 'السلّة على اليسار', en: 'Cart on the left', es: 'Cesta a la izquierda', pt: 'Cesto a esquerda', tr: 'Sepet solda' }),
+    largeur: tx(lang, { fr: 'Largeur du panier', ar: 'عرض السلّة', en: 'Cart width', es: 'Ancho de la cesta', pt: 'Largura do cesto', tr: 'Sepet genisligi' }),
+    etroit: tx(lang, { fr: 'Etroit', ar: 'ضيّق', en: 'Narrow', es: 'Estrecho', pt: 'Estreito', tr: 'Dar' }),
+    moyen: tx(lang, { fr: 'Moyen', ar: 'متوسّط', en: 'Medium', es: 'Medio', pt: 'Medio', tr: 'Orta' }),
+    large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
+    photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
+    enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
+    ajouterPhoto: tx(lang, { fr: 'Ajouter une photo', ar: 'زيد تصويرة', en: 'Add a photo', es: 'Anadir una foto', pt: 'Adicionar foto', tr: 'Fotograf ekle' }),
+    changerPhoto: tx(lang, { fr: 'Changer la photo', ar: 'بدّل التصويرة', en: 'Change photo', es: 'Cambiar la foto', pt: 'Mudar a foto', tr: 'Fotografi degistir' }),
+    notes: tx(lang, { fr: 'Notes (livraison, habitudes, remises convenues…)', ar: 'ملاحظات (التسليم، العادات، التخفيضات المتّفق عليها…)', en: 'Notes (delivery, habits, agreed discounts…)', es: 'Notas (entrega, habitos, descuentos…)', pt: 'Notas (entrega, habitos, descontos…)', tr: 'Notlar (teslimat, aliskanliklar, indirimler…)' }),
+    dejaConnu: tx(lang, { fr: 'Une fiche existe deja :', ar: 'كاينة بطاقة من قبل:', en: 'A record already exists:', es: 'Ya existe una ficha:', pt: 'Ja existe uma ficha:', tr: 'Zaten bir kart var:' }),
+    utiliserFiche: tx(lang, { fr: 'Utiliser cette fiche', ar: 'استعمل هاد البطاقة', en: 'Use this record', es: 'Usar esta ficha', pt: 'Usar esta ficha', tr: 'Bu karti kullan' }),
+    creerQuandMeme: tx(lang, { fr: 'Creer quand meme', ar: 'صايب واحدة جديدة', en: 'Create anyway', es: 'Crear de todos modos', pt: 'Criar mesmo assim', tr: 'Yine de olustur' }),
+    plusInfos: tx(lang, { fr: 'Informations complementaires', ar: 'معلومات إضافية', en: 'More information', es: 'Informacion adicional', pt: 'Informacoes adicionais', tr: 'Ek bilgiler' }),
+    infosFacture: tx(lang, { fr: 'Pour la facture', ar: 'ديال الفاتورة', en: 'For the invoice', es: 'Para la factura', pt: 'Para a fatura', tr: 'Fatura icin' }),
+    adresse: tx(lang, { fr: 'Adresse', ar: 'العنوان', en: 'Address', es: 'Direccion', pt: 'Endereco', tr: 'Adres' }),
+    iceManquant: tx(lang, { fr: "Sans ICE, la facture d'un revendeur reste incomplete.", ar: 'بلا ICE، فاتورة التاجر كتبقى ناقصة.', en: 'Without an ICE number, a reseller invoice stays incomplete.', es: 'Sin ICE, la factura queda incompleta.', pt: 'Sem ICE, a fatura fica incompleta.', tr: 'ICE olmadan fatura eksik kalir.' }),
+    segmentPrincipal: tx(lang, { fr: 'Segment principal : il fixe le tarif', ar: 'الصنف الرئيسي: هو اللي كيحدّد الثمن', en: 'Main segment: it sets the price', es: 'Segmento principal: fija la tarifa', pt: 'Segmento principal: fixa a tarifa', tr: 'Ana segment: fiyati belirler' }),
+    deuxSegments: tx(lang, { fr: 'Plusieurs segments possibles. Le premier choisi fixe le tarif.', ar: 'يمكن أكثر من صنف. الأوّل هو اللي كيحدّد الثمن.', en: 'A customer may have several segments. The first one sets the price.', es: 'Varios segmentos posibles. El primero fija la tarifa.', pt: 'Varios segmentos possiveis. O primeiro fixa a tarifa.', tr: 'Birden fazla segment olabilir. Ilki fiyati belirler.' }),
+    nomObligatoire: tx(lang, { fr: 'Nom du client *', ar: 'اسم الزبون *', en: 'Customer name *', es: 'Nombre del cliente *', pt: 'Nome do cliente *', tr: 'Musteri adi *' }),
+    doubleRole: tx(lang, { fr: 'Aussi fournisseur', ar: 'وهو أيضاً موردّ', en: 'Also a supplier', es: 'Tambien proveedor', pt: 'Tambem fornecedor', tr: 'Ayrica tedarikci' }),
+    doubleRoleAide: tx(lang, { fr: 'Meme fiche dans Clients et Fournisseurs, meme historique.', ar: 'نفس البطاقة فالزبناء والموردين، نفس التاريخ.', en: 'One record in both Customers and Suppliers, one history.', es: 'Misma ficha en Clientes y Proveedores.', pt: 'Mesma ficha em Clientes e Fornecedores.', tr: 'Musteriler ve Tedarikciler icinde ayni kart.' }),
+    sansTarif: tx(lang, { fr: 'Tarif a saisir', ar: 'الثمن خاصو يتكتب', en: 'Price to enter', es: 'Precio a introducir', pt: 'Preco a introduzir', tr: 'Fiyat girilecek' }),
+    segments: tx(lang, { fr: 'Ce que je vends', ar: 'شنو كنبيع', en: 'What I sell', es: 'Lo que vendo', pt: 'O que vendo', tr: 'Ne satiyorum' }),
+    segmentsAide: tx(lang, { fr: 'Les segments que ce commerce pratique. Un segment retire ne peut plus etre choisi a la caisse.', ar: 'الأصناف اللي كيبيع بيها هاد المحلّ. الصنف المحيّد ما بقاش يتختار فالصندوق.', en: 'The segments this business actually uses. A removed segment can no longer be picked at the till.', es: 'Los segmentos que practica este comercio.', pt: 'Os segmentos praticados por este comercio.', tr: 'Bu isletmenin kullandigi segmentler.' }),
+    rayonNom: tx(lang, { fr: 'Rayon', ar: 'الرفوف', en: 'Shelf', es: 'Estante', pt: 'Prateleira', tr: 'Raf' }),
+    coteACote: tx(lang, { fr: 'Cote a cote', ar: 'حدا بعضياتهم', en: 'Side by side', es: 'Lado a lado', pt: 'Lado a lado', tr: 'Yan yana' }),
+    demiLigne: tx(lang, { fr: 'Pleine ligne ou demi-ligne', ar: 'سطر كامل ولا نص سطر', en: 'Full width or half width', es: 'Linea completa o media', pt: 'Linha inteira ou metade', tr: 'Tam satir veya yarim' }),
+    tirer: tx(lang, { fr: 'Tirez pour redimensionner (double-clic : taille d’origine)', ar: 'شدّ باش تبدّل الحجم (دبل كليك: الحجم الأصلي)', en: 'Drag to resize (double-click to reset)', es: 'Arrastre para redimensionar (doble clic: original)', pt: 'Arraste para redimensionar (duplo clique: original)', tr: 'Boyutlandirmak icin surukleyin (cift tiklama: varsayilan)' }),
+    grille: tx(lang, { fr: 'Grille du modele', ar: 'شبكة الموديل', en: 'Model grid', es: 'Rejilla del modelo', pt: 'Grelha do modelo', tr: 'Model tablosu' }),
+    aGauche: tx(lang, { fr: 'A gauche', ar: 'على اليسار', en: 'Left', es: 'A la izquierda', pt: 'A esquerda', tr: 'Solda' }),
+    aDroite: tx(lang, { fr: 'A droite', ar: 'على اليمين', en: 'Right', es: 'A la derecha', pt: 'A direita', tr: 'Sagda' }),
+    dansPanier: tx(lang, { fr: 'Dans le panier', ar: 'فالسلّة', en: 'In the cart', es: 'En la cesta', pt: 'No cesto', tr: 'Sepette' }),
+    glisser: tx(lang, { fr: 'Prenez un bloc a la souris : deposez-le sur le bord droit d’un autre pour les mettre cote a cote.', ar: 'شدّ الكتلة بالماوس وحرّكها فين بغيتي.', en: 'Drag a block with the mouse to reorder it.', es: 'Arrastre un bloque con el raton para reordenarlo.', pt: 'Arraste um bloco com o rato para o reordenar.', tr: 'Bir blogu fareyle surukleyerek siralayin.' }),
+    champs: tx(lang, { fr: 'Champs affiches', ar: 'الحقول الظاهرة', en: 'Visible fields', es: 'Campos visibles', pt: 'Campos visiveis', tr: 'Gorunen alanlar' }),
+    champMasque: tx(lang, { fr: 'Masquer un champ ne change rien a la vente enregistree.', ar: 'إخفاء حقل ما كيبدّلش البيعة المسجّلة.', en: 'Hiding a field does not change the recorded sale.', es: 'Ocultar un campo no cambia la venta registrada.', pt: 'Ocultar um campo nao muda a venda registada.', tr: 'Bir alani gizlemek kaydedilen satisi degistirmez.' }),
+    defaut: tx(lang, { fr: 'Reglages par defaut', ar: 'الإعدادات الأصلية', en: 'Reset layout', es: 'Ajustes originales', pt: 'Definicoes originais', tr: 'Varsayilana don' }),
+    voirPanier: tx(lang, { fr: 'Voir le panier', ar: 'شوف السلّة', en: 'View cart', es: 'Ver la cesta', pt: 'Ver o cesto', tr: 'Sepeti gor' }),
+    auRayon: tx(lang, { fr: 'Au rayon', ar: 'للرفوف', en: 'Back to shelf', es: 'Al estante', pt: 'As prateleiras', tr: 'Rafa don' }),
+    videz: tx(lang, { fr: 'Vider', ar: 'فرّغ', en: 'Clear', es: 'Vaciar', pt: 'Limpar', tr: 'Temizle' }),
+    journee: tx(lang, { fr: 'Journee', ar: 'اليومية', en: 'Day', es: 'Jornada', pt: 'Jornada', tr: 'Gun' }),
+    tickets: tx(lang, { fr: 'Tickets', ar: 'التيكيات', en: 'Tickets', es: 'Tickets', pt: 'Talões', tr: 'Fisler' }),
+    pieces: tx(lang, { fr: 'Pieces', ar: 'القطع', en: 'Items', es: 'Piezas', pt: 'Pecas', tr: 'Parca' }),
+    encaisseJour: tx(lang, { fr: 'Encaisse', ar: 'المحصّل', en: 'Collected', es: 'Cobrado', pt: 'Cobrado', tr: 'Tahsil edilen' }),
+    aucunTicket: tx(lang, { fr: 'Aucune vente ce jour.', ar: 'ما كاين حتى بيعة فهاد النهار.', en: 'No sale on this day.', es: 'Ninguna venta este dia.', pt: 'Nenhuma venda neste dia.', tr: 'Bu gun satis yok.' }),
+    annuler: tx(lang, { fr: 'Annuler le ticket', ar: 'إلغاء التيكي', en: 'Cancel ticket', es: 'Anular ticket', pt: 'Anular talao', tr: 'Fisi iptal et' }),
+    confirmerAnnul: tx(lang, { fr: 'Confirmer : les pieces reviennent au stock', ar: 'أكّد: القطع كترجع للستوك', en: 'Confirm: items return to stock', es: 'Confirmar: las piezas vuelven al stock', pt: 'Confirmar: as pecas voltam ao stock', tr: 'Onayla: parcalar stoga doner' }),
+    renoncer: tx(lang, { fr: 'Renoncer', ar: 'تراجع', en: 'Cancel', es: 'Renunciar', pt: 'Desistir', tr: 'Vazgec' }),
+    modeAutre: tx(lang, { fr: 'Non precise', ar: 'غير محدّد', en: 'Unspecified', es: 'Sin precisar', pt: 'Nao indicado', tr: 'Belirtilmemis' }),
+    journeeStatique: tx(lang, { fr: "Mode statique : la journee de caisse vient du serveur.", ar: 'الوضع الساكن: يومية الصندوق كتجي من السيرفر.', en: 'Static mode: the cash journal comes from the server.', es: 'Modo estatico: la jornada viene del servidor.', pt: 'Modo estatico: a jornada vem do servidor.', tr: 'Statik mod: kasa gunlugu sunucudan gelir.' }),
+    statique: tx(lang, { fr: "Mode statique : la caisse a besoin du serveur pour enregistrer une vente.", ar: 'الوضع الساكن: الصندوق كيحتاج السيرفر باش يسجّل البيعة.', en: 'Static mode: the checkout needs the server to record a sale.', es: 'Modo estatico: la caja necesita el servidor.', pt: 'Modo estatico: a caixa precisa do servidor.', tr: 'Statik mod: kasa sunucuya ihtiyac duyar.' }),
+  };
+
+  const tousTypesVente: Array<{ v: TypeVente; l: string }> = [
+    { v: 'BOUTIQUE', l: tx(lang, { fr: 'Ma boutique', ar: 'محلّي', en: 'My shop', es: 'Mi tienda', pt: 'Minha loja', tr: 'Magazam' }) },
+    { v: 'DETAIL', l: tx(lang, { fr: 'Detail', ar: 'بالتقسيط', en: 'Retail', es: 'Detalle', pt: 'Retalho', tr: 'Perakende' }) },
+    { v: 'GROS', l: tx(lang, { fr: 'Gros', ar: 'بالجملة', en: 'Wholesale', es: 'Por mayor', pt: 'Grosso', tr: 'Toptan' }) },
+  ];
+
+  /** Les segments pratiques par ce commerce, dans l'ordre habituel. */
+  const segmentsActifs = tousTypesVente.filter(t => vue.segments.includes(t.v));
+
+  const modes: Array<{ v: CaissePaiement; l: string }> = [
+    { v: 'ESPECES', l: tx(lang, { fr: 'Especes', ar: 'نقداً', en: 'Cash', es: 'Efectivo', pt: 'Dinheiro', tr: 'Nakit' }) },
+    { v: 'CARTE', l: tx(lang, { fr: 'Carte', ar: 'بطاقة', en: 'Card', es: 'Tarjeta', pt: 'Cartao', tr: 'Kart' }) },
+    { v: 'CHEQUE', l: tx(lang, { fr: 'Cheque', ar: 'شيك', en: 'Cheque', es: 'Cheque', pt: 'Cheque', tr: 'Cek' }) },
+    { v: 'VIREMENT', l: tx(lang, { fr: 'Virement', ar: 'تحويل', en: 'Transfer', es: 'Transferencia', pt: 'Transferencia', tr: 'Havale' }) },
+  ];
+
+  /* La grille couleur/taille du modele ouvert. Elle vit dans une variable
+   * parce que le poste choisit OU la poser : a droite du rayon, a sa gauche,
+   * ou en tete du panier, au-dessus du client. */
+  const panneauModele = modeleOuvert ? (
+    <div className="min-h-0 overflow-y-auto overscroll-contain pb-2">
+
+            <div className="sm:w-[300px] xl:w-[340px] shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 sm:border-l sm:border-slate-200 sm:dark:border-dk-border sm:pl-3">
+              <div className="flex items-center gap-2.5 mb-2">
+                {vue.photos && <Vignette model={modeleOuvert} className="w-9 h-9" />}
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-extrabold text-slate-800 dark:text-dk-text truncate">
+                    {modeleOuvert.meta_data?.nom_modele || modeleOuvert.id}
+                  </span>
+                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                    {modeleOuvert.meta_data?.reference || ''}
+                  </span>
+                </div>
+              </div>
+              {/* Tarif manquant : on le pose ici, pour ce segment et pour le
+                  comptoir. Retaper le prix a chaque vente finit par produire
+                  un chiffre de travers. */}
+              {(() => { const c = tarifsComparatifs[modeleOuvert.id]; if (!c) return null; return (
+                <div className="flex gap-1 flex-wrap mb-3">
+                  {c.gros != null && <span className="text-[10px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">Gros {fmt(c.gros)} {currency}</span>}
+                  {c.boutique != null && <span className="text-[10px] font-black px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/50">Boutique {fmt(c.boutique)} {currency}</span>}
+                  {c.detail != null && <span className="text-[10px] font-black px-2 py-1 rounded-full bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-muted border border-slate-200 dark:border-dk-border">Détail {fmt(c.detail)} {currency}</span>}
+                </div>
+              ); })()}
+
+              <div className="space-y-3">
+                {grilleModele.map(g => (
+                  <div key={g.couleur} className="rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border p-3">
+                    <span className="flex items-center gap-2 mb-2">
+                      <span
+                        className="w-4 h-4 rounded-full border border-slate-300 dark:border-dk-border flex-none"
+                        style={teinteDe(g.couleur) ? { backgroundColor: teinteDe(g.couleur)! } : undefined}
+                      />
+                      <span className="text-xs font-extrabold text-slate-800 dark:text-dk-text">{g.couleur || '—'}</span>
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {g.tailles.map(t => {
+                        const reste = restantDe(modeleOuvert.id, g.couleur, t.taille);
+                        return (
+                          <button
+                            key={t.taille}
+                            disabled={reste <= 0}
+                            onClick={() => ajouter(modeleOuvert, g.couleur, t.taille)}
+                            className={`px-3 py-2 rounded-xl border text-center min-w-[64px] transition-colors ${
+                              reste > 0
+                                ? 'bg-slate-50 dark:bg-dk-elevated border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'
+                                : 'bg-slate-100 dark:bg-dk-elevated border-slate-200 dark:border-dk-border opacity-50 cursor-not-allowed'
+                            }`}
+                          >
+                            <span className="block text-xs font-extrabold text-slate-800 dark:text-dk-text">{t.taille || '—'}</span>
+                            <span className="block text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{reste}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setModeleOuvert(null)}
+                className="mt-3 w-full py-2 rounded-xl border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-elevated"
+              >
+                {T.retour}
+              </button>
+            </div>
+    </div>
+  ) : null;
+
+  /* Les blocs de reglage de la vente, ranges par cle : c'est cette table
+   * que l'ordre choisi par le poste vient parcourir. */
+  const blocsReglage: Record<ChampCle, React.ReactNode> = {
+    recherche: (<>
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted" />
+            <input
+              value={recherche}
+              onChange={e => setRecherche(e.target.value)}
+              placeholder={T.chercher}
+              className="w-full pl-9 pr-3 py-3 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+            />
+          </div>
+    </>),
+    rayon: (<>
+          <div className={`grid gap-2 sm:gap-3 content-start flex-1 min-h-0 overflow-y-auto overscroll-contain pb-2 auto-rows-max ${
+            modeleOuvert ? 'grid-cols-2 xl:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4'}`}>
+              {catalogue.length === 0 && (
+                <p className="col-span-full p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.rienEnStock}</p>
+              )}
+              {catalogue.map(c => (
+                <button
+                  key={c.model.id}
+                  onClick={() => setModeleOuvert(m => (m?.id === c.model.id ? null : c.model))}
+                  className={`p-2 sm:p-2.5 rounded-xl bg-white dark:bg-dk-surface border text-left hover:shadow-sm transition-all active:scale-[0.98] flex flex-col ${
+                    modeleOuvert?.id === c.model.id
+                    ? 'border-slate-900 dark:border-dk-accent ring-1 ring-slate-900/10'
+                    : 'border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'}`}
+                >
+                  {vue.photos && <Vignette model={c.model} className="w-full aspect-[4/3] sm:aspect-square" />}
+                  <span className="block mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
+                    {c.model.meta_data?.nom_modele || c.model.id}
+                  </span>
+                  {c.model.meta_data?.reference && (
+                    <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">{c.model.meta_data.reference}</span>
+                  )}
+                  {/* Le tarif du segment en cours, annonce avant la vente.
+                      Sans tarif connu on le DIT : un zero se lit « gratuit ». */}
+                  <span className={`block text-[11px] font-black leading-tight ${tarifs[c.model.id] == null ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-dk-text'}`}>
+                    {c.model.id in tarifs
+                      ? (tarifs[c.model.id] == null ? T.sansTarif : `${fmt(tarifs[c.model.id] as number)} ${currency}`)
+                      : '…'}
+                  </span>
+                  <span className="flex items-center gap-1 mt-1">
+                    {c.couleurs.slice(0, 4).map(nom => {
+                      const hex = teinteDe(nom);
+                      return (
+                        <span
+                          key={nom}
+                          title={nom}
+                          className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border border-slate-300 dark:border-dk-border flex-none"
+                          style={hex ? { backgroundColor: hex } : undefined}
+                        />
+                      );
+                    })}
+                    <span className="flex-1" />
+                    <span className="text-[10px] sm:text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded-full">{c.total}</span>
+                  </span>
+                </button>
+              ))}
+          </div>
+    </>),
+    grille: (<>{panneauModele}</>),
+    lignes: (<>
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain divide-y divide-slate-100 dark:divide-dk-border">
+            {lignes.length === 0 && (
+              <p className="p-6 text-center text-xs text-slate-400 dark:text-dk-muted">{T.vide}</p>
+            )}
+            {lignes.map(l => (
+              <div key={l.key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 px-3 sm:px-4 py-3">
+                <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  {vue.photos && <Vignette model={l.model} className="w-10 h-10 sm:w-10 sm:h-10" />}
+                  <div className="flex-1 min-w-0">
+                    <span className="block text-[13px] sm:text-sm font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
+                      {l.model.meta_data?.nom_modele || l.model.id}
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full border border-slate-300 dark:border-dk-border flex-none"
+                        style={teinteDe(l.couleur) ? { backgroundColor: teinteDe(l.couleur)! } : undefined}
+                      />
+                      {[l.couleur, l.taille].filter(Boolean).join(' · ') || '—'}
+                      {l.model.meta_data?.reference && (
+                        <span className="text-[10px] text-slate-400 dark:text-dk-muted truncate">· {l.model.meta_data.reference}</span>
+                      )}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
+                    className="sm:hidden p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                  <div className="flex items-center gap-1 bg-slate-50 dark:bg-dk-elevated rounded-full p-0.5 border border-slate-200 dark:border-dk-border">
+                    <button
+                      onClick={() => setLignes(prev => prev.flatMap(x => x.key !== l.key ? [x] : (x.qte > 1 ? [{ ...x, qte: x.qte - 1 }] : [])))}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated shadow-sm active:scale-95 transition-transform"
+                    >
+                      <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </button>
+                    <span className="w-6 sm:w-8 text-center text-sm font-black text-slate-800 dark:text-dk-text">{l.qte}</span>
+                    <button
+                      onClick={() => ajouter(l.model, l.couleur, l.taille)}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated shadow-sm active:scale-95 transition-transform"
+                    >
+                      <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </button>
+                  </div>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={l.prix === 0 ? '' : l.prix}
+                    placeholder="0.00"
+                    onChange={e => {
+                      const v = e.target.value === '' ? 0 : Number(e.target.value);
+                      setLignes(prev => prev.map(x => x.key === l.key ? { ...x, prix: v, prixTouched: true } : x));
+                    }}
+                    className="w-[72px] sm:w-20 px-2 py-1.5 rounded-lg text-right text-[13px] sm:text-sm font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 placeholder:text-slate-400"
+                  />
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={l.remise ?? ''}
+                    placeholder="-"
+                    title="Remise"
+                    onChange={e => {
+                      const v = e.target.value === '' ? undefined : Number(e.target.value);
+                      setLignes(prev => prev.map(x => x.key === l.key ? { ...x, remise: v } : x));
+                    }}
+                    className="w-[52px] sm:w-14 px-1.5 py-1.5 rounded-lg text-right text-[11px] sm:text-xs font-bold bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-400/40 placeholder:text-rose-300"
+                  />
+                  <span className="w-[64px] sm:w-20 text-right text-[13px] sm:text-sm font-black text-slate-800 dark:text-dk-text truncate">
+                    {fmt(Math.max(0, l.qte * (Number(l.prix) || 0) - (Number(l.remise) || 0)))}
+                  </span>
+                  <button
+                    onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
+                    className="hidden sm:flex p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+    </>),
+    typeVente: (<>
+            <div className={`grid gap-1.5 sm:gap-2 ${segmentsActifs.length === 1 ? 'grid-cols-1' : segmentsActifs.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+              {segmentsActifs.map(t => (
+                <button
+                  key={t.v}
+                  onClick={() => setTypeVente(t.v)}
+                  title={client ? `Client ${client.type} → Changer vers ${t.v}` : undefined}
+                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] cursor-pointer ${
+                    typeEffectif === t.v
+                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent shadow-sm'
+                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'
+                  } ${client && client.type !== t.v ? 'ring-1 ring-amber-400' : ''}`}
+                >
+                  {t.l}
+                </button>
+              ))}
+            </div>
+    </>),
+    client: (<>{client ? (
+              <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border">
+                {client.photo
+                  ? <img src={client.photo} alt="" className="w-9 h-9 rounded-lg object-cover flex-none" />
+                  : <div className="w-9 h-9 rounded-lg bg-white dark:bg-dk-surface flex-none flex items-center justify-center"><User className="w-4 h-4 text-slate-400 dark:text-dk-muted" /></div>}
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-slate-800 dark:text-dk-text truncate">{client.nom}</span>
+                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                    {[[client.type, ...segmentsDe(client)].filter(Boolean).join(' + '), client.tel, client.ville].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+                <button
+                  onClick={() => { setClientId(''); setClientQuery(''); }}
+                  className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400"
+                  aria-label={T.retirerClient}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {!quickClientOpen && (
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted pointer-events-none" />
+                    <input
+                      value={clientQuery}
+                      onChange={e => setClientQuery(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key !== 'Enter') return;
+                        e.preventDefault();
+                        // Entree fait la seule chose sensee a ce moment : s'il
+                        // n'y a qu'un client, c'est lui ; s'il n'y en a aucun,
+                        // c'est qu'il faut le creer avec ce qui est tape.
+                        if (clientsTrouves.length === 1) { setClientId(clientsTrouves[0].id); setClientQuery(''); return; }
+                        if (clientsTrouves.length === 0 && clientQuery.trim()) ouvrirFicheClient();
+                      }}
+                      placeholder={`${T.chercherClient}  ⏎`}
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                    />
+                  </div>
+                  <button
+                    onClick={ouvrirFicheClient}
+                    title={T.nouveauClient}
+                    className={`shrink-0 w-12 rounded-xl border flex items-center justify-center transition-colors ${aucunTrouve
+                      ? 'bg-slate-900 dark:bg-dk-accent text-white border-transparent animate-pulse'
+                      : 'border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                )}
+                {!quickClientOpen && clientQuery.trim() !== '' && (
+                  <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border">
+                    {clientsTrouves.length === 0 && (
+                      <button
+                        onClick={ouvrirFicheClient}
+                        className="w-full flex items-center gap-2 p-3 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                      >
+                        <Plus className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />
+                        <span className="min-w-0">
+                          <span className="block text-[11px] text-slate-400 dark:text-dk-muted">{T.aucunClient}</span>
+                          <span className="block text-xs font-bold text-slate-800 dark:text-dk-text truncate">
+                            {T.creerAvec} « {clientQuery.trim()} »
+                          </span>
+                        </span>
+                      </button>
+                    )}
+                    {clientsTrouves.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setClientId(c.id); setClientQuery(''); }}
+                        className="w-full flex items-center gap-2 p-2 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                      >
+                        {c.photo
+                          ? <img src={c.photo} alt="" className="w-8 h-8 rounded-lg object-cover flex-none" />
+                          : <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dk-elevated flex-none" />}
+                        <span className="min-w-0">
+                          <span className="block text-xs font-bold text-slate-800 dark:text-dk-text truncate">{c.nom}</span>
+                          <span className="block text-[10px] text-slate-500 dark:text-dk-muted truncate">
+                            {[c.type, c.tel, c.ville].filter(Boolean).join(' · ')}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Vente au comptoir sans fiche : un nom libre suffit, et il
+                    apparaitra sur le ticket. */}
+                {!quickClientOpen && (
+                <input
+                  value={clientLibre}
+                  onChange={e => setClientLibre(e.target.value)}
+                  placeholder={T.passage}
+                  className="w-full px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                />
+                )}
+                {quickClientOpen && (
+                  <div className="mt-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border overflow-hidden">
+                    {/* Une fiche, pas une grille de champs : le nom en grand
+                        parce que c'est le seul qui soit obligatoire, et le
+                        segment en boutons parce qu'il fixe le tarif de ce
+                        client — ca ne se cache pas dans une liste deroulante. */}
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-dk-border">
+                      <button
+                        onClick={() => setQuickClientOpen(false)}
+                        aria-label={T.retour}
+                        className="-ml-1 p-1.5 rounded-lg text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                      </button>
+                      <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{T.nouveauClient}</span>
+                    </div>
+                    <div className="p-3 space-y-2">
+                      <input
+                        autoFocus
+                        value={quickClientNom}
+                        onChange={e => setQuickClientNom(e.target.value)}
+                        placeholder={T.nomObligatoire}
+                        className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm font-bold text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input value={quickClientTel} onChange={e => setQuickClientTel(e.target.value)} placeholder="Tel" className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                        <input value={quickClientVille} onChange={e => setQuickClientVille(e.target.value)} placeholder="Ville" className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                      </div>
+                      <div className={`grid gap-1.5 ${segmentsActifs.length === 1 ? 'grid-cols-1' : segmentsActifs.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                        {segmentsActifs.map(t => (
+                          <button
+                            key={t.v}
+                            onClick={() => setQuickClientTypes(prev => {
+                              const dedans = prev.includes(t.v);
+                              const suite = dedans ? prev.filter(v => v !== t.v) : [...prev, t.v];
+                              // Jamais aucun : un client sans segment n'a pas de tarif.
+                              return suite.length ? suite : prev;
+                            })}
+                            title={quickClientTypes[0] === t.v ? T.segmentPrincipal : undefined}
+                            className={`relative px-2 py-2 rounded-xl text-[11px] font-bold border transition-colors ${quickClientTypes.includes(t.v)
+                              ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                              : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+                          >
+                            {t.l}
+                            {quickClientTypes[0] === t.v && quickClientTypes.length > 1 && (
+                              <span className="absolute top-0.5 right-1.5 text-[8px] font-black opacity-70">1</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-400 dark:text-dk-muted">{T.deuxSegments}</p>
+
+                      {/* Le reste de la fiche, repliee. En gros elle s'ouvre
+                          d'office : la facture reclame ICE, IF, RC et adresse,
+                          et le client est encore la pour les donner. */}
+                      {!(quickPlusOuvert || quickClientTypes.includes('GROS')) ? (
+                        <button
+                          onClick={() => setQuickPlusOuvert(true)}
+                          className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:text-slate-800 dark:hover:text-dk-text"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> {T.plusInfos}
+                        </button>
+                      ) : (
+                        <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-dk-border">
+                          {/* La photo d'abord : au comptoir on reconnait un
+                              visage avant de lire un nom. */}
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            {quickClientPhoto
+                              ? <img src={quickClientPhoto} alt="" className="w-12 h-12 rounded-xl object-cover flex-none border border-slate-200 dark:border-dk-border" />
+                              : <span className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-dk-elevated flex-none flex items-center justify-center"><User className="w-5 h-5 text-slate-400 dark:text-dk-muted" /></span>}
+                            <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted">{quickClientPhoto ? T.changerPhoto : T.ajouterPhoto}</span>
+                            <input type="file" accept="image/*" className="hidden" onChange={e => choisirPhoto(e.target.files?.[0] || null)} />
+                          </label>
+
+                          <span className="block text-[10px] font-extrabold uppercase tracking-wide text-amber-700 dark:text-amber-400">{T.infosFacture}</span>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input value={quickClientIce} onChange={e => setQuickClientIce(e.target.value)} placeholder="ICE" className="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
+                            <input value={quickClientIf} onChange={e => setQuickClientIf(e.target.value)} placeholder="IF" className="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input value={quickClientRc} onChange={e => setQuickClientRc(e.target.value)} placeholder="RC" className="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
+                            <input value={quickClientEmail} onChange={e => setQuickClientEmail(e.target.value)} placeholder="Email" className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                          </div>
+                          <input value={quickClientAdresse} onChange={e => setQuickClientAdresse(e.target.value)} placeholder={T.adresse} className="w-full px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
+                          {quickClientTypes.includes('GROS') && !quickClientIce.trim() && (
+                            <p className="text-[10px] text-amber-600 dark:text-amber-400">{T.iceManquant}</p>
+                          )}
+                          <textarea
+                            value={quickClientNotes}
+                            onChange={e => setQuickClientNotes(e.target.value)}
+                            placeholder={T.notes}
+                            rows={2}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40 resize-y"
+                          />
+                        </div>
+                      )}
+
+                      <label className="flex items-start gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft cursor-pointer">
+                        <input type="checkbox" checked={quickClientDoubleRole} onChange={e => setQuickClientDoubleRole(e.target.checked)} className="w-4 h-4 mt-px rounded border-slate-300 dark:border-dk-border shrink-0" />
+                        <span>
+                          {T.doubleRole}
+                          {quickClientDoubleRole && (
+                            <span className="block font-normal text-[10px] text-slate-400 dark:text-dk-muted">{T.doubleRoleAide}</span>
+                          )}
+                        </span>
+                      </label>
+                      {quickClientError && <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400">{quickClientError}</p>}
+                      {/* Un homonyme, ou le meme numero : presque toujours la
+                          meme personne. On propose sa fiche avant d'en creer
+                          une seconde qui couperait son historique en deux. */}
+                      {doublon && (
+                        <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 space-y-2">
+                          <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                            {T.dejaConnu} « {doublon.nom} »{doublon.tel ? ` · ${doublon.tel}` : ''}
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => { setClientId(doublon.id); setDoublon(null); setQuickClientOpen(false); setClientQuery(''); }}
+                              className="flex-1 py-2 rounded-xl text-[11px] font-extrabold bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white"
+                            >
+                              {T.utiliserFiche}
+                            </button>
+                            <button
+                              onClick={() => creerClientRapide(true)}
+                              className="flex-1 py-2 rounded-xl text-[11px] font-bold text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800/50"
+                            >
+                              {T.creerQuandMeme}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2 px-3 py-2 border-t border-slate-100 dark:border-dk-border bg-slate-50/60 dark:bg-dk-elevated/40">
+                      <button onClick={() => setQuickClientOpen(false)} className="flex-1 py-2 rounded-xl text-[11px] font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border hover:bg-white dark:hover:bg-dk-surface">
+                        {T.renoncer}
+                      </button>
+                      <button
+                        onClick={() => creerClientRapide()}
+                        disabled={quickClientSaving || !quickClientNom.trim()}
+                        className={`flex-1 py-2 rounded-xl text-[11px] font-extrabold flex items-center justify-center gap-1.5 ${quickClientSaving || !quickClientNom.trim()
+                          ? 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'
+                          : 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white'}`}
+                      >
+                        {quickClientSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} {T.enregistrer}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+    </>),
+    facture: (<>
+            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft">
+              <input
+                type="checkbox"
+                checked={factureRequise}
+                disabled={typeEffectif === 'GROS'}
+                onChange={e => setFactureAuto(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 dark:border-dk-border"
+              />
+              {T.factureAuto}
+              {typeEffectif === 'GROS' && <span className="text-slate-400 dark:text-dk-muted">({T.imposee})</span>}
+            </label>
+            {/* Gros ou vente facturee : ce que la facture exige et que la
+                fiche ne porte pas encore. On le demande ICI, au moment ou il
+                sert — pas pendant la creation du client, ou il allonge la
+                file pour rien. Rempli, ce bloc disparait. */}
+            {(factureRequise || typeEffectif === 'GROS') && client && !isStatic && (!client.ice || !(client as any).ifFiscal || !client.rc || !client.adresse) && (
+              <div className="mt-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 space-y-2">
+                <span className="block text-[10px] font-extrabold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                  {T.infosFacture} · {client.nom}
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {!client.ice && (
+                    <input
+                      value={ficheIce}
+                      onChange={e => setFicheIce(e.target.value)}
+                      placeholder="ICE"
+                      className="px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                    />
+                  )}
+                  {!(client as any).ifFiscal && (
+                    <input
+                      value={ficheIf}
+                      onChange={e => setFicheIf(e.target.value)}
+                      placeholder="IF"
+                      className="px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                    />
+                  )}
+                  {!client.rc && (
+                    <input
+                      value={ficheRc}
+                      onChange={e => setFicheRc(e.target.value)}
+                      placeholder="RC"
+                      className="px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                    />
+                  )}
+                </div>
+                {!client.adresse && (
+                  <input
+                    value={ficheAdresse}
+                    onChange={e => setFicheAdresse(e.target.value)}
+                    placeholder={T.adresse}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                  />
+                )}
+                <button
+                  onClick={completerFiche}
+                  disabled={ficheEnCours || !(ficheIce.trim() || ficheRc.trim() || ficheIf.trim() || ficheAdresse.trim())}
+                  className={`w-full py-2 rounded-xl text-[11px] font-extrabold ${ficheEnCours || !(ficheIce.trim() || ficheRc.trim() || ficheIf.trim() || ficheAdresse.trim())
+                    ? 'bg-white/60 dark:bg-dk-surface/60 text-amber-500/60 cursor-not-allowed'
+                    : 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white'}`}
+                >
+                  {ficheEnCours ? '…' : T.enregistrer}
+                </button>
+              </div>
+            )}
+    </>),
+    paiement: (<>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {modes.map(m => (
+                <button
+                  key={m.v}
+                  onClick={() => setPaiement(m.v)}
+                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
+                    paiement === m.v
+                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
+                  }`}
+                >
+                  {m.l}
+                </button>
+              ))}
+            </div>
+    </>),
+    remise: (<>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0">{T.remise}</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={remiseGlobale}
+                placeholder="0"
+                onChange={e => setRemiseGlobale(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-20 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
+              />
+              {paiement === 'ESPECES' && (
+                <>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0 ml-1">{T.recu}</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={encaisse}
+                    placeholder="0"
+                    onChange={e => setEncaisse(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-20 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
+                  />
+                </>
+              )}
+              <div className="flex-1 min-w-0" />
+              {paiement === 'ESPECES' && rendu != null && (
+                <span className={`text-xs font-extrabold shrink-0 ${rendu < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-dk-text-soft'}`}>
+                  {T.rendu} : {fmt(rendu)} {currency}
+                </span>
+              )}
+            </div>
+    </>),
+  };
+
+  /** Rend les blocs d'une colonne, dans l'ordre du poste. Les deux colonnes
+   *  partagent ce meme rendu : c'est ce qui permet a un bloc de passer de
+   *  l'une a l'autre sans changer de nature. */
+  const blocsRanges = (col: 'g' | 'd') => vue.ordre.map(k => (
+    vue.champs[k] && colonneDe(k) === col && !(k === 'typeVente' && quickClientOpen) ? (
+              <div
+                key={k}
+                draggable={reglagesOuverts}
+                onDragStart={() => setBlocTire(k)}
+                onDragEnd={() => { setBlocTire(null); setSurvol(null); }}
+                onDragLeave={() => setSurvol(s => (s?.cle === k ? null : s))}
+
+                style={{
+                  ...(vue.hauteurs[k] ? { height: vue.hauteurs[k] } : {}),
+                  // La part de ligne se regle a la souris ; sans reglage, la
+                  // moitie exacte.
+                  ...(vue.demis[k] ? { width: `calc(${vue.parts[k] ?? 50}% - 0.375rem)` } : {}),
+                }}
+                className={`${vue.demis[k] ? '' : 'w-full'} ${
+                  (k === 'rayon' || k === 'grille') && !vue.hauteurs[k] ? 'flex-1 min-h-[160px] overflow-y-auto overscroll-contain' : ''} ${vue.hauteurs[k] ? 'overflow-y-auto overscroll-contain' : ''} ${k === 'lignes' && !vue.hauteurs[k] && !vue.demis[k] ? 'flex-1 min-h-[120px] overflow-y-auto overscroll-contain' : ''}${k === 'lignes' && vue.demis[k] ? ' min-h-[120px] overflow-y-auto overscroll-contain' : ''} ${reglagesOuverts
+                  ? `relative rounded-xl border border-dashed pl-4 pr-8 py-2 cursor-grab active:cursor-grabbing transition-colors ${blocTire === k ? 'border-slate-800 dark:border-dk-accent bg-slate-50 dark:bg-dk-elevated opacity-60' : 'border-slate-300 dark:border-dk-border'}`
+                  : ''}`}
+              >
+                {/* Pendant le glisser, le bloc survole s'ouvre en deux cibles
+                    visibles : le haut range AVANT lui, la moitie droite le met
+                    A COTE. Une zone qu'on voit vaut mieux qu'un seuil devine. */}
+                {reglagesOuverts && blocTire && blocTire !== k && (
+                  <>
+                    <div
+                      onDragOver={e => { e.preventDefault(); setSurvol({ cle: k, mode: 'avant' }); }}
+                      onDrop={e => { e.preventDefault(); deplacerBloc(blocTire, k); setSurvol(null); setBlocTire(null); }}
+                      className={`absolute inset-y-0 left-0 right-1/2 z-20 rounded-l-xl border-2 border-dashed transition-colors ${
+                        survol?.cle === k && survol.mode === 'avant'
+                          ? 'border-slate-800 dark:border-dk-accent bg-slate-900/5'
+                          : 'border-transparent'}`}
+                    />
+                    <div
+                      onDragOver={e => { e.preventDefault(); setSurvol({ cle: k, mode: 'cote' }); }}
+                      onDrop={e => { e.preventDefault(); partagerLigne(blocTire, k); setSurvol(null); setBlocTire(null); }}
+                      className={`absolute inset-y-0 right-0 left-1/2 z-20 rounded-r-xl border-2 border-dashed flex items-center justify-center transition-colors ${
+                        survol?.cle === k && survol.mode === 'cote'
+                          ? 'border-slate-800 dark:border-dk-accent bg-slate-900/5'
+                          : 'border-slate-300 dark:border-dk-border'}`}
+                    >
+                      <span className="text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-dk-muted pointer-events-none">
+                        {T.coteACote}
+                      </span>
+                    </div>
+                  </>
+                )}
+                {reglagesOuverts && (
+                  <>
+                    <GripVertical className="absolute left-0.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300 dark:text-dk-muted pointer-events-none" />
+                    {/* Pleine ligne ou demi-ligne : deux blocs courts tiennent
+                        alors cote a cote. */}
+                    <button
+                      type="button"
+                      draggable={false}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); majVue(m => ({ ...m, demis: { ...m.demis, [k]: !m.demis[k] } })); }}
+                      title={T.demiLigne}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 px-1.5 py-1 rounded-md text-[10px] font-black text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                    >
+                      {vue.demis[k] ? '½' : '1'}
+                    </button>
+                    {/* Le bord DROIT se tire quand le bloc partage sa ligne :
+                        deux blocs cote a cote ne meritent pas la meme place. */}
+                    {vue.demis[k] && (
+                      <div
+                        draggable={false}
+                        onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setRedimPart({ cle: k, x: e.clientX, depart: vue.parts[k] ?? 50, largeurLigne: e.currentTarget.parentElement?.parentElement?.getBoundingClientRect().width || 1 }); }}
+                        onDoubleClick={() => majVue(m => { const p = { ...m.parts }; delete p[k]; return { ...m, parts: p }; })}
+                        title={T.tirer}
+                        className="absolute top-2 bottom-2 -right-1.5 w-1.5 rounded-full cursor-col-resize bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent"
+                      />
+                    )}
+                    {/* Le bord du bas se tire : chaque bloc prend la hauteur
+                        qu'il merite. Double-clic, et il reprend la sienne. */}
+                    <div
+                      draggable={false}
+                      onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setRedimBloc({ cle: k, y: e.clientY, depart: e.currentTarget.parentElement?.getBoundingClientRect().height || 0 }); }}
+                      onDoubleClick={() => majVue(m => { const h = { ...m.hauteurs }; delete h[k]; return { ...m, hauteurs: h }; })}
+                      title={T.tirer}
+                      className="absolute left-2 right-2 -bottom-0.5 h-1.5 rounded-full cursor-row-resize bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent"
+                    />
+                  </>
+                )}
+                {blocsReglage[k]}
+              </div>
+            ) : null));
+
+  /* Portal sur <body> : un ancetre anime (transform Framer Motion) redefinit
+   * le repere des elements `fixed`, et l'ecran plein cadre se retrouvait
+   * decale sous l'entete, laissant depasser la barre d'outils de la page. */
+  return createPortal(
+    <div className="fixed inset-0 z-[120] flex flex-col bg-slate-900/40 pt-2 lg:bg-transparent lg:pt-0">
+      {/* Telephone : une feuille qui monte du bas, comme les fiches du reste
+          de l'application — coins arrondis et poignee. Sur grand ecran la
+          feuille occupe tout, et l'habillage disparait. */}
+      <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-slate-100 dark:bg-dk-bg rounded-t-3xl shadow-2xl lg:rounded-none lg:shadow-none">
+        <div className="lg:hidden shrink-0 flex justify-center pt-2.5 pb-1 bg-white dark:bg-dk-surface">
+          <span className="h-1.5 w-10 rounded-full bg-slate-300 dark:bg-dk-border" />
+        </div>
+      {/* Barre du haut : ce que la caisse fait, et comment en sortir. */}
+      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border shrink-0">
+        <Store className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />
+        <span className="font-extrabold text-slate-800 dark:text-dk-text text-sm sm:text-base truncate">{T.titre}</span>
+        <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+          <ScanLine className="w-4 h-4 animate-pulse" /> {T.scan}
+        </span>
+        {/* Le panier, en discret, tout en haut : savoir combien de pieces sont
+            engagees sans quitter le rayon des yeux. */}
+        {nbPieces > 0 && (
+          <button
+            onClick={() => setVoletMobile('panier')}
+            className="ml-1 sm:ml-2 px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 dark:text-dk-muted bg-slate-100/70 dark:bg-dk-elevated/60 shrink-0 lg:cursor-default"
+          >
+            {T.panier} · {nbPieces}
+          </button>
+        )}
+        <div className="flex-1 min-w-0" />
+        {/* La journee : le seul detour permis depuis le comptoir, parce que
+            c'est la ou l'on repare une vente qui vient de partir de travers. */}
+        <button
+          onClick={() => setJourneeOuverte(v => !v)}
+          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold transition-colors shrink-0 ${journeeOuverte
+            ? 'bg-slate-800 dark:bg-dk-accent text-white'
+            : 'text-slate-600 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
+        >
+          <Receipt className="w-4 h-4" />
+          <span className="hidden sm:inline">{T.journee}</span>
+        </button>
+        {/* Trois points : la mise en page du comptoir. Un poste n'est pas
+            l'autre, et le caissier range son ecran une fois pour toutes. */}
+        <button
+          onClick={async () => {
+            if (displayConnected) {
+              setDisplayMsg('Afficheur déjà connecté.');
+              setTimeout(() => setDisplayMsg(null), 2000);
+              return;
+            }
+            if (!isWebSerialSupported()) {
+              setDisplayMsg('Web Serial non supporté — utilisez Chrome/Edge.');
+              setTimeout(() => setDisplayMsg(null), 3000);
+              return;
+            }
+            const r = await connectDisplay();
+            setDisplayConnected(r.ok);
+            setDisplayMsg(r.msg);
+            setTimeout(() => setDisplayMsg(null), 3000);
+            if (r.ok) sendToCustomerDisplay(total, currency);
+          }}
+          title={displayConnected ? 'Afficheur client connecté' : 'Connecter afficheur client (USB)'}
+          className={`p-2 rounded-xl transition-colors shrink-0 ${displayConnected ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
+          aria-label="Afficheur client"
+        >
+          <span className="text-[10px] font-black">{displayConnected ? '◉' : '○'}</span>
+        </button>
+        <button
+          onClick={ouvrirReglages}
+          className={`p-2 rounded-xl transition-colors shrink-0 ${reglagesOuverts
+            ? 'bg-slate-800 dark:bg-dk-accent text-white'
+            : 'text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
+          aria-label={T.reglages}
+        >
+          <MoreVertical className="w-5 h-5" />
+        </button>
+        <button
+          onClick={onClose}
+          className="p-2 rounded-xl text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors shrink-0"
+          aria-label="Fermer"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      {displayMsg && (
+        <div className="px-3 sm:px-5 py-1.5 text-[11px] font-bold bg-slate-800 dark:bg-dk-accent text-white text-center shrink-0">
+          {displayMsg}
+        </div>
+      )}
+
+      {/* Les reglages tiennent sur une bande fine sous l'entete : tout sur
+          une ligne quand l'ecran le permet, et l'ecran de vente reste
+          visible dessous — c'est lui qu'on est en train de regler. */}
+      {reglagesOuverts && (
+        <div className="shrink-0 border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 sm:px-5 py-2 flex flex-wrap items-center gap-x-4 gap-y-2 max-h-[45vh] overflow-y-auto overscroll-contain">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{T.reglages}</span>
+            <button
+              onClick={() => setBrouillon(MISE_EN_PAGE_DEFAUT)}
+              className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:text-slate-800 dark:hover:text-dk-text"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> {T.defaut}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => majBrouillon(m => ({ ...m, panierAGauche: !m.panierAGauche }))}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors ${vue.panierAGauche
+                ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5" /> {T.panierAGauche}
+            </button>
+            <button
+              onClick={() => majBrouillon(m => ({ ...m, photos: !m.photos }))}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors ${vue.photos
+                ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+            >
+              {vue.photos ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} {T.photos}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.largeur}</span>
+            <div className="flex gap-1.5">
+              {PALIERS.map(([nom, pct]) => (
+                <button
+                  key={nom}
+                  onClick={() => majBrouillon(m => ({ ...m, largeurPanier: pct }))}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${Math.round(vue.largeurPanier) === pct
+                    ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                    : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+                >
+                  {nom === 'etroit' ? T.etroit : nom === 'moyen' ? T.moyen : T.large}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Ce que ce commerce pratique. Ce n'est pas de la mise en page :
+              c'est le tarif qui part avec la vente. */}
+          <div className="flex items-center gap-2" title={T.segmentsAide}>
+            <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.segments}</span>
+            <div className="flex gap-1.5">
+              {tousTypesVente.map(t => {
+                const actif = vue.segments.includes(t.v);
+                return (
+                  <button
+                    key={t.v}
+                    onClick={() => majBrouillon(m => {
+                      const suite = actif ? m.segments.filter(v => v !== t.v) : [...m.segments, t.v];
+                      // Jamais zero : une caisse sans segment n'a plus de tarif.
+                      return suite.length ? { ...m, segments: suite } : m;
+                    })}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${actif
+                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border line-through'}`}
+                  >
+                    {t.l}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2" title={T.champMasque}>
+            <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.champs}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                ['recherche', T.chercher],
+                ['rayon', T.rayonNom],
+                ['grille', T.grille],
+                ['lignes', T.panier],
+                ['typeVente', segmentsActifs.map(t => t.l).join(' / ')],
+                ['client', T.client],
+                ['facture', T.factureAuto],
+                ['paiement', T.reglement],
+                ['remise', T.remise],
+              ] as Array<[ChampCle, string]>).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => basculerChamp(k)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${vue.champs[k]
+                    ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                    : 'bg-slate-50 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border line-through'}`}
+                >
+                  {vue.champs[k] ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  <span className="truncate max-w-[160px]">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <span className="hidden xl:flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-dk-muted">
+            <GripVertical className="w-3.5 h-3.5" /> {T.glisser}
+          </span>
+
+          <div className="flex-1 min-w-0" />
+
+          {/* Rien n'est garde tant que ce n'est pas confirme : un ecran de
+              caisse deregle par megarde se retrouve tel quel le lendemain. */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setBrouillon(null)}
+              className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated"
+            >
+              {T.renoncer}
+            </button>
+            <button
+              onClick={() => { if (brouillon) setMep(brouillon); setBrouillon(null); }}
+              className="px-3 py-1.5 rounded-lg text-[11px] font-extrabold text-white bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent flex items-center gap-1.5"
+            >
+              <Check className="w-3.5 h-3.5" /> {T.enregistrer}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {flash && (
+        <div className={`px-3 sm:px-5 py-2 text-xs font-bold shrink-0 ${flash.ok
+          ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
+          : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400'}`}>
+          {flash.msg}
+        </div>
+      )}
+      {isStatic && (
+        <div className="px-3 sm:px-5 py-2 text-xs font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 flex items-center gap-2 shrink-0">
+          <AlertTriangle className="w-4 h-4 shrink-0" /> <span className="truncate">{T.statique}</span>
+        </div>
+      )}
+
+      {/* La journee de caisse. Elle REMPLACE l'ecran de vente au lieu de le
+          recouvrir a moitie : au comptoir, deux ecrans a moitie visibles font
+          scanner un article dans le vide. */}
+      {journeeOuverte && (
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2 px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shrink-0">
+            <input
+              type="date"
+              value={journalJour}
+              onChange={e => { setJournalJour(e.target.value); setTicketAConfirmer(null); }}
+              className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm font-bold text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+            />
+            {journalCharge && <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-dk-muted" />}
+            <div className="flex-1 min-w-0" />
+            <div className="flex items-center gap-3 sm:gap-5 text-right">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.tickets}</p>
+                <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">{journal?.totaux.tickets ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.pieces}</p>
+                <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">{journal?.totaux.pieces ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.encaisseJour}</p>
+                <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">{fmt(journal?.totaux.total ?? 0)} {currency}</p>
+              </div>
+            </div>
+          </div>
+
+          {isStatic && (
+            <div className="px-3 sm:px-5 py-2 text-xs font-bold bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 flex items-center gap-2 shrink-0">
+              <AlertTriangle className="w-4 h-4 shrink-0" /> <span className="truncate">{T.journeeStatique}</span>
+            </div>
+          )}
+          {journalErreur && (
+            <div className="px-3 sm:px-5 py-2 text-xs font-bold bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 shrink-0">
+              {journalErreur}
+            </div>
+          )}
+
+          {/* Le fond de caisse, mode par mode : c'est ce qu'on compare aux
+              billets qu'on a dans la main. */}
+          {journal && Object.keys(journal.parMode).length > 0 && (
+            <div className="flex flex-wrap gap-2 px-3 sm:px-5 py-3 shrink-0">
+              {Object.entries(journal.parMode).map(([mode, agg]) => (
+                <div key={mode} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border">
+                  <Banknote className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted">
+                      {modes.find(m => m.v === mode)?.l || T.modeAutre}
+                    </p>
+                    <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">
+                      {fmt(agg.total)} {currency}
+                      <span className="ml-1.5 text-[10px] font-bold text-slate-400 dark:text-dk-muted">({agg.tickets})</span>
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-5 pb-4 space-y-2">
+            {!journalCharge && (journal?.tickets.length ?? 0) === 0 && (
+              <p className="p-8 text-center text-xs text-slate-400 dark:text-dk-muted">{T.aucunTicket}</p>
+            )}
+            {journal?.tickets.map(t => (
+              <div key={t.ticket} className="rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border overflow-hidden">
+                <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b border-slate-100 dark:border-dk-border">
+                  <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-dk-muted">{t.ticket}</span>
+                  {t.clientNom && (
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-slate-700 dark:text-dk-text">
+                      <User className="w-3 h-3" />{t.clientNom}
+                    </span>
+                  )}
+                  <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-dk-elevated text-[10px] font-bold text-slate-600 dark:text-dk-muted">
+                    {modes.find(m => m.v === t.modePaiement)?.l || T.modeAutre}
+                  </span>
+                  {t.factureNumero && (
+                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-[10px] font-bold text-indigo-700 dark:text-indigo-400">
+                      {t.factureNumero}
+                    </span>
+                  )}
+                  <div className="flex-1 min-w-0" />
+                  <span className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">{fmt(t.total)} {currency}</span>
+                  {ticketAConfirmer === t.ticket ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => void annulerTicket(t.ticket)}
+                        disabled={annulEnCours === t.ticket}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold hover:bg-rose-700 disabled:opacity-60 transition-colors"
+                      >
+                        {annulEnCours === t.ticket
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <RotateCcw className="w-3.5 h-3.5" />}
+                        {T.confirmerAnnul}
+                      </button>
+                      <button
+                        onClick={() => setTicketAConfirmer(null)}
+                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
+                      >
+                        {T.renoncer}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setTicketAConfirmer(t.ticket)}
+                      disabled={isStatic}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 disabled:opacity-40 transition-colors"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{T.annuler}</span>
+                    </button>
+                  )}
+                </div>
+                <div className="divide-y divide-slate-50 dark:divide-dk-border/50">
+                  {t.lignes.map(l => (
+                    <div key={l.id} className="flex items-center gap-2 px-3 py-1.5 text-[11px]">
+                      <span className="font-bold text-slate-700 dark:text-dk-text truncate">{l.modelNom}</span>
+                      <span className="text-slate-400 dark:text-dk-muted truncate">
+                        {[l.couleur, l.taille].filter(Boolean).join(' / ') || '—'}
+                      </span>
+                      <div className="flex-1 min-w-0" />
+                      <span className="text-slate-500 dark:text-dk-muted tabular-nums">{l.quantite} x {fmt(l.prixUnitaire)}</span>
+                      <span className="font-bold text-slate-700 dark:text-dk-text tabular-nums w-20 text-right">
+                        {fmt(l.quantite * l.prixUnitaire)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!journeeOuverte && (
+        <div className="lg:hidden shrink-0 flex gap-1 px-3 pb-2 pt-1 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border">
+          {([
+            { v: 'rayon' as const, l: T.auRayon },
+            { v: 'panier' as const, l: `${T.panier} · ${nbPieces}` },
+          ]).map(o => (
+            <button
+              key={o.v}
+              onClick={() => setVoletMobile(o.v)}
+              className={`flex-1 py-2 rounded-xl text-xs font-extrabold transition-colors ${voletMobile === o.v
+                ? 'bg-slate-900 dark:bg-dk-accent text-white'
+                : 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted'}`}
+            >
+              {o.l}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div ref={conteneurRef} className={`flex-1 min-h-0 flex-col overflow-hidden overscroll-contain ${vue.panierAGauche ? 'lg:flex-row-reverse' : 'lg:flex-row'} ${journeeOuverte ? 'hidden' : 'flex'}`}>
+        {/* Gauche : le rayon. Ses outils sont les memes objets deplacables
+            que ceux du panier — un bloc passe d'une colonne a l'autre. */}
+        <div
+          onDragOver={e => { if (reglagesOuverts && blocTire) e.preventDefault(); }}
+          onDrop={e => { e.preventDefault(); if (blocTire) { poserColonne(blocTire, 'g'); setBlocTire(null); setSurvol(null); } }}
+          className={`flex-col flex-1 min-h-0 content-start p-3 sm:p-4 gap-2.5 sm:gap-3 overflow-y-auto overscroll-contain bg-slate-50/50 dark:bg-transparent lg:flex lg:flex-wrap lg:flex-row ${voletMobile === 'rayon' ? 'flex flex-wrap flex-row' : 'hidden'}`}
+        >
+          {blocsRanges('g')}
+        </div>
+
+        {/* La separation ne se tire qu'en mode mise en page. Hors reglage,
+            elle redevient un simple trait : au comptoir, une poignee sous la
+            main est une largeur qui bouge par accident. */}
+        <div
+          onMouseDown={() => { if (reglagesOuverts) setRedim('panier'); }}
+          onDoubleClick={() => { if (reglagesOuverts) majVue(m => ({ ...m, largeurPanier: MISE_EN_PAGE_DEFAUT.largeurPanier })); }}
+          title={reglagesOuverts ? T.tirer : undefined}
+          className={`hidden lg:block shrink-0 transition-colors ${reglagesOuverts
+            ? `w-2 cursor-col-resize ${redim === 'panier' ? 'bg-slate-400 dark:bg-dk-accent' : 'bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent'}`
+            : 'w-px bg-slate-200 dark:bg-dk-border'} ${journeeOuverte ? 'hidden' : ''}`}
+        />
+
+        {/* Droite : le panier et l'encaissement. */}
+        <div
+          style={estLarge ? { width: `${vue.largeurPanier}%` } : undefined}
+          className={`flex-col flex-1 min-h-0 bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border overflow-hidden lg:flex lg:flex-none ${voletMobile === 'panier' ? 'flex' : 'hidden'}`}
+        >
+          <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-dk-border shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              {/* Telephone : revenir au rayon sans quitter la vente. */}
+              <span className="text-xs font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted shrink-0">
+                {T.panier} · {nbPieces}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {lignes.length > 0 && (
+                <button onClick={reset} className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline px-2 py-1">
+                  {T.videz}
+                </button>
+              )}
+            </div>
+          </div>
+          <div
+            onDragOver={e => { if (reglagesOuverts && blocTire) e.preventDefault(); }}
+            onDrop={e => { e.preventDefault(); if (blocTire) { poserColonne(blocTire, 'd'); setBlocTire(null); setSurvol(null); } }}
+            className="flex-1 min-h-0 content-start p-3 sm:p-4 flex flex-wrap gap-2.5 sm:gap-3 bg-white dark:bg-dk-surface overflow-y-auto overscroll-contain"
+          >
+            {/* Les reglages de la vente, dans l'ordre voulu par ce poste.
+                En mode mise en page, chaque bloc se prend a la souris et se
+                depose ailleurs : le caissier range son ecran comme il range
+                son comptoir. */}
+            {blocsRanges('d')}
+
+            {erreur && (
+              <p className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-px" /> <span>{erreur}</span>
+              </p>
+            )}
+          </div>
+
+          {/* La barre du bas ne bouge jamais. Sur un telephone l'ecran defile,
+              et le geste qui conclut la vente doit rester sous le pouce : un
+              bouton qu'il faut aller chercher fait rescanner l'article
+              « pour voir », et le stock finit par mentir. */}
+          <div className="sticky bottom-0 z-10 shrink-0 flex items-center gap-3 px-3 sm:px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-white dark:bg-dk-surface border-t border-slate-200 dark:border-dk-border">
+            <div className="min-w-0 flex-1">
+              <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.total}</span>
+              <span className="flex items-center gap-2 text-xl sm:text-2xl font-black text-slate-900 dark:text-dk-text leading-none truncate">
+                {fmt(total)} <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{currency}</span>
+                {total > 0 && (
+                  <button
+                    onClick={async () => {
+                      try { await navigator.clipboard.writeText(total.toFixed(2)); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
+                      sendToCustomerDisplay(total, currency);
+                    }}
+                    title="Copier le montant pour le TPE"
+                    className={`p-1.5 rounded-lg border transition-colors ${copied ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                )}
+              </span>
+              {total > 0 && ['CARTE', 'CHEQUE', 'VIREMENT'].includes(paiement) && (
+                <span className="block text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">→ Saisir {total.toFixed(2)} sur le TPE</span>
+              )}
+            </div>
+            <button
+              disabled={lignes.length === 0 || saving || isStatic}
+              onClick={valider}
+              className={`flex-1 py-3.5 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 transition-all ${
+                lignes.length === 0 || saving || isStatic
+                  ? 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'
+                  : 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent dark:hover:bg-dk-accent/90 text-white active:scale-[0.99]'
+              }`}
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              {T.encaisser}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Telephone : depuis le rayon, le panier reste a un pouce. Le total y
+          est deja lisible, pour ne pas avoir a changer de volet juste pour
+          verifier ce qu'on est en train de facturer. */}
+      {!journeeOuverte && voletMobile === 'rayon' && (
+        <div className="lg:hidden shrink-0 flex items-center gap-3 px-3 py-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-white dark:bg-dk-surface border-t border-slate-200 dark:border-dk-border">
+          <div className="min-w-0">
+            <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.total}</span>
+            <span className="block text-lg font-black text-slate-900 dark:text-dk-text leading-none truncate">
+              {fmt(total)} <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{currency}</span>
+            </span>
+          </div>
+          <button
+            onClick={() => setVoletMobile('panier')}
+            className="flex-1 py-3 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white active:scale-[0.99] transition-all"
+          >
+            {T.voirPanier} · {nbPieces}
+          </button>
+        </div>
+      )}
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
+export default Caisse;

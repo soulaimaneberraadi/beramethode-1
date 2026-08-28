@@ -1,5 +1,4 @@
 import React, { useRef, useState, useEffect, useLayoutEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import {
     ImageIcon,
     Upload,
@@ -27,6 +26,7 @@ import {
 import { FicheData, AppSettings, PlanningEvent, PlanningStatus } from '../types';
 import { TEXTILE_FABRICS } from '../data/textileData';
 import ExcelInput from './ExcelInput';
+import SheetModal from './shared/SheetModal';
 import RepartitionMatrix from './RepartitionMatrix';
 import { compressImage, uploadImageToStorage } from '../utils';
 import DateTimePicker from './ui/DateTimePicker';
@@ -316,19 +316,10 @@ export default function FicheTechnique({
     const [isProcessingImg, setIsProcessingImg] = useState<string | null>(null);
     const [previewImage, setPreviewImage] = useState<{ src: string; title: string } | null>(null);
 
-    useEffect(() => {
-        if (!previewImage) return;
-        const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setPreviewImage(null);
-        };
-        const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-        window.addEventListener('keydown', onKeyDown);
-        return () => {
-            document.body.style.overflow = previousOverflow;
-            window.removeEventListener('keydown', onKeyDown);
-        };
-    }, [previewImage]);
+    /* POURQUOI plus d'effet local ici : Échap et le verrou de défilement sont
+       désormais assurés par la coque commune (SheetModal), avec un compteur de
+       verrous. Restaurer `overflow` ici en plus aurait rendu le défilement au
+       fond alors qu'une autre fenêtre pouvait rester ouverte. */
 
     // Sync calculated Unit Cost back to data
     useEffect(() => {
@@ -1006,41 +997,29 @@ export default function FicheTechnique({
             </div>
 
             {/* IMAGE PREVIEW MODAL */}
-            {previewImage && createPortal(
-                <div
-                    className="fixed inset-0 z-[9998] flex items-center justify-center bg-slate-950/60 dark:bg-dk-bg/80 p-3 animate-in fade-in duration-200 sm:p-6"
-                    onClick={() => setPreviewImage(null)}
-                >
-                    <div
-                        className="relative flex w-full max-w-5xl max-h-[92vh] flex-col overflow-hidden rounded-2xl border border-slate-200/80 dark:border-dk-border/80 bg-white dark:bg-dk-surface shadow-[0_20px_80px_rgba(15,23,42,0.45)] dark:shadow-[0_20px_80px_rgba(0,0,0,0.6)] font-sans"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-dk-border bg-gradient-to-r from-slate-50 dark:from-dk-elevated/60 via-white dark:via-dk-surface to-slate-50 dark:to-dk-elevated/60 px-4 py-3 sm:px-5">
-                            <div className="min-w-0">
-                                <h3 className="truncate text-base font-black tracking-wide text-slate-800 dark:text-dk-text sm:text-lg">{previewImage.title}</h3>
-                                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang, {fr: "Aperçu haute résolution",ar: "معاينة بدقة عالية",en: "High resolution preview",es: "Vista previa en alta resolución",pt: "Visualização em alta résolution",tr: "Yüksek çözünürlüklü önizleme"})}</p>
-                            </div>
-                            <button
-                                onClick={() => setPreviewImage(null)}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-dk-text-soft shadow-sm dark:shadow-dk-sm transition hover:border-slate-300 dark:hover:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:text-slate-900 dark:hover:text-dk-text"
-                            >
-                                <X className="h-4 w-4" />
-                                {tx(lang, { fr: 'Fermer', ar: 'إغلاق', en: 'Close', es: 'Cerrar', pt: 'Fechar', tr: 'Kapat' })}
-                            </button>
-                        </div>
-                        <div className="relative flex-1 overflow-auto bg-[radial-gradient(circle_at_top,_#f8fafc_0%,_#e2e8f0_100%)] dark:bg-[radial-gradient(circle_at_top,_#1c2830_0%,_#151f24_100%)] p-3 sm:p-5">
-                            <div className="mx-auto flex min-h-full max-w-[92%] items-center justify-center rounded-2xl border border-white/80 dark:border-dk-border/50 bg-white/60 dark:bg-dk-surface/60 p-2 shadow-inner sm:p-4">
-                                <img src={previewImage.src} alt="Full Preview" className="max-h-[74vh] w-auto max-w-full rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface object-contain shadow-xl dark:shadow-dk-elevated" />
-                            </div>
-                        </div>
-                        <div className="border-t border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-4 py-2 text-center text-[11px] font-medium text-slate-500 dark:text-dk-muted sm:px-5">
+            {previewImage && (
+                /* Aperçu d'image : simple consultation, donc le fond ferme et
+                   Échap aussi. Pas de bouton plein écran — l'image occupe déjà
+                   toute la feuille et n'a pas de contenu dense à déplier. */
+                <SheetModal
+                    onClose={() => setPreviewImage(null)}
+                    title={previewImage.title}
+                    subtitle={tx(lang, {fr: "Aperçu haute résolution",ar: "معاينة بدقة عالية",en: "High resolution preview",es: "Vista previa en alta resolución",pt: "Pré-visualização em alta resolução",tr: "Yüksek çözünürlüklü önizleme"})}
+                    size="xl"
+                    zClass="z-[9998]"
+                    bodyClassName="flex-1 overflow-auto min-h-0 bg-[radial-gradient(circle_at_top,_#f8fafc_0%,_#e2e8f0_100%)] dark:bg-[radial-gradient(circle_at_top,_#1c2830_0%,_#151f24_100%)] p-3 sm:p-5"
+                    footer={
+                        <span className="w-full text-center text-[11px] font-medium text-slate-500 dark:text-dk-muted">
                             {tx(lang, {fr: "Cliquer en dehors ou appuyer sur ",ar: "انقر بالخارج أو اضغط على ",en: "Click outside or press ",es: "Haga clic fuera o presione ",pt: "Clique fora ou prima ",tr: "Dışarıya tıklayın veya "})}
                             <span className="font-bold text-slate-700 dark:text-dk-text">Esc</span>
                             {tx(lang, {fr: " pour fermer",ar: " للإغلاق",en: " to close",es: " para cerrar",pt: " para fechar",tr: " tuşuna basarak kapatın"})}
-                        </div>
+                        </span>
+                    }
+                >
+                    <div className="mx-auto flex min-h-full w-full max-w-full items-center justify-center rounded-2xl border border-white/80 dark:border-dk-border/50 bg-white/60 dark:bg-dk-surface/60 p-2 shadow-inner sm:max-w-[92%] sm:p-4">
+                        <img src={previewImage.src} alt="Full Preview" className="max-h-[70vh] w-auto max-w-full rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface object-contain shadow-xl dark:shadow-dk-elevated" />
                     </div>
-                </div>,
-                document.body
+                </SheetModal>
             )}
         </div>
     );

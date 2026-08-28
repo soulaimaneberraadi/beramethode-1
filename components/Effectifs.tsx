@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import SheetModal from './shared/SheetModal';
 import { Users, ChevronDown, UserCog, Factory, Plus, Trash2, Check, X, Settings2, LayoutGrid, Globe, EyeOff, Eye, ChevronLeft, ChevronRight, Calculator, TrendingUp, TrendingDown, Activity, CalendarDays, MessageSquare, Sparkles, FileDown } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { lsGet, lsSet } from '../lib/storageKeys';
@@ -64,9 +65,26 @@ const ConfirmModal = ({ isOpen, title, message, type = 'danger', onConfirm, onCa
   const colors = getColors();
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl dark:shadow-dk-elevated w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="p-6">
+    /* Confirmation : message court, donc ni en-tete separe ni agrandissement.
+       Le titre et le texte restent dans le corps, comme avant. */
+    <SheetModal
+      onClose={onCancel}
+      zClass="z-[100]"
+      size="md"
+      bodyClassName="flex-1 overflow-y-auto min-h-0 p-6"
+      footer={
+        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3">
+          {!hideCancel && (
+            <button onClick={onCancel} className="px-4 py-2.5 sm:py-2 font-bold text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
+              {cancelText}
+            </button>
+          )}
+          <button onClick={() => { onConfirm(); onCancel(); }} className={`px-4 py-2.5 sm:py-2 font-bold text-white rounded-xl transition-colors ${colors.btn}`}>
+            {confirmText}
+          </button>
+        </div>
+      }
+    >
           <div className="flex items-start gap-4">
             <div className={`p-3 rounded-full ${colors.icon} shrink-0`}>
               {type === 'success' ? <Check className="w-6 h-6" /> : type === 'danger' ? <Trash2 className="w-6 h-6" /> : <Settings2 className="w-6 h-6" />}
@@ -76,19 +94,7 @@ const ConfirmModal = ({ isOpen, title, message, type = 'danger', onConfirm, onCa
               <p className="text-slate-600 dark:text-dk-text-soft text-sm leading-relaxed">{message}</p>
             </div>
           </div>
-        </div>
-        <div className="bg-slate-50 dark:bg-dk-bg px-6 py-4 flex justify-end gap-3 border-t border-slate-100 dark:border-dk-border">
-          {!hideCancel && (
-            <button onClick={onCancel} className="px-4 py-2 font-bold text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors">
-              {cancelText}
-            </button>
-          )}
-          <button onClick={() => { onConfirm(); onCancel(); }} className={`px-4 py-2 font-bold text-white rounded-xl transition-colors ${colors.btn}`}>
-            {confirmText}
-          </button>
-        </div>
-      </div>
-    </div>
+    </SheetModal>
   );
 };
 
@@ -932,9 +938,37 @@ export default function Effectifs({
   return (
     <div className="flex-1 min-h-0 w-full overflow-y-auto bg-gradient-to-b from-slate-50 via-[#fafafa] to-slate-100 dark:from-dk-bg dark:via-dk-bg dark:to-dk-bg">
       {obsCommentOpen && obsCommentAnchor && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-xl dark:shadow-dk-elevated w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-dk-border">
-            <div className="p-6">
+        /* Observation libre : c'est de la saisie, donc le fond ne referme pas
+           la fenetre — un commentaire tape et perdu se retape en entier. */
+        <SheetModal
+          onClose={() => { setObsCommentOpen(false); setObsCommentAnchor(null); setObsCommentText(''); }}
+          zClass="z-[110]"
+          size="md"
+          closeOnBackdrop={false}
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-6"
+          footer={
+            <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:justify-end sm:gap-3">
+              <button
+                type="button"
+                onClick={() => { setObsCommentOpen(false); setObsCommentAnchor(null); setObsCommentText(''); }}
+                className="px-4 py-2.5 sm:py-2 font-bold text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors"
+              >
+                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+              </button>
+              <button
+                type="button"
+                onClick={saveObservationComment}
+                disabled={
+                  !obsCommentText.trim() ||
+                  obsCommentText.trim() === defaultObservationTextForAnchor(obsCommentAnchor).trim()
+                }
+                className="px-4 py-2.5 sm:py-2 font-bold text-white rounded-xl transition-colors bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:pointer-events-none"
+              >
+                {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
+              </button>
+            </div>
+          }
+        >
               <div className="flex items-start gap-3 mb-4">
                 <div className="p-2.5 rounded-xl bg-violet-100 text-violet-600 shrink-0">
                   <MessageSquare className="w-5 h-5" />
@@ -986,29 +1020,7 @@ export default function Effectifs({
                 placeholder={tx(lang,{fr:'Complétez ou remplacez le texte proposé (obligatoire : ajouter du détail après les « : »).',ar:'أكمل أو استبدل النص المقترح (إجباري: أضف تفصيلاً بعد ":").',en:'Complete or replace the proposed text (mandatory: add detail after the ":").',es:'Complete o reemplace el texto propuesto (obligatorio: añadir detalle después de los ":").',pt:'Complete ou substitua o texto proposto (obrigatório: adicionar detalhe após os ":").',tr:'Önerilen metni tamamlayın veya değiştirin (zorunlu: ":"\'dan sonra detay ekleyin).'})}
                 className="w-full rounded-xl border border-slate-200 dark:border-dk-border px-3 py-2.5 text-sm font-medium text-slate-800 dark:text-dk-text placeholder:text-slate-400 focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 outline-none resize-y min-h-[100px]"
               />
-            </div>
-            <div className="bg-slate-50 dark:bg-dk-bg px-6 py-4 flex justify-end gap-3 border-t border-slate-100 dark:border-dk-border">
-              <button
-                type="button"
-                onClick={() => { setObsCommentOpen(false); setObsCommentAnchor(null); setObsCommentText(''); }}
-                className="px-4 py-2 font-bold text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors"
-              >
-                {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
-               </button>
-               <button
-                 type="button"
-                 onClick={saveObservationComment}
-                 disabled={
-                   !obsCommentText.trim() ||
-                   obsCommentText.trim() === defaultObservationTextForAnchor(obsCommentAnchor).trim()
-                 }
-                 className="px-4 py-2 font-bold text-white rounded-xl transition-colors bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:pointer-events-none"
-               >
-                 {tx(lang,{fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}
-              </button>
-            </div>
-          </div>
-        </div>
+        </SheetModal>
       )}
       <ConfirmModal
         isOpen={confirmDialog.isOpen}

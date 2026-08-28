@@ -5,6 +5,7 @@ import { Material, FicheData } from '../types';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 import { fmt } from '../app/constants';
+import SheetModal from './shared/SheetModal';
 
 interface MaterialsListProps {
     t: any;
@@ -160,17 +161,27 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
         <>
             {/* QUICK ADD MODAL */}
             {showQuickAddModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm w-full max-w-md p-5 animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-semibold text-slate-800 dark:text-dk-text text-base flex items-center gap-2">
-                                <Plus className="w-4 h-4 text-slate-400 dark:text-dk-muted" /> {tx(lang, {fr:'Ajouter au Magasin',ar:'إضافة إلى المخزن',en:'Add to Store',es:'Añadir al Almacén',pt:'Adicionar ao Armazém',tr:'Depoya Ekle'})}
-                            </h3>
-                            <button onClick={() => setShowQuickAddModal(false)} className="p-1.5 text-slate-400 dark:text-dk-muted hover:bg-slate-100 rounded-full transition-colors">
-                                <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                /* Formulaire de création : `closeOnBackdrop={false}` — perdre une
+                   fiche produit à moitié saisie sur un clic à côté serait cruel.
+                   Pas de plein écran : sept champs n'ont rien à y gagner. */
+                <SheetModal
+                    onClose={() => setShowQuickAddModal(false)}
+                    title={tx(lang, {fr:'Ajouter au Magasin',ar:'إضافة إلى المخزن',en:'Add to Store',es:'Añadir al Almacén',pt:'Adicionar ao Armazém',tr:'Depoya Ekle'})}
+                    icon={<Plus className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />}
+                    size="md"
+                    zClass="z-[200]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+                    footer={(
+                        /* Grille sur téléphone : en repli libre, Annuler et
+                           Enregistrer retombaient de largeurs inégales. */
+                        <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
+                            <button onClick={() => setShowQuickAddModal(false)} className="px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-lg transition-colors">{tx(lang, {fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
+                            <button onClick={handleQuickAdd} className="px-5 py-1.5 bg-slate-900 dark:bg-dk-elevated text-white dark:text-dk-text text-xs font-medium rounded-md hover:bg-slate-800 dark:hover:bg-dk-border transition-colors">{tx(lang, {fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</button>
                         </div>
-                        <div className="space-y-3 max-h-[60vh] overflow-y-auto p-1">
+                    )}
+                >
+                        <div className="space-y-3">
                             <div className="flex flex-col items-center justify-center mb-3">
                                 <label className="block text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase mb-1.5 w-full">{tx(lang, {fr:'Photo du produit',ar:'صورة المنتج',en:'Product photo',es:'Foto del producto',pt:'Foto do produto',tr:'Ürün fotoğrafı'})}</label>
                                 <div className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 dark:bg-dk-bg flex items-center justify-center overflow-hidden relative cursor-pointer hover:bg-slate-100 transition-colors">
@@ -222,12 +233,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                                 <input type="number" min="0" value={quickAddForm.fournisseurDelaiLivraisonJours || ''} onChange={(e) => setQuickAddForm({ ...quickAddForm, fournisseurDelaiLivraisonJours: Number(e.target.value) })} className={inputCls} placeholder={tx(lang, {fr:"Ex: 14",ar:"مثال: 14",en:"E.g.: 14",es:"Ej: 14",pt:"Ex: 14",tr:"Örn: 14"})} />
                             </div>
                         </div>
-                        <div className="mt-4 pt-3 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2">
-                            <button onClick={() => setShowQuickAddModal(false)} className="px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 rounded-lg transition-colors">{tx(lang, {fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}</button>
-                            <button onClick={handleQuickAdd} className="px-5 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-md hover:bg-slate-800 transition-colors">{tx(lang, {fr:'Enregistrer',ar:'حفظ',en:'Save',es:'Guardar',pt:'Guardar',tr:'Kaydet'})}</button>
-                        </div>
-                    </div>
-                </div>
+                </SheetModal>
             )}
 
             <div className="rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface overflow-visible">

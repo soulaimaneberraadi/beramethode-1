@@ -5,6 +5,7 @@ import { pageLabel, fieldLabel, FIELDS_BY_MODULE } from '../app/permissionCatalo
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
 import { tx } from '../lib/i18n';
+import SheetModal from './shared/SheetModal';
 
 /**
  * Gestionnaire de permissions — arbre type « Device Manager ».
@@ -614,19 +615,25 @@ export default function PermissionsManager() {
 
       {/* Confirmation */}
       {confirm && (
-        <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setConfirm(null)}>
-          <div className={`rounded-lg border shadow-lg dark:shadow-dk-lg p-5 max-w-sm w-full ${isDark ? 'bg-dk-surface border-dk-border' : 'bg-white border-slate-200'}`} onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-2">
-              <h4 className={`text-[13px] font-semibold ${isDark ? 'text-dk-text' : 'text-slate-900'}`}>{tx(lang, { fr: 'Confirmation', ar: 'تأكيد', en: 'Confirmation', es: 'Confirmación', pt: 'Confirmação', tr: 'Onay' })}</h4>
-              <button onClick={() => setConfirm(null)} className={`${isDark ? 'text-dk-muted hover:text-dk-text' : 'text-slate-400 hover:text-slate-600'}`}><X size={16} strokeWidth={1.75} /></button>
+        /* Confirmation courte : pas de plein écran, et le fond ne ferme pas —
+           une permission accordée ou retirée par mégarde ne se voit pas. */
+        <SheetModal
+          onClose={() => setConfirm(null)}
+          title={tx(lang, { fr: 'Confirmation', ar: 'تأكيد', en: 'Confirmation', es: 'Confirmación', pt: 'Confirmação', tr: 'Onay' })}
+          icon={<Shield className="w-4 h-4 text-slate-500 dark:text-dk-muted shrink-0" />}
+          size="sm"
+          zClass="z-50"
+          closeOnBackdrop={false}
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+          footer={
+            <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:gap-3 sm:justify-end">
+              <button onClick={() => setConfirm(null)} className="h-9 px-3 rounded-md border text-[13px] font-medium flex items-center justify-center sm:justify-start border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-bg">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+              <button onClick={() => confirm()} className="h-9 px-3 rounded-md text-white text-[13px] font-medium flex items-center justify-center sm:justify-start" style={{ background: ACCENT }}>{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
             </div>
-            <p className={`text-[13px] mb-4 ${isDark ? 'text-dk-muted' : 'text-slate-500'}`}>{confirmText}</p>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirm(null)} className={`h-8 px-3 rounded-md border text-[13px] font-medium ${isDark ? 'border-dk-border text-dk-muted hover:bg-dk-bg' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
-              <button onClick={() => confirm()} className="h-8 px-3 rounded-md text-white text-[13px] font-medium" style={{ background: ACCENT }}>{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
-            </div>
-          </div>
-        </div>
+          }
+        >
+          <p className="text-[13px] text-slate-500 dark:text-dk-muted">{confirmText}</p>
+        </SheetModal>
       )}
     </div>
   );

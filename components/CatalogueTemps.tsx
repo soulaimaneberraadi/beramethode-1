@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useIsMobile } from './planning/shared/useIsMobile';
+import SheetModal from './shared/SheetModal';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 import type { ModelData, AppSettings, ChronoData, Operation } from '../types';
@@ -882,25 +883,30 @@ function DetailPanel({ entry, fmt, unitSuffix, reliability, onClose, onOpenWorke
         </div>
     );
 
-    // ── Mobile : bottom-sheet (même style que la modale "Nouvel ordre") ──
+    // ── Mobile : feuille montante, désormais posée sur la coque commune ──
+    // POURQUOI : la feuille écrite ici à la main n'avait qu'une poignée
+    // décorative — le doigt la saisissait sans que rien ne bouge. La coque
+    // donne une poignée réellement glissable, Échap, et un verrou de
+    // défilement compté (une autre fenêtre peut rester ouverte derrière).
+    // Consultation seule : aucune saisie, donc le fond peut fermer.
+    // Pas de bouton plein écran : c'est une fiche de lecture, pas un tableau.
     if (isMobile) {
-        return createPortal(
-            <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/30 backdrop-blur-[3px] animate-[catSheetFade_140ms_ease-out]" onClick={onClose}>
-                <style>{`@keyframes catSheetFade{from{opacity:0}to{opacity:1}}@keyframes catSheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
-                <div className="relative w-full max-h-[88vh] bg-white dark:bg-dk-surface rounded-t-2xl shadow-[0_-12px_40px_rgba(15,23,42,0.18)] ring-1 ring-slate-200/60 dark:ring-dk-border/60 overflow-hidden flex flex-col animate-[catSheetUp_200ms_cubic-bezier(0.22,1,0.36,1)]" onClick={(e) => e.stopPropagation()}>
-                    <div className="pt-2 pb-1 flex items-center justify-center shrink-0">
-                        <span className="w-10 h-1 rounded-full bg-slate-300" />
-                    </div>
-                    <header className="px-4 pt-1 pb-3 flex items-start justify-between gap-3 shrink-0 border-b border-slate-100 dark:border-dk-border">
-                        {titleBlock}
-                        <button type="button" onClick={onClose} className="shrink-0 p-1.5 rounded-md text-slate-400 dark:text-dk-muted dark:text-dk-text-muted hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-dk-hover transition-colors" aria-label={tx(lang, { fr: "Fermer", ar: "إغلاق", en: "Close", es: "Cerrar", pt: "Fechar", tr: "Kapat" })}>
-                            <X className="w-4 h-4" />
-                        </button>
-                    </header>
-                    <div className="overflow-y-auto flex-1 min-h-0">{body}</div>
-                </div>
-            </div>,
-            document.body
+        return (
+            <SheetModal
+                onClose={onClose}
+                title={entry.description}
+                subtitle={
+                    <span className="inline-flex items-center gap-1.5">
+                        <Tag icon={Cpu}>{entry.machine}</Tag>
+                        {entry.section && <Tag>{sectionLabelFor(lang, entry.section)}</Tag>}
+                    </span>
+                }
+                size="lg"
+                zClass="z-[60]"
+                bodyClassName="flex-1 overflow-y-auto min-h-0"
+            >
+                {body}
+            </SheetModal>
         );
     }
 

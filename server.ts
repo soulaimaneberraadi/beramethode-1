@@ -80,8 +80,17 @@ import {
   updateSubcontractExpense,
   deleteSubcontractExpense,
 } from './server/subcontractController';
-import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch } from './server/clientsController';
+import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice, createCommandeNormale } from './server/clientsController';
+import { getCaisseJournal, annulerTicketCaisse } from './server/caisseController';
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
+import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat, checkStockIntegrity, repairStockIntegrity } from './server/achatsController';
+import { sendZpl } from './server/printBridge';
+import {
+  getStoreConfig, saveStoreConfig, deleteStoreConfig, testStoreConnection,
+  getStoreMapping, generateStoreMapping, saveStoreMapping, publishStoreModel,
+  queueStoreSync, getStoreOutbox, retryStoreOutbox, getStoreStatus,
+} from './server/storeSyncController';
+import { startStoreSyncWorker } from './server/storeSyncWorker';
 import { getSuiviData, saveSuiviData } from './server/suiviController';
 import { getPosteSuivi, savePosteSuivi } from './server/posteSuiviController';
 import { getDemandesAppro, saveDemandesAppro } from './server/demandesApproController';
@@ -157,6 +166,13 @@ async function startServer() {
 
   app.disable('x-powered-by');
 
+  // Derrière un reverse proxy (Vercel, Nginx, Cloudflare…), sans ceci req.ip vaut
+  // l'IP du proxy : tous les utilisateurs partagent alors le même compteur de
+  // rate-limit et reçoivent un 429 en même temps. On fait confiance au 1er hop.
+  if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
+
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
@@ -206,7 +222,7 @@ async function startServer() {
   }
 
   // Rate limiting is ON by default — only disabled in explicit development mode
-  const isDev = process.env.NODE_ENV === 'development';
+  const isDev = process.env.NODE_ENV !== 'production';
   const isLoopbackRequest = (req: express.Request): boolean => {
     const ip = req.ip || req.socket.remoteAddress || '';
     const host = (req.hostname || req.headers.host || '').split(':')[0];
@@ -223,7 +239,7 @@ async function startServer() {
     // Skip the SSE stream (one long-lived connection per dashboard tab —
     // counting it against the request budget would penalize live users)
     // and skip entirely in dev.
-    skip: (req) => isDev || req.path === '/api/dashboard/kpis/stream',
+    skip: (req) => isDev || isLoopbackRequest(req) || req.path === '/api/dashboard/kpis/stream',
     handler: (_req, res) => {
       res.status(429).json({ message: 'Trop de requêtes. Réessayez dans 15 minutes.' });
     },
@@ -665,13 +681,39 @@ async function startServer() {
   // Sorties de stock fini (ventes clients), detaillees par couleur x taille.
   app.get('/api/subcontract/stock-sorties', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStockSorties);
   app.post('/api/subcontract/stock-sorties', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createStockSortie);
+  // Commande « normale » : plusieurs modèles sur une seule commande de vente.
+  app.post('/api/subcontract/commandes', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createCommandeNormale);
   app.delete('/api/subcontract/stock-sorties/batch/:batchId', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteStockSortieBatch);
+  // Journee de caisse : les tickets du comptoir, et leur annulation. Declarees
+  // avant /api/subcontract/:id pour la meme raison que « stock-entries ».
+  app.get('/api/subcontract/caisse/journal', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getCaisseJournal);
+  app.delete('/api/subcontract/caisse/ticket/:ticket', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), annulerTicketCaisse);
+  // Facture de VENTE construite à partir de sorties déjà réalisées — c'est ce
+  // qui relie enfin « ce qui est sorti » à « ce qui est payé ».
+  app.post('/api/subcontract/clients/facturer', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createClientInvoice);
+  app.post('/api/subcontract/clients/facturer/:id/annuler', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), cancelClientInvoice);
   app.put('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), updateSubcontractOrder);
   app.delete('/api/subcontract/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('subcontract_orders', 'owner_id'), deleteSubcontractOrder);
   // ⚠️ doit être déclarée avant toute route paramétrée /api/subcontract/:id
   app.get('/api/subcontract/next-invoice-number', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getNextSubcontractInvoiceNumber);
   // Clients de l'atelier — rattachés à la page Sous-traitance, qui porte les
   // sorties de stock et les factures de vente.
+  // Marchandise achetee pour revente : articles (la fiche legere) et achats
+  // (le fournisseur, la date, le prix paye). Declarees AVANT /api/subcontract/:id
+  // sinon « articles » et « achats » seraient pris pour des identifiants.
+  // Pont vers une imprimante thermique reseau (ZPL/EPL, port 9100) : le
+  // navigateur ne peut pas ouvrir de socket TCP, ce relais le fait a sa place.
+  app.post('/api/print/zpl', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), sendZpl);
+  app.get('/api/subcontract/articles', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getArticles);
+  app.post('/api/subcontract/articles', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveArticle);
+  app.delete('/api/subcontract/articles/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_articles', 'owner_id'), deleteArticle);
+  app.get('/api/subcontract/achats', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getAchats);
+  app.post('/api/subcontract/achats', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), createAchat);
+  app.delete('/api/subcontract/achats/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_achats', 'owner_id'), deleteAchat);
+  // Controle d'integrite du stock : trouve les entrees dont la commande ou
+  // l'achat parent n'existe plus, et permet de les retirer.
+  app.get('/api/subcontract/stock-integrity', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), checkStockIntegrity);
+  app.post('/api/subcontract/stock-integrity/repair', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), repairStockIntegrity);
   app.get('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getClients);
   app.post('/api/subcontract/clients', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveClient);
   app.delete('/api/subcontract/clients/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_clients', 'owner_id'), deleteClient);
@@ -686,6 +728,23 @@ async function startServer() {
   app.get('/api/prix', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getPrix);
   app.post('/api/prix', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), savePrix);
   app.delete('/api/prix/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_prix', 'owner_id'), deletePrix);
+
+  // Boutique en ligne (Shopify / WooCommerce / boutique maison).
+  // ⚠️ Les chemins fixes (« config », « mapping », « outbox », « status ») sont
+  // déclarés AVANT toute route paramétrée, sinon ils seraient pris pour des ids.
+  // Le token de la boutique n'est jamais renvoyé : le controller le masque.
+  app.get('/api/store/config', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStoreConfig);
+  app.post('/api/store/config', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveStoreConfig);
+  app.delete('/api/store/config/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_store_config', 'owner_id'), deleteStoreConfig);
+  app.post('/api/store/test/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), testStoreConnection);
+  app.get('/api/store/mapping', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStoreMapping);
+  app.post('/api/store/mapping/generate', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), generateStoreMapping);
+  app.post('/api/store/mapping', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveStoreMapping);
+  app.post('/api/store/publish', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), publishStoreModel);
+  app.get('/api/store/outbox', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStoreOutbox);
+  app.post('/api/store/outbox/retry', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), retryStoreOutbox);
+  app.get('/api/store/status', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getStoreStatus);
+  app.post('/api/store/sync/:storeId', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), queueStoreSync);
 
   app.get('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getSubcontractorGroups);
   app.post('/api/subcontract/groups', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveSubcontractorGroup);
@@ -975,7 +1034,11 @@ async function startServer() {
 
   app.use((err: any, _req: any, res: any, _next: any) => {
     console.error(err);
-    res.status(500).json({ message: 'Internal server error' });
+    // body-parser (PayloadTooLargeError, 413) et consorts portent déjà le bon
+    // code HTTP : l'écraser en 500 masquait la vraie cause côté client, qui
+    // ne pouvait alors afficher qu'un message générique inexploitable.
+    const status = Number.isInteger(err?.status) ? err.status : 500;
+    res.status(status).json({ message: status === 413 ? 'Fichier trop volumineux.' : 'Internal server error' });
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -1011,6 +1074,9 @@ async function startServer() {
         logSupabaseSyncStatus();
         // Start realtime listener (Vercel/phone → PC) — fire and forget
         void startSupabaseSync();
+        // Synchronisation boutique en ligne. Encapsulé : une couche e-commerce
+        // cassée ne doit jamais empêcher l'ERP de démarrer.
+        try { startStoreSyncWorker(); } catch (e) { console.error('  ⚠️  Worker boutique non démarré :', e); }
         resolve();
       });
     };

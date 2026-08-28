@@ -1,9 +1,10 @@
 import React from 'react';
-import { X, Truck, CheckCircle, Clock, AlertTriangle, Package, MapPin, Calendar } from 'lucide-react';
+import { Truck, CheckCircle, Clock, AlertTriangle, Package, MapPin, Calendar } from 'lucide-react';
 import { fmt } from '../app/constants';
 import { resolveStock } from '../lib/magasinMatch';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
+import SheetModal from './shared/SheetModal';
 
 interface MaterialDetailModalProps {
     material: {
@@ -48,24 +49,31 @@ const MaterialDetailModal: React.FC<MaterialDetailModalProps> = ({
     const StatusIcon = status.icon;
 
     return (
-        <div dir="ltr" className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-            <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-                <div className="px-4 sm:px-5 h-12 border-b border-slate-100 dark:border-dk-border flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                        <Package className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" strokeWidth={1.75} />
-                        <div className="min-w-0">
-                            <h3 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text tracking-tight truncate">{material.name}</h3>
-                            {material.colorName && (
-                                <p className="text-[11px] text-slate-400 dark:text-dk-muted truncate">{tx(lang, {fr:'Couleur :', ar:'اللون :', en:'Color:', es:'Color:', pt:'Cor:', tr:'Renk:'})} {material.colorName}</p>
-                            )}
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="p-1.5 rounded-md text-slate-400 dark:text-dk-muted hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0">
-                        <X className="w-4 h-4" strokeWidth={1.75} />
-                    </button>
-                </div>
-
-                <div className="p-3 sm:p-5 space-y-3 sm:space-y-4 overflow-y-auto">
+        /* Fiche de lecture seule : aucune saisie, donc la fermeture au fond et
+           par Échap reste autorisée. Pas de bouton plein écran non plus — trois
+           encadrés de chiffres n'ont rien à gagner à occuper tout l'écran. */
+        <SheetModal
+            onClose={onClose}
+            title={<span dir="ltr">{material.name}</span>}
+            subtitle={material.colorName
+                ? <span dir="ltr">{tx(lang, {fr:'Couleur :', ar:'اللون :', en:'Color:', es:'Color:', pt:'Cor:', tr:'Renk:'})} {material.colorName}</span>
+                : undefined}
+            icon={<Package className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" strokeWidth={1.75} />}
+            size="lg"
+            zClass="z-[200]"
+            footer={(
+                <button
+                    onClick={onClose}
+                    className="inline-flex items-center justify-center h-9 px-4 bg-slate-900 dark:bg-dk-elevated text-white dark:text-dk-text text-[12px] font-medium rounded-md hover:bg-slate-800 dark:hover:bg-dk-border transition-colors"
+                >
+                    {tx(lang, {fr:'Fermer', ar:'إغلاق', en:'Close', es:'Cerrar', pt:'Fechar', tr:'Kapat'})}
+                </button>
+            )}
+            bodyClassName="flex-1 overflow-y-auto min-h-0 p-3 sm:p-5"
+        >
+            {/* `dir="ltr"` conservé : les chiffres et unités (m, kg, DH) se lisent
+                de gauche à droite même quand l'interface est en arabe. */}
+            <div dir="ltr" className="space-y-3 sm:space-y-4">
                     <div className={`flex items-center gap-2.5 p-3 rounded-md border ${status.bg} ${status.border}`}>
                         <StatusIcon className={`w-4 h-4 shrink-0 ${status.color}`} strokeWidth={1.75} />
                         <div className="min-w-0">
@@ -149,18 +157,8 @@ const MaterialDetailModal: React.FC<MaterialDetailModalProps> = ({
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div className="px-4 sm:px-5 py-3.5 border-t border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg flex justify-end shrink-0">
-                    <button
-                        onClick={onClose}
-                        className="inline-flex items-center justify-center h-9 px-4 bg-slate-900 text-white text-[12px] font-medium rounded-md hover:bg-slate-800 transition-colors"
-                    >
-                        {tx(lang, {fr:'Fermer', ar:'إغلاق', en:'Close', es:'Cerrar', pt:'Fechar', tr:'Kapat'})}
-                    </button>
-                </div>
             </div>
-        </div>
+        </SheetModal>
     );
 };
 

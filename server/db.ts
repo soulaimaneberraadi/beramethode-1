@@ -878,6 +878,78 @@ db.exec(`
 // comme le tableau qu'elle était, et de la supprimer d'un bloc.
 try { db.exec('ALTER TABLE st_stock_entries ADD COLUMN batch_id TEXT'); } catch { /* colonne déjà présente */ }
 
+// D'OÙ vient cette entrée en stock. Jusqu'ici il n'y en avait qu'une seule
+// origine possible — une commande de sous-traitance — et `order_id` désignait
+// toujours une ligne de `subcontract_orders`. L'atelier achète aussi de la
+// marchandise DÉJÀ FINIE pour la revendre : elle n'a ni gamme, ni chrono, ni
+// prix de revient calculé, et fabriquer une fausse commande de sous-traitance
+// pour la faire entrer aurait sali les statistiques de production.
+//   'ORDER' → `order_id` pointe une commande de sous-traitance (cas d'origine,
+//             donc la valeur par défaut : aucune entrée existante ne change)
+//   'ACHAT' → `order_id` pointe un achat (`st_achats`)
+try { db.exec("ALTER TABLE st_stock_entries ADD COLUMN source TEXT DEFAULT 'ORDER'"); } catch { /* colonne déjà présente */ }
+try { db.exec("UPDATE st_stock_entries SET source = 'ORDER' WHERE source IS NULL OR source = ''"); } catch { /* table vide */ }
+
+// Marchandise achetée pour être revendue. VOLONTAIREMENT hors de `models` : un
+// modèle, ici, c'est un parcours complet (fiche technique, gamme, chrono,
+// équilibrage, prix de revient). Un article acheté n'a rien de tout cela — il a
+// une photo, une grille de tailles et de couleurs, et un prix payé. L'inscrire
+// dans la bibliothèque l'aurait fait remonter dans l'ingénierie, la coupe et le
+// planning, où il n'a rien à faire.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_articles (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    nom TEXT NOT NULL,
+    reference TEXT,
+    photo TEXT,
+    -- Memes formes que la ficheData d un modele, pour que la grille couleur x
+    -- taille, les sorties, les étiquettes et les factures fonctionnent sans
+    -- écrire une seconde fois le même code.
+    colors_json TEXT,
+    sizes_json TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_articles_owner ON st_articles (owner_id)'); } catch { /* déjà présent */ }
+// Carte code-barres -> (taille, couleur), comme `models.meta_data.variantCodes`.
+// Un article acheté n'est pas dans `models` : sans cette colonne, le lecteur
+// scannait un tiki imprimé mais rien ne mémorisait ce que le code désignait,
+// et la grille de sortie ne pouvait jamais se remplir automatiquement.
+try { db.exec("ALTER TABLE st_articles ADD COLUMN variant_codes_json TEXT"); } catch { /* déjà présente */ }
+
+// Un ACHAT de marchandise : qui nous l'a vendue, quand, et à quel prix la pièce.
+// Le prix payé EST le prix de revient de cet article — il n'y a pas de matière
+// ni de main-d'œuvre à additionner, c'est la seule donnée de coût qui existe.
+// Plusieurs achats du même article peuvent coexister (réassort à un autre prix)
+// : le revient se lit alors comme la moyenne pondérée des achats, jamais comme
+// le dernier prix vu, qui ferait mentir la valeur du stock.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_achats (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    article_id TEXT NOT NULL,
+    -- Fournisseur : une fiche de st_clients portant le role FOURNISSEUR (ou
+    -- LES_DEUX). NULL est toléré — un achat comptant sans facture existe — mais
+    -- prive l'article de son historique fournisseur.
+    tiers_id TEXT,
+    date_achat TEXT,
+    prix_achat REAL NOT NULL DEFAULT 0,
+    facture_ref TEXT,
+    montant_paye REAL DEFAULT 0,
+    note TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_achats_owner ON st_achats (owner_id)'); } catch { /* déjà présent */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_achats_article ON st_achats (article_id)'); } catch { /* déjà présent */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_achats_tiers ON st_achats (tiers_id)'); } catch { /* déjà présent */ }
+
 // Sorties de stock fini : ce qui QUITTE l'atelier, ligne par ligne (couleur x
 // taille x client x date). Le stock vendable d'un modele vaut donc
 // « entrees acceptees - sorties », a la maille couleur/taille : un total global
@@ -927,6 +999,45 @@ db.exec(`
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
   )
 `);
+try { db.exec("ALTER TABLE st_clients ADD COLUMN photo TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE st_clients ADD COLUMN doc_recto TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE st_clients ADD COLUMN doc_verso TEXT"); } catch { /* already exists */ }
+
+// RÔLE du tiers. La table ne connaissait que des acheteurs, mais l'atelier a en
+// face de lui les MÊMES entreprises dans les deux sens : celui qui vend le
+// tissu facture aussi le transport, et un confrère est tour à tour client et
+// fournisseur. Les tenir dans deux registres séparés obligeait à saisir la même
+// ICE deux fois et rendait impossible de répondre à « où en est-on avec eux ? ».
+//
+//   CLIENT      → il nous achète (comportement d'origine, donc la valeur par
+//                 défaut : aucune fiche existante ne change de sens)
+//   FOURNISSEUR → il nous vend (matière, façon, transport, frais divers)
+//   LES_DEUX    → les deux sens sur la même fiche, un seul historique
+try { db.exec("ALTER TABLE st_clients ADD COLUMN role TEXT DEFAULT 'CLIENT'"); } catch { /* already exists */ }
+// Segments SUPPLEMENTAIRES d'un client. `type` reste le segment principal —
+// c'est lui qui resout le tarif — mais un meme acheteur prend parfois deux
+// casquettes : il prend une palette en gros ET repart avec deux pieces au
+// detail. Les ranger dans une colonne JSON evite de dupliquer sa fiche, ce
+// qui dedoublerait son historique et son encours.
+try { db.exec("ALTER TABLE st_clients ADD COLUMN types TEXT"); } catch { /* already exists */ }
+// Identifiant fiscal du client. L'ICE identifie l'entreprise, l'IF identifie
+// son dossier fiscal : les deux figurent sur une facture entre professionnels,
+// et une facture qui n'en porte qu'un se fait retoquer a la comptabilite.
+try { db.exec("ALTER TABLE st_clients ADD COLUMN if_fiscal TEXT"); } catch { /* already exists */ }
+
+// ── Mentions legales de la facture ────────────────────────────────────────
+// L'emetteur est COPIE sur la facture au moment ou elle est etablie, jamais
+// lu depuis les reglages a l'affichage : une entreprise qui change d'adresse
+// ou de RIB reecrirait sinon toutes ses factures passees, y compris celles
+// deja remises au client et a sa comptabilite.
+try { db.exec("ALTER TABLE factures ADD COLUMN emetteur TEXT"); } catch { /* already exists */ }
+// Delai accorde et penalite de retard : mentions obligatoires (loi 69-21).
+try { db.exec("ALTER TABLE factures ADD COLUMN conditions_paiement TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE factures ADD COLUMN penalite_retard REAL"); } catch { /* already exists */ }
+// Une fiche créée avant l'ajout de la colonne reste NULL : on la nomme, sinon
+// tout filtre par rôle la ferait disparaître de l'écran.
+try { db.exec("UPDATE st_clients SET role = 'CLIENT' WHERE role IS NULL OR role = ''"); } catch { /* table vide */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_clients_role ON st_clients (owner_id, role)'); } catch { /* déjà présent */ }
 
 // Tarifs de VENTE d'un modèle. Jusqu'ici un modèle n'avait qu'un seul prix
 // (`ficheData.clientPrice`) : dans un atelier réel le même article part à un prix
@@ -965,6 +1076,159 @@ db.exec(`
 // La lecture se fait toujours « les tarifs de CE modèle pour CETTE entreprise » :
 // c'est le seul accès qui mérite un index.
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_prix_owner_model ON st_prix (owner_id, modelId)'); } catch { /* index déjà présent */ }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOUTIQUE EN LIGNE — pont entre le stock de l'atelier et une plateforme e-commerce
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Configuration d'une boutique en ligne. Une ligne PAR boutique et PAR
+// entreprise : un atelier peut vendre sur sa boutique Shopify ET sur un site
+// maison, avec deux stocks à tenir à jour depuis le même magasin physique.
+// Une seule configuration globale obligerait à choisir, ou à ressaisir.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_store_config (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    -- SHOPIFY / WOO / CUSTOM : détermine l'adaptateur utilisé côté serveur.
+    plateforme TEXT NOT NULL DEFAULT 'SHOPIFY',
+    nom TEXT,
+    boutique_url TEXT,
+    -- ⚠️ Secret. Il ne sort JAMAIS du serveur : le controller ne renvoie qu'une
+    -- version masquée (shpat_••••1234). Un token qui transite vers le navigateur
+    -- finit dans un cache, une capture d'écran ou un log.
+    token TEXT,
+    -- Emplacement de stock côté plateforme (Shopify : location GID). Une boutique
+    -- peut avoir plusieurs entrepôts ; sans cette précision on écrirait la
+    -- quantité au mauvais endroit et le stock afficherait 0 en vente.
+    location_id TEXT,
+    actif INTEGER DEFAULT 0,
+    -- Pièces gardées hors ligne. Le magasin physique vend la même pièce que la
+    -- boutique : la marge évite de vendre en ligne l'article que le comptoir
+    -- vient d'écouler, et donc d'annuler une commande client.
+    marge_securite INTEGER DEFAULT 0,
+    derniere_sync TEXT,
+    derniere_erreur TEXT,
+    -- Curseur de lecture des commandes distantes (date ou id) : sans lui on
+    -- relirait tout l'historique à chaque passage du worker.
+    orders_cursor TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_store_config_owner ON st_store_config (owner_id)'); } catch { /* index déjà présent */ }
+
+// Le PONT, à la maille CELLULE (modèle × couleur × taille).
+//
+// L'atelier raisonne « un modèle, une matrice couleur × taille ». Une boutique
+// en ligne, elle, ne connaît que des VARIANTES : chaque couleur × taille est un
+// article distinct, avec son propre stock. Mapper un modèle entier serait donc
+// faux dès la deuxième taille — c'est la cellule qui est l'unité d'échange.
+//
+// POURQUOI DEUX CLÉS DISTANTES ?
+//   • `sku` est la clé LISIBLE : c'est elle que l'humain lit sur l'étiquette,
+//     dans l'export CSV de la boutique et dans un email de réclamation.
+//   • `external_inventory_item_id` est la clé sur laquelle la plateforme AGIT
+//     réellement quand on pose une quantité.
+// Garder les deux permet de détecter qu'elles ont divergé — variante supprimée
+// puis recréée à la main côté boutique, produit dupliqué — au lieu de pousser
+// des quantités dans le vide et de laisser le stock dériver en silence.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_store_mapping (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    store_id TEXT NOT NULL,
+    modelId TEXT NOT NULL,
+    couleur TEXT,
+    taille TEXT,
+    sku TEXT,
+    external_product_id TEXT,
+    external_variant_id TEXT,
+    external_inventory_item_id TEXT,
+    -- Dernière quantité effectivement acceptée par la plateforme : sert de
+    -- valeur de comparaison (compareQuantity) et évite de repousser à l'identique.
+    derniere_qte_poussee INTEGER,
+    -- OK / PENDING (pas encore lié à une variante) / ERROR (le lien est cassé).
+    statut TEXT DEFAULT 'PENDING',
+    derniere_erreur TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+// Lecture courante : « le mapping de CE modèle sur CETTE boutique ».
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_store_mapping_model ON st_store_mapping (owner_id, store_id, modelId)'); } catch { /* index déjà présent */ }
+// Un SKU en double sur la même boutique ferait pousser deux quantités
+// contradictoires sur la même variante : la base doit l'interdire, pas le code.
+try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_st_store_mapping_sku ON st_store_mapping (owner_id, store_id, sku)'); } catch { /* index déjà présent */ }
+
+// File d'attente des ordres à envoyer à la boutique.
+//
+// POURQUOI UNE FILE ET PAS UN APPEL DIRECT ?
+// Dans un atelier marocain l'internet tombe — coupure ADSL, panne de courant,
+// forfait 4G épuisé. Sans file d'attente, un envoi raté pendant une saisie de
+// stock est perdu SANS QUE PERSONNE NE LE SACHE : la boutique continue de vendre
+// sur une quantité périmée et les stocks dérivent pendant des jours. Ici l'ordre
+// est écrit en base d'abord, rejoué ensuite, et une tâche en échec reste
+// visible en 'ERROR' — elle ne disparaît jamais silencieusement.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS st_sync_outbox (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    store_id TEXT NOT NULL,
+    -- PUSH_STOCK / PUSH_PRICE / PUBLISH
+    type TEXT NOT NULL,
+    payload TEXT,
+    -- QUEUED / SENT / ERROR
+    statut TEXT DEFAULT 'QUEUED',
+    tentatives INTEGER DEFAULT 0,
+    -- Date ISO avant laquelle la tâche ne doit pas être rejouée (backoff).
+    prochaine_tentative TEXT,
+    derniere_erreur TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    sent_at TEXT,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+// Le worker ne lit qu'une chose : « les tâches à envoyer maintenant ».
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sync_outbox_due ON st_sync_outbox (owner_id, statut, prochaine_tentative)'); } catch { /* index déjà présent */ }
+
+// Canal de vente d'une sortie de stock. NULL / 'ATELIER' = vente directe depuis
+// l'atelier (le comportement historique), 'MAGASIN' = point de vente physique,
+// 'ONLINE' = commande passée sur la boutique en ligne. Sans ce champ, une vente
+// en ligne serait indiscernable d'une vente au comptoir et le chiffre d'affaires
+// par canal — la première question que pose le gérant — serait incalculable.
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN canal TEXT'); } catch { /* colonne déjà présente */ }
+// Référence de la commande côté boutique. C'est la clé d'IDEMPOTENCE du worker :
+// avant de créer une sortie, il vérifie qu'aucune ligne ne porte déjà cette
+// référence. Sans elle, un simple rejeu retirerait du stock jamais vendu.
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN external_order_ref TEXT'); } catch { /* colonne déjà présente */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_ext_ref ON st_stock_sorties (owner_id, external_order_ref)'); } catch { /* index déjà présent */ }
+
+// Mode de règlement et segment tarifaire d'une vente au comptoir. Ils étaient
+// jusqu'ici écrasés dans la note (« CAISSE DETAIL ESPECES ») : lisible à l'œil,
+// mais incalculable. Or la clôture de journée est exactement la question
+// « combien en espèces, combien par carte ? » — un total qu'on ne peut pas
+// tirer d'un texte libre sans risquer de se tromper sur de l'argent.
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN mode_paiement TEXT'); } catch { /* colonne déjà présente */ }
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN type_vente TEXT'); } catch { /* colonne déjà présente */ }
+// Référence du TICKET de caisse. Une vente au comptoir portant plusieurs
+// modèles produit une sortie (un lot) PAR modèle : le lot ne peut donc pas
+// servir d'identifiant de vente. Sans cette référence, annuler un ticket
+// n'en rendrait qu'un morceau au stock, et le journal de la journée
+// compterait une même vente plusieurs fois.
+try { db.exec('ALTER TABLE st_stock_sorties ADD COLUMN ticket_ref TEXT'); } catch { /* colonne déjà présente */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_ticket ON st_stock_sorties (owner_id, ticket_ref)'); } catch { /* index déjà présent */ }
+// Le journal de caisse interroge toujours (entreprise, canal, jour) : sans cet
+// index, chaque ouverture de la journée balaierait toutes les sorties de
+// l'historique.
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_st_sorties_canal_date ON st_stock_sorties (owner_id, canal, date_sortie)'); } catch { /* index déjà présent */ }
+
+// Canal d'application d'un tarif. NULL = tous canaux (comportement historique).
+// Le même modèle ne se vend pas au même prix en gros, en boutique physique et
+// en ligne : la vente en ligne porte des frais de livraison et une commission
+// de plateforme que le prix de gros n'a pas.
+try { db.exec('ALTER TABLE st_prix ADD COLUMN canal TEXT'); } catch { /* colonne déjà présente */ }
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS subcontractor_profiles (
@@ -1021,6 +1285,19 @@ db.exec(`
 // La répartition par pièce doit donc diviser par quantity_scope quand il est
 // renseigné, et par totalQuantity sinon — impact direct sur le prix de revient.
 try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN quantity_scope INTEGER"); } catch { /* already exists */ }
+// À QUI ce frais est-il dû, et l'a-t-on payé ? Un libellé libre et un montant ne
+// répondaient ni à « combien dois-je encore au transporteur ? » ni à « cette
+// ligne est-elle déjà réglée ? ». Le rattachement au tiers (`st_clients` avec
+// le rôle fournisseur) donne l'historique par fournisseur ; le montant payé
+// donne le reste dû, sans jamais inventer un règlement qui n'a pas eu lieu :
+// zéro par défaut, c'est-à-dire « rien de payé », ce qui est le cas de départ.
+try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN tiers_id TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN montant_paye REAL DEFAULT 0"); } catch { /* already exists */ }
+// Numéro de la facture du fournisseur pour ce frais : sans lui, retrouver la
+// pièce justificative dans un classeur relève de la mémoire.
+try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN facture_ref TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE subcontract_expenses ADD COLUMN date_facture TEXT"); } catch { /* already exists */ }
+try { db.exec('CREATE INDEX IF NOT EXISTS idx_subcontract_expenses_tiers ON subcontract_expenses(tiers_id)'); } catch { /* déjà présent */ }
 db.exec(`CREATE INDEX IF NOT EXISTS idx_subcontract_expenses_order ON subcontract_expenses(order_id)`);
 
 // Toutes les lectures sous-traitance filtrent sur owner_id (isolation workspace) :
@@ -1387,6 +1664,13 @@ try {
 // rester cohérent avec sizes_json/colors_json/grid_json sur la même table.
 try {
   db.exec("ALTER TABLE subcontract_orders ADD COLUMN custom_milestones_json TEXT");
+} catch(e) {}
+// Mode de sous-traitance EXPLICITE choisi dans le formulaire ('facon' | 'complet').
+// NULL = jamais choisi → le mode est déduit des fournisseurs (inferSubcontractMode).
+// Il est stocké sur la commande pour que la réconciliation automatique ne re-déduise
+// pas à la place de l'utilisateur et n'écrase pas son choix dans la fiche de coût.
+try {
+  db.exec("ALTER TABLE subcontract_orders ADD COLUMN st_mode TEXT");
 } catch(e) {}
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1895,6 +2179,16 @@ for (const col of ['source_module', 'source_id']) {
   }
 }
 db.exec('CREATE INDEX IF NOT EXISTS idx_factures_source ON factures(source_module, source_id)');
+
+// Type de client (GROS / DETAIL / BOUTIQUE) et ville, saisis lors d'une vente
+// depuis la sous-traitance. Vides pour les factures émises avant ce champ.
+for (const col of ['tiers_type', 'tiers_ville']) {
+  try {
+    db.exec(`ALTER TABLE factures ADD COLUMN ${col} TEXT`);
+  } catch {
+    // colonne déjà présente
+  }
+}
 
 try {
   const legacyInvoices = db

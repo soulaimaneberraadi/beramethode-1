@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { X, Camera, QrCode, AlertTriangle, PackageMinus, ShoppingBag } from 'lucide-react';
+import { Camera, QrCode, AlertTriangle, PackageMinus, ShoppingBag } from 'lucide-react';
 import type { Machine } from '../types';
 import { parseMachineQrFromString, tryDecodeQrFromImageFile } from '../lib/machineQrPayload';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import SheetModal from './shared/SheetModal';
 
 export type MachineExitPayload = {
   machine: Machine;
@@ -166,38 +167,45 @@ export default function MachineExitModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="machine-exit-title"
-    >
-      <div className="bg-white dark:bg-dk-surface rounded-t-3xl sm:rounded-3xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col border border-slate-200 dark:border-dk-border">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/90 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0">
-              <PackageMinus className="w-5 h-5" aria-hidden />
-            </div>
-            <div className="min-w-0">
-              <h2 id="machine-exit-title" className="text-base font-black text-slate-900 dark:text-dk-text truncate">
-                {tx(lang,{fr:'Retirer du parc',ar:'إزالة من الأسطول',en:'Remove from fleet',es:'Retirar del parque',pt:'Retirar do parque',tr:'Filodan çıkar'})}
-              </h2>
-              <p className="text-[10px] font-bold text-slate-500 dark:text-dk-muted dark:text-dk-text-muted uppercase tracking-tight">
-                {tx(lang,{fr:'Sortie ou vente — la machine reste dans l\'historique',ar:'خروج أو بيع — تبقى الآلة في السجل',en:'Exit or sale — the machine remains in history',es:'Salida o venta — la máquina permanece en el historial',pt:'Saída ou venda — a máquina permanece no histórico',tr:'Çıkış veya satış — makine geçmişte kalır'})}
-              </p>
-            </div>
-          </div>
+    /* POURQUOI closeOnBackdrop={false} : cet ecran se remplit debout dans
+       l'atelier (nom, motif, matricule ou contenu du QR). Un clic a cote, et
+       tout serait a ressaisir avant de pouvoir sortir la machine du parc. */
+    <SheetModal
+      onClose={onClose}
+      zClass="z-[200]"
+      size="lg"
+      closeOnBackdrop={false}
+      icon={
+        <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 flex items-center justify-center shrink-0">
+          <PackageMinus className="w-5 h-5" aria-hidden />
+        </div>
+      }
+      title={tx(lang,{fr:'Retirer du parc',ar:'إزالة من الأسطول',en:'Remove from fleet',es:'Retirar del parque',pt:'Retirar do parque',tr:'Filodan çıkar'})}
+      subtitle={tx(lang,{fr:'Sortie ou vente — la machine reste dans l\'historique',ar:'خروج أو بيع — تبقى الآلة في السجل',en:'Exit or sale — the machine remains in history',es:'Salida o venta — la máquina permanece en el historial',pt:'Saída ou venda — a máquina permanece no histórico',tr:'Çıkış veya satış — makine geçmişte kalır'})}
+      bodyClassName="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-5"
+      footer={
+        /* Grille sur telephone : deux actions de largeurs tres inegales, un
+           repli libre les aurait empilees de travers. */
+        <div className="w-full grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center sm:justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 dark:text-dk-muted dark:text-dk-text-muted hover:bg-slate-200/80 transition-colors shrink-0"
-            aria-label={tx(lang,{fr:'Fermer',ar:'إغلاق',en:'Close',es:'Cerrar',pt:'Fechar',tr:'Kapat'})}
+            className="px-4 py-3 rounded-2xl border border-slate-200 dark:border-dk-border text-sm font-black text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center justify-center sm:justify-start"
           >
-            <X className="w-5 h-5" />
+            {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
+          </button>
+          <button
+            type="button"
+            onClick={validateAndSubmit}
+            disabled={!machines.length}
+            className="px-4 py-3 rounded-2xl bg-rose-600 text-white text-sm font-black shadow-lg dark:shadow-dk-lg shadow-rose-100 hover:bg-rose-700 disabled:opacity-50 flex items-center justify-center sm:justify-start"
+          >
+            {tx(lang,{fr:'Confirmer le retrait du parc',ar:'تأكيد إزالة الآلة من الأسطول',en:'Confirm removal from fleet',es:'Confirmar la retirada del parque',pt:'Confirmar a remoção do parque',tr:'Filodan çıkarmayı onayla'})}
           </button>
         </div>
-
-        <div className="overflow-y-auto custom-scrollbar p-5 space-y-5">
+      }
+    >
+        <div className="space-y-5">
           <label className="flex flex-col gap-1.5">
             <span className="text-[10px] font-black text-slate-400 dark:text-dk-muted dark:text-dk-text-muted uppercase tracking-tight">{tx(lang,{fr:'Machine',ar:'الآلة',en:'Machine',es:'Máquina',pt:'Máquina',tr:'Makine'})}</span>
             <select
@@ -363,24 +371,6 @@ export default function MachineExitModal({
           )}
         </div>
 
-        <div className="p-5 border-t border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface flex flex-col-reverse sm:flex-row gap-2 sm:justify-end shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-3 rounded-2xl border border-slate-200 dark:border-dk-border text-sm font-black text-slate-600 dark:text-dk-text-soft dark:text-dk-text-secondary hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-hover"
-          >
-            {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}
-          </button>
-          <button
-            type="button"
-            onClick={validateAndSubmit}
-            disabled={!machines.length}
-            className="px-4 py-3 rounded-2xl bg-rose-600 text-white text-sm font-black shadow-lg dark:shadow-dk-lg shadow-rose-100 hover:bg-rose-700 disabled:opacity-50"
-          >
-            {tx(lang,{fr:'Confirmer le retrait du parc',ar:'تأكيد إزالة الآلة من الأسطول',en:'Confirm removal from fleet',es:'Confirmar la retirada del parque',pt:'Confirmar a remoção do parque',tr:'Filodan çıkarmayı onayla'})}
-          </button>
-        </div>
-      </div>
-    </div>
+    </SheetModal>
   );
 }

@@ -16,6 +16,15 @@ import db from './db';
 
 const TYPES = new Set(['GROS', 'DETAIL', 'BOUTIQUE']);
 
+/** Canal d'application d'un tarif. NULL = tous canaux (comportement historique) :
+ *  le même modèle ne se vend pas au même prix au comptoir et en ligne, où la
+ *  livraison et la commission de plateforme s'ajoutent. */
+/** Colonnes de tarif reconnues — miroir de `st_clients.type`. Un type inconnu
+ *  est ignoré plutôt que de faire tomber la résolution sur une grille vide. */
+const TYPES_CLIENT = new Set(['GROS', 'DETAIL', 'BOUTIQUE']);
+
+const CANAUX = new Set(['ATELIER', 'MAGASIN', 'ONLINE']);
+
 /** Date du jour au format ISO court, pour comparer aux `valid_from`. */
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -43,6 +52,43 @@ export const getPrix = (req: Request, res: Response) => {
     }
 };
 
+/**
+ * ANTI-DOUBLON DES TARIFS — choix documenté.
+ *
+ * Deux tarifs de MÊME PORTÉE (même modèle, même client, même segment, même
+ * canal, même palier) sont contradictoires : la résolution en retient un des
+ * deux selon `updated_at`, silencieusement. L'atelier croit avoir corrigé un
+ * prix alors qu'il en a créé un second, et c'est l'ancien qui peut ressortir.
+ *
+ * ⚠️ PAS DE CONTRAINTE UNIQUE EN BASE. Les installations existantes contiennent
+ * déjà des doublons : un `CREATE UNIQUE INDEX` échouerait au DÉMARRAGE du
+ * serveur chez ces utilisateurs, transformant un défaut d'affichage en panne
+ * totale de l'ERP. Le dédoublonnage se fait donc ici, à l'écriture : la portée
+ * identique est détectée et la ligne existante est MISE À JOUR. Les doublons
+ * déjà en base survivent — ils seront naturellement absorbés à la première
+ * réécriture — et rien ne casse.
+ */
+const tarifDeMemePortee = (
+    companyId: number | string,
+    modelId: string,
+    clientId: string | null,
+    typeClient: string | null,
+    canal: string | null,
+    qtyMin: number,
+): string | null => {
+    // `IS` et non `=` : en SQL, `NULL = NULL` est faux, et la portée « catalogue,
+    // tous canaux » est justement faite de NULL. Avec `=`, aucun doublon
+    // catalogue ne serait jamais détecté.
+    const row = db.prepare(`
+        SELECT id FROM st_prix
+        WHERE owner_id = ? AND modelId = ?
+          AND client_id IS ? AND type_client IS ? AND canal IS ? AND qty_min = ?
+        ORDER BY updated_at DESC
+        LIMIT 1
+    `).get(companyId, modelId, clientId, typeClient, canal, qtyMin) as any;
+    return row?.id ?? null;
+};
+
 export const savePrix = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
     const p = req.body || {};
@@ -55,32 +101,48 @@ export const savePrix = (req: Request, res: Response) => {
     if (!Number.isFinite(prix) || prix < 0) return res.status(400).json({ message: 'Prix invalide' });
 
     try {
-        const id = p.id || randomUUID();
         // Un tarif visant un client précis n'a pas besoin de type : le type se
         // déduit de la fiche client, et le stocker en double le ferait diverger.
         const clientId = p.client_id || null;
         const typeClient = clientId ? null : (TYPES.has(p.type_client) ? p.type_client : null);
+        const canalDemande = String(p.canal ?? '').trim().toUpperCase();
+        const canal = CANAUX.has(canalDemande) ? canalDemande : null;
+        const qtyMin = Math.max(0, Math.floor(Number(p.qty_min) || 0));
+
+        // Modification explicite d'une ligne existante : son identifiant fait foi.
+        // Sinon, on cherche un tarif de MÊME PORTÉE et on le met à jour plutôt
+        // que d'en créer un second (cf. `tarifDeMemePortee`).
+        const idExistant = p.id
+            ? String(p.id)
+            : tarifDeMemePortee(companyId, modelId, clientId, typeClient, canal, qtyMin);
+        const id = idExistant || randomUUID();
 
         db.prepare(`
-            INSERT INTO st_prix (id, owner_id, modelId, client_id, type_client, qty_min, prix, devise, valid_from, note)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_prix (id, owner_id, modelId, client_id, type_client, canal, qty_min, prix, devise, valid_from, note)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 modelId = excluded.modelId,
                 client_id = excluded.client_id,
                 type_client = excluded.type_client,
+                canal = excluded.canal,
                 qty_min = excluded.qty_min,
                 prix = excluded.prix,
                 devise = excluded.devise,
                 valid_from = excluded.valid_from,
                 note = excluded.note,
                 updated_at = CURRENT_TIMESTAMP
+            -- ⚠️ Isolation : sans ce garde-fou, un identifiant de tarif
+            -- appartenant à une AUTRE entreprise serait réécrit par cette
+            -- requête. La clé primaire est globale, l'appartenance non.
+            WHERE st_prix.owner_id = excluded.owner_id
         `).run(
             id,
             companyId,
             modelId,
             clientId,
             typeClient,
-            Math.max(0, Math.floor(Number(p.qty_min) || 0)),
+            canal,
+            qtyMin,
             prix,
             p.devise || null,
             p.valid_from || null,
@@ -88,6 +150,9 @@ export const savePrix = (req: Request, res: Response) => {
         );
 
         const saved = db.prepare('SELECT * FROM st_prix WHERE id = ? AND owner_id = ?').get(id, companyId);
+        // Rien enregistré : l'identifiant fourni existe mais appartient à une
+        // autre entreprise (le garde-fou d'isolation ci-dessus a bloqué l'écriture).
+        if (!saved) return res.status(404).json({ message: 'Tarif introuvable' });
         res.json(saved);
     } catch (error) {
         console.error('Save prix error:', error);
@@ -127,17 +192,33 @@ export const resolvePrix = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
     const { modelId, clientId } = req.query as { modelId?: string; clientId?: string };
     const qty = Math.max(0, Math.floor(Number((req.query as any).qty) || 0));
+    // Canal de la vente en cours. Un tarif porté par un AUTRE canal ne doit
+    // jamais s'appliquer : le prix en ligne inclut livraison et commission de
+    // plateforme, le proposer au comptoir ferait vendre trop cher (client perdu)
+    // et l'inverse ferait vendre à perte.
+    const canalDemande = String((req.query as any).canal ?? '').trim().toUpperCase();
+    const canal = CANAUX.has(canalDemande) ? canalDemande : null;
 
     if (!modelId) return res.status(400).json({ message: 'modelId est obligatoire' });
 
     try {
-        // Le type ne vient JAMAIS de la requête : il se lit sur la fiche client,
-        // sinon l'appelant pourrait s'attribuer un tarif GROS de son choix.
+        // Quand une VENTE est en cours, le type ne vient JAMAIS de la requête :
+        // il se lit sur la fiche client, sinon l'appelant pourrait s'attribuer
+        // un tarif GROS de son choix et facturer en dessous du plancher.
+        //
+        // Sans client, en revanche, il n'y a pas de vente à protéger : c'est une
+        // consultation de grille (étiquette à imprimer, catalogue). Le type
+        // demandé est alors accepté — il ne fixe le prix de personne, il dit
+        // seulement QUELLE colonne du tarif on regarde. La fiche client garde
+        // la priorité dès qu'un client est nommé.
         let typeClient: string | null = null;
         if (clientId) {
             const client = db.prepare('SELECT type FROM st_clients WHERE id = ? AND owner_id = ?')
                 .get(clientId, companyId) as any;
             typeClient = client?.type ?? null;
+        } else {
+            const demande = String((req.query as any).type ?? '').trim().toUpperCase();
+            if (TYPES_CLIENT.has(demande)) typeClient = demande;
         }
 
         const now = today();
@@ -146,15 +227,19 @@ export const resolvePrix = (req: Request, res: Response) => {
         // À portée égale, on retient le palier le plus élevé qui reste atteint
         // (c'est le tarif volume le plus avantageux effectivement mérité), puis
         // le plus récemment saisi.
+        // Le canal exact l'emporte sur le tarif « tous canaux » (canal NULL), qui
+        // reste le repli — c'est ainsi que les grilles saisies avant l'arrivée de
+        // la boutique en ligne continuent de s'appliquer partout.
         const pick = (clause: string, params: any[]) => db.prepare(`
             SELECT * FROM st_prix
             WHERE owner_id = ? AND modelId = ?
               AND ${clause}
+              AND (canal IS NULL OR canal IS ?)
               AND qty_min <= ?
               AND (valid_from IS NULL OR valid_from = '' OR valid_from <= ?)
-            ORDER BY qty_min DESC, COALESCE(valid_from, '') DESC, updated_at DESC
+            ORDER BY (canal IS NOT NULL) DESC, qty_min DESC, COALESCE(valid_from, '') DESC, updated_at DESC
             LIMIT 1
-        `).get(companyId, modelId, ...params, qty, now) as any;
+        `).get(companyId, modelId, ...params, canal, qty, now) as any;
 
         let tarif: any = null;
         let source: 'CLIENT' | 'TYPE' | 'CATALOGUE' | 'NONE' = 'NONE';
@@ -178,6 +263,7 @@ export const resolvePrix = (req: Request, res: Response) => {
             tarifId: tarif?.id ?? null,
             devise: tarif?.devise ?? null,
             qty_min: tarif ? Number(tarif.qty_min) : null,
+            canal: tarif?.canal ?? null,
             type_client: typeClient,
         });
     } catch (error) {

@@ -2,6 +2,65 @@ import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient';
 import { SCHEMA_VERSION, migrateSnapshot } from './dataVersion';
 import { pkey, lsGet, lsSet, isSyncKey, getCurrentEmail } from '../../lib/storageKeys';
 
+/** Durée pendant laquelle une suppression reste opposable à la fusion.
+ *  Doit rester alignée sur `TOMBSTONE_KEEP_MS` d'`apiShim.ts` : ces deux
+ *  bornes décrivent le même fait — jusqu'à quand une suppression compte. */
+const TOMBSTONE_KEEP_MS = 365 * 24 * 60 * 60 * 1000;
+
+/**
+ * Quelle clé de stockage porte quel type d'entité — donc quelles pierres
+ * tombales la concernent. Doit rester alignée sur `STORES` d'`apiShim.ts` :
+ * un type absent d'ici n'est protégé par aucune suppression, et ses éléments
+ * effacés reviendront à la première fusion.
+ */
+const CLE_VERS_TYPE: Record<string, string> = {
+  beramethode_library: 'models',
+  beramethode_planning: 'planning',
+  beramethode_suivis: 'suivi',
+  beramethode_demandesAppro: 'demandes-appro',
+  beramethode_subcontract_orders: 'subcontract',
+  beramethode_subcontract_groups: 'subcontract/groups',
+  beramethode_subcontract_profiles: 'subcontract/profiles',
+};
+
+/**
+ * Retire d'une liste fusionnée ce que l'utilisateur a supprimé.
+ *
+ * Un élément ré-édité APRÈS sa suppression est conservé : sur un autre poste,
+ * quelqu'un a pu le reprendre en main, et écraser ce travail serait pire que
+ * de laisser revenir une ligne.
+ */
+const sansSupprimes = (lsKey: string, items: any[]): any[] => {
+  const type = CLE_VERS_TYPE[lsKey];
+  if (!type) return items;
+  try {
+    const raw = lsGet('beramethode_tombstones');
+    const ts = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(ts) || ts.length === 0) return items;
+    const now = Date.now();
+    const supprimeLe = new Map<string, number>();
+    for (const t of ts) {
+      if (!t || t.type !== type) continue;
+      const d = new Date(t.deleted_at).getTime();
+      if (!d || now - d >= TOMBSTONE_KEEP_MS) continue;
+      const id = String(t.id);
+      if (!supprimeLe.has(id) || d > (supprimeLe.get(id) as number)) supprimeLe.set(id, d);
+    }
+    if (supprimeLe.size === 0) return items;
+    return items.filter((it: any) => {
+      if (!it) return false;
+      const del = supprimeLe.get(String(it.id));
+      if (del == null) return true;
+      const edit = it.updatedAt || it.updated_at;
+      if (!edit) return false;
+      const e = new Date(edit).getTime();
+      return Number.isFinite(e) && e > del;
+    });
+  } catch {
+    return items;
+  }
+};
+
 const SYNC_KEYS = [
   'beramethode_autosave_v1',
   'beramethode_chrono_sessions_v1',
@@ -27,6 +86,12 @@ const SYNC_KEYS = [
   // téléverse si le bucket est activé) avant l'UPSERT, comme pour les autres clés
   // à images — pas de blob base64 brut envoyé à Supabase.
   'beramethode_subcontract_profiles',
+  // Reglages du tiki (marque, logo, format). Le logo est une data-URL :
+  // replaceImages() la compresse avant l'UPSERT comme les autres images.
+  'beramethode_tiki_settings',
+  // Frais par canal de vente (livraison, emballage, publicite) : ils entrent
+  // dans le calcul du prix suggere, donc ils doivent suivre le compte.
+  'beramethode_canal_frais',
 ];
 
 const TABLE = 'user_data';
@@ -395,7 +460,11 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
                     for (const t of (Array.isArray(ts) ? ts : [])) {
                       if (!t || t.type !== 'models') continue;
                       const d = new Date(t.deleted_at).getTime();
-                      if (now - d >= 3_600_000) continue;
+                      // Une suppression ne se périme pas au bout d'une heure.
+                      // Avec l'ancienne borne, passé ce délai la fusion union
+                      // réinstallait la copie restée dans le cloud : c'est
+                      // ainsi que 33 modèles supprimés sont revenus d'un coup.
+                      if (!d || now - d >= TOMBSTONE_KEEP_MS) continue;
                       const id = String(t.id);
                       if (!deletedAt.has(id) || d > (deletedAt.get(id) as number)) deletedAt.set(id, d);
                     }
@@ -434,7 +503,11 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
               const byId = new Map<any, any>();
               for (const it of localArr) byId.set(idOf(it), it);      // base = local
               for (const it of cloudVal) byId.set(idOf(it), it);      // cloud gagne les conflits
-              lsSet(k, JSON.stringify([...byId.values()]));
+              // L'union garde tout des deux côtés — y compris ce que
+              // l'utilisateur avait supprimé, tant que la copie du cloud n'a
+              // pas été purgée. Les pierres tombales sont la seule chose qui
+              // distingue « jamais reçu » de « volontairement supprimé ».
+              lsSet(k, JSON.stringify(sansSupprimes(k, [...byId.values()])));
               continue;
             }
             // Listes sans id : au moins, ne pas écraser du non-vide par du vide.

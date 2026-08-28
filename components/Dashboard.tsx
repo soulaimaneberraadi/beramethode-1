@@ -20,6 +20,7 @@ import { useIsDark } from '../src/context/ThemeContext';
 import { chartColors } from '../lib/themeColors';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import SheetModal from './shared/SheetModal';
 
 type DashboardNavTarget =
   | 'planning'
@@ -793,16 +794,24 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
 
       {/* SKIP MODAL */}
       {skipReasonModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 dark:bg-dk-bg/80 backdrop-blur-sm p-3 sm:p-4">
-          <div className="bg-white dark:bg-dk-surface rounded-xl sm:rounded-2xl w-full max-w-sm sm:max-w-md overflow-hidden shadow-xl dark:shadow-dk-lg border border-slate-200 dark:border-dk-border">
-            <div className="h-1 w-full bg-amber-500" />
-            <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-dk-border flex justify-between items-center">
-              <h3 className="font-bold text-slate-800 dark:text-dk-text text-base sm:text-lg">{tx(lang, { fr: "Motif d'annulation", ar: 'سبب الإلغاء', en: 'Cancellation reason', es: 'Motivo de cancelación', pt: 'Motivo do cancelamento', tr: 'İptal nedeni' })}</h3>
-              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-dk-elevated/60 text-slate-400 dark:text-dk-muted hover:text-slate-600 transition-colors">
-                <AlertTriangle className="w-5 h-5 opacity-0" />
-              </button>
+        /* Motif d'annulation : il s'y saisit une justification, donc le fond ne
+           ferme pas — perdre le texte d'un clic distrait obligerait à tout
+           réécrire. Pas de plein écran : un seul champ, rien de dense. */
+        <SheetModal
+          onClose={() => { setSkipReasonModal(null); setSkipReasonText(''); }}
+          title={tx(lang, { fr: "Motif d'annulation", ar: 'سبب الإلغاء', en: 'Cancellation reason', es: 'Motivo de cancelación', pt: 'Motivo do cancelamento', tr: 'İptal nedeni' })}
+          icon={<AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />}
+          size="md"
+          zClass="z-[100]"
+          closeOnBackdrop={false}
+          bodyClassName="flex-1 overflow-y-auto min-h-0 p-4 sm:p-6 space-y-3 sm:space-y-4"
+          footer={
+            <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:gap-3 sm:justify-end">
+              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated/60 rounded-lg sm:rounded-xl transition-colors flex items-center justify-center sm:justify-start">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
+              <button onClick={handleSkipSubmit} disabled={!skipReasonText.trim()} className="px-4 sm:px-5 py-2.5 text-xs sm:text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center sm:justify-start">{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
             </div>
-            <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+          }
+        >
               <div className="bg-amber-50 dark:bg-dk-elevated/50 text-amber-800 dark:text-dk-text-soft p-3 sm:p-4 rounded-lg sm:rounded-xl text-xs sm:text-sm border border-amber-200/60 dark:border-dk-border/60 flex gap-2 sm:gap-3 items-start">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-100 dark:bg-dk-elevated flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-amber-400 dark:text-dk-accent-text" />
@@ -813,13 +822,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                 <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{tx(lang, { fr: 'Raison / Justification', ar: 'السبب / التبرير', en: 'Reason / Justification', es: 'Motivo / Justificación', pt: 'Motivo / Justificativa', tr: 'Neden / Gerekçe' })}</label>
                 <textarea value={skipReasonText} onChange={(e) => setSkipReasonText(e.target.value)} placeholder={tx(lang, { fr: 'Ex: Machine en panne...', ar: 'مثال: عطل في الآلة...', en: 'E.g.: Machine breakdown...', es: 'Ej: Máquina averiada...', pt: 'Ex: Máquina avariada...', tr: 'Örn: Makine arızası...' })} className="w-full border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all shadow-sm dark:shadow-dk-sm h-20 sm:h-24 resize-none" autoFocus />
               </div>
-            </div>
-            <div className="p-3 sm:p-4 bg-slate-50 dark:bg-dk-bg/80 border-t border-slate-100 dark:border-dk-border flex justify-end gap-2">
-              <button onClick={() => { setSkipReasonModal(null); setSkipReasonText(''); }} className="px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated/60 rounded-lg sm:rounded-xl transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
-              <button onClick={handleSkipSubmit} disabled={!skipReasonText.trim()} className="px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
-            </div>
-          </div>
-        </div>
+        </SheetModal>
       )}
 
     </div>

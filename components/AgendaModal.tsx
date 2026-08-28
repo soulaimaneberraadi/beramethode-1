@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, ChevronLeft, ChevronRight, Calendar, Info, Clock, CheckCircle2, XCircle, Zap, PartyPopper, Globe } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Info, Clock, CheckCircle2, XCircle, Zap, PartyPopper, Globe } from 'lucide-react';
+import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import { AppSettings } from '../types';
 import { pickT, tx } from '../lib/i18n';
 import { useIsDark } from '../src/context/ThemeContext';
@@ -344,6 +345,9 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [note, setNote] = useState('');
     const [isWorking, setIsWorking] = useState(false);
+    /* Préférence d'agrandissement partagée par tout le programme. Déclarée
+       AVANT le retour anticipé : un hook ne se saute jamais. */
+    const [agendaFullscreen, toggleAgendaFullscreen] = useSheetFullscreen();
 
     if (!isOpen) return null;
 
@@ -472,21 +476,27 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
     return (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-            <div className={`rounded-2xl shadow-2xl dark:shadow-dk-elevated dark:shadow-dk-lg w-full max-w-5xl flex flex-col md:flex-row overflow-hidden max-h-[90vh] ${isDark ? 'bg-dk-surface border border-dk-border' : 'bg-white dark:bg-dk-surface'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+        /* Agenda : grille de calendrier + panneau de details = contenu dense,
+           donc bouton plein ecran. Le fond ne ferme pas : on y saisit des
+           exceptions et une note, qu'un clic distrait ne doit pas jeter.
+           POURQUOI `bare` + un `dir` interne : la coque ne propage pas la
+           direction, et le calendrier doit rester lisible en arabe. */
+        <SheetModal
+            onClose={onClose}
+            title={t.title}
+            subtitle={countryLabel}
+            icon={<Calendar className="w-5 h-5 text-indigo-500 shrink-0" />}
+            size="xl"
+            zClass="z-50"
+            fullscreen={agendaFullscreen}
+            onToggleFullscreen={toggleAgendaFullscreen}
+            closeOnBackdrop={false}
+            bare
+        >
+            <div className={`flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden ${isDark ? 'bg-dk-surface' : 'bg-white dark:bg-dk-surface'}`} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
                 {/* Calendar Column */}
-                <div className="flex-1 p-6 overflow-y-auto">
-                    {/* Header */}
-                    <div className="flex justify-between items-center mb-4">
-                        <div className="flex items-center gap-2">
-                            <Calendar className="w-6 h-6 text-indigo-500" />
-                            <h2 className={`text-xl font-black ${isDark ? 'text-dk-text' : 'text-slate-800 dark:text-dk-text'}`}>{t.title}</h2>
-                            <span className="text-xs font-black bg-indigo-100 text-indigo-700 dark:text-dk-accent-text px-2 py-0.5 rounded-full border border-indigo-200">{countryLabel}</span>
-                        </div>
-                        <button onClick={onClose} className="p-2 text-slate-400 dark:text-dk-muted hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"><X className="w-5 h-5" /></button>
-                    </div>
-
+                <div className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto">
                     {/* Working Hours Banner */}
                     <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 rounded-xl px-4 py-2.5 mb-4">
                         <Clock className="w-4 h-4 text-indigo-500 shrink-0" />
@@ -686,6 +696,6 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                     )}
                 </div>
             </div>
-        </div>
+        </SheetModal>
     );
 }

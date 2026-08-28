@@ -248,6 +248,11 @@ export type FicheData = {
      *  Sert au lien retour Modèle → Commande et à éviter les écritures en boucle. */
     orderId?: string;
   };
+  /** Publication volontaire dans la boutique en ligne. Éteint par défaut :
+   *  un atelier a des modèles réservés à un client de gros, des essais, des
+   *  choses qu'il ne veut montrer à personne. Rien ne part vers la boutique
+   *  tant que ce drapeau n'est pas allumé à la main depuis la fiche modèle. */
+  storePublished?: boolean;
   /** Saved state for the Thread Calculator modal (prices, waste, bobbin, etc.) */
   threadCalcState?: any;
 };
@@ -694,6 +699,11 @@ export interface SubcontractOrder {
   subcontractorRating?: number;
   subcontractorAvailabilityDate?: string;
   prestationType?: 'CMT' | 'FACON_PURE';
+  /** Mode de sous-traitance EXPLICITE choisi dans le formulaire. `null`/absent =
+   *  jamais choisi → le mode est déduit des fournisseurs (inferSubcontractMode).
+   *  Stocké sur la commande pour que la réconciliation automatique respecte le
+   *  choix de l'utilisateur au lieu de le re-déduire et d'écraser la fiche de coût. */
+  st_mode?: 'facon' | 'complet';
   tissuFournisseur?: 'CLIENT' | 'SUBCONTRACTOR';
   fournituresFournisseur?: 'CLIENT' | 'SUBCONTRACTOR';
   conditionnementFournisseur?: 'CLIENT' | 'SUBCONTRACTOR';

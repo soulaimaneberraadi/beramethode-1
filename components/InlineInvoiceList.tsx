@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Plus, Printer, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { Invoice, InvoiceLine } from '../types';
 import InvoiceModalInvoice from './InvoiceModalInvoice';
-import { loadCompanyIdentity, companyHeaderHtml, escHtml } from '../lib/companyIdentity';
+import { loadCompanyIdentity } from '../lib/companyIdentity';
+import { imprimerFacture } from '../lib/factureDocument';
 
 interface InlineInvoiceListProps {
     productId: string;
@@ -69,32 +70,50 @@ export default function InlineInvoiceList({ productId, productLabel, sourceModul
         loadLines(invoiceId);
     };
 
-    // Une facture imprimée engage l'entreprise : on charge son identité légale
-    // AVANT d'ouvrir la fenêtre d'impression (l'en-tête ne peut pas être ajouté
-    // après coup, le document part tel quel chez le client).
+    /**
+     * Une facture imprimée engage l'entreprise : elle part telle quelle chez le
+     * client et chez son comptable. Le document complet (mentions légales,
+     * TVA par taux, montant en lettres, échéance et pénalité) est bâti par
+     * `lib/factureDocument`, seul endroit où ces règles vivent.
+     *
+     * L'émetteur imprimé est celui RECOPIÉ dans la facture à son émission ;
+     * l'identité courante ne sert que de repli pour les factures antérieures
+     * à cette recopie.
+     */
     const handlePrint = async (inv: Invoice) => {
-        const company = await loadCompanyIdentity();
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-        printWindow.document.write(`
-            <html><head><title>Facture ${escHtml(inv.numero)}</title>
-            <style>body{font-family:sans-serif;padding:40px}table{width:100%;border-collapse:collapse}th,td{padding:8px 12px;border:1px solid #ddd;text-align:left}</style>
-            </head><body>
-            ${companyHeaderHtml(company)}
-            <hr style="margin:16px 0;border:0;border-top:2px solid #0f172a" />
-            <h2>Facture ${escHtml(inv.numero)}</h2>
-            <p>Type: ${inv.type} | Date: ${inv.date_facture} | Statut: ${inv.statut}</p>
-            <p>Client: ${inv.tiers_nom || '-'}</p>
-            <table><thead><tr><th>Désignation</th><th>Qté</th><th>Prix unit.</th><th>Total</th></tr></thead><tbody>
-            ${(lineDetails[inv.id] || inv.lignes || []).map((l: any) =>
-                `<tr><td>${l.designation || ''}</td><td>${l.quantite ?? 0}</td><td>${(l.prix_unitaire ?? 0).toFixed(2)}</td><td>${(l.total ?? 0).toFixed(2)}</td></tr>`
-            ).join('')}
-            </tbody></table>
-            <p style="text-align:right;font-weight:bold;margin-top:20px">Total TTC: ${(inv.total_ttc ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} MAD</p>
-            </body></html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
+        const lignes = (lineDetails[inv.id] || (inv as any).lignes || []) as any[];
+        let emetteur = (inv as any).emetteur;
+        if (typeof emetteur === 'string') { try { emetteur = JSON.parse(emetteur); } catch { emetteur = null; } }
+        if (!emetteur) {
+            const c = await loadCompanyIdentity();
+            emetteur = {
+                nom: c.nom, adresse: c.adresse, ville: c.ville, tel: c.tel, email: c.email,
+                ice: c.ice, identifiantFiscal: c.if_, rc: c.rc, patente: c.patente, cnss: c.cnss,
+                banque: c.banque, rib: c.rib, logo: c.logo,
+            };
+        }
+        imprimerFacture({
+            numero: inv.numero,
+            type: inv.type,
+            date_facture: inv.date_facture,
+            date_echeance: (inv as any).date_echeance ?? null,
+            tiers_nom: inv.tiers_nom || '—',
+            tiers_ice: (inv as any).tiers_ice ?? null,
+            tiers_if: (inv as any).tiers_if ?? null,
+            tiers_rc: (inv as any).tiers_rc ?? null,
+            tiers_adresse: (inv as any).tiers_adresse ?? null,
+            tiers_tel: (inv as any).tiers_tel ?? null,
+            total_ht: Number((inv as any).total_ht) || 0,
+            taux_tva: (inv as any).taux_tva ?? 0,
+            total_tva: (inv as any).total_tva ?? 0,
+            total_ttc: Number(inv.total_ttc) || 0,
+            montant_paye: (inv as any).montant_paye ?? 0,
+            notes: (inv as any).notes ?? null,
+            lignes,
+            emetteur,
+            conditions_paiement: (inv as any).conditions_paiement ?? null,
+            penalite_retard: (inv as any).penalite_retard ?? null,
+        });
     };
 
     const formatCurrency = (val: number) =>
