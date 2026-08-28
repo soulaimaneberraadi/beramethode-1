@@ -635,6 +635,10 @@ const Caisse: React.FC<CaisseProps> = ({
       if (!res.ok) throw new Error(body?.message || 'Erreur');
       const newId = body?.id || body?.client?.id;
       if (newId) setClientId(String(newId));
+      // La liste de l'ecran appelant ne se recharge pas toute seule : sans
+      // cet appel, le client qu'on vient de creer reste introuvable a la
+      // recherche suivante, et on le recree une deuxieme fois.
+      await onClientsChanged?.();
       setQuickClientOpen(false);
       setQuickClientNom(''); setQuickClientTel(''); setQuickClientVille(''); setQuickClientDoubleRole(false); setQuickClientTypes(['DETAIL']);
       setQuickClientIce(''); setQuickClientRc(''); setQuickClientAdresse('');
