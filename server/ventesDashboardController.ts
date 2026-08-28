@@ -33,10 +33,35 @@ const SEUIL_TOP = 60;      // % écoulé → le modèle marche, on relance
 const SEUIL_LENT = 20;     // % écoulé au-delà du délai → il dort
 const DELAI_JUGEMENT = 15; // jours avant de qualifier un modèle de « lent »
 
+/** Un filtre commun à TOUTES les agrégations : sans cela, le total en haut
+ *  de page et le détail en dessous répondraient à deux questions
+ *  différentes — et c'est de l'argent. */
+const construireFiltre = (q: any, companyId: number | string) => {
+    const jours = fenetre(q.jours);
+    const iso = (v: any) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
+    const du = iso(q.du) || jourISO(new Date(Date.now() - jours * 86400000));
+    const au = iso(q.au);
+    const clientId = q.clientId ? String(q.clientId) : null;
+    const canal = ['MAGASIN', 'ONLINE', 'ATELIER'].includes(String(q.canal || '').toUpperCase())
+        ? String(q.canal).toUpperCase() : null;
+    const segment = ['BOUTIQUE', 'DETAIL', 'GROS'].includes(String(q.segment || '').toUpperCase())
+        ? String(q.segment).toUpperCase() : null;
+
+    const clauses = ['s.owner_id = ?', 's.date_sortie >= ?'];
+    const params: any[] = [companyId, du];
+    if (au) { clauses.push('s.date_sortie <= ?'); params.push(au); }
+    if (clientId) { clauses.push('s.client_id = ?'); params.push(clientId); }
+    if (canal) { clauses.push('s.canal = ?'); params.push(canal); }
+    if (segment) { clauses.push('s.type_vente = ?'); params.push(segment); }
+
+    return { jours, du, au, clientId, canal, segment, where: clauses.join(' AND '), params };
+};
+
 export const getVentesDashboard = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
-    const jours = fenetre((req.query as any).jours);
-    const depuis = jourISO(new Date(Date.now() - jours * 86400000));
+    const f = construireFiltre(req.query || {}, companyId);
+    const jours = f.jours;
+    const depuis = f.du;
 
     try {
         // ── Ce qui est sorti sur la période, par modèle ───────────────────
@@ -44,6 +69,7 @@ export const getVentesDashboard = (req: Request, res: Response) => {
             SELECT s.modelId,
                    COALESCE(json_extract(m.data, '$.meta_data.nom_modele'), json_extract(m.data, '$.filename')) AS nom,
                    json_extract(m.data, '$.meta_data.reference') AS reference,
+                   json_extract(m.data, '$.image') AS image,
                    SUM(s.quantite) AS pieces,
                    SUM(s.quantite * s.prix_unitaire) AS ca,
                    MIN(s.date_sortie) AS premiere,
@@ -51,21 +77,47 @@ export const getVentesDashboard = (req: Request, res: Response) => {
                    COUNT(DISTINCT COALESCE(s.ticket_ref, s.batch_id, s.id)) AS tickets
             FROM st_stock_sorties s
             LEFT JOIN models m ON m.id = s.modelId AND m.user_id = s.owner_id
-            WHERE s.owner_id = ? AND s.date_sortie >= ?
+            WHERE ${f.where}
             GROUP BY s.modelId
-        `).all(companyId, depuis) as any[];
+        `).all(...f.params) as any[];
+
+        // ── Où chaque modèle se vend le mieux ────────────────────────────
+        // Le même vêtement ne marche pas partout : celui qui part en ligne
+        // n'est pas celui qui part au comptoir. Sans ce détail, on réassortit
+        // le mauvais canal et la pièce dort là où personne ne la demande.
+        const ventesParCanal = db.prepare(`
+            SELECT s.modelId,
+                   COALESCE(s.canal, 'NON_PRECISE') AS canal,
+                   SUM(s.quantite) AS pieces,
+                   SUM(s.quantite * s.prix_unitaire) AS ca
+            FROM st_stock_sorties s
+            WHERE ${f.where}
+            GROUP BY s.modelId, COALESCE(s.canal, 'NON_PRECISE')
+        `).all(...f.params) as any[];
+
+        const canauxParModele = new Map<string, Array<{ canal: string; pieces: number; ca: number }>>();
+        for (const r of ventesParCanal) {
+            const cle = String(r.modelId);
+            const liste = canauxParModele.get(cle) || [];
+            liste.push({ canal: String(r.canal), pieces: Number(r.pieces) || 0, ca: Number((Number(r.ca) || 0).toFixed(2)) });
+            canauxParModele.set(cle, liste);
+        }
 
         // ── Ce qui est entré en stock, tous temps confondus ───────────────
         // La vitesse d'écoulement se mesure contre la QUANTITÉ PRODUITE, pas
         // contre le stock restant : sinon un modèle presque épuisé afficherait
         // toujours 100 %, qu'il ait mis deux jours ou six mois.
         const entrees = db.prepare(`
-            SELECT modelId,
-                   SUM(quantite) AS produit,
-                   MIN(date_entree) AS premiereEntree
-            FROM st_stock_entries
-            WHERE owner_id = ? AND qualite = 'ACCEPTED'
-            GROUP BY modelId
+            SELECT e.modelId,
+                   COALESCE(json_extract(m.data, '$.meta_data.nom_modele'), json_extract(m.data, '$.filename')) AS nom,
+                   json_extract(m.data, '$.meta_data.reference') AS reference,
+                   json_extract(m.data, '$.image') AS image,
+                   SUM(e.quantite) AS produit,
+                   MIN(e.date_entree) AS premiereEntree
+            FROM st_stock_entries e
+            LEFT JOIN models m ON m.id = e.modelId AND m.user_id = e.owner_id
+            WHERE e.owner_id = ? AND e.qualite = 'ACCEPTED'
+            GROUP BY e.modelId
         `).all(companyId) as any[];
 
         const sortiesTotales = db.prepare(`
@@ -106,10 +158,21 @@ export const getVentesDashboard = (req: Request, res: Response) => {
             else if (ageJours >= DELAI_JUGEMENT && ecoule < SEUIL_LENT) statut = sortiTotal === 0 ? 'MORT' : 'LENT';
             else statut = 'OK';
 
+            // Canal dominant : celui qui prend la plus grosse part des pièces
+            // vendues. La PART compte autant que le classement — « 51 % en
+            // ligne » ne se décide pas comme « 95 % en ligne ».
+            const canaux = (canauxParModele.get(modelId) || []).sort((a, b) => b.pieces - a.pieces);
+            const totalCanaux = canaux.reduce((a, c) => a + c.pieces, 0);
+            const dominant = canaux[0] || null;
+
             return {
                 modelId,
                 nom: v?.nom || e?.nom || modelId,
-                reference: v?.reference || null,
+                canaux,
+                canalFort: dominant ? dominant.canal : null,
+                partCanalFort: dominant && totalCanaux > 0 ? Number(((dominant.pieces / totalCanaux) * 100).toFixed(1)) : null,
+                reference: v?.reference || e?.reference || null,
+                image: v?.image || e?.image || null,
                 produit,
                 vendu: sortiTotal,
                 stock,
@@ -124,31 +187,77 @@ export const getVentesDashboard = (req: Request, res: Response) => {
             };
         }).sort((a, b) => b.caPeriode - a.caPeriode || b.vendu - a.vendu);
 
+        // ── Ce que le marché demande : tailles et couleurs ───────────────
+        // Un atelier ne coupe pas « 200 pièces », il coupe une répartition.
+        // La demande réelle, taille par taille, est ce qui empêche de refaire
+        // le même lot avec les mêmes invendus en S.
+        const tailles = db.prepare(`
+            SELECT COALESCE(NULLIF(TRIM(taille), ''), '—') AS taille,
+                   SUM(quantite) AS pieces,
+                   SUM(quantite * prix_unitaire) AS ca
+            FROM st_stock_sorties s WHERE ${f.where}
+            GROUP BY COALESCE(NULLIF(TRIM(taille), ''), '—')
+            ORDER BY pieces DESC
+        `).all(...f.params) as any[];
+
+        const couleurs = db.prepare(`
+            SELECT COALESCE(NULLIF(TRIM(couleur), ''), '—') AS couleur,
+                   SUM(quantite) AS pieces,
+                   SUM(quantite * prix_unitaire) AS ca
+            FROM st_stock_sorties s WHERE ${f.where}
+            GROUP BY COALESCE(NULLIF(TRIM(couleur), ''), '—')
+            ORDER BY pieces DESC
+        `).all(...f.params) as any[];
+
+        // ── Qualité : ce qui est sorti de l'atelier, et dans quel état ───
+        // Le taux de défaut se lit sur les ENTRÉES, pas sur les ventes : une
+        // pièce à retoucher n'a jamais atteint le rayon, et c'est justement
+        // ce qu'on veut corriger avant de relancer 1 000 pièces.
+        const qualite = db.prepare(`
+            SELECT COALESCE(qualite, 'ACCEPTED') AS qualite, SUM(quantite) AS pieces
+            FROM st_stock_entries WHERE owner_id = ? AND date_entree >= ?
+            GROUP BY COALESCE(qualite, 'ACCEPTED')
+        `).all(companyId, depuis) as any[];
+
+        const defautsParModele = db.prepare(`
+            SELECT e.modelId,
+                   COALESCE(json_extract(m.data, '$.meta_data.nom_modele'), json_extract(m.data, '$.filename')) AS nom,
+                   SUM(CASE WHEN COALESCE(e.qualite, 'ACCEPTED') = 'ACCEPTED' THEN e.quantite ELSE 0 END) AS ok,
+                   SUM(CASE WHEN COALESCE(e.qualite, 'ACCEPTED') != 'ACCEPTED' THEN e.quantite ELSE 0 END) AS defauts
+            FROM st_stock_entries e
+            LEFT JOIN models m ON m.id = e.modelId AND m.user_id = e.owner_id
+            WHERE e.owner_id = ?
+            GROUP BY e.modelId
+            HAVING defauts > 0
+            ORDER BY defauts DESC
+            LIMIT 20
+        `).all(companyId) as any[];
+
         // ── Répartition par canal et par segment ─────────────────────────
         const parCanal = db.prepare(`
             SELECT COALESCE(canal, 'NON_PRECISE') AS canal,
                    SUM(quantite) AS pieces,
                    SUM(quantite * prix_unitaire) AS ca,
                    COUNT(DISTINCT COALESCE(ticket_ref, batch_id, id)) AS tickets
-            FROM st_stock_sorties WHERE owner_id = ? AND date_sortie >= ?
-            GROUP BY COALESCE(canal, 'NON_PRECISE')
-        `).all(companyId, depuis) as any[];
+            FROM st_stock_sorties s WHERE ${f.where}
+            GROUP BY COALESCE(s.canal, 'NON_PRECISE')
+        `).all(...f.params) as any[];
 
         const parSegment = db.prepare(`
             SELECT COALESCE(type_vente, 'NON_PRECISE') AS segment,
                    SUM(quantite) AS pieces,
                    SUM(quantite * prix_unitaire) AS ca
-            FROM st_stock_sorties WHERE owner_id = ? AND date_sortie >= ?
-            GROUP BY COALESCE(type_vente, 'NON_PRECISE')
-        `).all(companyId, depuis) as any[];
+            FROM st_stock_sorties s WHERE ${f.where}
+            GROUP BY COALESCE(s.type_vente, 'NON_PRECISE')
+        `).all(...f.params) as any[];
 
         const parPaiement = db.prepare(`
             SELECT COALESCE(mode_paiement, 'NON_PRECISE') AS mode,
                    SUM(quantite * prix_unitaire) AS ca,
                    COUNT(DISTINCT COALESCE(ticket_ref, batch_id, id)) AS tickets
-            FROM st_stock_sorties WHERE owner_id = ? AND date_sortie >= ?
-            GROUP BY COALESCE(mode_paiement, 'NON_PRECISE')
-        `).all(companyId, depuis) as any[];
+            FROM st_stock_sorties s WHERE ${f.where}
+            GROUP BY COALESCE(s.mode_paiement, 'NON_PRECISE')
+        `).all(...f.params) as any[];
 
         // ── Les clients : ce qu'ils achètent, ce qu'ils doivent ──────────
         // L'encours vient des FACTURES, pas des sorties : une vente comptant
@@ -163,13 +272,13 @@ export const getVentesDashboard = (req: Request, res: Response) => {
                    COALESCE(f.enRetard, 0) AS enRetard
             FROM st_clients c
             LEFT JOIN (
-                SELECT client_id,
-                       SUM(quantite) AS pieces,
-                       SUM(quantite * prix_unitaire) AS ca,
-                       COUNT(DISTINCT COALESCE(ticket_ref, batch_id, id)) AS tickets,
-                       MAX(date_sortie) AS derniere
-                FROM st_stock_sorties WHERE owner_id = ? AND date_sortie >= ? AND client_id IS NOT NULL
-                GROUP BY client_id
+                SELECT s.client_id AS client_id,
+                       SUM(s.quantite) AS pieces,
+                       SUM(s.quantite * s.prix_unitaire) AS ca,
+                       COUNT(DISTINCT COALESCE(s.ticket_ref, s.batch_id, s.id)) AS tickets,
+                       MAX(s.date_sortie) AS derniere
+                FROM st_stock_sorties s WHERE ${f.where} AND s.client_id IS NOT NULL
+                GROUP BY s.client_id
             ) v ON v.client_id = c.id
             LEFT JOIN (
                 SELECT source_id AS client_id,
@@ -181,7 +290,7 @@ export const getVentesDashboard = (req: Request, res: Response) => {
                 GROUP BY source_id
             ) f ON f.client_id = c.id
             WHERE c.owner_id = ?
-        `).all(companyId, depuis, companyId, companyId) as any[];
+        `).all(...f.params, companyId, companyId) as any[];
 
         const clientsClasses = clients.map(c => {
             const ca = Number(c.ca) || 0;
@@ -209,6 +318,7 @@ export const getVentesDashboard = (req: Request, res: Response) => {
         res.json({
             jours,
             depuis,
+            filtre: { du: f.du, au: f.au, clientId: f.clientId, canal: f.canal, segment: f.segment },
             kpis: {
                 ca: Number(totalCa.toFixed(2)),
                 pieces: totalPieces,
@@ -219,6 +329,26 @@ export const getVentesDashboard = (req: Request, res: Response) => {
             parCanal: parCanal.map(c => ({ ...c, ca: Number((Number(c.ca) || 0).toFixed(2)) })),
             parSegment: parSegment.map(s => ({ ...s, ca: Number((Number(s.ca) || 0).toFixed(2)) })),
             parPaiement: parPaiement.map(p => ({ ...p, ca: Number((Number(p.ca) || 0).toFixed(2)) })),
+            tailles: tailles.map(t => ({ ...t, ca: Number((Number(t.ca) || 0).toFixed(2)) })),
+            couleurs: couleurs.map(c => ({ ...c, ca: Number((Number(c.ca) || 0).toFixed(2)) })),
+            qualite: {
+                parEtat: qualite,
+                // Un taux global lu sur la période : c'est lui qui dit si
+                // l'atelier tient sa qualité, modèle par modèle ensuite.
+                tauxDefaut: (() => {
+                    const total = qualite.reduce((a, q) => a + (Number(q.pieces) || 0), 0);
+                    const mauvais = qualite.filter(q => q.qualite !== 'ACCEPTED')
+                        .reduce((a, q) => a + (Number(q.pieces) || 0), 0);
+                    return total > 0 ? Number(((mauvais / total) * 100).toFixed(1)) : 0;
+                })(),
+                parModele: defautsParModele.map(d => ({
+                    modelId: d.modelId,
+                    nom: d.nom || d.modelId,
+                    ok: Number(d.ok) || 0,
+                    defauts: Number(d.defauts) || 0,
+                    taux: Number((((Number(d.defauts) || 0) / Math.max(1, (Number(d.ok) || 0) + (Number(d.defauts) || 0))) * 100).toFixed(1)),
+                })),
+            },
             modeles,
             clients: clientsClasses,
         });

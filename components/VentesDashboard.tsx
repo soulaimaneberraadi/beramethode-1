@@ -28,7 +28,9 @@ interface Props {
 }
 
 type Modele = {
-    modelId: string; nom: string; reference: string | null;
+    modelId: string; nom: string; reference: string | null; image: string | null;
+    canaux: Array<{ canal: string; pieces: number; ca: number }>;
+    canalFort: string | null; partCanalFort: number | null;
     produit: number; vendu: number; stock: number;
     piecesPeriode: number; caPeriode: number; ticketsPeriode: number;
     ageJours: number | null; ecoule: number; parJour: number;
@@ -45,6 +47,13 @@ type ClientLigne = {
 
 type Donnees = {
     jours: number; depuis: string;
+    tailles: Array<{ taille: string; pieces: number; ca: number }>;
+    couleurs: Array<{ couleur: string; pieces: number; ca: number }>;
+    qualite: {
+        tauxDefaut: number;
+        parEtat: Array<{ qualite: string; pieces: number }>;
+        parModele: Array<{ modelId: string; nom: string; ok: number; defauts: number; taux: number }>;
+    };
     kpis: { ca: number; pieces: number; tickets: number; panierMoyen: number; encoursTotal: number };
     parCanal: Array<{ canal: string; pieces: number; ca: number; tickets: number }>;
     parSegment: Array<{ segment: string; pieces: number; ca: number }>;
@@ -72,6 +81,17 @@ const TEINTE_CLIENT: Record<ClientLigne['statut'], string> = {
 
 export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
     const [jours, setJours] = useState(30);
+    /* Filtres : la même question posée à toute la page. Un total en haut qui
+     * ne répondrait pas au même filtre que le détail en dessous serait un
+     * chiffre faux, pas une nuance. */
+    const [du, setDu] = useState('');
+    const [au, setAu] = useState('');
+    const [canal, setCanal] = useState('');
+    const [segment, setSegment] = useState('');
+    const [clientId, setClientId] = useState('');
+    /** Liste des clients pour le filtre : figée au premier chargement sans
+     *  filtre client, sinon choisir un client viderait la liste où on l'a pris. */
+    const [annuaire, setAnnuaire] = useState<ClientLigne[]>([]);
     const [data, setData] = useState<Donnees | null>(null);
     const [chargement, setChargement] = useState(false);
     const [erreur, setErreur] = useState<string | null>(null);
@@ -83,7 +103,13 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         setChargement(true);
         setErreur(null);
         try {
-            const res = await fetch(`/api/ventes/dashboard?jours=${n}`, { credentials: 'include' });
+            const p = new URLSearchParams({ jours: String(n) });
+            if (du) p.set('du', du);
+            if (au) p.set('au', au);
+            if (canal) p.set('canal', canal);
+            if (segment) p.set('segment', segment);
+            if (clientId) p.set('clientId', clientId);
+            const res = await fetch(`/api/ventes/dashboard?${p.toString()}`, { credentials: 'include' });
             const body = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(body?.message || `HTTP ${res.status}`);
             if (!body || !Array.isArray(body.modeles) || !Array.isArray(body.clients)) {
@@ -102,9 +128,12 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         } finally {
             setChargement(false);
         }
-    }, []);
+    }, [du, au, canal, segment, clientId]);
 
     useEffect(() => { void charger(jours); }, [jours, charger]);
+    useEffect(() => {
+        if (data && !clientId && annuaire.length === 0 && data.clients.length > 0) setAnnuaire(data.clients);
+    }, [data, clientId, annuaire.length]);
 
     const T = {
         titre: tx(lang, { fr: 'Ventes', ar: 'المبيعات', en: 'Sales', es: 'Ventas', pt: 'Vendas', tr: 'Satislar' }),
@@ -134,6 +163,17 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
             pt: 'Esta versao online nao tem servidor: as vendas e o stock estao na instalacao local.',
             tr: 'Bu cevrimici surumde sunucu yok: satislar ve stok yerel kurulumda.',
         }),
+        du: tx(lang, { fr: 'Du', ar: 'من', en: 'From', es: 'Desde', pt: 'De', tr: 'Baslangic' }),
+        au: tx(lang, { fr: 'Au', ar: 'إلى', en: 'To', es: 'Hasta', pt: 'Ate', tr: 'Bitis' }),
+        tousCanaux: tx(lang, { fr: 'Tous canaux', ar: 'كل القنوات', en: 'All channels', es: 'Todos los canales', pt: 'Todos os canais', tr: 'Tum kanallar' }),
+        tousSegments: tx(lang, { fr: 'Tous segments', ar: 'كل الأصناف', en: 'All segments', es: 'Todos los segmentos', pt: 'Todos os segmentos', tr: 'Tum segmentler' }),
+        tousClients: tx(lang, { fr: 'Tous clients', ar: 'كل الزبناء', en: 'All customers', es: 'Todos los clientes', pt: 'Todos os clientes', tr: 'Tum musteriler' }),
+        effacer: tx(lang, { fr: 'Effacer', ar: 'مسح', en: 'Clear', es: 'Borrar', pt: 'Limpar', tr: 'Temizle' }),
+        tailles: tx(lang, { fr: 'Tailles demandees', ar: 'المقاسات المطلوبة', en: 'Sizes in demand', es: 'Tallas demandadas', pt: 'Tamanhos pedidos', tr: 'Talep edilen bedenler' }),
+        couleurs: tx(lang, { fr: 'Couleurs demandees', ar: 'الألوان المطلوبة', en: 'Colours in demand', es: 'Colores demandados', pt: 'Cores pedidas', tr: 'Talep edilen renkler' }),
+        qualite: tx(lang, { fr: 'Qualite atelier', ar: 'جودة الورشة', en: 'Workshop quality', es: 'Calidad del taller', pt: 'Qualidade da oficina', tr: 'Atolye kalitesi' }),
+        tauxDefaut: tx(lang, { fr: 'Taux de defaut', ar: 'نسبة العيوب', en: 'Defect rate', es: 'Tasa de defectos', pt: 'Taxa de defeitos', tr: 'Hata orani' }),
+        canalFort: tx(lang, { fr: 'Part du canal principal', ar: 'حصّة القناة الأولى', en: 'Main channel share', es: 'Cuota del canal principal', pt: 'Quota do canal principal', tr: 'Ana kanal payi' }),
         retard: tx(lang, { fr: 'facture(s) en retard', ar: 'فاتورة متأخّرة', en: 'overdue invoice(s)', es: 'factura(s) vencida(s)', pt: 'fatura(s) vencida(s)', tr: 'gecikmis fatura' }),
     };
 
@@ -206,6 +246,40 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                         </button>
                     ))}
                 </div>
+                {/* Filtres : jour precis, canal, segment, client. Ils
+                    s'appliquent a TOUTE la page — total et detail repondent a
+                    la meme question, sinon l'un des deux chiffres est faux. */}
+                <input type="date" value={du} onChange={e => setDu(e.target.value)} title={T.du}
+                    className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none" />
+                <input type="date" value={au} onChange={e => setAu(e.target.value)} title={T.au}
+                    className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none" />
+                <select value={canal} onChange={e => setCanal(e.target.value)}
+                    className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
+                    <option value="">{T.tousCanaux}</option>
+                    <option value="MAGASIN">MAGASIN</option>
+                    <option value="ONLINE">ONLINE</option>
+                    <option value="ATELIER">ATELIER</option>
+                </select>
+                <select value={segment} onChange={e => setSegment(e.target.value)}
+                    className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
+                    <option value="">{T.tousSegments}</option>
+                    <option value="BOUTIQUE">BOUTIQUE</option>
+                    <option value="DETAIL">DETAIL</option>
+                    <option value="GROS">GROS</option>
+                </select>
+                <select value={clientId} onChange={e => setClientId(e.target.value)}
+                    className="h-8 px-2 max-w-[160px] rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
+                    <option value="">{T.tousClients}</option>
+                    {annuaire.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                </select>
+                {(du || au || canal || segment || clientId) && (
+                    <button
+                        onClick={() => { setDu(''); setAu(''); setCanal(''); setSegment(''); setClientId(''); }}
+                        className="h-8 px-2.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border"
+                    >
+                        {T.effacer}
+                    </button>
+                )}
                 <div className="relative flex-1 min-w-[180px] max-w-xs">
                     <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
@@ -253,6 +327,35 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                         {repartition(T.parPaiement, data.parPaiement.map(p => ({ cle: p.mode, ca: p.ca, detail: `${nf(p.tickets)} ${T.tickets.toLowerCase()}` })))}
                     </div>
 
+                    {/* Ce que le marche demande vraiment : un atelier ne coupe
+                        pas « 200 pieces », il coupe une repartition. */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
+                        {repartition(T.tailles, (data.tailles || []).slice(0, 8).map(t => ({ cle: t.taille, ca: t.ca, detail: `${nf(t.pieces)} ${T.pieces.toLowerCase()}` })))}
+                        {repartition(T.couleurs, (data.couleurs || []).slice(0, 8).map(c => ({ cle: c.couleur, ca: c.ca, detail: `${nf(c.pieces)} ${T.pieces.toLowerCase()}` })))}
+                        <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface">
+                            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
+                                <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{T.qualite}</span>
+                                <span className={`text-[12px] font-black tabular-nums ${(data.qualite?.tauxDefaut || 0) > 5 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                    {nf(data.qualite?.tauxDefaut || 0)} %
+                                </span>
+                            </div>
+                            <div className="p-3 space-y-1.5">
+                                <span className="block text-[10px] text-slate-400 dark:text-dk-muted">{T.tauxDefaut}</span>
+                                {(data.qualite?.parModele || []).slice(0, 6).map(d => (
+                                    <div key={d.modelId} className="flex items-center justify-between text-[11px]">
+                                        <span className="font-bold text-slate-700 dark:text-dk-text-soft truncate">{d.nom}</span>
+                                        <span className="tabular-nums font-black text-rose-600 dark:text-rose-400 shrink-0">
+                                            {nf(d.taux)} % <span className="text-slate-400 font-bold">({nf(d.defauts)})</span>
+                                        </span>
+                                    </div>
+                                ))}
+                                {(data.qualite?.parModele || []).length === 0 && (
+                                    <p className="text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Les modeles : ce qui part vite se relance, ce qui dort se solde. */}
                     <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface overflow-hidden">
                         <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dk-border flex flex-wrap items-center gap-2">
@@ -276,6 +379,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                                 <thead>
                                     <tr className="text-[10px] uppercase tracking-wide text-slate-400 dark:text-dk-muted">
                                         <th className="text-left font-bold px-4 py-2">{T.modeles}</th>
+                                        <th className="text-right font-bold px-3 py-2">{T.parCanal}</th>
                                         <th className="text-right font-bold px-3 py-2">{T.ecoule}</th>
                                         <th className="text-right font-bold px-3 py-2">{T.stock}</th>
                                         <th className="text-right font-bold px-3 py-2">{T.rupture}</th>
@@ -284,13 +388,18 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                     {modelesFiltres.length === 0 && (
-                                        <tr><td colSpan={5} className="px-4 py-6 text-center text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</td></tr>
+                                        <tr><td colSpan={6} className="px-4 py-6 text-center text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</td></tr>
                                     )}
                                     {modelesFiltres.slice(0, 40).map(m => (
                                         <tr key={m.modelId} className="hover:bg-slate-50/60 dark:hover:bg-dk-elevated/50">
                                             <td className="px-4 py-2">
                                                 <div className="flex items-center gap-2 min-w-0">
-                                                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black border ${TEINTE_STATUT[m.statut]}`}>{m.statut}</span>
+                                                    {/* La photo d'abord : on reconnait un vetement
+                                                        avant de lire son nom. */}
+                                                    {m.image
+                                                        ? <img src={m.image} alt="" className="w-9 h-9 rounded-lg object-cover flex-none border border-slate-200 dark:border-dk-border" />
+                                                        : <span className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-dk-elevated flex-none" />}
+                                                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black border shrink-0 ${TEINTE_STATUT[m.statut]}`}>{m.statut}</span>
                                                     <span className="min-w-0">
                                                         <span className="block font-bold text-slate-800 dark:text-dk-text truncate">{m.nom}</span>
                                                         <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">
@@ -298,6 +407,14 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                                                         </span>
                                                     </span>
                                                 </div>
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                {m.canalFort ? (
+                                                    <span title={T.canalFort}>
+                                                        <span className="block text-[11px] font-black text-slate-800 dark:text-dk-text">{m.canalFort}</span>
+                                                        <span className="block text-[10px] text-slate-400 dark:text-dk-muted tabular-nums">{nf(m.partCanalFort || 0)} %</span>
+                                                    </span>
+                                                ) : <span className="text-slate-300 dark:text-dk-muted">—</span>}
                                             </td>
                                             <td className="px-3 py-2 text-right tabular-nums">
                                                 <span className="font-black text-slate-800 dark:text-dk-text">{nf(m.ecoule)} %</span>
