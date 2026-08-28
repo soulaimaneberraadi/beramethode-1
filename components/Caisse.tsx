@@ -301,6 +301,17 @@ const Caisse: React.FC<CaisseProps> = ({
   }, [mep]);
   /** Glisser-deposer des blocs de reglage, en mode mise en page. */
   const [blocTire, setBlocTire] = useState<ChampCle | null>(null);
+  /** Bloc dont le bord droit est survole : y deposer coupe sa ligne en deux
+   *  et installe les deux blocs cote a cote. C'est le geste attendu — on
+   *  pose un outil A COTE d'un autre, on ne va pas chercher un reglage. */
+  const [cibleCote, setCibleCote] = useState<ChampCle | null>(null);
+  const partagerLigne = useCallback((tire: ChampCle, cible: ChampCle) => {
+    majVue(m => {
+      const suite = m.ordre.filter(k => k !== tire);
+      suite.splice(suite.indexOf(cible) + 1, 0, tire);
+      return { ...m, ordre: suite, demis: { ...m.demis, [tire]: true, [cible]: true } };
+    });
+  }, [majVue]);
   /* Les separations se tirent a la souris. On ne redimensionne qu'a partir
    * de lg : en dessous, les volets sont plein ecran l'un apres l'autre, une
    * largeur en pourcentage n'y veut rien dire. */
@@ -725,7 +736,7 @@ const Caisse: React.FC<CaisseProps> = ({
     aGauche: tx(lang, { fr: 'A gauche', ar: 'على اليسار', en: 'Left', es: 'A la izquierda', pt: 'A esquerda', tr: 'Solda' }),
     aDroite: tx(lang, { fr: 'A droite', ar: 'على اليمين', en: 'Right', es: 'A la derecha', pt: 'A direita', tr: 'Sagda' }),
     dansPanier: tx(lang, { fr: 'Dans le panier', ar: 'فالسلّة', en: 'In the cart', es: 'En la cesta', pt: 'No cesto', tr: 'Sepette' }),
-    glisser: tx(lang, { fr: 'Prenez un bloc a la souris pour le ranger ailleurs.', ar: 'شدّ الكتلة بالماوس وحرّكها فين بغيتي.', en: 'Drag a block with the mouse to reorder it.', es: 'Arrastre un bloque con el raton para reordenarlo.', pt: 'Arraste um bloco com o rato para o reordenar.', tr: 'Bir blogu fareyle surukleyerek siralayin.' }),
+    glisser: tx(lang, { fr: 'Prenez un bloc a la souris : deposez-le sur le bord droit d’un autre pour les mettre cote a cote.', ar: 'شدّ الكتلة بالماوس وحرّكها فين بغيتي.', en: 'Drag a block with the mouse to reorder it.', es: 'Arrastre un bloque con el raton para reordenarlo.', pt: 'Arraste um bloco com o rato para o reordenar.', tr: 'Bir blogu fareyle surukleyerek siralayin.' }),
     champs: tx(lang, { fr: 'Champs affiches', ar: 'الحقول الظاهرة', en: 'Visible fields', es: 'Campos visibles', pt: 'Campos visiveis', tr: 'Gorunen alanlar' }),
     champMasque: tx(lang, { fr: 'Masquer un champ ne change rien a la vente enregistree.', ar: 'إخفاء حقل ما كيبدّلش البيعة المسجّلة.', en: 'Hiding a field does not change the recorded sale.', es: 'Ocultar un campo no cambia la venta registrada.', pt: 'Ocultar um campo nao muda a venda registada.', tr: 'Bir alani gizlemek kaydedilen satisi degistirmez.' }),
     defaut: tx(lang, { fr: 'Reglages par defaut', ar: 'الإعدادات الأصلية', en: 'Reset layout', es: 'Ajustes originales', pt: 'Definicoes originais', tr: 'Varsayilana don' }),
@@ -1544,7 +1555,20 @@ const Caisse: React.FC<CaisseProps> = ({
                 draggable={reglagesOuverts}
                 onDragStart={() => setBlocTire(k)}
                 onDragEnd={() => setBlocTire(null)}
-                onDragOver={e => { if (reglagesOuverts && blocTire && blocTire !== k) { e.preventDefault(); deplacerBloc(blocTire, k); } }}
+                onDragOver={e => {
+                  if (!reglagesOuverts || !blocTire || blocTire === k) return;
+                  e.preventDefault();
+                  const r = e.currentTarget.getBoundingClientRect();
+                  // Le dernier tiers droit : « a cote de ». Le reste : « avant ».
+                  if (e.clientX > r.left + r.width * 0.66) { setCibleCote(k); return; }
+                  setCibleCote(null);
+                  deplacerBloc(blocTire, k);
+                }}
+                onDragLeave={() => setCibleCote(c => (c === k ? null : c))}
+                onDrop={() => {
+                  if (blocTire && cibleCote === k) partagerLigne(blocTire, k);
+                  setCibleCote(null);
+                }}
                 style={vue.hauteurs[k] ? { height: vue.hauteurs[k] } : undefined}
                 className={`${vue.demis[k] ? 'w-[calc(50%-0.375rem)]' : 'w-full'} ${vue.hauteurs[k] ? 'overflow-y-auto overscroll-contain' : ''} ${k === 'lignes' && !vue.hauteurs[k] && !vue.demis[k] ? 'flex-1 min-h-[120px] overflow-y-auto overscroll-contain' : ''}${k === 'lignes' && vue.demis[k] ? ' min-h-[120px] overflow-y-auto overscroll-contain' : ''} ${reglagesOuverts
                   ? `relative rounded-xl border border-dashed pl-4 pr-8 py-2 cursor-grab active:cursor-grabbing transition-colors ${blocTire === k ? 'border-slate-800 dark:border-dk-accent bg-slate-50 dark:bg-dk-elevated opacity-60' : 'border-slate-300 dark:border-dk-border'}`
@@ -1552,6 +1576,10 @@ const Caisse: React.FC<CaisseProps> = ({
               >
                 {reglagesOuverts && (
                   <>
+                    {/* La moitie de ligne qui s'ouvre sous le bloc tire. */}
+                    {cibleCote === k && (
+                      <span className="absolute right-0 top-1 bottom-1 w-1.5 rounded-full bg-slate-800 dark:bg-dk-accent" />
+                    )}
                     <GripVertical className="absolute left-0.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300 dark:text-dk-muted pointer-events-none" />
                     {/* Pleine ligne ou demi-ligne : deux blocs courts tiennent
                         alors cote a cote. */}
