@@ -1533,15 +1533,16 @@ const Caisse: React.FC<CaisseProps> = ({
           {blocsRanges('g')}
         </div>
 
-        {/* La separation se tire : chaque comptoir donne au panier la place
-            qu'il lui faut, sans passer par un reglage. */}
+        {/* La separation ne se tire qu'en mode mise en page. Hors reglage,
+            elle redevient un simple trait : au comptoir, une poignee sous la
+            main est une largeur qui bouge par accident. */}
         <div
-          onMouseDown={() => setRedim('panier')}
-          onDoubleClick={() => majVue(m => ({ ...m, largeurPanier: MISE_EN_PAGE_DEFAUT.largeurPanier }))}
-          title={T.tirer}
-          className={`hidden lg:block shrink-0 w-2 cursor-col-resize transition-colors ${redim === 'panier'
-            ? 'bg-slate-400 dark:bg-dk-accent'
-            : 'bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent'} ${journeeOuverte ? 'hidden' : ''}`}
+          onMouseDown={() => { if (reglagesOuverts) setRedim('panier'); }}
+          onDoubleClick={() => { if (reglagesOuverts) majVue(m => ({ ...m, largeurPanier: MISE_EN_PAGE_DEFAUT.largeurPanier })); }}
+          title={reglagesOuverts ? T.tirer : undefined}
+          className={`hidden lg:block shrink-0 transition-colors ${reglagesOuverts
+            ? `w-2 cursor-col-resize ${redim === 'panier' ? 'bg-slate-400 dark:bg-dk-accent' : 'bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent'}`
+            : 'w-px bg-slate-200 dark:bg-dk-border'} ${journeeOuverte ? 'hidden' : ''}`}
         />
 
         {/* Droite : le panier et l'encaissement. */}
