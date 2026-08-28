@@ -274,6 +274,14 @@ const Caisse: React.FC<CaisseProps> = ({
   const [quickClientNom, setQuickClientNom] = useState('');
   const [quickClientTel, setQuickClientTel] = useState('');
   const [quickClientTypes, setQuickClientTypes] = useState<TypeVente[]>(['DETAIL']);
+  /* Ce qui doit figurer sur une facture marocaine : ICE, RC, adresse. Un
+   * client en gros repart toujours avec une facture — la lui etablir sans ces
+   * mentions oblige a le rappeler pour les demander, et la facture reste en
+   * attente pendant ce temps. */
+  const [quickClientIce, setQuickClientIce] = useState('');
+  const [quickClientRc, setQuickClientRc] = useState('');
+  const [quickClientAdresse, setQuickClientAdresse] = useState('');
+  const [quickClientEmail, setQuickClientEmail] = useState('');
   const [quickClientVille, setQuickClientVille] = useState('');
   const [quickClientDoubleRole, setQuickClientDoubleRole] = useState(false);
   const [quickClientSaving, setQuickClientSaving] = useState(false);
@@ -529,7 +537,18 @@ const Caisse: React.FC<CaisseProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ nom, tel: quickClientTel.trim() || null, type: quickClientTypes[0] || 'DETAIL', types: quickClientTypes, ville: quickClientVille.trim() || null, role: quickClientDoubleRole ? 'LES_DEUX' : 'CLIENT' }),
+        body: JSON.stringify({
+          nom,
+          tel: quickClientTel.trim() || null,
+          type: quickClientTypes[0] || 'DETAIL',
+          types: quickClientTypes,
+          ville: quickClientVille.trim() || null,
+          ice: quickClientIce.trim() || null,
+          rc: quickClientRc.trim() || null,
+          adresse: quickClientAdresse.trim() || null,
+          email: quickClientEmail.trim() || null,
+          role: quickClientDoubleRole ? 'LES_DEUX' : 'CLIENT',
+        }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.message || 'Erreur');
@@ -537,6 +556,7 @@ const Caisse: React.FC<CaisseProps> = ({
       if (newId) setClientId(String(newId));
       setQuickClientOpen(false);
       setQuickClientNom(''); setQuickClientTel(''); setQuickClientVille(''); setQuickClientDoubleRole(false); setQuickClientTypes(['DETAIL']);
+      setQuickClientIce(''); setQuickClientRc(''); setQuickClientAdresse(''); setQuickClientEmail('');
       setFlash({ ok: true, msg: 'Client créé.' });
     } catch (e: any) {
       setQuickClientError(e?.message || String(e));
@@ -872,6 +892,9 @@ const Caisse: React.FC<CaisseProps> = ({
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
     enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
+    infosFacture: tx(lang, { fr: 'Pour la facture', ar: 'ديال الفاتورة', en: 'For the invoice', es: 'Para la factura', pt: 'Para a fatura', tr: 'Fatura icin' }),
+    adresse: tx(lang, { fr: 'Adresse', ar: 'العنوان', en: 'Address', es: 'Direccion', pt: 'Endereco', tr: 'Adres' }),
+    iceManquant: tx(lang, { fr: "Sans ICE, la facture d'un revendeur reste incomplete.", ar: 'بلا ICE، فاتورة التاجر كتبقى ناقصة.', en: 'Without an ICE number, a reseller invoice stays incomplete.', es: 'Sin ICE, la factura queda incompleta.', pt: 'Sem ICE, a fatura fica incompleta.', tr: 'ICE olmadan fatura eksik kalir.' }),
     segmentPrincipal: tx(lang, { fr: 'Segment principal : il fixe le tarif', ar: 'الصنف الرئيسي: هو اللي كيحدّد الثمن', en: 'Main segment: it sets the price', es: 'Segmento principal: fija la tarifa', pt: 'Segmento principal: fixa a tarifa', tr: 'Ana segment: fiyati belirler' }),
     deuxSegments: tx(lang, { fr: 'Plusieurs segments possibles. Le premier choisi fixe le tarif.', ar: 'يمكن أكثر من صنف. الأوّل هو اللي كيحدّد الثمن.', en: 'A customer may have several segments. The first one sets the price.', es: 'Varios segmentos posibles. El primero fija la tarifa.', pt: 'Varios segmentos possiveis. O primeiro fixa a tarifa.', tr: 'Birden fazla segment olabilir. Ilki fiyati belirler.' }),
     nomObligatoire: tx(lang, { fr: 'Nom du client *', ar: 'اسم الزبون *', en: 'Customer name *', es: 'Nombre del cliente *', pt: 'Nome do cliente *', tr: 'Musteri adi *' }),
@@ -1189,6 +1212,7 @@ const Caisse: React.FC<CaisseProps> = ({
               </div>
             ) : (
               <div className="space-y-1.5">
+                {!quickClientOpen && (
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
                     <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted pointer-events-none" />
@@ -1207,7 +1231,8 @@ const Caisse: React.FC<CaisseProps> = ({
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
-                {clientQuery.trim() !== '' && (
+                )}
+                {!quickClientOpen && clientQuery.trim() !== '' && (
                   <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border">
                     {clientsTrouves.length === 0 && (
                       <p className="p-3 text-[11px] text-slate-400 dark:text-dk-muted">{T.aucunClient}</p>
@@ -1233,12 +1258,14 @@ const Caisse: React.FC<CaisseProps> = ({
                 )}
                 {/* Vente au comptoir sans fiche : un nom libre suffit, et il
                     apparaitra sur le ticket. */}
+                {!quickClientOpen && (
                 <input
                   value={clientLibre}
                   onChange={e => setClientLibre(e.target.value)}
                   placeholder={T.passage}
                   className="w-full px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
                 />
+                )}
                 {quickClientOpen && (
                   <div className="mt-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border overflow-hidden">
                     {/* Une fiche, pas une grille de champs : le nom en grand
@@ -1246,7 +1273,13 @@ const Caisse: React.FC<CaisseProps> = ({
                         segment en boutons parce qu'il fixe le tarif de ce
                         client — ca ne se cache pas dans une liste deroulante. */}
                     <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-dk-border">
-                      <User className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />
+                      <button
+                        onClick={() => setQuickClientOpen(false)}
+                        aria-label={T.retour}
+                        className="-ml-1 p-1.5 rounded-lg text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                      >
+                        <ArrowLeft className="w-4 h-4" />
+                      </button>
                       <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{T.nouveauClient}</span>
                     </div>
                     <div className="p-3 space-y-2">
@@ -1284,6 +1317,23 @@ const Caisse: React.FC<CaisseProps> = ({
                         ))}
                       </div>
                       <p className="text-[10px] text-slate-400 dark:text-dk-muted">{T.deuxSegments}</p>
+
+                      {/* Facturation : affichee d'office pour un revendeur,
+                          puisqu'il repart avec une facture. */}
+                      {(quickClientTypes.includes('GROS') || factureAuto) && (
+                        <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-dk-border">
+                          <span className="block text-[10px] font-extrabold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.infosFacture}</span>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input value={quickClientIce} onChange={e => setQuickClientIce(e.target.value)} placeholder="ICE" className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                            <input value={quickClientRc} onChange={e => setQuickClientRc(e.target.value)} placeholder="RC" className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                          </div>
+                          <input value={quickClientAdresse} onChange={e => setQuickClientAdresse(e.target.value)} placeholder={T.adresse} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                          <input value={quickClientEmail} onChange={e => setQuickClientEmail(e.target.value)} placeholder="Email" className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                          {quickClientTypes.includes('GROS') && !quickClientIce.trim() && (
+                            <p className="text-[10px] text-amber-600 dark:text-amber-400">{T.iceManquant}</p>
+                          )}
+                        </div>
+                      )}
                       <label className="flex items-start gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft cursor-pointer">
                         <input type="checkbox" checked={quickClientDoubleRole} onChange={e => setQuickClientDoubleRole(e.target.checked)} className="w-4 h-4 mt-px rounded border-slate-300 dark:border-dk-border shrink-0" />
                         <span>
