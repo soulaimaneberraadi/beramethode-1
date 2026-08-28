@@ -37,7 +37,7 @@ const CANAUX = new Set(['ATELIER', 'MAGASIN', 'ONLINE']);
 
 /** `doc_recto`/`doc_verso` restent en snake_case en base (comme le reste de la
  *  table) mais sortent en camelCase pour coller à `AtelierClient` côté client. */
-const CLIENT_SELECT = 'SELECT id, owner_id, nom, type, types, COALESCE(role, \'CLIENT\') AS role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto AS docRecto, doc_verso AS docVerso, created_at, updated_at FROM st_clients';
+const CLIENT_SELECT = 'SELECT id, owner_id, nom, type, types, if_fiscal AS ifFiscal, COALESCE(role, \'CLIENT\') AS role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto AS docRecto, doc_verso AS docVerso, created_at, updated_at FROM st_clients';
 
 export const getClients = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
@@ -73,12 +73,13 @@ export const saveClient = (req: Request, res: Response) => {
     try {
         const id = c.id || randomUUID();
         db.prepare(`
-            INSERT INTO st_clients (id, owner_id, nom, type, types, role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto, doc_verso)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_clients (id, owner_id, nom, type, types, if_fiscal, role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto, doc_verso)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 nom = excluded.nom,
                 type = excluded.type,
                 types = excluded.types,
+                if_fiscal = excluded.if_fiscal,
                 role = excluded.role,
                 ice = excluded.ice,
                 rc = excluded.rc,
@@ -105,6 +106,7 @@ export const saveClient = (req: Request, res: Response) => {
                 const autres = [...new Set(liste)].filter((t: any) => t !== principal);
                 return autres.length ? JSON.stringify(autres) : null;
             })(),
+            c.ifFiscal || c.if_fiscal || null,
             normRole(c.role),
             c.ice || null,
             c.rc || null,

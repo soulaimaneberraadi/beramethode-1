@@ -288,9 +288,15 @@ const Caisse: React.FC<CaisseProps> = ({
   const [quickClientIce, setQuickClientIce] = useState('');
   const [quickClientRc, setQuickClientRc] = useState('');
   const [quickClientAdresse, setQuickClientAdresse] = useState('');
+  const [quickClientIf, setQuickClientIf] = useState('');
+  const [quickClientEmail, setQuickClientEmail] = useState('');
+  /** Repliees par defaut : au comptoir on veut un nom et un telephone. Elles
+   *  s'ouvrent d'elles-memes en gros, ou la facture les reclame. */
+  const [quickPlusOuvert, setQuickPlusOuvert] = useState(false);
 
   const [ficheIce, setFicheIce] = useState('');
   const [ficheRc, setFicheRc] = useState('');
+  const [ficheIf, setFicheIf] = useState('');
   const [ficheAdresse, setFicheAdresse] = useState('');
   const [ficheEnCours, setFicheEnCours] = useState(false);
   const [quickClientVille, setQuickClientVille] = useState('');
@@ -573,6 +579,8 @@ const Caisse: React.FC<CaisseProps> = ({
           ice: quickClientIce.trim() || null,
           rc: quickClientRc.trim() || null,
           adresse: quickClientAdresse.trim() || null,
+          ifFiscal: quickClientIf.trim() || null,
+          email: quickClientEmail.trim() || null,
           role: quickClientDoubleRole ? 'LES_DEUX' : 'CLIENT',
         }),
       });
@@ -583,6 +591,7 @@ const Caisse: React.FC<CaisseProps> = ({
       setQuickClientOpen(false);
       setQuickClientNom(''); setQuickClientTel(''); setQuickClientVille(''); setQuickClientDoubleRole(false); setQuickClientTypes(['DETAIL']);
       setQuickClientIce(''); setQuickClientRc(''); setQuickClientAdresse('');
+      setQuickClientIf(''); setQuickClientEmail(''); setQuickPlusOuvert(false);
       setFlash({ ok: true, msg: 'Client créé.' });
     } catch (e: any) {
       setQuickClientError(e?.message || String(e));
@@ -599,6 +608,7 @@ const Caisse: React.FC<CaisseProps> = ({
     const ajouts = {
       ice: ficheIce.trim() || client.ice || null,
       rc: ficheRc.trim() || (client as any).rc || null,
+      ifFiscal: ficheIf.trim() || (client as any).ifFiscal || null,
       adresse: ficheAdresse.trim() || (client as any).adresse || null,
     };
     setFicheEnCours(true);
@@ -612,7 +622,7 @@ const Caisse: React.FC<CaisseProps> = ({
         body: JSON.stringify({ ...client, ...ajouts }),
       });
       if (!res.ok) throw new Error(String(res.status));
-      setFicheIce(''); setFicheRc(''); setFicheAdresse('');
+      setFicheIce(''); setFicheRc(''); setFicheIf(''); setFicheAdresse('');
       setFlash({ ok: true, msg: tx(lang, { fr: 'Fiche completee.', ar: 'تكمّلت البطاقة.', en: 'Record completed.', es: 'Ficha completada.', pt: 'Ficha completada.', tr: 'Kart tamamlandi.' }) });
       await onClientsChanged?.();
     } catch {
@@ -620,7 +630,7 @@ const Caisse: React.FC<CaisseProps> = ({
     } finally {
       setFicheEnCours(false);
     }
-  }, [client, ficheIce, ficheRc, ficheAdresse, isStatic, lang, onClientsChanged]);
+  }, [client, ficheIce, ficheRc, ficheIf, ficheAdresse, isStatic, lang, onClientsChanged]);
 
   /* Le tarif du segment courant, modele par modele. Il s'affiche sur le
    * rayon et sur la grille : au comptoir on annonce un prix avant de poser
@@ -950,6 +960,7 @@ const Caisse: React.FC<CaisseProps> = ({
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
     enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
+    plusInfos: tx(lang, { fr: 'Informations complementaires', ar: 'معلومات إضافية', en: 'More information', es: 'Informacion adicional', pt: 'Informacoes adicionais', tr: 'Ek bilgiler' }),
     infosFacture: tx(lang, { fr: 'Pour la facture', ar: 'ديال الفاتورة', en: 'For the invoice', es: 'Para la factura', pt: 'Para a fatura', tr: 'Fatura icin' }),
     adresse: tx(lang, { fr: 'Adresse', ar: 'العنوان', en: 'Address', es: 'Direccion', pt: 'Endereco', tr: 'Adres' }),
     iceManquant: tx(lang, { fr: "Sans ICE, la facture d'un revendeur reste incomplete.", ar: 'بلا ICE، فاتورة التاجر كتبقى ناقصة.', en: 'Without an ICE number, a reseller invoice stays incomplete.', es: 'Sin ICE, la factura queda incompleta.', pt: 'Sem ICE, a fatura fica incompleta.', tr: 'ICE olmadan fatura eksik kalir.' }),
@@ -1382,17 +1393,29 @@ const Caisse: React.FC<CaisseProps> = ({
                       </div>
                       <p className="text-[10px] text-slate-400 dark:text-dk-muted">{T.deuxSegments}</p>
 
-                      {/* Gros : la facture est due, ses mentions se prennent
-                          maintenant, pendant que le client est la. */}
-                      {quickClientTypes.includes('GROS') && (
+                      {/* Le reste de la fiche, repliee. En gros elle s'ouvre
+                          d'office : la facture reclame ICE, IF, RC et adresse,
+                          et le client est encore la pour les donner. */}
+                      {!(quickPlusOuvert || quickClientTypes.includes('GROS')) ? (
+                        <button
+                          onClick={() => setQuickPlusOuvert(true)}
+                          className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:text-slate-800 dark:hover:text-dk-text"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> {T.plusInfos}
+                        </button>
+                      ) : (
                         <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-dk-border">
                           <span className="block text-[10px] font-extrabold uppercase tracking-wide text-amber-700 dark:text-amber-400">{T.infosFacture}</span>
                           <div className="grid grid-cols-2 gap-2">
                             <input value={quickClientIce} onChange={e => setQuickClientIce(e.target.value)} placeholder="ICE" className="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
+                            <input value={quickClientIf} onChange={e => setQuickClientIf(e.target.value)} placeholder="IF" className="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
                             <input value={quickClientRc} onChange={e => setQuickClientRc(e.target.value)} placeholder="RC" className="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
+                            <input value={quickClientEmail} onChange={e => setQuickClientEmail(e.target.value)} placeholder="Email" className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
                           </div>
                           <input value={quickClientAdresse} onChange={e => setQuickClientAdresse(e.target.value)} placeholder={T.adresse} className="w-full px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
-                          {!quickClientIce.trim() && (
+                          {quickClientTypes.includes('GROS') && !quickClientIce.trim() && (
                             <p className="text-[10px] text-amber-600 dark:text-amber-400">{T.iceManquant}</p>
                           )}
                         </div>
@@ -1444,7 +1467,7 @@ const Caisse: React.FC<CaisseProps> = ({
                 fiche ne porte pas encore. On le demande ICI, au moment ou il
                 sert — pas pendant la creation du client, ou il allonge la
                 file pour rien. Rempli, ce bloc disparait. */}
-            {(factureRequise || typeEffectif === 'GROS') && client && !isStatic && (!client.ice || !client.rc || !client.adresse) && (
+            {(factureRequise || typeEffectif === 'GROS') && client && !isStatic && (!client.ice || !(client as any).ifFiscal || !client.rc || !client.adresse) && (
               <div className="mt-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 space-y-2">
                 <span className="block text-[10px] font-extrabold uppercase tracking-wide text-amber-700 dark:text-amber-400">
                   {T.infosFacture} · {client.nom}
@@ -1455,6 +1478,14 @@ const Caisse: React.FC<CaisseProps> = ({
                       value={ficheIce}
                       onChange={e => setFicheIce(e.target.value)}
                       placeholder="ICE"
+                      className="px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                    />
+                  )}
+                  {!(client as any).ifFiscal && (
+                    <input
+                      value={ficheIf}
+                      onChange={e => setFicheIf(e.target.value)}
+                      placeholder="IF"
                       className="px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
                     />
                   )}
@@ -1477,8 +1508,8 @@ const Caisse: React.FC<CaisseProps> = ({
                 )}
                 <button
                   onClick={completerFiche}
-                  disabled={ficheEnCours || !(ficheIce.trim() || ficheRc.trim() || ficheAdresse.trim())}
-                  className={`w-full py-2 rounded-xl text-[11px] font-extrabold ${ficheEnCours || !(ficheIce.trim() || ficheRc.trim() || ficheAdresse.trim())
+                  disabled={ficheEnCours || !(ficheIce.trim() || ficheRc.trim() || ficheIf.trim() || ficheAdresse.trim())}
+                  className={`w-full py-2 rounded-xl text-[11px] font-extrabold ${ficheEnCours || !(ficheIce.trim() || ficheRc.trim() || ficheIf.trim() || ficheAdresse.trim())
                     ? 'bg-white/60 dark:bg-dk-surface/60 text-amber-500/60 cursor-not-allowed'
                     : 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white'}`}
                 >

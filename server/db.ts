@@ -1020,6 +1020,10 @@ try { db.exec("ALTER TABLE st_clients ADD COLUMN role TEXT DEFAULT 'CLIENT'"); }
 // detail. Les ranger dans une colonne JSON evite de dupliquer sa fiche, ce
 // qui dedoublerait son historique et son encours.
 try { db.exec("ALTER TABLE st_clients ADD COLUMN types TEXT"); } catch { /* already exists */ }
+// Identifiant fiscal du client. L'ICE identifie l'entreprise, l'IF identifie
+// son dossier fiscal : les deux figurent sur une facture entre professionnels,
+// et une facture qui n'en porte qu'un se fait retoquer a la comptabilite.
+try { db.exec("ALTER TABLE st_clients ADD COLUMN if_fiscal TEXT"); } catch { /* already exists */ }
 // Une fiche créée avant l'ajout de la colonne reste NULL : on la nomme, sinon
 // tout filtre par rôle la ferait disparaître de l'écran.
 try { db.exec("UPDATE st_clients SET role = 'CLIENT' WHERE role IS NULL OR role = ''"); } catch { /* table vide */ }
