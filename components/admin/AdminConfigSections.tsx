@@ -110,68 +110,6 @@ export function CompanyParamsSection({ settings, setSettings, lang }) {
 
     return (
         <div className="space-y-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-            {/* Identite legale de l'emetteur. Une facture marocaine qui n'en
-                porte pas les mentions (ICE, IF, RC, patente) est refusee par la
-                comptabilite du client : elle ne peut pas etre deduite. Ces
-                champs sont donc saisis une fois ici, et recopies sur chaque
-                facture au moment ou elle est etablie. */}
-            <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-4">
-                <div>
-                    <h3 className="text-sm font-black text-slate-800 dark:text-dk-text">
-                        {tx(lang, { fr: 'Identite de facturation', ar: 'هوية الفوترة', en: 'Invoicing identity', es: 'Identidad de facturacion', pt: 'Identidade de faturacao', tr: 'Fatura kimligi' })}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-dk-muted mt-0.5">
-                        {tx(lang, { fr: 'Ces mentions figurent en tete de chaque facture. Sans elles, le client ne peut pas la deduire.', ar: 'هاد المعلومات كتبان فراس كل فاتورة. بلاها الزبون ما يقدرش يخصمها.', en: 'These details head every invoice. Without them the customer cannot deduct it.', es: 'Estos datos encabezan cada factura.', pt: 'Estes dados encabecam cada fatura.', tr: 'Bu bilgiler her faturanin basinda yer alir.' })}
-                    </p>
-                </div>
-                {(() => {
-                    const cp = draft.companyProfile || ({} as any);
-                    const majCp = (champ: string, valeur: any) => setDraft(prev => ({
-                        ...prev,
-                        companyProfile: { ...(prev.companyProfile || {} as any), [champ]: valeur },
-                    }));
-                    const champTexte = (champ: string, libelle: string, placeholder = '') => (
-                        <div>
-                            <label className="block text-[11px] font-bold uppercase text-slate-500 dark:text-dk-muted mb-1">{libelle}</label>
-                            <input
-                                value={(cp as any)[champ] ?? ''}
-                                onChange={e => majCp(champ, e.target.value)}
-                                placeholder={placeholder}
-                                className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 outline-none focus:border-indigo-500 text-sm font-bold text-slate-800 dark:text-dk-text transition-all"
-                            />
-                        </div>
-                    );
-                    const champNombre = (champ: string, libelle: string, suffixe = '') => (
-                        <div>
-                            <label className="block text-[11px] font-bold uppercase text-slate-500 dark:text-dk-muted mb-1">{libelle}{suffixe ? ` (${suffixe})` : ''}</label>
-                            <input
-                                type="number"
-                                value={(cp as any)[champ] ?? ''}
-                                onChange={e => majCp(champ, e.target.value === '' ? undefined : Number(e.target.value))}
-                                className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-3 py-2.5 outline-none focus:border-indigo-500 text-sm font-bold text-slate-800 dark:text-dk-text transition-all"
-                            />
-                        </div>
-                    );
-                    return (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {champTexte('legalName', tx(lang, { fr: 'Raison sociale', ar: 'التسمية القانونية', en: 'Legal name', es: 'Razon social', pt: 'Denominacao social', tr: 'Unvan' }))}
-                            {champTexte('formeJuridique', tx(lang, { fr: 'Forme juridique', ar: 'الشكل القانوني', en: 'Legal form', es: 'Forma juridica', pt: 'Forma juridica', tr: 'Hukuki sekil' }), 'SARL, SARL AU, SA…')}
-                            {champNombre('capitalSocial', tx(lang, { fr: 'Capital social', ar: 'رأس المال', en: 'Share capital', es: 'Capital social', pt: 'Capital social', tr: 'Sermaye' }), draft.currency)}
-                            {champTexte('ice', 'ICE')}
-                            {champTexte('identifiantFiscal', tx(lang, { fr: 'Identifiant fiscal (IF)', ar: 'التعريف الضريبي', en: 'Tax ID (IF)', es: 'Identificacion fiscal', pt: 'Identificacao fiscal', tr: 'Vergi no' }))}
-                            {champTexte('rc', tx(lang, { fr: 'Registre de commerce (RC)', ar: 'السجل التجاري', en: 'Trade register (RC)', es: 'Registro mercantil', pt: 'Registo comercial', tr: 'Ticaret sicili' }))}
-                            {champTexte('rcVille', tx(lang, { fr: 'RC — ville de depot', ar: 'مدينة السجل التجاري', en: 'Trade register city', es: 'Ciudad del registro', pt: 'Cidade do registo', tr: 'Sicil sehri' }))}
-                            {champTexte('patente', tx(lang, { fr: 'Taxe professionnelle (patente)', ar: 'الضريبة المهنية', en: 'Business tax', es: 'Impuesto profesional', pt: 'Imposto profissional', tr: 'Meslek vergisi' }))}
-                            {champTexte('cnss', 'CNSS')}
-                            {champTexte('banque', tx(lang, { fr: 'Banque', ar: 'البنك', en: 'Bank', es: 'Banco', pt: 'Banco', tr: 'Banka' }))}
-                            {champTexte('rib', 'RIB')}
-                            {champNombre('delaiPaiementJours', tx(lang, { fr: 'Delai de paiement', ar: 'أجل الأداء', en: 'Payment term', es: 'Plazo de pago', pt: 'Prazo de pagamento', tr: 'Odeme vadesi' }), tx(lang, { fr: 'jours', ar: 'يوم', en: 'days', es: 'dias', pt: 'dias', tr: 'gun' }))}
-                            {champNombre('penaliteRetard', tx(lang, { fr: 'Penalite de retard', ar: 'غرامة التأخير', en: 'Late penalty', es: 'Penalizacion por retraso', pt: 'Penalizacao por atraso', tr: 'Gecikme cezasi' }), '%')}
-                        </div>
-                    );
-                })()}
-            </div>
-
             <div className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm p-5 sm:p-6 space-y-6">
                             <div>
                                 <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{t.currency}</label>

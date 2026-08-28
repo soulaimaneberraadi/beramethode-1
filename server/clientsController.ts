@@ -703,6 +703,58 @@ export const createCommandeNormale = (req: Request, res: Response) => {
  * naît DES sorties choisies, et ces sorties portent ensuite son id — c'est ce
  * lien qui permet à la fiche client de savoir « payé / impayé » ligne par ligne.
  */
+/**
+ * Identite de l'emetteur, telle qu'elle doit figurer sur la facture.
+ *
+ * Elle est LUE dans `profile_meta` — la source unique deja utilisee par tous
+ * les documents imprimes (Admin > Entreprise) — et RECOPIEE dans la facture.
+ * La relire a l'affichage ferait changer les factures deja remises au client
+ * des que l'entreprise change d'adresse ou de RIB, et une facture qui bouge
+ * apres coup n'est plus une piece comptable.
+ */
+const emetteurDe = (companyId: number | string) => {
+    try {
+        const ws = db.prepare('SELECT name, logo, profile_meta FROM workspaces WHERE owner_id = ?').get(companyId) as any;
+        const row = ws || db.prepare('SELECT name, logo, profile_meta FROM company_settings WHERE id = 1').get() as any;
+        const meta = row?.profile_meta ? JSON.parse(row.profile_meta) : {};
+        const txt = (v: any) => (v == null || String(v).trim() === '' ? null : String(v).trim());
+        const nb = (v: any) => (Number.isFinite(Number(v)) && String(v).trim() !== '' ? Number(v) : null);
+        return {
+            nom: txt(meta.raisonSociale) || txt(row?.name) || '',
+            formeJuridique: txt(meta.formeJuridique),
+            capitalSocial: nb(meta.capitalSocial),
+            adresse: txt(meta.adresse),
+            ville: txt(meta.ville),
+            tel: txt(meta.companyPhone) || txt(meta.adminPhone),
+            email: txt(meta.companyEmail) || txt(meta.adminEmail),
+            ice: txt(meta.ice),
+            identifiantFiscal: txt(meta.if) || txt(meta.identifiantFiscal),
+            rc: txt(meta.rc),
+            rcVille: txt(meta.rcVille),
+            patente: txt(meta.patente),
+            cnss: txt(meta.cnss),
+            banque: txt(meta.banque),
+            rib: txt(meta.rib),
+            logo: typeof row?.logo === 'string' ? row.logo : null,
+            delaiPaiementJours: nb(meta.delaiPaiementJours),
+            penaliteRetard: nb(meta.penaliteRetard),
+        };
+    } catch {
+        // Identite illisible : la facture s'etablit quand meme, en-tete vide.
+        // Bloquer une vente pour un reglage manquant serait pire.
+        return null;
+    }
+};
+
+/** Echeance = date de facture + delai accorde. */
+const echeanceDepuis = (dateFacture: string, jours: number | null): string | null => {
+    if (!jours || jours <= 0) return null;
+    const d = new Date(`${dateFacture}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return null;
+    d.setDate(d.getDate() + jours);
+    return d.toISOString().split('T')[0];
+};
+
 export const createClientInvoice = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
     const body = req.body || {};
@@ -760,21 +812,28 @@ export const createClientInvoice = (req: Request, res: Response) => {
         const numero = generateNumero('VENTE', companyId);
         const dateFacture = /^\d{4}-\d{2}-\d{2}$/.test(body.date_facture) ? body.date_facture : new Date().toISOString().split('T')[0];
 
+        const emetteur = emetteurDe(companyId);
+        const echeance = body.date_echeance || echeanceDepuis(dateFacture, emetteur?.delaiPaiementJours ?? null);
+
         db.transaction(() => {
             db.prepare(`
                 INSERT INTO factures (
-                    id, owner_id, numero, type, tiers_nom, tiers_ice, tiers_rc, tiers_adresse, tiers_tel, tiers_email,
+                    id, owner_id, numero, type, tiers_nom, tiers_ice, tiers_rc, tiers_if, tiers_adresse, tiers_tel, tiers_email,
                     date_facture, date_echeance, total_ht, taux_tva, total_tva, total_ttc, montant_paye,
-                    source_module, source_id, statut, notes, lignes
-                ) VALUES (?, ?, ?, 'VENTE', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    source_module, source_id, statut, notes, lignes,
+                    emetteur, conditions_paiement, penalite_retard
+                ) VALUES (?, ?, ?, 'VENTE', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).run(
                 id, companyId, numero,
                 client?.nom || sorties[0]?.client_nom || '—',
-                client?.ice || null, client?.rc || null, client?.adresse || null, client?.tel || null, client?.email || null,
-                dateFacture, body.date_echeance || null,
+                client?.ice || null, client?.rc || null, client?.if_fiscal || null, client?.adresse || null, client?.tel || null, client?.email || null,
+                dateFacture, echeance,
                 totalHt, tauxTva, totalTva, totalTtc, montantPaye,
                 'SOUSTRAITANCE_VENTE', body.clientId || null,
                 statut, body.notes || null, JSON.stringify(lignes),
+                emetteur ? JSON.stringify(emetteur) : null,
+                emetteur?.delaiPaiementJours ? `Paiement a ${emetteur.delaiPaiementJours} jours` : null,
+                emetteur?.penaliteRetard ?? null,
             );
 
             const setFacture = db.prepare('UPDATE st_stock_sorties SET facture_id = ? WHERE id = ? AND owner_id = ? AND facture_id IS NULL');

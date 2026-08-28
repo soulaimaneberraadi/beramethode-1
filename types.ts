@@ -344,32 +344,6 @@ export interface CompanyProfile {
   country?: string;
   description?: string;
   operatingCostsMonthly?: number;
-
-  // ── Identite legale, telle qu'elle doit figurer sur une facture ────────
-  // Une facture marocaine sans ICE, IF, RC et patente de l'emetteur est
-  // refusee par la comptabilite du client : elle ne peut pas etre deduite.
-  /** Forme juridique : SARL, SARL AU, SA, auto-entrepreneur… */
-  formeJuridique?: string;
-  /** Capital social, en devise de l'entreprise. */
-  capitalSocial?: number;
-  /** Identifiant Commun de l'Entreprise. */
-  ice?: string;
-  /** Identifiant Fiscal. */
-  identifiantFiscal?: string;
-  /** Registre du Commerce (et sa ville de depot). */
-  rc?: string;
-  rcVille?: string;
-  /** Taxe professionnelle (ex-patente). */
-  patente?: string;
-  /** Affiliation CNSS. */
-  cnss?: string;
-  /** Coordonnees bancaires imprimees en pied de facture. */
-  banque?: string;
-  rib?: string;
-  /** Delai de paiement accorde par defaut, en jours (loi 69-21). */
-  delaiPaiementJours?: number;
-  /** Taux de penalite de retard, en % — mention obligatoire avec le delai. */
-  penaliteRetard?: number;
 }
 
 export interface AppSettings {

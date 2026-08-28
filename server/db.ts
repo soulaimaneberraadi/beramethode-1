@@ -1024,6 +1024,16 @@ try { db.exec("ALTER TABLE st_clients ADD COLUMN types TEXT"); } catch { /* alre
 // son dossier fiscal : les deux figurent sur une facture entre professionnels,
 // et une facture qui n'en porte qu'un se fait retoquer a la comptabilite.
 try { db.exec("ALTER TABLE st_clients ADD COLUMN if_fiscal TEXT"); } catch { /* already exists */ }
+
+// ── Mentions legales de la facture ────────────────────────────────────────
+// L'emetteur est COPIE sur la facture au moment ou elle est etablie, jamais
+// lu depuis les reglages a l'affichage : une entreprise qui change d'adresse
+// ou de RIB reecrirait sinon toutes ses factures passees, y compris celles
+// deja remises au client et a sa comptabilite.
+try { db.exec("ALTER TABLE factures ADD COLUMN emetteur TEXT"); } catch { /* already exists */ }
+// Delai accorde et penalite de retard : mentions obligatoires (loi 69-21).
+try { db.exec("ALTER TABLE factures ADD COLUMN conditions_paiement TEXT"); } catch { /* already exists */ }
+try { db.exec("ALTER TABLE factures ADD COLUMN penalite_retard REAL"); } catch { /* already exists */ }
 // Une fiche créée avant l'ajout de la colonne reste NULL : on la nomme, sinon
 // tout filtre par rôle la ferait disparaître de l'écran.
 try { db.exec("UPDATE st_clients SET role = 'CLIENT' WHERE role IS NULL OR role = ''"); } catch { /* table vide */ }
