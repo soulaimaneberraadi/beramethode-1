@@ -1546,7 +1546,7 @@ const Caisse: React.FC<CaisseProps> = ({
                 onDragEnd={() => setBlocTire(null)}
                 onDragOver={e => { if (reglagesOuverts && blocTire && blocTire !== k) { e.preventDefault(); deplacerBloc(blocTire, k); } }}
                 style={vue.hauteurs[k] ? { height: vue.hauteurs[k] } : undefined}
-                className={`${vue.demis[k] ? 'w-[calc(50%-0.375rem)]' : 'w-full'} ${vue.hauteurs[k] ? 'overflow-y-auto overscroll-contain' : ''} ${k === 'lignes' && !vue.hauteurs[k] ? 'flex-1 min-h-[120px] overflow-y-auto overscroll-contain' : ''} ${reglagesOuverts
+                className={`${vue.demis[k] ? 'w-[calc(50%-0.375rem)]' : 'w-full'} ${vue.hauteurs[k] ? 'overflow-y-auto overscroll-contain' : ''} ${k === 'lignes' && !vue.hauteurs[k] && !vue.demis[k] ? 'flex-1 min-h-[120px] overflow-y-auto overscroll-contain' : ''}${k === 'lignes' && vue.demis[k] ? ' min-h-[120px] overflow-y-auto overscroll-contain' : ''} ${reglagesOuverts
                   ? `relative rounded-xl border border-dashed pl-4 pr-8 py-2 cursor-grab active:cursor-grabbing transition-colors ${blocTire === k ? 'border-slate-800 dark:border-dk-accent bg-slate-50 dark:bg-dk-elevated opacity-60' : 'border-slate-300 dark:border-dk-border'}`
                   : ''}`}
               >
@@ -1556,7 +1556,10 @@ const Caisse: React.FC<CaisseProps> = ({
                     {/* Pleine ligne ou demi-ligne : deux blocs courts tiennent
                         alors cote a cote. */}
                     <button
-                      onClick={() => majVue(m => ({ ...m, demis: { ...m.demis, [k]: !m.demis[k] } }))}
+                      type="button"
+                      draggable={false}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); majVue(m => ({ ...m, demis: { ...m.demis, [k]: !m.demis[k] } })); }}
                       title={T.demiLigne}
                       className="absolute right-1 top-1/2 -translate-y-1/2 px-1.5 py-1 rounded-md text-[10px] font-black text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated"
                     >
@@ -1565,7 +1568,8 @@ const Caisse: React.FC<CaisseProps> = ({
                     {/* Le bord du bas se tire : chaque bloc prend la hauteur
                         qu'il merite. Double-clic, et il reprend la sienne. */}
                     <div
-                      onMouseDown={e => { e.preventDefault(); setRedimBloc({ cle: k, y: e.clientY, depart: e.currentTarget.parentElement?.getBoundingClientRect().height || 0 }); }}
+                      draggable={false}
+                      onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setRedimBloc({ cle: k, y: e.clientY, depart: e.currentTarget.parentElement?.getBoundingClientRect().height || 0 }); }}
                       onDoubleClick={() => majVue(m => { const h = { ...m.hauteurs }; delete h[k]; return { ...m, hauteurs: h }; })}
                       title={T.tirer}
                       className="absolute left-2 right-2 -bottom-0.5 h-1.5 rounded-full cursor-row-resize bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent"
