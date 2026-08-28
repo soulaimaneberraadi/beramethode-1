@@ -135,8 +135,12 @@ type MiseEnPage = {
   /** Le panier passe a gauche : certains caissiers sont gauchers, et sur un
    *  ecran tactile la main qui compose cache la colonne qu'elle touche. */
   panierAGauche: boolean;
-  /** Part de l'ecran laissee au panier sur grand ecran. */
-  largeurPanier: 'etroit' | 'moyen' | 'large';
+  /** Part de l'ecran laissee au panier sur grand ecran, en pourcentage.
+   *  Libre : on attrape la separation et on tire. Les paliers ne sont plus
+   *  que des raccourcis vers trois valeurs de ce meme reglage. */
+  largeurPanier: number;
+  /** Largeur de la colonne du modele ouvert, en pixels. */
+  largeurGrille: number;
   /** Vignettes photo : sur un petit ecran, une liste de noms tient plus. */
   photos: boolean;
   champs: Record<ChampCle, boolean>;
@@ -147,8 +151,9 @@ const ORDRE_DEFAUT: ChampCle[] = ['typeVente', 'client', 'facture', 'paiement', 
 const MISE_EN_PAGE_DEFAUT: MiseEnPage = {
   ordre: ORDRE_DEFAUT,
   grille: 'droite',
+  largeurGrille: 320,
   panierAGauche: false,
-  largeurPanier: 'moyen',
+  largeurPanier: 50,
   photos: true,
   champs: { typeVente: true, client: true, facture: true, paiement: true, remise: true },
 };
@@ -163,20 +168,28 @@ const lireMiseEnPage = (): MiseEnPage => {
     // deja regles — et un reglage de vente invisible fait vendre a cote.
     const vus = Array.isArray(brut.ordre) ? brut.ordre.filter((k: any) => ORDRE_DEFAUT.includes(k)) : [];
     const ordre = [...new Set([...vus, ...ORDRE_DEFAUT])] as ChampCle[];
+    // Les anciens reglages nommaient la largeur ('moyen') : elle est passee
+    // en pourcentage, une valeur non numerique retombe sur le defaut.
+    const largeurPanier = typeof brut.largeurPanier === 'number'
+      ? borne(brut.largeurPanier, 20, 75) : MISE_EN_PAGE_DEFAUT.largeurPanier;
+    const largeurGrille = typeof brut.largeurGrille === 'number'
+      ? borne(brut.largeurGrille, 200, 700) : MISE_EN_PAGE_DEFAUT.largeurGrille;
     return {
       ...MISE_EN_PAGE_DEFAUT,
       ...brut,
+      largeurPanier,
+      largeurGrille,
       ordre,
       champs: { ...MISE_EN_PAGE_DEFAUT.champs, ...(brut.champs || {}) },
     };
   } catch { return MISE_EN_PAGE_DEFAUT; }
 };
 
-const LARGEURS: Record<MiseEnPage['largeurPanier'], string> = {
-  etroit: 'lg:w-2/5',
-  moyen: 'lg:w-1/2',
-  large: 'lg:w-3/5',
-};
+/** Bornes : en dessous, une colonne ne montre plus rien d'utile ; au-dessus,
+ *  elle etouffe l'autre. On borne au lieu d'interdire, pour que la poignee
+ *  reste attrapable dans tous les cas. */
+const borne = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+const PALIERS: Array<[string, number]> = [['etroit', 38], ['moyen', 50], ['large', 62]];
 
 const cellKey = (c: string, t: string) => `${c || ''}|${t || ''}`;
 
@@ -268,6 +281,47 @@ const Caisse: React.FC<CaisseProps> = ({
   }, [mep]);
   /** Glisser-deposer des blocs de reglage, en mode mise en page. */
   const [blocTire, setBlocTire] = useState<ChampCle | null>(null);
+  /* Les separations se tirent a la souris. On ne redimensionne qu'a partir
+   * de lg : en dessous, les volets sont plein ecran l'un apres l'autre, une
+   * largeur en pourcentage n'y veut rien dire. */
+  const conteneurRef = useRef<HTMLDivElement>(null);
+  const rayonRef = useRef<HTMLDivElement>(null);
+  const [estLarge, setEstLarge] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const suivre = () => setEstLarge(mq.matches);
+    mq.addEventListener('change', suivre);
+    return () => mq.removeEventListener('change', suivre);
+  }, []);
+  const [redim, setRedim] = useState<'panier' | 'grille' | null>(null);
+  useEffect(() => {
+    if (!redim) return;
+    const bouger = (e: MouseEvent) => {
+      if (redim === 'panier') {
+        const r = conteneurRef.current?.getBoundingClientRect();
+        if (!r || r.width === 0) return;
+        const part = mep.panierAGauche ? (e.clientX - r.left) : (r.right - e.clientX);
+        setMep(m => ({ ...m, largeurPanier: borne((part / r.width) * 100, 20, 75) }));
+      } else {
+        const r = rayonRef.current?.getBoundingClientRect();
+        if (!r) return;
+        const px = mep.grille === 'gauche' ? (e.clientX - r.left) : (r.right - e.clientX);
+        setMep(m => ({ ...m, largeurGrille: borne(px, 200, 700) }));
+      }
+    };
+    const lacher = () => setRedim(null);
+    window.addEventListener('mousemove', bouger);
+    window.addEventListener('mouseup', lacher);
+    // Pendant le tirage, la selection de texte suivrait le curseur.
+    const avant = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+    return () => {
+      window.removeEventListener('mousemove', bouger);
+      window.removeEventListener('mouseup', lacher);
+      document.body.style.userSelect = avant;
+    };
+  }, [redim, mep.panierAGauche, mep.grille]);
+
   /** La grille du modele est en train d'etre deplacee d'une colonne a l'autre. */
   const [grilleTiree, setGrilleTiree] = useState(false);
   const poserGrille = useCallback((ou: MiseEnPage['grille']) => {
@@ -627,6 +681,7 @@ const Caisse: React.FC<CaisseProps> = ({
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
     enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
+    tirer: tx(lang, { fr: 'Tirez pour redimensionner (double-clic : taille d’origine)', ar: 'شدّ باش تبدّل الحجم (دبل كليك: الحجم الأصلي)', en: 'Drag to resize (double-click to reset)', es: 'Arrastre para redimensionar (doble clic: original)', pt: 'Arraste para redimensionar (duplo clique: original)', tr: 'Boyutlandirmak icin surukleyin (cift tiklama: varsayilan)' }),
     grille: tx(lang, { fr: 'Grille du modele', ar: 'شبكة الموديل', en: 'Model grid', es: 'Rejilla del modelo', pt: 'Grelha do modelo', tr: 'Model tablosu' }),
     aGauche: tx(lang, { fr: 'A gauche', ar: 'على اليسار', en: 'Left', es: 'A la izquierda', pt: 'A esquerda', tr: 'Solda' }),
     aDroite: tx(lang, { fr: 'A droite', ar: 'على اليمين', en: 'Right', es: 'A la derecha', pt: 'A direita', tr: 'Sagda' }),
@@ -672,6 +727,7 @@ const Caisse: React.FC<CaisseProps> = ({
       draggable={reglagesOuverts}
       onDragStart={() => setGrilleTiree(true)}
       onDragEnd={() => setGrilleTiree(false)}
+      style={estLarge && vue.grille !== 'panier' ? { width: vue.largeurGrille } : undefined}
       className={`shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 ${
         vue.grille === 'panier'
           ? 'w-full border-b border-slate-200 dark:border-dk-border p-3'
@@ -679,8 +735,8 @@ const Caisse: React.FC<CaisseProps> = ({
           // litteral dans le source, un `sm:${...}` assemble ne serait
           // jamais genere.
           : vue.grille === 'gauche'
-            ? 'sm:w-[300px] xl:w-[340px] sm:border-r sm:pr-3 sm:border-slate-200 sm:dark:border-dk-border'
-            : 'sm:w-[300px] xl:w-[340px] sm:border-l sm:pl-3 sm:border-slate-200 sm:dark:border-dk-border'
+            ? 'sm:w-[300px] xl:w-[340px] sm:pr-3'
+            : 'sm:w-[300px] xl:w-[340px] sm:pl-3'
       } ${reglagesOuverts ? 'cursor-grab active:cursor-grabbing rounded-xl border border-dashed border-slate-300 dark:border-dk-border p-2' : ''}`}
     >
 
@@ -1001,15 +1057,15 @@ const Caisse: React.FC<CaisseProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.largeur}</span>
             <div className="flex gap-1.5">
-              {(['etroit', 'moyen', 'large'] as const).map(l => (
+              {PALIERS.map(([nom, pct]) => (
                 <button
-                  key={l}
-                  onClick={() => majBrouillon(m => ({ ...m, largeurPanier: l }))}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${vue.largeurPanier === l
+                  key={nom}
+                  onClick={() => majBrouillon(m => ({ ...m, largeurPanier: pct }))}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${Math.round(vue.largeurPanier) === pct
                     ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
                     : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
                 >
-                  {l === 'etroit' ? T.etroit : l === 'moyen' ? T.moyen : T.large}
+                  {nom === 'etroit' ? T.etroit : nom === 'moyen' ? T.moyen : T.large}
                 </button>
               ))}
             </div>
@@ -1247,7 +1303,7 @@ const Caisse: React.FC<CaisseProps> = ({
         </div>
       )}
 
-      <div className={`flex-1 min-h-0 flex-col overflow-hidden overscroll-contain ${vue.panierAGauche ? 'lg:flex-row-reverse' : 'lg:flex-row'} ${journeeOuverte ? 'hidden' : 'flex'}`}>
+      <div ref={conteneurRef} className={`flex-1 min-h-0 flex-col overflow-hidden overscroll-contain ${vue.panierAGauche ? 'lg:flex-row-reverse' : 'lg:flex-row'} ${journeeOuverte ? 'hidden' : 'flex'}`}>
         {/* Gauche : la recherche manuelle, pour les tikis illisibles. */}
         <div className={`flex-col flex-1 min-h-0 p-3 sm:p-4 gap-3 overflow-hidden bg-slate-50/50 dark:bg-transparent lg:flex ${voletMobile === 'rayon' ? 'flex' : 'hidden'}`}>
           <div className="relative">
@@ -1265,6 +1321,7 @@ const Caisse: React.FC<CaisseProps> = ({
               vetements differents d'affilee : refermer le rayon a chaque
               fois faisait retaper la recherche. */}
           <div
+            ref={rayonRef}
             className={`flex-1 min-h-0 flex flex-col gap-3 overflow-hidden ${vue.grille === 'gauche' ? 'sm:flex-row-reverse' : 'sm:flex-row'} ${
               grilleTiree ? 'rounded-xl ring-2 ring-dashed ring-slate-400' : ''}`}
             onDragOver={e => { if (grilleTiree) e.preventDefault(); }}
@@ -1313,12 +1370,38 @@ const Caisse: React.FC<CaisseProps> = ({
               ))}
           </div>
 
+          {/* La colonne du modele se retaille elle aussi : sa poignee se glisse
+              entre le rayon et elle, du bon cote selon ou elle est posee. */}
+          {modeleOuvert && vue.grille !== 'panier' && (
+            <div
+              onMouseDown={() => setRedim('grille')}
+              onDoubleClick={() => setMep(m => ({ ...m, largeurGrille: MISE_EN_PAGE_DEFAUT.largeurGrille }))}
+              title={T.tirer}
+              className={`hidden lg:block shrink-0 w-1.5 rounded-full cursor-col-resize transition-colors ${redim === 'grille'
+                ? 'bg-slate-400 dark:bg-dk-accent'
+                : 'bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent'}`}
+            />
+          )}
           {vue.grille !== 'panier' && panneauModele}
           </div>
         </div>
 
+        {/* La separation se tire : chaque comptoir donne au panier la place
+            qu'il lui faut, sans passer par un reglage. */}
+        <div
+          onMouseDown={() => setRedim('panier')}
+          onDoubleClick={() => setMep(m => ({ ...m, largeurPanier: MISE_EN_PAGE_DEFAUT.largeurPanier }))}
+          title={T.tirer}
+          className={`hidden lg:block shrink-0 w-1.5 cursor-col-resize transition-colors ${redim === 'panier'
+            ? 'bg-slate-400 dark:bg-dk-accent'
+            : 'bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent'} ${journeeOuverte ? 'hidden' : ''}`}
+        />
+
         {/* Droite : le panier et l'encaissement. */}
-        <div className={`flex-col flex-1 min-h-0 bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border overflow-hidden lg:flex lg:flex-none ${LARGEURS[vue.largeurPanier]} ${vue.panierAGauche ? 'lg:border-r' : 'lg:border-l'} ${voletMobile === 'panier' ? 'flex' : 'hidden'}`}>
+        <div
+          style={estLarge ? { width: `${vue.largeurPanier}%` } : undefined}
+          className={`flex-col flex-1 min-h-0 bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border overflow-hidden lg:flex lg:flex-none ${voletMobile === 'panier' ? 'flex' : 'hidden'}`}
+        >
           {vue.grille === 'panier' && panneauModele}
           <div
             className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-dk-border shrink-0 ${
