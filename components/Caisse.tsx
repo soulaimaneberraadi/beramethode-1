@@ -18,7 +18,7 @@ import { resolveScan, attachScannerListener } from '../lib/scanner';
 import type { AtelierClient } from './soustraitance/ClientsPanel';
 import {
   X, ScanLine, Search, Trash2, Plus, Minus, Loader2, AlertTriangle, User, Store, Check, ArrowLeft,
-  Receipt, RotateCcw, Banknote, MoreVertical, Eye, EyeOff, ArrowLeftRight, RefreshCw,
+  Receipt, RotateCcw, Banknote, MoreVertical, Eye, EyeOff, ArrowLeftRight, RefreshCw, GripVertical,
 } from 'lucide-react';
 
 export type CaisseLigne = {
@@ -125,7 +125,11 @@ const MISE_EN_PAGE_KEY = 'bera_caisse_mise_en_page';
  * le mode de reglement masque reste celui qui part avec la vente — sinon un
  * ecran simplifie ferait vendre au mauvais prix.
  */
+type ChampCle = 'typeVente' | 'client' | 'facture' | 'paiement' | 'remise';
+
 type MiseEnPage = {
+  /** L'ordre des blocs de reglage, tel que ce poste les a ranges. */
+  ordre: ChampCle[];
   /** Le panier passe a gauche : certains caissiers sont gauchers, et sur un
    *  ecran tactile la main qui compose cache la colonne qu'elle touche. */
   panierAGauche: boolean;
@@ -133,16 +137,13 @@ type MiseEnPage = {
   largeurPanier: 'etroit' | 'moyen' | 'large';
   /** Vignettes photo : sur un petit ecran, une liste de noms tient plus. */
   photos: boolean;
-  champs: {
-    typeVente: boolean;
-    client: boolean;
-    facture: boolean;
-    paiement: boolean;
-    remise: boolean;
-  };
+  champs: Record<ChampCle, boolean>;
 };
 
+const ORDRE_DEFAUT: ChampCle[] = ['typeVente', 'client', 'facture', 'paiement', 'remise'];
+
 const MISE_EN_PAGE_DEFAUT: MiseEnPage = {
+  ordre: ORDRE_DEFAUT,
   panierAGauche: false,
   largeurPanier: 'moyen',
   photos: true,
@@ -153,9 +154,16 @@ const lireMiseEnPage = (): MiseEnPage => {
   try {
     const brut = JSON.parse(localStorage.getItem(MISE_EN_PAGE_KEY) || 'null');
     if (!brut || typeof brut !== 'object') return MISE_EN_PAGE_DEFAUT;
+    // Un ordre garde en local peut avoir vieilli : on respecte ce qu'il dit
+    // encore, puis on rajoute les blocs qu'il ne connait pas. Sans ca, une
+    // version qui ajoute un reglage le rendrait invisible sur les postes
+    // deja regles — et un reglage de vente invisible fait vendre a cote.
+    const vus = Array.isArray(brut.ordre) ? brut.ordre.filter((k: any) => ORDRE_DEFAUT.includes(k)) : [];
+    const ordre = [...new Set([...vus, ...ORDRE_DEFAUT])] as ChampCle[];
     return {
       ...MISE_EN_PAGE_DEFAUT,
       ...brut,
+      ordre,
       champs: { ...MISE_EN_PAGE_DEFAUT.champs, ...(brut.champs || {}) },
     };
   } catch { return MISE_EN_PAGE_DEFAUT; }
@@ -245,7 +253,16 @@ const Caisse: React.FC<CaisseProps> = ({
   useEffect(() => {
     try { localStorage.setItem(MISE_EN_PAGE_KEY, JSON.stringify(mep)); } catch { /* le reglage vaut alors pour cette session */ }
   }, [mep]);
-  const basculerChamp = useCallback((k: keyof MiseEnPage['champs']) => {
+  /** Glisser-deposer des blocs de reglage, en mode mise en page. */
+  const [blocTire, setBlocTire] = useState<ChampCle | null>(null);
+  const deplacerBloc = useCallback((tire: ChampCle, cible: ChampCle) => {
+    setMep(m => {
+      const suite = m.ordre.filter(k => k !== tire);
+      suite.splice(suite.indexOf(cible), 0, tire);
+      return { ...m, ordre: suite };
+    });
+  }, []);
+  const basculerChamp = useCallback((k: ChampCle) => {
     setMep(m => ({ ...m, champs: { ...m.champs, [k]: !m.champs[k] } }));
   }, []);
   const lignesRef = useRef<CaisseLigne[]>([]);
@@ -584,6 +601,7 @@ const Caisse: React.FC<CaisseProps> = ({
     moyen: tx(lang, { fr: 'Moyen', ar: 'متوسّط', en: 'Medium', es: 'Medio', pt: 'Medio', tr: 'Orta' }),
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
+    glisser: tx(lang, { fr: 'Prenez un bloc a la souris pour le ranger ailleurs.', ar: 'شدّ الكتلة بالماوس وحرّكها فين بغيتي.', en: 'Drag a block with the mouse to reorder it.', es: 'Arrastre un bloque con el raton para reordenarlo.', pt: 'Arraste um bloco com o rato para o reordenar.', tr: 'Bir blogu fareyle surukleyerek siralayin.' }),
     champs: tx(lang, { fr: 'Champs affiches', ar: 'الحقول الظاهرة', en: 'Visible fields', es: 'Campos visibles', pt: 'Campos visiveis', tr: 'Gorunen alanlar' }),
     champMasque: tx(lang, { fr: 'Masquer un champ ne change rien a la vente enregistree.', ar: 'إخفاء حقل ما كيبدّلش البيعة المسجّلة.', en: 'Hiding a field does not change the recorded sale.', es: 'Ocultar un campo no cambia la venta registrada.', pt: 'Ocultar um campo nao muda a venda registada.', tr: 'Bir alani gizlemek kaydedilen satisi degistirmez.' }),
     defaut: tx(lang, { fr: 'Reglages par defaut', ar: 'الإعدادات الأصلية', en: 'Reset layout', es: 'Ajustes originales', pt: 'Definicoes originais', tr: 'Varsayilana don' }),
@@ -615,6 +633,168 @@ const Caisse: React.FC<CaisseProps> = ({
     { v: 'CHEQUE', l: tx(lang, { fr: 'Cheque', ar: 'شيك', en: 'Cheque', es: 'Cheque', pt: 'Cheque', tr: 'Cek' }) },
     { v: 'VIREMENT', l: tx(lang, { fr: 'Virement', ar: 'تحويل', en: 'Transfer', es: 'Transferencia', pt: 'Transferencia', tr: 'Havale' }) },
   ];
+
+  /* Les blocs de reglage de la vente, ranges par cle : c'est cette table
+   * que l'ordre choisi par le poste vient parcourir. */
+  const blocsReglage: Record<ChampCle, React.ReactNode> = {
+    typeVente: (<>
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+              {typesVente.map(t => (
+                <button
+                  key={t.v}
+                  onClick={() => setTypeVente(t.v)}
+                  disabled={!!client}
+                  title={client ? T.typeDuClient : undefined}
+                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
+                    typeEffectif === t.v
+                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent shadow-sm'
+                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
+                  } ${client ? 'opacity-60 cursor-not-allowed' : ''}`}
+                >
+                  {t.l}
+                </button>
+              ))}
+            </div>
+    </>),
+    client: (<>client ? (
+              <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border">
+                {client.photo
+                  ? <img src={client.photo} alt="" className="w-9 h-9 rounded-lg object-cover flex-none" />
+                  : <div className="w-9 h-9 rounded-lg bg-white dark:bg-dk-surface flex-none flex items-center justify-center"><User className="w-4 h-4 text-slate-400 dark:text-dk-muted" /></div>}
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-bold text-slate-800 dark:text-dk-text truncate">{client.nom}</span>
+                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
+                    {[client.type, client.tel, client.ville].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+                <button
+                  onClick={() => { setClientId(''); setClientQuery(''); }}
+                  className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400"
+                  aria-label={T.retirerClient}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted pointer-events-none" />
+                    <input
+                      value={clientQuery}
+                      onChange={e => setClientQuery(e.target.value)}
+                      placeholder={T.chercherClient}
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                    />
+                  </div>
+                  {onCreateClient && (
+                    <button
+                      onClick={onCreateClient}
+                      title={T.nouveauClient}
+                      className="shrink-0 px-3 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                {clientQuery.trim() !== '' && (
+                  <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border">
+                    {clientsTrouves.length === 0 && (
+                      <p className="p-3 text-[11px] text-slate-400 dark:text-dk-muted">{T.aucunClient}</p>
+                    )}
+                    {clientsTrouves.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setClientId(c.id); setClientQuery(''); }}
+                        className="w-full flex items-center gap-2 p-2 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                      >
+                        {c.photo
+                          ? <img src={c.photo} alt="" className="w-8 h-8 rounded-lg object-cover flex-none" />
+                          : <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dk-elevated flex-none" />}
+                        <span className="min-w-0">
+                          <span className="block text-xs font-bold text-slate-800 dark:text-dk-text truncate">{c.nom}</span>
+                          <span className="block text-[10px] text-slate-500 dark:text-dk-muted truncate">
+                            {[c.type, c.tel, c.ville].filter(Boolean).join(' · ')}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Vente au comptoir sans fiche : un nom libre suffit, et il
+                    apparaitra sur le ticket. */}
+                <input
+                  value={clientLibre}
+                  onChange={e => setClientLibre(e.target.value)}
+                  placeholder={T.passage}
+                  className="w-full px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                />
+              </div>
+            )
+    </>),
+    facture: (<>
+            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft">
+              <input
+                type="checkbox"
+                checked={factureRequise}
+                disabled={typeEffectif === 'GROS'}
+                onChange={e => setFactureAuto(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-300 dark:border-dk-border"
+              />
+              {T.factureAuto}
+              {typeEffectif === 'GROS' && <span className="text-slate-400 dark:text-dk-muted">({T.imposee})</span>}
+            </label>
+    </>),
+    paiement: (<>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {modes.map(m => (
+                <button
+                  key={m.v}
+                  onClick={() => setPaiement(m.v)}
+                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
+                    paiement === m.v
+                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
+                  }`}
+                >
+                  {m.l}
+                </button>
+              ))}
+            </div>
+    </>),
+    remise: (<>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0">{T.remise}</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={remiseGlobale}
+                placeholder="0"
+                onChange={e => setRemiseGlobale(e.target.value === '' ? '' : Number(e.target.value))}
+                className="w-20 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
+              />
+              {paiement === 'ESPECES' && (
+                <>
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0 ml-1">{T.recu}</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={encaisse}
+                    placeholder="0"
+                    onChange={e => setEncaisse(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-20 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
+                  />
+                </>
+              )}
+              <div className="flex-1 min-w-0" />
+              {paiement === 'ESPECES' && rendu != null && (
+                <span className={`text-xs font-extrabold shrink-0 ${rendu < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-dk-text-soft'}`}>
+                  {T.rendu} : {fmt(rendu)} {currency}
+                </span>
+              )}
+            </div>
+    </>),
+  };
 
   /* Portal sur <body> : un ancetre anime (transform Framer Motion) redefinit
    * le repere des elements `fixed`, et l'ecran plein cadre se retrouvait
@@ -735,7 +915,7 @@ const Caisse: React.FC<CaisseProps> = ({
                 ['facture', T.factureAuto],
                 ['paiement', T.reglement],
                 ['remise', T.remise],
-              ] as Array<[keyof MiseEnPage['champs'], string]>).map(([k, label]) => (
+              ] as Array<[ChampCle, string]>).map(([k, label]) => (
                 <button
                   key={k}
                   onClick={() => basculerChamp(k)}
@@ -749,6 +929,9 @@ const Caisse: React.FC<CaisseProps> = ({
               ))}
             </div>
             <p className="text-[10px] text-slate-400 dark:text-dk-muted">{T.champMasque}</p>
+            <p className="text-[10px] font-bold text-slate-500 dark:text-dk-text-soft flex items-center gap-1.5">
+              <GripVertical className="w-3.5 h-3.5" /> {T.glisser}
+            </p>
           </div>
         </div>
       )}
@@ -1124,172 +1307,27 @@ const Caisse: React.FC<CaisseProps> = ({
           </div>
 
           <div className="border-t border-slate-200 dark:border-dk-border p-3 sm:p-4 space-y-2.5 sm:space-y-3 shrink-0 bg-white dark:bg-dk-surface max-h-[45vh] overflow-y-auto overscroll-contain lg:max-h-none lg:overflow-visible">
-            {/* Le type de vente commande le tarif ET le document : en gros on
-                facture un revendeur nomme, au comptoir on remet un ticket. */}
-            {mep.champs.typeVente && (
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-              {typesVente.map(t => (
-                <button
-                  key={t.v}
-                  onClick={() => setTypeVente(t.v)}
-                  disabled={!!client}
-                  title={client ? T.typeDuClient : undefined}
-                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
-                    typeEffectif === t.v
-                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent shadow-sm'
-                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
-                  } ${client ? 'opacity-60 cursor-not-allowed' : ''}`}
-                >
-                  {t.l}
-                </button>
-              ))}
-            </div>
-            )}
-
-            {/* Le client : on le reconnait a sa photo, on le trouve en tapant,
-                et on le cree sans quitter le comptoir. */}
-            {mep.champs.client && (client ? (
-              <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border">
-                {client.photo
-                  ? <img src={client.photo} alt="" className="w-9 h-9 rounded-lg object-cover flex-none" />
-                  : <div className="w-9 h-9 rounded-lg bg-white dark:bg-dk-surface flex-none flex items-center justify-center"><User className="w-4 h-4 text-slate-400 dark:text-dk-muted" /></div>}
-                <div className="min-w-0 flex-1">
-                  <span className="block text-sm font-bold text-slate-800 dark:text-dk-text truncate">{client.nom}</span>
-                  <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
-                    {[client.type, client.tel, client.ville].filter(Boolean).join(' · ')}
-                  </span>
-                </div>
-                <button
-                  onClick={() => { setClientId(''); setClientQuery(''); }}
-                  className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:text-rose-600 dark:hover:text-rose-400"
-                  aria-label={T.retirerClient}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-dk-muted pointer-events-none" />
-                    <input
-                      value={clientQuery}
-                      onChange={e => setClientQuery(e.target.value)}
-                      placeholder={T.chercherClient}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
-                    />
-                  </div>
-                  {onCreateClient && (
-                    <button
-                      onClick={onCreateClient}
-                      title={T.nouveauClient}
-                      className="shrink-0 px-3 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                {clientQuery.trim() !== '' && (
-                  <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border">
-                    {clientsTrouves.length === 0 && (
-                      <p className="p-3 text-[11px] text-slate-400 dark:text-dk-muted">{T.aucunClient}</p>
-                    )}
-                    {clientsTrouves.map(c => (
-                      <button
-                        key={c.id}
-                        onClick={() => { setClientId(c.id); setClientQuery(''); }}
-                        className="w-full flex items-center gap-2 p-2 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated"
-                      >
-                        {c.photo
-                          ? <img src={c.photo} alt="" className="w-8 h-8 rounded-lg object-cover flex-none" />
-                          : <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-dk-elevated flex-none" />}
-                        <span className="min-w-0">
-                          <span className="block text-xs font-bold text-slate-800 dark:text-dk-text truncate">{c.nom}</span>
-                          <span className="block text-[10px] text-slate-500 dark:text-dk-muted truncate">
-                            {[c.type, c.tel, c.ville].filter(Boolean).join(' · ')}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+            {/* Les reglages de la vente, dans l'ordre voulu par ce poste.
+                En mode mise en page, chaque bloc se prend a la souris et se
+                depose ailleurs : le caissier range son ecran comme il range
+                son comptoir. */}
+            {mep.ordre.map(k => mep.champs[k] ? (
+              <div
+                key={k}
+                draggable={reglagesOuverts}
+                onDragStart={() => setBlocTire(k)}
+                onDragEnd={() => setBlocTire(null)}
+                onDragOver={e => { if (reglagesOuverts && blocTire && blocTire !== k) { e.preventDefault(); deplacerBloc(blocTire, k); } }}
+                className={reglagesOuverts
+                  ? `relative rounded-xl border border-dashed pl-4 pr-2 py-2 cursor-grab active:cursor-grabbing transition-colors ${blocTire === k ? 'border-slate-800 dark:border-dk-accent bg-slate-50 dark:bg-dk-elevated opacity-60' : 'border-slate-300 dark:border-dk-border'}`
+                  : ''}
+              >
+                {reglagesOuverts && (
+                  <GripVertical className="absolute left-0.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300 dark:text-dk-muted pointer-events-none" />
                 )}
-                {/* Vente au comptoir sans fiche : un nom libre suffit, et il
-                    apparaitra sur le ticket. */}
-                <input
-                  value={clientLibre}
-                  onChange={e => setClientLibre(e.target.value)}
-                  placeholder={T.passage}
-                  className="w-full px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
-                />
+                {blocsReglage[k]}
               </div>
-            ))}
-
-            {/* La facture : un reglage, pas une question a chaque vente. En
-                gros elle est imposee — un revendeur part toujours avec. */}
-            {mep.champs.facture && (
-            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft">
-              <input
-                type="checkbox"
-                checked={factureRequise}
-                disabled={typeEffectif === 'GROS'}
-                onChange={e => setFactureAuto(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 dark:border-dk-border"
-              />
-              {T.factureAuto}
-              {typeEffectif === 'GROS' && <span className="text-slate-400 dark:text-dk-muted">({T.imposee})</span>}
-            </label>
-            )}
-
-            {mep.champs.paiement && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              {modes.map(m => (
-                <button
-                  key={m.v}
-                  onClick={() => setPaiement(m.v)}
-                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
-                    paiement === m.v
-                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
-                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
-                  }`}
-                >
-                  {m.l}
-                </button>
-              ))}
-            </div>
-            )}
-
-            {mep.champs.remise && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0">{T.remise}</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={remiseGlobale}
-                placeholder="0"
-                onChange={e => setRemiseGlobale(e.target.value === '' ? '' : Number(e.target.value))}
-                className="w-20 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
-              />
-              {paiement === 'ESPECES' && (
-                <>
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide shrink-0 ml-1">{T.recu}</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={encaisse}
-                    placeholder="0"
-                    onChange={e => setEncaisse(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-20 px-2 py-1.5 rounded-lg text-right font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 text-sm"
-                  />
-                </>
-              )}
-              <div className="flex-1 min-w-0" />
-              {paiement === 'ESPECES' && rendu != null && (
-                <span className={`text-xs font-extrabold shrink-0 ${rendu < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-dk-text-soft'}`}>
-                  {T.rendu} : {fmt(rendu)} {currency}
-                </span>
-              )}
-            </div>
-            )}
+            ) : null)}
 
             {erreur && (
               <p className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
