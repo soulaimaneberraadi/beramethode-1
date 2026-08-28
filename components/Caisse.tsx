@@ -492,6 +492,12 @@ const Caisse: React.FC<CaisseProps> = ({
     } catch { /* le son est un confort, jamais un blocage */ }
   }, []);
 
+  /* Le tarif du segment courant, modele par modele. Il s'affiche sur le
+   * rayon et sur la grille : au comptoir on annonce un prix avant de poser
+   * la piece sur le comptoir, pas apres. */
+  const [tarifs, setTarifs] = useState<Record<string, number | null>>({});
+  useEffect(() => { setTarifs({}); }, [typeEffectif, client?.id]);
+
   const dispoDe = useCallback((modelId: string, couleur: string, taille: string) => {
     return Number(stockMatrix.get(modelId)?.get(cellKey(couleur, taille)) || 0);
   }, [stockMatrix]);
@@ -535,6 +541,13 @@ const Caisse: React.FC<CaisseProps> = ({
 
   /** Le tarif « Ma boutique » vient du serveur, comme partout ailleurs : la
    *  caisse ne recalcule aucun prix, elle demande celui qui fait foi. */
+  /** Segment (ou client) change : les lignes non forcees a la main repassent
+   *  par le serveur. Un panier qui garde le tarif boutique apres un passage
+   *  en gros, c'est de l'argent perdu a chaque vente. */
+  useEffect(() => {
+    setLignes(prev => prev.map(l => (l.prixTouched ? l : { ...l, prix: 0 })));
+  }, [typeEffectif, client?.id]);
+
   useEffect(() => {
     if (!open || isStatic) return;
     const aChercher = lignes.filter(l => !l.prixTouched && l.prix === 0);
@@ -645,6 +658,25 @@ const Caisse: React.FC<CaisseProps> = ({
     return out.sort((a, b) => b.total - a.total);
   }, [recherche, candidats, stockMatrix]);
 
+  /** Tarifs du rayon visible : on ne demande que ce qui est a l'ecran, et
+   *  une seule fois par modele et par segment. */
+  useEffect(() => {
+    if (!open || isStatic) return;
+    const manquants = catalogue.map(c => c.model.id).filter(id => !(id in tarifs)).slice(0, 40);
+    if (manquants.length === 0) return;
+    let alive = true;
+    Promise.all(manquants.map(id =>
+      fetch(`/api/prix/resolve?modelId=${encodeURIComponent(id)}&qty=1&canal=MAGASIN&${client ? `clientId=${encodeURIComponent(client.id)}` : `type=${typeEffectif}`}`, { credentials: 'include' })
+        .then(r => (r.ok ? r.json() : null))
+        .then((d: any) => [id, d?.prix == null ? null : Number(d.prix)] as const)
+        .catch(() => [id, null] as const)
+    )).then(paires => {
+      if (!alive) return;
+      setTarifs(t => ({ ...t, ...Object.fromEntries(paires) }));
+    });
+    return () => { alive = false; };
+  }, [open, isStatic, catalogue, tarifs, client, typeEffectif]);
+
   /** Les cellules du modèle ouvert, rangées couleur par couleur : on choisit
    *  d'abord la couleur (c'est ce que le client montre), puis la taille. */
   const grilleModele = useMemo(() => {
@@ -747,6 +779,7 @@ const Caisse: React.FC<CaisseProps> = ({
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
     enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
+    sansTarif: tx(lang, { fr: 'Tarif a saisir', ar: 'الثمن خاصو يتكتب', en: 'Price to enter', es: 'Precio a introducir', pt: 'Preco a introduzir', tr: 'Fiyat girilecek' }),
     segments: tx(lang, { fr: 'Ce que je vends', ar: 'شنو كنبيع', en: 'What I sell', es: 'Lo que vendo', pt: 'O que vendo', tr: 'Ne satiyorum' }),
     segmentsAide: tx(lang, { fr: 'Les segments que ce commerce pratique. Un segment retire ne peut plus etre choisi a la caisse.', ar: 'الأصناف اللي كيبيع بيها هاد المحلّ. الصنف المحيّد ما بقاش يتختار فالصندوق.', en: 'The segments this business actually uses. A removed segment can no longer be picked at the till.', es: 'Los segmentos que practica este comercio.', pt: 'Os segmentos praticados por este comercio.', tr: 'Bu isletmenin kullandigi segmentler.' }),
     rayonNom: tx(lang, { fr: 'Rayon', ar: 'الرفوف', en: 'Shelf', es: 'Estante', pt: 'Prateleira', tr: 'Raf' }),
@@ -927,6 +960,9 @@ const Caisse: React.FC<CaisseProps> = ({
                         style={teinteDe(l.couleur) ? { backgroundColor: teinteDe(l.couleur)! } : undefined}
                       />
                       {[l.couleur, l.taille].filter(Boolean).join(' · ') || '—'}
+                      {l.model.meta_data?.reference && (
+                        <span className="text-[10px] text-slate-400 dark:text-dk-muted truncate">· {l.model.meta_data.reference}</span>
+                      )}
                     </span>
                   </div>
                   <button
