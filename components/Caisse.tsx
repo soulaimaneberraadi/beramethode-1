@@ -1125,13 +1125,6 @@ const Caisse: React.FC<CaisseProps> = ({
                         <span className="text-[10px] text-slate-400 dark:text-dk-muted truncate">· {l.model.meta_data.reference}</span>
                       )}
                     </span>
-                    {(() => { const c = tarifsComparatifs[l.model.id]; if (!c) return null; return (
-                      <span className="flex items-center gap-1 flex-wrap mt-0.5">
-                        {c.gros != null && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">Gros {fmt(c.gros)}</span>}
-                        {c.boutique != null && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/50">Boutique {fmt(c.boutique)}</span>}
-                        {c.detail != null && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-muted border border-slate-200 dark:border-dk-border">Détail {fmt(c.detail)}</span>}
-                      </span>
-                    ); })()}
                   </div>
                   <button
                     onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
