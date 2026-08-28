@@ -37,7 +37,7 @@ const CANAUX = new Set(['ATELIER', 'MAGASIN', 'ONLINE']);
 
 /** `doc_recto`/`doc_verso` restent en snake_case en base (comme le reste de la
  *  table) mais sortent en camelCase pour coller à `AtelierClient` côté client. */
-const CLIENT_SELECT = 'SELECT id, owner_id, nom, type, COALESCE(role, \'CLIENT\') AS role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto AS docRecto, doc_verso AS docVerso, created_at, updated_at FROM st_clients';
+const CLIENT_SELECT = 'SELECT id, owner_id, nom, type, types, COALESCE(role, \'CLIENT\') AS role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto AS docRecto, doc_verso AS docVerso, created_at, updated_at FROM st_clients';
 
 export const getClients = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
@@ -73,11 +73,12 @@ export const saveClient = (req: Request, res: Response) => {
     try {
         const id = c.id || randomUUID();
         db.prepare(`
-            INSERT INTO st_clients (id, owner_id, nom, type, role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto, doc_verso)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO st_clients (id, owner_id, nom, type, types, role, ice, rc, tel, email, adresse, ville, notes, photo, doc_recto, doc_verso)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 nom = excluded.nom,
                 type = excluded.type,
+                types = excluded.types,
                 role = excluded.role,
                 ice = excluded.ice,
                 rc = excluded.rc,
@@ -95,6 +96,15 @@ export const saveClient = (req: Request, res: Response) => {
             companyId,
             nom,
             TYPES.has(c.type) ? c.type : 'DETAIL',
+            // Segments supplementaires : on ne garde que ceux qu'on connait, et
+            // le principal n'y est pas repete — il vit deja dans `type`, et le
+            // dupliquer le ferait diverger a la premiere correction.
+            (() => {
+                const liste = Array.isArray(c.types) ? c.types.filter((t: any) => TYPES.has(t)) : [];
+                const principal = TYPES.has(c.type) ? c.type : 'DETAIL';
+                const autres = [...new Set(liste)].filter((t: any) => t !== principal);
+                return autres.length ? JSON.stringify(autres) : null;
+            })(),
             normRole(c.role),
             c.ice || null,
             c.rc || null,

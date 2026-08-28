@@ -273,7 +273,7 @@ const Caisse: React.FC<CaisseProps> = ({
   const [quickClientOpen, setQuickClientOpen] = useState(false);
   const [quickClientNom, setQuickClientNom] = useState('');
   const [quickClientTel, setQuickClientTel] = useState('');
-  const [quickClientType, setQuickClientType] = useState<TypeVente>('DETAIL');
+  const [quickClientTypes, setQuickClientTypes] = useState<TypeVente[]>(['DETAIL']);
   const [quickClientVille, setQuickClientVille] = useState('');
   const [quickClientDoubleRole, setQuickClientDoubleRole] = useState(false);
   const [quickClientSaving, setQuickClientSaving] = useState(false);
@@ -471,6 +471,16 @@ const Caisse: React.FC<CaisseProps> = ({
   }, [chargerJournal, journalJour, onTicketAnnule]);
 
   const client = clients.find(c => c.id === clientId) || null;
+  /** Segments SECONDAIRES d'un client. Le principal vit dans `type` ; ceux-ci
+   *  disent seulement qu'il achete aussi autrement — ils ne changent aucun
+   *  tarif, sinon deux colonnes se disputeraient le meme prix. */
+  const segmentsDe = (c: AtelierClient | null): string[] => {
+    try {
+      const brut = (c as any)?.types;
+      const liste = typeof brut === 'string' ? JSON.parse(brut) : brut;
+      return Array.isArray(liste) ? liste.filter(v => v && v !== (c as any)?.type) : [];
+    } catch { return []; }
+  };
   const typeEffectif: TypeVente = typeVente;
   /** Un revendeur repart toujours avec une facture — la case ne se decoche pas. */
   const factureRequise = typeEffectif === 'GROS' ? true : factureAuto;
@@ -519,14 +529,14 @@ const Caisse: React.FC<CaisseProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ nom, tel: quickClientTel.trim() || null, type: quickClientType, ville: quickClientVille.trim() || null, role: quickClientDoubleRole ? 'LES_DEUX' : 'CLIENT' }),
+        body: JSON.stringify({ nom, tel: quickClientTel.trim() || null, type: quickClientTypes[0] || 'DETAIL', types: quickClientTypes, ville: quickClientVille.trim() || null, role: quickClientDoubleRole ? 'LES_DEUX' : 'CLIENT' }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.message || 'Erreur');
       const newId = body?.id || body?.client?.id;
       if (newId) setClientId(String(newId));
       setQuickClientOpen(false);
-      setQuickClientNom(''); setQuickClientTel(''); setQuickClientVille(''); setQuickClientDoubleRole(false);
+      setQuickClientNom(''); setQuickClientTel(''); setQuickClientVille(''); setQuickClientDoubleRole(false); setQuickClientTypes(['DETAIL']);
       setFlash({ ok: true, msg: 'Client créé.' });
     } catch (e: any) {
       setQuickClientError(e?.message || String(e));
@@ -773,8 +783,10 @@ const Caisse: React.FC<CaisseProps> = ({
   const [displayMsg, setDisplayMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  /** La fiche s'ouvre sur le segment de la vente en cours : c'est celui qu'on
+   *  vient d'annoncer au client, il fait un point de depart honnete. */
   useEffect(() => {
-    if (quickClientOpen) setQuickClientType(typeVente);
+    if (quickClientOpen) setQuickClientTypes([typeVente]);
   }, [typeVente, quickClientOpen]);
 
   useEffect(() => {
@@ -860,6 +872,8 @@ const Caisse: React.FC<CaisseProps> = ({
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
     enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
+    segmentPrincipal: tx(lang, { fr: 'Segment principal : il fixe le tarif', ar: 'الصنف الرئيسي: هو اللي كيحدّد الثمن', en: 'Main segment: it sets the price', es: 'Segmento principal: fija la tarifa', pt: 'Segmento principal: fixa a tarifa', tr: 'Ana segment: fiyati belirler' }),
+    deuxSegments: tx(lang, { fr: 'Plusieurs segments possibles. Le premier choisi fixe le tarif.', ar: 'يمكن أكثر من صنف. الأوّل هو اللي كيحدّد الثمن.', en: 'A customer may have several segments. The first one sets the price.', es: 'Varios segmentos posibles. El primero fija la tarifa.', pt: 'Varios segmentos possiveis. O primeiro fixa a tarifa.', tr: 'Birden fazla segment olabilir. Ilki fiyati belirler.' }),
     nomObligatoire: tx(lang, { fr: 'Nom du client *', ar: 'اسم الزبون *', en: 'Customer name *', es: 'Nombre del cliente *', pt: 'Nome do cliente *', tr: 'Musteri adi *' }),
     doubleRole: tx(lang, { fr: 'Aussi fournisseur', ar: 'وهو أيضاً موردّ', en: 'Also a supplier', es: 'Tambien proveedor', pt: 'Tambem fornecedor', tr: 'Ayrica tedarikci' }),
     doubleRoleAide: tx(lang, { fr: 'Meme fiche dans Clients et Fournisseurs, meme historique.', ar: 'نفس البطاقة فالزبناء والموردين، نفس التاريخ.', en: 'One record in both Customers and Suppliers, one history.', es: 'Misma ficha en Clientes y Proveedores.', pt: 'Mesma ficha em Clientes e Fornecedores.', tr: 'Musteriler ve Tedarikciler icinde ayni kart.' }),
@@ -1162,7 +1176,7 @@ const Caisse: React.FC<CaisseProps> = ({
                 <div className="min-w-0 flex-1">
                   <span className="block text-sm font-bold text-slate-800 dark:text-dk-text truncate">{client.nom}</span>
                   <span className="block text-[11px] text-slate-500 dark:text-dk-muted truncate">
-                    {[client.type, client.tel, client.ville].filter(Boolean).join(' · ')}
+                    {[[client.type, ...segmentsDe(client)].filter(Boolean).join(' + '), client.tel, client.ville].filter(Boolean).join(' · ')}
                   </span>
                 </div>
                 <button
@@ -1251,15 +1265,25 @@ const Caisse: React.FC<CaisseProps> = ({
                         {segmentsActifs.map(t => (
                           <button
                             key={t.v}
-                            onClick={() => setQuickClientType(t.v)}
-                            className={`px-2 py-2 rounded-xl text-[11px] font-bold border transition-colors ${quickClientType === t.v
+                            onClick={() => setQuickClientTypes(prev => {
+                              const dedans = prev.includes(t.v);
+                              const suite = dedans ? prev.filter(v => v !== t.v) : [...prev, t.v];
+                              // Jamais aucun : un client sans segment n'a pas de tarif.
+                              return suite.length ? suite : prev;
+                            })}
+                            title={quickClientTypes[0] === t.v ? T.segmentPrincipal : undefined}
+                            className={`relative px-2 py-2 rounded-xl text-[11px] font-bold border transition-colors ${quickClientTypes.includes(t.v)
                               ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
                               : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
                           >
                             {t.l}
+                            {quickClientTypes[0] === t.v && quickClientTypes.length > 1 && (
+                              <span className="absolute top-0.5 right-1.5 text-[8px] font-black opacity-70">1</span>
+                            )}
                           </button>
                         ))}
                       </div>
+                      <p className="text-[10px] text-slate-400 dark:text-dk-muted">{T.deuxSegments}</p>
                       <label className="flex items-start gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft cursor-pointer">
                         <input type="checkbox" checked={quickClientDoubleRole} onChange={e => setQuickClientDoubleRole(e.target.checked)} className="w-4 h-4 mt-px rounded border-slate-300 dark:border-dk-border shrink-0" />
                         <span>
@@ -1357,7 +1381,8 @@ const Caisse: React.FC<CaisseProps> = ({
   /** Rend les blocs d'une colonne, dans l'ordre du poste. Les deux colonnes
    *  partagent ce meme rendu : c'est ce qui permet a un bloc de passer de
    *  l'une a l'autre sans changer de nature. */
-  const blocsRanges = (col: 'g' | 'd') => vue.ordre.map(k => (vue.champs[k] && colonneDe(k) === col ? (
+  const blocsRanges = (col: 'g' | 'd') => vue.ordre.map(k => (
+    vue.champs[k] && colonneDe(k) === col && !(k === 'typeVente' && quickClientOpen) ? (
               <div
                 key={k}
                 draggable={reglagesOuverts}
