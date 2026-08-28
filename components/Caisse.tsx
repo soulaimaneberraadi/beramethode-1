@@ -15,10 +15,11 @@ import { ModelData } from '../types';
 import { tx } from '../lib/i18n';
 import { fmt } from '../app/constants';
 import { resolveScan, attachScannerListener } from '../lib/scanner';
+import { sendToCustomerDisplay, autoConnectDisplay, connectDisplay, isWebSerialSupported, getDisplayConfig } from '../lib/customerDisplay';
 import type { AtelierClient } from './soustraitance/ClientsPanel';
 import {
   X, ScanLine, Search, Trash2, Plus, Minus, Loader2, AlertTriangle, User, Store, Check, ArrowLeft,
-  Receipt, RotateCcw, Banknote, MoreVertical, Eye, EyeOff, ArrowLeftRight, RefreshCw, GripVertical,
+  Receipt, RotateCcw, Banknote, MoreVertical, Eye, EyeOff, ArrowLeftRight, RefreshCw, GripVertical, Copy,
 } from 'lucide-react';
 
 export type CaisseLigne = {
@@ -32,6 +33,8 @@ export type CaisseLigne = {
   prix: number;
   /** l'opérateur a fixé le prix lui-même : le tarif serveur ne l'écrase plus */
   prixTouched?: boolean;
+  /** remise par ligne en MAD (montant fixe) */
+  remise?: number;
 };
 
 export type TypeVente = 'BOUTIQUE' | 'DETAIL' | 'GROS';
@@ -267,6 +270,14 @@ const Caisse: React.FC<CaisseProps> = ({
   const [clientId, setClientId] = useState<string>('');
   const [clientLibre, setClientLibre] = useState('');
   const [clientQuery, setClientQuery] = useState('');
+  const [quickClientOpen, setQuickClientOpen] = useState(false);
+  const [quickClientNom, setQuickClientNom] = useState('');
+  const [quickClientTel, setQuickClientTel] = useState('');
+  const [quickClientType, setQuickClientType] = useState<TypeVente>('DETAIL');
+  const [quickClientVille, setQuickClientVille] = useState('');
+  const [quickClientDoubleRole, setQuickClientDoubleRole] = useState(false);
+  const [quickClientSaving, setQuickClientSaving] = useState(false);
+  const [quickClientError, setQuickClientError] = useState<string | null>(null);
   /** Segment tarifaire choisi a la main quand le client n'a pas de fiche. */
   const [typeVente, setTypeVente] = useState<TypeVente>('BOUTIQUE');
   /** Reglage, pas question : celui qui facture toujours ne veut pas cocher a
@@ -460,10 +471,15 @@ const Caisse: React.FC<CaisseProps> = ({
   }, [chargerJournal, journalJour, onTicketAnnule]);
 
   const client = clients.find(c => c.id === clientId) || null;
-  /** Le client fiche impose son segment : son tarif est deja negocie. */
-  const typeEffectif: TypeVente = (client?.type as TypeVente) || typeVente;
+  const typeEffectif: TypeVente = typeVente;
   /** Un revendeur repart toujours avec une facture — la case ne se decoche pas. */
   const factureRequise = typeEffectif === 'GROS' ? true : factureAuto;
+
+  useEffect(() => {
+    if (client?.type && ['BOUTIQUE', 'DETAIL', 'GROS'].includes(client.type)) {
+      setTypeVente(client.type as TypeVente);
+    }
+  }, [client?.id]);
 
   useEffect(() => {
     try { localStorage.setItem(FACTURE_AUTO_KEY, factureAuto ? '1' : '0'); } catch { /* stockage refuse : le reglage vaut pour cette session */ }
@@ -492,11 +508,39 @@ const Caisse: React.FC<CaisseProps> = ({
     } catch { /* le son est un confort, jamais un blocage */ }
   }, []);
 
+  const creerClientRapide = async () => {
+    if (isStatic) return;
+    const nom = quickClientNom.trim();
+    if (!nom) { setQuickClientError('Le nom est obligatoire.'); return; }
+    setQuickClientSaving(true);
+    setQuickClientError(null);
+    try {
+      const res = await fetch('/api/subcontract/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ nom, tel: quickClientTel.trim() || null, type: quickClientType, ville: quickClientVille.trim() || null, role: quickClientDoubleRole ? 'LES_DEUX' : 'CLIENT' }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.message || 'Erreur');
+      const newId = body?.id || body?.client?.id;
+      if (newId) setClientId(String(newId));
+      setQuickClientOpen(false);
+      setQuickClientNom(''); setQuickClientTel(''); setQuickClientVille(''); setQuickClientDoubleRole(false);
+      setFlash({ ok: true, msg: 'Client créé.' });
+    } catch (e: any) {
+      setQuickClientError(e?.message || String(e));
+    } finally {
+      setQuickClientSaving(false);
+    }
+  };
+
   /* Le tarif du segment courant, modele par modele. Il s'affiche sur le
    * rayon et sur la grille : au comptoir on annonce un prix avant de poser
    * la piece sur le comptoir, pas apres. */
   const [tarifs, setTarifs] = useState<Record<string, number | null>>({});
-  useEffect(() => { setTarifs({}); }, [typeEffectif, client?.id]);
+  const [tarifsComparatifs, setTarifsComparatifs] = useState<Record<string, { gros: number | null; boutique: number | null; detail: number | null }>>({});
+  useEffect(() => { setTarifs({}); setTarifsComparatifs({}); }, [typeEffectif, client?.id]);
 
   const dispoDe = useCallback((modelId: string, couleur: string, taille: string) => {
     return Number(stockMatrix.get(modelId)?.get(cellKey(couleur, taille)) || 0);
@@ -568,6 +612,63 @@ const Caisse: React.FC<CaisseProps> = ({
     });
     return () => { alive = false; };
   }, [open, isStatic, lignes, client, typeEffectif]);
+
+  useEffect(() => {
+    if (!open || isStatic) return;
+    const modelIds = [...new Set(lignes.map(l => l.model.id))].filter(id => !(id in tarifsComparatifs));
+    if (modelIds.length === 0) return;
+    let alive = true;
+    Promise.all(modelIds.map(id =>
+      Promise.all([
+        fetch(`/api/prix/resolve?modelId=${encodeURIComponent(id)}&qty=1&canal=MAGASIN&type=GROS`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).then((d: any) => d?.prix == null ? null : Number(d.prix)).catch(() => null),
+        fetch(`/api/prix/resolve?modelId=${encodeURIComponent(id)}&qty=1&canal=MAGASIN&type=BOUTIQUE`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).then((d: any) => d?.prix == null ? null : Number(d.prix)).catch(() => null),
+        fetch(`/api/prix/resolve?modelId=${encodeURIComponent(id)}&qty=1&canal=MAGASIN&type=DETAIL`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).then((d: any) => d?.prix == null ? null : Number(d.prix)).catch(() => null),
+      ]).then(([gros, boutique, detail]) => [id, { gros, boutique, detail }] as const)
+    )).then(pairs => {
+      if (!alive) return;
+      setTarifsComparatifs(prev => ({ ...prev, ...Object.fromEntries(pairs) }));
+    });
+    return () => { alive = false; };
+  }, [open, isStatic, lignes, tarifsComparatifs]);
+
+  /* Poser le tarif manquant depuis le comptoir. Sans ca, une piece sans
+   * tarif oblige a retaper son prix a CHAQUE vente : au bout de trois fois,
+   * quelqu'un se trompe de chiffre. Le tarif pose vaut pour le segment
+   * courant et le canal MAGASIN — jamais pour les autres canaux, qui ont
+   * leurs propres marges. */
+  const [tarifSaisi, setTarifSaisi] = useState<number | ''>('');
+  const [tarifEnCours, setTarifEnCours] = useState(false);
+  useEffect(() => { setTarifSaisi(''); }, [modeleOuvert, typeEffectif]);
+
+  const poserTarif = useCallback(async () => {
+    if (!modeleOuvert || isStatic || !(Number(tarifSaisi) > 0)) return;
+    setTarifEnCours(true);
+    try {
+      const res = await fetch('/api/prix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          modelId: modeleOuvert.id,
+          prix: Number(tarifSaisi),
+          type_client: typeEffectif,
+          canal: 'MAGASIN',
+          qty_min: 0,
+        }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const pose = Number(tarifSaisi);
+      setTarifs(t => ({ ...t, [modeleOuvert.id]: pose }));
+      // Les lignes deja au panier suivent, sauf celles forcees a la main.
+      setLignes(prev => prev.map(l => (l.model.id === modeleOuvert.id && !l.prixTouched ? { ...l, prix: pose } : l)));
+      setTarifSaisi('');
+      setFlash({ ok: true, msg: T.tarifPose });
+    } catch {
+      setFlash({ ok: false, msg: T.tarifRefuse });
+    } finally {
+      setTarifEnCours(false);
+    }
+  }, [modeleOuvert, isStatic, tarifSaisi, typeEffectif, lang]);
 
   /** Le lecteur reste actif en permanence tant que la caisse est ouverte. */
   useEffect(() => {
@@ -701,10 +802,29 @@ const Caisse: React.FC<CaisseProps> = ({
     () => lignes.reduce((a, l) => a + l.qte * (Number(l.prix) || 0), 0),
     [lignes],
   );
-  const remise = Number(remiseGlobale) || 0;
+  const remiseLignes = useMemo(() => lignes.reduce((a, l) => a + (Number(l.remise) || 0), 0), [lignes]);
+  const remise = (Number(remiseGlobale) || 0) + remiseLignes;
   const total = Math.max(0, sousTotal - remise);
   const rendu = encaisse === '' ? null : Number(encaisse) - total;
   const nbPieces = lignes.reduce((a, l) => a + l.qte, 0);
+
+  const [displayConnected, setDisplayConnected] = useState(false);
+  const [displayMsg, setDisplayMsg] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (quickClientOpen) setQuickClientType(typeVente);
+  }, [typeVente, quickClientOpen]);
+
+  useEffect(() => {
+    if (!open) return;
+    autoConnectDisplay().then(ok => setDisplayConnected(ok));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    sendToCustomerDisplay(total, currency);
+  }, [open, total, currency]);
 
 
   const reset = () => {
@@ -779,6 +899,9 @@ const Caisse: React.FC<CaisseProps> = ({
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
     enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
+    tarifPose: tx(lang, { fr: 'Tarif enregistre.', ar: 'تسجّل الثمن.', en: 'Price saved.', es: 'Tarifa registrada.', pt: 'Tarifa registada.', tr: 'Fiyat kaydedildi.' }),
+    tarifRefuse: tx(lang, { fr: "Le tarif n'a pas ete enregistre.", ar: 'الثمن ما تسجّلش.', en: 'The price was not saved.', es: 'La tarifa no se registro.', pt: 'A tarifa nao foi registada.', tr: 'Fiyat kaydedilemedi.' }),
+    poserTarif: tx(lang, { fr: 'Definir le tarif', ar: 'حدّد الثمن', en: 'Set the price', es: 'Definir la tarifa', pt: 'Definir a tarifa', tr: 'Fiyati belirle' }),
     sansTarif: tx(lang, { fr: 'Tarif a saisir', ar: 'الثمن خاصو يتكتب', en: 'Price to enter', es: 'Precio a introducir', pt: 'Preco a introduzir', tr: 'Fiyat girilecek' }),
     segments: tx(lang, { fr: 'Ce que je vends', ar: 'شنو كنبيع', en: 'What I sell', es: 'Lo que vendo', pt: 'O que vendo', tr: 'Ne satiyorum' }),
     segmentsAide: tx(lang, { fr: 'Les segments que ce commerce pratique. Un segment retire ne peut plus etre choisi a la caisse.', ar: 'الأصناف اللي كيبيع بيها هاد المحلّ. الصنف المحيّد ما بقاش يتختار فالصندوق.', en: 'The segments this business actually uses. A removed segment can no longer be picked at the till.', es: 'Los segmentos que practica este comercio.', pt: 'Os segmentos praticados por este comercio.', tr: 'Bu isletmenin kullandigi segmentler.' }),
@@ -833,7 +956,7 @@ const Caisse: React.FC<CaisseProps> = ({
     <div className="min-h-0 overflow-y-auto overscroll-contain pb-2">
 
             <div className="sm:w-[300px] xl:w-[340px] shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 sm:border-l sm:border-slate-200 sm:dark:border-dk-border sm:pl-3">
-              <div className="flex items-center gap-2.5 mb-3">
+              <div className="flex items-center gap-2.5 mb-2">
                 {vue.photos && <Vignette model={modeleOuvert} className="w-9 h-9" />}
                 <div className="min-w-0 flex-1">
                   <span className="block text-sm font-extrabold text-slate-800 dark:text-dk-text truncate">
@@ -844,6 +967,38 @@ const Caisse: React.FC<CaisseProps> = ({
                   </span>
                 </div>
               </div>
+              {/* Tarif manquant : on le pose ici, pour ce segment et pour le
+                  comptoir. Retaper le prix a chaque vente finit par produire
+                  un chiffre de travers. */}
+              {!isStatic && modeleOuvert.id in tarifs && tarifs[modeleOuvert.id] == null && (
+                <div className="flex items-center gap-2 mb-3">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={tarifSaisi}
+                    placeholder="0"
+                    onChange={e => setTarifSaisi(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-24 px-2 py-1.5 rounded-lg text-right text-sm font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                  />
+                  <button
+                    onClick={poserTarif}
+                    disabled={!(Number(tarifSaisi) > 0) || tarifEnCours}
+                    className={`flex-1 py-2 rounded-xl text-[11px] font-extrabold transition-colors ${Number(tarifSaisi) > 0 && !tarifEnCours
+                      ? 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white'
+                      : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'}`}
+                  >
+                    {tarifEnCours ? '…' : `${T.poserTarif} · ${segmentsActifs.find(t => t.v === typeEffectif)?.l || ''}`}
+                  </button>
+                </div>
+              )}
+
+              {(() => { const c = tarifsComparatifs[modeleOuvert.id]; if (!c) return null; return (
+                <div className="flex gap-1 flex-wrap mb-3">
+                  {c.gros != null && <span className="text-[10px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">Gros {fmt(c.gros)} {currency}</span>}
+                  {c.boutique != null && <span className="text-[10px] font-black px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/50">Boutique {fmt(c.boutique)} {currency}</span>}
+                  {c.detail != null && <span className="text-[10px] font-black px-2 py-1 rounded-full bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-muted border border-slate-200 dark:border-dk-border">Détail {fmt(c.detail)} {currency}</span>}
+                </div>
+              ); })()}
 
               <div className="space-y-3">
                 {grilleModele.map(g => (
@@ -921,6 +1076,16 @@ const Caisse: React.FC<CaisseProps> = ({
                   <span className="block mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
                     {c.model.meta_data?.nom_modele || c.model.id}
                   </span>
+                  {c.model.meta_data?.reference && (
+                    <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">{c.model.meta_data.reference}</span>
+                  )}
+                  {/* Le tarif du segment en cours, annonce avant la vente.
+                      Sans tarif connu on le DIT : un zero se lit « gratuit ». */}
+                  <span className={`block text-[11px] font-black leading-tight ${tarifs[c.model.id] == null ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-dk-text'}`}>
+                    {c.model.id in tarifs
+                      ? (tarifs[c.model.id] == null ? T.sansTarif : `${fmt(tarifs[c.model.id] as number)} ${currency}`)
+                      : '…'}
+                  </span>
                   <span className="flex items-center gap-1 mt-1">
                     {c.couleurs.slice(0, 4).map(nom => {
                       const hex = teinteDe(nom);
@@ -964,6 +1129,13 @@ const Caisse: React.FC<CaisseProps> = ({
                         <span className="text-[10px] text-slate-400 dark:text-dk-muted truncate">· {l.model.meta_data.reference}</span>
                       )}
                     </span>
+                    {(() => { const c = tarifsComparatifs[l.model.id]; if (!c) return null; return (
+                      <span className="flex items-center gap-1 flex-wrap mt-0.5">
+                        {c.gros != null && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">Gros {fmt(c.gros)}</span>}
+                        {c.boutique != null && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/50">Boutique {fmt(c.boutique)}</span>}
+                        {c.detail != null && <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-muted border border-slate-200 dark:border-dk-border">Détail {fmt(c.detail)}</span>}
+                      </span>
+                    ); })()}
                   </div>
                   <button
                     onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
@@ -999,8 +1171,20 @@ const Caisse: React.FC<CaisseProps> = ({
                     }}
                     className="w-[72px] sm:w-20 px-2 py-1.5 rounded-lg text-right text-[13px] sm:text-sm font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 placeholder:text-slate-400"
                   />
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={l.remise ?? ''}
+                    placeholder="-"
+                    title="Remise"
+                    onChange={e => {
+                      const v = e.target.value === '' ? undefined : Number(e.target.value);
+                      setLignes(prev => prev.map(x => x.key === l.key ? { ...x, remise: v } : x));
+                    }}
+                    className="w-[52px] sm:w-14 px-1.5 py-1.5 rounded-lg text-right text-[11px] sm:text-xs font-bold bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/50 text-rose-700 dark:text-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-400/40 placeholder:text-rose-300"
+                  />
                   <span className="w-[64px] sm:w-20 text-right text-[13px] sm:text-sm font-black text-slate-800 dark:text-dk-text truncate">
-                    {fmt(l.qte * (Number(l.prix) || 0))}
+                    {fmt(Math.max(0, l.qte * (Number(l.prix) || 0) - (Number(l.remise) || 0)))}
                   </span>
                   <button
                     onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
@@ -1019,13 +1203,12 @@ const Caisse: React.FC<CaisseProps> = ({
                 <button
                   key={t.v}
                   onClick={() => setTypeVente(t.v)}
-                  disabled={!!client}
-                  title={client ? T.typeDuClient : undefined}
-                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] ${
+                  title={client ? `Client ${client.type} → Changer vers ${t.v}` : undefined}
+                  className={`px-2 py-2.5 sm:py-2 rounded-xl text-[11px] font-bold border transition-colors active:scale-[0.98] cursor-pointer ${
                     typeEffectif === t.v
                       ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent shadow-sm'
-                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'
-                  } ${client ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'
+                  } ${client && client.type !== t.v ? 'ring-1 ring-amber-400' : ''}`}
                 >
                   {t.l}
                 </button>
@@ -1063,15 +1246,13 @@ const Caisse: React.FC<CaisseProps> = ({
                       className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
                     />
                   </div>
-                  {onCreateClient && (
-                    <button
-                      onClick={onCreateClient}
-                      title={T.nouveauClient}
-                      className="shrink-0 px-3 rounded-xl border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setQuickClientOpen(v => !v)}
+                    title={T.nouveauClient}
+                    className={`shrink-0 px-3 rounded-xl border transition-colors ${quickClientOpen ? 'bg-slate-800 dark:bg-dk-text text-white border-transparent' : 'border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
                 </div>
                 {clientQuery.trim() !== '' && (
                   <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border">
@@ -1105,6 +1286,34 @@ const Caisse: React.FC<CaisseProps> = ({
                   placeholder={T.passage}
                   className="w-full px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
                 />
+                {quickClientOpen && (
+                  <div className="mt-2 p-3 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={quickClientNom} onChange={e => setQuickClientNom(e.target.value)} placeholder="Nom *" className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                      <input value={quickClientTel} onChange={e => setQuickClientTel(e.target.value)} placeholder="Tél" className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select value={quickClientType} onChange={e => setQuickClientType(e.target.value as TypeVente)} className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40">
+                        <option value="DETAIL">Détail</option>
+                        <option value="GROS">Gros</option>
+                        <option value="BOUTIQUE">Boutique</option>
+                      </select>
+                      <input value={quickClientVille} onChange={e => setQuickClientVille(e.target.value)} placeholder="Ville" className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                    </div>
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-dk-text cursor-pointer">
+                      <input type="checkbox" checked={quickClientDoubleRole} onChange={e => setQuickClientDoubleRole(e.target.checked)} className="w-4 h-4 rounded border-slate-300 dark:border-dk-border" />
+                      Double casquette — aussi fournisseur (on lui achète et on lui vend)
+                    </label>
+                    {quickClientDoubleRole && <p className="text-[10px] text-amber-600 dark:text-amber-400">Sera visible dans Clients et Fournisseurs — même fiche, même historique.</p>}
+                    {quickClientError && <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400">{quickClientError}</p>}
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => setQuickClientOpen(false)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border">Annuler</button>
+                      <button onClick={creerClientRapide} disabled={quickClientSaving} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-slate-900 dark:bg-dk-accent disabled:opacity-60 flex items-center gap-1.5">
+                        {quickClientSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Enregistrer
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
     </>),
@@ -1290,6 +1499,30 @@ const Caisse: React.FC<CaisseProps> = ({
         {/* Trois points : la mise en page du comptoir. Un poste n'est pas
             l'autre, et le caissier range son ecran une fois pour toutes. */}
         <button
+          onClick={async () => {
+            if (displayConnected) {
+              setDisplayMsg('Afficheur déjà connecté.');
+              setTimeout(() => setDisplayMsg(null), 2000);
+              return;
+            }
+            if (!isWebSerialSupported()) {
+              setDisplayMsg('Web Serial non supporté — utilisez Chrome/Edge.');
+              setTimeout(() => setDisplayMsg(null), 3000);
+              return;
+            }
+            const r = await connectDisplay();
+            setDisplayConnected(r.ok);
+            setDisplayMsg(r.msg);
+            setTimeout(() => setDisplayMsg(null), 3000);
+            if (r.ok) sendToCustomerDisplay(total, currency);
+          }}
+          title={displayConnected ? 'Afficheur client connecté' : 'Connecter afficheur client (USB)'}
+          className={`p-2 rounded-xl transition-colors shrink-0 ${displayConnected ? 'bg-emerald-500 text-white' : 'text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
+          aria-label="Afficheur client"
+        >
+          <span className="text-[10px] font-black">{displayConnected ? '◉' : '○'}</span>
+        </button>
+        <button
           onClick={ouvrirReglages}
           className={`p-2 rounded-xl transition-colors shrink-0 ${reglagesOuverts
             ? 'bg-slate-800 dark:bg-dk-accent text-white'
@@ -1306,6 +1539,11 @@ const Caisse: React.FC<CaisseProps> = ({
           <X className="w-5 h-5" />
         </button>
       </div>
+      {displayMsg && (
+        <div className="px-3 sm:px-5 py-1.5 text-[11px] font-bold bg-slate-800 dark:bg-dk-accent text-white text-center shrink-0">
+          {displayMsg}
+        </div>
+      )}
 
       {/* Les reglages tiennent sur une bande fine sous l'entete : tout sur
           une ligne quand l'ecran le permet, et l'ecran de vente reste
@@ -1671,11 +1909,26 @@ const Caisse: React.FC<CaisseProps> = ({
               bouton qu'il faut aller chercher fait rescanner l'article
               « pour voir », et le stock finit par mentir. */}
           <div className="sticky bottom-0 z-10 shrink-0 flex items-center gap-3 px-3 sm:px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-white dark:bg-dk-surface border-t border-slate-200 dark:border-dk-border">
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.total}</span>
-              <span className="block text-xl sm:text-2xl font-black text-slate-900 dark:text-dk-text leading-none truncate">
+              <span className="flex items-center gap-2 text-xl sm:text-2xl font-black text-slate-900 dark:text-dk-text leading-none truncate">
                 {fmt(total)} <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{currency}</span>
+                {total > 0 && (
+                  <button
+                    onClick={async () => {
+                      try { await navigator.clipboard.writeText(total.toFixed(2)); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {}
+                      sendToCustomerDisplay(total, currency);
+                    }}
+                    title="Copier le montant pour le TPE"
+                    className={`p-1.5 rounded-lg border transition-colors ${copied ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                )}
               </span>
+              {total > 0 && ['CARTE', 'CHEQUE', 'VIREMENT'].includes(paiement) && (
+                <span className="block text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">→ Saisir {total.toFixed(2)} sur le TPE</span>
+              )}
             </div>
             <button
               disabled={lignes.length === 0 || saving || isStatic}
