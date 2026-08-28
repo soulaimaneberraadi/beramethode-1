@@ -637,8 +637,9 @@ const Caisse: React.FC<CaisseProps> = ({
    * courant et le canal MAGASIN — jamais pour les autres canaux, qui ont
    * leurs propres marges. */
   const [tarifSaisi, setTarifSaisi] = useState<number | ''>('');
+  const [tarifOuvert, setTarifOuvert] = useState(false);
   const [tarifEnCours, setTarifEnCours] = useState(false);
-  useEffect(() => { setTarifSaisi(''); }, [modeleOuvert, typeEffectif]);
+  useEffect(() => { setTarifSaisi(''); setTarifOuvert(false); }, [modeleOuvert, typeEffectif]);
 
   const poserTarif = useCallback(async () => {
     if (!modeleOuvert || isStatic || !(Number(tarifSaisi) > 0)) return;
@@ -662,6 +663,7 @@ const Caisse: React.FC<CaisseProps> = ({
       // Les lignes deja au panier suivent, sauf celles forcees a la main.
       setLignes(prev => prev.map(l => (l.model.id === modeleOuvert.id && !l.prixTouched ? { ...l, prix: pose } : l)));
       setTarifSaisi('');
+      setTarifOuvert(false);
       setFlash({ ok: true, msg: T.tarifPose });
     } catch {
       setFlash({ ok: false, msg: T.tarifRefuse });
@@ -970,7 +972,17 @@ const Caisse: React.FC<CaisseProps> = ({
               {/* Tarif manquant : on le pose ici, pour ce segment et pour le
                   comptoir. Retaper le prix a chaque vente finit par produire
                   un chiffre de travers. */}
-              {!isStatic && modeleOuvert.id in tarifs && tarifs[modeleOuvert.id] == null && (
+              {/* Discret tant qu'on ne le demande pas : au comptoir, le geste
+                  courant est de vendre, pas de tenir la grille tarifaire. */}
+              {!isStatic && modeleOuvert.id in tarifs && tarifs[modeleOuvert.id] == null && !tarifOuvert && (
+                <button
+                  onClick={() => setTarifOuvert(true)}
+                  className="mb-3 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                >
+                  {T.sansTarif} · {T.poserTarif}
+                </button>
+              )}
+              {!isStatic && tarifOuvert && modeleOuvert.id in tarifs && tarifs[modeleOuvert.id] == null && (
                 <div className="flex items-center gap-2 mb-3">
                   <input
                     type="number"
