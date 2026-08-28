@@ -1332,7 +1332,16 @@ const Caisse: React.FC<CaisseProps> = ({
                     <input
                       value={clientQuery}
                       onChange={e => setClientQuery(e.target.value)}
-                      placeholder={T.chercherClient}
+                      onKeyDown={e => {
+                        if (e.key !== 'Enter') return;
+                        e.preventDefault();
+                        // Entree fait la seule chose sensee a ce moment : s'il
+                        // n'y a qu'un client, c'est lui ; s'il n'y en a aucun,
+                        // c'est qu'il faut le creer avec ce qui est tape.
+                        if (clientsTrouves.length === 1) { setClientId(clientsTrouves[0].id); setClientQuery(''); return; }
+                        if (clientsTrouves.length === 0 && clientQuery.trim()) ouvrirFicheClient();
+                      }}
+                      placeholder={`${T.chercherClient}  ⏎`}
                       className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
                     />
                   </div>
