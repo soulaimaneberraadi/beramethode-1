@@ -270,11 +270,19 @@ const Caisse: React.FC<CaisseProps> = ({
    * si le caissier l'enregistre. Refermer sans enregistrer rend l'ecran
    * d'avant, intact. */
   const [brouillon, setBrouillon] = useState<MiseEnPage | null>(null);
+  const brouillonRef = useRef<MiseEnPage | null>(null);
+  brouillonRef.current = brouillon;
   const vue = brouillon ?? mep;
   const reglagesOuverts = brouillon !== null;
   const ouvrirReglages = useCallback(() => setBrouillon(b => (b ? null : { ...mep })), [mep]);
   const majBrouillon = useCallback((f: (m: MiseEnPage) => MiseEnPage) => {
     setBrouillon(b => f(b ?? MISE_EN_PAGE_DEFAUT));
+  }, []);
+  /** Ecrit la ou l'ecran regarde : le brouillon si on est en train de regler,
+   *  la mise en page du poste sinon. */
+  const majVue = useCallback((f: (m: MiseEnPage) => MiseEnPage) => {
+    setBrouillon(b => (b ? f(b) : null));
+    setMep(m => (brouillonRef.current ? m : f(m)));
   }, []);
   useEffect(() => {
     try { localStorage.setItem(MISE_EN_PAGE_KEY, JSON.stringify(mep)); } catch { /* le reglage vaut alors pour cette session */ }
@@ -301,12 +309,12 @@ const Caisse: React.FC<CaisseProps> = ({
         const r = conteneurRef.current?.getBoundingClientRect();
         if (!r || r.width === 0) return;
         const part = mep.panierAGauche ? (e.clientX - r.left) : (r.right - e.clientX);
-        setMep(m => ({ ...m, largeurPanier: borne((part / r.width) * 100, 20, 75) }));
+        majVue(m => ({ ...m, largeurPanier: borne((part / r.width) * 100, 20, 75) }));
       } else {
         const r = rayonRef.current?.getBoundingClientRect();
         if (!r) return;
         const px = mep.grille === 'gauche' ? (e.clientX - r.left) : (r.right - e.clientX);
-        setMep(m => ({ ...m, largeurGrille: borne(px, 200, 700) }));
+        majVue(m => ({ ...m, largeurGrille: borne(px, 200, 700) }));
       }
     };
     const lacher = () => setRedim(null);
@@ -320,7 +328,7 @@ const Caisse: React.FC<CaisseProps> = ({
       window.removeEventListener('mouseup', lacher);
       document.body.style.userSelect = avant;
     };
-  }, [redim, mep.panierAGauche, mep.grille]);
+  }, [redim, mep.panierAGauche, mep.grille, majVue]);
 
   /** La grille du modele est en train d'etre deplacee d'une colonne a l'autre. */
   const [grilleTiree, setGrilleTiree] = useState(false);
@@ -1019,14 +1027,13 @@ const Caisse: React.FC<CaisseProps> = ({
         </button>
       </div>
 
-      {/* Les reglages ne prennent plus une bande sur toute la largeur : un
-          panneau ancre sous les trois points, au-dessus de l'ecran de vente
-          qui reste visible — c'est lui qu'on est en train de regler. */}
+      {/* Les reglages tiennent sur une bande fine sous l'entete : tout sur
+          une ligne quand l'ecran le permet, et l'ecran de vente reste
+          visible dessous — c'est lui qu'on est en train de regler. */}
       {reglagesOuverts && (
-        <div className="absolute right-2 left-2 sm:left-auto top-14 z-30 sm:w-[340px] rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-2xl p-3 space-y-2.5 max-h-[70vh] overflow-y-auto overscroll-contain">
+        <div className="shrink-0 border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 sm:px-5 py-2 flex flex-wrap items-center gap-x-4 gap-y-2 max-h-[45vh] overflow-y-auto overscroll-contain">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{T.reglages}</span>
-            <div className="flex-1" />
             <button
               onClick={() => setBrouillon(MISE_EN_PAGE_DEFAUT)}
               className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:text-slate-800 dark:hover:text-dk-text"
@@ -1088,8 +1095,8 @@ const Caisse: React.FC<CaisseProps> = ({
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <span className="block text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.champs}</span>
+          <div className="flex items-center gap-2" title={T.champMasque}>
+            <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.champs}</span>
             <div className="flex flex-wrap gap-1.5">
               {([
                 ['typeVente', typesVente.map(t => t.l).join(' / ')],
@@ -1110,24 +1117,26 @@ const Caisse: React.FC<CaisseProps> = ({
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-slate-400 dark:text-dk-muted">{T.champMasque}</p>
-            <p className="text-[10px] font-bold text-slate-500 dark:text-dk-text-soft flex items-center gap-1.5">
-              <GripVertical className="w-3.5 h-3.5" /> {T.glisser}
-            </p>
           </div>
+
+          <span className="hidden xl:flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-dk-muted">
+            <GripVertical className="w-3.5 h-3.5" /> {T.glisser}
+          </span>
+
+          <div className="flex-1 min-w-0" />
 
           {/* Rien n'est garde tant que ce n'est pas confirme : un ecran de
               caisse deregle par megarde se retrouve tel quel le lendemain. */}
-          <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-dk-border">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setBrouillon(null)}
-              className="flex-1 py-2 rounded-xl text-[11px] font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated"
+              className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated"
             >
               {T.renoncer}
             </button>
             <button
               onClick={() => { if (brouillon) setMep(brouillon); setBrouillon(null); }}
-              className="flex-1 py-2 rounded-xl text-[11px] font-extrabold text-white bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent flex items-center justify-center gap-1.5"
+              className="px-3 py-1.5 rounded-lg text-[11px] font-extrabold text-white bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent flex items-center gap-1.5"
             >
               <Check className="w-3.5 h-3.5" /> {T.enregistrer}
             </button>
@@ -1375,9 +1384,9 @@ const Caisse: React.FC<CaisseProps> = ({
           {modeleOuvert && vue.grille !== 'panier' && (
             <div
               onMouseDown={() => setRedim('grille')}
-              onDoubleClick={() => setMep(m => ({ ...m, largeurGrille: MISE_EN_PAGE_DEFAUT.largeurGrille }))}
+              onDoubleClick={() => majVue(m => ({ ...m, largeurGrille: MISE_EN_PAGE_DEFAUT.largeurGrille }))}
               title={T.tirer}
-              className={`hidden lg:block shrink-0 w-1.5 rounded-full cursor-col-resize transition-colors ${redim === 'grille'
+              className={`hidden lg:block shrink-0 w-2 rounded-full cursor-col-resize transition-colors ${redim === 'grille'
                 ? 'bg-slate-400 dark:bg-dk-accent'
                 : 'bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent'}`}
             />
@@ -1390,9 +1399,9 @@ const Caisse: React.FC<CaisseProps> = ({
             qu'il lui faut, sans passer par un reglage. */}
         <div
           onMouseDown={() => setRedim('panier')}
-          onDoubleClick={() => setMep(m => ({ ...m, largeurPanier: MISE_EN_PAGE_DEFAUT.largeurPanier }))}
+          onDoubleClick={() => majVue(m => ({ ...m, largeurPanier: MISE_EN_PAGE_DEFAUT.largeurPanier }))}
           title={T.tirer}
-          className={`hidden lg:block shrink-0 w-1.5 cursor-col-resize transition-colors ${redim === 'panier'
+          className={`hidden lg:block shrink-0 w-2 cursor-col-resize transition-colors ${redim === 'panier'
             ? 'bg-slate-400 dark:bg-dk-accent'
             : 'bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent'} ${journeeOuverte ? 'hidden' : ''}`}
         />
