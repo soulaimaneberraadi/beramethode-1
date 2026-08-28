@@ -631,47 +631,6 @@ const Caisse: React.FC<CaisseProps> = ({
     return () => { alive = false; };
   }, [open, isStatic, lignes, tarifsComparatifs]);
 
-  /* Poser le tarif manquant depuis le comptoir. Sans ca, une piece sans
-   * tarif oblige a retaper son prix a CHAQUE vente : au bout de trois fois,
-   * quelqu'un se trompe de chiffre. Le tarif pose vaut pour le segment
-   * courant et le canal MAGASIN — jamais pour les autres canaux, qui ont
-   * leurs propres marges. */
-  const [tarifSaisi, setTarifSaisi] = useState<number | ''>('');
-  const [tarifOuvert, setTarifOuvert] = useState(false);
-  const [tarifEnCours, setTarifEnCours] = useState(false);
-  useEffect(() => { setTarifSaisi(''); setTarifOuvert(false); }, [modeleOuvert, typeEffectif]);
-
-  const poserTarif = useCallback(async () => {
-    if (!modeleOuvert || isStatic || !(Number(tarifSaisi) > 0)) return;
-    setTarifEnCours(true);
-    try {
-      const res = await fetch('/api/prix', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          modelId: modeleOuvert.id,
-          prix: Number(tarifSaisi),
-          type_client: typeEffectif,
-          canal: 'MAGASIN',
-          qty_min: 0,
-        }),
-      });
-      if (!res.ok) throw new Error(String(res.status));
-      const pose = Number(tarifSaisi);
-      setTarifs(t => ({ ...t, [modeleOuvert.id]: pose }));
-      // Les lignes deja au panier suivent, sauf celles forcees a la main.
-      setLignes(prev => prev.map(l => (l.model.id === modeleOuvert.id && !l.prixTouched ? { ...l, prix: pose } : l)));
-      setTarifSaisi('');
-      setTarifOuvert(false);
-      setFlash({ ok: true, msg: T.tarifPose });
-    } catch {
-      setFlash({ ok: false, msg: T.tarifRefuse });
-    } finally {
-      setTarifEnCours(false);
-    }
-  }, [modeleOuvert, isStatic, tarifSaisi, typeEffectif, lang]);
-
   /** Le lecteur reste actif en permanence tant que la caisse est ouverte. */
   useEffect(() => {
     if (!open) return;
@@ -901,9 +860,9 @@ const Caisse: React.FC<CaisseProps> = ({
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
     enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
-    tarifPose: tx(lang, { fr: 'Tarif enregistre.', ar: 'تسجّل الثمن.', en: 'Price saved.', es: 'Tarifa registrada.', pt: 'Tarifa registada.', tr: 'Fiyat kaydedildi.' }),
-    tarifRefuse: tx(lang, { fr: "Le tarif n'a pas ete enregistre.", ar: 'الثمن ما تسجّلش.', en: 'The price was not saved.', es: 'La tarifa no se registro.', pt: 'A tarifa nao foi registada.', tr: 'Fiyat kaydedilemedi.' }),
-    poserTarif: tx(lang, { fr: 'Definir le tarif', ar: 'حدّد الثمن', en: 'Set the price', es: 'Definir la tarifa', pt: 'Definir a tarifa', tr: 'Fiyati belirle' }),
+    nomObligatoire: tx(lang, { fr: 'Nom du client *', ar: 'اسم الزبون *', en: 'Customer name *', es: 'Nombre del cliente *', pt: 'Nome do cliente *', tr: 'Musteri adi *' }),
+    doubleRole: tx(lang, { fr: 'Aussi fournisseur', ar: 'وهو أيضاً موردّ', en: 'Also a supplier', es: 'Tambien proveedor', pt: 'Tambem fornecedor', tr: 'Ayrica tedarikci' }),
+    doubleRoleAide: tx(lang, { fr: 'Meme fiche dans Clients et Fournisseurs, meme historique.', ar: 'نفس البطاقة فالزبناء والموردين، نفس التاريخ.', en: 'One record in both Customers and Suppliers, one history.', es: 'Misma ficha en Clientes y Proveedores.', pt: 'Mesma ficha em Clientes e Fornecedores.', tr: 'Musteriler ve Tedarikciler icinde ayni kart.' }),
     sansTarif: tx(lang, { fr: 'Tarif a saisir', ar: 'الثمن خاصو يتكتب', en: 'Price to enter', es: 'Precio a introducir', pt: 'Preco a introduzir', tr: 'Fiyat girilecek' }),
     segments: tx(lang, { fr: 'Ce que je vends', ar: 'شنو كنبيع', en: 'What I sell', es: 'Lo que vendo', pt: 'O que vendo', tr: 'Ne satiyorum' }),
     segmentsAide: tx(lang, { fr: 'Les segments que ce commerce pratique. Un segment retire ne peut plus etre choisi a la caisse.', ar: 'الأصناف اللي كيبيع بيها هاد المحلّ. الصنف المحيّد ما بقاش يتختار فالصندوق.', en: 'The segments this business actually uses. A removed segment can no longer be picked at the till.', es: 'Los segmentos que practica este comercio.', pt: 'Os segmentos praticados por este comercio.', tr: 'Bu isletmenin kullandigi segmentler.' }),
@@ -972,38 +931,6 @@ const Caisse: React.FC<CaisseProps> = ({
               {/* Tarif manquant : on le pose ici, pour ce segment et pour le
                   comptoir. Retaper le prix a chaque vente finit par produire
                   un chiffre de travers. */}
-              {/* Discret tant qu'on ne le demande pas : au comptoir, le geste
-                  courant est de vendre, pas de tenir la grille tarifaire. */}
-              {!isStatic && modeleOuvert.id in tarifs && tarifs[modeleOuvert.id] == null && !tarifOuvert && (
-                <button
-                  onClick={() => setTarifOuvert(true)}
-                  className="mb-3 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
-                >
-                  {T.sansTarif} · {T.poserTarif}
-                </button>
-              )}
-              {!isStatic && tarifOuvert && modeleOuvert.id in tarifs && tarifs[modeleOuvert.id] == null && (
-                <div className="flex items-center gap-2 mb-3">
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={tarifSaisi}
-                    placeholder="0"
-                    onChange={e => setTarifSaisi(e.target.value === '' ? '' : Number(e.target.value))}
-                    className="w-24 px-2 py-1.5 rounded-lg text-right text-sm font-bold bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40"
-                  />
-                  <button
-                    onClick={poserTarif}
-                    disabled={!(Number(tarifSaisi) > 0) || tarifEnCours}
-                    className={`flex-1 py-2 rounded-xl text-[11px] font-extrabold transition-colors ${Number(tarifSaisi) > 0 && !tarifEnCours
-                      ? 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white'
-                      : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'}`}
-                  >
-                    {tarifEnCours ? '…' : `${T.poserTarif} · ${segmentsActifs.find(t => t.v === typeEffectif)?.l || ''}`}
-                  </button>
-                </div>
-              )}
-
               {(() => { const c = tarifsComparatifs[modeleOuvert.id]; if (!c) return null; return (
                 <div className="flex gap-1 flex-wrap mb-3">
                   {c.gros != null && <span className="text-[10px] font-black px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">Gros {fmt(c.gros)} {currency}</span>}
@@ -1299,29 +1226,63 @@ const Caisse: React.FC<CaisseProps> = ({
                   className="w-full px-3 py-2 rounded-xl text-sm bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text placeholder-slate-400 dark:placeholder-dk-muted focus:outline-none focus:ring-2 focus:ring-slate-400/40"
                 />
                 {quickClientOpen && (
-                  <div className="mt-2 p-3 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input value={quickClientNom} onChange={e => setQuickClientNom(e.target.value)} placeholder="Nom *" className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
-                      <input value={quickClientTel} onChange={e => setQuickClientTel(e.target.value)} placeholder="Tél" className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                  <div className="mt-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border overflow-hidden">
+                    {/* Une fiche, pas une grille de champs : le nom en grand
+                        parce que c'est le seul qui soit obligatoire, et le
+                        segment en boutons parce qu'il fixe le tarif de ce
+                        client — ca ne se cache pas dans une liste deroulante. */}
+                    <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-dk-border">
+                      <User className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />
+                      <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{T.nouveauClient}</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <select value={quickClientType} onChange={e => setQuickClientType(e.target.value as TypeVente)} className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40">
-                        <option value="DETAIL">Détail</option>
-                        <option value="GROS">Gros</option>
-                        <option value="BOUTIQUE">Boutique</option>
-                      </select>
-                      <input value={quickClientVille} onChange={e => setQuickClientVille(e.target.value)} placeholder="Ville" className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                    <div className="p-3 space-y-2">
+                      <input
+                        autoFocus
+                        value={quickClientNom}
+                        onChange={e => setQuickClientNom(e.target.value)}
+                        placeholder={T.nomObligatoire}
+                        className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm font-bold text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input value={quickClientTel} onChange={e => setQuickClientTel(e.target.value)} placeholder="Tel" className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                        <input value={quickClientVille} onChange={e => setQuickClientVille(e.target.value)} placeholder="Ville" className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
+                      </div>
+                      <div className={`grid gap-1.5 ${segmentsActifs.length === 1 ? 'grid-cols-1' : segmentsActifs.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                        {segmentsActifs.map(t => (
+                          <button
+                            key={t.v}
+                            onClick={() => setQuickClientType(t.v)}
+                            className={`px-2 py-2 rounded-xl text-[11px] font-bold border transition-colors ${quickClientType === t.v
+                              ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                              : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+                          >
+                            {t.l}
+                          </button>
+                        ))}
+                      </div>
+                      <label className="flex items-start gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft cursor-pointer">
+                        <input type="checkbox" checked={quickClientDoubleRole} onChange={e => setQuickClientDoubleRole(e.target.checked)} className="w-4 h-4 mt-px rounded border-slate-300 dark:border-dk-border shrink-0" />
+                        <span>
+                          {T.doubleRole}
+                          {quickClientDoubleRole && (
+                            <span className="block font-normal text-[10px] text-slate-400 dark:text-dk-muted">{T.doubleRoleAide}</span>
+                          )}
+                        </span>
+                      </label>
+                      {quickClientError && <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400">{quickClientError}</p>}
                     </div>
-                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-dk-text cursor-pointer">
-                      <input type="checkbox" checked={quickClientDoubleRole} onChange={e => setQuickClientDoubleRole(e.target.checked)} className="w-4 h-4 rounded border-slate-300 dark:border-dk-border" />
-                      Double casquette — aussi fournisseur (on lui achète et on lui vend)
-                    </label>
-                    {quickClientDoubleRole && <p className="text-[10px] text-amber-600 dark:text-amber-400">Sera visible dans Clients et Fournisseurs — même fiche, même historique.</p>}
-                    {quickClientError && <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400">{quickClientError}</p>}
-                    <div className="flex gap-2 justify-end">
-                      <button onClick={() => setQuickClientOpen(false)} className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border">Annuler</button>
-                      <button onClick={creerClientRapide} disabled={quickClientSaving} className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-slate-900 dark:bg-dk-accent disabled:opacity-60 flex items-center gap-1.5">
-                        {quickClientSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Enregistrer
+                    <div className="flex gap-2 px-3 py-2 border-t border-slate-100 dark:border-dk-border bg-slate-50/60 dark:bg-dk-elevated/40">
+                      <button onClick={() => setQuickClientOpen(false)} className="flex-1 py-2 rounded-xl text-[11px] font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border hover:bg-white dark:hover:bg-dk-surface">
+                        {T.renoncer}
+                      </button>
+                      <button
+                        onClick={creerClientRapide}
+                        disabled={quickClientSaving || !quickClientNom.trim()}
+                        className={`flex-1 py-2 rounded-xl text-[11px] font-extrabold flex items-center justify-center gap-1.5 ${quickClientSaving || !quickClientNom.trim()
+                          ? 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'
+                          : 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white'}`}
+                      >
+                        {quickClientSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} {T.enregistrer}
                       </button>
                     </div>
                   </div>
