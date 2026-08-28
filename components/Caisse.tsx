@@ -134,6 +134,11 @@ type MiseEnPage = {
    *  meme ligne. Court (remise, facture), ils gagnent a etre cote a cote ;
    *  long (client), ils etouffent. C'est au poste de trancher. */
   demis: Partial<Record<ChampCle, boolean>>;
+  /** Les segments que ce commerce pratique VRAIMENT. Un atelier qui ne vend
+   *  qu'en gros n'a pas a voir « Ma boutique » : un bouton qu'on ne prend
+   *  jamais finit par etre pris par erreur, et la vente part au mauvais
+   *  tarif. Au moins un segment reste toujours actif. */
+  segments: TypeVente[];
   /** La colonne ou ce poste a range chaque bloc. */
   colonnes: Partial<Record<ChampCle, 'g' | 'd'>>;
   /** Hauteur imposee a un bloc, en pixels. Ce qui deborde y defile : le
@@ -166,6 +171,7 @@ const MISE_EN_PAGE_DEFAUT: MiseEnPage = {
   ordre: ORDRE_DEFAUT,
   demis: {},
   colonnes: {},
+  segments: ['BOUTIQUE', 'DETAIL', 'GROS'],
   panierAGauche: false,
   largeurPanier: 50,
   photos: true,
@@ -194,6 +200,9 @@ const lireMiseEnPage = (): MiseEnPage => {
       ordre,
       demis: { ...(brut.demis && typeof brut.demis === 'object' ? brut.demis : {}) },
       colonnes: { ...(brut.colonnes && typeof brut.colonnes === 'object' ? brut.colonnes : {}) },
+      // Un reglage vide vaudrait une caisse sans tarif : on retombe sur tout.
+      segments: (Array.isArray(brut.segments) ? brut.segments.filter((v: any) => ['BOUTIQUE', 'DETAIL', 'GROS'].includes(v)) : []).length
+        ? brut.segments : MISE_EN_PAGE_DEFAUT.segments,
       hauteurs: { ...(brut.hauteurs && typeof brut.hauteurs === 'object' ? brut.hauteurs : {}) },
       champs: { ...MISE_EN_PAGE_DEFAUT.champs, ...(brut.champs || {}) },
     };
@@ -567,6 +576,13 @@ const Caisse: React.FC<CaisseProps> = ({
     });
   }, [open, candidats, ajouter, pip, lang]);
 
+  /** Le segment courant doit exister : retirer « Ma boutique » alors qu'elle
+   *  etait selectionnee laisserait la vente partir sur un tarif que ce
+   *  commerce ne pratique plus. */
+  useEffect(() => {
+    if (!mep.segments.includes(typeVente)) setTypeVente(mep.segments[0]);
+  }, [mep.segments, typeVente]);
+
   useEffect(() => {
     if (!flash) return;
     const t = setTimeout(() => setFlash(null), 2200);
@@ -731,6 +747,8 @@ const Caisse: React.FC<CaisseProps> = ({
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
     enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
+    segments: tx(lang, { fr: 'Ce que je vends', ar: 'شنو كنبيع', en: 'What I sell', es: 'Lo que vendo', pt: 'O que vendo', tr: 'Ne satiyorum' }),
+    segmentsAide: tx(lang, { fr: 'Les segments que ce commerce pratique. Un segment retire ne peut plus etre choisi a la caisse.', ar: 'الأصناف اللي كيبيع بيها هاد المحلّ. الصنف المحيّد ما بقاش يتختار فالصندوق.', en: 'The segments this business actually uses. A removed segment can no longer be picked at the till.', es: 'Los segmentos que practica este comercio.', pt: 'Os segmentos praticados por este comercio.', tr: 'Bu isletmenin kullandigi segmentler.' }),
     rayonNom: tx(lang, { fr: 'Rayon', ar: 'الرفوف', en: 'Shelf', es: 'Estante', pt: 'Prateleira', tr: 'Raf' }),
     coteACote: tx(lang, { fr: 'Cote a cote', ar: 'حدا بعضياتهم', en: 'Side by side', es: 'Lado a lado', pt: 'Lado a lado', tr: 'Yan yana' }),
     demiLigne: tx(lang, { fr: 'Pleine ligne ou demi-ligne', ar: 'سطر كامل ولا نص سطر', en: 'Full width or half width', es: 'Linea completa o media', pt: 'Linha inteira ou metade', tr: 'Tam satir veya yarim' }),
@@ -759,11 +777,14 @@ const Caisse: React.FC<CaisseProps> = ({
     statique: tx(lang, { fr: "Mode statique : la caisse a besoin du serveur pour enregistrer une vente.", ar: 'الوضع الساكن: الصندوق كيحتاج السيرفر باش يسجّل البيعة.', en: 'Static mode: the checkout needs the server to record a sale.', es: 'Modo estatico: la caja necesita el servidor.', pt: 'Modo estatico: a caixa precisa do servidor.', tr: 'Statik mod: kasa sunucuya ihtiyac duyar.' }),
   };
 
-  const typesVente: Array<{ v: TypeVente; l: string }> = [
+  const tousTypesVente: Array<{ v: TypeVente; l: string }> = [
     { v: 'BOUTIQUE', l: tx(lang, { fr: 'Ma boutique', ar: 'محلّي', en: 'My shop', es: 'Mi tienda', pt: 'Minha loja', tr: 'Magazam' }) },
     { v: 'DETAIL', l: tx(lang, { fr: 'Detail', ar: 'بالتقسيط', en: 'Retail', es: 'Detalle', pt: 'Retalho', tr: 'Perakende' }) },
     { v: 'GROS', l: tx(lang, { fr: 'Gros', ar: 'بالجملة', en: 'Wholesale', es: 'Por mayor', pt: 'Grosso', tr: 'Toptan' }) },
   ];
+
+  /** Les segments pratiques par ce commerce, dans l'ordre habituel. */
+  const segmentsActifs = tousTypesVente.filter(t => vue.segments.includes(t.v));
 
   const modes: Array<{ v: CaissePaiement; l: string }> = [
     { v: 'ESPECES', l: tx(lang, { fr: 'Especes', ar: 'نقداً', en: 'Cash', es: 'Efectivo', pt: 'Dinheiro', tr: 'Nakit' }) },
@@ -957,8 +978,8 @@ const Caisse: React.FC<CaisseProps> = ({
           </div>
     </>),
     typeVente: (<>
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-              {typesVente.map(t => (
+            <div className={`grid gap-1.5 sm:gap-2 ${segmentsActifs.length === 1 ? 'grid-cols-1' : segmentsActifs.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+              {segmentsActifs.map(t => (
                 <button
                   key={t.v}
                   onClick={() => setTypeVente(t.v)}
@@ -1301,6 +1322,32 @@ const Caisse: React.FC<CaisseProps> = ({
             </div>
           </div>
 
+          {/* Ce que ce commerce pratique. Ce n'est pas de la mise en page :
+              c'est le tarif qui part avec la vente. */}
+          <div className="flex items-center gap-2" title={T.segmentsAide}>
+            <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.segments}</span>
+            <div className="flex gap-1.5">
+              {tousTypesVente.map(t => {
+                const actif = vue.segments.includes(t.v);
+                return (
+                  <button
+                    key={t.v}
+                    onClick={() => majBrouillon(m => {
+                      const suite = actif ? m.segments.filter(v => v !== t.v) : [...m.segments, t.v];
+                      // Jamais zero : une caisse sans segment n'a plus de tarif.
+                      return suite.length ? { ...m, segments: suite } : m;
+                    })}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${actif
+                      ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                      : 'bg-slate-50 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border line-through'}`}
+                  >
+                    {t.l}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="flex items-center gap-2" title={T.champMasque}>
             <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted shrink-0">{T.champs}</span>
             <div className="flex flex-wrap gap-1.5">
@@ -1309,7 +1356,7 @@ const Caisse: React.FC<CaisseProps> = ({
                 ['rayon', T.rayonNom],
                 ['grille', T.grille],
                 ['lignes', T.panier],
-                ['typeVente', typesVente.map(t => t.l).join(' / ')],
+                ['typeVente', segmentsActifs.map(t => t.l).join(' / ')],
                 ['client', T.client],
                 ['facture', T.factureAuto],
                 ['paiement', T.reglement],
