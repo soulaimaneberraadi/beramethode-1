@@ -281,6 +281,14 @@ const Caisse: React.FC<CaisseProps> = ({
   /* L'ICE ne se demande pas a la creation du client — au comptoir, il
    * allonge la file pour une mention qui ne sert qu'a la facture. On le
    * rattrape au moment de facturer, sur la fiche deja existante. */
+  /* Un revendeur repart avec une facture : ses mentions legales se saisissent
+   * pendant la creation, la ou on a la personne en face. Pour un client de
+   * detail elles ne s'affichent pas — elles ne servent a rien et ralentissent
+   * le comptoir. */
+  const [quickClientIce, setQuickClientIce] = useState('');
+  const [quickClientRc, setQuickClientRc] = useState('');
+  const [quickClientAdresse, setQuickClientAdresse] = useState('');
+
   const [ficheIce, setFicheIce] = useState('');
   const [ficheRc, setFicheRc] = useState('');
   const [ficheAdresse, setFicheAdresse] = useState('');
@@ -562,6 +570,9 @@ const Caisse: React.FC<CaisseProps> = ({
           type: quickClientTypes[0] || 'DETAIL',
           types: quickClientTypes,
           ville: quickClientVille.trim() || null,
+          ice: quickClientIce.trim() || null,
+          rc: quickClientRc.trim() || null,
+          adresse: quickClientAdresse.trim() || null,
           role: quickClientDoubleRole ? 'LES_DEUX' : 'CLIENT',
         }),
       });
@@ -571,6 +582,7 @@ const Caisse: React.FC<CaisseProps> = ({
       if (newId) setClientId(String(newId));
       setQuickClientOpen(false);
       setQuickClientNom(''); setQuickClientTel(''); setQuickClientVille(''); setQuickClientDoubleRole(false); setQuickClientTypes(['DETAIL']);
+      setQuickClientIce(''); setQuickClientRc(''); setQuickClientAdresse('');
       setFlash({ ok: true, msg: 'Client créé.' });
     } catch (e: any) {
       setQuickClientError(e?.message || String(e));
@@ -1369,6 +1381,22 @@ const Caisse: React.FC<CaisseProps> = ({
                         ))}
                       </div>
                       <p className="text-[10px] text-slate-400 dark:text-dk-muted">{T.deuxSegments}</p>
+
+                      {/* Gros : la facture est due, ses mentions se prennent
+                          maintenant, pendant que le client est la. */}
+                      {quickClientTypes.includes('GROS') && (
+                        <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-dk-border">
+                          <span className="block text-[10px] font-extrabold uppercase tracking-wide text-amber-700 dark:text-amber-400">{T.infosFacture}</span>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input value={quickClientIce} onChange={e => setQuickClientIce(e.target.value)} placeholder="ICE" className="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
+                            <input value={quickClientRc} onChange={e => setQuickClientRc(e.target.value)} placeholder="RC" className="px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
+                          </div>
+                          <input value={quickClientAdresse} onChange={e => setQuickClientAdresse(e.target.value)} placeholder={T.adresse} className="w-full px-3 py-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40" />
+                          {!quickClientIce.trim() && (
+                            <p className="text-[10px] text-amber-600 dark:text-amber-400">{T.iceManquant}</p>
+                          )}
+                        </div>
+                      )}
 
                       <label className="flex items-start gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft cursor-pointer">
                         <input type="checkbox" checked={quickClientDoubleRole} onChange={e => setQuickClientDoubleRole(e.target.checked)} className="w-4 h-4 mt-px rounded border-slate-300 dark:border-dk-border shrink-0" />
