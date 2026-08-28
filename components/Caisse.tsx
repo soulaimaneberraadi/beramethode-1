@@ -152,6 +152,10 @@ type MiseEnPage = {
    *  panier merite souvent plus de place que les reglages, et l'inverse
    *  arrive aussi quand on vend deux pieces a la fois. */
   hauteurs: Partial<Record<ChampCle, number>>;
+  /** Part de la ligne prise par un bloc en demi-largeur, en pourcentage. Deux
+   *  blocs cote a cote ne meritent pas la meme place : un choix de segment
+   *  tient en peu, une liste d'articles jamais. */
+  parts: Partial<Record<ChampCle, number>>;
   /** Le panier passe a gauche : certains caissiers sont gauchers, et sur un
    *  ecran tactile la main qui compose cache la colonne qu'elle touche. */
   panierAGauche: boolean;
@@ -177,6 +181,7 @@ const COLONNE_DEFAUT: Record<ChampCle, 'g' | 'd'> = {
 const MISE_EN_PAGE_DEFAUT: MiseEnPage = {
   ordre: ORDRE_DEFAUT,
   demis: {},
+  parts: {},
   colonnes: {},
   segments: ['BOUTIQUE', 'DETAIL', 'GROS'],
   panierAGauche: false,
@@ -211,6 +216,7 @@ const lireMiseEnPage = (): MiseEnPage => {
       segments: (Array.isArray(brut.segments) ? brut.segments.filter((v: any) => ['BOUTIQUE', 'DETAIL', 'GROS'].includes(v)) : []).length
         ? brut.segments : MISE_EN_PAGE_DEFAUT.segments,
       hauteurs: { ...(brut.hauteurs && typeof brut.hauteurs === 'object' ? brut.hauteurs : {}) },
+      parts: { ...(brut.parts && typeof brut.parts === 'object' ? brut.parts : {}) },
       champs: { ...MISE_EN_PAGE_DEFAUT.champs, ...(brut.champs || {}) },
     };
   } catch { return MISE_EN_PAGE_DEFAUT; }
@@ -395,6 +401,34 @@ const Caisse: React.FC<CaisseProps> = ({
   }, []);
   const [redim, setRedim] = useState<'panier' | null>(null);
   const [redimBloc, setRedimBloc] = useState<{ cle: ChampCle; y: number; depart: number } | null>(null);
+  const [redimPart, setRedimPart] = useState<{ cle: ChampCle; x: number; depart: number; largeurLigne: number } | null>(null);
+  useEffect(() => {
+    if (!redimPart) return;
+    const bouger = (e: MouseEvent) => {
+      const delta = ((e.clientX - redimPart.x) / redimPart.largeurLigne) * 100;
+      const part = borne(redimPart.depart + delta, 20, 80);
+      majVue(m => {
+        // Le voisin de ligne prend le reste : sans ca, les deux blocs
+        // finiraient par se chevaucher ou laisser un trou.
+        const rangs = m.ordre.filter(c => m.champs[c] && (m.colonnes[c] || COLONNE_DEFAUT[c]) === (m.colonnes[redimPart.cle] || COLONNE_DEFAUT[redimPart.cle]));
+        const i = rangs.indexOf(redimPart.cle);
+        const voisin = rangs.slice(i + 1).find(c => m.demis[c]);
+        const parts = { ...m.parts, [redimPart.cle]: part };
+        if (voisin) parts[voisin] = 100 - part;
+        return { ...m, parts };
+      });
+    };
+    const lacher = () => setRedimPart(null);
+    window.addEventListener('mousemove', bouger);
+    window.addEventListener('mouseup', lacher);
+    const avant = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+    return () => {
+      window.removeEventListener('mousemove', bouger);
+      window.removeEventListener('mouseup', lacher);
+      document.body.style.userSelect = avant;
+    };
+  }, [redimPart, majVue]);
   useEffect(() => {
     if (!redimBloc) return;
     const bouger = (e: MouseEvent) => {
@@ -1615,8 +1649,13 @@ const Caisse: React.FC<CaisseProps> = ({
                 onDragEnd={() => { setBlocTire(null); setSurvol(null); }}
                 onDragLeave={() => setSurvol(s => (s?.cle === k ? null : s))}
 
-                style={vue.hauteurs[k] ? { height: vue.hauteurs[k] } : undefined}
-                className={`${vue.demis[k] ? 'w-[calc(50%-0.375rem)]' : 'w-full'} ${
+                style={{
+                  ...(vue.hauteurs[k] ? { height: vue.hauteurs[k] } : {}),
+                  // La part de ligne se regle a la souris ; sans reglage, la
+                  // moitie exacte.
+                  ...(vue.demis[k] ? { width: `calc(${vue.parts[k] ?? 50}% - 0.375rem)` } : {}),
+                }}
+                className={`${vue.demis[k] ? '' : 'w-full'} ${
                   (k === 'rayon' || k === 'grille') && !vue.hauteurs[k] ? 'flex-1 min-h-[160px] overflow-y-auto overscroll-contain' : ''} ${vue.hauteurs[k] ? 'overflow-y-auto overscroll-contain' : ''} ${k === 'lignes' && !vue.hauteurs[k] && !vue.demis[k] ? 'flex-1 min-h-[120px] overflow-y-auto overscroll-contain' : ''}${k === 'lignes' && vue.demis[k] ? ' min-h-[120px] overflow-y-auto overscroll-contain' : ''} ${reglagesOuverts
                   ? `relative rounded-xl border border-dashed pl-4 pr-8 py-2 cursor-grab active:cursor-grabbing transition-colors ${blocTire === k ? 'border-slate-800 dark:border-dk-accent bg-slate-50 dark:bg-dk-elevated opacity-60' : 'border-slate-300 dark:border-dk-border'}`
                   : ''}`}
@@ -1663,6 +1702,17 @@ const Caisse: React.FC<CaisseProps> = ({
                     >
                       {vue.demis[k] ? '½' : '1'}
                     </button>
+                    {/* Le bord DROIT se tire quand le bloc partage sa ligne :
+                        deux blocs cote a cote ne meritent pas la meme place. */}
+                    {vue.demis[k] && (
+                      <div
+                        draggable={false}
+                        onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setRedimPart({ cle: k, x: e.clientX, depart: vue.parts[k] ?? 50, largeurLigne: e.currentTarget.parentElement?.parentElement?.getBoundingClientRect().width || 1 }); }}
+                        onDoubleClick={() => majVue(m => { const p = { ...m.parts }; delete p[k]; return { ...m, parts: p }; })}
+                        title={T.tirer}
+                        className="absolute top-2 bottom-2 -right-1.5 w-1.5 rounded-full cursor-col-resize bg-slate-200/70 dark:bg-dk-border hover:bg-slate-400 dark:hover:bg-dk-accent"
+                      />
+                    )}
                     {/* Le bord du bas se tire : chaque bloc prend la hauteur
                         qu'il merite. Double-clic, et il reprend la sienne. */}
                     <div
