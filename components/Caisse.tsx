@@ -106,6 +106,10 @@ export interface CaisseProps {
   initialRecherche?: string;
   /** Ouvre la création d'un client sans quitter le comptoir. */
   onCreateClient?: () => void;
+  /** Une fiche client vient d'etre completee depuis la caisse : l'ecran
+   *  appelant relit sa liste, sinon la caisse continue de croire l'ICE
+   *  manquant et le redemande a la vente suivante. */
+  onClientsChanged?: () => void | Promise<void>;
   /** Un ticket vient d'etre annule : les pieces sont revenues au stock, et
    *  l'ecran appelant doit relire ses mouvements. Sans ca, la caisse
    *  continuerait de croire la marchandise vendue. */
@@ -264,7 +268,7 @@ const Vignette: React.FC<{ model: ModelData; className?: string }> = ({ model, c
 
 const Caisse: React.FC<CaisseProps> = ({
   open, onClose, candidats, clients, stockMatrix, currency, lang, onEncaisser, isStatic,
-  initialRecherche, onCreateClient, onTicketAnnule,
+  initialRecherche, onCreateClient, onTicketAnnule, onClientsChanged,
 }) => {
   const [lignes, setLignes] = useState<CaisseLigne[]>([]);
   const [clientId, setClientId] = useState<string>('');
@@ -274,14 +278,11 @@ const Caisse: React.FC<CaisseProps> = ({
   const [quickClientNom, setQuickClientNom] = useState('');
   const [quickClientTel, setQuickClientTel] = useState('');
   const [quickClientTypes, setQuickClientTypes] = useState<TypeVente[]>(['DETAIL']);
-  /* Ce qui doit figurer sur une facture marocaine : ICE, RC, adresse. Un
-   * client en gros repart toujours avec une facture — la lui etablir sans ces
-   * mentions oblige a le rappeler pour les demander, et la facture reste en
-   * attente pendant ce temps. */
-  const [quickClientIce, setQuickClientIce] = useState('');
-  const [quickClientRc, setQuickClientRc] = useState('');
-  const [quickClientAdresse, setQuickClientAdresse] = useState('');
-  const [quickClientEmail, setQuickClientEmail] = useState('');
+  /* L'ICE ne se demande pas a la creation du client — au comptoir, il
+   * allonge la file pour une mention qui ne sert qu'a la facture. On le
+   * rattrape au moment de facturer, sur la fiche deja existante. */
+  const [iceRattrape, setIceRattrape] = useState('');
+  const [iceEnCours, setIceEnCours] = useState(false);
   const [quickClientVille, setQuickClientVille] = useState('');
   const [quickClientDoubleRole, setQuickClientDoubleRole] = useState(false);
   const [quickClientSaving, setQuickClientSaving] = useState(false);
@@ -543,10 +544,6 @@ const Caisse: React.FC<CaisseProps> = ({
           type: quickClientTypes[0] || 'DETAIL',
           types: quickClientTypes,
           ville: quickClientVille.trim() || null,
-          ice: quickClientIce.trim() || null,
-          rc: quickClientRc.trim() || null,
-          adresse: quickClientAdresse.trim() || null,
-          email: quickClientEmail.trim() || null,
           role: quickClientDoubleRole ? 'LES_DEUX' : 'CLIENT',
         }),
       });
@@ -556,7 +553,6 @@ const Caisse: React.FC<CaisseProps> = ({
       if (newId) setClientId(String(newId));
       setQuickClientOpen(false);
       setQuickClientNom(''); setQuickClientTel(''); setQuickClientVille(''); setQuickClientDoubleRole(false); setQuickClientTypes(['DETAIL']);
-      setQuickClientIce(''); setQuickClientRc(''); setQuickClientAdresse(''); setQuickClientEmail('');
       setFlash({ ok: true, msg: 'Client créé.' });
     } catch (e: any) {
       setQuickClientError(e?.message || String(e));
@@ -564,6 +560,30 @@ const Caisse: React.FC<CaisseProps> = ({
       setQuickClientSaving(false);
     }
   };
+
+  /** Complete la fiche du client avec son ICE, sans quitter la vente. La
+   *  fiche entiere est renvoyee : l'API de sauvegarde ecrit tous les champs,
+   *  n'en renvoyer qu'un les effacerait. */
+  const enregistrerIce = useCallback(async () => {
+    if (!client || !iceRattrape.trim() || isStatic) return;
+    setIceEnCours(true);
+    try {
+      const res = await fetch('/api/subcontract/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ ...client, ice: iceRattrape.trim() }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setIceRattrape('');
+      setFlash({ ok: true, msg: tx(lang, { fr: 'ICE enregistre.', ar: 'تسجّل ICE.', en: 'ICE saved.', es: 'ICE guardado.', pt: 'ICE guardado.', tr: 'ICE kaydedildi.' }) });
+      await onClientsChanged?.();
+    } catch {
+      setFlash({ ok: false, msg: tx(lang, { fr: "L'ICE n'a pas ete enregistre.", ar: 'ICE ما تسجّلش.', en: 'The ICE was not saved.', es: 'El ICE no se guardo.', pt: 'O ICE nao foi guardado.', tr: 'ICE kaydedilemedi.' }) });
+    } finally {
+      setIceEnCours(false);
+    }
+  }, [client, iceRattrape, isStatic, lang, onClientsChanged]);
 
   /* Le tarif du segment courant, modele par modele. Il s'affiche sur le
    * rayon et sur la grille : au comptoir on annonce un prix avant de poser
@@ -1318,22 +1338,6 @@ const Caisse: React.FC<CaisseProps> = ({
                       </div>
                       <p className="text-[10px] text-slate-400 dark:text-dk-muted">{T.deuxSegments}</p>
 
-                      {/* Facturation : affichee d'office pour un revendeur,
-                          puisqu'il repart avec une facture. */}
-                      {(quickClientTypes.includes('GROS') || factureAuto) && (
-                        <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-dk-border">
-                          <span className="block text-[10px] font-extrabold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.infosFacture}</span>
-                          <div className="grid grid-cols-2 gap-2">
-                            <input value={quickClientIce} onChange={e => setQuickClientIce(e.target.value)} placeholder="ICE" className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
-                            <input value={quickClientRc} onChange={e => setQuickClientRc(e.target.value)} placeholder="RC" className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
-                          </div>
-                          <input value={quickClientAdresse} onChange={e => setQuickClientAdresse(e.target.value)} placeholder={T.adresse} className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
-                          <input value={quickClientEmail} onChange={e => setQuickClientEmail(e.target.value)} placeholder="Email" className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm text-slate-800 dark:text-dk-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/40" />
-                          {quickClientTypes.includes('GROS') && !quickClientIce.trim() && (
-                            <p className="text-[10px] text-amber-600 dark:text-amber-400">{T.iceManquant}</p>
-                          )}
-                        </div>
-                      )}
                       <label className="flex items-start gap-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft cursor-pointer">
                         <input type="checkbox" checked={quickClientDoubleRole} onChange={e => setQuickClientDoubleRole(e.target.checked)} className="w-4 h-4 mt-px rounded border-slate-300 dark:border-dk-border shrink-0" />
                         <span>
@@ -1376,6 +1380,28 @@ const Caisse: React.FC<CaisseProps> = ({
               {T.factureAuto}
               {typeEffectif === 'GROS' && <span className="text-slate-400 dark:text-dk-muted">({T.imposee})</span>}
             </label>
+            {/* Une facture sans ICE reste incomplete. On le demande ICI, au
+                moment ou il sert — pas pendant la creation du client, ou il
+                allonge une file d'attente pour rien. */}
+            {factureRequise && client && !client.ice && !isStatic && (
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  value={iceRattrape}
+                  onChange={e => setIceRattrape(e.target.value)}
+                  placeholder={`ICE · ${client.nom}`}
+                  className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/70 dark:placeholder-amber-400/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                />
+                <button
+                  onClick={enregistrerIce}
+                  disabled={!iceRattrape.trim() || iceEnCours}
+                  className={`shrink-0 px-3 py-2 rounded-xl text-[11px] font-extrabold ${iceRattrape.trim() && !iceEnCours
+                    ? 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white'
+                    : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'}`}
+                >
+                  {iceEnCours ? '…' : T.enregistrer}
+                </button>
+              </div>
+            )}
     </>),
     paiement: (<>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">

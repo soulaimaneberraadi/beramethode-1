@@ -10515,6 +10515,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         isStatic={IS_STATIC}
         initialRecherche={caisseRecherche}
         onCreateClient={() => { setCaisseOpen(false); setActiveTab('clients'); }}
+        onClientsChanged={loadAtelierClients}
         onEncaisser={encaisserCaisse}
         onTicketAnnule={loadStockMovements}
       />
