@@ -17,6 +17,11 @@ import {
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 
+/** Sans serveur (deploiement statique), il n'y a ni sorties de stock ni
+ *  clients a agreger : le tableau de bord le DIT, au lieu d'afficher une
+ *  erreur reseau qui laisse croire a une panne. */
+const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
+
 interface Props {
     lang: string;
     currency?: string;
@@ -74,13 +79,23 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
     const [filtreModele, setFiltreModele] = useState<'TOUS' | Modele['statut']>('TOUS');
 
     const charger = useCallback(async (n: number) => {
+        if (IS_STATIC) { setData(null); setErreur(null); return; }
         setChargement(true);
         setErreur(null);
         try {
             const res = await fetch(`/api/ventes/dashboard?jours=${n}`, { credentials: 'include' });
             const body = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(body?.message || `HTTP ${res.status}`);
-            setData(body as Donnees);
+            if (!body || !Array.isArray(body.modeles) || !Array.isArray(body.clients)) {
+                throw new Error('Reponse inattendue du serveur.');
+            }
+            setData({
+                ...body,
+                kpis: body.kpis || { ca: 0, pieces: 0, tickets: 0, panierMoyen: 0, encoursTotal: 0 },
+                parCanal: Array.isArray(body.parCanal) ? body.parCanal : [],
+                parSegment: Array.isArray(body.parSegment) ? body.parSegment : [],
+                parPaiement: Array.isArray(body.parPaiement) ? body.parPaiement : [],
+            } as Donnees);
         } catch (e: any) {
             setData(null);
             setErreur(e?.message || String(e));
@@ -111,13 +126,21 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         stock: tx(lang, { fr: 'Stock', ar: 'الستوك', en: 'Stock', es: 'Stock', pt: 'Stock', tr: 'Stok' }),
         rupture: tx(lang, { fr: 'Rupture dans', ar: 'غادي يسالي فـ', en: 'Runs out in', es: 'Se agota en', pt: 'Acaba em', tr: 'Bitis' }),
         jours: tx(lang, { fr: 'jours', ar: 'يوم', en: 'days', es: 'dias', pt: 'dias', tr: 'gun' }),
+        statique: tx(lang, {
+            fr: "Cette version en ligne n'a pas de serveur : les ventes, le stock et les clients vivent dans l'installation locale. Ouvrez le tableau de bord depuis le poste ou tourne BERAMETHODE.",
+            ar: 'هاد النسخة اللي أونلاين ما عندهاش سيرفر: البيعات والستوك والزبناء كاينين فالتنصيب المحلي. حلّ الداشبورد من الجهاز اللي خدّام فيه BERAMETHODE.',
+            en: 'This online build has no server: sales, stock and customers live in the local installation. Open the dashboard from the machine running BERAMETHODE.',
+            es: 'Esta version en linea no tiene servidor: las ventas y el stock estan en la instalacion local.',
+            pt: 'Esta versao online nao tem servidor: as vendas e o stock estao na instalacao local.',
+            tr: 'Bu cevrimici surumde sunucu yok: satislar ve stok yerel kurulumda.',
+        }),
         retard: tx(lang, { fr: 'facture(s) en retard', ar: 'فاتورة متأخّرة', en: 'overdue invoice(s)', es: 'factura(s) vencida(s)', pt: 'fatura(s) vencida(s)', tr: 'gecikmis fatura' }),
     };
 
     const modelesFiltres = useMemo(() => {
         if (!data) return [];
         const q = recherche.trim().toLowerCase();
-        return data.modeles.filter(m => {
+        return (data.modeles || []).filter(m => {
             if (filtreModele !== 'TOUS' && m.statut !== filtreModele) return false;
             if (!q) return true;
             return `${m.nom} ${m.reference || ''}`.toLowerCase().includes(q);
@@ -127,8 +150,8 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
     const clientsFiltres = useMemo(() => {
         if (!data) return [];
         const q = recherche.trim().toLowerCase();
-        if (!q) return data.clients.slice(0, 25);
-        return data.clients.filter(c => `${c.nom} ${c.tel || ''} ${c.ville || ''}`.toLowerCase().includes(q)).slice(0, 25);
+        if (!q) return (data.clients || []).slice(0, 25);
+        return (data.clients || []).filter(c => `${c.nom} ${c.tel || ''} ${c.ville || ''}`.toLowerCase().includes(q)).slice(0, 25);
     }, [data, recherche]);
 
     const carte = (titre: string, valeur: string, icone: React.ReactNode, teinte = 'text-slate-900 dark:text-dk-text') => (
@@ -199,6 +222,13 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                     <RefreshCw className={`w-3.5 h-3.5 ${chargement ? 'animate-spin' : ''}`} />
                 </button>
             </div>
+
+            {IS_STATIC && (
+                <p className="text-[12px] text-slate-500 dark:text-dk-muted flex items-start gap-1.5 border border-slate-200 dark:border-dk-border rounded-xl p-3 bg-slate-50/60 dark:bg-dk-surface">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-px text-amber-500" />
+                    <span>{T.statique}</span>
+                </p>
+            )}
 
             {erreur && (
                 <p className="text-[12px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">

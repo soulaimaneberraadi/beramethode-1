@@ -13,6 +13,7 @@ import InlineInvoiceList from './InlineInvoiceList';
 import FactureUploader from './FactureUploader';
 import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
 import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
+import VentesDashboard from './VentesDashboard';
 import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
 import { ean13FromDigits, ean13Variant, renderEAN13, parseScanCode } from '../lib/barcode';
 import { buildZplForCells, buildZplTestLabel, type ZplCell } from '../lib/zpl';
@@ -27,7 +28,7 @@ import {
   Printer, CheckSquare, Clock, ShieldCheck, ClipboardCheck, Sparkles, Send, Copy, Coins, Save,
   Users, Building2, EyeOff, LayoutGrid, FileText, Settings, ArrowRight, Star, ChevronRight,
   AlertTriangle, Scissors, Lock, PanelLeftClose, PanelLeftOpen, Pencil, Table,
-  Receipt, Warehouse, Barcode, ScanLine, Store, MoreVertical, Upload
+  Receipt, Warehouse, Barcode, ScanLine, Store, MoreVertical, Upload, TrendingUp
 } from 'lucide-react';
 
 /** Mode statique (Vercel / build sans Express) : aucune API `/api/*` n'existe.
@@ -506,7 +507,7 @@ const sumGrid = (grid: Record<string, Record<string, number>> | undefined): numb
 
 export default function SousTraitance({ models, setModels, settings, onLoadModel, onNavigate, onCreateNewProject }: SousTraitanceProps) {
   // Navigation Tabs
-  const [activeTab, setActiveTab] = useState<'orders' | 'subcontractors' | 'stock' | 'clients'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'subcontractors' | 'stock' | 'clients' | 'ventes'>('orders');
   const [selectedSubcontractorName, setSelectedSubcontractorName] = useState<string | null>(null);
   const [subSearchQuery, setSubSearchQuery] = useState('');
   const [subListCollapsed, setSubListCollapsed] = useState(() => {
@@ -7455,6 +7456,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           <span>{tx(lang,{fr:'Stock & Ventes',ar:'المخزون والمبيعات',en:'Stock & Sales',es:'Stock & Ventas',pt:'Stock & Vendas',tr:'Stok & Satışlar'})}</span>
         </button>
         <button
+          onClick={() => setActiveTab('ventes')}
+          className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'ventes' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+        >
+          <TrendingUp className="w-3 h-3 lg:w-3.5 lg:h-3.5" />
+          <span>{tx(lang,{fr:'Tableau de bord',ar:'لوحة القيادة',en:'Dashboard',es:'Panel',pt:'Painel',tr:'Panel'})}</span>
+        </button>
+        <button
           onClick={() => setActiveTab('clients')}
           className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'clients' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
         >
@@ -8189,6 +8197,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           {/* ======================================= */}
           {/* TAB 3: STOCK & VENTES (STOCK & SALES) */}
           {/* ======================================= */}
+          {activeTab === 'ventes' && (
+            <VentesDashboard lang={lang} currency={currency} />
+          )}
+
           {activeTab === 'clients' && (
             <ClientsPanel
               onChanged={setAtelierClients}
