@@ -1,9 +1,10 @@
 {
   "buildCommand": "npm run build:static",
   "outputDirectory": "dist",
-  "installCommand": "npm install",
+  "installCommand": "npm install --include=dev",
   "env": {
     "VITE_STATIC_MODE": "true",
+    "ELECTRON_SKIP_BINARY_DOWNLOAD": "1",
     "VITE_SUPABASE_URL": "https://utrojjhscyatppgcszrt.supabase.co",
     "VITE_SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk"
   },
