@@ -252,7 +252,17 @@ const Caisse: React.FC<CaisseProps> = ({
    *  grand ecran les deux volets reviennent, et cet etat n'a plus d'effet. */
   const [voletMobile, setVoletMobile] = useState<'rayon' | 'panier'>('rayon');
   const [mep, setMep] = useState<MiseEnPage>(lireMiseEnPage);
-  const [reglagesOuverts, setReglagesOuverts] = useState(false);
+  /* Une mise en page en cours d'essai. On la VOIT tout de suite — regler a
+   * l'aveugle ne veut rien dire — mais elle ne remplace celle du poste que
+   * si le caissier l'enregistre. Refermer sans enregistrer rend l'ecran
+   * d'avant, intact. */
+  const [brouillon, setBrouillon] = useState<MiseEnPage | null>(null);
+  const vue = brouillon ?? mep;
+  const reglagesOuverts = brouillon !== null;
+  const ouvrirReglages = useCallback(() => setBrouillon(b => (b ? null : { ...mep })), [mep]);
+  const majBrouillon = useCallback((f: (m: MiseEnPage) => MiseEnPage) => {
+    setBrouillon(b => f(b ?? MISE_EN_PAGE_DEFAUT));
+  }, []);
   useEffect(() => {
     try { localStorage.setItem(MISE_EN_PAGE_KEY, JSON.stringify(mep)); } catch { /* le reglage vaut alors pour cette session */ }
   }, [mep]);
@@ -262,18 +272,18 @@ const Caisse: React.FC<CaisseProps> = ({
   const [grilleTiree, setGrilleTiree] = useState(false);
   const poserGrille = useCallback((ou: MiseEnPage['grille']) => {
     setGrilleTiree(false);
-    setMep(m => ({ ...m, grille: ou }));
-  }, []);
+    majBrouillon(m => ({ ...m, grille: ou }));
+  }, [majBrouillon]);
   const deplacerBloc = useCallback((tire: ChampCle, cible: ChampCle) => {
-    setMep(m => {
+    majBrouillon(m => {
       const suite = m.ordre.filter(k => k !== tire);
       suite.splice(suite.indexOf(cible), 0, tire);
       return { ...m, ordre: suite };
     });
-  }, []);
+  }, [majBrouillon]);
   const basculerChamp = useCallback((k: ChampCle) => {
-    setMep(m => ({ ...m, champs: { ...m.champs, [k]: !m.champs[k] } }));
-  }, []);
+    majBrouillon(m => ({ ...m, champs: { ...m.champs, [k]: !m.champs[k] } }));
+  }, [majBrouillon]);
   const lignesRef = useRef<CaisseLigne[]>([]);
   lignesRef.current = lignes;
 
@@ -475,10 +485,16 @@ const Caisse: React.FC<CaisseProps> = ({
 
   useEffect(() => {
     if (!open) return;
-    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    // Echap ferme d'abord le panneau de mise en page : sinon un reglage en
+    // cours ferait sortir de la caisse, panier compris.
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (brouillon !== null) { setBrouillon(null); return; }
+      onClose();
+    };
     document.addEventListener('keydown', onEsc);
     return () => document.removeEventListener('keydown', onEsc);
-  }, [open, onClose]);
+  }, [open, onClose, brouillon]);
 
   /** Le catalogue du comptoir : un modèle par vignette, avec sa photo et ce
    *  qu'il reste VRAIMENT (stock des mouvements, jamais les compteurs de
@@ -610,6 +626,7 @@ const Caisse: React.FC<CaisseProps> = ({
     moyen: tx(lang, { fr: 'Moyen', ar: 'متوسّط', en: 'Medium', es: 'Medio', pt: 'Medio', tr: 'Orta' }),
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
+    enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
     grille: tx(lang, { fr: 'Grille du modele', ar: 'شبكة الموديل', en: 'Model grid', es: 'Rejilla del modelo', pt: 'Grelha do modelo', tr: 'Model tablosu' }),
     aGauche: tx(lang, { fr: 'A gauche', ar: 'على اليسار', en: 'Left', es: 'A la izquierda', pt: 'A esquerda', tr: 'Solda' }),
     aDroite: tx(lang, { fr: 'A droite', ar: 'على اليمين', en: 'Right', es: 'A la derecha', pt: 'A direita', tr: 'Sagda' }),
@@ -656,12 +673,12 @@ const Caisse: React.FC<CaisseProps> = ({
       onDragStart={() => setGrilleTiree(true)}
       onDragEnd={() => setGrilleTiree(false)}
       className={`shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 ${
-        mep.grille === 'panier'
+        vue.grille === 'panier'
           ? 'w-full border-b border-slate-200 dark:border-dk-border p-3'
           // Classes ecrites en entier : Tailwind ne voit que ce qui est
           // litteral dans le source, un `sm:${...}` assemble ne serait
           // jamais genere.
-          : mep.grille === 'gauche'
+          : vue.grille === 'gauche'
             ? 'sm:w-[300px] xl:w-[340px] sm:border-r sm:pr-3 sm:border-slate-200 sm:dark:border-dk-border'
             : 'sm:w-[300px] xl:w-[340px] sm:border-l sm:pl-3 sm:border-slate-200 sm:dark:border-dk-border'
       } ${reglagesOuverts ? 'cursor-grab active:cursor-grabbing rounded-xl border border-dashed border-slate-300 dark:border-dk-border p-2' : ''}`}
@@ -669,7 +686,7 @@ const Caisse: React.FC<CaisseProps> = ({
 
             <div className="sm:w-[300px] xl:w-[340px] shrink-0 min-h-0 overflow-y-auto overscroll-contain pb-2 sm:border-l sm:border-slate-200 sm:dark:border-dk-border sm:pl-3">
               <div className="flex items-center gap-2.5 mb-3">
-                {mep.photos && <Vignette model={modeleOuvert} className="w-9 h-9" />}
+                {vue.photos && <Vignette model={modeleOuvert} className="w-9 h-9" />}
                 <div className="min-w-0 flex-1">
                   <span className="block text-sm font-extrabold text-slate-800 dark:text-dk-text truncate">
                     {modeleOuvert.meta_data?.nom_modele || modeleOuvert.id}
@@ -893,7 +910,7 @@ const Caisse: React.FC<CaisseProps> = ({
       {/* Telephone : une feuille qui monte du bas, comme les fiches du reste
           de l'application — coins arrondis et poignee. Sur grand ecran la
           feuille occupe tout, et l'habillage disparait. */}
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-slate-100 dark:bg-dk-bg rounded-t-3xl shadow-2xl lg:rounded-none lg:shadow-none">
+      <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden bg-slate-100 dark:bg-dk-bg rounded-t-3xl shadow-2xl lg:rounded-none lg:shadow-none">
         <div className="lg:hidden shrink-0 flex justify-center pt-2.5 pb-1 bg-white dark:bg-dk-surface">
           <span className="h-1.5 w-10 rounded-full bg-slate-300 dark:bg-dk-border" />
         </div>
@@ -929,7 +946,7 @@ const Caisse: React.FC<CaisseProps> = ({
         {/* Trois points : la mise en page du comptoir. Un poste n'est pas
             l'autre, et le caissier range son ecran une fois pour toutes. */}
         <button
-          onClick={() => setReglagesOuverts(v => !v)}
+          onClick={ouvrirReglages}
           className={`p-2 rounded-xl transition-colors shrink-0 ${reglagesOuverts
             ? 'bg-slate-800 dark:bg-dk-accent text-white'
             : 'text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
@@ -946,13 +963,16 @@ const Caisse: React.FC<CaisseProps> = ({
         </button>
       </div>
 
+      {/* Les reglages ne prennent plus une bande sur toute la largeur : un
+          panneau ancre sous les trois points, au-dessus de l'ecran de vente
+          qui reste visible — c'est lui qu'on est en train de regler. */}
       {reglagesOuverts && (
-        <div className="shrink-0 border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 sm:px-5 py-3 space-y-3 max-h-[55vh] overflow-y-auto overscroll-contain">
+        <div className="absolute right-2 left-2 sm:left-auto top-14 z-30 sm:w-[340px] rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-2xl p-3 space-y-2.5 max-h-[70vh] overflow-y-auto overscroll-contain">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{T.reglages}</span>
             <div className="flex-1" />
             <button
-              onClick={() => setMep(MISE_EN_PAGE_DEFAUT)}
+              onClick={() => setBrouillon(MISE_EN_PAGE_DEFAUT)}
               className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:text-slate-800 dark:hover:text-dk-text"
             >
               <RefreshCw className="w-3.5 h-3.5" /> {T.defaut}
@@ -961,20 +981,20 @@ const Caisse: React.FC<CaisseProps> = ({
 
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setMep(m => ({ ...m, panierAGauche: !m.panierAGauche }))}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors ${mep.panierAGauche
+              onClick={() => majBrouillon(m => ({ ...m, panierAGauche: !m.panierAGauche }))}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors ${vue.panierAGauche
                 ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
                 : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
             >
               <ArrowLeftRight className="w-3.5 h-3.5" /> {T.panierAGauche}
             </button>
             <button
-              onClick={() => setMep(m => ({ ...m, photos: !m.photos }))}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors ${mep.photos
+              onClick={() => majBrouillon(m => ({ ...m, photos: !m.photos }))}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors ${vue.photos
                 ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
                 : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
             >
-              {mep.photos ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} {T.photos}
+              {vue.photos ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} {T.photos}
             </button>
           </div>
 
@@ -984,8 +1004,8 @@ const Caisse: React.FC<CaisseProps> = ({
               {(['etroit', 'moyen', 'large'] as const).map(l => (
                 <button
                   key={l}
-                  onClick={() => setMep(m => ({ ...m, largeurPanier: l }))}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${mep.largeurPanier === l
+                  onClick={() => majBrouillon(m => ({ ...m, largeurPanier: l }))}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${vue.largeurPanier === l
                     ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
                     : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
                 >
@@ -1002,7 +1022,7 @@ const Caisse: React.FC<CaisseProps> = ({
                 <button
                   key={v}
                   onClick={() => poserGrille(v)}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${mep.grille === v
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${vue.grille === v
                     ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
                     : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
                 >
@@ -1025,11 +1045,11 @@ const Caisse: React.FC<CaisseProps> = ({
                 <button
                   key={k}
                   onClick={() => basculerChamp(k)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${mep.champs[k]
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-colors ${vue.champs[k]
                     ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
                     : 'bg-slate-50 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border line-through'}`}
                 >
-                  {mep.champs[k] ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  {vue.champs[k] ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                   <span className="truncate max-w-[160px]">{label}</span>
                 </button>
               ))}
@@ -1038,6 +1058,23 @@ const Caisse: React.FC<CaisseProps> = ({
             <p className="text-[10px] font-bold text-slate-500 dark:text-dk-text-soft flex items-center gap-1.5">
               <GripVertical className="w-3.5 h-3.5" /> {T.glisser}
             </p>
+          </div>
+
+          {/* Rien n'est garde tant que ce n'est pas confirme : un ecran de
+              caisse deregle par megarde se retrouve tel quel le lendemain. */}
+          <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-dk-border">
+            <button
+              onClick={() => setBrouillon(null)}
+              className="flex-1 py-2 rounded-xl text-[11px] font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated"
+            >
+              {T.renoncer}
+            </button>
+            <button
+              onClick={() => { if (brouillon) setMep(brouillon); setBrouillon(null); }}
+              className="flex-1 py-2 rounded-xl text-[11px] font-extrabold text-white bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent flex items-center justify-center gap-1.5"
+            >
+              <Check className="w-3.5 h-3.5" /> {T.enregistrer}
+            </button>
           </div>
         </div>
       )}
@@ -1210,7 +1247,7 @@ const Caisse: React.FC<CaisseProps> = ({
         </div>
       )}
 
-      <div className={`flex-1 min-h-0 flex-col overflow-hidden overscroll-contain ${mep.panierAGauche ? 'lg:flex-row-reverse' : 'lg:flex-row'} ${journeeOuverte ? 'hidden' : 'flex'}`}>
+      <div className={`flex-1 min-h-0 flex-col overflow-hidden overscroll-contain ${vue.panierAGauche ? 'lg:flex-row-reverse' : 'lg:flex-row'} ${journeeOuverte ? 'hidden' : 'flex'}`}>
         {/* Gauche : la recherche manuelle, pour les tikis illisibles. */}
         <div className={`flex-col flex-1 min-h-0 p-3 sm:p-4 gap-3 overflow-hidden bg-slate-50/50 dark:bg-transparent lg:flex ${voletMobile === 'rayon' ? 'flex' : 'hidden'}`}>
           <div className="relative">
@@ -1228,7 +1265,7 @@ const Caisse: React.FC<CaisseProps> = ({
               vetements differents d'affilee : refermer le rayon a chaque
               fois faisait retaper la recherche. */}
           <div
-            className={`flex-1 min-h-0 flex flex-col gap-3 overflow-hidden ${mep.grille === 'gauche' ? 'sm:flex-row-reverse' : 'sm:flex-row'} ${
+            className={`flex-1 min-h-0 flex flex-col gap-3 overflow-hidden ${vue.grille === 'gauche' ? 'sm:flex-row-reverse' : 'sm:flex-row'} ${
               grilleTiree ? 'rounded-xl ring-2 ring-dashed ring-slate-400' : ''}`}
             onDragOver={e => { if (grilleTiree) e.preventDefault(); }}
             onDrop={e => {
@@ -1253,7 +1290,7 @@ const Caisse: React.FC<CaisseProps> = ({
                     ? 'border-slate-900 dark:border-dk-accent ring-1 ring-slate-900/10'
                     : 'border-slate-200 dark:border-dk-border hover:border-slate-400 dark:hover:border-dk-accent'}`}
                 >
-                  {mep.photos && <Vignette model={c.model} className="w-full aspect-[4/3] sm:aspect-square" />}
+                  {vue.photos && <Vignette model={c.model} className="w-full aspect-[4/3] sm:aspect-square" />}
                   <span className="block mt-1.5 sm:mt-2 text-[11px] sm:text-xs font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
                     {c.model.meta_data?.nom_modele || c.model.id}
                   </span>
@@ -1276,13 +1313,13 @@ const Caisse: React.FC<CaisseProps> = ({
               ))}
           </div>
 
-          {mep.grille !== 'panier' && panneauModele}
+          {vue.grille !== 'panier' && panneauModele}
           </div>
         </div>
 
         {/* Droite : le panier et l'encaissement. */}
-        <div className={`flex-col flex-1 min-h-0 bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border overflow-hidden lg:flex lg:flex-none ${LARGEURS[mep.largeurPanier]} ${mep.panierAGauche ? 'lg:border-r' : 'lg:border-l'} ${voletMobile === 'panier' ? 'flex' : 'hidden'}`}>
-          {mep.grille === 'panier' && panneauModele}
+        <div className={`flex-col flex-1 min-h-0 bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border overflow-hidden lg:flex lg:flex-none ${LARGEURS[vue.largeurPanier]} ${vue.panierAGauche ? 'lg:border-r' : 'lg:border-l'} ${voletMobile === 'panier' ? 'flex' : 'hidden'}`}>
+          {vue.grille === 'panier' && panneauModele}
           <div
             className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-dk-border shrink-0 ${
               grilleTiree ? 'ring-2 ring-dashed ring-slate-400 rounded-xl' : ''}`}
@@ -1310,7 +1347,7 @@ const Caisse: React.FC<CaisseProps> = ({
             {lignes.map(l => (
               <div key={l.key} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2 px-3 sm:px-4 py-3">
                 <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                  {mep.photos && <Vignette model={l.model} className="w-10 h-10 sm:w-10 sm:h-10" />}
+                  {vue.photos && <Vignette model={l.model} className="w-10 h-10 sm:w-10 sm:h-10" />}
                   <div className="flex-1 min-w-0">
                     <span className="block text-[13px] sm:text-sm font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
                       {l.model.meta_data?.nom_modele || l.model.id}
@@ -1376,7 +1413,7 @@ const Caisse: React.FC<CaisseProps> = ({
                 En mode mise en page, chaque bloc se prend a la souris et se
                 depose ailleurs : le caissier range son ecran comme il range
                 son comptoir. */}
-            {mep.ordre.map(k => mep.champs[k] ? (
+            {vue.ordre.map(k => vue.champs[k] ? (
               <div
                 key={k}
                 draggable={reglagesOuverts}
