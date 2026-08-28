@@ -82,6 +82,7 @@ import {
 } from './server/subcontractController';
 import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice, createCommandeNormale } from './server/clientsController';
 import { getCaisseJournal, annulerTicketCaisse } from './server/caisseController';
+import { getVentesDashboard } from './server/ventesDashboardController';
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
 import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat, checkStockIntegrity, repairStockIntegrity } from './server/achatsController';
 import { sendZpl } from './server/printBridge';
@@ -686,6 +687,8 @@ async function startServer() {
   app.delete('/api/subcontract/stock-sorties/batch/:batchId', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), deleteStockSortieBatch);
   // Journee de caisse : les tickets du comptoir, et leur annulation. Declarees
   // avant /api/subcontract/:id pour la meme raison que « stock-entries ».
+  // Tableau de bord des ventes : ce qui part, ce qui dort, et qui doit.
+  app.get('/api/ventes/dashboard', authenticateToken, requirePermission('page', 'facturation', 'view'), getVentesDashboard);
   app.get('/api/subcontract/caisse/journal', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getCaisseJournal);
   app.delete('/api/subcontract/caisse/ticket/:ticket', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), annulerTicketCaisse);
   // Facture de VENTE construite à partir de sorties déjà réalisées — c'est ce
@@ -704,6 +707,12 @@ async function startServer() {
   // Pont vers une imprimante thermique reseau (ZPL/EPL, port 9100) : le
   // navigateur ne peut pas ouvrir de socket TCP, ce relais le fait a sa place.
   app.post('/api/print/zpl', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), sendZpl);
+  // Afficheur client (pole display VFD/LED) : le total du panier y est pousse
+  // automatiquement des que le navigateur le calcule. Fonctionne avec tout
+  // afficheur USB/Serial qui comprend du texte ou ESC/POS.
+  const { customerDisplaySend, customerDisplayPoll } = await import('./server/customerDisplayBridge.js');
+  app.post('/api/display', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), customerDisplaySend);
+  app.get('/api/display', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), customerDisplayPoll);
   app.get('/api/subcontract/articles', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getArticles);
   app.post('/api/subcontract/articles', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveArticle);
   app.delete('/api/subcontract/articles/:id', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), ownershipGuard('st_articles', 'owner_id'), deleteArticle);

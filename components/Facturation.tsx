@@ -5,6 +5,7 @@ import {
     ExternalLink, CreditCard
 } from 'lucide-react';
 import { Facture } from '../types';
+import VentesDashboard from './VentesDashboard';
 
 interface FacturationProps {
     t: (key: string) => string;
@@ -49,7 +50,7 @@ export default function Facturation({ t }: FacturationProps) {
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
-    const [view, setView] = useState<'dashboard' | 'pending'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'pending' | 'ventes'>('dashboard');
 
     useEffect(() => {
         loadAll();
@@ -384,6 +385,17 @@ export default function Facturation({ t }: FacturationProps) {
                             Dashboard
                         </button>
                         <button
+                            onClick={() => setView('ventes')}
+                            className={`flex items-center justify-center flex-1 sm:flex-none gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap transition-all ${
+                                view === 'ventes'
+                                    ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]'
+                                    : 'text-slate-500 dark:text-dk-muted hover:text-slate-700 dark:hover:text-dk-text'
+                            }`}
+                        >
+                            <TrendingUp className="w-3.5" strokeWidth={1.75} />
+                            Ventes
+                        </button>
+                        <button
                             onClick={() => setView('pending')}
                             className={`flex items-center justify-center flex-1 sm:flex-none gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap transition-all ${
                                 view === 'pending'
@@ -410,7 +422,12 @@ export default function Facturation({ t }: FacturationProps) {
                 </div>
             </div>
 
-            {view === 'pending' ? (
+            {view === 'ventes' ? (
+                // Le tableau de bord des ventes vit dans son propre composant :
+                // il lit ses propres agregats, il n'a rien a partager avec la
+                // liste des factures.
+                <VentesDashboard lang="fr" />
+            ) : view === 'pending' ? (
                 renderPendingTab()
             ) : (
                 <>
