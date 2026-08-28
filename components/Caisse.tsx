@@ -304,7 +304,7 @@ const Caisse: React.FC<CaisseProps> = ({
   /** Bloc dont le bord droit est survole : y deposer coupe sa ligne en deux
    *  et installe les deux blocs cote a cote. C'est le geste attendu — on
    *  pose un outil A COTE d'un autre, on ne va pas chercher un reglage. */
-  const [cibleCote, setCibleCote] = useState<ChampCle | null>(null);
+  const [survol, setSurvol] = useState<{ cle: ChampCle; mode: 'avant' | 'cote' } | null>(null);
   const partagerLigne = useCallback((tire: ChampCle, cible: ChampCle) => {
     majVue(m => {
       const suite = m.ordre.filter(k => k !== tire);
@@ -1554,20 +1554,24 @@ const Caisse: React.FC<CaisseProps> = ({
                 key={k}
                 draggable={reglagesOuverts}
                 onDragStart={() => setBlocTire(k)}
-                onDragEnd={() => setBlocTire(null)}
+                onDragEnd={() => { setBlocTire(null); setSurvol(null); }}
                 onDragOver={e => {
                   if (!reglagesOuverts || !blocTire || blocTire === k) return;
                   e.preventDefault();
                   const r = e.currentTarget.getBoundingClientRect();
-                  // Le dernier tiers droit : « a cote de ». Le reste : « avant ».
-                  if (e.clientX > r.left + r.width * 0.66) { setCibleCote(k); return; }
-                  setCibleCote(null);
-                  deplacerBloc(blocTire, k);
+                  // Dernier tiers droit : « a cote de ». Le reste : « avant ».
+                  const mode = e.clientX > r.left + r.width * 0.66 ? 'cote' : 'avant';
+                  setSurvol(s => (s?.cle === k && s.mode === mode ? s : { cle: k, mode }));
                 }}
-                onDragLeave={() => setCibleCote(c => (c === k ? null : c))}
-                onDrop={() => {
-                  if (blocTire && cibleCote === k) partagerLigne(blocTire, k);
-                  setCibleCote(null);
+                onDragLeave={() => setSurvol(s => (s?.cle === k ? null : s))}
+                onDrop={e => {
+                  e.preventDefault();
+                  if (blocTire && blocTire !== k) {
+                    if (survol?.cle === k && survol.mode === 'cote') partagerLigne(blocTire, k);
+                    else deplacerBloc(blocTire, k);
+                  }
+                  setSurvol(null);
+                  setBlocTire(null);
                 }}
                 style={vue.hauteurs[k] ? { height: vue.hauteurs[k] } : undefined}
                 className={`${vue.demis[k] ? 'w-[calc(50%-0.375rem)]' : 'w-full'} ${vue.hauteurs[k] ? 'overflow-y-auto overscroll-contain' : ''} ${k === 'lignes' && !vue.hauteurs[k] && !vue.demis[k] ? 'flex-1 min-h-[120px] overflow-y-auto overscroll-contain' : ''}${k === 'lignes' && vue.demis[k] ? ' min-h-[120px] overflow-y-auto overscroll-contain' : ''} ${reglagesOuverts
@@ -1577,8 +1581,10 @@ const Caisse: React.FC<CaisseProps> = ({
                 {reglagesOuverts && (
                   <>
                     {/* La moitie de ligne qui s'ouvre sous le bloc tire. */}
-                    {cibleCote === k && (
-                      <span className="absolute right-0 top-1 bottom-1 w-1.5 rounded-full bg-slate-800 dark:bg-dk-accent" />
+                    {survol?.cle === k && (
+                      <span className={survol.mode === 'cote'
+                        ? 'absolute right-0 top-1 bottom-1 w-1.5 rounded-full bg-slate-800 dark:bg-dk-accent'
+                        : 'absolute left-0 right-0 -top-1 h-1.5 rounded-full bg-slate-800 dark:bg-dk-accent'} />
                     )}
                     <GripVertical className="absolute left-0.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300 dark:text-dk-muted pointer-events-none" />
                     {/* Pleine ligne ou demi-ligne : deux blocs courts tiennent
