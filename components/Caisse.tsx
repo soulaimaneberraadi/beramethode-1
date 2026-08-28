@@ -281,8 +281,10 @@ const Caisse: React.FC<CaisseProps> = ({
   /* L'ICE ne se demande pas a la creation du client — au comptoir, il
    * allonge la file pour une mention qui ne sert qu'a la facture. On le
    * rattrape au moment de facturer, sur la fiche deja existante. */
-  const [iceRattrape, setIceRattrape] = useState('');
-  const [iceEnCours, setIceEnCours] = useState(false);
+  const [ficheIce, setFicheIce] = useState('');
+  const [ficheRc, setFicheRc] = useState('');
+  const [ficheAdresse, setFicheAdresse] = useState('');
+  const [ficheEnCours, setFicheEnCours] = useState(false);
   const [quickClientVille, setQuickClientVille] = useState('');
   const [quickClientDoubleRole, setQuickClientDoubleRole] = useState(false);
   const [quickClientSaving, setQuickClientSaving] = useState(false);
@@ -512,6 +514,10 @@ const Caisse: React.FC<CaisseProps> = ({
       .slice(0, 20);
   }, [clientQuery, clients]);
 
+  /** La recherche n'a rien donne alors qu'on a tape quelque chose : c'est le
+   *  moment ou creer une fiche devient le geste attendu. */
+  const aucunTrouve = clientQuery.trim() !== '' && clientsTrouves.length === 0;
+
   /** Un « pip » sonore : au comptoir on n'a pas le temps de lire un message. */
   const pip = useCallback((ok: boolean) => {
     try {
@@ -526,6 +532,18 @@ const Caisse: React.FC<CaisseProps> = ({
       osc.start(); osc.stop(ctx.currentTime + (ok ? 0.08 : 0.22));
     } catch { /* le son est un confort, jamais un blocage */ }
   }, []);
+
+  /** Un texte qui n'a que des chiffres est un numero : il part dans le
+   *  telephone, pas dans le nom. Retaper ce qu'on vient de taper est le genre
+   *  de detail qui fait qu'on ne cree pas la fiche du tout. */
+  const ouvrirFicheClient = () => {
+    const q = clientQuery.trim();
+    if (q) {
+      const numero = /^[\d\s+().-]{6,}$/.test(q);
+      if (numero) setQuickClientTel(q); else setQuickClientNom(q);
+    }
+    setQuickClientOpen(true);
+  };
 
   const creerClientRapide = async () => {
     if (isStatic) return;
@@ -564,26 +582,33 @@ const Caisse: React.FC<CaisseProps> = ({
   /** Complete la fiche du client avec son ICE, sans quitter la vente. La
    *  fiche entiere est renvoyee : l'API de sauvegarde ecrit tous les champs,
    *  n'en renvoyer qu'un les effacerait. */
-  const enregistrerIce = useCallback(async () => {
-    if (!client || !iceRattrape.trim() || isStatic) return;
-    setIceEnCours(true);
+  const completerFiche = useCallback(async () => {
+    if (!client || isStatic) return;
+    const ajouts = {
+      ice: ficheIce.trim() || client.ice || null,
+      rc: ficheRc.trim() || (client as any).rc || null,
+      adresse: ficheAdresse.trim() || (client as any).adresse || null,
+    };
+    setFicheEnCours(true);
     try {
+      // La fiche ENTIERE repart : l'API ecrit toutes les colonnes, n'envoyer
+      // que les nouveautes effacerait le reste.
       const res = await fetch('/api/subcontract/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ ...client, ice: iceRattrape.trim() }),
+        body: JSON.stringify({ ...client, ...ajouts }),
       });
       if (!res.ok) throw new Error(String(res.status));
-      setIceRattrape('');
-      setFlash({ ok: true, msg: tx(lang, { fr: 'ICE enregistre.', ar: 'تسجّل ICE.', en: 'ICE saved.', es: 'ICE guardado.', pt: 'ICE guardado.', tr: 'ICE kaydedildi.' }) });
+      setFicheIce(''); setFicheRc(''); setFicheAdresse('');
+      setFlash({ ok: true, msg: tx(lang, { fr: 'Fiche completee.', ar: 'تكمّلت البطاقة.', en: 'Record completed.', es: 'Ficha completada.', pt: 'Ficha completada.', tr: 'Kart tamamlandi.' }) });
       await onClientsChanged?.();
     } catch {
-      setFlash({ ok: false, msg: tx(lang, { fr: "L'ICE n'a pas ete enregistre.", ar: 'ICE ما تسجّلش.', en: 'The ICE was not saved.', es: 'El ICE no se guardo.', pt: 'O ICE nao foi guardado.', tr: 'ICE kaydedilemedi.' }) });
+      setFlash({ ok: false, msg: tx(lang, { fr: "La fiche n'a pas ete enregistree.", ar: 'البطاقة ما تسجّلاتش.', en: 'The record was not saved.', es: 'La ficha no se guardo.', pt: 'A ficha nao foi guardada.', tr: 'Kart kaydedilemedi.' }) });
     } finally {
-      setIceEnCours(false);
+      setFicheEnCours(false);
     }
-  }, [client, iceRattrape, isStatic, lang, onClientsChanged]);
+  }, [client, ficheIce, ficheRc, ficheAdresse, isStatic, lang, onClientsChanged]);
 
   /* Le tarif du segment courant, modele par modele. Il s'affiche sur le
    * rayon et sur la grille : au comptoir on annonce un prix avant de poser
@@ -897,6 +922,7 @@ const Caisse: React.FC<CaisseProps> = ({
     encaisser: tx(lang, { fr: 'Encaisser', ar: 'خلّص', en: 'Charge', es: 'Cobrar', pt: 'Cobrar', tr: 'Tahsil et' }),
     chercherClient: tx(lang, { fr: 'Chercher un client…', ar: 'قلّب على زبون…', en: 'Search a customer…', es: 'Buscar un cliente…', pt: 'Procurar cliente…', tr: 'Musteri ara…' }),
     nouveauClient: tx(lang, { fr: 'Nouveau client', ar: 'زبون جديد', en: 'New customer', es: 'Nuevo cliente', pt: 'Novo cliente', tr: 'Yeni musteri' }),
+    creerAvec: tx(lang, { fr: 'Creer', ar: 'صايب', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Olustur' }),
     aucunClient: tx(lang, { fr: 'Aucun client trouve.', ar: 'ما لقيت حتى زبون.', en: 'No customer found.', es: 'Ningun cliente encontrado.', pt: 'Nenhum cliente encontrado.', tr: 'Musteri bulunamadi.' }),
     retirerClient: tx(lang, { fr: 'Retirer le client', ar: 'إزالة الزبون', en: 'Remove customer', es: 'Quitar cliente', pt: 'Remover cliente', tr: 'Musteriyi kaldir' }),
     typeDuClient: tx(lang, { fr: 'Le segment vient de la fiche du client.', ar: 'الصنف جاي من بطاقة الزبون.', en: 'The segment comes from the customer record.', es: 'El segmento viene de la ficha del cliente.', pt: 'O segmento vem da ficha do cliente.', tr: 'Segment musteri kartindan gelir.' }),
@@ -1237,18 +1263,31 @@ const Caisse: React.FC<CaisseProps> = ({
                     />
                   </div>
                   <button
-                    onClick={() => setQuickClientOpen(v => !v)}
+                    onClick={ouvrirFicheClient}
                     title={T.nouveauClient}
-                    className={`shrink-0 px-3 rounded-xl border transition-colors ${quickClientOpen ? 'bg-slate-800 dark:bg-dk-text text-white border-transparent' : 'border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
+                    className={`shrink-0 w-12 rounded-xl border flex items-center justify-center transition-colors ${aucunTrouve
+                      ? 'bg-slate-900 dark:bg-dk-accent text-white border-transparent animate-pulse'
+                      : 'border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-5 h-5" />
                   </button>
                 </div>
                 )}
                 {!quickClientOpen && clientQuery.trim() !== '' && (
                   <div className="max-h-40 overflow-y-auto rounded-xl border border-slate-200 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border">
                     {clientsTrouves.length === 0 && (
-                      <p className="p-3 text-[11px] text-slate-400 dark:text-dk-muted">{T.aucunClient}</p>
+                      <button
+                        onClick={ouvrirFicheClient}
+                        className="w-full flex items-center gap-2 p-3 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated"
+                      >
+                        <Plus className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />
+                        <span className="min-w-0">
+                          <span className="block text-[11px] text-slate-400 dark:text-dk-muted">{T.aucunClient}</span>
+                          <span className="block text-xs font-bold text-slate-800 dark:text-dk-text truncate">
+                            {T.creerAvec} « {clientQuery.trim()} »
+                          </span>
+                        </span>
+                      </button>
                     )}
                     {clientsTrouves.map(c => (
                       <button
@@ -1373,25 +1412,49 @@ const Caisse: React.FC<CaisseProps> = ({
               {T.factureAuto}
               {typeEffectif === 'GROS' && <span className="text-slate-400 dark:text-dk-muted">({T.imposee})</span>}
             </label>
-            {/* Une facture sans ICE reste incomplete. On le demande ICI, au
-                moment ou il sert — pas pendant la creation du client, ou il
-                allonge une file d'attente pour rien. */}
-            {factureRequise && client && !client.ice && !isStatic && (
-              <div className="mt-2 flex items-center gap-2">
-                <input
-                  value={iceRattrape}
-                  onChange={e => setIceRattrape(e.target.value)}
-                  placeholder={`ICE · ${client.nom}`}
-                  className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/70 dark:placeholder-amber-400/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
-                />
+            {/* Gros ou vente facturee : ce que la facture exige et que la
+                fiche ne porte pas encore. On le demande ICI, au moment ou il
+                sert — pas pendant la creation du client, ou il allonge la
+                file pour rien. Rempli, ce bloc disparait. */}
+            {(factureRequise || typeEffectif === 'GROS') && client && !isStatic && (!client.ice || !client.rc || !client.adresse) && (
+              <div className="mt-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 space-y-2">
+                <span className="block text-[10px] font-extrabold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                  {T.infosFacture} · {client.nom}
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  {!client.ice && (
+                    <input
+                      value={ficheIce}
+                      onChange={e => setFicheIce(e.target.value)}
+                      placeholder="ICE"
+                      className="px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                    />
+                  )}
+                  {!client.rc && (
+                    <input
+                      value={ficheRc}
+                      onChange={e => setFicheRc(e.target.value)}
+                      placeholder="RC"
+                      className="px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                    />
+                  )}
+                </div>
+                {!client.adresse && (
+                  <input
+                    value={ficheAdresse}
+                    onChange={e => setFicheAdresse(e.target.value)}
+                    placeholder={T.adresse}
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-amber-200 dark:border-amber-800/50 text-sm text-slate-800 dark:text-dk-text placeholder-amber-600/60 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                  />
+                )}
                 <button
-                  onClick={enregistrerIce}
-                  disabled={!iceRattrape.trim() || iceEnCours}
-                  className={`shrink-0 px-3 py-2 rounded-xl text-[11px] font-extrabold ${iceRattrape.trim() && !iceEnCours
-                    ? 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white'
-                    : 'bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted cursor-not-allowed'}`}
+                  onClick={completerFiche}
+                  disabled={ficheEnCours || !(ficheIce.trim() || ficheRc.trim() || ficheAdresse.trim())}
+                  className={`w-full py-2 rounded-xl text-[11px] font-extrabold ${ficheEnCours || !(ficheIce.trim() || ficheRc.trim() || ficheAdresse.trim())
+                    ? 'bg-white/60 dark:bg-dk-surface/60 text-amber-500/60 cursor-not-allowed'
+                    : 'bg-slate-900 hover:bg-slate-800 dark:bg-dk-accent text-white'}`}
                 >
-                  {iceEnCours ? '…' : T.enregistrer}
+                  {ficheEnCours ? '…' : T.enregistrer}
                 </button>
               </div>
             )}
