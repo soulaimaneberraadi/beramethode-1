@@ -44,7 +44,7 @@ import { sumPiecesFromSuiviForPlanning } from './utils/produced';
 import { rollPlanningEvents } from './utils/planning';
 import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
-import { navigate, getCurrentRoute, parseHash, onRouteChange, replaceRoute } from './lib/router';
+import { navigate, getCurrentRoute, parseHash, onRouteChange, replaceRoute, useRouteParam, createRouteUrl } from './lib/router';
 
 const Login = lazyWithRetry('Login', () => import('./src/components/Login'));
 const Setup = lazyWithRetry('Setup', () => import('./components/Setup'));
@@ -433,6 +433,35 @@ export default function App() {
         const route = getCurrentRoute();
         if (route.view !== currentView) replaceRoute(currentView as any);
     }, [currentView]);
+
+    // Synchronisation bidirectionnelle chaine <-> URL, active uniquement sur la page Suivi.
+    // globalChaineId reste la source d etat partagee entre plusieurs pages (Effectifs,
+    // GestionRH, SuiviProduction) : on ne synchronise le segment 0 du lien qu ici, pour
+    // ne pas polluer les autres vues qui utilisent aussi ce meme etat.
+    // chaineUrlSyncGuard : true quand le prochain changement de globalChaineId provient
+    // de la lecture de l URL (sens URL -> etat), pour eviter que l effet etat -> URL
+    // ne rejoue une ecriture inutile (ping-pong).
+    const chaineUrlSyncGuard = useRef(false);
+    const [chaineRouteSegment] = useRouteParam({ view: 'suivi', depth: 0 });
+    // Sens URL -> etat : un lien partage (#/suivi/CHAINE+3) doit ouvrir la bonne chaine.
+    useEffect(() => {
+        if (currentView !== 'suivi') return;
+        if (chaineRouteSegment && chaineRouteSegment !== globalChaineId) {
+            chaineUrlSyncGuard.current = true;
+            setGlobalChaineId(chaineRouteSegment);
+        }
+    }, [chaineRouteSegment, currentView]);
+    // Sens etat -> URL : changement de chaine dans l interface (ou arrivee initiale
+    // sur la page sans segment) ecrit le lien. On utilise replaceRoute (pas navigate)
+    // pour ne jamais empiler d entree d historique a cause de ce champ.
+    useEffect(() => {
+        if (currentView !== 'suivi') return;
+        if (chaineUrlSyncGuard.current) { chaineUrlSyncGuard.current = false; return; }
+        const route = getCurrentRoute();
+        const currentSegment = route.view === 'suivi' ? (route.segments[0] ?? null) : null;
+        if (currentSegment === globalChaineId) return;
+        replaceRoute('suivi', globalChaineId);
+    }, [globalChaineId, currentView]);
 
     const [navigationContext, setNavigationContext] = useState<'coupe' | 'planning' | 'sousTraitance' | null>(null);
     const [navConfirm, setNavConfirm] = useState<{ isOpen: boolean; type: 'save' | 'new' | 'effectifs' | null; targetView: typeof currentView | null; }>({ isOpen: false, type: null, targetView: null });
@@ -1633,10 +1662,21 @@ export default function App() {
                                                 const item = allItems[view];
                                                 const isActive = currentView === view;
                                                 return (
-                                                    <button key={view} onClick={() => { handleNavigation(view as any); setMobileMenuOpen(false); }}
-                                                        className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wide transition-all border mb-0.5 ${isActive ? item.active : 'text-gray-500 dark:text-dk-text-soft hover:text-gray-900 dark:hover:text-dk-text hover:bg-gray-50 dark:hover:bg-dk-elevated/60 border-transparent'}`}>
+                                                    // Vrai lien comme dans la barre du haut : on peut copier
+                                                    // l adresse d une page ou l ouvrir dans un nouvel onglet
+                                                    // depuis le menu du telephone aussi.
+                                                    <a key={view}
+                                                        href={createRouteUrl(view as any)}
+                                                        aria-current={isActive ? 'page' : undefined}
+                                                        onClick={(e) => {
+                                                            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                                                            e.preventDefault();
+                                                            handleNavigation(view as any);
+                                                            setMobileMenuOpen(false);
+                                                        }}
+                                                        className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[12px] font-bold uppercase tracking-wide transition-all border mb-0.5 no-underline cursor-pointer ${isActive ? item.active : 'text-gray-500 dark:text-dk-text-soft hover:text-gray-900 dark:hover:text-dk-text hover:bg-gray-50 dark:hover:bg-dk-elevated/60 border-transparent'}`}>
                                                         {item.icon}{item.label}
-                                                    </button>
+                                                    </a>
                                                 );
                                             })
                                         ]);

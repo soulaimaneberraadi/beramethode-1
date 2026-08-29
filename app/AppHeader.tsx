@@ -35,6 +35,13 @@ import { tx } from '../lib/i18n';
 import SupportWidget from '../components/SupportWidget';
 import SyncIndicator from '../components/SyncIndicator';
 import { clearLocalAppData } from '../src/lib/cloudSync';
+import { createRouteUrl } from '../lib/router';
+
+// clic avec Ctrl/Cmd/Shift ou molette (bouton du milieu) = laisser le navigateur
+// ouvrir un nouvel onglet, sans declencher la navigation interne
+function isModifiedClick(e: React.MouseEvent): boolean {
+    return e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0;
+}
 
 type ViewType = 'vuegenerale' | 'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps';
 
@@ -516,17 +523,24 @@ function NavButton({ view, currentView, onClick, activeClass, icon, label }: {
     icon: React.ReactNode;
     label: string;
 }) {
+    const isActive = currentView === view;
     return (
-        <button
-            onClick={() => onClick(view)}
-            className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[11px] font-bold uppercase tracking-wide whitespace-nowrap border ${currentView === view
+        <a
+            href={createRouteUrl(view as any)}
+            aria-current={isActive ? 'page' : undefined}
+            onClick={(e) => {
+                if (isModifiedClick(e)) return; // laisser le navigateur ouvrir un nouvel onglet
+                e.preventDefault();
+                onClick(view);
+            }}
+            className={`shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[11px] font-bold uppercase tracking-wide whitespace-nowrap border no-underline cursor-pointer ${isActive
                 ? activeClass
                 : 'bg-transparent border-transparent text-gray-500 dark:text-dk-text-soft hover:text-gray-900 dark:hover:text-dk-text hover:bg-gray-50 dark:hover:bg-dk-elevated/60'
                 }`}
         >
             {icon}
             {label}
-        </button>
+        </a>
     );
 }
 
@@ -623,9 +637,15 @@ function DropdownItem({ view, currentView, onClick, activeClass, icon, label }: 
 }) {
     const isActive = currentView === view;
     return (
-        <button
-            onClick={() => onClick(view)}
-            className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg transition-all text-[10.5px] font-bold uppercase tracking-wide text-start border ${
+        <a
+            href={createRouteUrl(view as any)}
+            aria-current={isActive ? 'page' : undefined}
+            onClick={(e) => {
+                if (isModifiedClick(e)) return; // laisser le navigateur ouvrir un nouvel onglet
+                e.preventDefault();
+                onClick(view);
+            }}
+            className={`flex items-center gap-2 w-full px-3 py-2 rounded-lg transition-all text-[10.5px] font-bold uppercase tracking-wide text-start border no-underline cursor-pointer ${
                 isActive
                     ? activeClass
                     : 'bg-transparent border-transparent text-gray-500 dark:text-dk-text-soft hover:text-gray-900 dark:hover:text-dk-text hover:bg-gray-50 dark:hover:bg-dk-elevated/60'
@@ -633,6 +653,6 @@ function DropdownItem({ view, currentView, onClick, activeClass, icon, label }: 
         >
             {icon}
             <span className="truncate">{label}</span>
-        </button>
+        </a>
     );
 }
