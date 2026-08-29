@@ -1024,6 +1024,17 @@ async function startServer() {
       server: {
         middlewareMode: true,
         hmr: hmrOff ? false : { server: httpServer },
+        // Vite refuse par defaut tout hote qu'il ne connait pas — protection
+        // contre le DNS rebinding. Un tunnel (trycloudflare, ngrok) arrive
+        // justement sous un nom inconnu : la page repondait « Blocked request ».
+        // On autorise ces domaines, plus ceux que BERA_ALLOWED_HOSTS ajoute.
+        allowedHosts: [
+          '.trycloudflare.com',
+          '.ngrok-free.app',
+          '.ngrok.io',
+          '.loca.lt',
+          ...(process.env.BERA_ALLOWED_HOSTS || '').split(',').map(h => h.trim()).filter(Boolean),
+        ],
       },
       appType: 'spa',
     });
