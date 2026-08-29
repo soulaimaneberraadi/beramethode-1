@@ -62,7 +62,16 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
             // n'existe pas encore » : le serveur tourne sur du code d'avant.
             if (res.status === 404) throw new Error('Route /api/ventes/encours absente : redemarrer le serveur (npm run dev:app).');
             if (!res.ok) throw new Error(body?.message || `HTTP ${res.status}`);
-            setData(body as Reponse);
+            // Un serveur d'une version anterieure renvoie des factures sans
+            // articles : l'ecran ne doit pas tomber pour une clef absente.
+            const brut = body as Reponse;
+            setData({
+                ...brut,
+                clients: (brut.clients || []).map(c => ({
+                    ...c,
+                    factures: (c.factures || []).map(fa => ({ ...fa, articles: fa.articles || [] })),
+                })),
+            });
         } catch (e: any) {
             setErreur(e?.message || String(e));
             setData(null);
