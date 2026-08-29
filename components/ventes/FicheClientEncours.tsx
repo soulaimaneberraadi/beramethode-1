@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Phone, MapPin, RefreshCw, Trash2, Check } from 'lucide-react';
+import { AlertTriangle, Phone, MapPin, RefreshCw, Trash2, Check, X } from 'lucide-react';
 import { grouperArticles, LigneModele } from './articles';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
@@ -41,6 +41,9 @@ const FicheClientEncours: React.FC<{
     const [chargement, setChargement] = React.useState(true);
     const [erreur, setErreur] = React.useState<string | null>(null);
     const [occupe, setOccupe] = React.useState<string | null>(null);
+    // La confirmation est DANS la page : window.confirm est bloque dans certains
+    // conteneurs, et le bouton restait sans effet, sans le moindre message.
+    const [aConfirmer, setAConfirmer] = React.useState<string | null>(null);
 
     const charger = React.useCallback(async () => {
         if (!client.clientId) { setChargement(false); setErreur('Ce client n’a pas de fiche : la facture porte un nom libre.'); return; }
@@ -61,8 +64,8 @@ const FicheClientEncours: React.FC<{
 
     React.useEffect(() => { void charger(); }, [charger]);
 
-    const supprimerPaiement = async (p: Paiement, numero: string) => {
-        if (!window.confirm(`Supprimer le reglement de ${nf(p.montant)} ${devise} du ${jjmmaaaa(p.date)} sur ${numero} ? Le montant retourne a l’encours.`)) return;
+    const supprimerPaiement = async (p: Paiement) => {
+        setAConfirmer(null);
         setOccupe(p.id);
         try {
             const res = await fetch(`/api/facturation/paiements/${encodeURIComponent(p.factureId)}/${encodeURIComponent(p.id)}`, {
@@ -159,15 +162,40 @@ const FicheClientEncours: React.FC<{
                                             <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted whitespace-nowrap">
                                                 {jjmmaaaa(p.date).slice(0, 5)}{p.mode ? ` · ${p.mode}` : ''}
                                             </span>
-                                            <button
-                                                type="button"
-                                                disabled={occupe === p.id}
-                                                onClick={() => void supprimerPaiement(p, f.numero)}
-                                                title="Supprimer ce reglement"
-                                                className="w-6 h-6 shrink-0 rounded-md flex items-center justify-center text-slate-300 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-40"
-                                            >
-                                                <Trash2 className="w-3 h-3" />
-                                            </button>
+                                            {/* La confirmation remplace la corbeille sur
+                                                place : deux gestes, aucune boite du
+                                                navigateur qui pourrait etre bloquee. */}
+                                            {aConfirmer === p.id ? (
+                                                <span className="inline-flex items-center gap-0.5">
+                                                    <button
+                                                        type="button"
+                                                        disabled={occupe === p.id}
+                                                        onClick={() => void supprimerPaiement(p)}
+                                                        title="Confirmer la suppression"
+                                                        className="h-6 px-1.5 rounded-md text-[9px] font-black bg-rose-600 text-white disabled:opacity-40"
+                                                    >
+                                                        Supprimer
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAConfirmer(null)}
+                                                        title="Annuler"
+                                                        className="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </span>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    disabled={occupe === p.id}
+                                                    onClick={() => setAConfirmer(p.id)}
+                                                    title="Supprimer ce reglement"
+                                                    className="w-6 h-6 shrink-0 rounded-md flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-40"
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            )}
                                         </span>
                                     ))}
                                 </div>

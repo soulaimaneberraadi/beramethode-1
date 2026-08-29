@@ -62,6 +62,9 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
     // Le nom du client ouvre sa fiche PAR-DESSUS la liste : la fleche revient
     // a l'encours, elle ne referme pas tout.
     const [fiche, setFiche] = React.useState<ClientEncours | null>(null);
+    // Solder demande confirmation SUR PLACE : window.confirm est bloque dans
+    // certains conteneurs et le clic restait sans effet ni message.
+    const [aSolder, setASolder] = React.useState<string | null>(null);
 
     const charger = React.useCallback(async () => {
         setChargement(true);
@@ -307,17 +310,34 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                                                 >
                                                     Encaisser
                                                 </button>
-                                                <button
-                                                    type="button"
-                                                    disabled={occupe}
-                                                    onClick={() => {
-                                                        if (!window.confirm(`Solder ${f.numero} : ${nf(f.reste)} ${devise} recus le ${jjmmaaaa(s.date)} en ${s.mode} ?`)) return;
-                                                        void encaisser(f, f.reste, s.date, s.mode);
-                                                    }}
-                                                    className="h-9 sm:h-8 px-3 rounded-lg text-[11px] font-black bg-slate-900 dark:bg-dk-accent text-white inline-flex items-center gap-1.5 disabled:opacity-40"
-                                                >
-                                                    <Check className="w-3.5 h-3.5" /> Tout ({nf(f.reste)})
-                                                </button>
+                                                {aSolder === f.id ? (
+                                                    <span className="col-span-2 sm:col-span-1 inline-flex items-center gap-1.5">
+                                                        <button
+                                                            type="button"
+                                                            disabled={occupe}
+                                                            onClick={() => { setASolder(null); void encaisser(f, f.reste, s.date, s.mode); }}
+                                                            className="h-9 sm:h-8 px-3 rounded-lg text-[11px] font-black bg-rose-600 text-white inline-flex items-center gap-1.5 disabled:opacity-40"
+                                                        >
+                                                            <Check className="w-3.5 h-3.5" /> Confirmer {nf(f.reste)}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setASolder(null)}
+                                                            className="h-9 sm:h-8 px-2.5 rounded-lg text-[11px] font-bold text-slate-500 border border-slate-200 dark:border-dk-border"
+                                                        >
+                                                            Annuler
+                                                        </button>
+                                                    </span>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        disabled={occupe}
+                                                        onClick={() => setASolder(f.id)}
+                                                        className="h-9 sm:h-8 px-3 rounded-lg text-[11px] font-black bg-slate-900 dark:bg-dk-accent text-white inline-flex items-center gap-1.5 disabled:opacity-40"
+                                                    >
+                                                        <Check className="w-3.5 h-3.5" /> Tout ({nf(f.reste)})
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     );
