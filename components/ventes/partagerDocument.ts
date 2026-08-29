@@ -100,16 +100,25 @@ export const enPdf = async (html: string, nomFichier: string): Promise<File> => 
     return new File([blob], nomFichier.endsWith('.pdf') ? nomFichier : `${nomFichier}.pdf`, { type: 'application/pdf' });
 };
 
-export type ResultatPartage = 'PARTAGE' | 'TELECHARGE';
+export type ResultatPartage = 'PARTAGE' | 'TELECHARGE' | 'NON_SECURISE';
 
 /**
- * Partage le fichier par le systeme quand c'est possible ; sinon le
- * telecharge et ouvre la conversation WhatsApp.
+ * Partage le fichier par le systeme quand c est possible ; sinon le telecharge
+ * et laisse l appelant proposer WhatsApp.
+ *
+ * Deux pieges tenus ici :
+ *
+ * 1. navigator.share n existe QUE dans un contexte securise. Ouvert en
+ *    http://192.168.x.x depuis un telephone, il est absent — d ou un bouton
+ *    qui semble ne rien faire. On le dit au lieu de le subir.
+ *
+ * 2. Ouvrir une fenetre APRES un await ne marche pas sur iOS : le geste de
+ *    l utilisateur est deja consomme et Safari bloque. On ne tente donc plus
+ *    window.open ici ; l ecran affiche un vrai lien, que le doigt touche.
  */
 export const partagerOuTelecharger = async (
     fichier: File,
     texte: string,
-    numeroInternational: string | null,
 ): Promise<ResultatPartage> => {
     const nav = navigator as Navigator & { canShare?: (d: any) => boolean; share?: (d: any) => Promise<void> };
 
@@ -118,8 +127,7 @@ export const partagerOuTelecharger = async (
             await nav.share({ files: [fichier], text: texte, title: fichier.name });
             return 'PARTAGE';
         } catch (e: any) {
-            // L'utilisateur a ferme la feuille de partage : ce n'est pas une
-            // panne, on ne bascule pas sur le telechargement.
+            // Feuille de partage refermee : ce n est pas une panne.
             if (e?.name === 'AbortError') return 'PARTAGE';
         }
     }
@@ -128,13 +136,12 @@ export const partagerOuTelecharger = async (
     const lien = document.createElement('a');
     lien.href = url;
     lien.download = fichier.name;
+    lien.target = '_blank';
+    lien.rel = 'noopener';
     document.body.appendChild(lien);
     lien.click();
     lien.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    window.setTimeout(() => URL.revokeObjectURL(url), 120000);
 
-    if (numeroInternational) {
-        window.open(`https://wa.me/${numeroInternational}?text=${encodeURIComponent(texte)}`, '_blank', 'noopener');
-    }
-    return 'TELECHARGE';
+    return window.isSecureContext ? 'TELECHARGE' : 'NON_SECURISE';
 };

@@ -31,6 +31,9 @@ const ApercuReleve: React.FC<{
     const [options, setOptions] = React.useState<OptionsReleve>(OPTIONS_PAR_DEFAUT);
     const [envoi, setEnvoi] = React.useState(false);
     const [avis, setAvis] = React.useState<string | null>(null);
+    // Le lien WhatsApp ne peut pas s ouvrir tout seul apres un await (iOS bloque
+    // ce qui n est plus un geste) : on l affiche, le doigt le touche.
+    const [lienPret, setLienPret] = React.useState(false);
     const html = htmlReleve(donnees, devise, false, options);
 
     const solde = Math.max(0, donnees.factures.reduce((a, f) => a + f.totalTtc - f.montantPaye, 0));
@@ -59,10 +62,14 @@ const ApercuReleve: React.FC<{
         try {
             const nom = `Situation ${donnees.client.nom} ${new Date().toISOString().slice(0, 10)}`.replace(/[\\/:*?"<>|]/g, '-');
             const fichier = await enPdf(html, nom);
-            const resultat = await partagerOuTelecharger(fichier, texte, international);
-            setAvis(resultat === 'PARTAGE'
-                ? 'Le PDF est parti dans la fenetre de partage.'
-                : 'Ce navigateur ne sait pas joindre un fichier : le PDF est telecharge et WhatsApp ouvert — il reste a le glisser dans la conversation.');
+            const resultat = await partagerOuTelecharger(fichier, texte);
+            setLienPret(resultat !== 'PARTAGE');
+            setAvis(
+                resultat === 'PARTAGE' ? 'Le PDF est parti dans la fenetre de partage.'
+                : resultat === 'NON_SECURISE'
+                    ? 'Le partage direct exige une connexion securisee (https). En http, le PDF est enregistre : ouvrez WhatsApp ci-dessous et joignez-le.'
+                    : 'PDF enregistre. Ouvrez WhatsApp ci-dessous et joignez le fichier.',
+            );
         } catch (e: any) {
             setAvis(e?.message || String(e));
         } finally {
@@ -114,9 +121,19 @@ const ApercuReleve: React.FC<{
             }
         >
             {avis && (
-                <p className="text-[12px] font-bold text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface px-3.5 py-2.5">
+                <div className="text-[12px] font-bold text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface px-3.5 py-2.5">
                     {avis}
-                </p>
+                    {lienPret && international && (
+                        <a
+                            href={`https://wa.me/${international}?text=${encodeURIComponent(texte)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 h-9 px-3.5 rounded-lg text-[12px] font-black bg-emerald-600 text-white inline-flex items-center justify-center gap-1.5"
+                        >
+                            <MessageCircle className="w-4 h-4" /> Ouvrir WhatsApp
+                        </a>
+                    )}
+                </div>
             )}
             <div className="rounded-xl border border-slate-200 dark:border-dk-border bg-white overflow-hidden mx-auto w-full max-w-[820px]">
                 <CadreDocument html={html} titre="Situation de compte" />

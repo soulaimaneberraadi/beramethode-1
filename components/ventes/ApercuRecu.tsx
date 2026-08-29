@@ -21,6 +21,7 @@ const ApercuRecu: React.FC<{ paiementId: string; devise: string; onFermer: () =>
     const [erreur, setErreur] = React.useState<string | null>(null);
     const [envoi, setEnvoi] = React.useState(false);
     const [avis, setAvis] = React.useState<string | null>(null);
+    const [lienWhatsapp, setLienWhatsapp] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         let vivant = true;
@@ -47,10 +48,15 @@ const ApercuRecu: React.FC<{ paiementId: string; devise: string; onFermer: () =>
             const nom = `Recu ${donnees.client.nom} ${donnees.paiement.date}`.replace(/[\/:*?"<>|]/g, '-');
             const fichier = await enPdf(html, nom);
             const texte = `Bonjour ${donnees.client.nom}, voici le recu de votre versement de ${nf(donnees.paiement.montant)} ${devise}. Reste du : ${nf(donnees.compte.reste)} ${devise}. Merci.`;
-            const res = await partagerOuTelecharger(fichier, texte, donnees.client.tel ? versInternational(donnees.client.tel) : null);
-            setAvis(res === 'PARTAGE'
-                ? 'Le recu est parti dans la fenetre de partage.'
-                : 'Ce navigateur ne sait pas joindre un fichier : le recu est telecharge et WhatsApp ouvert.');
+            const res = await partagerOuTelecharger(fichier, texte);
+            const numero = donnees.client.tel ? versInternational(donnees.client.tel) : null;
+            setLienWhatsapp(res === 'PARTAGE' || !numero ? null : `https://wa.me/${numero}?text=${encodeURIComponent(texte)}`);
+            setAvis(
+                res === 'PARTAGE' ? 'Le recu est parti dans la fenetre de partage.'
+                : res === 'NON_SECURISE'
+                    ? 'Le partage direct exige une connexion securisee (https). Le recu est enregistre : ouvrez WhatsApp et joignez-le.'
+                    : 'Recu enregistre. Ouvrez WhatsApp et joignez le fichier.',
+            );
         } catch (e: any) {
             setErreur(e?.message || String(e));
         } finally {
@@ -88,7 +94,15 @@ const ApercuRecu: React.FC<{ paiementId: string; devise: string; onFermer: () =>
             }
         >
             {avis && (
-                <p className="text-[12px] font-bold text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface px-3.5 py-2.5">{avis}</p>
+                <div className="text-[12px] font-bold text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface px-3.5 py-2.5">
+                    {avis}
+                    {lienWhatsapp && (
+                        <a href={lienWhatsapp} target="_blank" rel="noopener noreferrer"
+                            className="mt-2 h-9 px-3.5 rounded-lg text-[12px] font-black bg-emerald-600 text-white inline-flex items-center justify-center gap-1.5">
+                            <MessageCircle className="w-4 h-4" /> Ouvrir WhatsApp
+                        </a>
+                    )}
+                </div>
             )}
             {erreur && (
                 <p className="flex items-start gap-1.5 text-[12px] text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 rounded-xl bg-white dark:bg-dk-surface p-3">
