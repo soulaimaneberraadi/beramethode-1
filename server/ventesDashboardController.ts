@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import db from './db';
+import { emetteurDe } from './clientsController';
 
 /**
  * Tableau de bord des ventes — ce qui part, ce qui dort, et qui paie.
@@ -671,5 +672,88 @@ export const getClientHistorique = (req: Request, res: Response) => {
     } catch (error) {
         console.error('Client historique error:', error);
         res.status(500).json({ message: 'Error building client history' });
+    }
+};
+
+/**
+ * Le recu de versement : la contrepartie du carnet de credit.
+ *
+ * Il ne dit pas seulement « recu 5 000 » — ca, n'importe quel bout de papier
+ * le dit. Il dit « sur une dette de 20 000, reste 15 000 », et c'est cette
+ * phrase qui protege les deux parties : le vendeur contre l'oubli, le client
+ * contre un encaissement compte deux fois.
+ *
+ * Le reste a payer est calcule ICI, a l'instant du tirage, jamais envoye par
+ * l'ecran : un montant qui engage se lit dans la base.
+ */
+export const getRecuPaiement = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    const paiementId = String(req.params.id || '');
+
+    try {
+        const p = db.prepare(`
+            SELECT p.id, p.date_paiement, p.montant, p.mode, p.reference, p.notes,
+                   f.id AS facture_id, f.numero, f.date_facture, f.total_ttc,
+                   COALESCE(f.montant_paye, 0) AS montant_paye,
+                   f.source_id AS client_id, f.tiers_nom, f.tiers_tel, f.tiers_adresse, f.tiers_ice
+            FROM paiements p
+            JOIN factures f ON f.id = p.facture_id AND f.owner_id = p.owner_id
+            WHERE p.owner_id = ? AND p.id = ?
+        `).get(companyId, paiementId) as any;
+
+        if (!p) return res.status(404).json({ message: 'Reglement introuvable' });
+
+        // La dette du CLIENT, pas seulement celle de la facture : c'est ce
+        // chiffre-la qu'il conteste au telephone.
+        const global = p.client_id
+            ? db.prepare(`
+                SELECT SUM(total_ttc) AS du, SUM(COALESCE(montant_paye, 0)) AS paye
+                FROM factures
+                WHERE owner_id = ? AND type = 'VENTE' AND COALESCE(statut, '') != 'ANNULEE' AND source_id = ?
+            `).get(companyId, p.client_id) as any
+            : null;
+
+        const client = p.client_id
+            ? db.prepare('SELECT nom, tel, ville, adresse, ice FROM st_clients WHERE id = ? AND owner_id = ?').get(p.client_id, companyId) as any
+            : null;
+
+        const totalTtc = Number(p.total_ttc) || 0;
+        const paye = Number(p.montant_paye) || 0;
+        const duGlobal = Number(global?.du) || 0;
+        const payeGlobal = Number(global?.paye) || 0;
+
+        res.json({
+            emetteur: emetteurDe(companyId),
+            paiement: {
+                id: String(p.id),
+                date: p.date_paiement,
+                montant: Number(Number(p.montant).toFixed(2)),
+                mode: p.mode || null,
+                reference: p.reference || null,
+            },
+            facture: {
+                id: String(p.facture_id),
+                numero: String(p.numero || ''),
+                date: p.date_facture,
+                totalTtc: Number(totalTtc.toFixed(2)),
+                montantPaye: Number(paye.toFixed(2)),
+                reste: Number(Math.max(0, totalTtc - paye).toFixed(2)),
+            },
+            client: {
+                nom: client?.nom || p.tiers_nom || '—',
+                tel: client?.tel || p.tiers_tel || null,
+                ville: client?.ville || null,
+                adresse: client?.adresse || p.tiers_adresse || null,
+                ice: client?.ice || p.tiers_ice || null,
+            },
+            compte: {
+                du: Number(duGlobal.toFixed(2)),
+                paye: Number(payeGlobal.toFixed(2)),
+                reste: Number(Math.max(0, duGlobal - payeGlobal).toFixed(2)),
+            },
+        });
+    } catch (error) {
+        console.error('Recu paiement error:', error);
+        res.status(500).json({ message: 'Error building receipt' });
     }
 };

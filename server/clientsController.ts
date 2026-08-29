@@ -712,7 +712,7 @@ export const createCommandeNormale = (req: Request, res: Response) => {
  * des que l'entreprise change d'adresse ou de RIB, et une facture qui bouge
  * apres coup n'est plus une piece comptable.
  */
-const emetteurDe = (companyId: number | string) => {
+export const emetteurDe = (companyId: number | string) => {
     try {
         const ws = db.prepare('SELECT name, logo, profile_meta FROM workspaces WHERE owner_id = ?').get(companyId) as any;
         const row = ws || db.prepare('SELECT name, logo, profile_meta FROM company_settings WHERE id = 1').get() as any;

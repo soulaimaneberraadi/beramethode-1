@@ -82,7 +82,7 @@ import {
 } from './server/subcontractController';
 import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice, createCommandeNormale } from './server/clientsController';
 import { getCaisseJournal, annulerTicketCaisse } from './server/caisseController';
-import { getVentesDashboard, getVentesEncours, getClientHistorique } from './server/ventesDashboardController';
+import { getVentesDashboard, getVentesEncours, getClientHistorique, getRecuPaiement } from './server/ventesDashboardController';
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
 import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat, checkStockIntegrity, repairStockIntegrity } from './server/achatsController';
 import { sendZpl } from './server/printBridge';
@@ -692,6 +692,8 @@ async function startServer() {
   // Le detail de l'encours : qui doit, sur quelle facture, et depuis combien de jours.
   app.get('/api/ventes/encours', authenticateToken, requirePermission('page', 'facturation', 'view'), getVentesEncours);
   // Historique complet d'un client : toutes ses factures et tous ses reglements.
+  // Recu de versement : le reste a payer se calcule dans la base, jamais dans l ecran.
+  app.get('/api/ventes/paiements/:id/recu', authenticateToken, requirePermission('page', 'facturation', 'view'), getRecuPaiement);
   app.get('/api/ventes/clients/:id/historique', authenticateToken, requirePermission('page', 'facturation', 'view'), getClientHistorique);
   app.get('/api/subcontract/caisse/journal', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getCaisseJournal);
   app.delete('/api/subcontract/caisse/ticket/:ticket', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), annulerTicketCaisse);

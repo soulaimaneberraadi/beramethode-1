@@ -4,6 +4,7 @@ import PanneauDetail from './PanneauDetail';
 import FicheClientEncours, { Article } from './FicheClientEncours';
 import { grouperArticles, LigneModele } from './articles';
 import { ChampDate, ChampListe } from './champs';
+import { chargerEtOuvrirRecu } from './recuVersement';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -167,6 +168,9 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
             if (!res.ok) throw new Error(body?.error || body?.message || `HTTP ${res.status}`);
             setSaisie(s => { const c = { ...s }; delete c[f.id]; return c; });
             await charger();
+            // Le recu part dans la foulee : un versement qu'on ne remet pas par
+            // ecrit se rediscute le mois suivant.
+            if (body?.id) { try { await chargerEtOuvrirRecu(String(body.id), devise); } catch (err: any) { setErreur(err?.message || String(err)); } }
         } catch (e: any) {
             setErreur(e?.message || String(e));
         } finally {

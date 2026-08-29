@@ -159,6 +159,7 @@ export const saveFacture = (req: Request, res: Response) => {
     const {
         id, numero: rawNumero, type,
         tiers_nom, tiers_ice, tiers_rc, tiers_if, tiers_adresse, tiers_tel, tiers_email,
+        tiers_type, tiers_ville,
         date_facture, date_echeance,
         total_ht, taux_tva, total_tva, total_ttc, montant_paye,
         devis_id, planning_id, commande_id,
@@ -183,6 +184,7 @@ export const saveFacture = (req: Request, res: Response) => {
       INSERT INTO factures (
         id, owner_id, numero, type,
         tiers_nom, tiers_ice, tiers_rc, tiers_if, tiers_adresse, tiers_tel, tiers_email,
+        tiers_type, tiers_ville,
         date_facture, date_echeance,
         total_ht, taux_tva, total_tva, total_ttc, montant_paye,
         devis_id, planning_id, commande_id,
@@ -191,6 +193,7 @@ export const saveFacture = (req: Request, res: Response) => {
       ) VALUES (
         ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?, ?,
+        ?, ?,
         ?, ?,
         ?, ?, ?, ?, ?,
         ?, ?, ?,
@@ -207,6 +210,8 @@ export const saveFacture = (req: Request, res: Response) => {
         tiers_adresse = excluded.tiers_adresse,
         tiers_tel = excluded.tiers_tel,
         tiers_email = excluded.tiers_email,
+        tiers_type = excluded.tiers_type,
+        tiers_ville = excluded.tiers_ville,
         date_facture = excluded.date_facture,
         date_echeance = excluded.date_echeance,
         total_ht = excluded.total_ht,
@@ -233,6 +238,7 @@ export const saveFacture = (req: Request, res: Response) => {
     db.prepare(query).run(
         id, ownerId, numero, type,
         tiers_nom, tiers_ice || null, tiers_rc || null, tiers_if || null, tiers_adresse || null, tiers_tel || null, tiers_email || null,
+        tiers_type || null, tiers_ville || null,
         date_facture, date_echeance || null,
         finalHt, finalTaux, finalTva, finalTtc, montant_paye || 0,
         devis_id || null, planning_id || null, commande_id || null,

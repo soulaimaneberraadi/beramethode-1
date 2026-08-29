@@ -1,6 +1,7 @@
 import React from 'react';
-import { AlertTriangle, Phone, MapPin, RefreshCw, Trash2, Check, X } from 'lucide-react';
+import { AlertTriangle, Phone, MapPin, RefreshCw, Trash2, Check, X, Printer } from 'lucide-react';
 import { grouperArticles, LigneModele } from './articles';
+import { chargerEtOuvrirRecu } from './recuVersement';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const jjmmaaaa = (v?: string | null) => (v ? `${v.slice(8, 10)}/${v.slice(5, 7)}/${v.slice(0, 4)}` : '—');
@@ -165,6 +166,16 @@ const FicheClientEncours: React.FC<{
                                             {/* La confirmation remplace la corbeille sur
                                                 place : deux gestes, aucune boite du
                                                 navigateur qui pourrait etre bloquee. */}
+                                            {/* Rejouer le recu : le client perd le sien,
+                                                le vendeur doit pouvoir le retirer. */}
+                                            <button
+                                                type="button"
+                                                onClick={() => { chargerEtOuvrirRecu(p.id, devise).catch((e: any) => setErreur(e?.message || String(e))); }}
+                                                title="Imprimer le recu"
+                                                className="w-6 h-6 shrink-0 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                                            >
+                                                <Printer className="w-3 h-3" />
+                                            </button>
                                             {aConfirmer === p.id ? (
                                                 <span className="inline-flex items-center gap-0.5">
                                                     <button
