@@ -138,7 +138,8 @@ export const htmlReleve = (d: DonneesReleve, devise = 'MAD', imprimer = true, o:
 <style>
   @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; color: #0f172a; font-size: 10.5px; margin: 0; }
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; color: #0f172a; font-size: 10.5px; margin: 0; padding: 10mm 9mm; background: #fff; }
+  @media print { body { padding: 0; } }
   header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
   .ident strong { font-size: 15px; display: block; }
   .ident span, .client span { display: block; font-size: 9px; color: #475569; }

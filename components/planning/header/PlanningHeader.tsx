@@ -199,7 +199,7 @@ export default function PlanningHeader({
                         <button
                             type="button"
                             onClick={onToday}
-                            className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-655 dark:text-indigo-300 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-700 dark:text-dk-accent-text dark:hover:text-indigo-200 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold text-indigo-600 dark:text-indigo-300 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-700 dark:text-dk-accent-text dark:hover:text-indigo-200 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                         >
                             {tx(lang,{fr:"Auj.",ar:"اليوم",en:"Today",es:"Hoy",pt:"Hoje",tr:"Bugün"})}
                         </button>

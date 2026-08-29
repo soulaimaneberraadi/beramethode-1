@@ -365,7 +365,7 @@ export default function SplitModal({ open, event, models, onClose, onSubmit }: P
                                                         {sizes.map(size => {
                                                             const qtyVal = remainingDistribution[color.id]?.[size] ?? 0;
                                                             return (
-                                                                <td key={size} className={`px-2 py-1.5 text-center font-mono tabular-nums ${qtyVal < 0 ? 'text-red-655 bg-red-50 dark:bg-red-900/30 font-bold' : qtyVal === 0 ? 'text-slate-300 dark:text-dk-muted' : 'text-slate-650 font-semibold'}`}>
+                                                                <td key={size} className={`px-2 py-1.5 text-center font-mono tabular-nums ${qtyVal < 0 ? 'text-red-600 bg-red-50 dark:bg-red-900/30 font-bold' : qtyVal === 0 ? 'text-slate-300 dark:text-dk-muted' : 'text-slate-650 font-semibold'}`}>
                                                                     {qtyVal}
                                                                 </td>
                                                             );

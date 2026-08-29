@@ -128,14 +128,14 @@ const ApercuReleve: React.FC<{
             retour={retour}
             onFermer={onFermer}
             barre={
-                <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
+                <div className="space-y-2">
+                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none -mx-0.5 px-0.5">
                         {LIBELLES.map(([cle, texte]) => (
                             <button
                                 key={cle}
                                 type="button"
                                 onClick={() => setOptions(o => ({ ...o, [cle]: !o[cle] }))}
-                                className={`h-8 px-2 sm:px-2.5 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-colors ${options[cle]
+                                className={`h-8 shrink-0 px-2.5 rounded-lg text-[11px] font-bold whitespace-nowrap border transition-colors ${options[cle]
                                     ? 'bg-slate-900 dark:bg-dk-accent text-white border-transparent'
                                     : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'}`}
                             >
@@ -143,10 +143,11 @@ const ApercuReleve: React.FC<{
                             </button>
                         ))}
                     </div>
+                    <div className="flex items-stretch gap-2">
                     <button
                         type="button"
                         onClick={() => imprimerHtml(html)}
-                        className="h-9 flex-1 sm:flex-none px-3 sm:px-3.5 rounded-lg text-[12px] font-black bg-slate-900 dark:bg-dk-accent text-white inline-flex items-center justify-center gap-1.5"
+                        className="h-10 flex-1 px-2 rounded-lg text-[11px] font-black bg-slate-900 dark:bg-dk-accent text-white inline-flex items-center justify-center gap-1.5 text-center leading-tight"
                     >
                         <Printer className="w-4 h-4" /> Imprimer / PDF
                     </button>
@@ -154,7 +155,7 @@ const ApercuReleve: React.FC<{
                         type="button"
                         disabled={envoi}
                         onClick={() => void envoyer()}
-                        className="h-9 flex-1 sm:flex-none px-3 sm:px-3.5 rounded-lg text-[12px] font-black bg-emerald-600 text-white inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+                        className="h-10 flex-1 px-2 rounded-lg text-[11px] font-black bg-emerald-600 text-white inline-flex items-center justify-center gap-1.5 text-center leading-tight disabled:opacity-50"
                     >
                         {envoi ? <Loader2 className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
                         {envoi ? 'Preparation...' : fichierPret ? 'Envoyer le PDF' : 'Envoyer le PDF ...'}
@@ -164,13 +165,14 @@ const ApercuReleve: React.FC<{
                             type="button"
                             onClick={envoyerAuClient}
                             title="Ouvre la conversation de ce client — message seul, sans piece jointe"
-                            className="h-9 flex-1 sm:flex-none px-3 sm:px-3.5 rounded-lg text-[12px] font-black border border-emerald-300 text-emerald-700 dark:border-emerald-800/60 dark:text-emerald-400 inline-flex items-center justify-center gap-1.5"
+                            className="h-10 flex-1 min-w-0 px-2 rounded-lg text-[11px] font-black border border-emerald-300 text-emerald-700 dark:border-emerald-800/60 dark:text-emerald-400 inline-flex items-center justify-center gap-1.5 whitespace-nowrap overflow-hidden"
                         >
                             <MessageCircle className="w-4 h-4" />
-                            {donnees.client.nom}
-                            <span className="font-bold opacity-60">· texte</span>
+                            <span className="truncate">{donnees.client.nom}</span>
+                            <span className="font-bold opacity-60 shrink-0">· texte</span>
                         </button>
                     )}
+                    </div>
                 </div>
             }
         >

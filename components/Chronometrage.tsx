@@ -1966,7 +1966,7 @@ export default function Chronometrage({
             >
                 <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
                     {/* Muted Checkbox */}
-                    <div className="w-5 h-5 rounded-md border-2 border-dashed border-slate-305 bg-transparent shrink-0" />
+                    <div className="w-5 h-5 rounded-md border-2 border-dashed border-slate-300 bg-transparent shrink-0" />
                     
                     {/* Flow Index */}
                     <span className="bg-slate-100 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted text-[10px] px-1.5 py-0.5 rounded border border-slate-200 dark:border-dk-border font-extrabold shrink-0">
@@ -2163,7 +2163,7 @@ export default function Chronometrage({
                                         >
                                             <div className="px-3 py-2 bg-slate-50 dark:bg-dk-bg/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                                                 <span>{tx(lang, { fr: "Membres d'effectifs disponibles", ar: 'أعضاء الفريق المتاحين', en: 'Available staff members', es: 'Miembros de personal disponibles', pt: 'Membros da equipe disponíveis', tr: 'Mevcut personel üyeleri' })}</span>
-                                                <span className="text-[8px] bg-slate-200/60 text-slate-555 px-1 py-0.2 rounded font-mono">
+                                                <span className="text-[8px] bg-slate-200/60 text-slate-500 px-1 py-0.2 rounded font-mono">
                                                     {workerSuggestions.length} {tx(lang, { fr: 'dispo', ar: 'متاح', en: 'avail.', es: 'disp.', pt: 'disp.', tr: 'mevcut' })}
                                                 </span>
                                             </div>
@@ -2782,7 +2782,7 @@ export default function Chronometrage({
 
         let satBadgeClass = 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500';
         let satProgressClass = fill;
-        let colorText = 'text-slate-755';
+        let colorText = 'text-slate-700';
         if (sat > tolerance) {
             satBadgeClass = 'bg-rose-100 text-rose-700 border border-rose-200';
             satProgressClass = 'bg-rose-500 animate-pulse';
@@ -3505,7 +3505,7 @@ export default function Chronometrage({
                                 });
 
                                 return (
-                                    <div key={section.id} className="bg-slate-100/50 rounded-2xl border border-slate-205 p-4 sm:p-6 mb-6">
+                                    <div key={section.id} className="bg-slate-100/50 rounded-2xl border border-slate-200 p-4 sm:p-6 mb-6">
                                         <div className="flex items-center gap-2 mb-4 flex-wrap">
                                             <span className={`px-3 py-1 rounded-lg text-xs font-black tracking-wide text-white uppercase bg-${section.theme}-600`}>
                                                 {section.name}
@@ -3554,7 +3554,7 @@ export default function Chronometrage({
                                 );
                             } else {
                                 return (
-                                    <div key={section.id} className="bg-slate-100/50 rounded-2xl border border-slate-205 p-4 sm:p-6 mb-6">
+                                    <div key={section.id} className="bg-slate-100/50 rounded-2xl border border-slate-200 p-4 sm:p-6 mb-6">
                                         <div className="flex items-center gap-2 mb-4 flex-wrap">
                                             <span className={`px-3 py-1 rounded-lg text-xs font-black tracking-wide text-white uppercase bg-${section.theme}-600`}>
                                                 {section.name}
@@ -3601,7 +3601,7 @@ export default function Chronometrage({
                                 {/* Right Column */}
                                 {(chronoLayoutSide === 'right' || chronoLayoutSide === 'both') && (
                                     <div className="flex flex-col gap-2.5 sm:gap-4">
-                                        <div className="bg-slate-100 dark:bg-dk-elevated border border-slate-205 text-slate-750 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl font-black text-center text-[10px] sm:text-xs uppercase tracking-wide">
+                                        <div className="bg-slate-100 dark:bg-dk-elevated border border-slate-200 text-slate-750 py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg sm:rounded-xl font-black text-center text-[10px] sm:text-xs uppercase tracking-wide">
                                             {tx(lang, { fr: 'CÔTÉ DROIT (POSTES PAIRS)', ar: 'الجانب الأيمن (المراكز الزوجية)', en: 'RIGHT SIDE (EVEN STATIONS)', es: 'LADO DERECHO (PUESTOS PARES)', pt: 'LADO DIREITO (POSTOS PARES)', tr: 'SAĞ TARAF (ÇİFT İSTASYONLAR)' })}
                                         </div>
                                         {rightStations.map((station, idx) => (

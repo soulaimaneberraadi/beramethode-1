@@ -1244,7 +1244,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                                                     ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 border border-emerald-250'
                                                                     : agg.totalDepotIn > 0 
                                                                         ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 border border-amber-250'
-                                                                        : 'bg-slate-50 dark:bg-dk-bg text-slate-605 border border-slate-200 dark:border-dk-border'
+                                                                        : 'bg-slate-50 dark:bg-dk-bg text-slate-600 border border-slate-200 dark:border-dk-border'
                                                             }`}>
                                                                 {agg.totalDepotIn >= agg.totalExpected && agg.totalExpected > 0 ? tx(lang,{fr:"Complet au Dépôt",ar:"مكتمل في المستودع",en:"Complete at Deposit",es:"Completo en Depósito",pt:"Completo no Depósito",tr:"Depoda Tamamlandı"}) :
                                                                  agg.totalDepotIn > 0 ? tx(lang,{fr:"Réception Partielle",ar:"استلام جزئي",en:"Partial Reception",es:"Recepción Parcial",pt:"Receção Parcial",tr:"Kısmi Tesellüm"}) : tx(lang,{fr:"En attente",ar:"قيد الانتظار",en:"Pending",es:"Pendiente",pt:"Pendente",tr:"Beklemede"})}
