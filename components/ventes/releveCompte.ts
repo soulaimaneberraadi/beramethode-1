@@ -168,13 +168,13 @@ export const htmlReleve = (d: DonneesReleve, devise = 'MAD', imprimer = true, o:
   .lettres { font-size: 9px; font-style: italic; color: #475569; margin: 4px 0 0; }
   .signatures { display: flex; justify-content: space-between; margin-top: 26px; font-size: 9px; color: #475569; }
   .signatures span { border-top: 1px solid #cbd5e1; padding-top: 3px; width: 40%; text-align: center; }
-  .articles { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; padding: 3px 0 5px; }
+  .articles { display: flex; flex-direction: column; gap: 2px; padding: 3px 0 5px; }
   .art { display: flex; align-items: center; gap: 6px; }
   .art img, .art .vide { width: 26px; height: 26px; border-radius: 4px; object-fit: cover; background: #f1f5f9; flex: none; }
   .art .txt { flex: 1; min-width: 0; }
   .art .txt strong { display: block; font-size: 9px; }
   .art .txt em { display: block; font-size: 8px; color: #64748b; font-style: normal; }
-  .art .mt { font-size: 9.5px; font-weight: 800; text-align: right; white-space: nowrap; }
+  .art .mt { font-size: 9.5px; font-weight: 800; text-align: right; white-space: nowrap; min-width: 90px; }
   .art .mt em { display: block; font-size: 7.5px; color: #94a3b8; font-style: normal; font-weight: 400; }
   tr.detail td { border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
   .pied { margin-top: 10px; font-size: 8px; color: #94a3b8; text-align: center; }
