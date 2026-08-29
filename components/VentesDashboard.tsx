@@ -13,7 +13,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    TrendingUp, PackageX, AlertTriangle, RefreshCw, Users, Wallet, Boxes, Search, Filter, Receipt, ArrowUpRight, ArrowDownRight, CalendarDays,
+    TrendingUp, PackageX, AlertTriangle, RefreshCw, Users, Wallet, Boxes, Search, Filter, Receipt, ArrowUpRight, ArrowDownRight, CalendarDays, ChevronDown,
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 
@@ -27,6 +27,102 @@ const aujourdhui = () => new Date().toISOString().slice(0, 10);
 /** Le champ date natif affiche mm/dd/yyyy des que le navigateur est en
  *  anglais, et n'ouvre l'agenda que sur la petite icone. Ici la date se lit
  *  en jj/mm/aaaa et le champ entier ouvre l'agenda. */
+type OptionListe = {
+    valeur: string; texte: string;
+    /** Ce qui distingue deux homonymes : telephone, ville. */
+    sous?: string;
+    /** Le seul chiffre qui compte au moment de choisir. */
+    droite?: string; alerte?: boolean;
+    /** Texte cherchable mais non affiche (ICE, ancien nom...). */
+    recherche?: string;
+};
+
+/** Le select natif ouvre une liste dessinee par le systeme : police,
+ *  couleurs et surlignage bleu n'ont rien a voir avec le reste. Ici la
+ *  liste est a nous, et se filtre des qu'elle devient longue. */
+const ChampListe: React.FC<{
+    label: string; value: string; onChange: (v: string) => void;
+    options: OptionListe[];
+    placeholderRecherche?: string;
+    largeur?: string;
+    rechercheToujours?: boolean;
+}> = ({ label, value, onChange, options, placeholderRecherche, largeur = 'min-w-[150px]', rechercheToujours }) => {
+    const [ouvert, setOuvert] = React.useState(false);
+    const [q, setQ] = React.useState('');
+    const boite = React.useRef<HTMLDivElement>(null);
+    React.useEffect(() => {
+        if (!ouvert) return;
+        const dehors = (e: MouseEvent) => { if (boite.current && !boite.current.contains(e.target as Node)) setOuvert(false); };
+        const echap = (e: KeyboardEvent) => { if (e.key === 'Escape') setOuvert(false); };
+        document.addEventListener('mousedown', dehors);
+        document.addEventListener('keydown', echap);
+        return () => { document.removeEventListener('mousedown', dehors); document.removeEventListener('keydown', echap); };
+    }, [ouvert]);
+    const filtrable = rechercheToujours || options.length > 8;
+    const terme = q.trim().toLowerCase();
+    const visibles = filtrable && terme
+        ? options.filter(o => `${o.texte} ${o.sous || ''} ${o.recherche || ''}`.toLowerCase().includes(terme))
+        : options;
+    const courant = options.find(o => o.valeur === value) || options[0];
+    return (
+        <div className="flex flex-col gap-1" ref={boite}>
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{label}</span>
+            <div className="relative">
+                <button
+                    type="button"
+                    onClick={() => { setOuvert(v => !v); setQ(''); }}
+                    className={`h-8 pl-2.5 pr-7 ${largeur} w-full rounded-lg border text-[11px] font-bold text-left truncate transition-colors ${value
+                        ? 'bg-slate-900 dark:bg-dk-accent text-white border-transparent'
+                        : 'bg-slate-50 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:border-slate-400'}`}
+                >
+                    {courant?.texte}
+                    <ChevronDown className={`w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 transition-transform ${ouvert ? 'rotate-180' : ''} ${value ? 'text-white/70' : 'text-slate-400'}`} />
+                </button>
+                {ouvert && (
+                    <div className="absolute z-30 mt-1 left-0 min-w-full w-max max-w-[240px] rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg overflow-hidden">
+                        {filtrable && (
+                            <input
+                                autoFocus
+                                value={q}
+                                onChange={e => setQ(e.target.value)}
+                                placeholder={placeholderRecherche}
+                                className="w-full h-8 px-2.5 text-[11px] border-b border-slate-100 dark:border-dk-border bg-transparent text-slate-700 dark:text-dk-text placeholder:text-slate-400 outline-none"
+                            />
+                        )}
+                        <div className="max-h-56 overflow-y-auto py-1">
+                            {visibles.length === 0 && (
+                                <p className="px-2.5 py-2 text-[11px] text-slate-400 dark:text-dk-muted">—</p>
+                            )}
+                            {visibles.map(o => (
+                                <button
+                                    key={o.valeur || '__tous'}
+                                    type="button"
+                                    onClick={() => { onChange(o.valeur); setOuvert(false); }}
+                                    className={`w-full text-left px-2.5 py-1.5 text-[11px] font-bold truncate transition-colors ${o.valeur === value
+                                        ? 'bg-slate-100 dark:bg-dk-elevated text-slate-900 dark:text-dk-text'
+                                        : 'text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
+                                >
+                                    <span className="flex items-center gap-2">
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block truncate">{o.texte}</span>
+                                            {o.sous && <span className="block truncate text-[10px] font-medium text-slate-400 dark:text-dk-muted">{o.sous}</span>}
+                                        </span>
+                                        {o.droite && (
+                                            <span className={`shrink-0 text-[10px] font-black tabular-nums ${o.alerte ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-dk-muted'}`}>
+                                                {o.droite}
+                                            </span>
+                                        )}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 const ChampDate: React.FC<{
     label: string; value: string; onChange: (v: string) => void;
     min?: string; max?: string; vide: string;
@@ -451,31 +547,41 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                         max={aujourdhui()}
                         onChange={v => { setAu(v); if (v && du && du > v) setDu(v); }}
                     />
-                    <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{T.parCanal}</span>
-                        <select value={canal} onChange={e => setCanal(e.target.value)} className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
-                            <option value="">{T.tousCanaux}</option>
-                            <option value="MAGASIN">MAGASIN</option>
-                            <option value="ONLINE">ONLINE</option>
-                            <option value="ATELIER">ATELIER</option>
-                        </select>
-                    </label>
-                    <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{T.parSegment}</span>
-                        <select value={segment} onChange={e => setSegment(e.target.value)} className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
-                            <option value="">{T.tousSegments}</option>
-                            <option value="BOUTIQUE">BOUTIQUE</option>
-                            <option value="DETAIL">DETAIL</option>
-                            <option value="GROS">GROS</option>
-                        </select>
-                    </label>
-                    <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{T.clients}</span>
-                        <select value={clientId} onChange={e => setClientId(e.target.value)} className="h-8 px-2 max-w-[180px] rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
-                            <option value="">{T.tousClients}</option>
-                            {annuaire.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
-                        </select>
-                    </label>
+                    <ChampListe
+                        label={T.parCanal}
+                        value={canal}
+                        onChange={setCanal}
+                        options={[{ valeur: '', texte: T.tousCanaux }, { valeur: 'MAGASIN', texte: 'MAGASIN' }, { valeur: 'ONLINE', texte: 'ONLINE' }, { valeur: 'ATELIER', texte: 'ATELIER' }]}
+                    />
+                    <ChampListe
+                        label={T.parSegment}
+                        value={segment}
+                        onChange={setSegment}
+                        options={[{ valeur: '', texte: T.tousSegments }, { valeur: 'BOUTIQUE', texte: 'BOUTIQUE' }, { valeur: 'DETAIL', texte: 'DETAIL' }, { valeur: 'GROS', texte: 'GROS' }]}
+                    />
+                    <ChampListe
+                        label={T.clients}
+                        value={clientId}
+                        onChange={setClientId}
+                        largeur="min-w-[190px] max-w-[220px]"
+                        placeholderRecherche={T.chercher}
+                        rechercheToujours
+                        options={[
+                            { valeur: '', texte: T.tousClients },
+                            // Trois clients portent le meme prenom : ce qui les
+                            // separe, c'est le telephone et ce qu'ils doivent.
+                            ...[...annuaire]
+                                .sort((a, b) => b.encours - a.encours || b.ca - a.ca)
+                                .map(c => ({
+                                    valeur: c.id,
+                                    texte: c.nom,
+                                    sous: [c.tel, c.ville].filter(Boolean).join(' · ') || undefined,
+                                    droite: c.encours > 0 ? `${nf(c.encours)} ${currency}` : (c.ca > 0 ? `${nf(c.ca)} ${currency}` : undefined),
+                                    alerte: c.encours > 0,
+                                    recherche: c.type || undefined,
+                                })),
+                        ]}
+                    />
                     {filtresActifs > 0 && (
                         <button
                             onClick={() => { setDu(''); setAu(''); setCanal(''); setSegment(''); setClientId(''); }}
