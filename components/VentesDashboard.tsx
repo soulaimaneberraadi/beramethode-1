@@ -201,6 +201,30 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         retard: tx(lang, { fr: 'facture(s) en retard', ar: 'فاتورة متأخّرة', en: 'overdue invoice(s)', es: 'factura(s) vencida(s)', pt: 'fatura(s) vencida(s)', tr: 'gecikmis fatura' }),
     };
 
+    // La courbe doit couvrir toute la periode, pas seulement les jours
+    // ou il y a eu une vente : 4 barres sur 30 jours ne sont pas une
+    // tendance, ce sont 4 blocs. On remplit les trous a zero.
+    const serieComplete = useMemo(() => {
+        type Pt = { jour: string; ca: number; pieces: number; tickets: number; vide: boolean };
+        if (!data) return [] as Pt[];
+        const iso = (d: Date) => d.toISOString().slice(0, 10);
+        const debut = du || data.depuis || data.serie[0]?.jour;
+        const fin = au || iso(new Date());
+        if (!debut) return [] as Pt[];
+        const parJour = new Map(data.serie.map(x => [x.jour, x]));
+        const out: Pt[] = [];
+        const curseur = new Date(debut + 'T00:00:00');
+        const stop = new Date(fin + 'T00:00:00');
+        let garde = 0;
+        while (curseur <= stop && garde++ < 400) {
+            const k = iso(curseur);
+            const v = parJour.get(k);
+            out.push({ jour: k, ca: v?.ca || 0, pieces: v?.pieces || 0, tickets: v?.tickets || 0, vide: !v });
+            curseur.setDate(curseur.getDate() + 1);
+        }
+        return out.length ? out : data.serie.map(x => ({ ...x, vide: false }));
+    }, [data, du, au]);
+
     const modelesFiltres = useMemo(() => {
         if (!data) return [];
         const q = recherche.trim().toLowerCase();
@@ -423,7 +447,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
 
             {data && (
                 <>
-                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
                         <Tuile titre={T.ca} valeur={`${nf(data.kpis.ca)} ${currency}`} icone={<TrendingUp className="w-3.5 h-3.5" />}
                             delta={<Delta actuel={data.kpis.ca} avant={data.precedent.ca} />} />
                         <Tuile titre={T.pieces} valeur={nf(data.kpis.pieces)} icone={<Boxes className="w-3.5 h-3.5" />}
@@ -447,31 +471,35 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                             }
                         >
                             <div className="p-3.5">
-                                {data.serie.length === 0 ? (
+                                {serieComplete.length === 0 ? (
                                     <p className="text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</p>
                                 ) : (
                                     <>
-                                        <div className="flex items-end gap-[3px] h-24">
-                                            {data.serie.map(j => {
-                                                const max = Math.max(...data.serie.map(x => x.ca), 1);
-                                                const h = Math.max(3, (j.ca / max) * 100);
-                                                return (
-                                                    <div
-                                                        key={j.jour}
-                                                        title={`${j.jour} · ${nf(j.ca)} ${currency} · ${nf(j.pieces)} ${T.piecesCourt}`}
-                                                        className="flex-1 min-w-[3px] rounded-t bg-slate-800 dark:bg-dk-accent hover:bg-slate-600 transition-colors"
-                                                        style={{ height: `${h}%` }}
-                                                    />
-                                                );
-                                            })}
+                                        <div className="flex items-end gap-[2px] h-24">
+                                            {(() => {
+                                                const max = Math.max(...serieComplete.map(x => x.ca), 1);
+                                                return serieComplete.map(p => {
+                                                    const h = p.vide ? 2 : Math.max(4, (p.ca / max) * 100);
+                                                    return (
+                                                        <div
+                                                            key={p.jour}
+                                                            title={p.vide ? `${p.jour} · —` : `${p.jour} · ${nf(p.ca)} ${currency} · ${nf(p.pieces)} ${T.piecesCourt}`}
+                                                            className={`flex-1 min-w-[2px] max-w-[22px] rounded-t transition-colors ${p.vide
+                                                                ? 'bg-slate-100 dark:bg-dk-elevated'
+                                                                : 'bg-slate-800 dark:bg-dk-accent hover:bg-slate-600'}`}
+                                                            style={{ height: `${h}%` }}
+                                                        />
+                                                    );
+                                                });
+                                            })()}
                                         </div>
                                         <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-400 dark:text-dk-muted tabular-nums">
-                                            <span>{data.serie[0]?.jour}</span>
+                                            <span>{serieComplete[0]?.jour}</span>
                                             <span>{T.meilleurJour} : {(() => {
                                                 const best = [...data.serie].sort((a, b) => b.ca - a.ca)[0];
                                                 return best ? `${best.jour} · ${nf(best.ca)} ${currency}` : '—';
                                             })()}</span>
-                                            <span>{data.serie[data.serie.length - 1]?.jour}</span>
+                                            <span>{serieComplete[serieComplete.length - 1]?.jour}</span>
                                         </div>
                                     </>
                                 )}
@@ -491,7 +519,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                                             <div key={n} className="flex-1 flex flex-col items-center gap-1 justify-end h-full">
                                                 <div
                                                     title={j ? `${nf(j.ca)} ${currency}` : '—'}
-                                                    className={`w-full rounded-t ${j ? 'bg-slate-800 dark:bg-dk-accent' : 'bg-slate-100 dark:bg-dk-elevated'}`}
+                                                    className={`w-full max-w-[26px] rounded-t ${j ? 'bg-slate-800 dark:bg-dk-accent' : 'bg-slate-100 dark:bg-dk-elevated'}`}
                                                     style={{ height: `${h}%` }}
                                                 />
                                             </div>
