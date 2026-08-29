@@ -459,7 +459,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                     title={T.actualiser}
                     className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-400 hover:text-slate-900 dark:hover:text-dk-text"
                 >
-                    <RefreshCw className={`w-3.5 h-3.5 ${chargement ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-3.5 h-3.5 ${chargement ? 'opacity-40' : ''}`} />
                 </button>
             </div>
 

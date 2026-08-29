@@ -174,7 +174,7 @@ const FicheClientEncours: React.FC<{
                     {(fiche?.tel || client.tel) && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{fiche?.tel || client.tel}</span>}
                     {(fiche?.ville || client.ville) && <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{fiche?.ville || client.ville}</span>}
                     <button type="button" onClick={() => void charger()} className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-900">
-                        <RefreshCw className={`w-3 h-3 ${chargement ? 'animate-spin' : ''}`} /> Actualiser
+                        <RefreshCw className={`w-3 h-3 ${chargement ? 'opacity-40' : ''}`} /> Actualiser
                     </button>
                     {/* Le carnet de credit, imprime : c'est ce qu'on signe a deux. */}
                     <button type="button" onClick={() => void imprimerReleve()} className="inline-flex items-center gap-1 font-bold text-slate-500 hover:text-slate-900">

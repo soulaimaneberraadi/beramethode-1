@@ -212,7 +212,7 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                 onClick={() => void charger()}
                 className="w-9 h-9 sm:w-8 sm:h-8 shrink-0 flex items-center justify-center rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-400 hover:text-slate-900"
             >
-                <RefreshCw className={`w-3.5 h-3.5 ${chargement ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${chargement ? 'opacity-40' : ''}`} />
             </button>
         </div>
     );
