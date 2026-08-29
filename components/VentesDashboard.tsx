@@ -13,7 +13,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    TrendingUp, PackageX, AlertTriangle, RefreshCw, Users, Wallet, Boxes, Search, Filter, Receipt, ArrowUpRight, ArrowDownRight, CalendarDays, ChevronDown,
+    TrendingUp, PackageX, AlertTriangle, RefreshCw, Users, Wallet, Boxes, Search, Filter, Receipt, ArrowUpRight, ArrowDownRight, CalendarDays, ChevronDown, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 
@@ -46,7 +46,8 @@ const ChampListe: React.FC<{
     placeholderRecherche?: string;
     largeur?: string;
     rechercheToujours?: boolean;
-}> = ({ label, value, onChange, options, placeholderRecherche, largeur = 'min-w-[150px]', rechercheToujours }) => {
+    classe?: string;
+}> = ({ label, value, onChange, options, placeholderRecherche, largeur = 'sm:min-w-[150px]', rechercheToujours, classe = '' }) => {
     const [ouvert, setOuvert] = React.useState(false);
     const [q, setQ] = React.useState('');
     const boite = React.useRef<HTMLDivElement>(null);
@@ -65,7 +66,7 @@ const ChampListe: React.FC<{
         : options;
     const courant = options.find(o => o.valeur === value) || options[0];
     return (
-        <div className="flex flex-col gap-1" ref={boite}>
+        <div className={`flex flex-col gap-1 min-w-0 ${classe}`} ref={boite}>
             <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{label}</span>
             <div className="relative">
                 <button
@@ -79,17 +80,17 @@ const ChampListe: React.FC<{
                     <ChevronDown className={`w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 transition-transform ${ouvert ? 'rotate-180' : ''} ${value ? 'text-white/70' : 'text-slate-400'}`} />
                 </button>
                 {ouvert && (
-                    <div className="absolute z-30 mt-1 left-0 min-w-full w-max max-w-[240px] rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg overflow-hidden">
+                    <div className="absolute z-30 mt-1 left-0 right-0 sm:right-auto sm:min-w-full sm:w-max sm:max-w-[240px] rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg overflow-hidden">
                         {filtrable && (
                             <input
                                 autoFocus
                                 value={q}
                                 onChange={e => setQ(e.target.value)}
                                 placeholder={placeholderRecherche}
-                                className="w-full h-8 px-2.5 text-[11px] border-b border-slate-100 dark:border-dk-border bg-transparent text-slate-700 dark:text-dk-text placeholder:text-slate-400 outline-none"
+                                className="w-full h-10 sm:h-8 px-2.5 text-[11px] border-b border-slate-100 dark:border-dk-border bg-transparent text-slate-700 dark:text-dk-text placeholder:text-slate-400 outline-none"
                             />
                         )}
-                        <div className="max-h-56 overflow-y-auto py-1">
+                        <div className="max-h-[45vh] sm:max-h-56 overflow-y-auto overscroll-contain py-1">
                             {visibles.length === 0 && (
                                 <p className="px-2.5 py-2 text-[11px] text-slate-400 dark:text-dk-muted">—</p>
                             )}
@@ -98,7 +99,7 @@ const ChampListe: React.FC<{
                                     key={o.valeur || '__tous'}
                                     type="button"
                                     onClick={() => { onChange(o.valeur); setOuvert(false); }}
-                                    className={`w-full text-left px-2.5 py-1.5 text-[11px] font-bold truncate transition-colors ${o.valeur === value
+                                    className={`w-full text-left px-2.5 py-2.5 sm:py-1.5 text-[11px] font-bold truncate transition-colors ${o.valeur === value
                                         ? 'bg-slate-100 dark:bg-dk-elevated text-slate-900 dark:text-dk-text'
                                         : 'text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                                 >
@@ -123,41 +124,125 @@ const ChampListe: React.FC<{
     );
 };
 
+/** L'agenda natif est dessine par le navigateur : mois en anglais, semaine
+ *  qui commence dimanche, boutons bleus. On dessine le notre — semaine du
+ *  lundi, bornes respectees, et des cibles qu'un doigt atteint. */
+const Agenda: React.FC<{
+    value: string; min?: string; max?: string;
+    onPick: (v: string) => void; labels: { mois: string[]; jours: string[]; aujourdhui: string; effacer: string };
+}> = ({ value, min, max, onPick, labels }) => {
+    const base = value || aujourdhui();
+    const [curseur, setCurseur] = React.useState(() => new Date(base.slice(0, 7) + '-01T00:00:00'));
+    const annee = curseur.getFullYear();
+    const mois = curseur.getMonth();
+    const premier = new Date(annee, mois, 1);
+    // getDay() met dimanche a 0 : ici la semaine commence lundi.
+    const decalage = (premier.getDay() + 6) % 7;
+    const nbJours = new Date(annee, mois + 1, 0).getDate();
+    const iso = (d: number) => `${annee}-${String(mois + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const bloque = (k: string) => Boolean((min && k < min) || (max && k > max));
+    const cases: Array<number | null> = [
+        ...Array(decalage).fill(null),
+        ...Array.from({ length: nbJours }, (_, n) => n + 1),
+    ];
+    return (
+        <div className="p-2.5 w-[248px]">
+            <div className="flex items-center justify-between mb-2">
+                <button type="button" onClick={() => setCurseur(new Date(annee, mois - 1, 1))}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-dk-elevated">
+                    <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-[11px] font-black uppercase tracking-[0.06em] text-slate-700 dark:text-dk-text">
+                    {labels.mois[mois]} {annee}
+                </span>
+                <button type="button" onClick={() => setCurseur(new Date(annee, mois + 1, 1))}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-dk-elevated">
+                    <ChevronRight className="w-4 h-4" />
+                </button>
+            </div>
+            <div className="grid grid-cols-7 gap-0.5 mb-1">
+                {labels.jours.map(d => (
+                    <span key={d} className="h-5 flex items-center justify-center text-[9px] font-black text-slate-400 dark:text-dk-muted">{d}</span>
+                ))}
+            </div>
+            <div className="grid grid-cols-7 gap-0.5">
+                {cases.map((n, idx) => {
+                    if (n == null) return <span key={`vide-${idx}`} />;
+                    const k = iso(n);
+                    const off = bloque(k);
+                    const choisi = k === value;
+                    const cejour = k === aujourdhui();
+                    return (
+                        <button
+                            key={k}
+                            type="button"
+                            disabled={off}
+                            onClick={() => onPick(k)}
+                            className={`h-8 rounded-lg text-[11px] font-bold tabular-nums transition-colors ${choisi
+                                ? 'bg-slate-900 dark:bg-dk-accent text-white'
+                                : off
+                                    ? 'text-slate-200 dark:text-dk-border cursor-not-allowed'
+                                    : cejour
+                                        ? 'text-slate-900 dark:text-dk-text ring-1 ring-slate-300 dark:ring-dk-border hover:bg-slate-100 dark:hover:bg-dk-elevated'
+                                        : 'text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
+                        >
+                            {n}
+                        </button>
+                    );
+                })}
+            </div>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-dk-border">
+                <button type="button" onClick={() => onPick('')}
+                    className="text-[10px] font-bold text-slate-400 dark:text-dk-muted hover:text-rose-600">{labels.effacer}</button>
+                <button type="button" onClick={() => { if (!bloque(aujourdhui())) onPick(aujourdhui()); }}
+                    className="text-[10px] font-bold text-slate-600 dark:text-dk-text-soft hover:text-slate-900">{labels.aujourdhui}</button>
+            </div>
+        </div>
+    );
+};
+
 const ChampDate: React.FC<{
     label: string; value: string; onChange: (v: string) => void;
-    min?: string; max?: string; vide: string;
-}> = ({ label, value, onChange, min, max, vide }) => {
-    const ref = React.useRef<HTMLInputElement>(null);
+    min?: string; max?: string; vide: string; classe?: string;
+    labels: { mois: string[]; jours: string[]; aujourdhui: string; effacer: string };
+}> = ({ label, value, onChange, min, max, vide, classe = '', labels }) => {
+    const [ouvert, setOuvert] = React.useState(false);
+    const boite = React.useRef<HTMLDivElement>(null);
+    React.useEffect(() => {
+        if (!ouvert) return;
+        const dehors = (e: MouseEvent) => { if (boite.current && !boite.current.contains(e.target as Node)) setOuvert(false); };
+        const echap = (e: KeyboardEvent) => { if (e.key === 'Escape') setOuvert(false); };
+        document.addEventListener('mousedown', dehors);
+        document.addEventListener('keydown', echap);
+        return () => { document.removeEventListener('mousedown', dehors); document.removeEventListener('keydown', echap); };
+    }, [ouvert]);
     const lisible = value ? value.slice(8, 10) + '/' + value.slice(5, 7) + '/' + value.slice(0, 4) : vide;
-    const ouvrir = () => {
-        const el = ref.current;
-        if (!el) return;
-        if (typeof (el as any).showPicker === 'function') { try { (el as any).showPicker(); return; } catch { /* fallback */ } }
-        el.focus();
-    };
     return (
-        <div className="flex flex-col gap-1">
+        <div className={`flex flex-col gap-1 min-w-0 ${classe}`} ref={boite}>
             <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{label}</span>
-            <button
-                type="button"
-                onClick={ouvrir}
-                className={`relative h-8 pl-7 pr-2 min-w-[128px] rounded-lg bg-slate-50 dark:bg-dk-elevated border text-[11px] font-bold text-left tabular-nums transition-colors ${value
-                    ? 'border-slate-300 dark:border-dk-border text-slate-700 dark:text-dk-text'
-                    : 'border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted'} hover:border-slate-400`}
-            >
-                <CalendarDays className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-                {lisible}
-                <input
-                    ref={ref}
-                    type="date"
-                    value={value}
-                    min={min}
-                    max={max}
-                    onChange={e => onChange(e.target.value)}
-                    className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
-                    tabIndex={-1}
-                />
-            </button>
+            <div className="relative">
+                <button
+                    type="button"
+                    onClick={() => setOuvert(v => !v)}
+                    className={`relative w-full h-9 sm:h-8 pl-7 pr-2 sm:min-w-[128px] rounded-lg border text-[11px] font-bold text-left tabular-nums transition-colors ${value
+                        ? 'bg-slate-900 dark:bg-dk-accent text-white border-transparent'
+                        : 'bg-slate-50 dark:bg-dk-elevated border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted'} hover:border-slate-400`}
+                >
+                    <CalendarDays className={`w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 ${value ? 'text-white/70' : 'text-slate-400'}`} />
+                    {lisible}
+                </button>
+                {ouvert && (
+                    <div className="absolute z-30 mt-1 left-0 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg">
+                        <Agenda
+                            value={value}
+                            min={min}
+                            max={max}
+                            labels={labels}
+                            onPick={v => { onChange(v); setOuvert(false); }}
+                        />
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
@@ -338,9 +423,15 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         parJourCourt: tx(lang, { fr: '/jour', ar: '/يوم', en: '/day', es: '/dia', pt: '/dia', tr: '/gun' }),
         aucunDefaut: tx(lang, { fr: 'Aucun defaut releve.', ar: 'ما تسجّل حتى عيب.', en: 'No defect recorded.', es: 'Ningun defecto.', pt: 'Nenhum defeito.', tr: 'Hata kaydi yok.' }),
         doit: tx(lang, { fr: 'doit', ar: 'عليه', en: 'owes', es: 'debe', pt: 'deve', tr: 'borclu' }),
+        moisNoms: (lang === "ar"
+            ? ["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"]
+            : ["Janvier","Fevrier","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"]),
+        aujourdhui: tx(lang, { fr: "Aujourd hui", ar: "اليوم", en: "Today", es: "Hoy", pt: "Hoje", tr: "Bugun" }),
         choisir: tx(lang, { fr: 'jj/mm/aaaa', ar: 'يوم/شهر/عام', en: 'dd/mm/yyyy', es: 'dd/mm/aaaa', pt: 'dd/mm/aaaa', tr: 'gg/aa/yyyy' }),
         retard: tx(lang, { fr: 'facture(s) en retard', ar: 'فاتورة متأخّرة', en: 'overdue invoice(s)', es: 'factura(s) vencida(s)', pt: 'fatura(s) vencida(s)', tr: 'gecikmis fatura' }),
     };
+
+    const agendaLabels = { mois: T.moisNoms, jours: T.joursSemaine, aujourdhui: T.aujourdhui, effacer: T.effacer };
 
     // La courbe doit couvrir toute la periode, pas seulement les jours
     // ou il y a eu une vente : 4 barres sur 30 jours ne sont pas une
@@ -508,7 +599,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                     {filtresActifs > 0 && <span className="px-1.5 rounded-full bg-white/20 tabular-nums">{filtresActifs}</span>}
                 </button>
 
-                <div className="relative flex-1 min-w-[160px] max-w-[260px]">
+                <div className="relative order-last sm:order-none w-full sm:w-auto sm:flex-1 sm:min-w-[160px] sm:max-w-[260px]">
                     <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                         value={recherche}
@@ -528,7 +619,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
             </div>
 
             {filtresOuverts && (
-                <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface p-3 flex flex-wrap items-end gap-3">
+                <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface p-3 grid grid-cols-2 gap-2.5 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
                     {/* Choisir DU tout seul ne veut rien dire : la periode se
                         ferme d'elle-meme a aujourd'hui, et AU ne peut jamais
                         remonter avant DU. */}
@@ -536,6 +627,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                         label={T.du}
                         value={du}
                         vide={T.choisir}
+                        labels={agendaLabels}
                         max={au || aujourdhui()}
                         onChange={v => { setDu(v); if (v && (!au || au < v)) setAu(aujourdhui() >= v ? aujourdhui() : v); }}
                     />
@@ -543,6 +635,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                         label={T.au}
                         value={au}
                         vide={T.choisir}
+                        labels={agendaLabels}
                         min={du || undefined}
                         max={aujourdhui()}
                         onChange={v => { setAu(v); if (v && du && du > v) setDu(v); }}
@@ -563,7 +656,8 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                         label={T.clients}
                         value={clientId}
                         onChange={setClientId}
-                        largeur="min-w-[190px] max-w-[220px]"
+                        largeur="sm:min-w-[190px] sm:max-w-[220px]"
+                        classe="col-span-2 sm:col-span-1"
                         placeholderRecherche={T.chercher}
                         rechercheToujours
                         options={[
@@ -585,7 +679,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                     {filtresActifs > 0 && (
                         <button
                             onClick={() => { setDu(''); setAu(''); setCanal(''); setSegment(''); setClientId(''); }}
-                            className="h-8 px-3 rounded-lg text-[11px] font-bold text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50"
+                            className="col-span-2 sm:col-span-1 h-9 sm:h-8 px-3 rounded-lg text-[11px] font-bold text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50"
                         >
                             {T.effacer}
                         </button>
