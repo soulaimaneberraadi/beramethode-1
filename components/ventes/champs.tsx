@@ -1,5 +1,49 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+
+/**
+ * Un panneau ouvert en absolute est coupe par le premier parent qui defile —
+ * l'agenda s'arretait au 16 aout, la moitie du mois hors du cadre. Il part
+ * donc en portail, en position fixed calculee sur le bouton, et bascule
+ * au-dessus quand le bas de l'ecran manque.
+ */
+const Flottant: React.FC<{ ancre: React.RefObject<HTMLElement>; largeurAncre?: boolean; children: React.ReactNode }> = ({ ancre, largeurAncre, children }) => {
+    const [style, setStyle] = React.useState<React.CSSProperties | null>(null);
+    const boite = React.useRef<HTMLDivElement>(null);
+
+    React.useLayoutEffect(() => {
+        const placer = () => {
+            const a = ancre.current?.getBoundingClientRect();
+            if (!a) return;
+            const h = boite.current?.offsetHeight || 300;
+            const dessous = window.innerHeight - a.bottom;
+            const versLeHaut = dessous < h + 12 && a.top > dessous;
+            const largeur = largeurAncre ? a.width : undefined;
+            const gauche = Math.max(8, Math.min(a.left, window.innerWidth - (largeur || 260) - 8));
+            setStyle({
+                position: 'fixed',
+                left: gauche,
+                width: largeur,
+                minWidth: largeurAncre ? undefined : a.width,
+                ...(versLeHaut ? { bottom: window.innerHeight - a.top + 4 } : { top: a.bottom + 4 }),
+                maxHeight: (versLeHaut ? a.top : dessous) - 12,
+                zIndex: 200,
+            });
+        };
+        placer();
+        window.addEventListener('resize', placer);
+        window.addEventListener('scroll', placer, true);
+        return () => { window.removeEventListener('resize', placer); window.removeEventListener('scroll', placer, true); };
+    }, [ancre, largeurAncre]);
+
+    return createPortal(
+        <div ref={boite} style={style || { position: 'fixed', opacity: 0 }} className="overflow-y-auto overscroll-contain rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-xl">
+            {children}
+        </div>,
+        document.body,
+    );
+};
 
 /**
  * Les champs de saisie de la page Ventes, sortis du tableau de bord pour que
@@ -38,9 +82,16 @@ export const ChampListe: React.FC<{
     const [ouvert, setOuvert] = React.useState(false);
     const [q, setQ] = React.useState('');
     const boite = React.useRef<HTMLDivElement>(null);
+    const ancre = React.useRef<HTMLButtonElement>(null);
     React.useEffect(() => {
         if (!ouvert) return;
-        const dehors = (e: MouseEvent) => { if (boite.current && !boite.current.contains(e.target as Node)) setOuvert(false); };
+        const dehors = (e: MouseEvent) => {
+            const cible = e.target as Node;
+            if (boite.current?.contains(cible)) return;
+            // Le panneau vit dans un portail : il n est pas un enfant du champ.
+            if ((cible as HTMLElement)?.closest?.('[data-flottant]')) return;
+            setOuvert(false);
+        };
         const echap = (e: KeyboardEvent) => { if (e.key === 'Escape') setOuvert(false); };
         document.addEventListener('mousedown', dehors);
         document.addEventListener('keydown', echap);
@@ -57,6 +108,7 @@ export const ChampListe: React.FC<{
             <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{label}</span>
             <div className="relative">
                 <button
+                    ref={ancre}
                     type="button"
                     onClick={() => { setOuvert(v => !v); setQ(''); }}
                     className={`h-8 pl-2.5 pr-7 ${largeur} w-full rounded-lg border text-[11px] font-bold text-left truncate transition-colors ${value && !neutre
@@ -67,7 +119,8 @@ export const ChampListe: React.FC<{
                     <ChevronDown className={`w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 transition-transform ${ouvert ? 'rotate-180' : ''} ${value && !neutre ? 'text-white/70' : 'text-slate-400'}`} />
                 </button>
                 {ouvert && (
-                    <div className="absolute z-30 mt-1 left-0 right-0 sm:right-auto sm:min-w-full sm:w-max sm:max-w-[240px] rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg overflow-hidden">
+                    <Flottant ancre={ancre}>
+                    <div data-flottant className="min-w-[160px]">
                         {filtrable && (
                             <input
                                 autoFocus
@@ -77,7 +130,7 @@ export const ChampListe: React.FC<{
                                 className="w-full h-10 sm:h-8 px-2.5 text-[11px] border-b border-slate-100 dark:border-dk-border bg-transparent text-slate-700 dark:text-dk-text placeholder:text-slate-400 outline-none"
                             />
                         )}
-                        <div className="max-h-[45vh] sm:max-h-56 overflow-y-auto overscroll-contain py-1">
+                        <div className="py-1">
                             {visibles.length === 0 && (
                                 <p className="px-2.5 py-2 text-[11px] text-slate-400 dark:text-dk-muted">—</p>
                             )}
@@ -105,6 +158,7 @@ export const ChampListe: React.FC<{
                             ))}
                         </div>
                     </div>
+                    </Flottant>
                 )}
             </div>
         </div>
@@ -195,9 +249,15 @@ export const ChampDate: React.FC<{
 }> = ({ label, value, onChange, min, max, vide, classe = '', labels, neutre }) => {
     const [ouvert, setOuvert] = React.useState(false);
     const boite = React.useRef<HTMLDivElement>(null);
+    const ancre = React.useRef<HTMLButtonElement>(null);
     React.useEffect(() => {
         if (!ouvert) return;
-        const dehors = (e: MouseEvent) => { if (boite.current && !boite.current.contains(e.target as Node)) setOuvert(false); };
+        const dehors = (e: MouseEvent) => {
+            const cible = e.target as Node;
+            if (boite.current?.contains(cible)) return;
+            if ((cible as HTMLElement)?.closest?.('[data-flottant]')) return;
+            setOuvert(false);
+        };
         const echap = (e: KeyboardEvent) => { if (e.key === 'Escape') setOuvert(false); };
         document.addEventListener('mousedown', dehors);
         document.addEventListener('keydown', echap);
@@ -209,6 +269,7 @@ export const ChampDate: React.FC<{
             <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{label}</span>
             <div className="relative">
                 <button
+                    ref={ancre}
                     type="button"
                     onClick={() => setOuvert(v => !v)}
                     className={`relative w-full h-9 sm:h-8 pl-7 pr-2 sm:min-w-[128px] rounded-lg border text-[11px] font-bold text-left tabular-nums transition-colors ${value && !neutre
@@ -219,7 +280,8 @@ export const ChampDate: React.FC<{
                     {lisible}
                 </button>
                 {ouvert && (
-                    <div className="absolute z-30 mt-1 left-0 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg">
+                    <Flottant ancre={ancre}>
+                    <div data-flottant>
                         <Agenda
                             value={value}
                             min={min}
@@ -228,6 +290,7 @@ export const ChampDate: React.FC<{
                             onPick={v => { onChange(v); setOuvert(false); }}
                         />
                     </div>
+                    </Flottant>
                 )}
             </div>
         </div>
