@@ -2,6 +2,7 @@ import React from 'react';
 import { Printer, MessageCircle, Loader2 } from 'lucide-react';
 import { enPdf, partagerOuTelecharger } from './partagerDocument';
 import PanneauDetail from './PanneauDetail';
+import CadreDocument from './CadreDocument';
 import { imprimerHtml } from './recuVersement';
 import { htmlReleve, OPTIONS_PAR_DEFAUT, type DonneesReleve, type OptionsReleve } from './releveCompte';
 import { versInternational, messageRelance } from './ContactClient';
@@ -85,7 +86,7 @@ const ApercuReleve: React.FC<{
                                 key={cle}
                                 type="button"
                                 onClick={() => setOptions(o => ({ ...o, [cle]: !o[cle] }))}
-                                className={`h-8 px-2.5 rounded-lg text-[11px] font-bold border transition-colors ${options[cle]
+                                className={`h-8 px-2 sm:px-2.5 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-colors ${options[cle]
                                     ? 'bg-slate-900 dark:bg-dk-accent text-white border-transparent'
                                     : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'}`}
                             >
@@ -96,7 +97,7 @@ const ApercuReleve: React.FC<{
                     <button
                         type="button"
                         onClick={() => imprimerHtml(html)}
-                        className="h-9 px-3.5 rounded-lg text-[12px] font-black bg-slate-900 dark:bg-dk-accent text-white inline-flex items-center gap-1.5"
+                        className="h-9 flex-1 sm:flex-none px-3 sm:px-3.5 rounded-lg text-[12px] font-black bg-slate-900 dark:bg-dk-accent text-white inline-flex items-center justify-center gap-1.5"
                     >
                         <Printer className="w-4 h-4" /> Imprimer / PDF
                     </button>
@@ -104,7 +105,7 @@ const ApercuReleve: React.FC<{
                         type="button"
                         disabled={envoi}
                         onClick={() => void envoyer()}
-                        className="h-9 px-3.5 rounded-lg text-[12px] font-black bg-emerald-600 text-white inline-flex items-center gap-1.5 disabled:opacity-50"
+                        className="h-9 flex-1 sm:flex-none px-3 sm:px-3.5 rounded-lg text-[12px] font-black bg-emerald-600 text-white inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
                         {envoi ? <Loader2 className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
                         {envoi ? 'Preparation...' : 'Envoyer le PDF'}
@@ -117,8 +118,8 @@ const ApercuReleve: React.FC<{
                     {avis}
                 </p>
             )}
-            <div className="rounded-xl border border-slate-200 dark:border-dk-border bg-white overflow-hidden mx-auto max-w-[820px]">
-                <iframe title="Situation de compte" srcDoc={html} className="w-full h-[72vh] border-0 bg-white" />
+            <div className="rounded-xl border border-slate-200 dark:border-dk-border bg-white overflow-hidden mx-auto w-full max-w-[820px]">
+                <CadreDocument html={html} titre="Situation de compte" />
             </div>
         </PanneauDetail>
     );

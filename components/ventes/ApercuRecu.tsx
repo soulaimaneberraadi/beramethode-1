@@ -3,6 +3,7 @@ import { Printer, AlertTriangle, MessageCircle, Loader2 } from 'lucide-react';
 import { enPdf, partagerOuTelecharger } from './partagerDocument';
 import { versInternational } from './ContactClient';
 import PanneauDetail from './PanneauDetail';
+import CadreDocument from './CadreDocument';
 import { chargerRecu, htmlRecu, imprimerHtml, type DonneesRecu } from './recuVersement';
 
 /**
@@ -70,7 +71,7 @@ const ApercuRecu: React.FC<{ paiementId: string; devise: string; onFermer: () =>
                     type="button"
                     disabled={!html}
                     onClick={() => { try { imprimerHtml(html!); } catch (e: any) { setErreur(e?.message || String(e)); } }}
-                    className="h-9 px-3.5 rounded-lg text-[12px] font-black bg-slate-900 dark:bg-dk-accent text-white inline-flex items-center gap-1.5 disabled:opacity-40"
+                    className="h-9 flex-1 sm:flex-none px-3 sm:px-3.5 rounded-lg text-[12px] font-black bg-slate-900 dark:bg-dk-accent text-white inline-flex items-center justify-center gap-1.5 disabled:opacity-40"
                 >
                     <Printer className="w-4 h-4" /> Imprimer
                 </button>
@@ -78,7 +79,7 @@ const ApercuRecu: React.FC<{ paiementId: string; devise: string; onFermer: () =>
                     type="button"
                     disabled={!html || envoi}
                     onClick={() => void envoyer()}
-                    className="h-9 px-3.5 rounded-lg text-[12px] font-black bg-emerald-600 text-white inline-flex items-center gap-1.5 disabled:opacity-50"
+                    className="h-9 flex-1 sm:flex-none px-3 sm:px-3.5 rounded-lg text-[12px] font-black bg-emerald-600 text-white inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
                     {envoi ? <Loader2 className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
                     {envoi ? 'Preparation...' : 'Envoyer'}
@@ -97,7 +98,7 @@ const ApercuRecu: React.FC<{ paiementId: string; devise: string; onFermer: () =>
             {html && (
                 <div className={`rounded-xl border border-slate-200 dark:border-dk-border bg-white overflow-hidden mx-auto max-w-[820px]`}>
                     {/* Le recu tel qu'il sortira : meme feuille, meme largeur. */}
-                    <iframe title="Recu" srcDoc={html} className="w-full h-[70vh] border-0 bg-white" />
+                    <CadreDocument html={html} titre="Recu" />
                 </div>
             )}
         </PanneauDetail>
