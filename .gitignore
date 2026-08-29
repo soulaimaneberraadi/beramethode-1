@@ -80,3 +80,6 @@ electron/preload.js
 
 .vercel
 .env*
+
+# Certificats HTTPS locaux (regeneres automatiquement)
+.certs/

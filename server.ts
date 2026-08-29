@@ -2,6 +2,8 @@ import 'dotenv/config';
 import { shouldUseHelmet, SECRET_KEY, isCookieSecure } from './server/jwtConfig';
 import express from 'express';
 import http from 'http';
+import https from 'https';
+import { certificatLocal } from './server/certificatLocal';
 import os from 'os';
 import path from 'path';
 import cookieParser from 'cookie-parser';
@@ -999,7 +1001,15 @@ async function startServer() {
 
   // Un seul serveur HTTP : le WebSocket HMR de Vite se branche dessus (évite
   // « WebSocket server error: Port is already in use » sur 24678 et rechargements instables).
-  const httpServer = http.createServer(app);
+  // HTTPS=true : le telephone obtient un « contexte securise », sans lequel le
+  // partage de fichiers, la camera et le presse-papiers n existent pas. Le
+  // certificat est auto-signe : le premier acces affiche un avertissement,
+  // ensuite tout fonctionne comme sur localhost.
+  const certificat = process.env.HTTPS === 'true' ? await certificatLocal() : null;
+  const httpServer = certificat
+    ? https.createServer({ key: certificat.key, cert: certificat.cert }, app)
+    : http.createServer(app);
+  const schema = certificat ? 'https' : 'http';
 
   if (process.env.NODE_ENV !== 'production') {
     // BERAMETHODE_NO_HMR=1 : désactive le rechargement à chaud (diagnostic si la page
@@ -1081,12 +1091,12 @@ async function startServer() {
         const usedPort = (httpServer.address() as any)?.port ?? port;
         const nets = os.networkInterfaces();
         console.log(`\n  🟢 BERAMETHODE Server running`);
-        console.log(`  ├─ Local:   http://localhost:${usedPort}`);
+        console.log(`  ├─ Local:   ${schema}://localhost:${usedPort}`);
         for (const iface of Object.values(nets)) {
           if (!iface) continue;
           for (const net of iface) {
             if (net.family === 'IPv4' && !net.internal) {
-              console.log(`  ├─ Network: http://${net.address}:${usedPort}`);
+              console.log(`  ├─ Network: ${schema}://${net.address}:${usedPort}`);
             }
           }
         }
