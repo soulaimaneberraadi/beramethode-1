@@ -2306,6 +2306,90 @@ try {
   console.error('[db] Migration workers→hr_workers :', e);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ENTRETIEN DE LA BASE — pour qu'un journal ne puisse plus remplir le disque
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Un journal d'écritures (`sync_outbox`) a fait passer cette base de quelques
+// mégaoctets à 25,9 Go en deux jours : il enregistrait le corps entier de
+// chaque requête et n'était vidé qu'après une synchronisation réussie, qui
+// n'arrivait jamais. Le disque est tombé à 5 % de libre.
+//
+// Le producteur est corrigé, mais un correctif à un seul endroit ne protège
+// que du bug qu'on connaît. Ce garde-fou-ci ne suppose RIEN sur les
+// producteurs : il borne les tables-journaux, rend les pages libérées au
+// disque, et se plaint dans les logs bien avant que le disque ne soit plein.
+//
+// Il ne touche JAMAIS aux tables métier. Les journaux ci-dessous sont des
+// traces (qui a écrit quoi, quel crash s'est produit) : la donnée qu'ils
+// décrivent vit dans ses propres tables, et une trace vieille de six mois
+// n'a jamais servi à personne.
+
+/** Tables-journaux et le nombre de lignes qu'on leur laisse. */
+const JOURNAUX: Array<{ table: string; garder: number; colonne: string }> = [
+  { table: 'sync_outbox', garder: 5000, colonne: 'created_at' },
+  { table: 'crash_reports', garder: 500, colonne: 'created_at' },
+  { table: 'system_audit_logs', garder: 20000, colonne: 'created_at' },
+  { table: 'impersonation_audit_logs', garder: 20000, colonne: 'created_at' },
+];
+
+/** Au-delà, quelque chose ne va pas : on le dit dans les logs. Une base
+ *  d'atelier bien remplie tient dans quelques centaines de mégaoctets. */
+const TAILLE_ALERTE_MO = 500;
+
+const entretenirBase = () => {
+  try {
+    for (const j of JOURNAUX) {
+      try {
+        db.prepare(
+          `DELETE FROM ${j.table} WHERE rowid NOT IN (
+             SELECT rowid FROM ${j.table} ORDER BY ${j.colonne} DESC LIMIT ?
+           )`
+        ).run(j.garder);
+      } catch { /* table absente sur une base plus ancienne : rien à élaguer */ }
+    }
+
+    // Le WAL grossit tant qu'il n'est pas replié dans la base : il avait
+    // atteint 137 Mo à lui seul.
+    try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch { /* base occupée : au prochain passage */ }
+
+    // Rendre au disque les pages libérées. Sans `auto_vacuum`, elles restent
+    // réservées et le fichier ne rétrécit jamais tout seul.
+    try { db.pragma('incremental_vacuum'); } catch { /* mode non incrémental */ }
+
+    const pageCount = Number((db.pragma('page_count', { simple: true }) as any) || 0);
+    const pageSize = Number((db.pragma('page_size', { simple: true }) as any) || 0);
+    const mo = Math.round((pageCount * pageSize) / 1048576);
+    if (mo >= TAILLE_ALERTE_MO) {
+      console.warn(
+        `[db] ⚠️  Base de ${mo} Mo — au-dessus du seuil de ${TAILLE_ALERTE_MO} Mo. ` +
+        `Vérifiez les tables-journaux (SELECT name, SUM(pgsize) FROM dbstat GROUP BY name ORDER BY 2 DESC).`
+      );
+    }
+  } catch (e) {
+    console.warn('[db] Entretien impossible :', e);
+  }
+};
+
+// `auto_vacuum` ne se change qu'au prix d'un VACUUM complet : on ne le fait
+// qu'une fois, quand la base est encore en mode 0 (le défaut historique).
+try {
+  const mode = Number((db.pragma('auto_vacuum', { simple: true }) as any) || 0);
+  if (mode === 0) {
+    db.pragma('auto_vacuum = INCREMENTAL');
+    db.exec('VACUUM');
+    console.log('[db] auto_vacuum incrémental activé : les pages libérées reviennent au disque.');
+  }
+} catch (e) {
+  console.warn('[db] auto_vacuum non modifié :', e);
+}
+
+entretenirBase();
+// Toutes les six heures : assez souvent pour qu'aucun journal n'ait le temps
+// de devenir un problème, assez rare pour ne rien coûter.
+const minuterieEntretien = setInterval(entretenirBase, 6 * 60 * 60 * 1000);
+if (typeof minuterieEntretien.unref === 'function') minuterieEntretien.unref();
+
 export default db;
 
 
