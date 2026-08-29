@@ -426,6 +426,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         moisNoms: (lang === "ar"
             ? ["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"]
             : ["Janvier","Fevrier","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"]),
+        periodePrecedente: tx(lang, { fr: 'Periode precedente', ar: 'المدّة السابقة', en: 'Previous period', es: 'Periodo anterior', pt: 'Periodo anterior', tr: 'Onceki donem' }),
         aujourdhuiCourt: tx(lang, { fr: "Auj.", ar: "اليوم", en: "Today", es: "Hoy", pt: "Hoje", tr: "Bugun" }),
         aujourdhui: tx(lang, { fr: "Aujourd hui", ar: "اليوم", en: "Today", es: "Hoy", pt: "Hoje", tr: "Bugun" }),
         choisir: tx(lang, { fr: 'jj/mm/aaaa', ar: 'يوم/شهر/عام', en: 'dd/mm/yyyy', es: 'dd/mm/aaaa', pt: 'dd/mm/aaaa', tr: 'gg/aa/yyyy' }),
@@ -504,9 +505,14 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         const pct = ((actuel - avant) / avant) * 100;
         const monte = pct >= 0;
         return (
-            <span className={`inline-flex items-center gap-0.5 text-[10px] font-black tabular-nums ${monte ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                {monte ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                {nf(Math.abs(pct))} %
+            <span
+                title={`${T.periodePrecedente} : ${nf(avant)}`}
+                className={`inline-flex items-center gap-0.5 whitespace-nowrap text-[10px] font-black tabular-nums ${monte ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}
+            >
+                {monte ? <ArrowUpRight className="w-3 h-3 shrink-0" /> : <ArrowDownRight className="w-3 h-3 shrink-0" />}
+                {/* Deux decimales sur un ecart de 97 % ne changent aucune
+                    decision : elles cassent la ligne en deux, c'est tout. */}
+                {Math.abs(pct) >= 10 ? Math.round(Math.abs(pct)) : nf(Math.abs(pct))}&nbsp;%
             </span>
         );
     };
@@ -516,9 +522,12 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
             <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">
                 {icone}<span className="truncate">{titre}</span>
             </span>
-            <p className={`mt-1 flex items-baseline gap-2 text-[17px] font-black tabular-nums leading-none ${alerte ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-dk-text'}`}>
-                {valeur}{delta}
+            {/* Le montant garde sa ligne : mis cote a cote, « 145 794,47 MAD »
+                et son ecart se coupaient tous les deux en deux morceaux. */}
+            <p className={`mt-1 text-[17px] font-black tabular-nums leading-tight whitespace-nowrap overflow-hidden text-ellipsis ${alerte ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-dk-text'}`}>
+                {valeur}
             </p>
+            {delta && <p className="mt-0.5 leading-none">{delta}</p>}
         </div>
     );
 
