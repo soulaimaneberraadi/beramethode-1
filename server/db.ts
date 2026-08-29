@@ -1586,6 +1586,30 @@ db.exec(`
     FOREIGN KEY (facture_id) REFERENCES factures(id) ON DELETE CASCADE
   );
   
+
+  -- La garantie n'est PAS un reglement : le cheque remis a la vente couvre
+  -- toute la dette, mais aucun dirham n'est encaisse. La compter comme un
+  -- paiement soldait le client des le premier jour. Elle vit donc a part,
+  -- rattachee au client, et se restitue quand le solde tombe a zero.
+  CREATE TABLE IF NOT EXISTS garanties (
+    id TEXT PRIMARY KEY,
+    owner_id INTEGER NOT NULL,
+    client_id TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'CHEQUE',      -- CHEQUE | EFFET
+    numero TEXT,
+    banque TEXT,
+    montant REAL NOT NULL DEFAULT 0,
+    date_remise TEXT NOT NULL,                -- le jour ou le client l'a laissee
+    date_echeance TEXT,
+    statut TEXT NOT NULL DEFAULT 'EN_GARDE',  -- EN_GARDE | RESTITUEE | ENCAISSEE | IMPAYEE
+    date_sortie TEXT,                         -- restitution ou encaissement
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_garanties_owner_client ON garanties(owner_id, client_id);
+  CREATE INDEX IF NOT EXISTS idx_garanties_owner_statut ON garanties(owner_id, statut);
+
   CREATE INDEX IF NOT EXISTS idx_factures_owner ON factures(owner_id);
   CREATE INDEX IF NOT EXISTS idx_factures_type ON factures(type);
   -- idx_factures_source est créé plus bas, après la migration qui ajoute

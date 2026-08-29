@@ -83,6 +83,7 @@ import {
 import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice, createCommandeNormale } from './server/clientsController';
 import { getCaisseJournal, annulerTicketCaisse } from './server/caisseController';
 import { getVentesDashboard, getVentesEncours, getClientHistorique, getRecuPaiement } from './server/ventesDashboardController';
+import { getGaranties, saveGarantie, changerStatutGarantie, deleteGarantie } from './server/garantiesController';
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
 import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat, checkStockIntegrity, repairStockIntegrity } from './server/achatsController';
 import { sendZpl } from './server/printBridge';
@@ -693,6 +694,11 @@ async function startServer() {
   app.get('/api/ventes/encours', authenticateToken, requirePermission('page', 'facturation', 'view'), getVentesEncours);
   // Historique complet d'un client : toutes ses factures et tous ses reglements.
   // Recu de versement : le reste a payer se calcule dans la base, jamais dans l ecran.
+  // Cheques et effets laisses en garantie : ce ne sont pas des encaissements.
+  app.get('/api/ventes/garanties', authenticateToken, requirePermission('page', 'facturation', 'view'), getGaranties);
+  app.post('/api/ventes/garanties', authenticateToken, requirePermission('page', 'facturation', 'edit'), saveGarantie);
+  app.post('/api/ventes/garanties/:id/statut', authenticateToken, requirePermission('page', 'facturation', 'edit'), changerStatutGarantie);
+  app.delete('/api/ventes/garanties/:id', authenticateToken, requirePermission('page', 'facturation', 'edit'), deleteGarantie);
   app.get('/api/ventes/paiements/:id/recu', authenticateToken, requirePermission('page', 'facturation', 'view'), getRecuPaiement);
   app.get('/api/ventes/clients/:id/historique', authenticateToken, requirePermission('page', 'facturation', 'view'), getClientHistorique);
   app.get('/api/subcontract/caisse/journal', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getCaisseJournal);

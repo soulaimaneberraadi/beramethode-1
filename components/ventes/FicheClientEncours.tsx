@@ -1,7 +1,9 @@
 import React from 'react';
-import { AlertTriangle, Phone, MapPin, RefreshCw, Trash2, Check, X, Printer } from 'lucide-react';
+import { AlertTriangle, Phone, MapPin, RefreshCw, Trash2, Check, X, Printer, FileText } from 'lucide-react';
 import { grouperArticles, LigneModele } from './articles';
 import { chargerEtOuvrirRecu } from './recuVersement';
+import { ouvrirReleve } from './releveCompte';
+import Garanties from './Garanties';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const jjmmaaaa = (v?: string | null) => (v ? `${v.slice(8, 10)}/${v.slice(5, 7)}/${v.slice(0, 4)}` : '—');
@@ -23,7 +25,7 @@ type FactureHisto = {
     articles: Article[]; paiements: Paiement[];
 };
 
-type Histo = { clientId: string; factures: FactureHisto[]; totalFacture: number; totalPaye: number };
+type Histo = { clientId: string; emetteur?: any; factures: FactureHisto[]; totalFacture: number; totalPaye: number };
 
 /**
  * La fiche d'un client vue depuis l'encours : TOUT ce qui s'est passe avec
@@ -84,6 +86,47 @@ const FicheClientEncours: React.FC<{
         }
     };
 
+    /** Le releve se batit sur l'historique deja charge : factures au debit,
+     *  reglements au credit, dans l'ordre du temps. */
+    const imprimerReleve = async () => {
+        if (!histo) return;
+        try {
+            const [recu, gar] = await Promise.all([
+                client.clientId
+                    ? fetch(`/api/ventes/garanties?clientId=${encodeURIComponent(client.clientId)}`, { credentials: 'include' })
+                        .then(r => r.json()).catch(() => ({ garanties: [] }))
+                    : Promise.resolve({ garanties: [] }),
+                Promise.resolve(null),
+            ]);
+            void gar;
+            const lignes = [
+                ...histo.factures.map(f => ({
+                    date: f.dateFacture || '',
+                    libelle: `Facture ${f.numero}`,
+                    debit: f.totalTtc,
+                    credit: 0,
+                })),
+                ...histo.factures.flatMap(f => f.paiements.map(p => ({
+                    date: p.date,
+                    libelle: `Reglement ${p.mode || ''}${p.reference ? ` ${p.reference}` : ''} sur ${f.numero}`.trim(),
+                    debit: 0,
+                    credit: p.montant,
+                }))),
+            ].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+            ouvrirReleve({
+                emetteur: histo.emetteur || null,
+                client: { nom: client.nom, tel: client.tel, ville: client.ville, ice: null },
+                lignes,
+                garanties: (recu?.garanties || [])
+                    .filter((g: any) => g.statut === 'EN_GARDE')
+                    .map((g: any) => ({ type: g.type, numero: g.numero, banque: g.banque, montant: g.montant, dateEcheance: g.dateEcheance })),
+            }, devise);
+        } catch (e: any) {
+            setErreur(e?.message || String(e));
+        }
+    };
+
     return (
         <div className="space-y-2.5">
             <div className="rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3.5 py-3">
@@ -92,6 +135,10 @@ const FicheClientEncours: React.FC<{
                     {client.ville && <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{client.ville}</span>}
                     <button type="button" onClick={() => void charger()} className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-900">
                         <RefreshCw className={`w-3 h-3 ${chargement ? 'animate-spin' : ''}`} /> Actualiser
+                    </button>
+                    {/* Le carnet de credit, imprime : c'est ce qu'on signe a deux. */}
+                    <button type="button" onClick={() => void imprimerReleve()} className="inline-flex items-center gap-1 font-bold text-slate-500 hover:text-slate-900">
+                        <FileText className="w-3 h-3" /> Releve de compte
                     </button>
                 </p>
                 {histo && (
@@ -111,6 +158,14 @@ const FicheClientEncours: React.FC<{
                     </div>
                 )}
             </div>
+
+            {/* Les cheques et effets detenus : jamais melanges au solde, mais
+                jamais loin de lui non plus. */}
+            <Garanties
+                clientId={client.clientId}
+                resteDu={histo ? histo.totalFacture - histo.totalPaye : client.encours}
+                devise={devise}
+            />
 
             {erreur && (
                 <p className="flex items-start gap-1.5 text-[12px] text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 rounded-xl bg-white dark:bg-dk-surface p-3">

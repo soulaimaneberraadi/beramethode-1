@@ -650,6 +650,8 @@ export const getClientHistorique = (req: Request, res: Response) => {
 
         res.json({
             clientId,
+            // L en-tete de la societe : le releve s imprime depuis cet ecran.
+            emetteur: emetteurDe(companyId),
             factures: factures.map(f => {
                 const paye = Number(f.montant_paye) || 0;
                 const ttc = Number(f.total_ttc) || 0;

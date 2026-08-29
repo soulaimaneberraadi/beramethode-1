@@ -97,17 +97,24 @@ export const ouvrirRecu = (d: DonneesRecu, devise = 'MAD') => {
 ${exemplaire(d, devise, 'Exemplaire client')}
 ${exemplaire(d, devise, 'Exemplaire vendeur')}
 </div>
-<script>window.addEventListener('load', () => setTimeout(() => window.print(), 250));</script>
+<script>window.addEventListener('load', () => setTimeout(() => { window.focus(); window.print(); }, 250));</script>
 </body></html>`;
 
-    const fenetre = window.open('', '_blank');
-    if (!fenetre) {
-        // Bloqueur de fenetres : on le dit, au lieu de laisser croire que le
-        // bouton ne marche pas.
-        throw new Error('Le navigateur a bloque la fenetre d’impression. Autorisez les pop-ups pour ce site.');
-    }
-    fenetre.document.write(html);
-    fenetre.document.close();
+    // Un onglet ouvert par script est bloque par defaut dans beaucoup de
+    // navigateurs : le recu passe donc par un cadre invisible de la page
+    // elle-meme, qui n a pas besoin d autorisation.
+    const cadre = document.createElement('iframe');
+    cadre.setAttribute('aria-hidden', 'true');
+    cadre.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    document.body.appendChild(cadre);
+    const doc = cadre.contentWindow?.document;
+    if (!doc) { cadre.remove(); throw new Error('Impression indisponible dans ce navigateur.'); }
+    doc.open();
+    doc.write(html);
+    doc.close();
+    // On retire le cadre APRES la boite d impression, sinon le document
+    // disparait pendant que l utilisateur choisit son imprimante.
+    window.setTimeout(() => cadre.remove(), 60000);
 };
 
 export const chargerEtOuvrirRecu = async (paiementId: string, devise: string) => {
