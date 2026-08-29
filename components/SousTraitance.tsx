@@ -13,7 +13,7 @@ import InlineInvoiceList from './InlineInvoiceList';
 import FactureUploader from './FactureUploader';
 import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
 import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
-import VentesDashboard from './VentesDashboard';
+import VentesDashboard, { VentesDetailKey } from './VentesDashboard';
 import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
 import { ean13FromDigits, ean13Variant, renderEAN13, parseScanCode } from '../lib/barcode';
 import { buildZplForCells, buildZplTestLabel, type ZplCell } from '../lib/zpl';
@@ -21,7 +21,7 @@ import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import Caisse, { type CaisseLigne, type CaissePaiement, type TypeVente } from './Caisse';
 import { buildTicketHtml, buildTicketZpl, parsePrinterHosts, type TicketData } from '../lib/ticket';
 import { lsGetMig, lsSet } from '../lib/storageKeys';
-import { useRouteSegment } from '../lib/router';
+import { useRouteSegment, useRouteParam } from '../lib/router';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
@@ -506,6 +506,37 @@ const sumGrid = (grid: Record<string, Record<string, number>> | undefined): numb
     0
   );
 
+/** Encode une fiche (modele/client) en un seul segment d URL.
+ *
+ *  On n y met QUE l identifiant :
+ *  - le nom du client est une donnee personnelle ; un lien se colle dans une
+ *    conversation et reste dans l historique du navigateur, il n a rien a y faire.
+ *    Le nom est de toute facon reaffiche depuis la fiche une fois chargee.
+ *  - `autoInvoice` est une ACTION (ouvrir la facture), pas un endroit. Le garder
+ *    dans le lien ferait creer/ouvrir une facture a quiconque ouvre ce lien.
+ */
+const encodeSheetTarget = (t: SheetTarget): string | null => {
+  if (t.kind === 'model') return t.modelId ? `model:${encodeURIComponent(t.modelId)}` : null;
+  // Certains clients ne sont identifies que par leur nom (aucun id en base).
+  // Plutot que de mettre ce nom dans le lien, on ouvre la fiche sans l inscrire
+  // dans l URL : elle s affiche normalement, elle n est simplement pas partageable.
+  return t.clientId ? `client:${encodeURIComponent(t.clientId)}` : null;
+};
+
+/** Decode l inverse de `encodeSheetTarget`. Retourne null si le segment est
+ *  invalide (ancien lien, corruption manuelle...). */
+const decodeSheetTarget = (raw: string): SheetTarget | null => {
+  const parts = raw.split(':');
+  if (parts[0] === 'model' && parts[1]) {
+    return { kind: 'model', modelId: decodeURIComponent(parts[1]) };
+  }
+  if (parts[0] === 'client' && parts[1]) {
+    // clientNom est resolu depuis les donnees ; autoInvoice repart toujours a faux.
+    return { kind: 'client', clientId: decodeURIComponent(parts[1]), clientNom: null };
+  }
+  return null;
+};
+
 export default function SousTraitance({ models, setModels, settings, onLoadModel, onNavigate, onCreateNewProject }: SousTraitanceProps) {
   // Navigation Tabs — l onglet vit dans l URL : #/sous-traitance/<onglet>
   // Retour/avant du navigateur et lien partageable fonctionnent sans etat local.
@@ -585,7 +616,29 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [isEditModelPickerOpen, setIsEditModelPickerOpen] = useState(false);
   const [isSubPickerOpen, setIsSubPickerOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<SubcontractOrder | null>(null);
+  // La commande ouverte pour edition vit dans l URL : #/sous-traitance/commandes/<id>
+  const [selectedOrderId, setSelectedOrderId] = useRouteParam({ view: 'sousTraitance', depth: 1 });
+  const [selectedOrder, setSelectedOrderObj] = useState<SubcontractOrder | null>(null);
+  /** Ecrit l id dans l URL et garde l objet en memoire (pour lecture immediate
+   *  sans attendre le prochain rendu du hook de route). */
+  const setSelectedOrder = useCallback((order: SubcontractOrder | null) => {
+    setSelectedOrderObj(order);
+    setSelectedOrderId(order ? order.id : null);
+  }, [setSelectedOrderId]);
+  // Rechargement de page / lien partage avec un id dans l URL : on retrouve
+  // la commande dans la liste des qu elle est chargee et on rouvre le modal.
+  useEffect(() => {
+    if (!selectedOrderId) return;
+    if (selectedOrder?.id === selectedOrderId) return;
+    const found = orders.find(o => o.id === selectedOrderId);
+    if (found) {
+      setSelectedOrderObj(found);
+      setIsEditModalOpen(true);
+    }
+  }, [selectedOrderId, orders]);
+  // Panneau de detail ouvert par une tuile du tableau de bord des ventes :
+  // #/sous-traitance/ventes/<encours|ca|pieces|tickets|panier>
+  const [ventesDetailId, setVentesDetailId] = useRouteParam({ view: 'sousTraitance', depth: 1 });
   const [orderPendingDelete, setOrderPendingDelete] = useState<SubcontractOrder | null>(null);
   const [isDeletingOrder, setIsDeletingOrder] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -1052,6 +1105,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  identifiant, parce qu'on doit pouvoir descendre « modèle → client → autre
    *  modèle » puis remonter : sans elle, chaque fiche serait un cul-de-sac. */
   const [entityStack, setEntityStack] = useState<SheetTarget[]>([]);
+  // Fiche ouverte (modele/client) au premier niveau de la pile : rangee dans
+  // l URL pour que le retour navigateur et le partage de lien fonctionnent.
+  // Seul le PREMIER niveau est route (depth 1) — descendre plus loin dans la
+  // pile (modele -> client -> ...) reste un etat local, non partageable.
+  const [entitySheetParam, setEntitySheetParam] = useRouteParam({ view: 'sousTraitance', depth: 1 });
   /** Client dont la fiche a demandé l'édition : c'est le formulaire EXISTANT de
    *  ClientsPanel qui s'ouvre, jamais un second formulaire dupliqué ici. */
   const [pendingEditClientId, setPendingEditClientId] = useState<string | null>(null);
@@ -2919,10 +2977,32 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   };
 
   /* ---- Navigation entre fiches (modèle ↔ client) ---- */
-  const openEntitySheet = (target: SheetTarget) => setEntityStack([target]);
+  const openEntitySheet = (target: SheetTarget) => {
+    setEntityStack([target]);
+    setEntitySheetParam(encodeSheetTarget(target));
+  };
   const pushEntitySheet = (target: SheetTarget) => setEntityStack(prev => [...prev, target]);
   const backEntitySheet = () => setEntityStack(prev => (prev.length > 1 ? prev.slice(0, -1) : prev));
-  const closeEntitySheet = () => setEntityStack([]);
+  const closeEntitySheet = () => {
+    setEntityStack([]);
+    setEntitySheetParam(null);
+  };
+  // Lien partage / rechargement de page avec une fiche dans l URL : on la
+  // rouvre directement (le premier niveau de la pile se suffit a lui-meme,
+  // toutes ses informations sont encodees dans le segment de l URL).
+  useEffect(() => {
+    if (!entitySheetParam) {
+      // Une fiche non identifiable (client sans id) vit uniquement en memoire :
+      // son absence dans l URL est normale, il ne faut pas la refermer. On ne
+      // ferme que si la fiche ouverte etait, elle, inscriptible dans le lien —
+      // signe que l URL a change (retour navigateur, autre onglet...).
+      if (entityStack.length > 0 && encodeSheetTarget(entityStack[0]) !== null) setEntityStack([]);
+      return;
+    }
+    if (entityStack.length > 0) return;
+    const target = decodeSheetTarget(entitySheetParam);
+    if (target) setEntityStack([target]);
+  }, [entitySheetParam]);
 
   /** L'édition d'un client depuis sa fiche renvoie vers l'onglet Clients, qui
    *  détient le formulaire. On ferme la fiche pour ne pas empiler deux modales. */
@@ -5349,6 +5429,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       }
 
       setIsEditModalOpen(false);
+      setSelectedOrderId(null);
       // A5 : le lien vers le coût de revient ne vivait qu'à la création. On le
       // rejoue à CHAQUE édition — tarif, mode ET quantité pèsent tous sur le prix
       // de revient (la quantité sert de base de répartition des frais).
@@ -8221,7 +8302,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           {/* TAB 3: STOCK & VENTES (STOCK & SALES) */}
           {/* ======================================= */}
           {activeTab === 'ventes' && (
-            <VentesDashboard lang={lang} currency={currency} />
+            <VentesDashboard
+              lang={lang}
+              currency={currency}
+              detail={ventesDetailId as VentesDetailKey}
+              onDetailChange={(d) => setVentesDetailId(d)}
+            />
           )}
 
           {activeTab === 'clients' && (
@@ -9411,7 +9497,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       {isEditModalOpen && selectedOrder && (
         /* Même grille dense que la création : plein écran disponible. */
         <SheetModal
-          onClose={() => setIsEditModalOpen(false)}
+          onClose={() => { setIsEditModalOpen(false); setSelectedOrder(null); }}
           title={tx(lang,{fr:'Modifier la Commande de Sous-traitance',ar:'تعديل أمر المقاولة من الباطن',en:'Edit Subcontract Order',es:'Editar Pedido de Subcontratación',pt:'Editar Encomenda de Subcontratação',tr:'Taşeron Siparişini Düzenle'})}
           icon={<Edit2 className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />}
           size="xl"
@@ -9683,7 +9769,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
             <div className="shrink-0 flex gap-3 justify-end items-center px-5 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-3 border-t border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/40">
               <button
                 type="button"
-                onClick={() => setIsEditModalOpen(false)}
+                onClick={() => { setIsEditModalOpen(false); setSelectedOrder(null); }}
                 className="px-5 py-2.5 border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-xl font-bold transition-all"
               >
                 {tx(lang,{fr:'Annuler',ar:'إلغاء',en:'Cancel',es:'Cancelar',pt:'Cancelar',tr:'İptal'})}

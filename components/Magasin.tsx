@@ -14,7 +14,7 @@ import { useLang } from '../src/context/LanguageContext';
 import { uploadImageToStorage } from '../utils';
 import { loadCompanyIdentity } from '../lib/companyIdentity';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
-import { useRouteSegment } from '../lib/router';
+import { useRouteSegment, useRouteParam } from '../lib/router';
 
 export interface MagasinProps {
     models?: ModelData[];
@@ -1938,8 +1938,20 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
     const [invoiceTemplate, setInvoiceTemplate] = useState<InvoiceTemplate>(() => ld('mg_invoice_template', DEFAULT_TEMPLATE));
     const [showInvoiceSettings, setShowInvoiceSettings] = useState(false);
     const [printerMvt, setPrinterMvt] = useState<MouvementStock | null>(null);
-    const [selectedProductForDetail, setSelectedProductForDetail] = useState<MagasinProduct | null>(null);
-    const [detailInitialTab, setDetailInitialTab] = useState<'overview' | 'history' | 'supplier' | 'lots'>('overview');
+    // produit ouvert dans le panneau de detail -> #/magasin/<onglet>/<id>
+    const [selectedProductId, setSelectedProductId] = useRouteParam({ view: 'magasin', depth: 1 });
+    const selectedProductForDetail = products.find(p => p.id === selectedProductId) || null;
+    const setSelectedProductForDetail = (p: MagasinProduct | null) => setSelectedProductId(p ? p.id : null);
+    // onglet du panneau de detail -> segment depth 2
+    const [detailInitialTab, setDetailInitialTab] = useRouteSegment({
+        view: 'magasin',
+        depth: 2,
+        // 'factures' doit figurer ici aussi : sans lui, ouvrir cet onglet dans le
+        // panneau renvoyait un repli 'overview' qui rebasculait aussitot l onglet.
+        allowed: ['overview', 'history', 'supplier', 'lots', 'factures'] as const,
+        fallback: 'overview',
+        slugs: { overview: 'apercu', history: 'historique', supplier: 'fournisseur', lots: 'lots', factures: 'factures' },
+    });
     const [detailStartEditing, setDetailStartEditing] = useState(false);
     const [selectedMovement, setSelectedMovement] = useState<MouvementStock | null>(null);
     const [movementEditDraft, setMovementEditDraft] = useState<MouvementStock | null>(null);

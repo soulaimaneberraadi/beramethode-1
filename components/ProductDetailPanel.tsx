@@ -11,6 +11,7 @@ import { tx, type TxMap } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import InlineInvoiceList from './InlineInvoiceList';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
+import { useRouteSegment } from '../lib/router';
 
 export interface MagasinProduct {
     id: string;
@@ -60,7 +61,7 @@ interface ProductDetailPanelProps {
     onClose: () => void;
     onSave: (product: MagasinProduct) => void;
     onEditMovement?: (movement: MouvementStock) => void;
-    initialTab?: 'overview' | 'history' | 'supplier' | 'lots';
+    initialTab?: 'overview' | 'history' | 'supplier' | 'lots' | 'factures';
     startEditing?: boolean;
     lang?: 'fr' | 'ar' | 'en';
 }
@@ -94,7 +95,15 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
     const { lang: ctxLang } = useLang();
     const lang = ctxLang || propLang;
     const _ = useCallback((m: TxMap) => tx(lang, m), [lang]);
-    const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'supplier' | 'lots' | 'factures'>(initialTab || 'overview');
+    // onglet branche au routeur (depth 2) ; initialTab reste le repli
+    // quand la vue courante n est pas magasin ou que le segment est absent.
+    const [activeTab, setActiveTab] = useRouteSegment({
+        view: 'magasin',
+        depth: 2,
+        allowed: ['overview', 'history', 'supplier', 'lots', 'factures'] as const,
+        fallback: initialTab || 'overview',
+        slugs: { overview: 'apercu', history: 'historique', supplier: 'fournisseur', lots: 'lots', factures: 'factures' },
+    });
     const [isEditing, setIsEditing] = useState(!!startEditing);
     const [editData, setEditData] = useState<MagasinProduct>({ ...product });
 
@@ -102,10 +111,12 @@ export default function ProductDetailPanel({ product, lots, mouvements, onClose,
         setEditData({ ...product });
     }, [product]);
 
+    // L onglet n est plus recopie depuis initialTab : l URL est la seule source
+    // de verite. Sans ca, le parent (qui lit le meme segment) renvoyait sa propre
+    // valeur de repli et refermait aussitot l onglet qu on venait d ouvrir.
     useEffect(() => {
-        setActiveTab(initialTab || 'overview');
         setIsEditing(!!startEditing);
-    }, [initialTab, startEditing]);
+    }, [startEditing]);
 
     const productLots = useMemo(() => lots.filter(l => l.productId === product.id), [lots, product.id]);
     const productMvts = useMemo(() => 

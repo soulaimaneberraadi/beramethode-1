@@ -28,7 +28,7 @@ import { tx, type TxMap } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
 import { uploadImageToStorage } from '../utils';
-import { useRouteSegment } from '../lib/router';
+import { useRouteSegment, useRouteParam } from '../lib/router';
 
 /** Hauteur 1re ligne d'en-tête (px) — offset sticky pour la ligne des libellés de tranches */
 const POINTAGE_THEAD_R1_H = 36;
@@ -224,7 +224,13 @@ function WorkerModal({ worker, onClose, onSave, transportLignes }: { worker: Par
   const _btnDanger = btnDanger(isDark);
   const [form, setForm] = useState<Partial<HRWorker>>(worker ?? EMPTY_WORKER);
   const [saving, setSaving] = useState(false);
-  const [subTab, setSubTab] = useState<'identity' | 'emploi' | 'financier' | 'urgence'>('identity');
+  // Sous-onglet de la fiche ouvrier (modale) : #/gestion-rh/annuaire/<...>/emploi
+  const [subTab, setSubTab] = useRouteSegment<'identity' | 'emploi' | 'financier' | 'urgence'>({
+    view: 'gestionRh', depth: 2,
+    allowed: ['identity', 'emploi', 'financier', 'urgence'] as const,
+    fallback: 'identity',
+    slugs: { identity: 'identite', emploi: 'emploi', financier: 'financier', urgence: 'urgence' },
+  });
   const [pin1, setPin1] = useState('');
   const [pin2, setPin2] = useState('');
   const [pinBusy, setPinBusy] = useState(false);
@@ -1181,7 +1187,12 @@ export default function GestionRH({
   const [editWorker, setEditWorker] = useState<Partial<HRWorker> | null>(null);
   const [showWorkerModal, setShowWorkerModal] = useState(false);
   const [transportLignes, setTransportLignes] = useState<HRTransportLigne[]>([]);
-  const [transportSubTab, setTransportSubTab] = useState<'recensement' | 'membres' | 'lignes'>('recensement');
+  // Le sous-onglet transport vit sous l onglet 'transport' : #/gestion-rh/transport/<sous-onglet>
+  const [transportSubTab, setTransportSubTab] = useRouteSegment<'recensement' | 'membres' | 'lignes'>({
+    view: 'gestionRh', depth: 1,
+    allowed: ['recensement', 'membres', 'lignes'] as const,
+    fallback: 'recensement',
+  });
   const [selectedLigne, setSelectedLigne] = useState<Partial<HRTransportLigne> | null>(null);
   const [showLigneModal, setShowLigneModal] = useState(false);
   const [filterTransportDate, setFilterTransportDate] = useState(today());
@@ -1193,7 +1204,11 @@ export default function GestionRH({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [claimPreview, setClaimPreview] = useState<{ myCount: number; guestCount: number; canClaim: boolean } | null>(null);
   const [claiming, setClaiming] = useState(false);
-  const [profileWorkerId, setProfileWorkerId] = useState<string | null>(null);
+  // La fiche ouverte (id de l ouvrier) : #/gestion-rh/annuaire/<id>
+  // Meme emplacement (depth 1) que transportSubTab, mais les deux tabs sont exclusifs
+  // donc on ignore la valeur si on n est pas sur l onglet annuaire.
+  const [rawProfileWorkerId, setProfileWorkerId] = useRouteParam({ view: 'gestionRh', depth: 1 });
+  const profileWorkerId = tab === 'annuaire' ? rawProfileWorkerId : null;
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
   const [annuaireView, setAnnuaireView] = useState<'cards' | 'table'>(() => {
     if (typeof window === 'undefined') return 'cards';

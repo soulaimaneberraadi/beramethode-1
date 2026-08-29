@@ -28,6 +28,7 @@ import { Machine, SpeedFactor, ComplexityFactor, StandardTime, Guide } from '../
 import { STITCH_TYPES, StitchType } from '../data/threadConsumption';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { useRouteSegment } from '../lib/router';
 import SheetModal from './shared/SheetModal';
 
 /** Identifiant du formulaire de la fiche (machine / facteur / temps / guide) :
@@ -89,7 +90,14 @@ export default function Machin({
 }: MachinProps) {
   const { lang } = useLang();
   // Navigation State: 'menu' is the landing page with buttons
-  const [currentView, setCurrentView] = useState<'menu' | 'machines' | 'standards' | 'guides' | 'fil'>('menu');
+  // Ecran actif du catalogue machines - lie au lien pour retour navigateur et partage
+  const [currentView, setCurrentView] = useRouteSegment<'menu' | 'machines' | 'standards' | 'guides' | 'fil'>({
+    view: 'machin',
+    depth: 0,
+    allowed: ['menu', 'machines', 'standards', 'guides', 'fil'] as const,
+    fallback: 'menu',
+    slugs: { menu: 'menu', machines: 'machines', standards: 'standards', guides: 'guides', fil: 'fil' },
+  });
   const [searchTerm, setSearchTerm] = useState('');
   
   // --- MODAL STATES ---

@@ -12,6 +12,7 @@ import { useIsMobile } from '../shared/useIsMobile';
 import { calculateRollingEndDate } from '../../../utils/planning';
 import { tx } from '../../../lib/i18n';
 import { useLang } from '../../../src/context/LanguageContext';
+import { useRouteSegment } from '../../../lib/router';
 
 const getExtendedStatusMeta = (status: string | undefined, lang: string) => {
     if (status === 'EXTERNAL_PROCESS') {
@@ -82,7 +83,13 @@ export default function EventDetailPanel({
     onUpdateEvent, onOpenPedido,
 }: Props) {
     const { lang } = useLang();
-    const [tab, setTab] = React.useState<'details' | 'activity' | 'notes' | 'materials'>('details');
+    // onglet du panneau de detail (details/activity/notes/materials) - route, segment 2
+    const [tab, setTab] = useRouteSegment<'details' | 'activity' | 'notes' | 'materials'>({
+        view: 'planning', depth: 2,
+        allowed: ['details', 'activity', 'notes', 'materials'] as const,
+        fallback: 'details',
+        slugs: { details: 'details', activity: 'activite', notes: 'notes', materials: 'materiaux' },
+    });
     const [quickAddOpen, setQuickAddOpen] = React.useState(false);
     const [quickAddVal, setQuickAddVal] = React.useState<number>(0);
 

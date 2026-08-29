@@ -11,6 +11,7 @@ import {
     PanelLeftClose, PanelLeftOpen, Library, ChevronDown
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
+import { useRouteSegment } from '../lib/router';
 import { loadCompanyIdentity } from '../lib/companyIdentity';
 import { useLang } from '../src/context/LanguageContext';
 import ExcelInput from './ExcelInput';
@@ -108,7 +109,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const [isChoiceModalOpen, setIsChoiceModalOpen] = useState(false);
     const [isSelectModelOpen, setIsSelectModelOpen] = useState(false);
     const [modelPickerSearch, setModelPickerSearch] = useState('');
-    const [viewMode, setViewMode] = useState<ViewMode>('list');
+    // Ecran actif de La Coupe (liste/tableau/calendrier/stats) - lie au lien pour retour navigateur
+    const [viewMode, setViewMode] = useRouteSegment<ViewMode>({
+        view: 'coupe',
+        depth: 0,
+        allowed: ['list', 'board', 'calendar', 'stats'] as const,
+        fallback: 'list',
+        slugs: { list: 'liste', board: 'tableau', calendar: 'calendrier', stats: 'stats' },
+    });
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
     const [showFilters, setShowFilters] = useState(false);
     const [quickActionMenu, setQuickActionMenu] = useState<{ modelId: string; x: number; y: number } | null>(null);

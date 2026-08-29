@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Facture } from '../types';
 import VentesDashboard from './VentesDashboard';
+import { useRouteSegment } from '../lib/router';
 
 interface FacturationProps {
     t: (key: string) => string;
@@ -50,7 +51,14 @@ export default function Facturation({ t }: FacturationProps) {
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
-    const [view, setView] = useState<'dashboard' | 'pending' | 'ventes'>('dashboard');
+    // onglet de 1er niveau branche au routeur (depth 0)
+    const [view, setView] = useRouteSegment({
+        view: 'facturation',
+        depth: 0,
+        allowed: ['dashboard', 'pending', 'ventes'] as const,
+        fallback: 'dashboard',
+        slugs: { dashboard: 'tableau-de-bord', pending: 'impayes', ventes: 'ventes' },
+    });
 
     useEffect(() => {
         loadAll();

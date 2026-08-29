@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { AppSettings, Machine, ModelData, PlanningEvent, SuiviData } from '../types';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { useRouteSegment, useRouteParam } from '../lib/router';
 
 import PlanningHeader from './planning/header/PlanningHeader';
 import QuickFilters from './planning/header/QuickFilters';
@@ -68,7 +69,13 @@ export default function Planning({
 
     const { lang } = useLang();
     const isMobile = useIsMobile();
-    const [view, setView] = useState<ViewKind>('gantt');
+    // vue du planning (gantt/calendar/cards/simulation) - routee, segment 0
+    const [view, setView] = useRouteSegment<ViewKind>({
+        view: 'planning', depth: 0,
+        allowed: ['gantt', 'calendar', 'cards', 'simulation'] as const,
+        fallback: 'gantt',
+        slugs: { gantt: 'gantt', calendar: 'calendrier', cards: 'cartes', simulation: 'simulation' },
+    });
     const [zoom, setZoom] = useState<ZoomLevel>(() => {
         try {
             const v = localStorage.getItem('planning_zoom');
@@ -103,7 +110,8 @@ export default function Planning({
         try { localStorage.setItem('planning_density', density); } catch {}
     }, [density]);
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [selectedId, setSelectedId] = useState<string | null>(null);
+    // evenement ouvert dans le panneau de detail - route, segment 1
+    const [selectedId, setSelectedId] = useRouteParam({ view: 'planning', depth: 1 });
     const [multiIds, setMultiIds] = useState<Set<string>>(new Set());
     const lastAnchorRef = React.useRef<string | null>(null);
     const [focusedId, setFocusedId] = useState<string | null>(null);

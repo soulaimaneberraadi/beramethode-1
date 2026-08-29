@@ -25,9 +25,16 @@ import PanneauDetail from './ventes/PanneauDetail';
  *  erreur reseau qui laisse croire a une panne. */
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
+/** Cle du panneau de detail ouvert par une tuile (ou aucun). */
+export type VentesDetailKey = null | 'encours' | 'ca' | 'pieces' | 'tickets' | 'panier';
+
 interface Props {
     lang: string;
     currency?: string;
+    /** Pilotage externe du detail ouvert (routage) — optionnel. Sans ces deux
+     *  props, le composant garde son etat local (cas Facturation.tsx). */
+    detail?: VentesDetailKey;
+    onDetailChange?: (detail: VentesDetailKey) => void;
 }
 
 type Modele = {
@@ -86,7 +93,7 @@ const TEINTE_CLIENT: Record<ClientLigne['statut'], string> = {
     DORMANT: 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-dk-elevated dark:text-dk-muted dark:border-dk-border',
 };
 
-export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
+export default function VentesDashboard({ lang, currency = 'MAD', detail: detailControlled, onDetailChange }: Props) {
     const [jours, setJours] = useState(30);
     /* Filtres : la même question posée à toute la page. Un total en haut qui
      * ne répondrait pas au même filtre que le détail en dessous serait un
@@ -106,7 +113,10 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
     const [filtreModele, setFiltreModele] = useState<'TOUS' | Modele['statut']>('TOUS');
     const [filtresOuverts, setFiltresOuverts] = useState(false);
     // Une tuile ne dit qu un total : le detail s ouvre par-dessus la page.
-    const [detail, setDetail] = useState<null | 'encours' | 'ca' | 'pieces' | 'tickets' | 'panier'>(null);
+    // Pilote par l URL quand le parent le controle (voir Props), sinon local.
+    const [detailLocal, setDetailLocal] = useState<VentesDetailKey>(null);
+    const detail = detailControlled !== undefined ? detailControlled : detailLocal;
+    const setDetail = onDetailChange || setDetailLocal;
 
     const charger = useCallback(async (n: number) => {
         if (IS_STATIC) { setData(null); setErreur(null); return; }

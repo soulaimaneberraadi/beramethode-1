@@ -5,6 +5,7 @@ import SheetModal from './shared/SheetModal';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 import type { ModelData, AppSettings, ChronoData, Operation } from '../types';
+import { useRouteParam } from '../lib/router';
 import {
     Search, X, Layers, Boxes, Cpu, Gauge, TrendingUp,
     Database, Sparkles, ArrowUpDown, ShieldCheck, CircleAlert, Shirt, User, Ruler,
@@ -222,7 +223,8 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
     const [sectionFilter, setSectionFilter] = useState<string | null>(null);
     const [unit, setUnit] = useState<'min' | 'sec'>('sec');
     const [sortBy, setSortBy] = useState<'count' | 'time' | 'alpha'>('count');
-    const [selectedKey, setSelectedKey] = useState<string | null>(null);
+    // Entree ouverte du catalogue - lie au lien pour partage/retour navigateur
+    const [selectedKey, setSelectedKey] = useRouteParam({ view: 'catalogTemps', depth: 0 });
     const [customCategories, setCustomCategories] = useState<string[]>(() => {
         try { return JSON.parse(localStorage.getItem(CUSTOM_CAT_KEY) || '[]'); } catch { return []; }
     });

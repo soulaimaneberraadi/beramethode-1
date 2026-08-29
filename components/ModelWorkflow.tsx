@@ -34,8 +34,22 @@ import InlineInvoiceList from './InlineInvoiceList';
 import { Machine, Operation, ComplexityFactor, StandardTime, Guide, Poste, FicheData, Material, ChronoData, AppSettings, ManualLink, PlanningEvent, CustomStation } from '../types';
 import { tx, pickT } from '../lib/i18n';
 import type { Lang } from '../app/constants';
+import { useRouteSegment } from '../lib/router';
 
 type WorkflowStep = 'fiche' | 'gamme' | 'chrono' | 'analyse' | 'equilibrage' | 'implantation' | 'couts' | 'pedido';
+
+// Noms lisibles pour le lien (etape du workflow modele)
+const WORKFLOW_STEP_SLUGS: Record<WorkflowStep, string> = {
+    fiche: 'fiche-technique',
+    gamme: 'gamme',
+    chrono: 'chronometrage',
+    analyse: 'analyse-technologique',
+    equilibrage: 'equilibrage',
+    implantation: 'implantation',
+    couts: 'couts',
+    pedido: 'pedido',
+};
+const WORKFLOW_STEPS_ALLOWED = ['fiche', 'gamme', 'chrono', 'analyse', 'equilibrage', 'implantation', 'couts', 'pedido'] as const;
 
 interface ModelWorkflowProps {
     // Shared Data Props
@@ -243,10 +257,17 @@ export default function ModelWorkflow({
 }: ModelWorkflowProps) {
     const st = pickT(STEP_LABELS as any, lang);
 
-    // Current Step State
-    const [currentStep, setCurrentStep] = useState<WorkflowStep>(initialStep || 'fiche');
+    // Current Step State - lie au lien (#/ingenierie/<etape>) pour partage/retour navigateur
+    const [currentStep, setCurrentStep] = useRouteSegment<WorkflowStep>({
+        view: 'ingenierie',
+        depth: 0,
+        allowed: WORKFLOW_STEPS_ALLOWED,
+        fallback: 'fiche',
+        slugs: WORKFLOW_STEP_SLUGS,
+    });
     const [validationError, setValidationError] = useState<string | null>(null);
 
+    // initialStep reste prioritaire au premier montage (ouverture ciblee depuis une autre page)
     useEffect(() => {
         if (!initialStep) return;
         setCurrentStep(initialStep);
