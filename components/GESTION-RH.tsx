@@ -28,6 +28,7 @@ import { tx, type TxMap } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
 import { uploadImageToStorage } from '../utils';
+import { useRouteSegment } from '../lib/router';
 
 /** Hauteur 1re ligne d'en-tête (px) — offset sticky pour la ligne des libellés de tranches */
 const POINTAGE_THEAD_R1_H = 36;
@@ -1143,7 +1144,12 @@ export default function GestionRH({
   const _btnDanger = btnDanger(isDark);
   const salaireFieldAccess = useFieldAccess('hr.salaire');
   const avancesFieldAccess = useFieldAccess('hr.avances');
-  const [tab, setTab] = useState<Tab>('annuaire');
+  // L onglet vit dans l URL : #/gestion-rh/<onglet>
+  const [tab, setTab] = useRouteSegment<Tab>({
+    view: 'gestionRh', depth: 0,
+    allowed: ['annuaire', 'pointage', 'statistiques', 'production', 'avances', 'sage', 'invitations', 'transport'],
+    fallback: 'annuaire',
+  });
   const [workers, setWorkers] = useState<HRWorker[]>([]);
   const [pointages, setPointages] = useState<any[]>([]);
   const [productions, setProductions] = useState<any[]>([]);

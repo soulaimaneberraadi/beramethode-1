@@ -13,6 +13,7 @@ import Implantation from './Implantation';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import SheetModal from './shared/SheetModal';
+import { useRouteSegment } from '../lib/router';
 
 /** Formatting the date for production launches */
 function formatLaunch(ev: PlanningEvent, model: ModelData | null): string {
@@ -59,7 +60,13 @@ export default function PageMachine({
   onOpenMachineCatalog,
 }: PageMachineProps) {
   
-  const [activeTab, setActiveTab] = useState<TabType>('OVERVIEW');
+  // L onglet vit dans l URL : #/machines/<onglet>
+  const [activeTab, setActiveTab] = useRouteSegment<TabType>({
+    view: 'pageMachine', depth: 0,
+    allowed: ['OVERVIEW', 'INVENTORY', 'MAINTENANCE', 'HISTORY'],
+    fallback: 'OVERVIEW',
+    slugs: { OVERVIEW: 'apercu', INVENTORY: 'inventaire', MAINTENANCE: 'maintenance', HISTORY: 'historique' },
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedChainId, setSelectedChainId] = useState<string | null>(null);
   const [viewingModelId, setViewingModelId] = useState<string | null>(null);

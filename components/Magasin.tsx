@@ -14,6 +14,7 @@ import { useLang } from '../src/context/LanguageContext';
 import { uploadImageToStorage } from '../utils';
 import { loadCompanyIdentity } from '../lib/companyIdentity';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
+import { useRouteSegment } from '../lib/router';
 
 export interface MagasinProps {
     models?: ModelData[];
@@ -1858,7 +1859,21 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
     const t = (str: string) => lang === 'fr' ? str : (DICT[str]?.[lang] || str);
     const dtpSettings = settings ?? DEFAULT_CALENDAR_APP_SETTINGS;
 
-    const [tab, setTab] = useState<'dashboard' | 'db' | 'bureau' | 'demandes' | 'commandes' | 'alertes' | 'inventaire' | 'tracabilite' | 'wms' | 'fournisseurs' | 'valorisation' | 'receptions' | 'surplus' | 'factures' | 'stockPF'>('dashboard');
+    // L onglet vit dans l URL : #/magasin/<onglet>
+    const [tab, setTab] = useRouteSegment({
+        view: 'magasin',
+        depth: 0,
+        allowed: ['dashboard', 'db', 'bureau', 'demandes', 'commandes', 'alertes', 'inventaire', 'tracabilite', 'wms', 'fournisseurs', 'valorisation', 'receptions', 'surplus', 'factures', 'stockPF'] as const,
+        fallback: 'dashboard',
+        slugs: {
+            dashboard: 'tableau-de-bord', db: 'base-articles', bureau: 'bureau',
+            demandes: 'demandes', commandes: 'commandes', alertes: 'alertes',
+            inventaire: 'inventaire', tracabilite: 'tracabilite', wms: 'wms',
+            fournisseurs: 'fournisseurs', valorisation: 'valorisation',
+            receptions: 'receptions', surplus: 'surplus', factures: 'factures',
+            stockPF: 'stock-produits-finis',
+        },
+    });
     const [products, setProducts] = useState<MagasinProduct[]>([]);
     const [receptions, setReceptions] = useState<MaterialReceipt[]>(() => ld('beramethode_receptions', []));
     const [lots, setLots] = useState<LotStock[]>([]);

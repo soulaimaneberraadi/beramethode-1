@@ -44,7 +44,7 @@ import { sumPiecesFromSuiviForPlanning } from './utils/produced';
 import { rollPlanningEvents } from './utils/planning';
 import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
-import { navigate, getCurrentRoute, parseHash, onRouteChange } from './lib/router';
+import { navigate, getCurrentRoute, parseHash, onRouteChange, replaceRoute } from './lib/router';
 
 const Login = lazyWithRetry('Login', () => import('./src/components/Login'));
 const Setup = lazyWithRetry('Setup', () => import('./components/Setup'));
@@ -414,10 +414,25 @@ export default function App() {
         };
         syncHashToView();
         window.addEventListener('hashchange', syncHashToView);
+        window.addEventListener('popstate', syncHashToView);
         return () => {
             window.removeEventListener('hashchange', syncHashToView);
+            window.removeEventListener('popstate', syncHashToView);
         };
     }, []);
+
+    // Sens inverse : beaucoup d endroits appellent setCurrentView() sans passer
+    // par navigate(). Sans ce garde-fou l URL resterait sur la page precedente
+    // et un rechargement (ou un partage de lien) ouvrirait la mauvaise page.
+    // On saute le tout premier passage : au montage, currentView vaut encore sa
+    // valeur par defaut alors que syncHashToView n a pas encore commit son
+    // setState — ecrire l URL ici effacerait le lien profond ouvert par l usager.
+    const routeSyncArmed = useRef(false);
+    useEffect(() => {
+        if (!routeSyncArmed.current) { routeSyncArmed.current = true; return; }
+        const route = getCurrentRoute();
+        if (route.view !== currentView) replaceRoute(currentView as any);
+    }, [currentView]);
 
     const [navigationContext, setNavigationContext] = useState<'coupe' | 'planning' | 'sousTraitance' | null>(null);
     const [navConfirm, setNavConfirm] = useState<{ isOpen: boolean; type: 'save' | 'new' | 'effectifs' | null; targetView: typeof currentView | null; }>({ isOpen: false, type: null, targetView: null });

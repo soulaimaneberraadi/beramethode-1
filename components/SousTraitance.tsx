@@ -21,6 +21,7 @@ import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import Caisse, { type CaisseLigne, type CaissePaiement, type TypeVente } from './Caisse';
 import { buildTicketHtml, buildTicketZpl, parsePrinterHosts, type TicketData } from '../lib/ticket';
 import { lsGetMig, lsSet } from '../lib/storageKeys';
+import { useRouteSegment } from '../lib/router';
 import { 
   Truck, Plus, Search, Trash2, Edit2, X, Check, 
   AlertCircle, Calendar, DollarSign, Package, 
@@ -506,8 +507,21 @@ const sumGrid = (grid: Record<string, Record<string, number>> | undefined): numb
   );
 
 export default function SousTraitance({ models, setModels, settings, onLoadModel, onNavigate, onCreateNewProject }: SousTraitanceProps) {
-  // Navigation Tabs
-  const [activeTab, setActiveTab] = useState<'orders' | 'subcontractors' | 'stock' | 'clients' | 'ventes'>('orders');
+  // Navigation Tabs — l onglet vit dans l URL : #/sous-traitance/<onglet>
+  // Retour/avant du navigateur et lien partageable fonctionnent sans etat local.
+  const [activeTab, setActiveTab] = useRouteSegment({
+    view: 'sousTraitance',
+    depth: 0,
+    allowed: ['orders', 'subcontractors', 'stock', 'clients', 'ventes'] as const,
+    fallback: 'orders',
+    slugs: {
+      orders: 'commandes',
+      subcontractors: 'sous-traitants',
+      stock: 'stock',
+      clients: 'clients',
+      ventes: 'ventes',
+    },
+  });
   // Une adresse cliquee dans l encours ouvre l annuaire, deja filtre.
   useEffect(() => {
     const aller = () => setActiveTab('clients');

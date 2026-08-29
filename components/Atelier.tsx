@@ -4,6 +4,7 @@ import { Factory, Calendar, Package, CheckSquare, Plus, AlertCircle, Clock, Chev
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import InlineInvoiceList from './InlineInvoiceList';
+import { useRouteSegment } from '../lib/router';
 
 interface AtelierProps {
     models: ModelData[];
@@ -19,7 +20,13 @@ interface AtelierProps {
 
 export default function Atelier({ models, planningEvents, suivis, settings, handleAddDemandeAppro, setPlanningEvents, setModels, setSuivis }: AtelierProps) {
     const { lang } = useLang();
-    const [tab, setTab] = useState<'dashboard' | 'demandes' | 'cloture'>('dashboard');
+    // L onglet vit dans l URL : #/atelier/<onglet>
+    const [tab, setTab] = useRouteSegment({
+        view: 'atelierProd', depth: 0,
+        allowed: ['dashboard', 'demandes', 'cloture'] as const,
+        fallback: 'dashboard',
+        slugs: { dashboard: 'tableau-de-bord', demandes: 'demandes', cloture: 'cloture' },
+    });
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
     // Demande Form State

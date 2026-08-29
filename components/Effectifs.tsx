@@ -10,6 +10,7 @@ import { ResponsiveChart } from './ui/ResponsiveChart';
 import { SuiviData, PlanningEvent, AppSettings } from '../types';
 import DateTimePicker from './ui/DateTimePicker';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
+import { useRouteSegment } from '../lib/router';
 import {
   type EffectifsObservationAnchor,
   type EffectifsUserObservation,
@@ -230,7 +231,13 @@ export default function Effectifs({
   const { lang } = useLang();
   const isDark = useIsDark();
   const effectifsDtpSettings = settings ?? DEFAULT_CALENDAR_APP_SETTINGS;
-  const [activeTab, setActiveTab] = useState<'grid' | 'analytics'>('grid');
+  // L onglet vit dans l URL : #/effectifs/<onglet>
+  const [activeTab, setActiveTab] = useRouteSegment({
+    view: 'effectifs', depth: 0,
+    allowed: ['grid', 'analytics'] as const,
+    fallback: 'grid',
+    slugs: { grid: 'grille', analytics: 'analyse' },
+  });
 
   const [localChain, setLocalChain] = useState('Toutes les chaines');
   const selectedChain = propSelectedChain !== undefined ? propSelectedChain : localChain;

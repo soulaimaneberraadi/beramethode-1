@@ -190,9 +190,9 @@ export default function AppHeader({
 
     return (
         <header className="bg-white dark:bg-dk-surface border-b border-gray-100 dark:border-dk-border shadow-[0_1px_2px_0_rgba(0,0,0,0.02)] z-[100] shrink-0 h-12 sticky top-0 print:hidden">
-            <div className="h-full px-3 sm:px-4 flex items-center justify-between">
+            <div className="h-full px-2 sm:px-4 flex items-center justify-between gap-2 min-w-0">
                 {/* Left: Hamburger (mobile) + Logo */}
-                <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-1 sm:gap-3 min-w-0">
                     {/* Hamburger Menu Button - toujours dispo sur mobile (la nav desktop est cachée < md) */}
                     <button onClick={() => setMobileMenuOpen(v => !v)}
                         aria-label="Menu"
@@ -347,7 +347,7 @@ export default function AppHeader({
                 )}
 
                 {/* Right Side Tools */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                     {/* DB Backup Download (Admin only) */}
                     {false && user?.role === 'admin' && (
                         <button

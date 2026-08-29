@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { useRouteSegment } from '../lib/router';
 
 interface StockExportProps {
     models: ModelData[];
@@ -23,7 +24,12 @@ interface StockExportProps {
 }
 
 export default function StockExport({ models, suivis, planningEvents = [], setModels, setSuivis, setCurrentView, createNewProject, settings }: StockExportProps) {
-    const [activeTab, setActiveTab] = useState<'finition' | 'emballage' | 'complet'>('finition');
+    // L onglet vit dans l URL : #/export/<onglet>
+    const [activeTab, setActiveTab] = useRouteSegment({
+        view: 'export', depth: 0,
+        allowed: ['finition', 'emballage', 'complet'] as const,
+        fallback: 'finition',
+    });
     const [selectedDate, setSelectedDate] = useState<string>(() => {
         return new Date().toISOString().split('T')[0];
     });
