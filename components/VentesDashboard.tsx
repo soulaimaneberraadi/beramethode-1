@@ -266,15 +266,21 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
     );
 
     /** Une repartition : le libelle, la part, et une barre fine. La part en
-     *  POURCENTAGE d'abord — « 142 297 MAD » ne dit pas si c'est beaucoup. */
-    const Repartition = ({ titre, lignes }: { titre: string; lignes: Array<{ cle: string; ca: number; detail: string }> }) => {
-        const total = lignes.reduce((a, l) => a + l.ca, 0);
+     *  POURCENTAGE d'abord — « 142 297 MAD » ne dit pas si c'est beaucoup.
+     *
+     *  `mesure` dit sur QUOI la part se calcule. L'argent pour les canaux (on
+     *  veut savoir d'ou vient le chiffre), les PIECES pour les tailles et les
+     *  couleurs : une taille sortie 30 fois a prix nul est la plus demandee,
+     *  pas la moins — la mesurer en argent la faisait afficher « 0 % ». */
+    const Repartition = ({ titre, lignes, unite }: { titre: string; lignes: Array<{ cle: string; ca: number; valeur?: number; detail: string }>; unite?: string }) => {
+        const valeurDe = (l: { ca: number; valeur?: number }) => (l.valeur == null ? l.ca : l.valeur);
+        const total = lignes.reduce((a, l) => a + valeurDe(l), 0);
         return (
             <Carte titre={titre}>
                 <div className="p-3.5 space-y-2.5">
                     {lignes.length === 0 && <p className="text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</p>}
                     {lignes.map(l => {
-                        const part = total > 0 ? (l.ca / total) * 100 : 0;
+                        const part = total > 0 ? (valeurDe(l) / total) * 100 : 0;
                         const flou = l.cle === 'NON_PRECISE' || l.cle === '—';
                         return (
                             <div key={l.cle}>
@@ -284,7 +290,9 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                                     </span>
                                     <span className="shrink-0 tabular-nums">
                                         <span className="font-black text-slate-800 dark:text-dk-text">{nf(part)} %</span>
-                                        <span className="ml-1.5 text-[10px] text-slate-400 dark:text-dk-muted">{nf(l.ca)}</span>
+                                        <span className="ml-1.5 text-[10px] text-slate-400 dark:text-dk-muted">
+                                            {nf(valeurDe(l))}{unite ? ` ${unite}` : ''}
+                                        </span>
                                     </span>
                                 </div>
                                 <div className="h-1 rounded-full bg-slate-100 dark:bg-dk-elevated mt-1 overflow-hidden">
@@ -579,8 +587,16 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
-                        <Repartition titre={T.tailles} lignes={(data.tailles || []).slice(0, 7).map(t => ({ cle: t.taille, ca: t.ca, detail: `${nf(t.pieces)} ${T.piecesCourt}` }))} />
-                        <Repartition titre={T.couleurs} lignes={(data.couleurs || []).slice(0, 7).map(c => ({ cle: c.couleur, ca: c.ca, detail: `${nf(c.pieces)} ${T.piecesCourt}` }))} />
+                        <Repartition
+                            titre={T.tailles}
+                            unite={T.piecesCourt}
+                            lignes={(data.tailles || []).slice(0, 8).map(t => ({ cle: t.taille, ca: t.ca, valeur: t.pieces, detail: `${nf(t.ca)} ${currency}` }))}
+                        />
+                        <Repartition
+                            titre={T.couleurs}
+                            unite={T.piecesCourt}
+                            lignes={(data.couleurs || []).slice(0, 8).map(c => ({ cle: c.couleur, ca: c.ca, valeur: c.pieces, detail: `${nf(c.ca)} ${currency}` }))}
+                        />
                         <Carte
                             titre={T.qualite}
                             droite={
