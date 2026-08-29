@@ -1,5 +1,6 @@
 import React from 'react';
-import { Printer, MessageCircle } from 'lucide-react';
+import { Printer, MessageCircle, Loader2 } from 'lucide-react';
+import { enPdf, partagerOuTelecharger } from './partagerDocument';
 import PanneauDetail from './PanneauDetail';
 import { imprimerHtml } from './recuVersement';
 import { htmlReleve, OPTIONS_PAR_DEFAUT, type DonneesReleve, type OptionsReleve } from './releveCompte';
@@ -27,11 +28,46 @@ const ApercuReleve: React.FC<{
     retour?: string;
 }> = ({ donnees, devise, tel, onFermer, retour }) => {
     const [options, setOptions] = React.useState<OptionsReleve>(OPTIONS_PAR_DEFAUT);
+    const [envoi, setEnvoi] = React.useState(false);
+    const [avis, setAvis] = React.useState<string | null>(null);
     const html = htmlReleve(donnees, devise, false, options);
 
     const solde = Math.max(0, donnees.factures.reduce((a, f) => a + f.totalTtc - f.montantPaye, 0));
     const nf = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
     const international = tel ? versInternational(tel) : null;
+
+    const texte = messageRelance({
+        nom: donnees.client.nom,
+        encours: solde,
+        devise,
+        societe: donnees.emetteur?.nom || null,
+        factures: donnees.factures.filter(f => f.reste > 0.009)
+            .map(f => ({ numero: f.numero, reste: f.reste, dateEcheance: f.dateEcheance })),
+    });
+
+    /**
+     * Fabrique le PDF, puis le passe au partage du systeme — une feuille ou
+     * l'on choisit WhatsApp et le contact. Sur un poste qui ne sait pas
+     * partager de fichiers, il se telecharge et la conversation s'ouvre : il
+     * ne reste qu'a le glisser. On le dit, plutot que de laisser croire a un
+     * envoi qui n'a pas eu lieu.
+     */
+    const envoyer = async () => {
+        setEnvoi(true);
+        setAvis(null);
+        try {
+            const nom = `Situation ${donnees.client.nom} ${new Date().toISOString().slice(0, 10)}`.replace(/[\\/:*?"<>|]/g, '-');
+            const fichier = await enPdf(html, nom);
+            const resultat = await partagerOuTelecharger(fichier, texte, international);
+            setAvis(resultat === 'PARTAGE'
+                ? 'Le PDF est parti dans la fenetre de partage.'
+                : 'Ce navigateur ne sait pas joindre un fichier : le PDF est telecharge et WhatsApp ouvert — il reste a le glisser dans la conversation.');
+        } catch (e: any) {
+            setAvis(e?.message || String(e));
+        } finally {
+            setEnvoi(false);
+        }
+    };
 
     return (
         <PanneauDetail
@@ -64,26 +100,23 @@ const ApercuReleve: React.FC<{
                     >
                         <Printer className="w-4 h-4" /> Imprimer / PDF
                     </button>
-                    {international && (
-                        <a
-                            href={`https://wa.me/${international}?text=${encodeURIComponent(messageRelance({
-                                nom: donnees.client.nom,
-                                encours: solde,
-                                devise,
-                                societe: donnees.emetteur?.nom || null,
-                                factures: donnees.factures.filter(f => f.reste > 0.009)
-                                    .map(f => ({ numero: f.numero, reste: f.reste, dateEcheance: f.dateEcheance })),
-                            }))}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="h-9 px-3.5 rounded-lg text-[12px] font-black border border-emerald-300 text-emerald-700 dark:border-emerald-800/60 dark:text-emerald-400 inline-flex items-center gap-1.5"
-                        >
-                            <MessageCircle className="w-4 h-4" /> WhatsApp
-                        </a>
-                    )}
+                    <button
+                        type="button"
+                        disabled={envoi}
+                        onClick={() => void envoyer()}
+                        className="h-9 px-3.5 rounded-lg text-[12px] font-black bg-emerald-600 text-white inline-flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                        {envoi ? <Loader2 className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
+                        {envoi ? 'Preparation...' : 'Envoyer le PDF'}
+                    </button>
                 </div>
             }
         >
+            {avis && (
+                <p className="text-[12px] font-bold text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface px-3.5 py-2.5">
+                    {avis}
+                </p>
+            )}
             <div className="rounded-xl border border-slate-200 dark:border-dk-border bg-white overflow-hidden mx-auto max-w-[820px]">
                 <iframe title="Situation de compte" srcDoc={html} className="w-full h-[72vh] border-0 bg-white" />
             </div>
