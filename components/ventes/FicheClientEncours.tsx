@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle, Phone, MapPin, RefreshCw, Trash2, Check, X, Printer, FileText } from 'lucide-react';
 import { grouperArticles, LigneModele } from './articles';
-import { chargerEtOuvrirRecu } from './recuVersement';
+import ApercuRecu from './ApercuRecu';
 import { ouvrirReleve } from './releveCompte';
 import Garanties from './Garanties';
 
@@ -25,7 +25,7 @@ type FactureHisto = {
     articles: Article[]; paiements: Paiement[];
 };
 
-type Histo = { clientId: string; emetteur?: any; factures: FactureHisto[]; totalFacture: number; totalPaye: number };
+type Histo = { clientId: string; emetteur?: any; client?: any; factures: FactureHisto[]; totalFacture: number; totalPaye: number };
 
 /**
  * La fiche d'un client vue depuis l'encours : TOUT ce qui s'est passe avec
@@ -47,6 +47,8 @@ const FicheClientEncours: React.FC<{
     // La confirmation est DANS la page : window.confirm est bloque dans certains
     // conteneurs, et le bouton restait sans effet, sans le moindre message.
     const [aConfirmer, setAConfirmer] = React.useState<string | null>(null);
+    // Voir avant d imprimer : une feuille gaspillee pour lire un montant, non.
+    const [apercu, setApercu] = React.useState<string | null>(null);
 
     const charger = React.useCallback(async () => {
         if (!client.clientId) { setChargement(false); setErreur('Ce client n’a pas de fiche : la facture porte un nom libre.'); return; }
@@ -116,7 +118,7 @@ const FicheClientEncours: React.FC<{
 
             ouvrirReleve({
                 emetteur: histo.emetteur || null,
-                client: { nom: client.nom, tel: client.tel, ville: client.ville, ice: null },
+                client: { nom: client.nom, tel: fiche?.tel || client.tel, ville: fiche?.ville || client.ville, ice: fiche?.ice || null },
                 lignes,
                 garanties: (recu?.garanties || [])
                     .filter((g: any) => g.statut === 'EN_GARDE')
@@ -127,12 +129,50 @@ const FicheClientEncours: React.FC<{
         }
     };
 
+    const fiche = histo?.client || null;
+
+    if (apercu) {
+        return <ApercuRecu paiementId={apercu} devise={devise} retour={client.nom} onFermer={() => setApercu(null)} />;
+    }
+
     return (
         <div className="space-y-2.5">
             <div className="rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3.5 py-3">
+                {/* L'identite complete : un releve ou une facture sans ICE ni
+                    adresse ne s'envoie pas, et il faut la voir d'ici. */}
+                {fiche && (
+                    <div className="flex items-start gap-3 mb-2.5">
+                        {fiche.photo
+                            ? <img src={fiche.photo} alt="" className="w-11 h-11 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
+                            : <span className="w-11 h-11 rounded-lg bg-slate-100 dark:bg-dk-elevated shrink-0 flex items-center justify-center text-[12px] font-black text-slate-300">
+                                {(fiche.nom || '—').slice(0, 2).toUpperCase()}
+                            </span>}
+                        <div className="min-w-0 flex-1 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1">
+                            {([
+                                ['Segment', fiche.types || fiche.type],
+                                ['ICE', fiche.ice],
+                                ['IF', fiche.if_fiscal],
+                                ['RC', fiche.rc],
+                                ['Email', fiche.email],
+                                ['Adresse', [fiche.adresse, fiche.ville].filter(Boolean).join(', ')],
+                                ['Client depuis', fiche.created_at ? String(fiche.created_at).slice(0, 10) : null],
+                            ] as Array<[string, string | null]>)
+                                .filter(([, v]) => v)
+                                .map(([k, v]) => (
+                                    <span key={k} className="min-w-0">
+                                        <span className="block text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 dark:text-dk-muted">{k}</span>
+                                        <span className="block text-[11px] font-bold text-slate-700 dark:text-dk-text-soft truncate" title={v || ''}>{v}</span>
+                                    </span>
+                                ))}
+                        </div>
+                    </div>
+                )}
+                {fiche?.notes && (
+                    <p className="mb-2 text-[11px] text-slate-500 dark:text-dk-muted border-l-2 border-slate-200 dark:border-dk-border pl-2">{fiche.notes}</p>
+                )}
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-dk-muted">
-                    {client.tel && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{client.tel}</span>}
-                    {client.ville && <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{client.ville}</span>}
+                    {(fiche?.tel || client.tel) && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{fiche?.tel || client.tel}</span>}
+                    {(fiche?.ville || client.ville) && <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{fiche?.ville || client.ville}</span>}
                     <button type="button" onClick={() => void charger()} className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-900">
                         <RefreshCw className={`w-3 h-3 ${chargement ? 'animate-spin' : ''}`} /> Actualiser
                     </button>
@@ -225,8 +265,8 @@ const FicheClientEncours: React.FC<{
                                                 le vendeur doit pouvoir le retirer. */}
                                             <button
                                                 type="button"
-                                                onClick={() => { chargerEtOuvrirRecu(p.id, devise).catch((e: any) => setErreur(e?.message || String(e))); }}
-                                                title="Imprimer le recu"
+                                                onClick={() => setApercu(p.id)}
+                                                title="Voir le recu"
                                                 className="w-6 h-6 shrink-0 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100 dark:hover:bg-dk-elevated"
                                             >
                                                 <Printer className="w-3 h-3" />

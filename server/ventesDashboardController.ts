@@ -652,6 +652,11 @@ export const getClientHistorique = (req: Request, res: Response) => {
             clientId,
             // L en-tete de la societe : le releve s imprime depuis cet ecran.
             emetteur: emetteurDe(companyId),
+            // La fiche du client : un releve sans ICE ni adresse ne s envoie pas.
+            client: db.prepare(`
+                SELECT id, nom, type, types, tel, email, ville, adresse, ice, if_fiscal, rc, notes, photo, role, created_at
+                FROM st_clients WHERE id = ? AND owner_id = ?
+            `).get(clientId, companyId) || null,
             factures: factures.map(f => {
                 const paye = Number(f.montant_paye) || 0;
                 const ttc = Number(f.total_ttc) || 0;

@@ -4,7 +4,7 @@ import PanneauDetail from './PanneauDetail';
 import FicheClientEncours, { Article } from './FicheClientEncours';
 import { grouperArticles, LigneModele } from './articles';
 import { ChampDate, ChampListe } from './champs';
-import { chargerEtOuvrirRecu } from './recuVersement';
+import ApercuRecu from './ApercuRecu';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -66,6 +66,8 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
     // Solder demande confirmation SUR PLACE : window.confirm est bloque dans
     // certains conteneurs et le clic restait sans effet ni message.
     const [aSolder, setASolder] = React.useState<string | null>(null);
+    // Le recu du versement qui vient d etre saisi : on le lit avant de l imprimer.
+    const [apercu, setApercu] = React.useState<string | null>(null);
     // Un client ne paye pas une facture, il pose une somme sur le comptoir :
     // elle s'impute sur les plus anciennes d'abord.
     const [global, setGlobal] = React.useState<Record<string, { montant: number | ''; date: string; mode: string }>>({});
@@ -170,7 +172,7 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
             await charger();
             // Le recu part dans la foulee : un versement qu'on ne remet pas par
             // ecrit se rediscute le mois suivant.
-            if (body?.id) { try { await chargerEtOuvrirRecu(String(body.id), devise); } catch (err: any) { setErreur(err?.message || String(err)); } }
+            if (body?.id) setApercu(String(body.id));
         } catch (e: any) {
             setErreur(e?.message || String(e));
         } finally {
@@ -214,6 +216,10 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
             </button>
         </div>
     );
+
+    if (apercu) {
+        return <ApercuRecu paiementId={apercu} devise={devise} retour="Encours client" onFermer={() => setApercu(null)} />;
+    }
 
     if (fiche) {
         return (
