@@ -2,6 +2,8 @@ import React from 'react';
 import { AlertTriangle, Phone, MapPin, RefreshCw, Trash2, Check, X, Printer, FileText } from 'lucide-react';
 import { grouperArticles, LigneModele } from './articles';
 import ApercuRecu from './ApercuRecu';
+import ContactClient from './ContactClient';
+import { ouvrirTiers } from './naviguerTiers';
 import { ouvrirReleve } from './releveCompte';
 import Garanties from './Garanties';
 
@@ -161,7 +163,21 @@ const FicheClientEncours: React.FC<{
                                 .map(([k, v]) => (
                                     <span key={k} className="min-w-0">
                                         <span className="block text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 dark:text-dk-muted">{k}</span>
-                                        <span className="block text-[11px] font-bold text-slate-700 dark:text-dk-text-soft truncate" title={v || ''}>{v}</span>
+                                        {/* L adresse mene a l annuaire filtre : savoir QUI d autre
+                                            se trouve a la meme adresse evite de livrer deux fois
+                                            au meme endroit — et de relancer le mauvais. */}
+                                        {k === 'Adresse' ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => ouvrirTiers(fiche.ville || v || '')}
+                                                title="Voir les clients a cette adresse"
+                                                className="block text-[11px] font-bold text-slate-700 dark:text-dk-text-soft truncate max-w-full text-left hover:underline decoration-slate-300 underline-offset-2"
+                                            >
+                                                {v}
+                                            </button>
+                                        ) : (
+                                            <span className="block text-[11px] font-bold text-slate-700 dark:text-dk-text-soft truncate" title={v || ''}>{v}</span>
+                                        )}
                                     </span>
                                 ))}
                         </div>
@@ -171,7 +187,18 @@ const FicheClientEncours: React.FC<{
                     <p className="mb-2 text-[11px] text-slate-500 dark:text-dk-muted border-l-2 border-slate-200 dark:border-dk-border pl-2">{fiche.notes}</p>
                 )}
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 dark:text-dk-muted">
-                    {(fiche?.tel || client.tel) && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{fiche?.tel || client.tel}</span>}
+                    <ContactClient
+                        tel={fiche?.tel || client.tel}
+                        onReleve={() => void imprimerReleve()}
+                        relance={{
+                            nom: client.nom,
+                            encours: histo ? Math.max(0, histo.totalFacture - histo.totalPaye) : client.encours,
+                            devise,
+                            societe: histo?.emetteur?.nom || null,
+                            factures: (histo?.factures || []).filter(f => f.reste > 0.009)
+                                .map(f => ({ numero: f.numero, reste: f.reste, dateEcheance: f.dateEcheance })),
+                        }}
+                    />
                     {(fiche?.ville || client.ville) && <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{fiche?.ville || client.ville}</span>}
                     <button type="button" onClick={() => void charger()} className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-900">
                         <RefreshCw className={`w-3 h-3 ${chargement ? 'opacity-40' : ''}`} /> Actualiser

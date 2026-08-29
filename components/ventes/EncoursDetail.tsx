@@ -5,6 +5,7 @@ import FicheClientEncours, { Article } from './FicheClientEncours';
 import { grouperArticles, LigneModele } from './articles';
 import { ChampDate, ChampListe } from './champs';
 import ApercuRecu from './ApercuRecu';
+import ContactClient from './ContactClient';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -101,6 +102,13 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
     }, []);
 
     React.useEffect(() => { void charger(); }, [charger]);
+
+    // Partir vers l annuaire n a de sens que si le panneau s efface derriere.
+    React.useEffect(() => {
+        const partir = () => onFermer();
+        window.addEventListener('bera:tiers-recherche', partir);
+        return () => window.removeEventListener('bera:tiers-recherche', partir);
+    }, [onFermer]);
 
     /** L'imputation : les factures les plus anciennes d'abord — c'est la regle
      *  comptable usuelle, et celle qui fait tomber les retards en premier. */
@@ -270,7 +278,18 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                                     {c.nom}
                                 </button>
                                 <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-slate-400 dark:text-dk-muted mt-0.5">
-                                    {c.tel && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{c.tel}</span>}
+                                    {c.tel && (
+                                        <ContactClient
+                                            tel={c.tel}
+                                            compact
+                                            relance={{
+                                                nom: c.nom,
+                                                encours: c.encours,
+                                                devise,
+                                                factures: c.factures.map(f => ({ numero: f.numero, reste: f.reste, dateEcheance: f.dateEcheance, retardJours: f.retardJours })),
+                                            }}
+                                        />
+                                    )}
                                     {c.ville && <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{c.ville}</span>}
                                     <span>{c.factures.length} facture(s)</span>
                                     {/* Le plus vieux delai depasse dit l'urgence mieux qu'un montant. */}

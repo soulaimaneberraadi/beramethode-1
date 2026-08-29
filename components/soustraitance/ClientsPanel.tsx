@@ -137,6 +137,17 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
+    // Le terme vient d ailleurs (une adresse cliquee dans l encours) : on le
+    // pose dans la barre plutot que de filtrer en douce, pour que la liste
+    // affichee soit toujours celle que le champ annonce.
+    useEffect(() => {
+        const poser = (e: Event) => {
+            const terme = (e as CustomEvent)?.detail?.terme;
+            if (typeof terme === 'string') setSearch(terme);
+        };
+        window.addEventListener('bera:tiers-recherche', poser);
+        return () => window.removeEventListener('bera:tiers-recherche', poser);
+    }, []);
     /** Filtre de rôle. 'TOUS' d'abord : cacher par défaut la moitié du registre
      *  ferait croire à une fiche manquante et provoquerait un doublon. */
     const [roleFilter, setRoleFilter] = useState<'TOUS' | 'CLIENT' | 'FOURNISSEUR'>('TOUS');

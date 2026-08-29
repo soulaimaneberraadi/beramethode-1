@@ -508,6 +508,12 @@ const sumGrid = (grid: Record<string, Record<string, number>> | undefined): numb
 export default function SousTraitance({ models, setModels, settings, onLoadModel, onNavigate, onCreateNewProject }: SousTraitanceProps) {
   // Navigation Tabs
   const [activeTab, setActiveTab] = useState<'orders' | 'subcontractors' | 'stock' | 'clients' | 'ventes'>('orders');
+  // Une adresse cliquee dans l encours ouvre l annuaire, deja filtre.
+  useEffect(() => {
+    const aller = () => setActiveTab('clients');
+    window.addEventListener('bera:tiers-recherche', aller as EventListener);
+    return () => window.removeEventListener('bera:tiers-recherche', aller as EventListener);
+  }, []);
   const [selectedSubcontractorName, setSelectedSubcontractorName] = useState<string | null>(null);
   const [subSearchQuery, setSubSearchQuery] = useState('');
   const [subListCollapsed, setSubListCollapsed] = useState(() => {

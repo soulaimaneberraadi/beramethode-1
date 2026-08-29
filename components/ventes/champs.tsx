@@ -8,7 +8,7 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-rea
  * donc en portail, en position fixed calculee sur le bouton, et bascule
  * au-dessus quand le bas de l'ecran manque.
  */
-const Flottant: React.FC<{ ancre: React.RefObject<HTMLElement>; largeurAncre?: boolean; children: React.ReactNode }> = ({ ancre, largeurAncre, children }) => {
+export const Flottant: React.FC<{ ancre: React.RefObject<HTMLElement>; largeurAncre?: boolean; children: React.ReactNode }> = ({ ancre, largeurAncre, children }) => {
     const [style, setStyle] = React.useState<React.CSSProperties | null>(null);
     const boite = React.useRef<HTMLDivElement>(null);
 
