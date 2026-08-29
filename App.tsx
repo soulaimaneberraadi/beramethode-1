@@ -288,9 +288,16 @@ export default function App() {
     // en meme temps donnent l impression que ni l une ni l autre ne repond.
     useEffect(() => {
         if (!mobileMenuOpen) return;
-        const avant = document.body.style.overflow;
+        // La page ne defile pas toujours par le body : on fige les deux racines,
+        // sinon le conteneur applicatif continue de glisser derriere le menu.
+        const avantBody = document.body.style.overflow;
+        const avantRacine = document.documentElement.style.overflow;
         document.body.style.overflow = "hidden";
-        return () => { document.body.style.overflow = avant; };
+        document.documentElement.style.overflow = "hidden";
+        return () => {
+            document.body.style.overflow = avantBody;
+            document.documentElement.style.overflow = avantRacine;
+        };
     }, [mobileMenuOpen]);
     // En static mode, on garde tous les modules visibles — leurs données viennent de Supabase
     // via cloud sync (snapshot localStorage). Les fetch /api/* qui échouent sont absorbés
@@ -1536,7 +1543,16 @@ export default function App() {
                 {/* MOBILE NAV OVERLAY — toujours dispo (la nav desktop est cachée sur mobile) */}
                 {mobileMenuOpen && (
                     <div className="fixed inset-0 z-[200] flex">
-                        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+                        {/* Le voile ne se contente pas d assombrir : il absorbe le
+                            geste. Sans touchAction none, le doigt pose dessus faisait
+                            defiler la page en dessous — le fond bougeait pendant que
+                            le menu restait immobile. */}
+                        <div
+                            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+                            style={{ touchAction: "none" }}
+                            onTouchMove={e => e.preventDefault()}
+                            onClick={() => setMobileMenuOpen(false)}
+                        />
                         {/* h-full vaut 100% du parent : sur iOS la barre d adresse
                             fausse cette hauteur et le bas du menu sort de l ecran.
                             100dvh suit la hauteur reellement visible. */}

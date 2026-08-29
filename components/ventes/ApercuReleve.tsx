@@ -117,6 +117,17 @@ const ApercuReleve: React.FC<{
                         {envoi ? <Loader2 className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
                         {envoi ? 'Preparation...' : 'Envoyer le PDF'}
                     </button>
+                    {international && (
+                        <a
+                            href={`https://wa.me/${international}?text=${encodeURIComponent(texte)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Ouvre la conversation de ce client"
+                            className="h-9 flex-1 sm:flex-none px-3 sm:px-3.5 rounded-lg text-[12px] font-black border border-emerald-300 text-emerald-700 dark:border-emerald-800/60 dark:text-emerald-400 inline-flex items-center justify-center gap-1.5"
+                        >
+                            <MessageCircle className="w-4 h-4" /> {donnees.client.nom}
+                        </a>
+                    )}
                 </div>
             }
         >
