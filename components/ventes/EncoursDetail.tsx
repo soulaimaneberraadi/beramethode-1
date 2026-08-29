@@ -53,6 +53,9 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
         try {
             const res = await fetch('/api/ventes/encours', { credentials: 'include' });
             const body = await res.json().catch(() => ({}));
+            // 404 ici ne veut pas dire « aucun impaye » mais « cette route
+            // n'existe pas encore » : le serveur tourne sur du code d'avant.
+            if (res.status === 404) throw new Error('Route /api/ventes/encours absente : redemarrer le serveur (npm run dev:app).');
             if (!res.ok) throw new Error(body?.message || `HTTP ${res.status}`);
             setData(body as Reponse);
         } catch (e: any) {
