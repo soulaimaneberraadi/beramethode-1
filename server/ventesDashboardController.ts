@@ -57,6 +57,21 @@ const construireFiltre = (q: any, companyId: number | string) => {
     return { jours, du, au, clientId, canal, segment, where: clauses.join(' AND '), params };
 };
 
+/**
+ * La MÊME fenêtre, décalée juste avant : c'est ce qui transforme « 145 000 »
+ * en « 145 000, en hausse de 12 % ». Un chiffre sans comparaison ne dit pas
+ * si l'atelier va bien — il dit seulement qu'il a vendu.
+ */
+const fenetrePrecedente = (du: string, au: string | null) => {
+    const debut = new Date(`${du}T00:00:00`).getTime();
+    const fin = au ? new Date(`${au}T00:00:00`).getTime() : Date.now();
+    const duree = Math.max(86400000, fin - debut);
+    return {
+        du: jourISO(new Date(debut - duree)),
+        au: jourISO(new Date(debut - 86400000)),
+    };
+};
+
 export const getVentesDashboard = (req: Request, res: Response) => {
     const companyId = (req as any).companyId ?? (req as any).user.id;
     const f = construireFiltre(req.query || {}, companyId);
@@ -259,6 +274,46 @@ export const getVentesDashboard = (req: Request, res: Response) => {
             GROUP BY COALESCE(s.mode_paiement, 'NON_PRECISE')
         `).all(...f.params) as any[];
 
+        // ── La courbe : sans elle, un tableau de bord est aveugle ────────
+        // Un total dit combien ; la série dit si ça monte, si ça retombe, et
+        // quel jour. C'est la première chose qu'on regarde le lundi matin.
+        const serie = db.prepare(`
+            SELECT s.date_sortie AS jour,
+                   SUM(s.quantite) AS pieces,
+                   SUM(s.quantite * s.prix_unitaire) AS ca,
+                   COUNT(DISTINCT COALESCE(s.ticket_ref, s.batch_id, s.id)) AS tickets
+            FROM st_stock_sorties s
+            WHERE ${f.where}
+            GROUP BY s.date_sortie
+            ORDER BY s.date_sortie
+        `).all(...f.params) as any[];
+
+        // ── Le même filtre, une fenêtre plus tôt ─────────────────────────
+        const p = fenetrePrecedente(f.du, f.au);
+        const clausesP = ['s.owner_id = ?', 's.date_sortie >= ?', 's.date_sortie <= ?'];
+        const paramsP: any[] = [companyId, p.du, p.au];
+        if (f.clientId) { clausesP.push('s.client_id = ?'); paramsP.push(f.clientId); }
+        if (f.canal) { clausesP.push('s.canal = ?'); paramsP.push(f.canal); }
+        if (f.segment) { clausesP.push('s.type_vente = ?'); paramsP.push(f.segment); }
+        const avant = db.prepare(`
+            SELECT SUM(s.quantite) AS pieces,
+                   SUM(s.quantite * s.prix_unitaire) AS ca,
+                   COUNT(DISTINCT COALESCE(s.ticket_ref, s.batch_id, s.id)) AS tickets
+            FROM st_stock_sorties s WHERE ${clausesP.join(' AND ')}
+        `).get(...paramsP) as any;
+
+        // ── Le rythme de la semaine ──────────────────────────────────────
+        // Savoir que le samedi fait trois fois le mardi change les horaires
+        // du comptoir et la date des livraisons, pas seulement un graphique.
+        const parJourSemaine = db.prepare(`
+            SELECT CAST(strftime('%w', s.date_sortie) AS INTEGER) AS jour,
+                   SUM(s.quantite * s.prix_unitaire) AS ca,
+                   SUM(s.quantite) AS pieces
+            FROM st_stock_sorties s
+            WHERE ${f.where}
+            GROUP BY CAST(strftime('%w', s.date_sortie) AS INTEGER)
+        `).all(...f.params) as any[];
+
         // ── Les clients : ce qu'ils achètent, ce qu'ils doivent ──────────
         // L'encours vient des FACTURES, pas des sorties : une vente comptant
         // n'est pas une dette, et une facture réglée à moitié en est une.
@@ -311,6 +366,12 @@ export const getVentesDashboard = (req: Request, res: Response) => {
             };
         }).sort((a, b) => b.ca - a.ca || b.encours - a.encours);
 
+        // Concentration : la part du chiffre faite par les trois premiers
+        // clients. Au-delà de 60 %, perdre un client ne se rattrape pas en un
+        // mois — c'est un risque, pas une performance.
+        const caClients = clientsClasses.reduce((a, c) => a + c.ca, 0);
+        const caTop3 = clientsClasses.slice(0, 3).reduce((a, c) => a + c.ca, 0);
+
         const totalCa = parCanal.reduce((a, c) => a + (Number(c.ca) || 0), 0);
         const totalPieces = parCanal.reduce((a, c) => a + (Number(c.pieces) || 0), 0);
         const totalTickets = parCanal.reduce((a, c) => a + (Number(c.tickets) || 0), 0);
@@ -325,6 +386,28 @@ export const getVentesDashboard = (req: Request, res: Response) => {
                 tickets: totalTickets,
                 panierMoyen: totalTickets > 0 ? Number((totalCa / totalTickets).toFixed(2)) : 0,
                 encoursTotal: Number(clientsClasses.reduce((a, c) => a + c.encours, 0).toFixed(2)),
+            },
+            serie: serie.map(j => ({
+                jour: j.jour,
+                pieces: Number(j.pieces) || 0,
+                ca: Number((Number(j.ca) || 0).toFixed(2)),
+                tickets: Number(j.tickets) || 0,
+            })),
+            precedent: {
+                du: p.du,
+                au: p.au,
+                ca: Number((Number(avant?.ca) || 0).toFixed(2)),
+                pieces: Number(avant?.pieces) || 0,
+                tickets: Number(avant?.tickets) || 0,
+            },
+            parJourSemaine: parJourSemaine.map(j => ({
+                jour: Number(j.jour),
+                ca: Number((Number(j.ca) || 0).toFixed(2)),
+                pieces: Number(j.pieces) || 0,
+            })),
+            concentration: {
+                partTop3: caClients > 0 ? Number(((caTop3 / caClients) * 100).toFixed(1)) : 0,
+                clientsActifs: clientsClasses.filter(c => c.ca > 0).length,
             },
             parCanal: parCanal.map(c => ({ ...c, ca: Number((Number(c.ca) || 0).toFixed(2)) })),
             parSegment: parSegment.map(s => ({ ...s, ca: Number((Number(s.ca) || 0).toFixed(2)) })),

@@ -13,7 +13,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    TrendingUp, PackageX, AlertTriangle, RefreshCw, Users, Wallet, Boxes, Search, Filter, Receipt,
+    TrendingUp, PackageX, AlertTriangle, RefreshCw, Users, Wallet, Boxes, Search, Filter, Receipt, ArrowUpRight, ArrowDownRight, CalendarDays,
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 
@@ -47,6 +47,10 @@ type ClientLigne = {
 
 type Donnees = {
     jours: number; depuis: string;
+    serie: Array<{ jour: string; ca: number; pieces: number; tickets: number }>;
+    precedent: { du: string; au: string; ca: number; pieces: number; tickets: number };
+    parJourSemaine: Array<{ jour: number; ca: number; pieces: number }>;
+    concentration: { partTop3: number; clientsActifs: number };
     tailles: Array<{ taille: string; pieces: number; ca: number }>;
     couleurs: Array<{ couleur: string; pieces: number; ca: number }>;
     qualite: {
@@ -118,6 +122,10 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
             }
             setData({
                 ...body,
+                serie: Array.isArray(body.serie) ? body.serie : [],
+                precedent: body.precedent || { du: '', au: '', ca: 0, pieces: 0, tickets: 0 },
+                parJourSemaine: Array.isArray(body.parJourSemaine) ? body.parJourSemaine : [],
+                concentration: body.concentration || { partTop3: 0, clientsActifs: 0 },
                 kpis: body.kpis || { ca: 0, pieces: 0, tickets: 0, panierMoyen: 0, encoursTotal: 0 },
                 parCanal: Array.isArray(body.parCanal) ? body.parCanal : [],
                 parSegment: Array.isArray(body.parSegment) ? body.parSegment : [],
@@ -175,6 +183,13 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         qualite: tx(lang, { fr: 'Qualite atelier', ar: 'جودة الورشة', en: 'Workshop quality', es: 'Calidad del taller', pt: 'Qualidade da oficina', tr: 'Atolye kalitesi' }),
         tauxDefaut: tx(lang, { fr: 'Taux de defaut', ar: 'نسبة العيوب', en: 'Defect rate', es: 'Tasa de defectos', pt: 'Taxa de defeitos', tr: 'Hata orani' }),
         canalFort: tx(lang, { fr: 'Part du canal principal', ar: 'حصّة القناة الأولى', en: 'Main channel share', es: 'Cuota del canal principal', pt: 'Quota do canal principal', tr: 'Ana kanal payi' }),
+        tendance: tx(lang, { fr: 'Tendance', ar: 'المنحنى', en: 'Trend', es: 'Tendencia', pt: 'Tendencia', tr: 'Egilim' }),
+        joursAvecVente: tx(lang, { fr: 'jours avec vente', ar: 'أيام فيها بيع', en: 'days with sales', es: 'dias con venta', pt: 'dias com venda', tr: 'satisli gun' }),
+        meilleurJour: tx(lang, { fr: 'Meilleur jour', ar: 'أحسن نهار', en: 'Best day', es: 'Mejor dia', pt: 'Melhor dia', tr: 'En iyi gun' }),
+        rythme: tx(lang, { fr: 'Rythme de la semaine', ar: 'إيقاع الأسبوع', en: 'Weekly rhythm', es: 'Ritmo semanal', pt: 'Ritmo da semana', tr: 'Haftalik ritim' }),
+        joursSemaine: (lang === 'ar' ? ['إث', 'ثل', 'أر', 'خم', 'جم', 'سب', 'أح'] : ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di']),
+        concentration: tx(lang, { fr: 'Top 3 =', ar: 'أوّل 3 =', en: 'Top 3 =', es: 'Top 3 =', pt: 'Top 3 =', tr: 'Ilk 3 =' }),
+        actifs: tx(lang, { fr: 'actifs', ar: 'نشيطين', en: 'active', es: 'activos', pt: 'ativos', tr: 'aktif' }),
         filtres: tx(lang, { fr: 'Filtres', ar: 'فلاتر', en: 'Filters', es: 'Filtros', pt: 'Filtros', tr: 'Filtreler' }),
         actualiser: tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' }),
         nonRenseigne: tx(lang, { fr: 'Non renseigne', ar: 'غير محدّد', en: 'Not recorded', es: 'Sin indicar', pt: 'Nao indicado', tr: 'Belirtilmemis' }),
@@ -223,13 +238,29 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
      *  nomme au lieu de laisser un mot de base de donnees a l'ecran. */
     const libelle = (v: string) => (v === 'NON_PRECISE' || v === '—' ? T.nonRenseigne : v);
 
-    const Tuile = ({ titre, valeur, icone, alerte = false }: { titre: string; valeur: string; icone: React.ReactNode; alerte?: boolean }) => (
+    /** Une variation par rapport à la même durée, juste avant. Sans elle,
+     *  « 145 000 » ne dit pas si l'atelier monte ou retombe. Une période
+     *  précédente vide ne produit AUCUN pourcentage : « +∞ % » n'informe
+     *  personne, et un premier mois n'est pas une progression. */
+    const Delta = ({ actuel, avant }: { actuel: number; avant: number }) => {
+        if (!avant) return null;
+        const pct = ((actuel - avant) / avant) * 100;
+        const monte = pct >= 0;
+        return (
+            <span className={`inline-flex items-center gap-0.5 text-[10px] font-black tabular-nums ${monte ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                {monte ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                {nf(Math.abs(pct))} %
+            </span>
+        );
+    };
+
+    const Tuile = ({ titre, valeur, icone, alerte = false, delta }: { titre: string; valeur: string; icone: React.ReactNode; alerte?: boolean; delta?: React.ReactNode }) => (
         <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface px-3.5 py-3">
             <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">
                 {icone}<span className="truncate">{titre}</span>
             </span>
-            <p className={`mt-1 text-[17px] font-black tabular-nums leading-none ${alerte ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-dk-text'}`}>
-                {valeur}
+            <p className={`mt-1 flex items-baseline gap-2 text-[17px] font-black tabular-nums leading-none ${alerte ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-dk-text'}`}>
+                {valeur}{delta}
             </p>
         </div>
     );
@@ -385,11 +416,87 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
             {data && (
                 <>
                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
-                        <Tuile titre={T.ca} valeur={`${nf(data.kpis.ca)} ${currency}`} icone={<TrendingUp className="w-3.5 h-3.5" />} />
-                        <Tuile titre={T.pieces} valeur={nf(data.kpis.pieces)} icone={<Boxes className="w-3.5 h-3.5" />} />
-                        <Tuile titre={T.tickets} valeur={nf(data.kpis.tickets)} icone={<Receipt className="w-3.5 h-3.5" />} />
+                        <Tuile titre={T.ca} valeur={`${nf(data.kpis.ca)} ${currency}`} icone={<TrendingUp className="w-3.5 h-3.5" />}
+                            delta={<Delta actuel={data.kpis.ca} avant={data.precedent.ca} />} />
+                        <Tuile titre={T.pieces} valeur={nf(data.kpis.pieces)} icone={<Boxes className="w-3.5 h-3.5" />}
+                            delta={<Delta actuel={data.kpis.pieces} avant={data.precedent.pieces} />} />
+                        <Tuile titre={T.tickets} valeur={nf(data.kpis.tickets)} icone={<Receipt className="w-3.5 h-3.5" />}
+                            delta={<Delta actuel={data.kpis.tickets} avant={data.precedent.tickets} />} />
                         <Tuile titre={T.panier} valeur={`${nf(data.kpis.panierMoyen)} ${currency}`} icone={<Wallet className="w-3.5 h-3.5" />} />
                         <Tuile titre={T.encours} valeur={`${nf(data.kpis.encoursTotal)} ${currency}`} icone={<Users className="w-3.5 h-3.5" />} alerte={data.kpis.encoursTotal > 0} />
+                    </div>
+
+                    {/* La courbe AVANT tout le reste : un total dit combien, la
+                        courbe dit si ca monte, si ca retombe, et quel jour. */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
+                        <Carte
+                            titre={T.tendance}
+                            className="lg:col-span-2"
+                            droite={
+                                <span className="text-[10px] text-slate-400 dark:text-dk-muted tabular-nums">
+                                    {data.serie.length} {T.joursAvecVente}
+                                </span>
+                            }
+                        >
+                            <div className="p-3.5">
+                                {data.serie.length === 0 ? (
+                                    <p className="text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</p>
+                                ) : (
+                                    <>
+                                        <div className="flex items-end gap-[3px] h-24">
+                                            {data.serie.map(j => {
+                                                const max = Math.max(...data.serie.map(x => x.ca), 1);
+                                                const h = Math.max(3, (j.ca / max) * 100);
+                                                return (
+                                                    <div
+                                                        key={j.jour}
+                                                        title={`${j.jour} · ${nf(j.ca)} ${currency} · ${nf(j.pieces)} ${T.piecesCourt}`}
+                                                        className="flex-1 min-w-[3px] rounded-t bg-slate-800 dark:bg-dk-accent hover:bg-slate-600 transition-colors"
+                                                        style={{ height: `${h}%` }}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                        <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-400 dark:text-dk-muted tabular-nums">
+                                            <span>{data.serie[0]?.jour}</span>
+                                            <span>{T.meilleurJour} : {(() => {
+                                                const best = [...data.serie].sort((a, b) => b.ca - a.ca)[0];
+                                                return best ? `${best.jour} · ${nf(best.ca)} ${currency}` : '—';
+                                            })()}</span>
+                                            <span>{data.serie[data.serie.length - 1]?.jour}</span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </Carte>
+
+                        {/* Le rythme de la semaine : il change des horaires, pas
+                            seulement un graphique. */}
+                        <Carte titre={T.rythme}>
+                            <div className="p-3.5">
+                                <div className="flex items-end justify-between gap-1.5 h-24">
+                                    {[1, 2, 3, 4, 5, 6, 0].map(n => {
+                                        const j = data.parJourSemaine.find(x => x.jour === n);
+                                        const max = Math.max(...data.parJourSemaine.map(x => x.ca), 1);
+                                        const h = j ? Math.max(3, (j.ca / max) * 100) : 2;
+                                        return (
+                                            <div key={n} className="flex-1 flex flex-col items-center gap-1 justify-end h-full">
+                                                <div
+                                                    title={j ? `${nf(j.ca)} ${currency}` : '—'}
+                                                    className={`w-full rounded-t ${j ? 'bg-slate-800 dark:bg-dk-accent' : 'bg-slate-100 dark:bg-dk-elevated'}`}
+                                                    style={{ height: `${h}%` }}
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="flex items-end justify-between gap-1.5 mt-1.5">
+                                    {T.joursSemaine.map(lbl => (
+                                        <span key={lbl} className="flex-1 text-center text-[9px] font-bold text-slate-400 dark:text-dk-muted">{lbl}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        </Carte>
                     </div>
 
                     {/* Les modeles d'abord : c'est la seule zone qui declenche une
@@ -500,7 +607,16 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                     </div>
 
                     {/* Les clients : d'abord ceux qui doivent. */}
-                    <Carte titre={T.clients}>
+                    <Carte
+                        titre={T.clients}
+                        droite={
+                            <span className="text-[10px] tabular-nums text-slate-400 dark:text-dk-muted">
+                                {T.concentration} <b className={data.concentration.partTop3 > 60 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-dk-text-soft'}>
+                                    {nf(data.concentration.partTop3)} %
+                                </b> · {data.concentration.clientsActifs} {T.actifs}
+                            </span>
+                        }
+                    >
                         <div className="divide-y divide-slate-100 dark:divide-dk-border">
                             {clientsFiltres.length === 0 && (
                                 <p className="px-4 py-6 text-center text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</p>
