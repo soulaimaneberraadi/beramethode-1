@@ -65,6 +65,9 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
     // Solder demande confirmation SUR PLACE : window.confirm est bloque dans
     // certains conteneurs et le clic restait sans effet ni message.
     const [aSolder, setASolder] = React.useState<string | null>(null);
+    // Un client ne paye pas une facture, il pose une somme sur le comptoir :
+    // elle s'impute sur les plus anciennes d'abord.
+    const [global, setGlobal] = React.useState<Record<string, { montant: number | ''; date: string; mode: string }>>({});
 
     const charger = React.useCallback(async () => {
         setChargement(true);
@@ -95,6 +98,54 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
     }, []);
 
     React.useEffect(() => { void charger(); }, [charger]);
+
+    /** L'imputation : les factures les plus anciennes d'abord — c'est la regle
+     *  comptable usuelle, et celle qui fait tomber les retards en premier. */
+    const repartir = (factures: Facture[], montant: number) => {
+        let reste = montant;
+        const parts: Array<{ f: Facture; part: number }> = [];
+        const ordre = [...factures].sort((a, b) =>
+            (a.dateEcheance || a.dateFacture || '9999').localeCompare(b.dateEcheance || b.dateFacture || '9999'));
+        for (const f of ordre) {
+            if (reste <= 0.009) break;
+            const part = Math.min(f.reste, reste);
+            parts.push({ f, part: Number(part.toFixed(2)) });
+            reste = Number((reste - part).toFixed(2));
+        }
+        return { parts, surplus: reste };
+    };
+
+    const encaisserGlobal = async (c: ClientEncours, montant: number, date: string, mode: string) => {
+        const { parts } = repartir(c.factures, montant);
+        if (parts.length === 0) return;
+        setEnCours(c.cle);
+        try {
+            // Un versement par facture : on reutilise la route de paiement
+            // existante plutot que d'ouvrir un second chemin vers l'argent.
+            for (const p of parts) {
+                const res = await fetch('/api/facturation/paiements', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        facture_id: p.f.id,
+                        date_paiement: date || aujourdhui(),
+                        montant: p.part,
+                        mode,
+                        notes: 'Versement global impute par anciennete',
+                    }),
+                });
+                const body = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(body?.error || body?.message || 'HTTP ' + res.status);
+            }
+            setGlobal(g => { const n = { ...g }; delete n[c.cle]; return n; });
+            await charger();
+        } catch (e: any) {
+            setErreur(e?.message || String(e));
+        } finally {
+            setEnCours(null);
+        }
+    };
 
     const encaisser = async (f: Facture, montant: number, date: string, mode: string) => {
         if (!(montant > 0)) return;
@@ -232,6 +283,74 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                                 <ChevronDown className={`w-4 h-4 shrink-0 mt-1 text-slate-300 transition-transform ${ouvert ? 'rotate-180' : ''}`} />
                             </button>
                         </div>
+
+                        {/* Le comptoir : le client pose une somme, elle tombe sur
+                            les plus anciennes factures. On montre le decoupage
+                            AVANT d'encaisser — c'est de l'argent. */}
+                        {ouvert && c.factures.length > 1 && (() => {
+                            const g = global[c.cle] || { montant: '' as number | '', date: aujourdhui(), mode: 'ESPECES' };
+                            const saisi = Number(g.montant) || 0;
+                            const { parts, surplus } = repartir(c.factures, Math.min(saisi, c.encours));
+                            return (
+                                <div className="px-3.5 py-2.5 bg-slate-100/60 dark:bg-dk-elevated/40 border-t border-slate-200 dark:border-dk-border">
+                                    <span className="block text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 dark:text-dk-muted mb-1.5">
+                                        Versement sur le compte — impute des plus anciennes
+                                    </span>
+                                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-1.5">
+                                        <input
+                                            type="number"
+                                            inputMode="decimal"
+                                            min={0}
+                                            max={c.encours}
+                                            value={g.montant}
+                                            onChange={e => setGlobal(x => ({ ...x, [c.cle]: { ...g, montant: e.target.value === '' ? '' : Number(e.target.value) } }))}
+                                            placeholder={`Montant recu (max ${nf(c.encours)})`}
+                                            className="col-span-2 sm:col-span-1 h-9 sm:h-8 px-2.5 sm:w-[170px] rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-[12px] font-bold tabular-nums text-slate-700 dark:text-dk-text outline-none"
+                                        />
+                                        <ChampDate
+                                            label=""
+                                            value={g.date}
+                                            vide="jj/mm/aaaa"
+                                            max={aujourdhui()}
+                                            labels={AGENDA}
+                                            neutre
+                                            onChange={v => setGlobal(x => ({ ...x, [c.cle]: { ...g, date: v || aujourdhui() } }))}
+                                        />
+                                        <ChampListe
+                                            label=""
+                                            value={g.mode}
+                                            largeur="sm:min-w-[120px]"
+                                            neutre
+                                            onChange={v => setGlobal(x => ({ ...x, [c.cle]: { ...g, mode: v } }))}
+                                            options={MODES.map(m => ({ valeur: m, texte: m }))}
+                                        />
+                                        <button
+                                            type="button"
+                                            disabled={enCours === c.cle || parts.length === 0}
+                                            onClick={() => void encaisserGlobal(c, Math.min(saisi, c.encours), g.date, g.mode)}
+                                            className="h-9 sm:h-8 px-3 rounded-lg text-[11px] font-black bg-slate-900 dark:bg-dk-accent text-white inline-flex items-center gap-1.5 disabled:text-slate-300 disabled:bg-transparent disabled:border disabled:border-dashed disabled:border-slate-200"
+                                        >
+                                            <Check className="w-3.5 h-3.5" /> Imputer
+                                        </button>
+                                    </div>
+                                    {parts.length > 0 && (
+                                        <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-slate-500 dark:text-dk-muted">
+                                            {parts.map(p => (
+                                                <span key={p.f.id} className="whitespace-nowrap">
+                                                    <span className="font-black text-slate-700 dark:text-dk-text">{p.f.numero}</span>
+                                                    {' '}
+                                                    <span className="tabular-nums">{nf(p.part)}</span>
+                                                    {p.part >= p.f.reste - 0.009
+                                                        ? <span className="ml-1 font-bold text-emerald-600 dark:text-emerald-400">soldee</span>
+                                                        : <span className="ml-1 text-slate-400">reste {nf(p.f.reste - p.part)}</span>}
+                                                </span>
+                                            ))}
+                                            {surplus > 0.009 && <span className="font-bold text-amber-600">non impute {nf(surplus)}</span>}
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                         {ouvert && (
                             <div className="divide-y divide-slate-100 dark:divide-dk-border border-t border-slate-100 dark:border-dk-border">

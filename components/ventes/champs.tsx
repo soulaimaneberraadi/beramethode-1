@@ -120,14 +120,14 @@ export const ChampListe: React.FC<{
                 </button>
                 {ouvert && (
                     <Flottant ancre={ancre}>
-                    <div data-flottant className="min-w-[160px]">
+                    <div data-flottant className="min-w-[140px] max-w-[220px]">
                         {filtrable && (
                             <input
                                 autoFocus
                                 value={q}
                                 onChange={e => setQ(e.target.value)}
                                 placeholder={placeholderRecherche}
-                                className="w-full h-10 sm:h-8 px-2.5 text-[11px] border-b border-slate-100 dark:border-dk-border bg-transparent text-slate-700 dark:text-dk-text placeholder:text-slate-400 outline-none"
+                                className="w-full h-8 px-2.5 text-[11px] border-b border-slate-100 dark:border-dk-border bg-transparent text-slate-700 dark:text-dk-text placeholder:text-slate-400 outline-none"
                             />
                         )}
                         <div className="py-1">
@@ -139,7 +139,7 @@ export const ChampListe: React.FC<{
                                     key={o.valeur || '__tous'}
                                     type="button"
                                     onClick={() => { onChange(o.valeur); setOuvert(false); }}
-                                    className={`w-full text-left px-2.5 py-2.5 sm:py-1.5 text-[11px] font-bold truncate transition-colors ${o.valeur === value
+                                    className={`w-full text-left px-2.5 py-1.5 text-[11px] font-bold leading-tight truncate transition-colors ${o.valeur === value
                                         ? 'bg-slate-100 dark:bg-dk-elevated text-slate-900 dark:text-dk-text'
                                         : 'text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}
                                 >
