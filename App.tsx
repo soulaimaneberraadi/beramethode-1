@@ -284,6 +284,14 @@ export default function App() {
     const [globalDate, setGlobalDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
     const [hrInitialWorker, setHrInitialWorker] = useState<{ name: string; ts: number } | null>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    // Menu ouvert : la page derriere ne bouge plus. Deux surfaces qui defilent
+    // en meme temps donnent l impression que ni l une ni l autre ne repond.
+    useEffect(() => {
+        if (!mobileMenuOpen) return;
+        const avant = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = avant; };
+    }, [mobileMenuOpen]);
     // En static mode, on garde tous les modules visibles — leurs données viennent de Supabase
     // via cloud sync (snapshot localStorage). Les fetch /api/* qui échouent sont absorbés
     // par les .catch() existants ou les fallbacks localStorage.
@@ -1529,7 +1537,10 @@ export default function App() {
                 {mobileMenuOpen && (
                     <div className="fixed inset-0 z-[200] flex">
                         <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-                        <nav className="relative w-72 max-w-[85vw] bg-white dark:bg-dk-surface shadow-2xl h-full overflow-y-auto flex flex-col animate-in slide-in-from-left duration-200">
+                        {/* h-full vaut 100% du parent : sur iOS la barre d adresse
+                            fausse cette hauteur et le bas du menu sort de l ecran.
+                            100dvh suit la hauteur reellement visible. */}
+                        <nav className="relative w-72 max-w-[85vw] bg-white dark:bg-dk-surface shadow-2xl h-[100dvh] flex flex-col animate-in slide-in-from-left duration-200">
                             {/* Header */}
                             <div className="px-4 py-4 border-b border-gray-100 dark:border-dk-border flex items-center justify-between shrink-0">
                                 <span className="font-extrabold text-lg text-gray-900 dark:text-dk-text">BERA<span className="text-emerald-700">METHODE</span></span>
@@ -1539,7 +1550,10 @@ export default function App() {
                             </div>
 
                             {/* Menu Items */}
-                            <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
+                            {/* overscroll-contain : sans lui le geste continue sur la
+                                page derriere une fois le menu au bout — on croyait
+                                que le menu ne defilait pas. */}
+                            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-3 px-3 space-y-1" style={{ WebkitOverflowScrolling: "touch" }}>
                                 {(() => {
                                     const allItems = Object.fromEntries(
                                         Object.entries(VIEW_DEFS).map(([key, def]) => [
