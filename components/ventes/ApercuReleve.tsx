@@ -77,10 +77,19 @@ const ApercuReleve: React.FC<{
      */
     const envoyerAuClient = () => {
         if (!international) return;
-        // WhatsApp d'abord, tant que le geste est vivant.
-        window.open(`https://wa.me/${international}?text=${encodeURIComponent(texte)}`, '_blank', 'noopener');
+        // Le fichier part en premier : son enregistrement ne quitte pas la page.
         if (fichierPret) enregistrerFichier(fichierPret);
-        setAvis(`Conversation de ${donnees.client.nom} ouverte, PDF enregistre. Joignez-le : + puis Document.`);
+        // Sur iPhone, un lien de telechargement n enregistre rien : Safari se
+        // contente d ouvrir le PDF. Le seul chemin qui depose vraiment un
+        // fichier est la feuille de partage — d ou ce message, qui n annonce
+        // pas un enregistrement dont on n est pas sur.
+        setAvis(`Message ouvert pour ${donnees.client.nom}. Pour joindre le document, revenez et utilisez « Envoyer le PDF ».`);
+        // Puis on VA sur WhatsApp au lieu d'ouvrir un onglet : Safari bloque les
+        // fenetres ouvertes par script, meme dans un geste, quand une autre
+        // action vient de partir. Une navigation, lui, passe toujours.
+        window.setTimeout(() => {
+            window.location.href = `https://wa.me/${international}?text=${encodeURIComponent(texte)}`;
+        }, 300);
     };
 
     /**
@@ -148,17 +157,18 @@ const ApercuReleve: React.FC<{
                         className="h-9 flex-1 sm:flex-none px-3 sm:px-3.5 rounded-lg text-[12px] font-black bg-emerald-600 text-white inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
                         {envoi ? <Loader2 className="w-4 h-4" /> : <MessageCircle className="w-4 h-4" />}
-                        {envoi ? 'Preparation...' : 'Envoyer le PDF'}
+                        {envoi ? 'Preparation...' : fichierPret ? 'Envoyer le PDF' : 'Envoyer le PDF ...'}
                     </button>
                     {international && (
                         <button
                             type="button"
                             onClick={envoyerAuClient}
-                            title={fichierPret ? 'Ouvre sa conversation et enregistre le PDF' : 'Document en cours de preparation'}
+                            title="Ouvre la conversation de ce client — message seul, sans piece jointe"
                             className="h-9 flex-1 sm:flex-none px-3 sm:px-3.5 rounded-lg text-[12px] font-black border border-emerald-300 text-emerald-700 dark:border-emerald-800/60 dark:text-emerald-400 inline-flex items-center justify-center gap-1.5"
                         >
                             <MessageCircle className="w-4 h-4" />
-                            {donnees.client.nom}{fichierPret ? '' : ' ...'}
+                            {donnees.client.nom}
+                            <span className="font-bold opacity-60">· texte</span>
                         </button>
                     )}
                 </div>
