@@ -16,6 +16,7 @@ import {
     TrendingUp, PackageX, AlertTriangle, RefreshCw, Users, Wallet, Boxes, Search, Filter, Receipt, ArrowUpRight, ArrowDownRight, CalendarDays, ChevronDown, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
+import EncoursDetail from './ventes/EncoursDetail';
 
 /** Sans serveur (deploiement statique), il n'y a ni sorties de stock ni
  *  clients a agreger : le tableau de bord le DIT, au lieu d'afficher une
@@ -327,6 +328,8 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
     const [recherche, setRecherche] = useState('');
     const [filtreModele, setFiltreModele] = useState<'TOUS' | Modele['statut']>('TOUS');
     const [filtresOuverts, setFiltresOuverts] = useState(false);
+    // Une tuile ne dit qu un total : le detail s ouvre par-dessus la page.
+    const [detail, setDetail] = useState<null | 'encours'>(null);
 
     const charger = useCallback(async (n: number) => {
         if (IS_STATIC) { setData(null); setErreur(null); return; }
@@ -517,8 +520,14 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         );
     };
 
-    const Tuile = ({ titre, valeur, icone, alerte = false, delta }: { titre: string; valeur: string; icone: React.ReactNode; alerte?: boolean; delta?: React.ReactNode }) => (
-        <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface px-3.5 py-3">
+    const Tuile = ({ titre, valeur, icone, alerte = false, delta, onOuvrir }: { titre: string; valeur: string; icone: React.ReactNode; alerte?: boolean; delta?: React.ReactNode; onOuvrir?: () => void }) => (
+        <div
+            onClick={onOuvrir}
+            role={onOuvrir ? 'button' : undefined}
+            tabIndex={onOuvrir ? 0 : undefined}
+            onKeyDown={onOuvrir ? e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOuvrir(); } } : undefined}
+            className={`border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface px-3.5 py-3 ${onOuvrir ? 'cursor-pointer transition-colors hover:border-slate-400 dark:hover:border-dk-muted' : ''}`}
+        >
             <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">
                 {icone}<span className="truncate">{titre}</span>
             </span>
@@ -730,7 +739,8 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                         <Tuile titre={T.tickets} valeur={nf(data.kpis.tickets)} icone={<Receipt className="w-3.5 h-3.5" />}
                             delta={<Delta actuel={data.kpis.tickets} avant={data.precedent.tickets} />} />
                         <Tuile titre={T.panier} valeur={`${nf(data.kpis.panierMoyen)} ${currency}`} icone={<Wallet className="w-3.5 h-3.5" />} />
-                        <Tuile titre={T.encours} valeur={`${nf(data.kpis.encoursTotal)} ${currency}`} icone={<Users className="w-3.5 h-3.5" />} alerte={data.kpis.encoursTotal > 0} />
+                        <Tuile titre={T.encours} valeur={`${nf(data.kpis.encoursTotal)} ${currency}`} icone={<Users className="w-3.5 h-3.5" />} alerte={data.kpis.encoursTotal > 0}
+                            onOuvrir={() => setDetail('encours')} />
                     </div>
 
                     {/* La courbe AVANT tout le reste : un total dit combien, la
@@ -969,6 +979,12 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                 <p className="text-[12px] text-slate-400 dark:text-dk-muted flex items-center gap-1.5">
                     <PackageX className="w-4 h-4" /> {T.rien}
                 </p>
+            )}
+
+            {/* En refermant, on recharge : un encaissement fait dans le detail
+                change l'encours affiche sur la tuile. */}
+            {detail === 'encours' && (
+                <EncoursDetail devise={currency} onFermer={() => { setDetail(null); void charger(jours); }} />
             )}
         </div>
     );

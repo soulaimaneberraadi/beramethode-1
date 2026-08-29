@@ -12,6 +12,9 @@ interface Props {
 
 export default function DateNavigator({ currentDate, onChange, onToday }: Props) {
     const { lang } = useLang();
+    const isRtl = lang === 'ar';
+    const PrevIcon = isRtl ? ChevronRight : ChevronLeft;
+    const NextIcon = isRtl ? ChevronLeft : ChevronRight;
     const shift = (delta: number) => {
         const n = new Date(currentDate);
         n.setMonth(n.getMonth() + delta);
@@ -25,7 +28,7 @@ export default function DateNavigator({ currentDate, onChange, onToday }: Props)
                 className="p-1 rounded-lg text-slate-500 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-elevated/60 hover:text-slate-800 dark:hover:text-slate-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                 aria-label={tx(lang,{fr:"Mois précédent",ar:"الشهر السابق",en:"Previous month",es:"Mes anterior",pt:"Mês anterior",tr:"Önceki ay"})}
             >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <PrevIcon className="w-3.5 h-3.5" />
             </button>
             <span className="text-[10px] font-bold text-slate-700 dark:text-dk-text px-2 min-w-[6.5rem] text-center capitalize tabular-nums">
                 {fmtMonthYear(currentDate)}
@@ -36,7 +39,7 @@ export default function DateNavigator({ currentDate, onChange, onToday }: Props)
                 className="p-1 rounded-lg text-slate-500 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-elevated/60 hover:text-slate-800 dark:hover:text-slate-100 hover:shadow-[0_1px_3px_rgba(0,0,0,0.05)] transition-all duration-200 active:scale-95"
                 aria-label={tx(lang,{fr:"Mois suivant",ar:"الشهر التالي",en:"Next month",es:"Mes siguiente",pt:"Próximo mês",tr:"Sonraki ay"})}
             >
-                <ChevronRight className="w-3.5 h-3.5" />
+                <NextIcon className="w-3.5 h-3.5" />
             </button>
             <span className="mx-1 h-3.5 w-px bg-slate-200/65 dark:bg-slate-700/65" aria-hidden />
             <button

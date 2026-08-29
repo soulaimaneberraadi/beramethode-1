@@ -50,7 +50,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
 }) => {
     const { lang } = useLang();
     const optionStyle = darkMode ? { backgroundColor: '#1f2937', color: 'white' } : {};
-    const inputCls = `w-full rounded px-1.5 py-1 text-[12px] outline-none transition-all focus:ring-1 focus:ring-slate-100 ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:bg-gray-600' : 'bg-slate-50 dark:bg-dk-bg border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300'} border`;
+    const inputCls = `w-full rounded px-1.5 py-2 sm:py-1 text-[12px] min-h-[44px] sm:min-h-0 outline-none transition-all focus:ring-1 focus:ring-slate-100 ${darkMode ? 'bg-gray-700 text-white border-gray-600 focus:bg-gray-600' : 'bg-slate-50 dark:bg-dk-bg border-slate-200 dark:border-dk-border text-slate-900 dark:text-dk-text focus:bg-white focus:border-slate-300'} border`;
 
     const [magasinData, setMagasinData] = useState<MagasinItem[]>([]);
     const [focusedRow, setFocusedRow] = useState<number | null>(null);
@@ -78,7 +78,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
 
     const ScopeChip = ({ active, onClick, children, hex }: { active: boolean; onClick: () => void; children: React.ReactNode; hex?: string | null }) => (
         <button type="button" onClick={onClick}
-            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border text-[10px] font-medium transition-colors ${active ? 'border-slate-300 bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}>
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] font-medium transition-colors min-h-[30px] ${active ? 'border-slate-300 bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted hover:bg-slate-50 dark:hover:bg-dk-elevated/60'}`}>
             {hex && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hex }} />}
             {children}
             {active && <Check className="w-2.5 h-2.5" strokeWidth={2.5} />}
@@ -245,7 +245,7 @@ const MaterialsList: React.FC<MaterialsListProps> = ({
                         <span className="text-[9px] text-slate-400 dark:text-dk-muted hidden sm:inline">·</span>
                         <p className="text-[9px] sm:text-[10px] text-slate-400 dark:text-dk-muted hidden sm:inline">{tx(lang, {fr:'Ajoutez ou sélectionnez depuis le magasin',ar:'أضف أو اختر من المخزن',en:'Add or select from the store',es:'Añada o seleccione desde el almacén',pt:'Adicione ou selecione do armazém',tr:'Depodan ekleyin veya seçin'})}</p>
                     </div>
-                    <button onClick={addMaterial} className="inline-flex items-center gap-1 h-6 sm:h-7 px-2 sm:px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[10px] sm:text-[11px] font-medium transition-colors">
+                    <button onClick={addMaterial} className="inline-flex items-center gap-1 min-h-[44px] sm:min-h-0 sm:h-7 px-3 sm:px-2.5 rounded-md bg-slate-900 hover:bg-slate-800 text-white text-[10px] sm:text-[11px] font-medium transition-colors">
                         <Plus className="w-3 h-3" strokeWidth={2} /> {t.addMat}
                     </button>
                 </div>
@@ -502,32 +502,32 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                     </div>
 
                     {/* Row 2: Price + Qty + Unit */}
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <div className="flex-1">
-                            <label className="text-[9px] text-slate-400 dark:text-dk-muted uppercase mb-0.5 block">{tx(lang, {fr:'Prix',ar:'السعر',en:'Price',es:'Precio',pt:'Preço',tr:'Fiyat'})}</label>
-                            <input type="number" min="0" value={item.unitPrice}
+                    <div className="grid grid-cols-3 gap-2 mb-1.5">
+                        <div className="min-w-0">
+                            <label className="text-[9px] sm:text-[10px] text-slate-500 dark:text-dk-muted uppercase mb-0.5 block font-medium">{tx(lang, {fr:'Prix',ar:'السعر',en:'Price',es:'Precio',pt:'Preço',tr:'Fiyat'})}</label>
+                            <input type="number" inputMode="decimal" min="0" value={item.unitPrice}
                                 onChange={(e) => updateMaterial(item.id, 'unitPrice', e.target.value)}
                                 className={`${inputCls} text-center font-mono text-[13px]`} />
                         </div>
-                        <div className="flex-1">
-                            <label className="text-[9px] text-slate-400 dark:text-dk-muted uppercase mb-0.5 block">{tx(lang, {fr:'Qté',ar:'الكمية',en:'Qty',es:'Cant.',pt:'Qtd',tr:'Miktar'})}</label>
+                        <div className="min-w-0">
+                            <label className="text-[9px] sm:text-[10px] text-slate-500 dark:text-dk-muted uppercase mb-0.5 block font-medium">{tx(lang, {fr:'Qté',ar:'الكمية',en:'Qty',es:'Cant.',pt:'Qtd',tr:'Miktar'})}</label>
                             {isBobine ? (
                                 <div className={`${inputCls} text-center font-mono text-[13px] flex items-center justify-between`}>
-                                    <span>{fmt(item.qty)}</span>
-                                    <button onClick={() => setExpandedBobine(bobineOpen ? null : item.id)} className="text-slate-400 dark:text-dk-muted hover:text-[#2149C1]">
+                                    <span className="truncate">{fmt(item.qty)}</span>
+                                    <button onClick={() => setExpandedBobine(bobineOpen ? null : item.id)} className="text-slate-400 dark:text-dk-muted hover:text-[#2149C1] shrink-0 ml-1 min-w-[28px] min-h-[28px] flex items-center justify-center">
                                         {bobineOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                                     </button>
                                 </div>
                             ) : (
-                                <input type="number" min="0" step="0.001" value={item.qty}
+                                <input type="number" inputMode="decimal" min="0" step="0.001" value={item.qty}
                                     onChange={(e) => updateMaterial(item.id, 'qty', e.target.value)}
                                     className={`${inputCls} text-center font-mono text-[13px]`} />
                             )}
                         </div>
-                        <div className="w-16">
-                            <label className="text-[9px] text-slate-400 dark:text-dk-muted uppercase mb-0.5 block">{tx(lang, {fr:'Unité',ar:'الوحدة',en:'Unit',es:'Unidad',pt:'Unidade',tr:'Birim'})}</label>
+                        <div className="min-w-0">
+                            <label className="text-[9px] sm:text-[10px] text-slate-500 dark:text-dk-muted uppercase mb-0.5 block font-medium">{tx(lang, {fr:'Unité',ar:'الوحدة',en:'Unit',es:'Unidad',pt:'Unidade',tr:'Birim'})}</label>
                             <select value={item.unit} onChange={(e) => updateMaterial(item.id, 'unit', e.target.value)}
-                                className={`${inputCls} text-[11px] font-bold cursor-pointer`}>
+                                className={`${inputCls} text-[11px] font-bold cursor-pointer whitespace-nowrap`}>
                                 {['m','pc','kg','g','bobine','cm','cone','l'].map(u => <option key={u} value={u} style={optionStyle}>{u}</option>)}
                             </select>
                         </div>
@@ -536,15 +536,15 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                     {/* Row 3: Bobine details (collapsible) */}
                     {isBobine && bobineOpen && (
                         <div className={`p-2 rounded-lg border mt-1.5 animate-in fade-in duration-150 ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 dark:bg-blue-900/30 border-blue-100'}`}>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
                                 <span className="text-[9px] text-blue-600 dark:text-blue-400 font-bold shrink-0">{tx(lang, {fr:'Fil(m):',ar:'الخيط (م):',en:'Thread(m):',es:'Hilo(m):',pt:'Fio(m):',tr:'İplik(m):'})}</span>
-                                <input type="number" min="0" placeholder={tx(lang, {fr:"Métrage",ar:"الطول بالأمتار",en:"Length (m)",es:"Metraje",pt:"Metragem",tr:"Uzunluk (m)"})} value={item.threadMeters || ''}
+                                <input type="number" inputMode="decimal" min="0" placeholder={tx(lang, {fr:"Métrage",ar:"الطول بالأمتار",en:"Length (m)",es:"Metraje",pt:"Metragem",tr:"Uzunluk (m)"})} value={item.threadMeters || ''}
                                     onChange={(e) => updateMaterial(item.id, 'threadMeters', e.target.value)}
-                                    className={`flex-1 text-[11px] font-mono border rounded px-1 outline-none text-center h-6 ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white dark:bg-dk-surface border-blue-200 text-slate-700 dark:text-dk-text-soft'}`} />
+                                    className={`flex-1 min-w-[80px] text-[11px] font-mono border rounded px-1 outline-none text-center min-h-[36px] ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white dark:bg-dk-surface border-blue-200 text-slate-700 dark:text-dk-text-soft'}`} />
                                 <span className="text-slate-400 dark:text-dk-muted text-[10px] font-bold">/</span>
-                                <input type="number" min="0" placeholder={tx(lang, {fr:"Capacité",ar:"السعة",en:"Capacity",es:"Capacidad",pt:"Capacidade",tr:"Kapasite"})} value={item.threadCapacity || ''}
+                                <input type="number" inputMode="decimal" min="0" placeholder={tx(lang, {fr:"Capacité",ar:"السعة",en:"Capacity",es:"Capacidad",pt:"Capacidade",tr:"Kapasite"})} value={item.threadCapacity || ''}
                                     onChange={(e) => updateMaterial(item.id, 'threadCapacity', e.target.value)}
-                                    className={`flex-1 text-[11px] font-mono border rounded px-1 outline-none text-center h-6 ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white dark:bg-dk-surface border-blue-200 text-slate-700 dark:text-dk-text-soft'}`} />
+                                    className={`flex-1 min-w-[80px] text-[11px] font-mono border rounded px-1 outline-none text-center min-h-[36px] ${darkMode ? 'bg-gray-800 border-gray-600 text-white' : 'bg-white dark:bg-dk-surface border-blue-200 text-slate-700 dark:text-dk-text-soft'}`} />
                             </div>
                             {(item.threadColor || item.threadReference) && (
                                 <div className="mt-1.5 relative">
@@ -580,15 +580,15 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                     )}
 
                     {/* Row 4: Actions */}
-                    <div className="flex items-center justify-end gap-1 mt-1.5">
+                    <div className="flex items-center justify-end gap-1.5 mt-2">
                         {canAssign && (
                             <button onClick={() => setExpandedScope(prev => prev === item.id ? null : item.id)}
-                                className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] font-medium transition-colors ${expandedScope === item.id || item.scope ? 'text-[#2149C1] bg-slate-100 dark:bg-dk-elevated' : 'text-slate-400 dark:text-dk-muted hover:text-[#2149C1] hover:bg-slate-100'}`}>
+                                className={`inline-flex items-center gap-1 px-3 py-2 rounded-md text-[11px] font-medium transition-colors min-h-[36px] ${expandedScope === item.id || item.scope ? 'text-[#2149C1] bg-slate-100 dark:bg-dk-elevated' : 'text-slate-500 dark:text-dk-muted hover:text-[#2149C1] hover:bg-slate-100'}`}>
                                 <Palette className="w-3 h-3" /> {tx(lang, {fr:'Affecter',ar:'تعيين',en:'Assign',es:'Asignar',pt:'Atribuir',tr:'Ata'})}
                             </button>
                         )}
                         <button onClick={() => deleteMaterial(item.id)}
-                            className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md text-[10px] font-medium text-slate-400 dark:text-dk-muted hover:text-rose-500 hover:bg-rose-50 transition-colors">
+                            className="inline-flex items-center gap-1 px-3 py-2 rounded-md text-[11px] font-medium text-slate-500 dark:text-dk-muted hover:text-rose-500 hover:bg-rose-50 transition-colors min-h-[36px]">
                             <Trash2 className="w-3 h-3" /> {tx(lang, {fr:'Supprimer',ar:'حذف',en:'Delete',es:'Eliminar',pt:'Eliminar',tr:'Sil'})}
                         </button>
                     </div>
@@ -596,7 +596,7 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                     {/* Scope Chips Mobile */}
                     {canAssign && expandedScope === item.id && (
                         <div className="mt-2 p-2 bg-slate-100/40 border border-slate-200 dark:border-dk-border rounded-lg animate-in fade-in duration-150">
-                            <div className="flex flex-wrap items-center gap-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
                                 {scopeColors.length > 0 && (
                                     <>
                                         <Palette className="w-3 h-3 text-slate-400 dark:text-dk-muted shrink-0" />

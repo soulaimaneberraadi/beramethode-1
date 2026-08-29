@@ -99,11 +99,12 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                         </div>
                     </div>
 
-                    <div className="p-3 sm:p-4 overflow-x-auto">
+                    <div className="p-3 sm:p-4 overflow-x-auto scrollbar-thin relative">
+                        <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white dark:from-dk-surface to-transparent sm:hidden" />
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr className="bg-slate-50 dark:bg-dk-bg/60 text-slate-500 dark:text-dk-muted text-[10px] uppercase tracking-wider border-b border-slate-200 dark:border-dk-border">
-                                    <th className="py-2.5 px-3 text-left font-semibold border-r border-slate-100 dark:border-dk-border min-w-[140px]">Couleur \ Taille</th>
+                                    <th className="py-2.5 px-3 text-left font-semibold border-r border-slate-100 dark:border-dk-border min-w-[120px] sm:min-w-[140px]">Couleur \ Taille</th>
                                     {sizes.length === 0 && (
                                         <th className="py-2.5 px-3 text-center font-normal italic text-slate-400 dark:text-dk-muted border-r border-slate-100 dark:border-dk-border">
                                             Aucune taille définie
@@ -145,8 +146,8 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                                                 return (
                                                     <td key={sIdx} className="p-0 border-r border-slate-100 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors relative">
                                                         <input
-                                                            type="number" min="0"
-                                                            className="w-full text-center py-2.5 bg-transparent outline-none focus:text-[#2149C1] font-semibold text-[13px] text-slate-700 dark:text-dk-text-soft placeholder:text-slate-300 tabular-nums"
+                                                            type="number" inputMode="numeric" min="0"
+                                                            className="w-full text-center py-3 bg-transparent outline-none focus:text-[#2149C1] font-semibold text-[13px] text-slate-700 dark:text-dk-text-soft placeholder:text-slate-300 tabular-nums min-h-[44px]"
                                                             placeholder="—"
                                                             value={val}
                                                             onChange={(e) => updateQuantity(c.id, sIdx, e.target.value)}
@@ -218,7 +219,8 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                 </div>
                 <div className="p-3 sm:p-5">
                     {colors.length > 0 && hasColorCosts ? (
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto scrollbar-thin relative">
+                            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-white dark:from-dk-surface to-transparent sm:hidden" />
                             <table className="w-full border-collapse">
                                 <thead>
                                     <tr className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-dk-muted border-b border-slate-200 dark:border-dk-border">
@@ -261,7 +263,7 @@ const OrderTablesPanel: React.FC<OrderTablesPanelProps> = ({
                             <p className="text-[10px] text-slate-400 dark:text-dk-muted mt-2.5">Prix en {currency}. Chaque couleur reflète ses matières affectées (ex: dentelle).</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
                             {[
                                 { label: 'Prix de revient (PR)', value: costPrice, color: 'text-slate-800 dark:text-dk-text', field: 'model.prix_revient' },
                                 { label: `Prix de vente HT (+${settings.marginAtelier}%)`, value: sellPriceHT, color: 'text-[#2149C1]', field: null },

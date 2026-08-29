@@ -1247,7 +1247,7 @@ export default function Balancing({
     <div className="space-y-4 sm:space-y-6 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500">
        
        {/* 1. SINGLE ROW HEADER - RESPONSIVE */}
-       <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm mb-4 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar">
+        <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm mb-4 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar max-w-full overscroll-x-contain touch-pan-x">
             {/* OUVRIERS / HEURES */}
             <div className="flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-3">

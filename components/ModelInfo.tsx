@@ -185,7 +185,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                                 </div>
                                 <button
                                     onClick={applyCostMinute}
-                                    className="h-9 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-md transition-colors flex items-center justify-center"
+                                    className="min-h-[44px] sm:h-9 px-3 sm:px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-md transition-colors flex items-center justify-center min-w-[44px] sm:min-w-0"
                                     title={t.apply}
                                 >
                                     <CheckSquare className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -204,7 +204,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                                 name="cutRate"
                                 value={settings.cutRate}
                                 onChange={handleInstantSettingChange}
-                                className="w-10 sm:w-12 h-6 sm:h-7 px-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded text-center text-[11px] sm:text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 focus:border-slate-300 outline-none transition-all tabular-nums"
+                                className="w-12 sm:w-12 min-h-[32px] sm:h-7 px-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded text-center text-[11px] sm:text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 focus:border-slate-300 outline-none transition-all tabular-nums"
                             />
                         </div>
 
@@ -218,7 +218,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                                 name="packRate"
                                 value={settings.packRate}
                                 onChange={handleInstantSettingChange}
-                                className="w-10 sm:w-12 h-6 sm:h-7 px-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded text-center text-[11px] sm:text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 focus:border-slate-300 outline-none transition-all tabular-nums"
+                                className="w-12 sm:w-12 min-h-[32px] sm:h-7 px-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded text-center text-[11px] sm:text-[12px] font-semibold text-slate-700 dark:text-dk-text-soft focus:ring-2 focus:ring-slate-100 focus:border-slate-300 outline-none transition-all tabular-nums"
                             />
                         </div>
 
@@ -277,7 +277,7 @@ const ModelInfo: React.FC<ModelInfoProps> = ({
                 {/* Right Column - Image (en haut sur mobile, à côté sur desktop — comme la Fiche Technique) */}
                 <div className="md:col-span-1 order-1 md:order-2">
                     <div
-                        className={`relative w-full h-[320px] sm:h-[320px] rounded-md border border-dashed transition-all duration-300 flex flex-col items-center justify-center overflow-hidden cursor-pointer
+                        className={`relative w-full h-[220px] sm:h-[320px] rounded-md border border-dashed transition-all duration-300 flex flex-col items-center justify-center overflow-hidden cursor-pointer
                             ${darkMode
                                 ? 'border-gray-600 bg-gray-800/50 hover:bg-gray-800 hover:border-slate-500'
                                 : 'border-slate-300 bg-slate-50 dark:bg-dk-bg/60 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 hover:border-slate-400'

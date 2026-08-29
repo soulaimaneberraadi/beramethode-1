@@ -440,3 +440,114 @@ export const getVentesDashboard = (req: Request, res: Response) => {
         res.status(500).json({ message: 'Error building sales dashboard' });
     }
 };
+
+/**
+ * Le detail de l'encours : la tuile dit 62 049 MAD, elle ne dit pas QUI doit,
+ * DEPUIS QUAND, ni sur quelle facture. Cette route repond a ces trois-la, car
+ * c'est ce qu'il faut avoir sous les yeux pour decrocher le telephone.
+ *
+ * Une facture n'est ici que si elle est de VENTE, non annulee, et qu'il reste
+ * quelque chose a payer : un encours ne se lit pas au milieu des factures
+ * soldees.
+ */
+export const getVentesEncours = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    try {
+        const lignes = db.prepare(`
+            SELECT f.id, f.numero, f.date_facture, f.date_echeance,
+                   f.total_ttc, COALESCE(f.montant_paye, 0) AS montant_paye,
+                   f.statut, f.source_id AS client_id,
+                   COALESCE(c.nom, f.tiers_nom) AS client_nom,
+                   c.tel AS client_tel, c.ville AS client_ville, c.type AS client_type,
+                   (SELECT MAX(p.date_paiement) FROM paiements p
+                     WHERE p.facture_id = f.id AND p.owner_id = f.owner_id) AS dernier_paiement
+            FROM factures f
+            LEFT JOIN st_clients c ON c.id = f.source_id AND c.owner_id = f.owner_id
+            WHERE f.owner_id = ?
+              AND f.type = 'VENTE'
+              AND COALESCE(f.statut, '') != 'ANNULEE'
+              AND f.total_ttc - COALESCE(f.montant_paye, 0) > 0.009
+            ORDER BY COALESCE(f.date_echeance, f.date_facture) ASC
+        `).all(companyId) as any[];
+
+        const jour = 86400000;
+        const aujourdhui = jourISO(new Date());
+
+        const factures = lignes.map(l => {
+            const reste = Number((Number(l.total_ttc) - Number(l.montant_paye)).toFixed(2));
+            const echeance = l.date_echeance || null;
+            // Sans echeance, une facture n'est jamais "en retard" : on ne peut pas
+            // reclamer un delai qu'on n'a jamais fixe.
+            const retardJours = echeance && echeance < aujourdhui
+                ? Math.round((new Date(`${aujourdhui}T00:00:00`).getTime() - new Date(`${echeance}T00:00:00`).getTime()) / jour)
+                : 0;
+            return {
+                id: String(l.id),
+                numero: String(l.numero || ''),
+                clientId: l.client_id ? String(l.client_id) : null,
+                clientNom: String(l.client_nom || '—'),
+                clientTel: l.client_tel || null,
+                clientVille: l.client_ville || null,
+                clientType: l.client_type || null,
+                dateFacture: l.date_facture || null,
+                dateEcheance: echeance,
+                dernierPaiement: l.dernier_paiement || null,
+                totalTtc: Number(Number(l.total_ttc).toFixed(2)),
+                montantPaye: Number(Number(l.montant_paye).toFixed(2)),
+                reste,
+                retardJours,
+                // Partiellement paye : le distinguer compte, c'est un client qui
+                // paye mais lentement, pas un client qui ne paye pas.
+                entame: Number(l.montant_paye) > 0.009,
+            };
+        });
+
+        const parClient = new Map<string, any>();
+        for (const f of factures) {
+            const cle = f.clientId || `NOM:${f.clientNom}`;
+            if (!parClient.has(cle)) {
+                parClient.set(cle, {
+                    cle,
+                    clientId: f.clientId,
+                    nom: f.clientNom,
+                    tel: f.clientTel,
+                    ville: f.clientVille,
+                    type: f.clientType,
+                    encours: 0,
+                    enRetard: 0,
+                    montantRetard: 0,
+                    plusVieilleEcheance: null as string | null,
+                    factures: [] as any[],
+                });
+            }
+            const c = parClient.get(cle);
+            c.encours += f.reste;
+            if (f.retardJours > 0) { c.enRetard += 1; c.montantRetard += f.reste; }
+            if (f.dateEcheance && (!c.plusVieilleEcheance || f.dateEcheance < c.plusVieilleEcheance)) {
+                c.plusVieilleEcheance = f.dateEcheance;
+            }
+            c.factures.push(f);
+        }
+
+        const clients = [...parClient.values()]
+            .map(c => ({
+                ...c,
+                encours: Number(c.encours.toFixed(2)),
+                montantRetard: Number(c.montantRetard.toFixed(2)),
+                retardMax: Math.max(0, ...c.factures.map((f: any) => f.retardJours)),
+            }))
+            // Le plus en retard d'abord : c'est l'ordre des appels a passer.
+            .sort((a, b) => b.montantRetard - a.montantRetard || b.encours - a.encours);
+
+        res.json({
+            total: Number(factures.reduce((a, f) => a + f.reste, 0).toFixed(2)),
+            totalRetard: Number(clients.reduce((a, c) => a + c.montantRetard, 0).toFixed(2)),
+            nbFactures: factures.length,
+            nbClients: clients.length,
+            clients,
+        });
+    } catch (error) {
+        console.error('Ventes encours error:', error);
+        res.status(500).json({ message: 'Error building receivables detail' });
+    }
+};

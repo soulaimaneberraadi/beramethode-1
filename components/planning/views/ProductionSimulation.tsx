@@ -823,7 +823,7 @@ export default function ProductionSimulation({
                                     <div className="border border-rose-100 dark:border-rose-900/40 rounded-xl p-3 bg-rose-50 dark:bg-rose-900/20 dark:bg-rose-900/10 hover:bg-rose-50/30 dark:hover:bg-rose-900/20 transition-colors">
                                         <div className="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1">
                                             <Split className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-                                            {tx(lang,{fr:'Option C : Sous-traitance (Monawla)',ar:'الخيار ج: التعاقد من الباطن (مناولة)',en:'Option C: Subcontracting (Monawla)',es:'Opción C: Subcontratación (Monawla)',pt:'Opção C: Subcontratação (Monawla)',tr:'Seçenek C: Taşeronluk (Monawla)'})}
+                                            {tx(lang,{fr:'Option C : Sous-traitance',ar:'الخيار ج: التعاقد من الباطن',en:'Option C: Subcontracting',es:'Opción C: Subcontratación',pt:'Opção C: Subcontratação',tr:'Seçenek C: Taşeronluk'})}
                                         </div>
                                         <div className="text-slate-600 dark:text-dk-text-soft text-[11px] mt-1.5 space-y-1">
                                             <div>
@@ -902,7 +902,7 @@ onClick={() => setShowSplitConfirm(false)}
                                 <span className="font-black text-slate-800 dark:text-dk-text">{simulationResult.maxInHouseQty} pcs</span>
                             </div>
                             <div className="flex justify-between border-t border-slate-100 dark:border-dk-border pt-1.5 text-rose-700 dark:text-rose-400">
-                                <span className="font-bold">{tx(lang,{fr:'Quantité sous-traitée (Monawla)',ar:'الكمية المتعاقد من باطنها (مناولة)',en:'Subcontracted quantity (Monawla)',es:'Cantidad subcontratada (Monawla)',pt:'Quantidade subcontratada (Monawla)',tr:'Taşere edilen miktar (Monawla)'})} :</span>
+                                <span className="font-bold">{tx(lang,{fr:'Quantité sous-traitée',ar:'الكمية المتعاقد من باطنها',en:'Subcontracted quantity',es:'Cantidad subcontratada',pt:'Quantidade subcontratada',tr:'Taşere edilen miktar'})} :</span>
                                 <span className="font-black">{simulationResult.outsourceQty} pcs</span>
                             </div>
                             <div className="flex justify-between border-t border-slate-100 dark:border-dk-border pt-1.5">

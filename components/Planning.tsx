@@ -20,7 +20,6 @@ import AutoScheduleSuggestion from './planning/modals/AutoScheduleSuggestion';
 import CommandPalette, { type CommandAction } from './planning/modals/CommandPalette';
 import AIOptimizationModal from './planning/modals/AIOptimizationModal';
 import BatchOrderModal, { type BatchOrderResult } from './planning/modals/BatchOrderModal';
-import ShortcutsHint from './planning/shared/ShortcutsHint';
 import PlanningAnimations from './planning/shared/PlanningAnimations';
 import FocusBanner from './planning/shared/FocusBanner';
 import { evClientName as evClientNameUtil, evModelName as evModelNameUtil, evQty } from './planning/shared/eventAccessors';
@@ -1215,8 +1214,6 @@ export default function Planning({
                     });
                 }}
             />
-
-            <ShortcutsHint />
 
             {/* Chain context menu */}
             {chainCtxMenu && (

@@ -50,7 +50,7 @@ export default function QuickFilters({
 
                 {/* Status section */}
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mr-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest me-1.5">
                         {tx(lang, {fr:"Statut",ar:"الحالة",en:"Status",es:"Estado",pt:"Status",tr:"Durum"})}
                     </span>
                     {STATUS_ORDER.map(s => {
@@ -77,7 +77,7 @@ export default function QuickFilters({
                 {/* Chaîne section */}
                 {onToggleChain && allChains && allChains.length > 0 && (
                     <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mr-1.5 shrink-0">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest me-1.5 shrink-0">
                             {tx(lang, {fr:"Chaîne",ar:"خط الإنتاج",en:"Line",es:"Línea",pt:"Linha",tr:"Hat"})}
                         </span>
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -107,7 +107,7 @@ export default function QuickFilters({
                 {/* Clients section */}
                 {allClients.length > 0 && (
                     <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mr-1.5 shrink-0">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest me-1.5 shrink-0">
                             {tx(lang, {fr:"Client",ar:"عميل",en:"Client",es:"Cliente",pt:"Cliente",tr:"Müşteri"})}
                         </span>
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -142,7 +142,7 @@ export default function QuickFilters({
                 {/* Critical Only Filter section */}
                 {onToggleCriticalOnly && (
                     <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mr-1.5">
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest me-1.5">
                             {tx(lang, {fr:"Filtres",ar:"مرشحات",en:"Filters",es:"Filtros",pt:"Filtros",tr:"Filtreler"})}
                         </span>
                         <button
@@ -164,7 +164,7 @@ export default function QuickFilters({
                     <button
                         type="button"
                         onClick={onReset}
-                        className="inline-flex items-center gap-1 h-6 px-2.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/50 dark:hover:bg-red-900/20 border border-transparent hover:border-red-200/50 dark:hover:border-red-800/50 ml-auto transition-all duration-200 active:scale-95"
+                        className="inline-flex items-center gap-1 h-6 px-2.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/50 dark:hover:bg-red-900/20 border border-transparent hover:border-red-200/50 dark:hover:border-red-800/50 ms-auto transition-all duration-200 active:scale-95"
                     >
                         <X className="w-3 h-3" />
                         {tx(lang, {fr:"Effacer",ar:"مسح",en:"Clear",es:"Limpiar",pt:"Limpar",tr:"Temizle"})}

@@ -401,7 +401,7 @@ export default function ModelWorkflow({
                     {/* Left Scroll Button */}
                     <button
                         onClick={() => scrollSteps('left')}
-                        className="absolute left-0 top-0 bottom-0 z-10 w-8 bg-white/40 dark:bg-dk-surface/40 hover:bg-white dark:hover:bg-dk-surface/60 backdrop-blur-md border-r border-slate-200/50 dark:border-dk-border/50 text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text transition-all duration-200 active:bg-white dark:active:bg-dk-surface/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
+                        className="absolute left-0 top-0 bottom-0 z-10 w-11 min-w-[44px] min-h-[44px] bg-white/80 dark:bg-dk-surface/80 hover:bg-white dark:hover:bg-dk-surface/90 backdrop-blur-md border-r border-slate-200/50 dark:border-dk-border/50 text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text transition-all duration-200 active:bg-white dark:active:bg-dk-surface/80 opacity-60 sm:opacity-0 sm:group-hover/stepper:opacity-100 flex items-center justify-center"
                         title={tx(lang, { fr: 'Précédent', ar: 'السابق', en: 'Previous', es: 'Anterior', pt: 'Anterior', tr: 'Önceki' })}
                     >
                         <ChevronLeft className="w-4 h-4" />
@@ -410,7 +410,7 @@ export default function ModelWorkflow({
                     {/* Scrollable Container */}
                     <div 
                         ref={stepperRef}
-                        className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-full px-10 scroll-smooth"
+                        className="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-full px-11 sm:px-10 scroll-smooth overscroll-x-contain"
                     >
                         {steps.map((step, index) => {
                             const isActive = currentStep === step.id;
@@ -420,7 +420,7 @@ export default function ModelWorkflow({
                                     <button
                                         ref={isActive ? activeStepRef : undefined}
                                         onClick={() => navigateTo(step.id)}
-                                        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${isActive
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap snap-start min-h-[36px] ${isActive
                                             ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-md dark:shadow-dk-md shadow-indigo-200'
                                             : isPast
                                                 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/50 hover:bg-emerald-100'
@@ -441,7 +441,7 @@ export default function ModelWorkflow({
                     {/* Right Scroll Button */}
                     <button
                         onClick={() => scrollSteps('right')}
-                        className="absolute right-0 top-0 bottom-0 z-10 w-8 bg-white/40 dark:bg-dk-surface/40 hover:bg-white dark:hover:bg-dk-surface/60 backdrop-blur-md border-l border-slate-200/50 dark:border-dk-border/50 text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text transition-all duration-200 active:bg-white dark:active:bg-dk-surface/80 opacity-0 group-hover/stepper:opacity-100 flex items-center justify-center"
+                        className="absolute right-0 top-0 bottom-0 z-10 w-11 min-w-[44px] min-h-[44px] bg-white/80 dark:bg-dk-surface/80 hover:bg-white dark:hover:bg-dk-surface/90 backdrop-blur-md border-l border-slate-200/50 dark:border-dk-border/50 text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text transition-all duration-200 active:bg-white dark:active:bg-dk-surface/80 opacity-60 sm:opacity-0 sm:group-hover/stepper:opacity-100 flex items-center justify-center"
                         title={tx(lang, { fr: 'Suivant', ar: 'التالي', en: 'Next', es: 'Siguiente', pt: 'Próximo', tr: 'İleri' })}
                     >
                         <ChevronRight className="w-4 h-4" />
@@ -453,7 +453,7 @@ export default function ModelWorkflow({
                     <button
                         onClick={handleLinearPrev}
                         disabled={currentIndex === 0}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm border ${currentIndex === 0
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm border min-h-[44px] ${currentIndex === 0
                             ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-dk-border text-slate-300 dark:text-dk-muted bg-white dark:bg-dk-surface'
                             : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-bg text-slate-600 dark:text-dk-text-soft'
                             }`}
@@ -465,7 +465,7 @@ export default function ModelWorkflow({
 
                     <button
                         onClick={handleSave}
-                        className="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-bg text-slate-600 dark:text-dk-text-soft rounded-xl text-xs font-bold shadow-sm dark:shadow-dk-sm transition-all"
+                        className="flex items-center gap-2 px-3 py-2.5 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60 dark:hover:bg-dk-bg text-slate-600 dark:text-dk-text-soft rounded-xl text-xs font-bold shadow-sm dark:shadow-dk-sm transition-all min-h-[44px] min-w-[44px] justify-center"
                         title={st.save}
                     >
                         <Save className="w-4 h-4" />
@@ -474,7 +474,7 @@ export default function ModelWorkflow({
 
                     <button
                         onClick={isLastStep ? handleSave : handleLinearNext}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm ${isLastStep
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm dark:shadow-dk-sm min-h-[44px] ${isLastStep
                             ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200 hover:shadow-emerald-300'
                             : 'bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-white shadow-indigo-200 hover:shadow-indigo-300'
                             }`}
@@ -496,7 +496,7 @@ export default function ModelWorkflow({
                         </div>
                     </div>
                 )}
-                <div id="workflow-content" className="absolute inset-0 p-4 sm:p-6 lg:p-8 overflow-y-auto custom-scrollbar">
+                <div id="workflow-content" className="absolute inset-0 p-4 sm:p-6 lg:p-8 overflow-y-auto overflow-x-hidden custom-scrollbar max-w-full">
 
                     {currentStep === 'fiche' && (
                         <FicheTechnique

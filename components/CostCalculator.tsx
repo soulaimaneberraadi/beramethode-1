@@ -1237,7 +1237,7 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                 )}
             </PdfSettingsModal>
 
-            <div className={`w-full mx-auto mb-3 sm:mb-5 flex flex-col md:flex-row justify-between items-start sm:items-center bg-white dark:bg-dk-surface px-3 sm:px-5 h-auto md:h-14 py-2.5 sm:py-3 md:py-0 rounded-lg border border-slate-200 dark:border-dk-border gap-2 sm:gap-3 print:hidden`}>
+            <div className={`w-full mx-auto mb-3 sm:mb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-dk-surface px-3 sm:px-5 h-auto sm:h-14 py-2.5 sm:py-3 sm:py-0 rounded-lg border border-slate-200 dark:border-dk-border gap-2 sm:gap-3 print:hidden`}>
                 <div className="flex items-center gap-2 sm:gap-3 self-start md:self-center">
                     <div className="flex items-baseline gap-1.5 sm:gap-2.5">
                         <h1 className={`text-[13px] sm:text-[15px] font-semibold tracking-tight text-slate-900 dark:text-dk-text`}>{tx(lang,{fr:'Fiche de Coût',ar:'بطاقة التكلفة',en:'Cost Sheet',es:'Hoja de Costo',pt:'Ficha de Custo',tr:'Maliyet Fişi'})}</h1>
@@ -1255,13 +1255,13 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                         <div className="inline-flex p-0.5 bg-slate-100/60 rounded-md" title="Source du temps de couture">
                             <button
                                 onClick={() => setTimeSource('gamme')}
-                                className={`px-2 sm:px-2.5 h-6 sm:h-7 text-[10px] sm:text-[11px] font-medium rounded transition-all ${timeSource === 'gamme' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`}
+                                className={`px-2 sm:px-2.5 min-h-[36px] sm:min-h-0 sm:h-7 text-[10px] sm:text-[11px] font-medium rounded transition-all ${timeSource === 'gamme' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`}
                             >
                                 Gamme ({initialTotalTime} min)
                             </button>
                             <button
                                 onClick={() => setTimeSource('chrono')}
-                                className={`px-2 sm:px-2.5 h-6 sm:h-7 text-[10px] sm:text-[11px] font-medium rounded transition-all inline-flex items-center gap-1 ${timeSource === 'chrono' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`}
+                                className={`px-2 sm:px-2.5 min-h-[36px] sm:min-h-0 sm:h-7 text-[10px] sm:text-[11px] font-medium rounded transition-all inline-flex items-center gap-1 ${timeSource === 'chrono' ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-[0_1px_2px_rgba(15,23,42,0.06)]' : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`}
                             >
                                 <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" strokeWidth={1.75} /> Chrono ({chronoTotalTime} min)
                             </button>
@@ -1272,7 +1272,7 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
             </div>
 
             {/* ── FICHE DE COÛT (page unique) ── */}
-            <div className="w-full mx-auto space-y-8">
+            <div className="w-full mx-auto space-y-4 sm:space-y-8">
                     <div className="space-y-6 print:hidden">
                         <CostSanityCheck
                             currency={currency} isExport={materialsExcluded}
@@ -1299,10 +1299,10 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                         />
 
                         {/* Barre outils : Sous-traitance + Calcul Fil */}
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-col sm:flex-row justify-end gap-2 w-full sm:w-auto">
                             <button
                                 onClick={() => setShowSousTraitance(true)}
-                                className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border text-[12px] font-medium transition-colors ${stActive ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft'}`}
+                                className={`inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:h-8 px-3 rounded-md border text-[12px] font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none ${stActive ? 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft'}`}
                                 title={tx(lang, {fr: "Confier ce modèle à un sous-traitant à prix fixe / pièce", ar: "تكليف هذا الموديل لمقاول من الباطن بسعر ثابت / للقطعة", en: "Assign this model to a subcontractor at a fixed price / per piece", es: "Confiar este modelo a un subcontratista a precio fijo / por pieza", pt: "Confiar este modelo a um subcontratante a preço fixo / por peça", tr: "Bu modeli bir taşerona sabit fiyat / parça başına devret"})}
                             >
                                 <Factory className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -1318,7 +1318,7 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                             {!stComplet && (
                                 <button
                                     onClick={() => setShowThreadCalc(true)}
-                                    className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-slate-900 dark:bg-dk-accent hover:bg-slate-800 dark:hover:bg-dk-accent-hover text-white text-[12px] font-medium transition-colors"
+                                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] sm:h-8 px-3 rounded-md bg-slate-900 dark:bg-dk-accent hover:bg-slate-800 dark:hover:bg-dk-accent-hover text-white text-[12px] font-medium transition-colors whitespace-nowrap flex-1 sm:flex-none"
                                 >
                                     <Scissors className="w-3.5 h-3.5" strokeWidth={1.75} />
                                     {tx(lang, {fr: 'Calcul Fil', ar: 'حساب الخيط', en: 'Thread Calculation', es: 'Cálculo de Hilo', pt: 'Cálculo de Fio', tr: 'İplik Hesaplama'})}
@@ -1350,7 +1350,7 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                                 <div className="flex justify-end">
                                     <button
                                         onClick={() => setShowMaterialAssign(true)}
-                                        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft text-[12px] font-medium transition-colors"
+                                        className="inline-flex items-center gap-1.5 min-h-[44px] sm:h-8 px-3 rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-700 dark:text-dk-text-soft text-[12px] font-medium transition-colors w-full sm:w-auto justify-center"
                                         title={tx(lang, {fr: "Affecter les matières à des couleurs / tailles précises", ar: "تخصيص المواد لألوان/مقاسات محددة", en: "Assign materials to specific colors / sizes", es: "Asignar materiales a colores / tallas específicas", pt: "Atribuir materiais a cores / tamanhos específicos", tr: "Malzemeleri belirli renklere/boylara ata"})}
                                     >
                                         <SlidersHorizontal className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -1399,7 +1399,7 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                                     </span>
                                 </div>
 
-                                <div className="overflow-x-auto">
+                                <div className="overflow-x-auto scrollbar-thin">
                                     <table className="w-full text-left border-collapse min-w-[520px]">
                                         <thead>
                                             <tr className="bg-slate-50 dark:bg-dk-bg/60 text-[11px] text-slate-500 dark:text-dk-muted">
@@ -1518,7 +1518,7 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                                         </div>
                                     </div>
 
-                                    <div className="w-44 h-44 shrink-0 flex flex-col relative">
+                                    <div className="w-full max-w-[11rem] aspect-square mx-auto sm:w-44 sm:h-44 sm:mx-0 shrink-0 flex flex-col relative">
                                         <h4 className="text-[11px] font-medium text-slate-500 dark:text-dk-muted text-center absolute -top-1 left-0 right-0 z-10">{tx(lang,{fr:'Répartition Coût (PR)',ar:'توزيع التكلفة (س ت)',en:'Cost Breakdown (CP)',es:'Desglose de Costo (PC)',pt:'Repartição de Custo (CP)',tr:'Maliyet Dağılımı (MF)'})}</h4>
                                         {totalMaterials > 0 || laborCost > 0 ? (
                                             <svg viewBox="0 0 120 120" className="w-full h-full">
@@ -1635,8 +1635,8 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                                          </div>
                                      </div>
 
-                                     <div 
-                                         className={`bg-slate-100 dark:bg-dk-elevated p-3 sm:p-8 overflow-hidden active-page-${mainActivePage}`}
+                                      <div 
+                                          className={`bg-slate-100 dark:bg-dk-elevated p-3 sm:p-8 overflow-hidden max-w-[100vw] active-page-${mainActivePage}`}
                                          onTouchStart={onMainTouchStart}
                                          onTouchEnd={onMainTouchEnd}
                                      >

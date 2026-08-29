@@ -2773,9 +2773,9 @@ export default function Implantation({
     };
 
     return (
-        <div className="flex flex-col h-full gap-2 relative">
+        <div className="flex flex-col h-full gap-2 relative max-w-full overflow-hidden">
             {/* ... (Header Stats - Hidden in ReadOnly) ... */}
-            {!readOnly && (<div className="bg-slate-50 dark:bg-dk-bg/80 rounded-xl border-2 border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm mb-2 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+            {!readOnly && (<div className="bg-slate-50 dark:bg-dk-bg/80 rounded-xl border-2 border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm mb-2 p-2 flex flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar shrink-0 max-w-full">
                 {/* OUVRIERS / HEURES */}
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                     <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-3">
@@ -2903,15 +2903,15 @@ export default function Implantation({
             </div>)}
 
             {/* FULLSCREEN WRAPPER */}
-            <div ref={fullscreenWrapperRef} className={`flex flex-col flex-1 min-h-0 w-full h-full relative transition-[background-color] duration-500 ${isFullScreen ? 'bg-[#F8FAFC]' : 'bg-transparent'}`}>
-                <div className={`flex flex-col flex-1 min-h-0 h-full w-full ${isFullScreen ? 'animate-in fade-in duration-700 ease-out' : ''}`}>
+            <div ref={fullscreenWrapperRef} className={`flex flex-col flex-1 min-h-0 w-full max-w-full overflow-hidden h-full relative transition-[background-color] duration-500 ${isFullScreen ? 'bg-[#F8FAFC]' : 'bg-transparent'}`}>
+                <div className={`flex flex-col flex-1 min-h-0 h-full w-full max-w-full overflow-hidden ${isFullScreen ? 'animate-in fade-in duration-700 ease-out' : ''}`}>
 
 
 
                     {/* TOOLBAR & CONTROLS (Hidden in ReadOnly) */}
                     {!readOnly && (
                         <>
-                            <div className="bg-slate-50 dark:bg-dk-bg/80 rounded-2xl border-2 border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-2.5 flex flex-wrap items-center gap-2 shrink-0 z-30 mb-2 mt-4 relative">
+                            <div className="bg-slate-50 dark:bg-dk-bg/80 rounded-2xl border-2 border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-2.5 flex flex-wrap items-center gap-2 shrink-0 z-30 mb-2 mt-4 relative max-w-full overflow-hidden">
                                 {/* Mode Toggle */}
                                 <div className="flex bg-slate-100 dark:bg-dk-elevated p-0.5 rounded-lg border border-slate-200 dark:border-dk-border">
                                     <button onClick={activateAutoMode} className={`flex items-center justify-center px-3 py-1.5 rounded-md font-bold transition-all text-xs ${!isManualMode ? 'bg-emerald-500 text-white shadow-sm dark:shadow-dk-sm' : 'text-slate-500 hover:text-slate-800'}`}>
@@ -3177,7 +3177,7 @@ export default function Implantation({
                         )}
 
                         {/* ... (Main Canvas Area with force-scrollbar styles same as before) ... */}
-                        <div className="flex-1 rounded-2xl bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border shadow-inner relative overflow-hidden flex flex-col transition-all duration-300">
+                        <div className="flex-1 rounded-2xl bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border shadow-inner relative overflow-hidden flex flex-col transition-all duration-300 max-w-full min-w-0">
 
                             {/* Injected Styles for Scrollbars */}
                             <style>{`

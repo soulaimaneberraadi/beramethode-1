@@ -48,7 +48,7 @@ export default function EventBar({
     const h = compact ? 32 : 56;
     const client = evClientName(event, models);
     const modelName = evModelName(event, models);
-    
+
     // Setup buffer visual space calculations
     const model = models.find(m => m.id === event.modelId);
     const bufferLancement = model?.ficheData?.bufferLancement !== undefined 
@@ -168,8 +168,22 @@ export default function EventBar({
                 />
             )}
             <div className="h-full flex relative z-10 w-full">
-                {/* Model photo thumbnail */}
-                {/* Model photo thumbnail (Disabled) */}
+                {/* Vignette photo du modèle (front, sinon image legacy) */}
+                {thumb && !compact && (
+                    <div
+                        className="shrink-0 h-full overflow-hidden border-e border-slate-200/70 dark:border-dk-border/70 bg-slate-50 dark:bg-dk-elevated"
+                        style={{ width: h }}
+                    >
+                        <img
+                            src={thumb}
+                            alt={modelName}
+                            draggable={false}
+                            loading="lazy"
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
+                        />
+                    </div>
+                )}
 
                 {/* Status indicator strip */}
                 <div className={`w-0.5 ${

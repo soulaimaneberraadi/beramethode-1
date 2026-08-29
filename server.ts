@@ -82,7 +82,7 @@ import {
 } from './server/subcontractController';
 import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice, createCommandeNormale } from './server/clientsController';
 import { getCaisseJournal, annulerTicketCaisse } from './server/caisseController';
-import { getVentesDashboard } from './server/ventesDashboardController';
+import { getVentesDashboard, getVentesEncours } from './server/ventesDashboardController';
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
 import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat, checkStockIntegrity, repairStockIntegrity } from './server/achatsController';
 import { sendZpl } from './server/printBridge';
@@ -689,6 +689,8 @@ async function startServer() {
   // avant /api/subcontract/:id pour la meme raison que « stock-entries ».
   // Tableau de bord des ventes : ce qui part, ce qui dort, et qui doit.
   app.get('/api/ventes/dashboard', authenticateToken, requirePermission('page', 'facturation', 'view'), getVentesDashboard);
+  // Le detail de l'encours : qui doit, sur quelle facture, et depuis combien de jours.
+  app.get('/api/ventes/encours', authenticateToken, requirePermission('page', 'facturation', 'view'), getVentesEncours);
   app.get('/api/subcontract/caisse/journal', authenticateToken, requirePermission('page', 'sousTraitance', 'view'), getCaisseJournal);
   app.delete('/api/subcontract/caisse/ticket/:ticket', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), annulerTicketCaisse);
   // Facture de VENTE construite à partir de sorties déjà réalisées — c'est ce
