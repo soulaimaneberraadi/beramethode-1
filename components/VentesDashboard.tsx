@@ -13,7 +13,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    TrendingUp, PackageX, AlertTriangle, RefreshCw, Users, Wallet, Boxes, Search,
+    TrendingUp, PackageX, AlertTriangle, RefreshCw, Users, Wallet, Boxes, Search, Filter, Receipt,
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 
@@ -97,6 +97,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
     const [erreur, setErreur] = useState<string | null>(null);
     const [recherche, setRecherche] = useState('');
     const [filtreModele, setFiltreModele] = useState<'TOUS' | Modele['statut']>('TOUS');
+    const [filtresOuverts, setFiltresOuverts] = useState(false);
 
     const charger = useCallback(async (n: number) => {
         if (IS_STATIC) { setData(null); setErreur(null); return; }
@@ -174,6 +175,14 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         qualite: tx(lang, { fr: 'Qualite atelier', ar: 'جودة الورشة', en: 'Workshop quality', es: 'Calidad del taller', pt: 'Qualidade da oficina', tr: 'Atolye kalitesi' }),
         tauxDefaut: tx(lang, { fr: 'Taux de defaut', ar: 'نسبة العيوب', en: 'Defect rate', es: 'Tasa de defectos', pt: 'Taxa de defeitos', tr: 'Hata orani' }),
         canalFort: tx(lang, { fr: 'Part du canal principal', ar: 'حصّة القناة الأولى', en: 'Main channel share', es: 'Cuota del canal principal', pt: 'Quota do canal principal', tr: 'Ana kanal payi' }),
+        filtres: tx(lang, { fr: 'Filtres', ar: 'فلاتر', en: 'Filters', es: 'Filtros', pt: 'Filtros', tr: 'Filtreler' }),
+        actualiser: tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' }),
+        nonRenseigne: tx(lang, { fr: 'Non renseigne', ar: 'غير محدّد', en: 'Not recorded', es: 'Sin indicar', pt: 'Nao indicado', tr: 'Belirtilmemis' }),
+        piecesCourt: tx(lang, { fr: 'pcs', ar: 'قطعة', en: 'pcs', es: 'uds', pt: 'pcs', tr: 'adet' }),
+        ventesCourt: tx(lang, { fr: 'ventes', ar: 'بيعة', en: 'sales', es: 'ventas', pt: 'vendas', tr: 'satis' }),
+        parJourCourt: tx(lang, { fr: '/jour', ar: '/يوم', en: '/day', es: '/dia', pt: '/dia', tr: '/gun' }),
+        aucunDefaut: tx(lang, { fr: 'Aucun defaut releve.', ar: 'ما تسجّل حتى عيب.', en: 'No defect recorded.', es: 'Ningun defecto.', pt: 'Nenhum defeito.', tr: 'Hata kaydi yok.' }),
+        doit: tx(lang, { fr: 'doit', ar: 'عليه', en: 'owes', es: 'debe', pt: 'deve', tr: 'borclu' }),
         retard: tx(lang, { fr: 'facture(s) en retard', ar: 'فاتورة متأخّرة', en: 'overdue invoice(s)', es: 'factura(s) vencida(s)', pt: 'fatura(s) vencida(s)', tr: 'gecikmis fatura' }),
     };
 
@@ -194,118 +203,181 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         return (data.clients || []).filter(c => `${c.nom} ${c.tel || ''} ${c.ville || ''}`.toLowerCase().includes(q)).slice(0, 25);
     }, [data, recherche]);
 
-    const carte = (titre: string, valeur: string, icone: React.ReactNode, teinte = 'text-slate-900 dark:text-dk-text') => (
-        <div className="border border-slate-200 dark:border-dk-border rounded-xl p-4 bg-white dark:bg-dk-surface">
-            <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted">
-                {icone} {titre}
+    /* ── Vocabulaire visuel ───────────────────────────────────────────────
+     * Une seule carte, un seul en-tete, une seule facon d'aligner un chiffre.
+     * Un tableau de bord ou chaque bloc a son style se lit comme trois
+     * documents differents poses l'un sur l'autre.
+     */
+    const Carte: React.FC<{ titre: string; droite?: React.ReactNode; children: React.ReactNode; className?: string }> =
+        ({ titre, droite, children, className = '' }) => (
+            <section className={`border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface overflow-hidden ${className}`}>
+                <header className="h-9 px-3.5 flex items-center justify-between gap-2 border-b border-slate-100 dark:border-dk-border">
+                    <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted truncate">{titre}</span>
+                    {droite}
+                </header>
+                {children}
+            </section>
+        );
+
+    /** « NON_PRECISE » vient des ventes anterieures au suivi du canal : on le
+     *  nomme au lieu de laisser un mot de base de donnees a l'ecran. */
+    const libelle = (v: string) => (v === 'NON_PRECISE' || v === '—' ? T.nonRenseigne : v);
+
+    const Tuile = ({ titre, valeur, icone, alerte = false }: { titre: string; valeur: string; icone: React.ReactNode; alerte?: boolean }) => (
+        <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface px-3.5 py-3">
+            <span className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">
+                {icone}<span className="truncate">{titre}</span>
             </span>
-            <p className={`text-lg font-black tabular-nums mt-1 ${teinte}`}>{valeur}</p>
+            <p className={`mt-1 text-[17px] font-black tabular-nums leading-none ${alerte ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-dk-text'}`}>
+                {valeur}
+            </p>
         </div>
     );
 
-    const repartition = (titre: string, lignes: Array<{ cle: string; ca: number; detail: string }>) => {
-        const total = lignes.reduce((a, l) => a + l.ca, 0) || 1;
+    /** Une repartition : le libelle, la part, et une barre fine. La part en
+     *  POURCENTAGE d'abord — « 142 297 MAD » ne dit pas si c'est beaucoup. */
+    const Repartition = ({ titre, lignes }: { titre: string; lignes: Array<{ cle: string; ca: number; detail: string }> }) => {
+        const total = lignes.reduce((a, l) => a + l.ca, 0);
         return (
-            <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface">
-                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dk-border">
-                    <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{titre}</span>
-                </div>
-                <div className="p-3 space-y-2">
+            <Carte titre={titre}>
+                <div className="p-3.5 space-y-2.5">
                     {lignes.length === 0 && <p className="text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</p>}
-                    {lignes.map(l => (
-                        <div key={l.cle}>
-                            <div className="flex items-center justify-between text-[11px]">
-                                <span className="font-bold text-slate-700 dark:text-dk-text-soft truncate">{l.cle}</span>
-                                <span className="tabular-nums font-black text-slate-800 dark:text-dk-text shrink-0">{nf(l.ca)} {currency}</span>
+                    {lignes.map(l => {
+                        const part = total > 0 ? (l.ca / total) * 100 : 0;
+                        const flou = l.cle === 'NON_PRECISE' || l.cle === '—';
+                        return (
+                            <div key={l.cle}>
+                                <div className="flex items-baseline justify-between gap-2 text-[11px]">
+                                    <span className={`font-bold truncate ${flou ? 'text-slate-400 dark:text-dk-muted italic' : 'text-slate-700 dark:text-dk-text-soft'}`}>
+                                        {libelle(l.cle)}
+                                    </span>
+                                    <span className="shrink-0 tabular-nums">
+                                        <span className="font-black text-slate-800 dark:text-dk-text">{nf(part)} %</span>
+                                        <span className="ml-1.5 text-[10px] text-slate-400 dark:text-dk-muted">{nf(l.ca)}</span>
+                                    </span>
+                                </div>
+                                <div className="h-1 rounded-full bg-slate-100 dark:bg-dk-elevated mt-1 overflow-hidden">
+                                    <div className={`h-full rounded-full ${flou ? 'bg-slate-300 dark:bg-dk-border' : 'bg-slate-800 dark:bg-dk-accent'}`} style={{ width: `${Math.max(1.5, part)}%` }} />
+                                </div>
+                                <span className="block mt-0.5 text-[10px] text-slate-400 dark:text-dk-muted">{l.detail}</span>
                             </div>
-                            <div className="h-1.5 rounded-full bg-slate-100 dark:bg-dk-elevated mt-1 overflow-hidden">
-                                <div className="h-full bg-slate-800 dark:bg-dk-accent" style={{ width: `${Math.max(2, (l.ca / total) * 100)}%` }} />
-                            </div>
-                            <span className="text-[10px] text-slate-400 dark:text-dk-muted">{l.detail}</span>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
-            </div>
+            </Carte>
         );
     };
 
+    const filtresActifs = [du, au, canal, segment, clientId].filter(Boolean).length;
+
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
+            {/* Barre unique : la periode a gauche, le reste derriere un bouton.
+                Huit contrôles alignes de front donnent une barre qu'on ne lit
+                plus — et un filtre qu'on ne lit pas est un chiffre mal
+                interprete. */}
             <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-[15px] font-black text-slate-900 dark:text-dk-text">{T.titre}</h2>
+                <h2 className="text-[13px] font-black uppercase tracking-[0.08em] text-slate-900 dark:text-dk-text mr-1">{T.titre}</h2>
+
                 <div className="bg-slate-100/70 dark:bg-dk-elevated rounded-lg p-0.5 inline-flex">
                     {[7, 30, 90].map(n => (
                         <button
                             key={n}
-                            onClick={() => setJours(n)}
-                            className={`px-3 py-1.5 rounded-md text-[11px] font-bold transition-colors ${jours === n
+                            onClick={() => { setDu(''); setAu(''); setJours(n); }}
+                            className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${jours === n && !du && !au
                                 ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm'
-                                : 'text-slate-500 dark:text-dk-muted'}`}
+                                : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`}
                         >
-                            {n} {T.jours}
+                            {n}{T.jours.slice(0, 1)}
                         </button>
                     ))}
                 </div>
-                {/* Filtres : jour precis, canal, segment, client. Ils
-                    s'appliquent a TOUTE la page — total et detail repondent a
-                    la meme question, sinon l'un des deux chiffres est faux. */}
-                <input type="date" value={du} onChange={e => setDu(e.target.value)} title={T.du}
-                    className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none" />
-                <input type="date" value={au} onChange={e => setAu(e.target.value)} title={T.au}
-                    className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none" />
-                <select value={canal} onChange={e => setCanal(e.target.value)}
-                    className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
-                    <option value="">{T.tousCanaux}</option>
-                    <option value="MAGASIN">MAGASIN</option>
-                    <option value="ONLINE">ONLINE</option>
-                    <option value="ATELIER">ATELIER</option>
-                </select>
-                <select value={segment} onChange={e => setSegment(e.target.value)}
-                    className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
-                    <option value="">{T.tousSegments}</option>
-                    <option value="BOUTIQUE">BOUTIQUE</option>
-                    <option value="DETAIL">DETAIL</option>
-                    <option value="GROS">GROS</option>
-                </select>
-                <select value={clientId} onChange={e => setClientId(e.target.value)}
-                    className="h-8 px-2 max-w-[160px] rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
-                    <option value="">{T.tousClients}</option>
-                    {annuaire.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
-                </select>
-                {(du || au || canal || segment || clientId) && (
-                    <button
-                        onClick={() => { setDu(''); setAu(''); setCanal(''); setSegment(''); setClientId(''); }}
-                        className="h-8 px-2.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border"
-                    >
-                        {T.effacer}
-                    </button>
-                )}
-                <div className="relative flex-1 min-w-[180px] max-w-xs">
+
+                <button
+                    onClick={() => setFiltresOuverts(v => !v)}
+                    className={`h-8 px-2.5 rounded-lg text-[11px] font-bold border inline-flex items-center gap-1.5 transition-colors ${filtresOuverts || filtresActifs
+                        ? 'bg-slate-900 dark:bg-dk-accent text-white border-transparent'
+                        : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+                >
+                    <Filter className="w-3.5 h-3.5" />
+                    {T.filtres}
+                    {filtresActifs > 0 && <span className="px-1.5 rounded-full bg-white/20 tabular-nums">{filtresActifs}</span>}
+                </button>
+
+                <div className="relative flex-1 min-w-[160px] max-w-[260px]">
                     <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                         value={recherche}
                         onChange={e => setRecherche(e.target.value)}
                         placeholder={T.chercher}
-                        className="w-full h-8 pl-8 pr-3 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[12px] text-slate-700 dark:text-dk-text placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-slate-300/40"
+                        className="w-full h-8 pl-8 pr-3 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-[12px] text-slate-700 dark:text-dk-text placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-slate-200 dark:focus:ring-dk-border"
                     />
                 </div>
+
                 <button
                     onClick={() => charger(jours)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                    title={T.actualiser}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-400 hover:text-slate-900 dark:hover:text-dk-text"
                 >
                     <RefreshCw className={`w-3.5 h-3.5 ${chargement ? 'animate-spin' : ''}`} />
                 </button>
             </div>
 
+            {filtresOuverts && (
+                <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface p-3 flex flex-wrap items-end gap-3">
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{T.du}</span>
+                        <input type="date" value={du} onChange={e => setDu(e.target.value)} className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{T.au}</span>
+                        <input type="date" value={au} onChange={e => setAu(e.target.value)} className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{T.parCanal}</span>
+                        <select value={canal} onChange={e => setCanal(e.target.value)} className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
+                            <option value="">{T.tousCanaux}</option>
+                            <option value="MAGASIN">MAGASIN</option>
+                            <option value="ONLINE">ONLINE</option>
+                            <option value="ATELIER">ATELIER</option>
+                        </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{T.parSegment}</span>
+                        <select value={segment} onChange={e => setSegment(e.target.value)} className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
+                            <option value="">{T.tousSegments}</option>
+                            <option value="BOUTIQUE">BOUTIQUE</option>
+                            <option value="DETAIL">DETAIL</option>
+                            <option value="GROS">GROS</option>
+                        </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{T.clients}</span>
+                        <select value={clientId} onChange={e => setClientId(e.target.value)} className="h-8 px-2 max-w-[180px] rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
+                            <option value="">{T.tousClients}</option>
+                            {annuaire.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                        </select>
+                    </label>
+                    {filtresActifs > 0 && (
+                        <button
+                            onClick={() => { setDu(''); setAu(''); setCanal(''); setSegment(''); setClientId(''); }}
+                            className="h-8 px-3 rounded-lg text-[11px] font-bold text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50"
+                        >
+                            {T.effacer}
+                        </button>
+                    )}
+                </div>
+            )}
+
             {IS_STATIC && (
-                <p className="text-[12px] text-slate-500 dark:text-dk-muted flex items-start gap-1.5 border border-slate-200 dark:border-dk-border rounded-xl p-3 bg-slate-50/60 dark:bg-dk-surface">
+                <p className="text-[12px] text-slate-500 dark:text-dk-muted flex items-start gap-1.5 border border-slate-200 dark:border-dk-border rounded-xl p-3 bg-white dark:bg-dk-surface">
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-px text-amber-500" />
                     <span>{T.statique}</span>
                 </p>
             )}
 
             {erreur && (
-                <p className="text-[12px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                <p className="text-[12px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5 border border-rose-200 dark:border-rose-800/50 rounded-xl p-3 bg-rose-50/50 dark:bg-rose-950/20">
                     <AlertTriangle className="w-4 h-4" /> {erreur}
                 </p>
             )}
@@ -313,142 +385,129 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
             {data && (
                 <>
                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
-                        {carte(T.ca, `${nf(data.kpis.ca)} ${currency}`, <TrendingUp className="w-3.5 h-3.5" />)}
-                        {carte(T.pieces, nf(data.kpis.pieces), <Boxes className="w-3.5 h-3.5" />)}
-                        {carte(T.tickets, nf(data.kpis.tickets), <Wallet className="w-3.5 h-3.5" />)}
-                        {carte(T.panier, `${nf(data.kpis.panierMoyen)} ${currency}`, <Wallet className="w-3.5 h-3.5" />)}
-                        {carte(T.encours, `${nf(data.kpis.encoursTotal)} ${currency}`, <Users className="w-3.5 h-3.5" />,
-                            data.kpis.encoursTotal > 0 ? 'text-amber-600 dark:text-amber-400' : undefined)}
+                        <Tuile titre={T.ca} valeur={`${nf(data.kpis.ca)} ${currency}`} icone={<TrendingUp className="w-3.5 h-3.5" />} />
+                        <Tuile titre={T.pieces} valeur={nf(data.kpis.pieces)} icone={<Boxes className="w-3.5 h-3.5" />} />
+                        <Tuile titre={T.tickets} valeur={nf(data.kpis.tickets)} icone={<Receipt className="w-3.5 h-3.5" />} />
+                        <Tuile titre={T.panier} valeur={`${nf(data.kpis.panierMoyen)} ${currency}`} icone={<Wallet className="w-3.5 h-3.5" />} />
+                        <Tuile titre={T.encours} valeur={`${nf(data.kpis.encoursTotal)} ${currency}`} icone={<Users className="w-3.5 h-3.5" />} alerte={data.kpis.encoursTotal > 0} />
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
-                        {repartition(T.parCanal, data.parCanal.map(c => ({ cle: c.canal, ca: c.ca, detail: `${nf(c.pieces)} ${T.pieces.toLowerCase()} · ${nf(c.tickets)} ${T.tickets.toLowerCase()}` })))}
-                        {repartition(T.parSegment, data.parSegment.map(s => ({ cle: s.segment, ca: s.ca, detail: `${nf(s.pieces)} ${T.pieces.toLowerCase()}` })))}
-                        {repartition(T.parPaiement, data.parPaiement.map(p => ({ cle: p.mode, ca: p.ca, detail: `${nf(p.tickets)} ${T.tickets.toLowerCase()}` })))}
-                    </div>
-
-                    {/* Ce que le marche demande vraiment : un atelier ne coupe
-                        pas « 200 pieces », il coupe une repartition. */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
-                        {repartition(T.tailles, (data.tailles || []).slice(0, 8).map(t => ({ cle: t.taille, ca: t.ca, detail: `${nf(t.pieces)} ${T.pieces.toLowerCase()}` })))}
-                        {repartition(T.couleurs, (data.couleurs || []).slice(0, 8).map(c => ({ cle: c.couleur, ca: c.ca, detail: `${nf(c.pieces)} ${T.pieces.toLowerCase()}` })))}
-                        <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface">
-                            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
-                                <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{T.qualite}</span>
-                                <span className={`text-[12px] font-black tabular-nums ${(data.qualite?.tauxDefaut || 0) > 5 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                    {nf(data.qualite?.tauxDefaut || 0)} %
-                                </span>
-                            </div>
-                            <div className="p-3 space-y-1.5">
-                                <span className="block text-[10px] text-slate-400 dark:text-dk-muted">{T.tauxDefaut}</span>
-                                {(data.qualite?.parModele || []).slice(0, 6).map(d => (
-                                    <div key={d.modelId} className="flex items-center justify-between text-[11px]">
-                                        <span className="font-bold text-slate-700 dark:text-dk-text-soft truncate">{d.nom}</span>
-                                        <span className="tabular-nums font-black text-rose-600 dark:text-rose-400 shrink-0">
-                                            {nf(d.taux)} % <span className="text-slate-400 font-bold">({nf(d.defauts)})</span>
-                                        </span>
-                                    </div>
-                                ))}
-                                {(data.qualite?.parModele || []).length === 0 && (
-                                    <p className="text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Les modeles : ce qui part vite se relance, ce qui dort se solde. */}
-                    <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dk-border flex flex-wrap items-center gap-2">
-                            <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{T.modeles}</span>
+                    {/* Les modeles d'abord : c'est la seule zone qui declenche une
+                        decision de production. Le reste explique, elle decide. */}
+                    <Carte
+                        titre={T.modeles}
+                        droite={
                             <div className="flex gap-1 flex-wrap">
                                 {(['TOUS', 'TOP', 'LENT', 'MORT', 'NEUF'] as const).map(f => (
                                     <button
                                         key={f}
                                         onClick={() => setFiltreModele(f)}
-                                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors ${filtreModele === f
-                                            ? 'bg-slate-900 dark:bg-dk-accent text-white border-transparent'
-                                            : 'bg-slate-50 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'}`}
+                                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors ${filtreModele === f
+                                            ? 'bg-slate-900 dark:bg-dk-accent text-white'
+                                            : 'text-slate-400 dark:text-dk-muted hover:text-slate-700'}`}
                                     >
                                         {f}
                                     </button>
                                 ))}
                             </div>
+                        }
+                    >
+                        <div className="divide-y divide-slate-100 dark:divide-dk-border">
+                            {modelesFiltres.length === 0 && (
+                                <p className="px-4 py-6 text-center text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</p>
+                            )}
+                            {modelesFiltres.slice(0, 40).map(m => (
+                                <div key={m.modelId} className="px-3.5 py-2.5 flex items-center gap-3 hover:bg-slate-50/60 dark:hover:bg-dk-elevated/40">
+                                    {m.image
+                                        ? <img src={m.image} alt="" className="w-10 h-10 rounded-lg object-cover flex-none border border-slate-200 dark:border-dk-border" />
+                                        : <span className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-dk-elevated flex-none flex items-center justify-center text-[9px] font-black text-slate-300">{m.nom.slice(0, 2).toUpperCase()}</span>}
+
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                            <span className="text-[12px] font-bold text-slate-800 dark:text-dk-text truncate">{m.nom}</span>
+                                            <span className={`px-1.5 py-px rounded-full text-[9px] font-black border shrink-0 ${TEINTE_STATUT[m.statut]}`}>{m.statut}</span>
+                                        </div>
+                                        <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">
+                                            {[m.reference, m.ageJours ? `${m.ageJours} ${T.jours}` : null, `${nf(m.parJour)} ${T.parJourCourt}`,
+                                              m.canalFort ? `${libelle(m.canalFort)} ${nf(m.partCanalFort || 0)} %` : null].filter(Boolean).join(' · ')}
+                                        </span>
+                                        {/* L'ecoulement se LIT, il ne se calcule pas de tete. */}
+                                        <div className="h-1 rounded-full bg-slate-100 dark:bg-dk-elevated mt-1.5 overflow-hidden max-w-[220px]">
+                                            <div
+                                                className={`h-full rounded-full ${m.ecoule >= 60 ? 'bg-emerald-500' : m.ecoule >= 20 ? 'bg-slate-800 dark:bg-dk-accent' : 'bg-amber-500'}`}
+                                                style={{ width: `${Math.min(100, Math.max(1.5, m.ecoule))}%` }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="hidden sm:block text-right shrink-0 w-[74px]">
+                                        <span className="block text-[12px] font-black tabular-nums text-slate-800 dark:text-dk-text">{nf(m.ecoule)} %</span>
+                                        <span className="block text-[10px] text-slate-400 dark:text-dk-muted tabular-nums">{nf(m.vendu)}/{nf(m.produit)}</span>
+                                    </div>
+                                    <div className="hidden md:block text-right shrink-0 w-[64px]">
+                                        <span className="block text-[12px] font-bold tabular-nums text-slate-700 dark:text-dk-text-soft">{nf(m.stock)}</span>
+                                        <span className="block text-[10px] text-slate-400 dark:text-dk-muted">{T.stock}</span>
+                                    </div>
+                                    <div className="hidden md:block text-right shrink-0 w-[78px]">
+                                        {m.joursAvantRupture == null
+                                            ? <span className="text-[12px] text-slate-300 dark:text-dk-muted">—</span>
+                                            : <span className={`block text-[12px] font-black tabular-nums ${m.joursAvantRupture <= 7 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-dk-text-soft'}`}>
+                                                {m.joursAvantRupture} {T.jours}
+                                              </span>}
+                                        <span className="block text-[10px] text-slate-400 dark:text-dk-muted">{T.rupture}</span>
+                                    </div>
+                                    <div className="text-right shrink-0 w-[96px]">
+                                        <span className="block text-[12px] font-black tabular-nums text-slate-900 dark:text-dk-text">{nf(m.caPeriode)}</span>
+                                        <span className="block text-[10px] text-slate-400 dark:text-dk-muted">{currency}</span>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-[12px]">
-                                <thead>
-                                    <tr className="text-[10px] uppercase tracking-wide text-slate-400 dark:text-dk-muted">
-                                        <th className="text-left font-bold px-4 py-2">{T.modeles}</th>
-                                        <th className="text-right font-bold px-3 py-2">{T.parCanal}</th>
-                                        <th className="text-right font-bold px-3 py-2">{T.ecoule}</th>
-                                        <th className="text-right font-bold px-3 py-2">{T.stock}</th>
-                                        <th className="text-right font-bold px-3 py-2">{T.rupture}</th>
-                                        <th className="text-right font-bold px-4 py-2">{T.ca}</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
-                                    {modelesFiltres.length === 0 && (
-                                        <tr><td colSpan={6} className="px-4 py-6 text-center text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</td></tr>
-                                    )}
-                                    {modelesFiltres.slice(0, 40).map(m => (
-                                        <tr key={m.modelId} className="hover:bg-slate-50/60 dark:hover:bg-dk-elevated/50">
-                                            <td className="px-4 py-2">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    {/* La photo d'abord : on reconnait un vetement
-                                                        avant de lire son nom. */}
-                                                    {m.image
-                                                        ? <img src={m.image} alt="" className="w-9 h-9 rounded-lg object-cover flex-none border border-slate-200 dark:border-dk-border" />
-                                                        : <span className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-dk-elevated flex-none" />}
-                                                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black border shrink-0 ${TEINTE_STATUT[m.statut]}`}>{m.statut}</span>
-                                                    <span className="min-w-0">
-                                                        <span className="block font-bold text-slate-800 dark:text-dk-text truncate">{m.nom}</span>
-                                                        <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">
-                                                            {[m.reference, m.ageJours ? `${m.ageJours} ${T.jours}` : null, `${nf(m.parJour)}/${T.jours.slice(0, 1)}`].filter(Boolean).join(' · ')}
-                                                        </span>
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-2 text-right">
-                                                {m.canalFort ? (
-                                                    <span title={T.canalFort}>
-                                                        <span className="block text-[11px] font-black text-slate-800 dark:text-dk-text">{m.canalFort}</span>
-                                                        <span className="block text-[10px] text-slate-400 dark:text-dk-muted tabular-nums">{nf(m.partCanalFort || 0)} %</span>
-                                                    </span>
-                                                ) : <span className="text-slate-300 dark:text-dk-muted">—</span>}
-                                            </td>
-                                            <td className="px-3 py-2 text-right tabular-nums">
-                                                <span className="font-black text-slate-800 dark:text-dk-text">{nf(m.ecoule)} %</span>
-                                                <span className="block text-[10px] text-slate-400 dark:text-dk-muted">{nf(m.vendu)}/{nf(m.produit)}</span>
-                                            </td>
-                                            <td className="px-3 py-2 text-right tabular-nums font-bold text-slate-700 dark:text-dk-text-soft">{nf(m.stock)}</td>
-                                            <td className="px-3 py-2 text-right tabular-nums">
-                                                {m.joursAvantRupture == null
-                                                    ? <span className="text-slate-300 dark:text-dk-muted">—</span>
-                                                    : <span className={m.joursAvantRupture <= 7 ? 'font-black text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-dk-text-soft'}>
-                                                        {m.joursAvantRupture} {T.jours}
-                                                      </span>}
-                                            </td>
-                                            <td className="px-4 py-2 text-right tabular-nums font-black text-slate-800 dark:text-dk-text">{nf(m.caPeriode)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                    </Carte>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
+                        <Repartition titre={T.parCanal} lignes={data.parCanal.map(c => ({ cle: c.canal, ca: c.ca, detail: `${nf(c.pieces)} ${T.piecesCourt} · ${nf(c.tickets)} ${T.ventesCourt}` }))} />
+                        <Repartition titre={T.parSegment} lignes={data.parSegment.map(s => ({ cle: s.segment, ca: s.ca, detail: `${nf(s.pieces)} ${T.piecesCourt}` }))} />
+                        <Repartition titre={T.parPaiement} lignes={data.parPaiement.map(p => ({ cle: p.mode, ca: p.ca, detail: `${nf(p.tickets)} ${T.ventesCourt}` }))} />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2.5">
+                        <Repartition titre={T.tailles} lignes={(data.tailles || []).slice(0, 7).map(t => ({ cle: t.taille, ca: t.ca, detail: `${nf(t.pieces)} ${T.piecesCourt}` }))} />
+                        <Repartition titre={T.couleurs} lignes={(data.couleurs || []).slice(0, 7).map(c => ({ cle: c.couleur, ca: c.ca, detail: `${nf(c.pieces)} ${T.piecesCourt}` }))} />
+                        <Carte
+                            titre={T.qualite}
+                            droite={
+                                <span className={`text-[12px] font-black tabular-nums ${(data.qualite?.tauxDefaut || 0) > 5 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                    {nf(data.qualite?.tauxDefaut || 0)} %
+                                </span>
+                            }
+                        >
+                            <div className="p-3.5 space-y-2">
+                                {(data.qualite?.parModele || []).length === 0 && (
+                                    <p className="text-[11px] text-slate-400 dark:text-dk-muted">{T.aucunDefaut}</p>
+                                )}
+                                {(data.qualite?.parModele || []).slice(0, 6).map(d => (
+                                    <div key={d.modelId} className="flex items-baseline justify-between gap-2 text-[11px]">
+                                        <span className="font-bold text-slate-700 dark:text-dk-text-soft truncate">{d.nom}</span>
+                                        <span className="shrink-0 tabular-nums">
+                                            <span className="font-black text-rose-600 dark:text-rose-400">{nf(d.taux)} %</span>
+                                            <span className="ml-1.5 text-[10px] text-slate-400 dark:text-dk-muted">{nf(d.defauts)}</span>
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </Carte>
                     </div>
 
                     {/* Les clients : d'abord ceux qui doivent. */}
-                    <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-slate-100 dark:border-dk-border flex items-center gap-2">
-                            <Users className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500 dark:text-dk-muted">{T.clients}</span>
-                        </div>
+                    <Carte titre={T.clients}>
                         <div className="divide-y divide-slate-100 dark:divide-dk-border">
                             {clientsFiltres.length === 0 && (
                                 <p className="px-4 py-6 text-center text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</p>
                             )}
                             {clientsFiltres.map(c => (
-                                <div key={c.id} className="px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50/60 dark:hover:bg-dk-elevated/50">
-                                    <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black border shrink-0 ${TEINTE_CLIENT[c.statut]}`}>{c.statut}</span>
+                                <div key={c.id} className="px-3.5 py-2.5 flex items-center gap-3 hover:bg-slate-50/60 dark:hover:bg-dk-elevated/40">
+                                    <span className={`px-1.5 py-px rounded-full text-[9px] font-black border shrink-0 ${TEINTE_CLIENT[c.statut]}`}>{c.statut}</span>
                                     <div className="min-w-0 flex-1">
                                         <span className="block text-[12px] font-bold text-slate-800 dark:text-dk-text truncate">{c.nom}</span>
                                         <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">
@@ -457,21 +516,21 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                                         </span>
                                     </div>
                                     <div className="text-right shrink-0">
-                                        <span className="block text-[12px] font-black tabular-nums text-slate-800 dark:text-dk-text">{nf(c.ca)} {currency}</span>
+                                        <span className="block text-[12px] font-black tabular-nums text-slate-900 dark:text-dk-text">{nf(c.ca)} {currency}</span>
                                         {c.encours > 0 && (
                                             <span className="block text-[10px] font-bold tabular-nums text-amber-600 dark:text-amber-400">
-                                                {nf(c.encours)} {currency}
+                                                {T.doit} {nf(c.encours)} {currency}
                                             </span>
                                         )}
                                     </div>
                                 </div>
                             ))}
                         </div>
-                    </div>
+                    </Carte>
                 </>
             )}
 
-            {!data && !chargement && !erreur && (
+            {!data && !chargement && !erreur && !IS_STATIC && (
                 <p className="text-[12px] text-slate-400 dark:text-dk-muted flex items-center gap-1.5">
                     <PackageX className="w-4 h-4" /> {T.rien}
                 </p>
