@@ -8129,13 +8129,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       <table className="w-full text-left text-xs">
                         <thead className="bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border text-slate-500 dark:text-dk-muted font-semibold uppercase">
                           <tr>
-                            <th className="px-4 py-3">{tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}</th>
-                            <th className="px-4 py-3">{tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
-                            <th className="px-4 py-3">{tx(lang,{fr:'Prix/pièce',ar:'السعر/قطعة',en:'Price/piece',es:'Precio/pieza',pt:'Preço/peça',tr:'Fiyat/adet'})}</th>
-                            <th className="px-4 py-3">{tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</th>
-                            <th className="px-4 py-3">{tx(lang,{fr:'Livraison',ar:'التسليم',en:'Delivery',es:'Entrega',pt:'Entrega',tr:'Teslimat'})}</th>
-                            <th className="px-4 py-3">{tx(lang,{fr:'Évaluation',ar:'التقييم',en:'Rating',es:'Evaluación',pt:'Avaliação',tr:'Değerlendirme'})}</th>
-                            <th className="px-4 py-3 text-right">{tx(lang,{fr:'Fiche',ar:'البطاقة',en:'Sheet',es:'Ficha',pt:'Ficha',tr:'Kart'})}</th>
+                            <th className="px-2.5 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap">{tx(lang,{fr:'Modèle',ar:'الموديل',en:'Model',es:'Modelo',pt:'Modelo',tr:'Model'})}</th>
+                            <th className="px-2.5 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap">{tx(lang,{fr:'Quantité',ar:'الكمية',en:'Quantity',es:'Cantidad',pt:'Quantidade',tr:'Miktar'})}</th>
+                            <th className="px-2.5 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap">{tx(lang,{fr:'Prix/pièce',ar:'السعر/قطعة',en:'Price/piece',es:'Precio/pieza',pt:'Preço/peça',tr:'Fiyat/adet'})}</th>
+                            <th className="px-2.5 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap">{tx(lang,{fr:'Total',ar:'المجموع',en:'Total',es:'Total',pt:'Total',tr:'Toplam'})}</th>
+                            <th className="px-2.5 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap">{tx(lang,{fr:'Livraison',ar:'التسليم',en:'Delivery',es:'Entrega',pt:'Entrega',tr:'Teslimat'})}</th>
+                            <th className="px-2.5 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap">{tx(lang,{fr:'Évaluation',ar:'التقييم',en:'Rating',es:'Evaluación',pt:'Avaliação',tr:'Değerlendirme'})}</th>
+                            <th className="px-2.5 sm:px-4 py-2.5 sm:py-3 text-right whitespace-nowrap">{tx(lang,{fr:'Fiche',ar:'البطاقة',en:'Sheet',es:'Ficha',pt:'Ficha',tr:'Kart'})}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
@@ -8148,7 +8148,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                 onClick={() => { if (m) { setModelInfoOrderId(o.id); setModelInfoTarget(m); } }}
                                 className={`${m ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-dk-elevated/60' : ''} transition-colors`}
                               >
-                                <td className="px-4 py-3">
+                                <td className="px-2.5 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap">
                                   <div className="flex items-center gap-2.5">
                                     {m?.image ? (
                                       <img src={m.image} alt={o.modelName} className="w-8 h-8 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
@@ -8160,11 +8160,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                     <span className="font-semibold text-slate-800 dark:text-dk-text">{o.modelName || 'N/A'}</span>
                                   </div>
                                 </td>
-                                <td className="px-4 py-3 text-slate-700 dark:text-dk-text-soft">{(o.totalQuantity || 0).toLocaleString()} pcs</td>
-                                <td className="px-4 py-3 text-slate-700 dark:text-dk-text-soft">{(o.pricePerPiece || 0).toLocaleString()} MAD</td>
-                                <td className="px-4 py-3 font-semibold text-slate-800 dark:text-dk-text">{total.toLocaleString()} MAD</td>
-                                <td className="px-4 py-3 text-slate-700 dark:text-dk-text-soft">{o.deliveryDate || '-'}</td>
-                                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                                <td className="px-2.5 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap text-slate-700 dark:text-dk-text-soft">{(o.totalQuantity || 0).toLocaleString()} pcs</td>
+                                <td className="px-2.5 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap text-slate-700 dark:text-dk-text-soft">{(o.pricePerPiece || 0).toLocaleString()} MAD</td>
+                                <td className="px-2.5 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap font-semibold text-slate-800 dark:text-dk-text">{total.toLocaleString()} MAD</td>
+                                <td className="px-2.5 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap text-slate-700 dark:text-dk-text-soft">{o.deliveryDate || '-'}</td>
+                                <td className="px-2.5 sm:px-4 py-2.5 sm:py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                   <div className="flex items-center gap-0.5">
                                     {[1, 2, 3, 4, 5].map(n => (
                                       <button
