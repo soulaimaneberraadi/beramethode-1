@@ -2307,6 +2307,69 @@ try {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// INDEX D'ISOLATION — la colonne qui filtre TOUT
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Chaque requete de cette application commence par `WHERE owner_id = ?` :
+// c'est ce qui separe une entreprise d'une autre. Vingt et une tables la
+// portaient sans le moindre index dessus — donc un parcours complet a chaque
+// lecture. Invisible sur trois clients et cinquante sorties ; ruineux sur un
+// magasin qui vend deux ans (des centaines de milliers de lignes), et surtout
+// pour les ecrans qui lisent plusieurs tables d'un coup : caisse, journee,
+// tableau de bord.
+//
+// Les index sont COMPOSITES et suivent l'ordre reel des filtres (tenant, puis
+// date ou cle etrangere) : un index sur `owner_id` seul obligerait encore a
+// relire toutes les lignes de l'entreprise pour en garder un jour.
+const INDEX_METIER = [
+  // Ventes et stock — les tables qui grossissent vraiment.
+  'CREATE INDEX IF NOT EXISTS idx_st_sorties_owner_date ON st_stock_sorties (owner_id, date_sortie)',
+  'CREATE INDEX IF NOT EXISTS idx_st_sorties_owner_model ON st_stock_sorties (owner_id, modelId)',
+  'CREATE INDEX IF NOT EXISTS idx_st_sorties_owner_client ON st_stock_sorties (owner_id, client_id)',
+  'CREATE INDEX IF NOT EXISTS idx_st_sorties_owner_facture ON st_stock_sorties (owner_id, facture_id)',
+  'CREATE INDEX IF NOT EXISTS idx_st_entries_owner_model ON st_stock_entries (owner_id, modelId)',
+  'CREATE INDEX IF NOT EXISTS idx_st_entries_owner_order ON st_stock_entries (owner_id, order_id)',
+  'CREATE INDEX IF NOT EXISTS idx_st_entries_owner_date ON st_stock_entries (owner_id, date_entree)',
+
+  // Facturation — l'encours se lit par statut et par echeance.
+  'CREATE INDEX IF NOT EXISTS idx_factures_owner_statut ON factures (owner_id, statut)',
+  'CREATE INDEX IF NOT EXISTS idx_factures_owner_echeance ON factures (owner_id, date_echeance)',
+  'CREATE INDEX IF NOT EXISTS idx_paiements_owner_facture ON paiements (owner_id, facture_id)',
+  'CREATE INDEX IF NOT EXISTS idx_bl_owner_facture ON bons_livraison (owner_id, facture_id)',
+
+  // RH — le pointage est la table la plus volumineuse d'un atelier.
+  'CREATE INDEX IF NOT EXISTS idx_hr_workers_owner ON hr_workers (owner_id, is_active)',
+  'CREATE INDEX IF NOT EXISTS idx_worker_pointage_owner_date ON worker_pointage (owner_id, date)',
+  'CREATE INDEX IF NOT EXISTS idx_worker_skills_owner_worker ON worker_skills (owner_id, worker_id)',
+  'CREATE INDEX IF NOT EXISTS idx_hr_transport_owner ON hr_transport_lignes (owner_id)',
+
+  // Production et suivi.
+  'CREATE INDEX IF NOT EXISTS idx_production_daily_owner_date ON production_daily (owner_id, date)',
+  'CREATE INDEX IF NOT EXISTS idx_production_lines_owner ON production_lines (owner_id)',
+  'CREATE INDEX IF NOT EXISTS idx_poste_suivi_owner_date ON poste_suivi (owner_id, date)',
+  'CREATE INDEX IF NOT EXISTS idx_seh_owner_date ON suivi_effectif_horaire (owner_id, date)',
+  'CREATE INDEX IF NOT EXISTS idx_learning_curve_owner ON learning_curve_profiles (owner_id)',
+
+  // Magasin.
+  'CREATE INDEX IF NOT EXISTS idx_magasin_commandes_owner ON magasin_commandes (owner_id, statut)',
+  'CREATE INDEX IF NOT EXISTS idx_magasin_demandes_owner ON magasin_demandes (owner_id, statut)',
+  'CREATE INDEX IF NOT EXISTS idx_magasin_dechets_owner ON magasin_dechets (owner_id, date_declaration)',
+  'CREATE INDEX IF NOT EXISTS idx_demandes_appro_owner ON demandes_appro (owner_id, statut)',
+
+  // Journaux : l'elagage trie par date, il lui faut son index.
+  'CREATE INDEX IF NOT EXISTS idx_sync_outbox_created ON sync_outbox (created_at)',
+  'CREATE INDEX IF NOT EXISTS idx_crash_reports_created ON crash_reports (created_at)',
+  'CREATE INDEX IF NOT EXISTS idx_audit_created ON system_audit_logs (created_at)',
+  'CREATE INDEX IF NOT EXISTS idx_community_members_user ON community_members (user_id)',
+];
+
+for (const sql of INDEX_METIER) {
+  // Une table absente d'une installation ancienne ne doit pas empecher le
+  // demarrage : l'index manquant coute une lenteur, pas une panne.
+  try { db.exec(sql); } catch { /* table absente sur cette installation */ }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ENTRETIEN DE LA BASE — pour qu'un journal ne puisse plus remplir le disque
 // ═══════════════════════════════════════════════════════════════════════════
 //
