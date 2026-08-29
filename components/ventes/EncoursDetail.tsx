@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle, Phone, MapPin, RefreshCw, Check, Search, ChevronDown } from 'lucide-react';
 import PanneauDetail from './PanneauDetail';
+import FicheClientEncours, { Article } from './FicheClientEncours';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -12,6 +13,7 @@ type Facture = {
     dateFacture: string | null; dateEcheance: string | null; dernierPaiement: string | null;
     totalTtc: number; montantPaye: number; reste: number;
     retardJours: number; entame: boolean;
+    articles: Article[];
 };
 
 type ClientEncours = {
@@ -46,6 +48,9 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
     const [ouverts, setOuverts] = React.useState<Record<string, boolean>>({});
     const [saisie, setSaisie] = React.useState<Record<string, { montant: number | ''; date: string; mode: string }>>({});
     const [enCours, setEnCours] = React.useState<string | null>(null);
+    // Le nom du client ouvre sa fiche PAR-DESSUS la liste : la fleche revient
+    // a l'encours, elle ne referme pas tout.
+    const [fiche, setFiche] = React.useState<ClientEncours | null>(null);
 
     const charger = React.useCallback(async () => {
         setChargement(true);
@@ -132,6 +137,21 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
         </div>
     );
 
+    if (fiche) {
+        return (
+            <PanneauDetail
+                titre={fiche.nom}
+                valeur={`${nf(fiche.encours)} ${devise}`}
+                alerte={fiche.encours > 0}
+                sous="Historique complet — factures et reglements"
+                retour="Encours client"
+                onFermer={() => setFiche(null)}
+            >
+                <FicheClientEncours client={fiche} devise={devise} onChange={() => void charger()} />
+            </PanneauDetail>
+        );
+    }
+
     return (
         <PanneauDetail
             titre="Encours client"
@@ -154,13 +174,17 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                 const ouvert = ouverts[c.cle] !== false;
                 return (
                     <section key={c.cle} className="rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface overflow-hidden">
-                        <button
-                            type="button"
-                            onClick={() => setOuverts(o => ({ ...o, [c.cle]: !ouvert }))}
-                            className="w-full text-left px-3.5 py-2.5 flex items-start gap-3 hover:bg-slate-50/60 dark:hover:bg-dk-elevated/40"
-                        >
+                        <div className="w-full px-3.5 py-2.5 flex items-start gap-3">
                             <div className="min-w-0 flex-1">
-                                <p className="text-[13px] font-black text-slate-900 dark:text-dk-text truncate">{c.nom}</p>
+                                {/* Le nom ouvre la fiche ; le reste de la ligne
+                                    plie ou deplie les factures. */}
+                                <button
+                                    type="button"
+                                    onClick={() => setFiche(c)}
+                                    className="text-[13px] font-black text-slate-900 dark:text-dk-text truncate max-w-full text-left hover:underline decoration-slate-300 underline-offset-2"
+                                >
+                                    {c.nom}
+                                </button>
                                 <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-slate-400 dark:text-dk-muted mt-0.5">
                                     {c.tel && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{c.tel}</span>}
                                     {c.ville && <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{c.ville}</span>}
@@ -169,16 +193,22 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                                     {c.retardMax > 0 && <span className="font-bold text-rose-600 dark:text-rose-400">{c.retardMax} j de retard</span>}
                                 </p>
                             </div>
-                            <div className="text-right shrink-0">
-                                <span className="block text-[15px] font-black tabular-nums text-amber-600 dark:text-amber-400">{nf(c.encours)}</span>
-                                {c.montantRetard > 0 && (
-                                    <span className="block text-[10px] font-bold tabular-nums text-rose-600 dark:text-rose-400">
-                                        dont {nf(c.montantRetard)} en retard
-                                    </span>
-                                )}
-                            </div>
-                            <ChevronDown className={`w-4 h-4 shrink-0 mt-1 text-slate-300 transition-transform ${ouvert ? 'rotate-180' : ''}`} />
-                        </button>
+                            <button
+                                type="button"
+                                onClick={() => setOuverts(o => ({ ...o, [c.cle]: !ouvert }))}
+                                className="shrink-0 flex items-start gap-2 text-right"
+                            >
+                                <span>
+                                    <span className="block text-[15px] font-black tabular-nums text-amber-600 dark:text-amber-400">{nf(c.encours)}</span>
+                                    {c.montantRetard > 0 && (
+                                        <span className="block text-[10px] font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                                            dont {nf(c.montantRetard)} en retard
+                                        </span>
+                                    )}
+                                </span>
+                                <ChevronDown className={`w-4 h-4 shrink-0 mt-1 text-slate-300 transition-transform ${ouvert ? 'rotate-180' : ''}`} />
+                            </button>
+                        </div>
 
                         {ouvert && (
                             <div className="divide-y divide-slate-100 dark:divide-dk-border border-t border-slate-100 dark:border-dk-border">
@@ -208,6 +238,28 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                                                 <span className="text-[13px] font-black text-amber-600 dark:text-amber-400">Reste {nf(f.reste)}</span>
                                                 {f.entame && <span className="text-[10px] font-bold text-slate-400">partiellement regle</span>}
                                             </div>
+
+                                            {/* De quoi il s'agit : la photo du modele
+                                                identifie la dette plus vite que son numero. */}
+                                            {f.articles.length > 0 && (
+                                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                                    {f.articles.slice(0, 6).map((a, i) => (
+                                                        <span key={`${f.id}-a${i}`} title={`${a.designation} · ${nf(a.quantite)} × ${nf(a.prixUnitaire)}`}
+                                                            className="inline-flex items-center gap-1.5 pr-2 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border max-w-full">
+                                                            {a.image
+                                                                ? <img src={a.image} alt="" className="w-7 h-7 rounded-l-lg object-cover shrink-0" />
+                                                                : <span className="w-7 h-7 rounded-l-lg bg-slate-100 dark:bg-dk-elevated shrink-0 flex items-center justify-center text-[8px] font-black text-slate-300">
+                                                                    {a.designation.slice(0, 2).toUpperCase()}
+                                                                </span>}
+                                                            <span className="text-[10px] font-bold text-slate-600 dark:text-dk-text-soft truncate max-w-[150px]">{a.designation}</span>
+                                                            <span className="text-[10px] font-black tabular-nums text-slate-400 shrink-0">×{nf(a.quantite)}</span>
+                                                        </span>
+                                                    ))}
+                                                    {f.articles.length > 6 && (
+                                                        <span className="text-[10px] font-bold text-slate-400 self-center">+{f.articles.length - 6}</span>
+                                                    )}
+                                                </div>
+                                            )}
 
                                             {/* Encaisser : tout d'un coup, ou le montant reellement recu. */}
                                             <div className="mt-2 grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-1.5">

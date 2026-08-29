@@ -19,9 +19,12 @@ const PanneauDetail: React.FC<{
     sous?: string;
     alerte?: boolean;
     onFermer: () => void;
+    /** Quand la feuille est empilee sur une autre : la fleche revient a la
+     *  precedente au lieu de tout refermer, et on le dit. */
+    retour?: string;
     barre?: React.ReactNode;
     children: React.ReactNode;
-}> = ({ titre, valeur, sous, alerte, onFermer, barre, children }) => {
+}> = ({ titre, valeur, sous, alerte, onFermer, barre, children, retour }) => {
     React.useEffect(() => {
         const echap = (e: KeyboardEvent) => { if (e.key === 'Escape') onFermer(); };
         document.addEventListener('keydown', echap);
@@ -46,10 +49,10 @@ const PanneauDetail: React.FC<{
                             onClick={onFermer}
                             className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated"
                         >
-                            <ArrowLeft className="w-4 h-4 sm:hidden" />
-                            <X className="w-4 h-4 hidden sm:block" />
+                            {retour ? <ArrowLeft className="w-4 h-4" /> : (<><ArrowLeft className="w-4 h-4 sm:hidden" /><X className="w-4 h-4 hidden sm:block" /></>)}
                         </button>
                         <div className="min-w-0 flex-1">
+                            {retour && <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">&larr; {retour}</p>}
                             <h2 className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted truncate">{titre}</h2>
                             {valeur && (
                                 <p className={`text-[19px] sm:text-[22px] font-black tabular-nums leading-tight ${alerte ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-dk-text'}`}>

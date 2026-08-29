@@ -456,7 +456,7 @@ export const getVentesEncours = (req: Request, res: Response) => {
         const lignes = db.prepare(`
             SELECT f.id, f.numero, f.date_facture, f.date_echeance,
                    f.total_ttc, COALESCE(f.montant_paye, 0) AS montant_paye,
-                   f.statut, f.source_id AS client_id,
+                   f.statut, f.source_id AS client_id, f.lignes AS lignes_json,
                    COALESCE(c.nom, f.tiers_nom) AS client_nom,
                    c.tel AS client_tel, c.ville AS client_ville, c.type AS client_type,
                    (SELECT MAX(p.date_paiement) FROM paiements p
@@ -469,6 +469,8 @@ export const getVentesEncours = (req: Request, res: Response) => {
               AND f.total_ttc - COALESCE(f.montant_paye, 0) > 0.009
             ORDER BY COALESCE(f.date_echeance, f.date_facture) ASC
         `).all(companyId) as any[];
+
+        const articles = articlesDesFactures(companyId, lignes.map(l => ({ id: String(l.id), lignesJson: l.lignes_json })));
 
         const jour = 86400000;
         const aujourdhui = jourISO(new Date());
@@ -499,6 +501,8 @@ export const getVentesEncours = (req: Request, res: Response) => {
                 // Partiellement paye : le distinguer compte, c'est un client qui
                 // paye mais lentement, pas un client qui ne paye pas.
                 entame: Number(l.montant_paye) > 0.009,
+                // Ce qui est du se reconnait a la photo avant la reference.
+                articles: articles.get(String(l.id)) || [],
             };
         });
 
@@ -549,5 +553,123 @@ export const getVentesEncours = (req: Request, res: Response) => {
     } catch (error) {
         console.error('Ventes encours error:', error);
         res.status(500).json({ message: 'Error building receivables detail' });
+    }
+};
+
+/**
+ * Ce qu'il y a DANS la facture : sans les articles, « FV-2026-0011 · 279 MAD »
+ * ne se verifie pas au telephone. La photo du modele fait le reste — on
+ * reconnait un vetement avant d'en lire la reference.
+ *
+ * Les lignes sont un JSON dans `factures.lignes` ; les images vivent dans
+ * `models.data`. On ne charge les images qu'une fois, par modele.
+ */
+const articlesDesFactures = (companyId: number | string, factures: Array<{ id: string; lignesJson: string | null }>) => {
+    const parFacture = new Map<string, any[]>();
+    const modelIds = new Set<string>();
+
+    for (const f of factures) {
+        let brut: any[] = [];
+        try { brut = JSON.parse(f.lignesJson || '[]'); } catch { brut = []; }
+        const lignes = (Array.isArray(brut) ? brut : []).map((l: any) => {
+            const modelId = l.modelId ? String(l.modelId) : null;
+            if (modelId) modelIds.add(modelId);
+            return {
+                designation: String(l.designation || '—'),
+                quantite: Number(l.quantite) || 0,
+                prixUnitaire: Number(l.prix_unitaire) || 0,
+                total: Number(l.total) || 0,
+                modelId,
+                image: null as string | null,
+            };
+        });
+        parFacture.set(f.id, lignes);
+    }
+
+    if (modelIds.size > 0) {
+        const trous = [...modelIds].map(() => '?').join(',');
+        const images = db.prepare(`
+            SELECT id, json_extract(data, '$.image') AS image
+            FROM models WHERE user_id = ? AND id IN (${trous})
+        `).all(companyId, ...modelIds) as any[];
+        const parModele = new Map(images.map(m => [String(m.id), m.image || null]));
+        for (const lignes of parFacture.values()) {
+            for (const l of lignes) if (l.modelId) l.image = parModele.get(l.modelId) || null;
+        }
+    }
+
+    return parFacture;
+};
+
+/**
+ * L'historique complet d'un client : toutes ses factures, payees comprises,
+ * et chaque reglement encaisse. Un encours ne se conteste pas sur le solde
+ * seul — le client rappelle un versement, il faut pouvoir le retrouver.
+ */
+export const getClientHistorique = (req: Request, res: Response) => {
+    const companyId = (req as any).companyId ?? (req as any).user.id;
+    const clientId = String(req.params.id || '');
+    if (!clientId) return res.status(400).json({ message: 'Client manquant' });
+
+    try {
+        const factures = db.prepare(`
+            SELECT f.id, f.numero, f.date_facture, f.date_echeance, f.statut,
+                   f.total_ttc, COALESCE(f.montant_paye, 0) AS montant_paye, f.lignes
+            FROM factures f
+            WHERE f.owner_id = ? AND f.type = 'VENTE' AND f.source_id = ?
+            ORDER BY f.date_facture DESC, f.numero DESC
+        `).all(companyId, clientId) as any[];
+
+        const articles = articlesDesFactures(companyId, factures.map(f => ({ id: String(f.id), lignesJson: f.lignes })));
+
+        const ids = factures.map(f => String(f.id));
+        const paiements = ids.length
+            ? db.prepare(`
+                SELECT id, facture_id, date_paiement, montant, mode, reference, notes
+                FROM paiements
+                WHERE owner_id = ? AND facture_id IN (${ids.map(() => '?').join(',')})
+                ORDER BY date_paiement DESC
+            `).all(companyId, ...ids) as any[]
+            : [];
+
+        const parFacture = new Map<string, any[]>();
+        for (const p of paiements) {
+            const cle = String(p.facture_id);
+            if (!parFacture.has(cle)) parFacture.set(cle, []);
+            parFacture.get(cle)!.push({
+                id: String(p.id),
+                factureId: cle,
+                date: p.date_paiement,
+                montant: Number(p.montant) || 0,
+                mode: p.mode || null,
+                reference: p.reference || null,
+                notes: p.notes || null,
+            });
+        }
+
+        res.json({
+            clientId,
+            factures: factures.map(f => {
+                const paye = Number(f.montant_paye) || 0;
+                const ttc = Number(f.total_ttc) || 0;
+                return {
+                    id: String(f.id),
+                    numero: String(f.numero || ''),
+                    dateFacture: f.date_facture || null,
+                    dateEcheance: f.date_echeance || null,
+                    statut: f.statut || null,
+                    totalTtc: Number(ttc.toFixed(2)),
+                    montantPaye: Number(paye.toFixed(2)),
+                    reste: Number(Math.max(0, ttc - paye).toFixed(2)),
+                    articles: articles.get(String(f.id)) || [],
+                    paiements: parFacture.get(String(f.id)) || [],
+                };
+            }),
+            totalFacture: Number(factures.reduce((a, f) => a + (Number(f.total_ttc) || 0), 0).toFixed(2)),
+            totalPaye: Number(factures.reduce((a, f) => a + (Number(f.montant_paye) || 0), 0).toFixed(2)),
+        });
+    } catch (error) {
+        console.error('Client historique error:', error);
+        res.status(500).json({ message: 'Error building client history' });
     }
 };
