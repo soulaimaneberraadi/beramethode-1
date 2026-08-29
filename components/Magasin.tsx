@@ -4526,8 +4526,12 @@ export default function Magasin({ models = [], planningEvents = [], settings }: 
                         setMovementEditDraft(mvt);
                     }}
                     onClose={() => {
+                        // setSelectedProductForDetail(null) retire deja les segments
+                        // depth1 et depth2 de l URL ; detailInitialTab retombe seul
+                        // sur son fallback 'overview'. Un setDetailInitialTab() ici
+                        // ferait un 2e navigate() (2e entree d historique + segment
+                        // '-' fantome) juste apres celui du premier appel.
                         setSelectedProductForDetail(null);
-                        setDetailInitialTab('overview');
                         setDetailStartEditing(false);
                     }}
                     onSave={async (updatedProduct) => {
