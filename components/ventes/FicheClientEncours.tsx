@@ -143,28 +143,34 @@ const FicheClientEncours: React.FC<{
                         </div>
 
                         {f.paiements.length > 0 && (
-                            <div className="bg-slate-50/60 dark:bg-dk-elevated/30 border-t border-slate-100 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border/60">
-                                {f.paiements.map(p => (
-                                    <div key={p.id} className="px-3.5 py-2 flex items-center gap-2.5">
-                                        <span className="min-w-0 flex-1">
-                                            <span className="block text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
-                                                Regle {nf(p.montant)} {devise}
+                            /* Quatre versements font quatre lignes pleine largeur
+                               pour dire « 10 600 encaisses » : ils tiennent en
+                               une bande, chacun avec sa corbeille. */
+                            <div className="bg-slate-50/60 dark:bg-dk-elevated/30 border-t border-slate-100 dark:border-dk-border px-3 py-2">
+                                <span className="block text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 dark:text-dk-muted mb-1">
+                                    {f.paiements.length} reglement(s) · {nf(f.paiements.reduce((a, p) => a + p.montant, 0))} {devise}
+                                </span>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {f.paiements.map(p => (
+                                        <span key={p.id}
+                                            title={`${jjmmaaaa(p.date)}${p.mode ? ` · ${p.mode}` : ''}${p.reference ? ` · ${p.reference}` : ''}`}
+                                            className="inline-flex items-center gap-1.5 pl-2 pr-0.5 py-0.5 rounded-lg bg-white dark:bg-dk-surface border border-emerald-200 dark:border-emerald-800/50">
+                                            <span className="text-[11px] font-black tabular-nums text-emerald-700 dark:text-emerald-400">{nf(p.montant)}</span>
+                                            <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted whitespace-nowrap">
+                                                {jjmmaaaa(p.date).slice(0, 5)}{p.mode ? ` · ${p.mode}` : ''}
                                             </span>
-                                            <span className="block text-[10px] text-slate-400 dark:text-dk-muted">
-                                                {jjmmaaaa(p.date)}{p.mode ? ` · ${p.mode}` : ''}{p.reference ? ` · ${p.reference}` : ''}
-                                            </span>
+                                            <button
+                                                type="button"
+                                                disabled={occupe === p.id}
+                                                onClick={() => void supprimerPaiement(p, f.numero)}
+                                                title="Supprimer ce reglement"
+                                                className="w-6 h-6 shrink-0 rounded-md flex items-center justify-center text-slate-300 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-40"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
                                         </span>
-                                        <button
-                                            type="button"
-                                            disabled={occupe === p.id}
-                                            onClick={() => void supprimerPaiement(p, f.numero)}
-                                            title="Supprimer ce reglement"
-                                            className="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-slate-300 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 disabled:opacity-40"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </section>

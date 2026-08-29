@@ -3,6 +3,7 @@ import { AlertTriangle, Phone, MapPin, RefreshCw, Check, Search, ChevronDown } f
 import PanneauDetail from './PanneauDetail';
 import FicheClientEncours, { Article } from './FicheClientEncours';
 import { grouperArticles, LigneModele } from './articles';
+import { ChampDate, ChampListe } from './champs';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -28,6 +29,15 @@ type ClientEncours = {
 type Reponse = {
     total: number; totalRetard: number; nbFactures: number; nbClients: number;
     clients: ClientEncours[];
+};
+
+/** Les libelles de l'agenda maison, en francais : cette feuille n'est pas
+ *  traduite pour l'instant, elle ne fait pas semblant de l'etre. */
+const AGENDA = {
+    mois: ['Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre'],
+    jours: ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'],
+    aujourdhui: 'Aujourd hui',
+    effacer: 'Effacer',
 };
 
 const MODES = ['ESPECES', 'VIREMENT', 'CHEQUE', 'CARTE', 'EFFET'] as const;
@@ -271,25 +281,29 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                                                     placeholder={`Montant (max ${nf(f.reste)})`}
                                                     className="col-span-2 sm:col-span-1 h-9 sm:h-8 px-2.5 sm:w-[150px] rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-[12px] font-bold tabular-nums text-slate-700 dark:text-dk-text outline-none"
                                                 />
-                                                <input
-                                                    type="date"
+                                                <ChampDate
+                                                    label=""
                                                     value={s.date}
+                                                    vide="jj/mm/aaaa"
                                                     max={aujourdhui()}
-                                                    onChange={e => setSaisie(x => ({ ...x, [f.id]: { ...s, date: e.target.value } }))}
-                                                    className="h-9 sm:h-8 px-2 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none"
+                                                    labels={AGENDA}
+                                                    neutre
+                                                    onChange={v => setSaisie(x => ({ ...x, [f.id]: { ...s, date: v || aujourdhui() } }))}
                                                 />
-                                                <select
+                                                <ChampListe
+                                                    label=""
                                                     value={s.mode}
-                                                    onChange={e => setSaisie(x => ({ ...x, [f.id]: { ...s, mode: e.target.value } }))}
-                                                    className="h-9 sm:h-8 px-2 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none"
-                                                >
-                                                    {MODES.map(m => <option key={m} value={m}>{m}</option>)}
-                                                </select>
+                                                    largeur="sm:min-w-[120px]"
+                                                    neutre
+                                                    onChange={v => setSaisie(x => ({ ...x, [f.id]: { ...s, mode: v } }))}
+                                                    options={MODES.map(m => ({ valeur: m, texte: m }))}
+                                                />
                                                 <button
                                                     type="button"
                                                     disabled={occupe || !(Number(s.montant) > 0) || Number(s.montant) > f.reste + 0.009}
                                                     onClick={() => void encaisser(f, Number(s.montant), s.date, s.mode)}
-                                                    className="h-9 sm:h-8 px-3 rounded-lg text-[11px] font-bold border border-slate-300 dark:border-dk-border text-slate-700 dark:text-dk-text-soft disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                                                    title="Saisir un montant pour activer"
+                                                    className="h-9 sm:h-8 px-3 rounded-lg text-[11px] font-bold border border-slate-300 dark:border-dk-border text-slate-700 dark:text-dk-text-soft disabled:text-slate-300 disabled:border-dashed disabled:border-slate-200 hover:bg-slate-100 dark:hover:bg-dk-elevated"
                                                 >
                                                     Encaisser
                                                 </button>
