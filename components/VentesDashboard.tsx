@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import EncoursDetail from './ventes/EncoursDetail';
+import PanneauDetail from './ventes/PanneauDetail';
 
 /** Sans serveur (deploiement statique), il n'y a ni sorties de stock ni
  *  clients a agreger : le tableau de bord le DIT, au lieu d'afficher une
@@ -329,7 +330,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
     const [filtreModele, setFiltreModele] = useState<'TOUS' | Modele['statut']>('TOUS');
     const [filtresOuverts, setFiltresOuverts] = useState(false);
     // Une tuile ne dit qu un total : le detail s ouvre par-dessus la page.
-    const [detail, setDetail] = useState<null | 'encours'>(null);
+    const [detail, setDetail] = useState<null | 'encours' | 'ca' | 'pieces' | 'tickets' | 'panier'>(null);
 
     const charger = useCallback(async (n: number) => {
         if (IS_STATIC) { setData(null); setErreur(null); return; }
@@ -429,6 +430,9 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         moisNoms: (lang === "ar"
             ? ["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"]
             : ["Janvier","Fevrier","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"]),
+        jourParJour: tx(lang, { fr: 'Jour par jour', ar: 'يوماً بيوم', en: 'Day by day', es: 'Dia a dia', pt: 'Dia a dia', tr: 'Gun gun' }),
+        jourColonne: tx(lang, { fr: 'Jour', ar: 'اليوم', en: 'Day', es: 'Dia', pt: 'Dia', tr: 'Gun' }),
+        parVente: tx(lang, { fr: '/vente', ar: '/بيعة', en: '/sale', es: '/venta', pt: '/venda', tr: '/satis' }),
         periodePrecedente: tx(lang, { fr: 'Periode precedente', ar: 'المدّة السابقة', en: 'Previous period', es: 'Periodo anterior', pt: 'Periodo anterior', tr: 'Onceki donem' }),
         aujourdhuiCourt: tx(lang, { fr: "Auj.", ar: "اليوم", en: "Today", es: "Hoy", pt: "Hoje", tr: "Bugun" }),
         aujourdhui: tx(lang, { fr: "Aujourd hui", ar: "اليوم", en: "Today", es: "Hoy", pt: "Hoje", tr: "Bugun" }),
@@ -582,6 +586,42 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         );
     };
 
+    /** Le jour par jour, du plus recent au plus ancien : sur telephone il
+     *  defile a l'interieur de son cadre, il ne pousse pas la page. */
+    const TableauJours = ({ colonnes, lignes }: { colonnes: string[]; lignes: Array<{ jour: string; cellules: string[] }> }) => (
+        <Carte titre={T.jourParJour}>
+            <div className="overflow-x-auto">
+                <table className="w-full text-[11px] tabular-nums">
+                    <thead>
+                        <tr className="text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 dark:text-dk-muted">
+                            <th className="text-left font-black px-3.5 py-1.5">{T.jourColonne}</th>
+                            {colonnes.map(c => <th key={c} className="text-right font-black px-3.5 py-1.5 whitespace-nowrap">{c}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
+                        {lignes.length === 0 && (
+                            <tr><td colSpan={colonnes.length + 1} className="px-3.5 py-4 text-center text-slate-400 dark:text-dk-muted">{T.rien}</td></tr>
+                        )}
+                        {lignes.map(l => (
+                            <tr key={l.jour}>
+                                <td className="px-3.5 py-1.5 font-bold text-slate-500 dark:text-dk-muted whitespace-nowrap">
+                                    {l.jour.slice(8, 10)}/{l.jour.slice(5, 7)}
+                                </td>
+                                {l.cellules.map((v, i) => (
+                                    <td key={i} className={`px-3.5 py-1.5 text-right whitespace-nowrap ${i === 0 ? 'font-black text-slate-800 dark:text-dk-text' : 'text-slate-500 dark:text-dk-text-soft'}`}>{v}</td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </Carte>
+    );
+
+    const periodeLisible = serieComplete.length
+        ? `${serieComplete[0].jour} → ${serieComplete[serieComplete.length - 1].jour}`
+        : undefined;
+
     const filtresActifs = [du, au, canal, segment, clientId].filter(Boolean).length;
 
     return (
@@ -732,13 +772,13 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
             {data && (
                 <>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
-                        <Tuile titre={T.ca} valeur={`${nf(data.kpis.ca)} ${currency}`} icone={<TrendingUp className="w-3.5 h-3.5" />}
+                        <Tuile titre={T.ca} valeur={`${nf(data.kpis.ca)} ${currency}`} icone={<TrendingUp className="w-3.5 h-3.5" />} onOuvrir={() => setDetail('ca')}
                             delta={<Delta actuel={data.kpis.ca} avant={data.precedent.ca} />} />
-                        <Tuile titre={T.pieces} valeur={nf(data.kpis.pieces)} icone={<Boxes className="w-3.5 h-3.5" />}
+                        <Tuile titre={T.pieces} valeur={nf(data.kpis.pieces)} icone={<Boxes className="w-3.5 h-3.5" />} onOuvrir={() => setDetail('pieces')}
                             delta={<Delta actuel={data.kpis.pieces} avant={data.precedent.pieces} />} />
-                        <Tuile titre={T.tickets} valeur={nf(data.kpis.tickets)} icone={<Receipt className="w-3.5 h-3.5" />}
+                        <Tuile titre={T.tickets} valeur={nf(data.kpis.tickets)} icone={<Receipt className="w-3.5 h-3.5" />} onOuvrir={() => setDetail('tickets')}
                             delta={<Delta actuel={data.kpis.tickets} avant={data.precedent.tickets} />} />
-                        <Tuile titre={T.panier} valeur={`${nf(data.kpis.panierMoyen)} ${currency}`} icone={<Wallet className="w-3.5 h-3.5" />} />
+                        <Tuile titre={T.panier} valeur={`${nf(data.kpis.panierMoyen)} ${currency}`} icone={<Wallet className="w-3.5 h-3.5" />} onOuvrir={() => setDetail('panier')} />
                         <Tuile titre={T.encours} valeur={`${nf(data.kpis.encoursTotal)} ${currency}`} icone={<Users className="w-3.5 h-3.5" />} alerte={data.kpis.encoursTotal > 0}
                             onOuvrir={() => setDetail('encours')} />
                     </div>
@@ -985,6 +1025,67 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                 change l'encours affiche sur la tuile. */}
             {detail === 'encours' && (
                 <EncoursDetail devise={currency} onFermer={() => { setDetail(null); void charger(jours); }} />
+            )}
+
+            {/* Les quatre autres tuiles se lisent sur les donnees deja
+                chargees : ouvrir le detail ne redemande rien au serveur, il
+                decompose le total sous les axes qui expliquent son mouvement. */}
+            {data && detail === 'ca' && (
+                <PanneauDetail titre={T.ca} valeur={`${nf(data.kpis.ca)} ${currency}`} sous={periodeLisible} onFermer={() => setDetail(null)}>
+                    <Repartition titre={T.parCanal} unite={currency}
+                        lignes={data.parCanal.map(c => ({ cle: c.canal, ca: c.ca, detail: `${nf(c.pieces)} ${T.piecesCourt} · ${nf(c.tickets)} ${T.ventesCourt}` }))} />
+                    <Repartition titre={T.parSegment} unite={currency}
+                        lignes={data.parSegment.map(c => ({ cle: c.segment, ca: c.ca, detail: `${nf(c.pieces)} ${T.piecesCourt}` }))} />
+                    <Repartition titre={T.parPaiement} unite={currency}
+                        lignes={data.parPaiement.map(p => ({ cle: p.mode, ca: p.ca, detail: `${nf(p.tickets)} ${T.ventesCourt}` }))} />
+                    <TableauJours colonnes={[T.ca, T.pieces, T.tickets]}
+                        lignes={[...serieComplete].reverse().filter(j => !j.vide).map(j => ({ jour: j.jour, cellules: [`${nf(j.ca)} ${currency}`, nf(j.pieces), nf(j.tickets)] }))} />
+                </PanneauDetail>
+            )}
+
+            {data && detail === 'pieces' && (
+                <PanneauDetail titre={T.pieces} valeur={nf(data.kpis.pieces)} sous={periodeLisible} onFermer={() => setDetail(null)}>
+                    <Repartition titre={T.modeles} unite={T.piecesCourt}
+                        lignes={[...data.modeles].sort((a, b) => b.piecesPeriode - a.piecesPeriode).slice(0, 25)
+                            .map(m => ({ cle: m.nom, ca: m.caPeriode, valeur: m.piecesPeriode, detail: `${nf(m.caPeriode)} ${currency} · ${T.stock} ${nf(m.stock)}` }))} />
+                    <Repartition titre={T.tailles} unite={T.piecesCourt}
+                        lignes={data.tailles.map(t => ({ cle: t.taille, ca: t.ca, valeur: t.pieces, detail: `${nf(t.ca)} ${currency}` }))} />
+                    <Repartition titre={T.couleurs} unite={T.piecesCourt}
+                        lignes={data.couleurs.map(c => ({ cle: c.couleur, ca: c.ca, valeur: c.pieces, detail: `${nf(c.ca)} ${currency}` }))} />
+                </PanneauDetail>
+            )}
+
+            {data && detail === 'tickets' && (
+                <PanneauDetail titre={T.tickets} valeur={nf(data.kpis.tickets)} sous={periodeLisible} onFermer={() => setDetail(null)}>
+                    <Repartition titre={T.parCanal} unite={T.ventesCourt}
+                        lignes={data.parCanal.map(c => ({ cle: c.canal, ca: c.ca, valeur: c.tickets, detail: `${nf(c.tickets > 0 ? c.ca / c.tickets : 0)} ${currency} ${T.parVente}` }))} />
+                    <Repartition titre={T.parPaiement} unite={T.ventesCourt}
+                        lignes={data.parPaiement.map(p => ({ cle: p.mode, ca: p.ca, valeur: p.tickets, detail: `${nf(p.ca)} ${currency}` }))} />
+                    <TableauJours colonnes={[T.tickets, T.panier, T.pieces]}
+                        lignes={[...serieComplete].reverse().filter(j => !j.vide).map(j => ({
+                            jour: j.jour,
+                            cellules: [nf(j.tickets), `${nf(j.tickets > 0 ? j.ca / j.tickets : 0)} ${currency}`, nf(j.pieces)],
+                        }))} />
+                </PanneauDetail>
+            )}
+
+            {data && detail === 'panier' && (
+                <PanneauDetail titre={T.panier} valeur={`${nf(data.kpis.panierMoyen)} ${currency}`} sous={periodeLisible} onFermer={() => setDetail(null)}>
+                    {/* Un panier moyen global melange le gros et le detail : c'est
+                        la comparaison par segment qui dit ce qui a bouge. */}
+                    <Repartition titre={T.parCanal} unite={currency}
+                        lignes={data.parCanal.map(c => ({
+                            cle: c.canal,
+                            ca: c.ca,
+                            valeur: c.tickets > 0 ? c.ca / c.tickets : 0,
+                            detail: `${nf(c.tickets)} ${T.ventesCourt} · ${nf(c.ca)} ${currency}`,
+                        }))} />
+                    <TableauJours colonnes={[T.panier, T.tickets, T.ca]}
+                        lignes={[...serieComplete].reverse().filter(j => !j.vide).map(j => ({
+                            jour: j.jour,
+                            cellules: [`${nf(j.tickets > 0 ? j.ca / j.tickets : 0)} ${currency}`, nf(j.tickets), `${nf(j.ca)} ${currency}`],
+                        }))} />
+                </PanneauDetail>
             )}
         </div>
     );
