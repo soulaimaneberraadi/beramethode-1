@@ -17,29 +17,55 @@
 const chargerHtml2Canvas = () => import('html2canvas').then(m => m.default);
 const chargerJsPdf = () => import('jspdf').then(m => m.jsPDF);
 
-/** Rend le document dans un cadre hors ecran, a la largeur d'une page A4. */
+/**
+ * Rend le document hors ecran, a la largeur d une page A4.
+ *
+ * Le rendu se fait dans un conteneur de LA page, pas dans un cadre isole :
+ * html2canvas doit lire les styles calcules, et un iframe cache (opacity 0,
+ * hors viewport) ne lui en donne aucun — la promesse ne se resolvait jamais
+ * et le bouton restait sur « Preparation... ».
+ */
 const rendreCanvas = async (html: string, largeurPx: number) => {
-    const cadre = document.createElement('iframe');
-    cadre.style.cssText = `position:fixed;left:-10000px;top:0;width:${largeurPx}px;height:100px;border:0;opacity:0`;
-    document.body.appendChild(cadre);
-    try {
-        const doc = cadre.contentWindow?.document;
-        if (!doc) throw new Error('Rendu impossible dans ce navigateur.');
-        doc.open();
-        doc.write(html);
-        doc.close();
+    const corpsHtml = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1] ?? html;
+    const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join("\n");
 
-        // Les images sont des data-URL : elles sont pretes des le parse, mais
-        // la mise en page a besoin d'un tour de boucle pour se poser.
-        await new Promise(r => window.setTimeout(r, 350));
-        const corps = doc.body;
-        cadre.style.height = `${corps.scrollHeight + 40}px`;
-        await new Promise(r => window.setTimeout(r, 60));
+    const hote = document.createElement("div");
+    // Visible pour le moteur de rendu, invisible pour l oeil : derriere la
+    // page et sans interaction, plutot que masque — un element masque n a pas
+    // de styles calcules.
+    hote.style.cssText = [
+        "position:fixed", "left:0", "top:0", `width:${largeurPx}px`,
+        "background:#fff", "z-index:-1", "pointer-events:none", "opacity:0.01",
+    ].join(";");
+
+    const style = document.createElement("style");
+    // Les regles du document sont portees sur le conteneur pour ne pas
+    // repeindre l application autour.
+    style.textContent = styles.replace(/(^|\})\s*(body|html)\b/g, "$1 .bera-doc-rendu");
+    hote.appendChild(style);
+
+    const contenu = document.createElement("div");
+    contenu.className = "bera-doc-rendu";
+    contenu.innerHTML = corpsHtml.replace(/<script[\s\S]*?<\/script>/gi, "");
+    hote.appendChild(contenu);
+    document.body.appendChild(hote);
+
+    try {
+        // Les images sont des data-URL : elles n ont rien a telecharger, mais
+        // le decodage prend un tour de boucle.
+        await Promise.all([...contenu.querySelectorAll("img")].map(img => (img as HTMLImageElement).decode().catch(() => undefined)));
+        await new Promise(r => window.setTimeout(r, 80));
 
         const html2canvas = await chargerHtml2Canvas();
-        return await html2canvas(corps, { scale: 2, backgroundColor: '#ffffff', useCORS: true, windowWidth: largeurPx });
+        // Un rendu qui n aboutit pas doit rendre la main : sans ce garde-fou,
+        // le bouton tourne indefiniment sans dire pourquoi.
+        return await Promise.race([
+            html2canvas(contenu, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false }),
+            new Promise<never>((_, rejeter) => window.setTimeout(
+                () => rejeter(new Error("Le rendu du PDF a pris trop de temps. Essayez sans les photos.")), 25000)),
+        ]);
     } finally {
-        cadre.remove();
+        hote.remove();
     }
 };
 
