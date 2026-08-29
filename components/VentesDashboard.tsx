@@ -22,6 +22,50 @@ import { tx } from '../lib/i18n';
  *  erreur reseau qui laisse croire a une panne. */
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
+const aujourdhui = () => new Date().toISOString().slice(0, 10);
+
+/** Le champ date natif affiche mm/dd/yyyy des que le navigateur est en
+ *  anglais, et n'ouvre l'agenda que sur la petite icone. Ici la date se lit
+ *  en jj/mm/aaaa et le champ entier ouvre l'agenda. */
+const ChampDate: React.FC<{
+    label: string; value: string; onChange: (v: string) => void;
+    min?: string; max?: string; vide: string;
+}> = ({ label, value, onChange, min, max, vide }) => {
+    const ref = React.useRef<HTMLInputElement>(null);
+    const lisible = value ? value.slice(8, 10) + '/' + value.slice(5, 7) + '/' + value.slice(0, 4) : vide;
+    const ouvrir = () => {
+        const el = ref.current;
+        if (!el) return;
+        if (typeof (el as any).showPicker === 'function') { try { (el as any).showPicker(); return; } catch { /* fallback */ } }
+        el.focus();
+    };
+    return (
+        <div className="flex flex-col gap-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{label}</span>
+            <button
+                type="button"
+                onClick={ouvrir}
+                className={`relative h-8 pl-7 pr-2 min-w-[128px] rounded-lg bg-slate-50 dark:bg-dk-elevated border text-[11px] font-bold text-left tabular-nums transition-colors ${value
+                    ? 'border-slate-300 dark:border-dk-border text-slate-700 dark:text-dk-text'
+                    : 'border-slate-200 dark:border-dk-border text-slate-400 dark:text-dk-muted'} hover:border-slate-400`}
+            >
+                <CalendarDays className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                {lisible}
+                <input
+                    ref={ref}
+                    type="date"
+                    value={value}
+                    min={min}
+                    max={max}
+                    onChange={e => onChange(e.target.value)}
+                    className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
+                    tabIndex={-1}
+                />
+            </button>
+        </div>
+    );
+};
+
 interface Props {
     lang: string;
     currency?: string;
@@ -198,6 +242,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         parJourCourt: tx(lang, { fr: '/jour', ar: '/يوم', en: '/day', es: '/dia', pt: '/dia', tr: '/gun' }),
         aucunDefaut: tx(lang, { fr: 'Aucun defaut releve.', ar: 'ما تسجّل حتى عيب.', en: 'No defect recorded.', es: 'Ningun defecto.', pt: 'Nenhum defeito.', tr: 'Hata kaydi yok.' }),
         doit: tx(lang, { fr: 'doit', ar: 'عليه', en: 'owes', es: 'debe', pt: 'deve', tr: 'borclu' }),
+        choisir: tx(lang, { fr: 'jj/mm/aaaa', ar: 'يوم/شهر/عام', en: 'dd/mm/yyyy', es: 'dd/mm/aaaa', pt: 'dd/mm/aaaa', tr: 'gg/aa/yyyy' }),
         retard: tx(lang, { fr: 'facture(s) en retard', ar: 'فاتورة متأخّرة', en: 'overdue invoice(s)', es: 'factura(s) vencida(s)', pt: 'fatura(s) vencida(s)', tr: 'gecikmis fatura' }),
     };
 
@@ -388,14 +433,24 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
 
             {filtresOuverts && (
                 <div className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface p-3 flex flex-wrap items-end gap-3">
-                    <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{T.du}</span>
-                        <input type="date" value={du} onChange={e => setDu(e.target.value)} className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none" />
-                    </label>
-                    <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{T.au}</span>
-                        <input type="date" value={au} onChange={e => setAu(e.target.value)} className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none" />
-                    </label>
+                    {/* Choisir DU tout seul ne veut rien dire : la periode se
+                        ferme d'elle-meme a aujourd'hui, et AU ne peut jamais
+                        remonter avant DU. */}
+                    <ChampDate
+                        label={T.du}
+                        value={du}
+                        vide={T.choisir}
+                        max={au || aujourdhui()}
+                        onChange={v => { setDu(v); if (v && (!au || au < v)) setAu(aujourdhui() >= v ? aujourdhui() : v); }}
+                    />
+                    <ChampDate
+                        label={T.au}
+                        value={au}
+                        vide={T.choisir}
+                        min={du || undefined}
+                        max={aujourdhui()}
+                        onChange={v => { setAu(v); if (v && du && du > v) setDu(v); }}
+                    />
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted">{T.parCanal}</span>
                         <select value={canal} onChange={e => setCanal(e.target.value)} className="h-8 px-2 rounded-lg bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-700 dark:text-dk-text outline-none">
