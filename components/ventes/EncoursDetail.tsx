@@ -252,18 +252,29 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                                                 identifie la dette plus vite que son numero. */}
                                             {f.articles.length > 0 && (
                                                 <div className="mt-2 flex flex-wrap gap-1.5">
-                                                    {f.articles.slice(0, 6).map((a, i) => (
-                                                        <span key={`${f.id}-a${i}`} title={`${a.designation} · ${nf(a.quantite)} × ${nf(a.prixUnitaire)}`}
-                                                            className="inline-flex items-center gap-1.5 pr-2 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border max-w-full">
-                                                            {a.image
-                                                                ? <img src={a.image} alt="" className="w-7 h-7 rounded-l-lg object-cover shrink-0" />
-                                                                : <span className="w-7 h-7 rounded-l-lg bg-slate-100 dark:bg-dk-elevated shrink-0 flex items-center justify-center text-[8px] font-black text-slate-300">
-                                                                    {a.designation.slice(0, 2).toUpperCase()}
-                                                                </span>}
-                                                            <span className="text-[10px] font-bold text-slate-600 dark:text-dk-text-soft truncate max-w-[150px]">{a.designation}</span>
-                                                            <span className="text-[10px] font-black tabular-nums text-slate-400 shrink-0">×{nf(a.quantite)}</span>
-                                                        </span>
-                                                    ))}
+                                                    {f.articles.slice(0, 6).map((a, i) => {
+                                                        // « Modele — Couleur / Taille » : la couleur et la
+                                                        // taille tombaient dans la troncature. Elles ont
+                                                        // leur ligne, c'est ce qui distingue deux dettes
+                                                        // sur le meme modele.
+                                                        const [nom, ...reste] = a.designation.split(' — ');
+                                                        const variante = reste.join(' — ');
+                                                        return (
+                                                            <span key={`${f.id}-a${i}`} title={`${a.designation} · ${nf(a.quantite)} × ${nf(a.prixUnitaire)}`}
+                                                                className="inline-flex items-center gap-2 pr-2.5 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border max-w-full">
+                                                                {a.image
+                                                                    ? <img src={a.image} alt="" className="w-9 h-9 rounded-l-lg object-cover shrink-0" />
+                                                                    : <span className="w-9 h-9 rounded-l-lg bg-slate-100 dark:bg-dk-elevated shrink-0 flex items-center justify-center text-[8px] font-black text-slate-300">
+                                                                        {a.designation.slice(0, 2).toUpperCase()}
+                                                                    </span>}
+                                                                <span className="min-w-0">
+                                                                    <span className="block text-[10px] font-bold text-slate-600 dark:text-dk-text-soft truncate max-w-[170px]">{nom}</span>
+                                                                    {variante && <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted truncate max-w-[170px]">{variante}</span>}
+                                                                </span>
+                                                                <span className="text-[11px] font-black tabular-nums text-slate-500 dark:text-dk-text-soft shrink-0">×{nf(a.quantite)}</span>
+                                                            </span>
+                                                        );
+                                                    })}
                                                     {f.articles.length > 6 && (
                                                         <span className="text-[10px] font-bold text-slate-400 self-center">+{f.articles.length - 6}</span>
                                                     )}

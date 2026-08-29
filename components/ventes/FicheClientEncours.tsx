@@ -142,7 +142,14 @@ const FicheClientEncours: React.FC<{
                                             {a.designation.slice(0, 2).toUpperCase()}
                                         </span>}
                                     <span className="min-w-0 flex-1">
-                                        <span className="block text-[11px] font-bold text-slate-700 dark:text-dk-text-soft truncate">{a.designation}</span>
+                                        <span className="block text-[11px] font-bold text-slate-700 dark:text-dk-text-soft truncate">
+                                            {a.designation.split(' — ')[0]}
+                                            {a.designation.includes(' — ') && (
+                                                <span className="ml-1.5 font-black text-slate-400 dark:text-dk-muted">
+                                                    {a.designation.split(' — ').slice(1).join(' — ')}
+                                                </span>
+                                            )}
+                                        </span>
                                         <span className="block text-[10px] tabular-nums text-slate-400 dark:text-dk-muted">
                                             {nf(a.quantite)} × {nf(a.prixUnitaire)} {devise}
                                         </span>
