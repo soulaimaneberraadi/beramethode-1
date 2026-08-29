@@ -1,7 +1,7 @@
 import React from 'react';
 import { Printer, AlertTriangle } from 'lucide-react';
 import PanneauDetail from './PanneauDetail';
-import { chargerRecu, htmlRecu, imprimerHtml, type DonneesRecu, type FormatRecu } from './recuVersement';
+import { chargerRecu, htmlRecu, imprimerHtml, type DonneesRecu } from './recuVersement';
 
 /**
  * Le recu s'affiche AVANT de partir a l'imprimante.
@@ -12,8 +12,8 @@ import { chargerRecu, htmlRecu, imprimerHtml, type DonneesRecu, type FormatRecu 
  */
 const ApercuRecu: React.FC<{ paiementId: string; devise: string; onFermer: () => void; retour?: string }> = ({ paiementId, devise, onFermer, retour }) => {
     const [donnees, setDonnees] = React.useState<DonneesRecu | null>(null);
-    // Bande de caisse au comptoir, A4 pour le classement ou l envoi.
-    const [format, setFormat] = React.useState<FormatRecu>('TICKET');
+    // Un seul format : la feuille A4, celle qu on classe et qu on envoie.
+
     const [resume, setResume] = React.useState<{ montant: number; reste: number } | null>(null);
     const [erreur, setErreur] = React.useState<string | null>(null);
 
@@ -29,7 +29,7 @@ const ApercuRecu: React.FC<{ paiementId: string; devise: string; onFermer: () =>
         return () => { vivant = false; };
     }, [paiementId, devise]);
 
-    const html = donnees ? htmlRecu(donnees, devise, false, format) : null;
+    const html = donnees ? htmlRecu(donnees, devise, false, 'A4') : null;
 
     const nf = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 
@@ -42,20 +42,6 @@ const ApercuRecu: React.FC<{ paiementId: string; devise: string; onFermer: () =>
             onFermer={onFermer}
             barre={
                 <div className="flex flex-wrap items-center gap-2">
-                <div className="bg-slate-100/70 dark:bg-dk-elevated rounded-lg p-0.5 inline-flex">
-                    {(['TICKET', 'A4'] as FormatRecu[]).map(fmt => (
-                        <button
-                            key={fmt}
-                            type="button"
-                            onClick={() => setFormat(fmt)}
-                            className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${format === fmt
-                                ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm'
-                                : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`}
-                        >
-                            {fmt === 'TICKET' ? 'Ticket 80 mm' : 'A4'}
-                        </button>
-                    ))}
-                </div>
                 <button
                     type="button"
                     disabled={!html}
@@ -73,7 +59,7 @@ const ApercuRecu: React.FC<{ paiementId: string; devise: string; onFermer: () =>
                 </p>
             )}
             {html && (
-                <div className={`rounded-xl border border-slate-200 dark:border-dk-border bg-white overflow-hidden mx-auto ${format === 'A4' ? 'max-w-[820px]' : 'max-w-[420px]'}`}>
+                <div className={`rounded-xl border border-slate-200 dark:border-dk-border bg-white overflow-hidden mx-auto max-w-[820px]`}>
                     {/* Le recu tel qu'il sortira : meme feuille, meme largeur. */}
                     <iframe title="Recu" srcDoc={html} className="w-full h-[70vh] border-0 bg-white" />
                 </div>

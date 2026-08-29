@@ -34,7 +34,7 @@ const PanneauDetail: React.FC<{
     }, [onFermer]);
 
     return createPortal(
-        <div className="fixed inset-0 z-[120] flex flex-col sm:p-6 bg-slate-900/40 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-[120] flex flex-col sm:p-6 bg-slate-900/50">
             <button
                 type="button"
                 aria-label="Fermer"
