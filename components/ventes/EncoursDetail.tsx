@@ -16,7 +16,7 @@ type Facture = {
     clientId: string | null; clientNom: string;
     dateFacture: string | null; dateEcheance: string | null; dernierPaiement: string | null;
     totalTtc: number; montantPaye: number; reste: number;
-    retardJours: number; entame: boolean;
+    retardJours: number; joursRestants: number | null; entame: boolean;
     articles: Article[];
 };
 
@@ -258,6 +258,28 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-px" /> {erreur}
                 </p>
             )}
+            {(() => {
+                // Sept jours, c est le delai utile pour appeler avant que la facture
+                // ne soit echue : passe ce terme, on ne relance plus, on recouvre.
+                const proches = clients.flatMap(c => c.factures
+                    .filter(f => f.retardJours > 0 || (f.joursRestants != null && f.joursRestants <= 7))
+                    .map(f => ({ c, f })));
+                if (proches.length === 0) return null;
+                const montant = proches.reduce((a, x) => a + x.f.reste, 0);
+                return (
+                    <p className="flex items-start gap-2 text-[12px] font-bold text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800/50 rounded-xl bg-rose-50/70 dark:bg-rose-950/20 px-3.5 py-2.5">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-px" />
+                        <span>
+                            {proches.length} facture(s) a relancer cette semaine — {nf(montant)} {devise}
+                            <span className="block font-medium text-[11px] text-rose-600/80 dark:text-rose-400/70">
+                                {proches.slice(0, 4).map(x => `${x.c.nom} ${x.f.numero} (${x.f.retardJours > 0 ? `+${x.f.retardJours} j` : `${x.f.joursRestants} j`})`).join(' · ')}
+                                {proches.length > 4 && ` +${proches.length - 4}`}
+                            </span>
+                        </span>
+                    </p>
+                );
+            })()}
+
             {!chargement && clients.length === 0 && !erreur && (
                 <p className="text-center text-[12px] text-slate-400 dark:text-dk-muted py-10">Rien a recouvrer.</p>
             )}
@@ -391,9 +413,11 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                                             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                                                 <span className="text-[12px] font-black text-slate-700 dark:text-dk-text">{f.numero}</span>
                                                 <span className="text-[10px] text-slate-400 dark:text-dk-muted">Emise {jjmmaaaa(f.dateFacture)}</span>
-                                                <span className={`text-[10px] font-bold ${f.retardJours > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-dk-muted'}`}>
+                                                <span className={`text-[10px] font-bold ${f.retardJours > 0 || (f.joursRestants != null && f.joursRestants <= 7) ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-dk-muted'}`}>
                                                     Echeance {jjmmaaaa(f.dateEcheance)}
-                                                    {f.retardJours > 0 && ` · +${f.retardJours} j`}
+                                                    {f.retardJours > 0
+                                                        ? ` · +${f.retardJours} j de retard`
+                                                        : f.joursRestants != null && ` · ${f.joursRestants} j restants`}
                                                     {!f.dateEcheance && ' (non fixee)'}
                                                 </span>
                                                 {f.dernierPaiement && (

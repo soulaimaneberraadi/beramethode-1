@@ -4,7 +4,8 @@ import { grouperArticles, LigneModele } from './articles';
 import ApercuRecu from './ApercuRecu';
 import ContactClient from './ContactClient';
 import { ouvrirTiers } from './naviguerTiers';
-import { ouvrirReleve } from './releveCompte';
+import { htmlReleve } from './releveCompte';
+import { imprimerHtml } from './recuVersement';
 import Garanties from './Garanties';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
@@ -22,7 +23,7 @@ type Paiement = {
 
 type FactureHisto = {
     id: string; numero: string;
-    dateFacture: string | null; dateEcheance: string | null; statut: string | null;
+    dateFacture: string | null; dateEcheance: string | null; dateLivraison: string | null; statut: string | null;
     totalTtc: number; montantPaye: number; reste: number;
     articles: Article[]; paiements: Paiement[];
 };
@@ -90,47 +91,51 @@ const FicheClientEncours: React.FC<{
         }
     };
 
-    /** Le releve se batit sur l'historique deja charge : factures au debit,
-     *  reglements au credit, dans l'ordre du temps. */
+    /** La situation de compte : factures avec leur livraison et leur echeance,
+     *  versements, garanties, et les jours qui restent avant chaque terme. */
     const imprimerReleve = async () => {
         if (!histo) return;
         try {
-            const [recu, gar] = await Promise.all([
-                client.clientId
-                    ? fetch(`/api/ventes/garanties?clientId=${encodeURIComponent(client.clientId)}`, { credentials: 'include' })
-                        .then(r => r.json()).catch(() => ({ garanties: [] }))
-                    : Promise.resolve({ garanties: [] }),
-                Promise.resolve(null),
-            ]);
-            void gar;
-            const lignes = [
-                ...histo.factures.map(f => ({
-                    date: f.dateFacture || '',
-                    libelle: `Facture ${f.numero}`,
-                    debit: f.totalTtc,
-                    credit: 0,
-                })),
-                ...histo.factures.flatMap(f => f.paiements.map(p => ({
-                    date: p.date,
-                    libelle: `Reglement ${p.mode || ''}${p.reference ? ` ${p.reference}` : ''} sur ${f.numero}`.trim(),
-                    debit: 0,
-                    credit: p.montant,
-                }))),
-            ].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+            const g = client.clientId
+                ? await fetch(`/api/ventes/garanties?clientId=${encodeURIComponent(client.clientId)}`, { credentials: 'include' })
+                    .then(r => r.json()).catch(() => ({ garanties: [] }))
+                : { garanties: [] };
 
-            ouvrirReleve({
+            imprimerHtml(htmlReleve({
                 emetteur: histo.emetteur || null,
-                client: { nom: client.nom, tel: fiche?.tel || client.tel, ville: fiche?.ville || client.ville, ice: fiche?.ice || null },
-                lignes,
-                garanties: (recu?.garanties || [])
-                    .filter((g: any) => g.statut === 'EN_GARDE')
-                    .map((g: any) => ({ type: g.type, numero: g.numero, banque: g.banque, montant: g.montant, dateEcheance: g.dateEcheance })),
-            }, devise);
+                client: {
+                    nom: fiche?.nom || client.nom,
+                    tel: fiche?.tel || client.tel,
+                    ville: fiche?.ville || client.ville,
+                    adresse: fiche?.adresse || null,
+                    ice: fiche?.ice || null,
+                    ifFiscal: fiche?.if_fiscal || null,
+                    rc: fiche?.rc || null,
+                },
+                factures: [...histo.factures]
+                    .sort((a, b) => (a.dateFacture || '').localeCompare(b.dateFacture || ''))
+                    .map(f => ({
+                        numero: f.numero,
+                        dateFacture: f.dateFacture,
+                        dateLivraison: f.dateLivraison || f.dateFacture,
+                        dateEcheance: f.dateEcheance,
+                        totalTtc: f.totalTtc,
+                        montantPaye: f.montantPaye,
+                        reste: f.reste,
+                    })),
+                paiements: histo.factures
+                    .flatMap(f => f.paiements.map(p => ({
+                        date: p.date, montant: p.montant, mode: p.mode, reference: p.reference, facture: f.numero,
+                    })))
+                    .sort((a, b) => (a.date || '').localeCompare(b.date || '')),
+                garanties: (g?.garanties || [])
+                    .filter((x: any) => x.statut === 'EN_GARDE')
+                    .map((x: any) => ({ type: x.type, numero: x.numero, banque: x.banque, montant: x.montant, dateEcheance: x.dateEcheance })),
+            }, devise));
         } catch (e: any) {
             setErreur(e?.message || String(e));
         }
     };
-
     const fiche = histo?.client || null;
 
     if (apercu) {

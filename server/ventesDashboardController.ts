@@ -499,6 +499,12 @@ export const getVentesEncours = (req: Request, res: Response) => {
                 montantPaye: Number(Number(l.montant_paye).toFixed(2)),
                 reste,
                 retardJours,
+                // Jours qui restent avant le terme ; negatif quand il est passe.
+                // Sous 7, la ligne passe au rouge : c est le delai utile pour
+                // decrocher le telephone avant que la facture ne soit echue.
+                joursRestants: echeance
+                    ? Math.round((new Date(`${echeance}T00:00:00`).getTime() - new Date(`${aujourdhui}T00:00:00`).getTime()) / jour)
+                    : null,
                 // Partiellement paye : le distinguer compte, c'est un client qui
                 // paye mais lentement, pas un client qui ne paye pas.
                 entame: Number(l.montant_paye) > 0.009,
@@ -615,7 +621,11 @@ export const getClientHistorique = (req: Request, res: Response) => {
     try {
         const factures = db.prepare(`
             SELECT f.id, f.numero, f.date_facture, f.date_echeance, f.statut,
-                   f.total_ttc, COALESCE(f.montant_paye, 0) AS montant_paye, f.lignes
+                   f.total_ttc, COALESCE(f.montant_paye, 0) AS montant_paye, f.lignes,
+                   -- La date de livraison vient du BL quand il existe ; sinon la
+                   -- marchandise est partie le jour de la facture.
+                   (SELECT MIN(bl.date_livraison) FROM bons_livraison bl
+                     WHERE bl.facture_id = f.id AND bl.owner_id = f.owner_id) AS date_livraison
             FROM factures f
             WHERE f.owner_id = ? AND f.type = 'VENTE' AND f.source_id = ?
             ORDER BY f.date_facture DESC, f.numero DESC
@@ -665,6 +675,7 @@ export const getClientHistorique = (req: Request, res: Response) => {
                     numero: String(f.numero || ''),
                     dateFacture: f.date_facture || null,
                     dateEcheance: f.date_echeance || null,
+                    dateLivraison: f.date_livraison || f.date_facture || null,
                     statut: f.statut || null,
                     totalTtc: Number(ttc.toFixed(2)),
                     montantPaye: Number(paye.toFixed(2)),
