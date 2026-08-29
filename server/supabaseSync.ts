@@ -648,6 +648,33 @@ export const forcePushNow = async (localUserId: number): Promise<{ ok: boolean; 
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
 
+/** Taille maximale d'une trace. Au-dela, on tronque : ce champ sert a relire
+ *  ce qui s'est passe, pas a rejouer la donnee. */
+const PAYLOAD_MAX = 2000;
+
+/** Nombre de lignes gardees dans la file. Un push echoue ou une
+ *  synchronisation coupee ne doit plus pouvoir remplir le disque : au-dela, les
+ *  plus anciennes partent. Ce sont des traces, la donnee est dans ses tables. */
+const OUTBOX_MAX = 5000;
+let ecrituresDepuisElagage = 0;
+
+/**
+ * Elague la file, une fois toutes les 200 ecritures : compter les lignes a
+ * chaque requete couterait plus cher que le probleme qu'on evite.
+ */
+const elaguerOutbox = () => {
+  if (++ecrituresDepuisElagage < 200) return;
+  ecrituresDepuisElagage = 0;
+  try {
+    db.prepare(`
+      DELETE FROM sync_outbox
+      WHERE id NOT IN (SELECT id FROM sync_outbox ORDER BY created_at DESC LIMIT ?)
+    `).run(OUTBOX_MAX);
+  } catch (e) {
+    console.warn('[supabaseSync] Elagage outbox impossible:', e);
+  }
+};
+
 export const supabaseSyncMiddleware = (req: Request, res: Response, next: NextFunction) => {
   if (!req.path.startsWith('/api/')) return next();
   const method = req.method.toUpperCase();
@@ -657,6 +684,10 @@ export const supabaseSyncMiddleware = (req: Request, res: Response, next: NextFu
   res.on('finish', () => {
     if (res.statusCode >= 200 && res.statusCode < 300) {
       try {
+        // Sans synchronisation serveur, cette file n'a AUCUN consommateur :
+        // elle n'etait vidée qu'apres un push reussi. La remplir revenait a
+        // faire grossir la base indefiniment pour rien.
+        if (!SERVER_SYNC_ENABLED) return;
         const id = randomUUID();
         let tableName = 'unknown';
         const parts = req.path.split('/');
@@ -677,13 +708,20 @@ export const supabaseSyncMiddleware = (req: Request, res: Response, next: NextFu
               bodyCopy[field] = '[REDACTED]';
             }
           }
-          payload = JSON.stringify(bodyCopy);
+          // Le corps ENTIER n'a rien a faire ici : la synchronisation pousse un
+          // instantane complet, elle ne relit jamais ces lignes. Une sauvegarde
+          // de modele porte ses images en base64 et un autosave de reglages
+          // repart toutes les deux secondes — garder les corps a fait grossir
+          // la base de 26 Go en deux jours. On garde une trace, pas la donnee.
+          const brut = JSON.stringify(bodyCopy);
+          payload = brut.length > PAYLOAD_MAX ? `${brut.slice(0, PAYLOAD_MAX)}…[${brut.length} o]` : brut;
         }
         
         db.prepare(`
           INSERT INTO sync_outbox (id, table_name, record_id, action, payload)
           VALUES (?, ?, ?, ?, ?)
         `).run(id, tableName, String(recordId), action, payload);
+        elaguerOutbox();
 
         // Impersonation audit trail
         if ((req as any).viaImpersonation) {
