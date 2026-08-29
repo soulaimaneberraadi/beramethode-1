@@ -4,6 +4,7 @@ import { lazyWithRetry } from './lib/lazyWithRetry';
 import { lsGet, lsSet, lsGetMig } from './lib/storageKeys';
 import './src/context/ThemeContext';
 import GlobalLoader from './components/GlobalLoader';
+import BandeauHorsLigne from './components/shared/BandeauHorsLigne';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { createTicketFromReport } from './src/lib/support';
 import AnnouncementBar from './components/AnnouncementBar';
@@ -2128,6 +2129,9 @@ export default function App() {
                         <span className="text-sm font-bold">{toastMessage.text}</span>
                     </div>
                 )}
+
+                {/* Une copie hors ligne ne doit jamais passer pour l'etat du jour. */}
+                <BandeauHorsLigne />
             </div>
         </DataOwnerProvider>
     );

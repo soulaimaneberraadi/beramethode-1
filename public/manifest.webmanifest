@@ -1,0 +1,27 @@
+{
+  "name": "BERAMETHODE",
+  "short_name": "BERAMETHODE",
+  "description": "Gestion de production textile : couts, planning, stock, facturation.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "lang": "fr",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/logo-black-transparent.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-black-transparent.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
