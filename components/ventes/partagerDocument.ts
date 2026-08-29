@@ -145,3 +145,23 @@ export const partagerOuTelecharger = async (
 
     return window.isSecureContext ? 'TELECHARGE' : 'NON_SECURISE';
 };
+
+/**
+ * Enregistre un fichier deja fabrique, sans rien attendre.
+ *
+ * L astuce qui debloque iOS : le PDF est prepare EN AVANCE, des l ouverture de
+ * l apercu. Au clic, il n y a plus d await — donc le geste de l utilisateur est
+ * encore vivant, et Safari laisse passer a la fois l enregistrement et
+ * l ouverture de WhatsApp. Avec un await entre les deux, il bloquait la
+ * seconde action et le bouton semblait ne rien faire.
+ */
+export const enregistrerFichier = (fichier: File) => {
+    const url = URL.createObjectURL(fichier);
+    const lien = document.createElement('a');
+    lien.href = url;
+    lien.download = fichier.name;
+    document.body.appendChild(lien);
+    lien.click();
+    lien.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 120000);
+};

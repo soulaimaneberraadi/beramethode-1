@@ -1,6 +1,6 @@
 import React from 'react';
 import { Printer, MessageCircle, Loader2 } from 'lucide-react';
-import { enPdf, partagerOuTelecharger } from './partagerDocument';
+import { enPdf, partagerOuTelecharger, enregistrerFichier } from './partagerDocument';
 import PanneauDetail from './PanneauDetail';
 import CadreDocument from './CadreDocument';
 import { imprimerHtml } from './recuVersement';
@@ -34,6 +34,10 @@ const ApercuReleve: React.FC<{
     // Le lien WhatsApp ne peut pas s ouvrir tout seul apres un await (iOS bloque
     // ce qui n est plus un geste) : on l affiche, le doigt le touche.
     const [lienPret, setLienPret] = React.useState(false);
+    // Le PDF est fabrique DES l ouverture, avant tout clic : au moment du geste
+    // il n y a plus rien a attendre, et iOS laisse passer l enregistrement ET
+    // l ouverture de WhatsApp dans la meme foulee.
+    const [fichierPret, setFichierPret] = React.useState<File | null>(null);
     const html = htmlReleve(donnees, devise, false, options);
 
     const solde = Math.max(0, donnees.factures.reduce((a, f) => a + f.totalTtc - f.montantPaye, 0));
@@ -49,6 +53,36 @@ const ApercuReleve: React.FC<{
             .map(f => ({ numero: f.numero, reste: f.reste, dateEcheance: f.dateEcheance })),
     });
 
+    const nomFichier = `Situation ${donnees.client.nom} ${new Date().toISOString().slice(0, 10)}`.replace(/[\\/:*?"<>|]/g, '-');
+
+    // Preparation silencieuse : le document est pret avant qu'on le demande.
+    // Elle recommence quand les sections changent — le PDF doit correspondre a
+    // ce qui est affiche, jamais a une version precedente.
+    React.useEffect(() => {
+        let vivant = true;
+        setFichierPret(null);
+        const minuteur = window.setTimeout(() => {
+            enPdf(html, nomFichier)
+                .then(f => { if (vivant) setFichierPret(f); })
+                .catch(() => undefined);
+        }, 400);
+        return () => { vivant = false; window.clearTimeout(minuteur); };
+    }, [html, nomFichier]);
+
+    /**
+     * Un seul geste vers LE bon client : la conversation s'ouvre et le PDF
+     * s'enregistre dans la meme foulee. Il ne reste qu'a le joindre — iOS ne
+     * laisse aucun lien WhatsApp porter un fichier, mais rien n'oblige a
+     * choisir le destinataire dans une liste.
+     */
+    const envoyerAuClient = () => {
+        if (!international) return;
+        // WhatsApp d'abord, tant que le geste est vivant.
+        window.open(`https://wa.me/${international}?text=${encodeURIComponent(texte)}`, '_blank', 'noopener');
+        if (fichierPret) enregistrerFichier(fichierPret);
+        setAvis(`Conversation de ${donnees.client.nom} ouverte, PDF enregistre. Joignez-le : + puis Document.`);
+    };
+
     /**
      * Fabrique le PDF, puis le passe au partage du systeme — une feuille ou
      * l'on choisit WhatsApp et le contact. Sur un poste qui ne sait pas
@@ -60,8 +94,7 @@ const ApercuReleve: React.FC<{
         setEnvoi(true);
         setAvis(null);
         try {
-            const nom = `Situation ${donnees.client.nom} ${new Date().toISOString().slice(0, 10)}`.replace(/[\\/:*?"<>|]/g, '-');
-            const fichier = await enPdf(html, nom);
+            const fichier = fichierPret || await enPdf(html, nomFichier);
             const resultat = await partagerOuTelecharger(fichier, texte);
             setLienPret(resultat !== 'PARTAGE');
             setAvis(
@@ -118,15 +151,15 @@ const ApercuReleve: React.FC<{
                         {envoi ? 'Preparation...' : 'Envoyer le PDF'}
                     </button>
                     {international && (
-                        <a
-                            href={`https://wa.me/${international}?text=${encodeURIComponent(texte)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Ouvre la conversation de ce client"
+                        <button
+                            type="button"
+                            onClick={envoyerAuClient}
+                            title={fichierPret ? 'Ouvre sa conversation et enregistre le PDF' : 'Document en cours de preparation'}
                             className="h-9 flex-1 sm:flex-none px-3 sm:px-3.5 rounded-lg text-[12px] font-black border border-emerald-300 text-emerald-700 dark:border-emerald-800/60 dark:text-emerald-400 inline-flex items-center justify-center gap-1.5"
                         >
-                            <MessageCircle className="w-4 h-4" /> {donnees.client.nom}
-                        </a>
+                            <MessageCircle className="w-4 h-4" />
+                            {donnees.client.nom}{fichierPret ? '' : ' ...'}
+                        </button>
                     )}
                 </div>
             }
