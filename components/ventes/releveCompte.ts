@@ -12,6 +12,8 @@ import { montantEnLettres } from '../../lib/montantEnLettres';
  *
  * On l'imprime, et « Enregistrer en PDF » suffit a le joindre.
  */
+export type ArticleReleve = { designation: string; quantite: number; prixUnitaire: number; total: number; image: string | null };
+
 export type FactureReleve = {
     numero: string;
     dateFacture: string | null;
@@ -20,6 +22,7 @@ export type FactureReleve = {
     totalTtc: number;
     montantPaye: number;
     reste: number;
+    articles?: ArticleReleve[];
 };
 
 export type PaiementReleve = {
@@ -29,6 +32,17 @@ export type PaiementReleve = {
     reference: string | null;
     facture: string;
 };
+
+export type OptionsReleve = {
+    /** La photo des modeles : le client reconnait sa commande avant de lire
+     *  un numero de facture. Elle alourdit le document, donc elle se choisit. */
+    articles: boolean;
+    versements: boolean;
+    garanties: boolean;
+    prixUnitaires: boolean;
+};
+
+export const OPTIONS_PAR_DEFAUT: OptionsReleve = { articles: true, versements: true, garanties: true, prixUnitaires: true };
 
 export type DonneesReleve = {
     emetteur: any;
@@ -59,7 +73,52 @@ const delai = (f: FactureReleve) => {
     return `<span class="ok">${j} j restants</span>`;
 };
 
-export const htmlReleve = (d: DonneesReleve, devise = 'MAD', imprimer = true) => {
+/**
+ * Les modeles d'une facture, groupes comme a l'ecran : un modele, ses
+ * couleurs, ses tailles serrees — et sa photo. Le client reconnait sa
+ * commande sur l'image bien avant de lire un numero de facture.
+ */
+const blocArticles = (f: FactureReleve, devise: string, prix: boolean) => {
+    type G = { nom: string; image: string | null; quantite: number; total: number; prix: Set<number>; variantes: Map<string, Map<string, number>> };
+    const groupes = new Map<string, G>();
+    for (const a of f.articles || []) {
+        const [nom, ...reste] = a.designation.split(' — ');
+        const [couleur, taille] = (reste.join(' — ') || '').split(' / ');
+        if (!groupes.has(nom)) groupes.set(nom, { nom, image: a.image, quantite: 0, total: 0, prix: new Set(), variantes: new Map() });
+        const g = groupes.get(nom)!;
+        g.quantite += a.quantite;
+        g.total += a.total;
+        if (!g.image && a.image) g.image = a.image;
+        if (a.prixUnitaire) g.prix.add(a.prixUnitaire);
+        if (couleur) {
+            if (!g.variantes.has(couleur)) g.variantes.set(couleur, new Map());
+            const t = g.variantes.get(couleur)!;
+            const cle = taille || '-';
+            t.set(cle, (t.get(cle) || 0) + a.quantite);
+        }
+    }
+    if (groupes.size === 0) return '';
+
+    const lignes = [...groupes.values()].map(g => {
+        const variantes = [...g.variantes.entries()]
+            .map(([c, t]) => esc(c) + ' ' + [...t.entries()].map(([k, q]) => '(' + esc(k) + '×' + q + ')').join(' '))
+            .join(' · ');
+        const vignette = g.image
+            ? '<img src="' + esc(g.image) + '" alt="" />'
+            : '<span class="vide"></span>';
+        const unitaire = prix && g.prix.size === 1
+            ? '<em>' + nf([...g.prix][0]) + ' ' + esc(devise) + '</em>'
+            : '';
+        return '<div class="art">' + vignette
+            + '<span class="txt"><strong>' + esc(g.nom) + ' ×' + g.quantite + '</strong><em>' + variantes + '</em></span>'
+            + '<span class="mt">' + nf(g.total) + unitaire + '</span>'
+            + '</div>';
+    }).join('');
+
+    return '<div class="articles">' + lignes + '</div>';
+};
+
+export const htmlReleve = (d: DonneesReleve, devise = 'MAD', imprimer = true, o: OptionsReleve = OPTIONS_PAR_DEFAUT) => {
     const totalFacture = d.factures.reduce((a, f) => a + f.totalTtc, 0);
     const totalPaye = d.factures.reduce((a, f) => a + f.montantPaye, 0);
     const solde = Math.max(0, totalFacture - totalPaye);
@@ -109,6 +168,15 @@ export const htmlReleve = (d: DonneesReleve, devise = 'MAD', imprimer = true) =>
   .lettres { font-size: 9px; font-style: italic; color: #475569; margin: 4px 0 0; }
   .signatures { display: flex; justify-content: space-between; margin-top: 26px; font-size: 9px; color: #475569; }
   .signatures span { border-top: 1px solid #cbd5e1; padding-top: 3px; width: 40%; text-align: center; }
+  .articles { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; padding: 3px 0 5px; }
+  .art { display: flex; align-items: center; gap: 6px; }
+  .art img, .art .vide { width: 26px; height: 26px; border-radius: 4px; object-fit: cover; background: #f1f5f9; flex: none; }
+  .art .txt { flex: 1; min-width: 0; }
+  .art .txt strong { display: block; font-size: 9px; }
+  .art .txt em { display: block; font-size: 8px; color: #64748b; font-style: normal; }
+  .art .mt { font-size: 9.5px; font-weight: 800; text-align: right; white-space: nowrap; }
+  .art .mt em { display: block; font-size: 7.5px; color: #94a3b8; font-style: normal; font-weight: 400; }
+  tr.detail td { border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
   .pied { margin-top: 10px; font-size: 8px; color: #94a3b8; text-align: center; }
 </style></head>
 <body>
@@ -160,7 +228,7 @@ export const htmlReleve = (d: DonneesReleve, devise = 'MAD', imprimer = true) =>
         <td class="n">${nf(f.montantPaye)}</td>
         <td class="n"><strong>${f.reste > 0.009 ? nf(f.reste) : '—'}</strong></td>
         <td>${delai(f)}</td>
-      </tr>`).join('') : '<tr><td colspan="8">Aucune facture.</td></tr>'}
+      </tr>${o.articles && f.articles?.length ? `<tr class="detail"><td colspan="8">${blocArticles(f, devise, o.prixUnitaires)}</td></tr>` : ''}`).join('') : '<tr><td colspan="8">Aucune facture.</td></tr>'}
     </tbody>
     <tfoot><tr>
       <td colspan="4">Totaux</td>
@@ -170,7 +238,7 @@ export const htmlReleve = (d: DonneesReleve, devise = 'MAD', imprimer = true) =>
     </tr></tfoot>
   </table>
 
-  <h2>Versements recus</h2>
+  ${o.versements ? `<h2>Versements recus</h2>
   <table>
     <thead><tr><th>Date</th><th>Mode</th><th>Reference</th><th>Sur facture</th><th class="n">Montant</th></tr></thead>
     <tbody>
@@ -183,9 +251,9 @@ export const htmlReleve = (d: DonneesReleve, devise = 'MAD', imprimer = true) =>
       </tr>`).join('') : '<tr><td colspan="5">Aucun versement enregistre.</td></tr>'}
     </tbody>
     <tfoot><tr><td colspan="4">Total encaisse</td><td class="n">${nf(d.paiements.reduce((a, p) => a + p.montant, 0))}</td></tr></tfoot>
-  </table>
+  </table>` : ''}
 
-  ${d.garanties.length ? `<h2>Garanties detenues</h2>
+  ${o.garanties && d.garanties.length ? `<h2>Garanties detenues</h2>
   <table>
     <thead><tr><th>Type</th><th>Numero</th><th>Banque</th><th>Echeance</th><th class="n">Montant</th></tr></thead>
     <tbody>${d.garanties.map(g => `<tr>

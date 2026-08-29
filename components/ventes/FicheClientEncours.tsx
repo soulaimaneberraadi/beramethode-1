@@ -4,8 +4,8 @@ import { grouperArticles, LigneModele } from './articles';
 import ApercuRecu from './ApercuRecu';
 import ContactClient from './ContactClient';
 import { ouvrirTiers } from './naviguerTiers';
-import { htmlReleve } from './releveCompte';
-import { imprimerHtml } from './recuVersement';
+import type { DonneesReleve } from './releveCompte';
+import ApercuReleve from './ApercuReleve';
 import Garanties from './Garanties';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
@@ -52,6 +52,8 @@ const FicheClientEncours: React.FC<{
     const [aConfirmer, setAConfirmer] = React.useState<string | null>(null);
     // Voir avant d imprimer : une feuille gaspillee pour lire un montant, non.
     const [apercu, setApercu] = React.useState<string | null>(null);
+    // La situation de compte se regarde et se regle avant de partir.
+    const [releve, setReleve] = React.useState<DonneesReleve | null>(null);
 
     const charger = React.useCallback(async () => {
         if (!client.clientId) { setChargement(false); setErreur('Ce client n’a pas de fiche : la facture porte un nom libre.'); return; }
@@ -101,7 +103,7 @@ const FicheClientEncours: React.FC<{
                     .then(r => r.json()).catch(() => ({ garanties: [] }))
                 : { garanties: [] };
 
-            imprimerHtml(htmlReleve({
+            setReleve({
                 emetteur: histo.emetteur || null,
                 client: {
                     nom: fiche?.nom || client.nom,
@@ -122,6 +124,7 @@ const FicheClientEncours: React.FC<{
                         totalTtc: f.totalTtc,
                         montantPaye: f.montantPaye,
                         reste: f.reste,
+                        articles: f.articles,
                     })),
                 paiements: histo.factures
                     .flatMap(f => f.paiements.map(p => ({
@@ -131,12 +134,24 @@ const FicheClientEncours: React.FC<{
                 garanties: (g?.garanties || [])
                     .filter((x: any) => x.statut === 'EN_GARDE')
                     .map((x: any) => ({ type: x.type, numero: x.numero, banque: x.banque, montant: x.montant, dateEcheance: x.dateEcheance })),
-            }, devise));
+            });
         } catch (e: any) {
             setErreur(e?.message || String(e));
         }
     };
     const fiche = histo?.client || null;
+
+    if (releve) {
+        return (
+            <ApercuReleve
+                donnees={releve}
+                devise={devise}
+                tel={fiche?.tel || client.tel}
+                retour={client.nom}
+                onFermer={() => setReleve(null)}
+            />
+        );
+    }
 
     if (apercu) {
         return <ApercuRecu paiementId={apercu} devise={devise} retour={client.nom} onFermer={() => setApercu(null)} />;
