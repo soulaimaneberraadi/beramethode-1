@@ -426,6 +426,7 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
         moisNoms: (lang === "ar"
             ? ["يناير","فبراير","مارس","أبريل","ماي","يونيو","يوليوز","غشت","شتنبر","أكتوبر","نونبر","دجنبر"]
             : ["Janvier","Fevrier","Mars","Avril","Mai","Juin","Juillet","Aout","Septembre","Octobre","Novembre","Decembre"]),
+        aujourdhuiCourt: tx(lang, { fr: "Auj.", ar: "اليوم", en: "Today", es: "Hoy", pt: "Hoje", tr: "Bugun" }),
         aujourdhui: tx(lang, { fr: "Aujourd hui", ar: "اليوم", en: "Today", es: "Hoy", pt: "Hoje", tr: "Bugun" }),
         choisir: tx(lang, { fr: 'jj/mm/aaaa', ar: 'يوم/شهر/عام', en: 'dd/mm/yyyy', es: 'dd/mm/aaaa', pt: 'dd/mm/aaaa', tr: 'gg/aa/yyyy' }),
         retard: tx(lang, { fr: 'facture(s) en retard', ar: 'فاتورة متأخّرة', en: 'overdue invoice(s)', es: 'factura(s) vencida(s)', pt: 'fatura(s) vencida(s)', tr: 'gecikmis fatura' }),
@@ -575,6 +576,16 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
                 <h2 className="text-[13px] font-black uppercase tracking-[0.08em] text-slate-900 dark:text-dk-text mr-1">{T.titre}</h2>
 
                 <div className="bg-slate-100/70 dark:bg-dk-elevated rounded-lg p-0.5 inline-flex">
+                    {/* Le serveur ne descend pas sous 7 jours : aujourd'hui passe
+                        donc par les bornes de date, pas par la fenetre. */}
+                    <button
+                        onClick={() => { setDu(aujourdhui()); setAu(aujourdhui()); }}
+                        className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${du === aujourdhui() && au === aujourdhui()
+                            ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm'
+                            : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`}
+                    >
+                        {T.aujourdhuiCourt}
+                    </button>
                     {[7, 30, 90].map(n => (
                         <button
                             key={n}
