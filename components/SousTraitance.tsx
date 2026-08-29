@@ -7438,8 +7438,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       </div>
 
       {/* Modern Pill-Style Tabs Bar - Compact */}
-      <div className="flex items-center gap-2">
-      <div className="flex bg-white dark:bg-dk-surface p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/60 overflow-x-auto gap-0.5 shadow-sm dark:shadow-none max-w-max scrollbar-none shrink-0">
+      {/* La barre d'onglets defile DANS son cadre : en max-w-max + shrink-0
+          elle etait plus large que l'ecran d'un telephone et poussait toute la
+          page vers la droite — le contenu commencait hors champ. */}
+      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex bg-white dark:bg-dk-surface p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/60 overflow-x-auto gap-0.5 shadow-sm dark:shadow-none max-w-full min-w-0 scrollbar-none">
         <button
           onClick={() => setActiveTab('orders')}
           className={`px-2.5 lg:px-3 py-1.5 rounded-lg font-bold text-[10px] lg:text-xs transition-all flex items-center gap-1 lg:gap-1.5 whitespace-nowrap ${activeTab === 'orders' ? 'bg-indigo-600 dark:bg-dk-accent text-white shadow-sm dark:shadow-none' : 'text-slate-500 dark:text-dk-muted hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-dk-elevated'}`}

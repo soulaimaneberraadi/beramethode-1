@@ -401,12 +401,12 @@ export default function VentesDashboard({ lang, currency = 'MAD' }: Props) {
     const filtresActifs = [du, au, canal, segment, clientId].filter(Boolean).length;
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-3 min-w-0 max-w-full overflow-x-hidden">
             {/* Barre unique : la periode a gauche, le reste derriere un bouton.
                 Huit contrôles alignes de front donnent une barre qu'on ne lit
                 plus — et un filtre qu'on ne lit pas est un chiffre mal
                 interprete. */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0">
                 <h2 className="text-[13px] font-black uppercase tracking-[0.08em] text-slate-900 dark:text-dk-text mr-1">{T.titre}</h2>
 
                 <div className="bg-slate-100/70 dark:bg-dk-elevated rounded-lg p-0.5 inline-flex">
