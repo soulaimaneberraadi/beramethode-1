@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle, Phone, MapPin, RefreshCw, Check, Search, ChevronDown } from 'lucide-react';
 import PanneauDetail from './PanneauDetail';
 import FicheClientEncours, { Article } from './FicheClientEncours';
+import { grouperArticles, LigneModele } from './articles';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -251,33 +252,10 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                                             {/* De quoi il s'agit : la photo du modele
                                                 identifie la dette plus vite que son numero. */}
                                             {f.articles.length > 0 && (
-                                                <div className="mt-2 flex flex-wrap gap-1.5">
-                                                    {f.articles.slice(0, 6).map((a, i) => {
-                                                        // « Modele — Couleur / Taille » : la couleur et la
-                                                        // taille tombaient dans la troncature. Elles ont
-                                                        // leur ligne, c'est ce qui distingue deux dettes
-                                                        // sur le meme modele.
-                                                        const [nom, ...reste] = a.designation.split(' — ');
-                                                        const variante = reste.join(' — ');
-                                                        return (
-                                                            <span key={`${f.id}-a${i}`} title={`${a.designation} · ${nf(a.quantite)} × ${nf(a.prixUnitaire)}`}
-                                                                className="inline-flex items-center gap-2 pr-2.5 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border max-w-full">
-                                                                {a.image
-                                                                    ? <img src={a.image} alt="" className="w-9 h-9 rounded-l-lg object-cover shrink-0" />
-                                                                    : <span className="w-9 h-9 rounded-l-lg bg-slate-100 dark:bg-dk-elevated shrink-0 flex items-center justify-center text-[8px] font-black text-slate-300">
-                                                                        {a.designation.slice(0, 2).toUpperCase()}
-                                                                    </span>}
-                                                                <span className="min-w-0">
-                                                                    <span className="block text-[10px] font-bold text-slate-600 dark:text-dk-text-soft truncate max-w-[170px]">{nom}</span>
-                                                                    {variante && <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted truncate max-w-[170px]">{variante}</span>}
-                                                                </span>
-                                                                <span className="text-[11px] font-black tabular-nums text-slate-500 dark:text-dk-text-soft shrink-0">×{nf(a.quantite)}</span>
-                                                            </span>
-                                                        );
-                                                    })}
-                                                    {f.articles.length > 6 && (
-                                                        <span className="text-[10px] font-bold text-slate-400 self-center">+{f.articles.length - 6}</span>
-                                                    )}
+                                                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border px-2.5 py-1.5">
+                                                    {grouperArticles(f.articles).map(g => (
+                                                        <LigneModele key={g.cle} g={g} devise={devise} compact />
+                                                    ))}
                                                 </div>
                                             )}
 

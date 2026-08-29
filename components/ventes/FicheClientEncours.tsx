@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle, Phone, MapPin, RefreshCw, Trash2, Check } from 'lucide-react';
+import { grouperArticles, LigneModele } from './articles';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const jjmmaaaa = (v?: string | null) => (v ? `${v.slice(8, 10)}/${v.slice(5, 7)}/${v.slice(0, 4)}` : '—');
@@ -134,27 +135,9 @@ const FicheClientEncours: React.FC<{
                             {f.articles.length === 0 && (
                                 <p className="px-3.5 py-2 text-[11px] text-slate-400 dark:text-dk-muted">Aucun detail d’article sur cette facture.</p>
                             )}
-                            {f.articles.map((a, i) => (
-                                <div key={`${f.id}-${i}`} className="px-3.5 py-2 flex items-center gap-2.5">
-                                    {a.image
-                                        ? <img src={a.image} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-dk-border" />
-                                        : <span className="w-9 h-9 rounded-lg bg-slate-100 dark:bg-dk-elevated shrink-0 flex items-center justify-center text-[9px] font-black text-slate-300">
-                                            {a.designation.slice(0, 2).toUpperCase()}
-                                        </span>}
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block text-[11px] font-bold text-slate-700 dark:text-dk-text-soft truncate">
-                                            {a.designation.split(' — ')[0]}
-                                            {a.designation.includes(' — ') && (
-                                                <span className="ml-1.5 font-black text-slate-400 dark:text-dk-muted">
-                                                    {a.designation.split(' — ').slice(1).join(' — ')}
-                                                </span>
-                                            )}
-                                        </span>
-                                        <span className="block text-[10px] tabular-nums text-slate-400 dark:text-dk-muted">
-                                            {nf(a.quantite)} × {nf(a.prixUnitaire)} {devise}
-                                        </span>
-                                    </span>
-                                    <span className="shrink-0 text-[12px] font-black tabular-nums text-slate-700 dark:text-dk-text">{nf(a.total)}</span>
+                            {grouperArticles(f.articles).map(g => (
+                                <div key={`${f.id}-${g.cle}`} className="px-3.5 py-1.5">
+                                    <LigneModele g={g} devise={devise} />
                                 </div>
                             ))}
                         </div>
