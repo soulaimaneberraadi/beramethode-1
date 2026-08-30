@@ -33,3 +33,15 @@ export function shouldUseHelmet(): boolean {
   if (process.env.HELMET === 'false') return false;
   return process.env.NODE_ENV === 'production';
 }
+
+/**
+ * Le site et l API sur deux domaines : le cookie doit porter SameSite=None,
+ * sinon le navigateur ne le renvoie jamais et l utilisateur parait deconnecte
+ * a chaque requete. « None » impose « Secure » — donc HTTPS des deux cotes.
+ *
+ * On ne l active QUE sur demande explicite : « strict » reste la protection
+ * CSRF par defaut, et on ne l abaisse pas sans raison.
+ */
+export function cookieSameSite(): "strict" | "none" {
+  return process.env.CROSS_SITE === "true" ? "none" : "strict";
+}

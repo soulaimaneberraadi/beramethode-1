@@ -10,6 +10,7 @@ import { LanguageProvider } from './src/context/LanguageContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ClickToComponent } from 'click-to-react-component';
 import { installApiShim } from './src/lib/apiShim';
+import { apiOrigine, installerRedirectionApi } from './src/lib/apiOrigin';
 import { APP_VERSION } from './src/lib/dataVersion';
 import { initDiagnostics } from './src/lib/diagnostics';
 
@@ -17,9 +18,14 @@ import { initDiagnostics } from './src/lib/diagnostics';
 // joindre aux réclamations en cas de bug.
 initDiagnostics();
 
-// En static mode (Vercel), on intercepte les /api/* pour les servir depuis
-// le snapshot cloud localStorage. Aucun serveur backend n'est requis.
-if (import.meta.env.VITE_STATIC_MODE === 'true') {
+// Une API distante est configurée : les /api/* partent vers ce serveur, avec
+// les cookies. Elle prime sur le mode statique — un vrai serveur répond mieux
+// qu'un instantané localStorage.
+installerRedirectionApi();
+
+// En static mode (Vercel) SANS API distante, on intercepte les /api/* pour les
+// servir depuis le snapshot cloud localStorage. Aucun serveur backend requis.
+if (import.meta.env.VITE_STATIC_MODE === 'true' && !apiOrigine) {
   installApiShim();
   console.log(`%cBERAMETHODE ${APP_VERSION} (static + Supabase sync)`, 'color:#10b981;font-weight:bold');
 }

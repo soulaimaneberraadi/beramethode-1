@@ -462,6 +462,33 @@ async function startServer() {
     }
   }, 5 * 60 * 1000).unref();
 
+  // ── Origines autorisees a appeler l'API depuis un autre domaine ──────
+  //
+  // Le site publie (Vercel) et l'API (ce serveur) ne vivent pas au meme
+  // endroit : sans en-tetes CORS, le navigateur refuse la reponse, et sans
+  // « credentials » il n'envoie pas le cookie de session.
+  //
+  // Liste blanche stricte, jamais « * » : avec les cookies, une etoile
+  // ouvrirait l'API a n'importe quel site que visite l'utilisateur.
+  const originesAutorisees = (process.env.BERA_CORS_ORIGINS || '')
+    .split(',').map(o => o.trim()).filter(Boolean);
+
+  if (originesAutorisees.length > 0) {
+    app.use((req, res, next) => {
+      const origine = req.headers.origin;
+      if (origine && originesAutorisees.includes(origine)) {
+        res.setHeader('Access-Control-Allow-Origin', origine);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Vary', 'Origin');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        if (req.method === 'OPTIONS') return res.sendStatus(204);
+      }
+      next();
+    });
+    console.log('  🌐 CORS autorise pour :', originesAutorisees.join(', '));
+  }
+
   app.use(express.json({ limit: '24mb' }));
   app.use(cookieParser());
 

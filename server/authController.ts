@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomBytes, randomInt } from 'crypto';
-import { JWT_SECRET, isCookieSecure } from './jwtConfig';
+import { JWT_SECRET, isCookieSecure, cookieSameSite } from './jwtConfig';
 import db from './db';
 import nodemailer from 'nodemailer';
 import { logAudit } from './auditLogger';
@@ -24,7 +24,7 @@ function setAuthCookie(res: Response, user: { id: number; email: string; role: s
   res.cookie('token', token, {
     httpOnly: true,
     secure: isCookieSecure(),
-    sameSite: 'strict',
+    sameSite: cookieSameSite(),
     maxAge: 24 * 60 * 60 * 1000,
   });
 }
@@ -261,7 +261,7 @@ export const logout = (req: Request, res: Response) => {
   res.clearCookie('token', {
     path: '/',
     httpOnly: true,           // not accessible via JS (XSS protection)
-    sameSite: 'strict',       // CSRF protection
+    sameSite: cookieSameSite(),       // CSRF protection
     secure: isCookieSecure(), // HTTPS only in production
   });
   res.json({ message: 'Logged out successfully' });
