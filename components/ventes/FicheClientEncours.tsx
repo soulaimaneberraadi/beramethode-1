@@ -189,7 +189,10 @@ const FicheClientEncours: React.FC<{
                                         {k === 'Adresse' ? (
                                             <button
                                                 type="button"
-                                                onClick={() => ouvrirTiers(fiche.ville || v || '')}
+                                                // L'adresse complete plutot que la seule
+                                                // ville : « qui d'autre est a CETTE adresse »
+                                                // est la question, pas « qui est en ville ».
+                                                onClick={() => ouvrirTiers(v || fiche.ville || '')}
                                                 title="Voir les clients a cette adresse"
                                                 className="block text-[11px] font-bold text-slate-700 dark:text-dk-text-soft truncate max-w-full text-left hover:underline decoration-slate-300 underline-offset-2"
                                             >

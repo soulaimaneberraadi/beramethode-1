@@ -202,10 +202,15 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
     const filtered = useMemo(() => {
         const q = norm(search);
         if (!q) return clients;
-        return clients.filter(c => matchesRole(c)).filter(c =>
-            norm(c.nom).includes(q) || norm(c.ice).includes(q) || norm(c.rc).includes(q)
-            || norm(c.tel).includes(q) || norm(c.ville).includes(q)
-        );
+        // Chaque mot doit se retrouver quelque part dans la fiche, pas
+        // forcément dans le même champ : « tanger-mers, Tanger » colle une
+        // adresse et une ville, et ne correspondait donc à AUCUN champ pris
+        // isolément — la recherche ne rendait rien alors que le client existe.
+        const mots = q.split(/[\s,;]+/).filter(Boolean);
+        return clients.filter(c => matchesRole(c)).filter(c => {
+            const meule = norm([c.nom, c.ice, c.rc, c.tel, c.ville, c.adresse].filter(Boolean).join(' '));
+            return mots.every(mot => meule.includes(mot));
+        });
     }, [clients, search, roleFilter]);
 
     /** Poids commercial de chaque client, agrégé côté client depuis les sorties
