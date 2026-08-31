@@ -318,7 +318,7 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                                     {c.ville && (
                                         <button
                                             type="button"
-                                            onClick={ev => { ev.stopPropagation(); ouvrirTiers(c.ville || ""); }}
+                                            onClick={ev => { ev.stopPropagation(); ouvrirTiers(c.ville || "", "ville"); }}
                                             title="Voir les clients de cette ville"
                                             className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-dk-text hover:underline decoration-slate-300 underline-offset-2"
                                         >

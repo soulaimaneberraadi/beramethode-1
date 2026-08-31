@@ -3,12 +3,25 @@ import { AlertTriangle, Phone, MapPin, RefreshCw, Trash2, Check, X, Printer, Fil
 import { grouperArticles, LigneModele } from './articles';
 import ApercuRecu from './ApercuRecu';
 import ContactClient from './ContactClient';
-import { ouvrirTiers } from './naviguerTiers';
+import { ouvrirTiers, type ChampTiers } from './naviguerTiers';
 import type { DonneesReleve } from './releveCompte';
 import ApercuReleve from './ApercuReleve';
 import Garanties from './Garanties';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+/** Ce que vise le clic sur chaque etiquette de la fiche : « meme ville »,
+ *  « meme ICE », « arrive le meme jour ». Sans cela, le mot serait cherche
+ *  n importe ou et ramenerait des voisins imaginaires. */
+const CHAMP_PAR_ETIQUETTE: Record<string, ChampTiers | undefined> = {
+    Segment: 'type',
+    ICE: 'ice',
+    IF: undefined,
+    RC: 'rc',
+    Email: 'email',
+    Adresse: 'adresse',
+    'Client depuis': 'cree',
+};
+
 const jjmmaaaa = (v?: string | null) => (v ? `${v.slice(8, 10)}/${v.slice(5, 7)}/${v.slice(0, 4)}` : '—');
 
 export type Article = {
@@ -192,7 +205,7 @@ const FicheClientEncours: React.FC<{
                                             s ecrit dans la barre de recherche, visible. */}
                                         <button
                                             type="button"
-                                            onClick={() => ouvrirTiers(v || '')}
+                                            onClick={() => ouvrirTiers(v || '', CHAMP_PAR_ETIQUETTE[k])}
                                             title={`Voir les tiers : ${v}`}
                                             className="block text-[11px] font-bold text-slate-700 dark:text-dk-text-soft truncate max-w-full text-left hover:underline decoration-slate-300 underline-offset-2"
                                         >
@@ -222,7 +235,7 @@ const FicheClientEncours: React.FC<{
                     {(fiche?.ville || client.ville) && (
                         <button
                             type="button"
-                            onClick={() => ouvrirTiers(fiche?.ville || client.ville || "")}
+                            onClick={() => ouvrirTiers(fiche?.ville || client.ville || "", "ville")}
                             title="Voir les clients de cette ville"
                             className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-dk-text hover:underline decoration-slate-300 underline-offset-2"
                         >
