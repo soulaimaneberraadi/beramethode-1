@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from './src/context/AuthContext';
 import { useLicense } from './src/context/LicenseContext';
+import { LicenceBandeau, LicenceEcranVerrouille } from './components/LicenceEcran';
 import { usePermissions } from './src/context/PermissionsContext';
 import { resolveHiddenPages } from './app/accessControl';
 import { DataOwnerProvider } from './src/context/DataOwnerContext';
@@ -101,7 +102,7 @@ const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 export default function App() {
     const { user, loading: authLoading, logout: authLogout, login } = useAuth();
     // Licence BERA MASTER : modules masqués selon le forfait (vide si non appliqué).
-    const { hiddenModules: licenseHiddenModules } = useLicense();
+    const { hiddenModules: licenseHiddenModules, locked: licenceVerrouillee } = useLicense();
     // Permissions hiérarchiques (Epic 2) : pages masquées selon le rôle (vide si super/solo).
     const { hiddenPages: permHiddenPages, accountType } = usePermissions();
     const [authView, setAuthView] = useState<'login' | 'signup'>('login');
@@ -1496,6 +1497,14 @@ export default function App() {
         );
     }
 
+    // Abonnement clos et delai de grace epuise : le programme laisse place a
+    // l ecran de reactivation. Il n enferme personne — le bouton d export y
+    // reste, parce que la paie et la comptabilite qui sont la-dedans doivent
+    // pouvoir sortir meme quand on ne paie plus.
+    if (licenceVerrouillee) {
+        return <LicenceEcranVerrouille />;
+    }
+
     // Écran de bienvenue (une seule fois, juste après la création du compte).
     if (showWelcome) {
         return (
@@ -1580,6 +1589,10 @@ export default function App() {
             <div className="flex flex-col h-screen bg-white dark:bg-dk-bg text-gray-800 dark:text-dk-text font-sans overflow-hidden transition-colors duration-300" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                 <AnnouncementBar />
                 <LicenseBanner />
+                {/* Fin d abonnement proche, ou delai de grace en cours : on
+                    previent au-dessus du programme sans rien entraver. */}
+                <LicenceBandeau />
+
                 {/* HEADER TOP BAR - COMPACT (h-12) & CLEAN */}
                 <AppHeader
                     currentView={currentView}

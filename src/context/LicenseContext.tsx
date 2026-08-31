@@ -8,12 +8,17 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { useAuth } from './AuthContext';
 import {
   LicenseState, verifyLicense, getCachedLicense, isReadOnly, LICENSE_ENFORCED,
+  etatLicence, isLocked, type EvaluationLicence,
 } from '../lib/licenseClient';
 
 interface LicenseCtx {
   license: LicenseState;
   enforced: boolean;
   readOnly: boolean;
+  /** البرنامج مقفول كامل (انتهت المهلة) — ما بقا غير التفعيل والتصدير. */
+  locked: boolean;
+  /** الحالة الكاملة: نشيط · مهلة · مقفول، مع الأيام الباقية والتنبيه. */
+  etat: EvaluationLicence;
   /** الوحدات المخفية المحسوبة من باقة الترخيص (فارغة إذا لا إنفاذ/لا ترخيص). */
   hiddenModules: string[];
   /** سقف عدد العمال (0 = غير محدّد). */
@@ -75,13 +80,15 @@ export const LicenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // حساب القيم المشتقّة — كلها محايدة إذا لا إنفاذ/لا ترخيص.
   const enforced = LICENSE_ENFORCED && license.source !== 'none';
   const readOnly = isReadOnly(license);
+  const locked = isLocked(license);
+  const etat = etatLicence(license);
   const hiddenModules = enforced && license.modules.length
     ? ALL_MODULES.filter((m) => !license.modules.includes(m) && m !== 'profil')
     : [];
   const maxWorkers = enforced ? license.max_workers : 0;
 
   return (
-    <Ctx.Provider value={{ license, enforced, readOnly, hiddenModules, maxWorkers, refresh, activate }}>
+    <Ctx.Provider value={{ license, enforced, readOnly, locked, etat, hiddenModules, maxWorkers, refresh, activate }}>
       {children}
     </Ctx.Provider>
   );
@@ -93,7 +100,9 @@ export const useLicense = (): LicenseCtx => {
     // احتياط: إذا استُعمل خارج المزوّد، ارجع حالة محايدة بدل رمي خطأ يكسر التطبيق.
     return {
       license: getCachedLicense(),
-      enforced: false, readOnly: false, hiddenModules: [], maxWorkers: 0,
+      enforced: false, readOnly: false, locked: false,
+      etat: { etat: 'inconnu', joursRestants: null, alerter: false },
+      hiddenModules: [], maxWorkers: 0,
       refresh: async () => {},
       activate: async (keyCode: string) => verifyLicense({ keyCode }),
     };

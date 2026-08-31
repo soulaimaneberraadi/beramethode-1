@@ -4,7 +4,7 @@ import db from './db';
 import { SECRET_KEY, isCookieSecure } from './jwtConfig';
 import { loadUserContext } from './permissionsController';
 import { can, ResourceType, PermAction } from './permissions/resolver';
-import { isLicenseWritable, isReadOnlyExemptPath } from './licenseGuard';
+import { isLicenseWritable, isReadOnlyExemptPath, isLicenseLocked, isLockedExemptPath } from './licenseGuard';
 import { isValidSafeId } from './uuidUtils';
 import { logAudit } from './auditLogger';
 import { lireDeviceId, noterAppareil, appareilRevoque } from './devicesController';
@@ -91,6 +91,16 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
     // récupération (settings/license/auth/setup/master) exemptés.
     const httpMethod = req.method.toUpperCase();
     const isWrite = httpMethod === 'POST' || httpMethod === 'PUT' || httpMethod === 'DELETE' || httpMethod === 'PATCH';
+
+    // Deux crans, pas un seul :
+    //  — GRACE      : l entreprise consulte tout son travail, mais n ecrit plus.
+    //  — VERROUILLE : elle ne voit plus que l ecran de reactivation. L export
+    //    reste ouvert (isLockedExemptPath) : ce programme porte la paie et la
+    //    comptabilite, et une entreprise en retard doit pouvoir sortir ses
+    //    registres devant un controle.
+    if (isLicenseLocked(meta.ownerId) && !isLockedExemptPath(req.path)) {
+      return res.status(403).json({ ok: false, code: 'LICENSE_LOCKED', message: 'Abonnement termine : reactivation requise.' });
+    }
     if (isWrite && !isReadOnlyExemptPath(req.path) && !isLicenseWritable(meta.ownerId)) {
       return res.status(403).json({ ok: false, code: 'LICENSE_READ_ONLY', message: 'Licence expirée ou suspendue : mode lecture seule.' });
     }
