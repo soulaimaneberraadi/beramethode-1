@@ -8,8 +8,25 @@
  */
 export const EVENEMENT_TIERS = 'bera:tiers-recherche';
 
+/**
+ * Le terme survit a l evenement.
+ *
+ * L annuaire n est pas encore monte quand le clic part : l onglet bascule
+ * APRES, et l ecouteur qui devait recevoir le terme n existait pas encore —
+ * la recherche restait donc vide. On depose le terme ici, et l annuaire le
+ * ramasse a son premier rendu.
+ */
+let termeEnAttente: string | null = null;
+
+export const prendreTermeEnAttente = () => {
+    const t = termeEnAttente;
+    termeEnAttente = null;
+    return t;
+};
+
 export const ouvrirTiers = (terme: string) => {
     if (!terme) return;
+    termeEnAttente = terme;
     window.dispatchEvent(new CustomEvent(EVENEMENT_TIERS, { detail: { terme } }));
 };
 

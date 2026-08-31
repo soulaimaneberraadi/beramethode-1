@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Users, Plus, Trash2, Edit2, Eye, Search, Loader2, AlertCircle, Save, Download, FileText , ArrowLeft} from 'lucide-react';
 import { useLang } from '../../src/context/LanguageContext';
 import { tx } from '../../lib/i18n';
-import { retourEncours } from '../ventes/naviguerTiers';
+import { retourEncours, prendreTermeEnAttente } from '../ventes/naviguerTiers';
 import { fmt } from '../../app/constants';
 import SheetModal from '../shared/SheetModal';
 
@@ -145,6 +145,12 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
     // vient ni comment y retourner.
     const [venuDeLEncours, setVenuDeLEncours] = useState(false);
     useEffect(() => {
+        // Au premier rendu : le clic est parti AVANT que ce panneau existe,
+        // l evenement s est donc perdu dans le vide et la recherche restait
+        // vide. Le terme nous attend, depose de cote.
+        const enAttente = prendreTermeEnAttente();
+        if (enAttente) { setSearch(enAttente); setVenuDeLEncours(true); }
+
         const poser = (e: Event) => {
             const terme = (e as CustomEvent)?.detail?.terme;
             if (typeof terme === 'string') { setSearch(terme); setVenuDeLEncours(true); }
