@@ -186,24 +186,18 @@ const FicheClientEncours: React.FC<{
                                 .map(([k, v]) => (
                                     <span key={k} className="min-w-0">
                                         <span className="block text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 dark:text-dk-muted">{k}</span>
-                                        {/* L adresse mene a l annuaire filtre : savoir QUI d autre
-                                            se trouve a la meme adresse evite de livrer deux fois
-                                            au meme endroit — et de relancer le mauvais. */}
-                                        {k === 'Adresse' ? (
-                                            <button
-                                                type="button"
-                                                // L'adresse complete plutot que la seule
-                                                // ville : « qui d'autre est a CETTE adresse »
-                                                // est la question, pas « qui est en ville ».
-                                                onClick={() => ouvrirTiers(v || fiche.ville || '')}
-                                                title="Voir les clients a cette adresse"
-                                                className="block text-[11px] font-bold text-slate-700 dark:text-dk-text-soft truncate max-w-full text-left hover:underline decoration-slate-300 underline-offset-2"
-                                            >
-                                                {v}
-                                            </button>
-                                        ) : (
-                                            <span className="block text-[11px] font-bold text-slate-700 dark:text-dk-text-soft truncate" title={v || ''}>{v}</span>
-                                        )}
+                                        {/* Chaque donnee mene a l annuaire filtre sur elle-meme :
+                                            « qui d autre est a cette adresse », « qui est arrive
+                                            le meme jour », « quel autre porte cet ICE ». Le terme
+                                            s ecrit dans la barre de recherche, visible. */}
+                                        <button
+                                            type="button"
+                                            onClick={() => ouvrirTiers(v || '')}
+                                            title={`Voir les tiers : ${v}`}
+                                            className="block text-[11px] font-bold text-slate-700 dark:text-dk-text-soft truncate max-w-full text-left hover:underline decoration-slate-300 underline-offset-2"
+                                        >
+                                            {v}
+                                        </button>
                                     </span>
                                 ))}
                         </div>

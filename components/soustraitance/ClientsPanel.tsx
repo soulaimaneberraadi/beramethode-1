@@ -212,7 +212,9 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
         // isolément — la recherche ne rendait rien alors que le client existe.
         const mots = q.split(/[\s,;]+/).filter(Boolean);
         return clients.filter(c => matchesRole(c)).filter(c => {
-            const meule = norm([c.nom, c.ice, c.rc, c.tel, c.ville, c.adresse].filter(Boolean).join(' '));
+            const cree = String((c as any).created_at || '').slice(0, 10);
+            const creeLisible = cree ? `${cree.slice(8, 10)}/${cree.slice(5, 7)}/${cree.slice(0, 4)}` : '';
+            const meule = norm([c.nom, c.ice, c.rc, c.tel, c.ville, c.adresse, c.type, cree, creeLisible].filter(Boolean).join(' '));
             return mots.every(mot => meule.includes(mot));
         });
     }, [clients, search, roleFilter]);
