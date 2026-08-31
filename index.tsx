@@ -11,6 +11,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ClickToComponent } from 'click-to-react-component';
 import { installApiShim } from './src/lib/apiShim';
 import { apiOrigine, installerRedirectionApi } from './src/lib/apiOrigin';
+import { installerEnteteAppareil } from './src/lib/deviceId';
 import { APP_VERSION } from './src/lib/dataVersion';
 import { initDiagnostics } from './src/lib/diagnostics';
 import { demarrerRelaisPlantages } from './src/lib/crashRelay';
@@ -28,6 +29,12 @@ demarrerRelaisPlantages();
 // les cookies. Elle prime sur le mode statique — un vrai serveur répond mieux
 // qu'un instantané localStorage.
 installerRedirectionApi();
+
+// Marque chaque appel avec l'identifiant de CET appareil. Posé APRÈS la
+// redirection : l'enveloppe la plus récente s'exécute en premier, et il faut
+// voir l'adresse encore relative (`/api/...`) pour reconnaître nos routes —
+// une fois réécrite vers un serveur distant, elle ne s'en distingue plus.
+installerEnteteAppareil();
 
 // En static mode (Vercel) SANS API distante, on intercepte les /api/* pour les
 // servir depuis le snapshot cloud localStorage. Aucun serveur backend requis.

@@ -2182,6 +2182,40 @@ db.exec(`
 `);
 
 // ---------------------------------------------------------------------------
+// APPAREILS CONNECTÉS
+//
+// Jusqu'ici le serveur ne se souvenait de personne : il signait un jeton de 24h
+// et l'oubliait. Impossible de savoir qui travaille, ni de déconnecter un
+// téléphone perdu sans changer le mot de passe de son propriétaire.
+//
+// Cette table enregistre chaque appareil. Elle ne bloque RIEN par elle-même :
+// c'est volontaire. Un compte d'accès mal limité empêche un ouvrier de
+// travailler — on installe donc d'abord l'observation, et le plafond viendra
+// par-dessus, une fois qu'on aura vu du vrai trafic.
+//
+//  - `device_id` : identifiant tiré au sort et rangé DANS l'appareil, pas une
+//    empreinte technique. Une empreinte change à chaque mise à jour du
+//    navigateur et ferait passer un habitué pour un inconnu.
+//  - `revoked_at` : on ne supprime pas la ligne. Un appareil renvoyé après
+//    révocation doit être reconnu comme révoqué, pas comme nouveau.
+// ---------------------------------------------------------------------------
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_devices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    device_id TEXT NOT NULL,
+    label TEXT,
+    platform TEXT,
+    user_agent TEXT,
+    ip TEXT,
+    first_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    revoked_at DATETIME,
+    UNIQUE (user_id, device_id)
+  )
+`);
+
+// ---------------------------------------------------------------------------
 // Migration : fusion du second système de facturation (`invoices`/`invoice_lines`)
 // dans `factures`.
 //
@@ -2383,6 +2417,7 @@ const INDEX_METIER = [
   // Journaux : l'elagage trie par date, il lui faut son index.
   'CREATE INDEX IF NOT EXISTS idx_sync_outbox_created ON sync_outbox (created_at)',
   'CREATE INDEX IF NOT EXISTS idx_crash_reports_created ON crash_reports (created_at)',
+  'CREATE INDEX IF NOT EXISTS idx_user_devices_user ON user_devices (user_id, last_seen_at)',
   'CREATE INDEX IF NOT EXISTS idx_audit_created ON system_audit_logs (created_at)',
   'CREATE INDEX IF NOT EXISTS idx_community_members_user ON community_members (user_id)',
 ];

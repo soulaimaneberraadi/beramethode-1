@@ -7,6 +7,7 @@ import { can, ResourceType, PermAction } from './permissions/resolver';
 import { isLicenseWritable, isReadOnlyExemptPath } from './licenseGuard';
 import { isValidSafeId } from './uuidUtils';
 import { logAudit } from './auditLogger';
+import { lireDeviceId, noterAppareil, appareilRevoque } from './devicesController';
 
 // ── Session Activity Tracking ──────────────────────────────────────────────
 // Session timeout enforcement and activity Map live in server.ts (startServer)
@@ -64,6 +65,19 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
       return res.status(401).json({ message: 'Compte suspendu' });
     }
     (req as any).user = { id: row.id, email: row.email, name: row.name, role: row.role };
+
+    // ── Appareil ──────────────────────────────────────────────────────────
+    // Un appareil explicitement revoque (telephone perdu) ne passe plus, meme
+    // avec un jeton encore valide : sans ca, la revocation n aurait d effet
+    // qu au bout de 24h, ce qui ne sert a rien face a un vol.
+    // Le passage est note ici plutot qu au login seul, pour que la derniere
+    // activite reflete le travail reel et pas la derniere ouverture de session.
+    const deviceId = lireDeviceId(req);
+    if (appareilRevoque(row.id, deviceId)) {
+      return res.status(401).json({ message: 'Appareil deconnecte' });
+    }
+    noterAppareil(row.id, deviceId, req);
+
     if (decoded.imp_by === 'BERA_MASTER') {
       (req as any).viaImpersonation = true;
     }

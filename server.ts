@@ -132,6 +132,7 @@ import {
 } from './server/facturationController';
 import { getDashboardKPIs, streamDashboardKPIs } from './server/dashboardController';
 import { authenticateToken, requirePermission, clearAuthCookie } from './server/middleware';
+import { listerAppareils, revoquerAppareil, restaurerAppareil } from './server/devicesController';
 import { postAnalyzeTextile, postSuggestVocabulary, postGenerateOperations, postOptimizePlanning } from './server/geminiController';
 import { forcePushNow, supabaseSyncMiddleware, logSupabaseSyncStatus, startSupabaseSync } from './server/supabaseSync';
 import { dataChangeNotifier } from './server/eventBus';
@@ -679,6 +680,12 @@ async function startServer() {
   app.delete('/api/permissions/members/:userId/overrides', authenticateToken, clearMemberOverrides);
   app.get('/api/permissions/activity', authenticateToken, getActivity);
   app.get('/api/permissions/company', authenticateToken, getCompanyInfo);
+
+  // Appareils connectes — voir qui travaille, et couper un telephone perdu
+  // sans changer le mot de passe de son proprietaire.
+  app.get('/api/devices', authenticateToken, listerAppareils);
+  app.post('/api/devices/:id/revoke', authenticateToken, revoquerAppareil);
+  app.post('/api/devices/:id/restore', authenticateToken, restaurerAppareil);
   app.put('/api/permissions/company', authenticateToken, updateCompanyInfo);
 
   // ── Multi-workspace : plusieurs sociétés isolées par compte ──
