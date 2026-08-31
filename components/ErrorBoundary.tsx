@@ -88,12 +88,28 @@ export class ErrorBoundary extends Component<Props, State> {
         user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
       }),
     }).catch(() => {});
+
+    // Le POST ci-dessus n'écrit que dans la base LOCALE de l'entreprise : le
+    // propriétaire ne le voit jamais. On relaie donc aussi vers le cloud, via
+    // une file qui survit à une coupure réseau et qui caviarde les données
+    // métier. Import tardif pour ne pas tirer le client cloud au démarrage.
+    import('../src/lib/crashRelay')
+      .then(({ signalerPlantage }) => {
+        signalerPlantage(this.buildReport(isConnectionError(error) ? 'connexion' : 'page', error, errorInfo));
+      })
+      .catch(() => {});
   }
 
-  private buildReport = (kind: 'connexion' | 'page'): ErrorReport => ({
-    message: this.state.error?.message || tx(this.context?.lang || 'fr', {fr:'Erreur inconnue',ar:'خطأ غير معروف',en:'Unknown error',es:'Error desconocido',pt:'Erro desconhecido',tr:'Bilinmeyen hata'}),
-    stack: this.state.error?.stack,
-    componentStack: this.state.errorInfo?.componentStack || undefined,
+  /**
+   * `erreur` / `infos` permettent de bâtir le rapport depuis
+   * `componentDidCatch`, où `this.state.errorInfo` n'est pas encore commit :
+   * le `setState` qui le pose est asynchrone. Sans ça, le rapport automatique
+   * partirait sans la pile de composants — l'information la plus utile.
+   */
+  private buildReport = (kind: 'connexion' | 'page', erreur?: Error, infos?: ErrorInfo): ErrorReport => ({
+    message: (erreur ?? this.state.error)?.message || tx(this.context?.lang || 'fr', {fr:'Erreur inconnue',ar:'خطأ غير معروف',en:'Unknown error',es:'Error desconocido',pt:'Erro desconhecido',tr:'Bilinmeyen hata'}),
+    stack: (erreur ?? this.state.error)?.stack,
+    componentStack: (infos ?? this.state.errorInfo)?.componentStack || undefined,
     kind,
     view: this.props.view,
     url: typeof window !== 'undefined' ? window.location.href : '',

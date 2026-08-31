@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Users, Plus, Trash2, Edit2, Eye, Search, Loader2, AlertCircle, Save, Download, FileText , ArrowLeft} from 'lucide-react';
 import { useLang } from '../../src/context/LanguageContext';
 import { tx } from '../../lib/i18n';
-import { retourEncours, prendreTermeEnAttente } from '../ventes/naviguerTiers';
+import { retourEncours, cibleTiers, oublierCibleTiers, type ChampTiers } from '../ventes/naviguerTiers';
 import { fmt } from '../../app/constants';
 import SheetModal from '../shared/SheetModal';
 
@@ -144,16 +144,21 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
     // Arrivé ici depuis l'encours : sans repère, on ne sait plus d'où l'on
     // vient ni comment y retourner.
     const [venuDeLEncours, setVenuDeLEncours] = useState(false);
+    /** Champ vise par le clic : cliquer une VILLE demande la meme ville, pas ce
+     *  mot n importe ou. Null = recherche libre, mots disperses. */
+    const [champCible, setChampCible] = useState<ChampTiers | null>(null);
     useEffect(() => {
         // Au premier rendu : le clic est parti AVANT que ce panneau existe,
         // l evenement s est donc perdu dans le vide et la recherche restait
         // vide. Le terme nous attend, depose de cote.
-        const enAttente = prendreTermeEnAttente();
-        if (enAttente) { setSearch(enAttente); setVenuDeLEncours(true); }
+        // La cible attend dans le stockage de session : elle survit au
+        // changement d URL et au rechargement, contrairement a l evenement.
+        const cible = cibleTiers();
+        if (cible) { setSearch(cible.terme); setChampCible(cible.champ || null); setVenuDeLEncours(true); }
 
         const poser = (e: Event) => {
-            const terme = (e as CustomEvent)?.detail?.terme;
-            if (typeof terme === 'string') { setSearch(terme); setVenuDeLEncours(true); }
+            const d = (e as CustomEvent)?.detail;
+            if (typeof d?.terme === 'string') { setSearch(d.terme); setChampCible(d.champ || null); setVenuDeLEncours(true); }
         };
         window.addEventListener('bera:tiers-recherche', poser);
         return () => window.removeEventListener('bera:tiers-recherche', poser);
@@ -212,18 +217,40 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
     const filtered = useMemo(() => {
         const q = norm(search);
         if (!q) return clients;
-        // Chaque mot doit se retrouver quelque part dans la fiche, pas
-        // forcément dans le même champ : « tanger-mers, Tanger » colle une
-        // adresse et une ville, et ne correspondait donc à AUCUN champ pris
-        // isolément — la recherche ne rendait rien alors que le client existe.
-        const mots = q.split(/[\s,;]+/).filter(Boolean);
+
+        const dateDe = (c: AtelierClient) => String((c as any).created_at || '').slice(0, 10);
+        const lisible = (iso: string) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '');
+
+        // Un clic vise UN champ : « meme ville », « meme ICE », « arrive le
+        // meme jour ». Sans cette precision, cliquer Tanger ramenait un client
+        // de 5misat dont l adresse contient « tanger-mers » — un voisin
+        // imaginaire, et c est pire que rien.
+        if (champCible) {
+            const valeur = (c: AtelierClient) => {
+                if (champCible === 'cree') { const d = dateDe(c); return `${norm(d)} ${norm(lisible(d))}`; }
+                return norm((c as any)[champCible]);
+            };
+            return clients.filter(c => matchesRole(c)).filter(c => {
+                const v = valeur(c);
+                // Egalite pour la ville et la date ; le reste tolere le fragment
+                // (un ICE se cherche souvent par ses derniers chiffres).
+                return champCible === 'ville' || champCible === 'cree' || champCible === 'type'
+                    ? v.split(' ').includes(q) || v === q
+                    : v.includes(q);
+            });
+        }
+
+        // Recherche libre : chaque mot doit se retrouver quelque part dans la
+        // fiche, pas forcement dans le meme champ — « tanger-mers, Tanger »
+        // colle une adresse et une ville et ne correspondait a AUCUN champ
+        // pris isolement.
+        const mots = q.split(/[s,;]+/).filter(Boolean);
         return clients.filter(c => matchesRole(c)).filter(c => {
-            const cree = String((c as any).created_at || '').slice(0, 10);
-            const creeLisible = cree ? `${cree.slice(8, 10)}/${cree.slice(5, 7)}/${cree.slice(0, 4)}` : '';
-            const meule = norm([c.nom, c.ice, c.rc, c.tel, c.ville, c.adresse, c.type, cree, creeLisible].filter(Boolean).join(' '));
+            const cree = dateDe(c);
+            const meule = norm([c.nom, c.ice, c.rc, c.tel, c.ville, c.adresse, c.type, cree, lisible(cree)].filter(Boolean).join(' '));
             return mots.every(mot => meule.includes(mot));
         });
-    }, [clients, search, roleFilter]);
+    }, [clients, search, roleFilter, champCible]);
 
     /** Poids commercial de chaque client, agrégé côté client depuis les sorties
      *  de stock déjà chargées par le parent. Rattachement par `client_id` quand
@@ -338,7 +365,7 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-2">
                     <button
                         type="button"
-                        onClick={() => { setVenuDeLEncours(false); setSearch(''); retourEncours(); }}
+                        onClick={() => { setVenuDeLEncours(false); setSearch(''); setChampCible(null); retourEncours(); }}
                         className="h-8 px-2.5 rounded-lg text-[11px] font-black inline-flex items-center gap-1.5 bg-slate-900 dark:bg-dk-accent text-white"
                     >
                         <ArrowLeft className="w-3.5 h-3.5" />
@@ -349,7 +376,7 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
                     </span>
                     <button
                         type="button"
-                        onClick={() => { setVenuDeLEncours(false); setSearch(''); }}
+                        onClick={() => { setVenuDeLEncours(false); setSearch(''); setChampCible(null); oublierCibleTiers(); }}
                         className="ml-auto h-8 px-2.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border"
                     >
                         {tx(lang, { fr: 'Tout voir', ar: 'عرض الكلّ', en: 'Show all', es: 'Ver todo', pt: 'Ver tudo', tr: 'Tumunu gor' })}

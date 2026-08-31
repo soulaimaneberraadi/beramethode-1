@@ -86,6 +86,56 @@ export const createTicketFromReport = async (report: ErrorReport): Promise<strin
   }, user);
 };
 
+/**
+ * Ticket créé AUTOMATIQUEMENT par le relais de plantages (`crashRelay`), sans
+ * que l'utilisateur ait cliqué sur « Signaler ».
+ *
+ * Deux différences avec un ticket manuel :
+ *  - `context.auto = true` marque l'origine, pour que Bera-master-admin puisse
+ *    séparer « une personne demande de l'aide » de « une machine a planté ».
+ *    On ne touche pas au type (`kind`) : il n'existe pas côté cloud et
+ *    l'ajouter demanderait une migration qu'on ne peut pas vérifier d'ici.
+ *  - `occurrences` dit combien de fois le même plantage s'est produit avant
+ *    l'envoi : un bug vu 200 fois n'est pas le même problème qu'un bug vu une.
+ *
+ * Le contenu est DÉJÀ caviardé par `crashRelay` : ne rien rajouter ici qui
+ * puisse transporter une donnée métier.
+ *
+ * Retourne `true` si l'envoi est parti (ou a été volontairement ignoré), et
+ * `false` s'il faut réessayer plus tard — la file s'appuie dessus.
+ */
+export const creerTicketAutomatique = async (
+  report: ErrorReport,
+  occurrences: number,
+): Promise<boolean> => {
+  try {
+    const user = await currentUser();
+    const context = {
+      auto: true,
+      occurrences,
+      stack: report.stack,
+      component_stack: report.componentStack,
+      user_agent: report.userAgent,
+      survenu_le: report.at,
+      logs: getRecentLogs(),
+    };
+    const id = await insertTicket({
+      kind: report.kind,
+      message: report.message,
+      view: report.view ?? null,
+      url: report.url,
+      context,
+    }, user);
+    // Échec (cloud injoignable ou anti-spam) : l'entrée reste en file et
+    // repartira au prochain vidage. Pas de risque de boucle — la file est
+    // plafonnée et dédoublonnée, et on ne la vide qu'au démarrage et au
+    // retour du réseau.
+    return id !== null;
+  } catch {
+    return false;
+  }
+};
+
 /** Crée un ticket manuel (question / demande d'aide depuis l'app). */
 export const createTicket = async (message: string, kind: SupportKind = 'question', view?: string): Promise<string | null> => {
   const user = await currentUser();

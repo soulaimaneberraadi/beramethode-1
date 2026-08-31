@@ -13,10 +13,16 @@ import { installApiShim } from './src/lib/apiShim';
 import { apiOrigine, installerRedirectionApi } from './src/lib/apiOrigin';
 import { APP_VERSION } from './src/lib/dataVersion';
 import { initDiagnostics } from './src/lib/diagnostics';
+import { demarrerRelaisPlantages } from './src/lib/crashRelay';
 
 // Capture des breadcrumbs (console + erreurs) le plus tôt possible, pour les
 // joindre aux réclamations en cas de bug.
 initDiagnostics();
+
+// Reprend l'envoi des plantages mis en file pendant une coupure réseau : le
+// programme tourne en local, un rapport peut attendre des heures avant de
+// pouvoir sortir.
+demarrerRelaisPlantages();
 
 // Une API distante est configurée : les /api/* partent vers ce serveur, avec
 // les cookies. Elle prime sur le mode statique — un vrai serveur répond mieux

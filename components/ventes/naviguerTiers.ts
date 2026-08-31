@@ -1,44 +1,70 @@
 /**
- * Aller a l onglet Tiers avec une recherche deja posee.
+ * Aller a l'annuaire des tiers avec une recherche deja posee, et pouvoir en
+ * revenir exactement d'ou l'on vient.
  *
- * Le detail de l encours vit dans un panneau, l annuaire dans un autre onglet
- * du meme ecran : passer une prop de l un a l autre traverserait trois
- * composants qui n ont rien a voir avec ce geste. Un evenement suffit — celui
- * qui sait ouvrir l onglet l ecoute, celui qui sait fermer le panneau aussi.
+ * Deux ecrans qui ne se connaissent pas : le detail de l'encours vit dans un
+ * panneau, l'annuaire dans un autre onglet. Passer une prop de l'un a l'autre
+ * traverserait trois composants etrangers a ce geste.
+ *
+ * Le passage de main se fait donc par `sessionStorage` et non par une variable
+ * de module : changer d'onglet change l'URL, et une navigation peut recharger
+ * la page — une variable en memoire disparait alors, et la recherche arrivait
+ * vide. Le stockage de session, lui, traverse le rechargement, et se vide a la
+ * fermeture de l'onglet.
  */
 export const EVENEMENT_TIERS = 'bera:tiers-recherche';
+export const EVENEMENT_RETOUR = 'bera:retour-encours';
 
-/**
- * Le terme survit a l evenement.
- *
- * L annuaire n est pas encore monte quand le clic part : l onglet bascule
- * APRES, et l ecouteur qui devait recevoir le terme n existait pas encore —
- * la recherche restait donc vide. On depose le terme ici, et l annuaire le
- * ramasse a son premier rendu.
- */
-let termeEnAttente: string | null = null;
+const CLE_CIBLE = 'bera_tiers_cible';
 
-export const prendreTermeEnAttente = () => {
-    const t = termeEnAttente;
-    termeEnAttente = null;
-    return t;
+/** Le champ vise par le clic. Cliquer une VILLE demande « meme ville », pas
+ *  « ce mot apparait quelque part » : sans cette precision, « Tanger » ramenait
+ *  un client de 5misat dont l'adresse contient « tanger-mers » — un voisin
+ *  imaginaire, pire que pas de resultat. */
+export type ChampTiers = 'ville' | 'adresse' | 'ice' | 'rc' | 'tel' | 'type' | 'email' | 'cree';
+
+export type CibleTiers = {
+    terme: string;
+    champ?: ChampTiers;
+    /** L'adresse exacte quittee, pour y revenir — pas « la page d'avant » en
+     *  general, mais l'onglet et le panneau ouverts a cet instant. */
+    origine?: string;
 };
 
-export const ouvrirTiers = (terme: string) => {
+const lire = (): CibleTiers | null => {
+    try {
+        const brut = sessionStorage.getItem(CLE_CIBLE);
+        return brut ? JSON.parse(brut) as CibleTiers : null;
+    } catch {
+        return null;
+    }
+};
+
+/** Consulte la cible sans la consommer : l'annuaire garde son bandeau de
+ *  retour tant qu'on ne l'a pas quitte. */
+export const cibleTiers = () => lire();
+
+export const oublierCibleTiers = () => {
+    try { sessionStorage.removeItem(CLE_CIBLE); } catch { /* stockage indisponible */ }
+};
+
+export const ouvrirTiers = (terme: string, champ?: ChampTiers) => {
     if (!terme) return;
-    termeEnAttente = terme;
-    window.dispatchEvent(new CustomEvent(EVENEMENT_TIERS, { detail: { terme } }));
+    const cible: CibleTiers = { terme, champ, origine: window.location.hash || undefined };
+    try { sessionStorage.setItem(CLE_CIBLE, JSON.stringify(cible)); } catch { /* stockage indisponible */ }
+    window.dispatchEvent(new CustomEvent(EVENEMENT_TIERS, { detail: cible }));
 };
 
 /**
  * Le chemin du retour.
  *
- * Une navigation qui ne se rembobine pas est un cul-de-sac : parti de
- * l'encours vers l'annuaire, il fallait refaire tout le trajet a la main pour
- * revenir. Le meme canal ramene donc a l'ecran d'ou l'on vient.
+ * Une navigation qui ne se rembobine pas est un cul-de-sac. On restitue
+ * l'adresse exacte quittee quand on la connait — l'onglet ET le panneau —
+ * plutot qu'un simple retour au tableau de bord.
  */
-export const EVENEMENT_RETOUR = 'bera:retour-encours';
-
 export const retourEncours = () => {
-    window.dispatchEvent(new CustomEvent(EVENEMENT_RETOUR));
+    const cible = lire();
+    oublierCibleTiers();
+    window.dispatchEvent(new CustomEvent(EVENEMENT_RETOUR, { detail: cible }));
+    if (cible?.origine) window.location.hash = cible.origine;
 };
