@@ -12,3 +12,16 @@ export const ouvrirTiers = (terme: string) => {
     if (!terme) return;
     window.dispatchEvent(new CustomEvent(EVENEMENT_TIERS, { detail: { terme } }));
 };
+
+/**
+ * Le chemin du retour.
+ *
+ * Une navigation qui ne se rembobine pas est un cul-de-sac : parti de
+ * l'encours vers l'annuaire, il fallait refaire tout le trajet a la main pour
+ * revenir. Le meme canal ramene donc a l'ecran d'ou l'on vient.
+ */
+export const EVENEMENT_RETOUR = 'bera:retour-encours';
+
+export const retourEncours = () => {
+    window.dispatchEvent(new CustomEvent(EVENEMENT_RETOUR));
+};

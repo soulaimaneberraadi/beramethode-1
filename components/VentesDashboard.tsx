@@ -155,6 +155,14 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
     }, [du, au, canal, segment, clientId]);
 
     useEffect(() => { void charger(jours); }, [jours, charger]);
+
+    // Retour depuis l annuaire : on rouvre le panneau d ou l on etait parti,
+    // sinon le voyage aller n a pas de retour.
+    useEffect(() => {
+        const revenir = () => setDetail('encours');
+        window.addEventListener('bera:retour-encours', revenir);
+        return () => window.removeEventListener('bera:retour-encours', revenir);
+    }, []);
     useEffect(() => {
         if (data && !clientId && annuaire.length === 0 && data.clients.length > 0) setAnnuaire(data.clients);
     }, [data, clientId, annuaire.length]);

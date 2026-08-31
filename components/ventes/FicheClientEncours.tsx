@@ -177,7 +177,10 @@ const FicheClientEncours: React.FC<{
                                 ['RC', fiche.rc],
                                 ['Email', fiche.email],
                                 ['Adresse', [fiche.adresse, fiche.ville].filter(Boolean).join(', ')],
-                                ['Client depuis', fiche.created_at ? String(fiche.created_at).slice(0, 10) : null],
+                                // Une seule ecriture de date dans toute l'application :
+                                // 2026-08-19 et 19/08/2026 cote a cote font hesiter
+                                // sur le mois et le jour.
+                                ['Client depuis', fiche.created_at ? jjmmaaaa(String(fiche.created_at).slice(0, 10)) : null],
                             ] as Array<[string, string | null]>)
                                 .filter(([, v]) => v)
                                 .map(([k, v]) => (
@@ -222,7 +225,16 @@ const FicheClientEncours: React.FC<{
                                 .map(f => ({ numero: f.numero, reste: f.reste, dateEcheance: f.dateEcheance })),
                         }}
                     />
-                    {(fiche?.ville || client.ville) && <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{fiche?.ville || client.ville}</span>}
+                    {(fiche?.ville || client.ville) && (
+                        <button
+                            type="button"
+                            onClick={() => ouvrirTiers(fiche?.ville || client.ville || "")}
+                            title="Voir les clients de cette ville"
+                            className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-dk-text hover:underline decoration-slate-300 underline-offset-2"
+                        >
+                            <MapPin className="w-3 h-3" />{fiche?.ville || client.ville}
+                        </button>
+                    )}
                     <button type="button" onClick={() => void charger()} className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-900">
                         <RefreshCw className={`w-3 h-3 ${chargement ? 'opacity-40' : ''}`} /> Actualiser
                     </button>

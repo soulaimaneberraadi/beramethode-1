@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Users, Plus, Trash2, Edit2, Eye, Search, Loader2, AlertCircle, Save, Download, FileText } from 'lucide-react';
+import { Users, Plus, Trash2, Edit2, Eye, Search, Loader2, AlertCircle, Save, Download, FileText , ArrowLeft} from 'lucide-react';
 import { useLang } from '../../src/context/LanguageContext';
 import { tx } from '../../lib/i18n';
+import { retourEncours } from '../ventes/naviguerTiers';
 import { fmt } from '../../app/constants';
 import SheetModal from '../shared/SheetModal';
 
@@ -140,10 +141,13 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
     // Le terme vient d ailleurs (une adresse cliquee dans l encours) : on le
     // pose dans la barre plutot que de filtrer en douce, pour que la liste
     // affichee soit toujours celle que le champ annonce.
+    // Arrivé ici depuis l'encours : sans repère, on ne sait plus d'où l'on
+    // vient ni comment y retourner.
+    const [venuDeLEncours, setVenuDeLEncours] = useState(false);
     useEffect(() => {
         const poser = (e: Event) => {
             const terme = (e as CustomEvent)?.detail?.terme;
-            if (typeof terme === 'string') setSearch(terme);
+            if (typeof terme === 'string') { setSearch(terme); setVenuDeLEncours(true); }
         };
         window.addEventListener('bera:tiers-recherche', poser);
         return () => window.removeEventListener('bera:tiers-recherche', poser);
@@ -319,6 +323,32 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
 
     return (
         <div className="space-y-4">
+            {/* Le chemin du retour. Une navigation qui ne se rembobine pas est
+                un cul-de-sac : venu de l'encours par une adresse, il fallait
+                refaire tout le trajet a la main pour y revenir. */}
+            {venuDeLEncours && (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface px-3 py-2">
+                    <button
+                        type="button"
+                        onClick={() => { setVenuDeLEncours(false); setSearch(''); retourEncours(); }}
+                        className="h-8 px-2.5 rounded-lg text-[11px] font-black inline-flex items-center gap-1.5 bg-slate-900 dark:bg-dk-accent text-white"
+                    >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        {tx(lang, { fr: 'Retour a l’encours', ar: 'رجوع إلى الذمّة', en: 'Back to receivables', es: 'Volver a los saldos', pt: 'Voltar aos saldos', tr: 'Alacaklara don' })}
+                    </button>
+                    <span className="text-[11px] text-slate-500 dark:text-dk-muted">
+                        {tx(lang, { fr: 'Filtre', ar: 'تصفية', en: 'Filter', es: 'Filtro', pt: 'Filtro', tr: 'Filtre' })} : <b>{search}</b> · {filtered.length}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => { setVenuDeLEncours(false); setSearch(''); }}
+                        className="ml-auto h-8 px-2.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted border border-slate-200 dark:border-dk-border"
+                    >
+                        {tx(lang, { fr: 'Tout voir', ar: 'عرض الكلّ', en: 'Show all', es: 'Ver todo', pt: 'Ver tudo', tr: 'Tumunu gor' })}
+                    </button>
+                </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-3 justify-between">
                 <div className="relative flex-1 min-w-[200px]">
                     <Search className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />

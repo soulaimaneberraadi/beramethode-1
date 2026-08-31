@@ -6,6 +6,7 @@ import { grouperArticles, LigneModele } from './articles';
 import { ChampDate, ChampListe } from './champs';
 import ApercuRecu from './ApercuRecu';
 import ContactClient from './ContactClient';
+import { ouvrirTiers } from './naviguerTiers';
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -312,7 +313,18 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                                             }}
                                         />
                                     )}
-                                    {c.ville && <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{c.ville}</span>}
+                                    {/* La ville mene a l annuaire, comme l adresse dans la fiche :
+                                        deux endroits ou la meme information doit ouvrir la meme porte. */}
+                                    {c.ville && (
+                                        <button
+                                            type="button"
+                                            onClick={ev => { ev.stopPropagation(); ouvrirTiers(c.ville || ""); }}
+                                            title="Voir les clients de cette ville"
+                                            className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-dk-text hover:underline decoration-slate-300 underline-offset-2"
+                                        >
+                                            <MapPin className="w-3 h-3" />{c.ville}
+                                        </button>
+                                    )}
                                     <span>{c.factures.length} facture(s)</span>
                                     {/* Le plus vieux delai depasse dit l'urgence mieux qu'un montant. */}
                                     {c.retardMax > 0 && <span className="font-bold text-rose-600 dark:text-rose-400">{c.retardMax} j de retard</span>}

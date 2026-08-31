@@ -556,8 +556,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   // Une adresse cliquee dans l encours ouvre l annuaire, deja filtre.
   useEffect(() => {
     const aller = () => setActiveTab('clients');
+    const revenir = () => setActiveTab('ventes');
     window.addEventListener('bera:tiers-recherche', aller as EventListener);
-    return () => window.removeEventListener('bera:tiers-recherche', aller as EventListener);
+    window.addEventListener('bera:retour-encours', revenir as EventListener);
+    return () => {
+      window.removeEventListener('bera:tiers-recherche', aller as EventListener);
+      window.removeEventListener('bera:retour-encours', revenir as EventListener);
+    };
   }, []);
   const [selectedSubcontractorName, setSelectedSubcontractorName] = useState<string | null>(null);
   const [subSearchQuery, setSubSearchQuery] = useState('');
