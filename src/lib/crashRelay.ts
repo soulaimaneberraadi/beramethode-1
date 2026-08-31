@@ -33,17 +33,47 @@
 import type { ErrorReport } from '../../components/ErrorBoundary';
 
 const FILE_KEY = 'bera_crash_queue';
+const IDENTITE_KEY = 'bera_crash_identite';
 /** Au-delà, les plus anciens sautent : une file qui gonfle sans fin finit par
  *  saturer localStorage et casser le reste de l'application. */
 const FILE_MAX = 20;
 /** Même signature dans cette fenêtre → on ne renvoie pas. */
 const SILENCE_MS = 5 * 60 * 1000;
 
+/**
+ * Qui a planté. Ce bloc n'est PAS caviardé, et c'est voulu.
+ *
+ * Identifier l'entreprise n'est pas la même chose que lire ses données : sans
+ * le nom et un contact, un rapport de plantage est inexploitable — on sait
+ * qu'un programme a cassé quelque part, sans pouvoir rappeler ni corriger pour
+ * la bonne personne. Le caviardage porte sur le CONTENU métier (noms de
+ * clients, prix, numéros de pièce), pas sur l'identité du client.
+ */
+export interface IdentiteCrash {
+  /** Raison sociale de l'entreprise utilisatrice. */
+  entreprise: string;
+  /** ICE — identifie l'entreprise sans ambiguïté même si deux ont le même nom. */
+  ice: string;
+  /** Téléphone de l'entreprise, pour la rappeler. */
+  tel: string;
+  email: string;
+  /** Utilisateur qui a subi le plantage. */
+  userId: string | null;
+  userEmail: string | null;
+  /** Compte administrateur racine de l'entreprise (le patron). */
+  ownerId: string | number | null;
+  roleName: string | null;
+  /** Version du programme — deux entreprises peuvent tourner sur deux versions. */
+  version: string;
+}
+
 interface EnQueue {
   report: ErrorReport;
   signature: string;
   /** Nombre de fois où ce plantage s'est produit depuis la mise en file. */
   occurrences: number;
+  /** Identité au moment du plantage (peut différer d'un envoi différé). */
+  identite: IdentiteCrash | null;
 }
 
 // ─── 1. Caviardage ────────────────────────────────────────────────────────────
@@ -129,7 +159,79 @@ const ecrireFile = (file: EnQueue[]): void => {
   }
 };
 
-// ─── 4. API publique ──────────────────────────────────────────────────────────
+// ─── 4. Identité ──────────────────────────────────────────────────────────────
+
+/**
+ * Mémorise QUI utilise le programme, pendant que tout va bien.
+ *
+ * Pourquoi maintenant et pas au moment du plantage : quand ça casse, le serveur
+ * local peut être injoignable, la session perdue, le rendu mort. Aller chercher
+ * l'identité à cet instant, c'est risquer de n'avoir ni l'identité ni le
+ * rapport. On la range à l'avance, et le plantage n'a plus qu'à la lire.
+ *
+ * Appelée après la connexion et à chaque changement d'entreprise.
+ */
+export const memoriserIdentite = async (): Promise<void> => {
+  try {
+    const [{ loadCompanyIdentity }, { supabase }, { APP_VERSION }] = await Promise.all([
+      import('../../lib/companyIdentity'),
+      import('./supabaseClient'),
+      import('./dataVersion'),
+    ]);
+
+    // `force` : sans ça, après un changement d'entreprise on remémoriserait
+    // l'identité en cache — celle de l'entreprise précédente.
+    const societe = await loadCompanyIdentity(true).catch(() => null);
+
+    let userId: string | null = null;
+    let userEmail: string | null = null;
+    try {
+      const { data } = await supabase.auth.getUser();
+      userId = data.user?.id ?? null;
+      userEmail = data.user?.email ?? null;
+    } catch { /* hors ligne : on garde ce qu'on a */ }
+
+    let ownerId: string | number | null = null;
+    let roleName: string | null = null;
+    try {
+      const rep = await fetch('/api/permissions/me', { credentials: 'include' });
+      if (rep.ok) {
+        const perm = await rep.json();
+        ownerId = perm?.ownerId ?? null;
+        roleName = perm?.roleName ?? null;
+      }
+    } catch { /* serveur local absent (mode statique) : non bloquant */ }
+
+    const identite: IdentiteCrash = {
+      entreprise: societe?.nom || '',
+      ice: societe?.ice || '',
+      tel: societe?.tel || '',
+      email: societe?.email || '',
+      userId, userEmail, ownerId, roleName,
+      version: APP_VERSION,
+    };
+
+    // On n'écrase pas une identité complète par une plus pauvre : au démarrage,
+    // la société n'est pas encore chargée et on écrirait des champs vides.
+    const ancienne = lireIdentite();
+    if (ancienne?.entreprise && !identite.entreprise) return;
+
+    localStorage.setItem(IDENTITE_KEY, JSON.stringify(identite));
+  } catch {
+    /* jamais bloquant */
+  }
+};
+
+const lireIdentite = (): IdentiteCrash | null => {
+  try {
+    const brut = localStorage.getItem(IDENTITE_KEY);
+    return brut ? (JSON.parse(brut) as IdentiteCrash) : null;
+  } catch {
+    return null;
+  }
+};
+
+// ─── 5. API publique ──────────────────────────────────────────────────────────
 
 /**
  * Met un plantage en file pour le propriétaire, puis tente un envoi immédiat.
@@ -155,6 +257,7 @@ export const signalerPlantage = (report: ErrorReport): void => {
     file.push({
       signature,
       occurrences: 1,
+      identite: lireIdentite(),
       report: {
         ...report,
         message: caviarder(report.message),
@@ -191,7 +294,13 @@ export const viderFile = async (): Promise<void> => {
 
     const restants: EnQueue[] = [];
     for (const entree of file) {
-      const envoye = await creerTicketAutomatique(entree.report, entree.occurrences);
+      // L'identité est relue si elle manquait au moment du plantage (plantage
+      // survenu avant la connexion, puis envoi une fois connecté).
+      const envoye = await creerTicketAutomatique(
+        entree.report,
+        entree.occurrences,
+        entree.identite ?? lireIdentite(),
+      );
       if (!envoye) restants.push(entree);
     }
     ecrireFile(restants);

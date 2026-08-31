@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient';
 import { getRecentLogs } from './diagnostics';
 import type { ErrorReport } from '../../components/ErrorBoundary';
+import type { IdentiteCrash } from './crashRelay';
 import {
   type SupportTicket,
   type SupportMessage,
@@ -107,21 +108,39 @@ export const createTicketFromReport = async (report: ErrorReport): Promise<strin
 export const creerTicketAutomatique = async (
   report: ErrorReport,
   occurrences: number,
+  identite: IdentiteCrash | null,
 ): Promise<boolean> => {
   try {
     const user = await currentUser();
     const context = {
       auto: true,
       occurrences,
+      // Qui : sans ça, un rapport dit qu'un programme a cassé quelque part,
+      // sans permettre de rappeler ni de corriger pour la bonne entreprise.
+      entreprise: identite?.entreprise || null,
+      entreprise_ice: identite?.ice || null,
+      entreprise_tel: identite?.tel || null,
+      entreprise_email: identite?.email || null,
+      user_id: identite?.userId ?? null,
+      user_email: identite?.userEmail ?? null,
+      owner_id: identite?.ownerId ?? null,
+      role: identite?.roleName ?? null,
+      version: identite?.version || null,
+      // Quoi :
       stack: report.stack,
       component_stack: report.componentStack,
       user_agent: report.userAgent,
       survenu_le: report.at,
       logs: getRecentLogs(),
     };
+    // Le nom de l'entreprise est mis en tête du message : dans une liste de
+    // tickets, on doit voir DE QUI vient le problème sans ouvrir chaque ligne.
+    const entete = identite?.entreprise
+      ? `[${identite.entreprise}]${occurrences > 1 ? ` ×${occurrences}` : ''} `
+      : `[entreprise inconnue] `;
     const id = await insertTicket({
       kind: report.kind,
-      message: report.message,
+      message: entete + report.message,
       view: report.view ?? null,
       url: report.url,
       context,

@@ -45,6 +45,7 @@ import { rollPlanningEvents } from './utils/planning';
 import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
 import { navigate, getCurrentRoute, parseHash, onRouteChange, replaceRoute, useRouteParam, createRouteUrl } from './lib/router';
+import { memoriserIdentite } from './src/lib/crashRelay';
 
 const Login = lazyWithRetry('Login', () => import('./src/components/Login'));
 const Setup = lazyWithRetry('Setup', () => import('./components/Setup'));
@@ -427,6 +428,15 @@ export default function App() {
     // On saute le tout premier passage : au montage, currentView vaut encore sa
     // valeur par defaut alors que syncHashToView n a pas encore commit son
     // setState — ecrire l URL ici effacerait le lien profond ouvert par l usager.
+    // Range QUI utilise le programme pendant que tout va bien : au moment d un
+    // plantage le serveur local peut etre injoignable et la session perdue, et
+    // un rapport sans entreprise ni contact ne sert a rien. Rejoue au
+    // changement de compte (changement d entreprise).
+    useEffect(() => {
+        if (!user) return;
+        void memoriserIdentite();
+    }, [user]);
+
     const routeSyncArmed = useRef(false);
     useEffect(() => {
         if (!routeSyncArmed.current) { routeSyncArmed.current = true; return; }
