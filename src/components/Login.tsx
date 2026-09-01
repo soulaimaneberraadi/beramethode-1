@@ -311,11 +311,19 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       }
 
       // Succès annoncé : le navigateur est censé partir vers Google. S'il est
-      // toujours là quelques secondes plus tard, le départ n'a pas eu lieu —
-      // fenêtre bloquée, réseau coupé, retour refusé. Sans ce garde-fou le
-      // bouton tournait indéfiniment : pas d'erreur, pas de sortie, rien à
-      // faire d'autre que recharger la page en se demandant pourquoi.
-      window.setTimeout(() => {
+      // toujours là longtemps après, le départ n'a pas eu lieu — fenêtre
+      // bloquée, réseau coupé. Sans ce garde-fou le bouton tournait
+      // indéfiniment : pas d'erreur, pas de sortie, rien à faire d'autre que
+      // recharger la page en se demandant pourquoi.
+      //
+      // Le départ est annulé dès que la page commence à s'en aller : sur une
+      // connexion lente le message s'affichait alors que Google était en
+      // route, et accusait le navigateur à tort.
+      const annuler = () => window.clearTimeout(minuteur);
+      window.addEventListener('pagehide', annuler, { once: true });
+      window.addEventListener('beforeunload', annuler, { once: true });
+
+      const minuteur = window.setTimeout(() => {
         setIsLoading(false);
         setError(tx(lang, {
           fr: "La page Google ne s'est pas ouverte. Verifiez que les fenetres ne sont pas bloquees, puis reessayez.",
@@ -325,7 +333,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
           pt: 'A pagina do Google nao abriu. Verifique se as janelas nao estao bloqueadas e tente de novo.',
           tr: 'Google sayfasi acilmadi. Pencerelerin engellenmedigini kontrol edip tekrar deneyin.',
         }));
-      }, 6000);
+      }, 20000);
     } catch (err: unknown) {
       setError(networkErrorMessage(err));
       setIsLoading(false);
@@ -486,16 +494,6 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
             <h1 className="select-none text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-dk-text">
               BERA<span className="text-emerald-600 dark:text-emerald-400">METHODE</span>
             </h1>
-            
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] mt-1.5 text-slate-500 dark:text-dk-muted">
-              {/* « ذكاء الصناعة » et non « الذكاء الصناعي » : la seconde forme se
-                  lit « intelligence artificielle » en arabe. La signature
-                  promettait donc de l IA sur l ecran d accueil, alors que le
-                  programme calcule des couts et pilote une production. Une
-                  promesse que le produit ne tient pas se paie a la premiere
-                  demonstration. */}
-              {tx(lang, {fr:'Intelligence Industrielle',ar:'ذكاء الصناعة',en:'Industrial Intelligence',es:'Inteligencia Industrial',pt:'Inteligência Industrial',tr:'Endüstriyel Zeka'})}
-            </span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-center text-slate-900 dark:text-dk-text">
