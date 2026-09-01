@@ -23,6 +23,12 @@ export interface LicenseState {
   max_workers: number;
   expires_at: string | null;
   verified_at: string | null;
+  /**
+   * تاريخ أوّل إصدار للترخيص — ماشي آخر تجديد. كيقيس أقدمية الزبون: بعد ٦ شهور
+   * مدفوعة، انتهاء الاشتراك كيفتح مهلة ١٥ يوم بدل ما يسدّ البرنامج دغيا.
+   * `null` = المعلومة ماشي متوفّرة → كنعطيو المهلة (شوف `meriteGrace`).
+   */
+  first_issued_at: string | null;
   source: 'server' | 'cache' | 'none';
 }
 
@@ -32,7 +38,7 @@ export const LICENSE_ENFORCED =
 const EMPTY: LicenseState = {
   ok: false, active: false, expired: false, status: 'none',
   daysLeft: 0, modules: [], max_workers: 0,
-  expires_at: null, verified_at: null, source: 'none',
+  expires_at: null, verified_at: null, first_issued_at: null, source: 'none',
 };
 
 function readCache(): LicenseState | null {
@@ -92,6 +98,7 @@ export async function verifyLicense(opts: { email?: string; keyCode?: string }):
       max_workers: typeof data.max_workers === 'number' ? data.max_workers : 0,
       expires_at: data.expires_at || null,
       verified_at: data.verified_at || new Date().toISOString(),
+      first_issued_at: data.first_issued_at || null,
       source: 'server',
     };
     writeCache(state);
@@ -164,10 +171,12 @@ export interface EvaluationLicence {
  * الغلط فالمنع كيقفل بلا سابق إنذار على زبون كيخلّص من عامين. ماشي بحال بحال.
  */
 const meriteGrace = (state: LicenseState, reference: number): boolean => {
-  const s = state as LicenseState & { total_paid_days?: number; first_issued_at?: string };
+  // `total_paid_days` ماشي فالعقد الحالي ديال BERA MASTER؛ كنقبلوه إلا زادو
+  // نهار من الأنهار، وهو أدقّ من تاريخ أوّل إصدار (كيحسب الانقطاعات).
+  const s = state as LicenseState & { total_paid_days?: number };
   if (typeof s.total_paid_days === 'number') return s.total_paid_days >= JOURS_FIDELITE;
-  if (s.first_issued_at) {
-    const debut = new Date(s.first_issued_at).getTime();
+  if (state.first_issued_at) {
+    const debut = new Date(state.first_issued_at).getTime();
     if (!Number.isNaN(debut)) return (reference - debut) / JOUR_MS >= JOURS_FIDELITE;
   }
   return true;
