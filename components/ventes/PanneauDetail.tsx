@@ -117,9 +117,9 @@ const PanneauDetail: React.FC<{
                         <button
                             type="button"
                             onClick={onFermer}
-                            className="mx-auto inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full bg-slate-900 dark:bg-dk-elevated text-white text-[12px] font-bold shadow-[0_8px_24px_rgba(15,23,42,0.20)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.40)] hover:bg-slate-800 dark:hover:bg-dk-border active:scale-[0.97] transition"
+                            className="mx-auto inline-flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full bg-white/60 dark:bg-white/5 backdrop-blur-sm border border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted text-[12px] font-bold hover:bg-white dark:hover:bg-dk-elevated hover:text-slate-900 dark:hover:text-dk-text active:scale-[0.97] transition"
                         >
-                            <span className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center shrink-0"><ArrowLeft className="w-3.5 h-3.5" /></span>
+                            <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
                             Retour
                         </button>
                     </div>
