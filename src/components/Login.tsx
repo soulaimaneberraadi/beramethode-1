@@ -54,6 +54,12 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // Etat propre a Google : partager `isLoading` faisait tourner le bouton
+  // « Se connecter » quand on cliquait sur « Continuer avec Google ». On
+  // regardait un bouton tourner sans avoir touche a celui-la, et celui qu'on
+  // venait de cliquer restait immobile — de quoi croire que le clic n'a rien
+  // fait.
+  const [googleEnCours, setGoogleEnCours] = useState(false);
   const { login, staticLogin, signInWithGoogle } = useAuth();
   const { lang } = useLang();
   const isDark = useIsDark();
@@ -301,12 +307,12 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
   const handleGoogleLogin = async () => {
     if (!signInWithGoogle) return;
     setError('');
-    setIsLoading(true);
+    setGoogleEnCours(true);
     try {
       const result = await withTimeout(signInWithGoogle(), LOGIN_TIMEOUT_MS);
       if (!result.ok) {
         setError(result.message || tx(lang, {fr:'Échec de la connexion avec Google.',ar:'فشل تسجيل الدخول عبر Google.',en:'Google sign-in failed.',es:'Error al iniciar sesión con Google.',pt:'Falha ao iniciar sessão com o Google.',tr:'Google ile giriş başarısız oldu.'}));
-        setIsLoading(false);
+        setGoogleEnCours(false);
         return;
       }
 
@@ -324,7 +330,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       window.addEventListener('beforeunload', annuler, { once: true });
 
       const minuteur = window.setTimeout(() => {
-        setIsLoading(false);
+        setGoogleEnCours(false);
         setError(tx(lang, {
           fr: "La page Google ne s'est pas ouverte. Verifiez que les fenetres ne sont pas bloquees, puis reessayez.",
           ar: 'صفحة Google ما تحلّاتش. تأكّد أن المتصفّح ما كيحبسش النوافذ، وعاود جرّب.',
@@ -336,7 +342,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       }, 20000);
     } catch (err: unknown) {
       setError(networkErrorMessage(err));
-      setIsLoading(false);
+      setGoogleEnCours(false);
     }
   };
 
@@ -808,10 +814,12 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                     whileTap={{ scale: 0.98 }}
                     type="button"
                     onClick={handleGoogleLogin}
-                    disabled={isLoading}
+                    disabled={isLoading || googleEnCours}
                     className="mt-4 w-full flex justify-center items-center gap-3 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300 py-3.5 px-4 rounded-xl shadow-sm cursor-pointer text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed dark:border-dk-border dark:bg-dk-surface dark:text-dk-text-soft dark:hover:bg-dk-elevated/60"
                   >
-                    <GoogleIcon className="w-5 h-5" />
+                    {googleEnCours
+                      ? <span className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                      : <GoogleIcon className="w-5 h-5" />}
                     {tx(lang, {fr:'Continuer avec Google',ar:'الاستمرار مع Google',en:'Continue with Google',es:'Continuar con Google',pt:'Continuar com Google',tr:'Google ile Devam Et'})}
                   </motion.button>
                 )}
