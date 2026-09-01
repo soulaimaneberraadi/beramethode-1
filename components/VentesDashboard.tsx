@@ -246,6 +246,8 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
             pt: 'A maioria das vendas nao tem esta informacao: a reparticao acima cobre apenas uma minoria.',
             tr: 'Satislarin cogunda bu bilgi yok: yukaridaki dagilim yalnizca bir azinligi kapsar.',
         }),
+        taillesChiffrees: tx(lang, { fr: 'Tailles chiffrees (36, 38, 40\u2026)', ar: '\u0645\u0642\u0627\u0633\u0627\u062a \u0628\u0627\u0644\u0623\u0631\u0642\u0627\u0645 (36\u060c 38\u060c 40\u2026)', en: 'Numeric sizes (36, 38, 40\u2026)', es: 'Tallas numericas (36, 38, 40\u2026)', pt: 'Tamanhos numericos (36, 38, 40\u2026)', tr: 'Sayisal bedenler (36, 38, 40\u2026)' }),
+        taillesLettres: tx(lang, { fr: 'Tailles en lettres (S, M, L\u2026)', ar: '\u0645\u0642\u0627\u0633\u0627\u062a \u0628\u0627\u0644\u062d\u0631\u0648\u0641 (S\u060c M\u060c L\u2026)', en: 'Letter sizes (S, M, L\u2026)', es: 'Tallas en letras (S, M, L\u2026)', pt: 'Tamanhos em letras (S, M, L\u2026)', tr: 'Harf bedenleri (S, M, L\u2026)' }),
         sansPrix: tx(lang, {
             fr: 'Des pieces sont sorties sans prix de vente : le chiffre de cette ligne est incomplet.',
             ar: 'كاين قطع خرجات بلا ثمن بيع: رقم هاد السطر ناقص.',
@@ -969,13 +971,33 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                                 sansPrix: m.piecesPeriode > 0 && m.caPeriode <= 0,
                                 detail: `${nf(m.caPeriode)} ${currency} · ${T.stock} ${nf(m.stock)}`,
                             }))} />
-                    <Repartition titre={T.tailles} unite={T.piecesCourt}
-                        lignes={data.tailles.map(t => ({
+                    {/* Deux systemes de tailles cohabitent : le pantalon se
+                        vend en 36-38-40, le tee-shirt en S-M-L. Melanges dans
+                        une seule liste, « 38 = 34 % » et « S = 8 % » se
+                        comparaient alors qu'ils ne parlent ni du meme vetement
+                        ni de la meme echelle. Chaque systeme a donc ses 100 %. */}
+                    {(() => {
+                        const estChiffree = (t: string) => /\d/.test(t);
+                        const ligneTaille = (t: { taille: string; pieces: number; ca: number }) => ({
                             cle: t.taille, ca: t.ca, valeur: t.pieces, poids: t.pieces,
                             vignette: <EtiquetteTaille taille={t.taille} />,
                             sansPrix: t.pieces > 0 && t.ca <= 0,
                             detail: `${nf(t.ca)} ${currency}`,
-                        }))} />
+                        });
+                        const chiffrees = data.tailles.filter(t => estChiffree(t.taille));
+                        const lettres = data.tailles.filter(t => !estChiffree(t.taille));
+                        // Un seul systeme en service : le titre general suffit,
+                        // inutile d'annoncer une distinction qui n'existe pas ici.
+                        if (chiffrees.length === 0 || lettres.length === 0) {
+                            return <Repartition titre={T.tailles} unite={T.piecesCourt} lignes={data.tailles.map(ligneTaille)} />;
+                        }
+                        return (
+                            <>
+                                <Repartition titre={T.taillesChiffrees} unite={T.piecesCourt} lignes={chiffrees.map(ligneTaille)} />
+                                <Repartition titre={T.taillesLettres} unite={T.piecesCourt} lignes={lettres.map(ligneTaille)} />
+                            </>
+                        );
+                    })()}
                     <Repartition titre={T.couleurs} unite={T.piecesCourt}
                         lignes={data.couleurs.map(c => ({
                             cle: c.couleur, ca: c.ca, valeur: c.pieces, poids: c.pieces,
