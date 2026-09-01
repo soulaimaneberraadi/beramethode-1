@@ -439,7 +439,13 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
             </h1>
             
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] mt-1.5 text-slate-500 dark:text-dk-muted">
-              {tx(lang, {fr:'Intelligence Industrielle',ar:'الذكاء الصناعي',en:'Industrial Intelligence',es:'Inteligencia Industrial',pt:'Inteligência Industrial',tr:'Endüstriyel Zeka'})}
+              {/* « ذكاء الصناعة » et non « الذكاء الصناعي » : la seconde forme se
+                  lit « intelligence artificielle » en arabe. La signature
+                  promettait donc de l IA sur l ecran d accueil, alors que le
+                  programme calcule des couts et pilote une production. Une
+                  promesse que le produit ne tient pas se paie a la premiere
+                  demonstration. */}
+              {tx(lang, {fr:'Intelligence Industrielle',ar:'ذكاء الصناعة',en:'Industrial Intelligence',es:'Inteligencia Industrial',pt:'Inteligência Industrial',tr:'Endüstriyel Zeka'})}
             </span>
           </div>
 
