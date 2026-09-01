@@ -295,6 +295,22 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
+
+      // La messagerie du serveur n'est pas installee : rien ne partira. Envoyer
+      // l'utilisateur attendre un code sur l'ecran suivant, c'est le laisser
+      // dehors sans qu'il comprenne pourquoi.
+      if (data.emailIndisponible) {
+        setResetError(tx(lang, {
+          fr: "L'envoi d'e-mails n'est pas configure sur ce serveur. Demandez a votre administrateur de reinitialiser votre mot de passe.",
+          ar: 'إرسال البريد ماشي مضبوط على هاد السيرفر. طلب من الأدمين ديالك يبدّل ليك كلمة السرّ.',
+          en: 'E-mail sending is not configured on this server. Ask your administrator to reset your password.',
+          es: 'El envio de correos no esta configurado en este servidor. Pida a su administrador que restablezca su contrasena.',
+          pt: 'O envio de e-mails nao esta configurado neste servidor. Peca ao seu administrador para redefinir a sua palavra-passe.',
+          tr: 'Bu sunucuda e-posta gonderimi yapilandirilmamis. Yoneticinizden sifrenizi sifirlamasini isteyin.',
+        }));
+        return;
+      }
+
       setResetStep(2);
       setTimer(60);
       setCanResend(false);

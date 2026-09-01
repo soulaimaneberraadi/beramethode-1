@@ -75,6 +75,26 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+/**
+ * Le serveur d'e-mail est-il reellement configure ?
+ *
+ * Les valeurs d'exemple livrees avec le projet (`mail.yourdomain.com`,
+ * `your_password_here`) forment une configuration qui a l'air complete et qui
+ * n'envoie rien. C'est le pire cas : l'utilisateur lit « code envoye », attend
+ * un e-mail qui n'arrivera jamais, et reste dehors sans savoir pourquoi.
+ *
+ * Mieux vaut lui dire tout de suite que la recuperation par e-mail n'est pas
+ * disponible ici, et qu'il doit passer par son administrateur.
+ */
+export const emailConfigure = (): boolean => {
+  const host = String(process.env.SMTP_HOST || '').trim();
+  const user = String(process.env.SMTP_USER || '').trim();
+  const pass = String(process.env.SMTP_PASS || '').trim();
+  if (!host || !user || !pass) return false;
+  const exemples = ['mail.yourdomain.com', 'no-reply@yourdomain.com', 'your_password_here', 'your_password'];
+  return !exemples.includes(host) && !exemples.includes(user) && !exemples.includes(pass);
+};
+
 export const register = async (req: Request, res: Response) => {
   const { password, name } = req.body;
   const email = normalizeEmail(req.body.email);
@@ -386,6 +406,10 @@ export const requestPasswordReset = (req: Request, res: Response) => {
 
     res.json({
       message: 'If the email exists, a verification code has been sent',
+      // Le client a besoin de distinguer « e-mail inconnu » (on reste muet,
+      // c'est volontaire) de « la messagerie du serveur n'est pas installee »
+      // (rien ne partira jamais, il faut le dire).
+      emailIndisponible: !emailConfigure(),
       ...(allowResetDev ? { devCode: code } : {}),
     });
   } catch (error) {
