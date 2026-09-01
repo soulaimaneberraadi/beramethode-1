@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ChevronRight, ChevronDown, Shield, Plus, Trash2, Check, UserPlus, Eye, Pencil, X, Users, Settings, Activity, Minus, Ban } from 'lucide-react';
+import { ChevronRight, ChevronDown, Shield, Plus, Trash2, Check, UserPlus, Eye, Pencil, X, Users, Settings, Activity, Minus, Ban, Smartphone, LogOut, RotateCcw } from 'lucide-react';
 import { PROTECTED_PAGES, PROTECTED_FIELDS, ROLE_PRESETS, RolePresetKey } from '../server/permissions/presets';
 import { pageLabel, fieldLabel, FIELDS_BY_MODULE } from '../app/permissionCatalog';
 import { useLang } from '../src/context/LanguageContext';
@@ -30,6 +30,24 @@ const MODULE_KEYS = Object.keys(FIELDS_BY_MODULE);
 
 type TriValue = 0 | 1 | null; // null = hérité du rôle
 
+/**
+ * Un appareil sur lequel quelqu'un s'est connecte.
+ *
+ * `courant` designe celui d'ou l'on regarde la page : on ne se coupe pas
+ * l'acces par megarde en cliquant sur la mauvaise ligne.
+ */
+interface AppareilRow {
+  id: number;
+  device_id: string;
+  label: string | null;
+  platform: string | null;
+  ip: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+  revoked_at: string | null;
+  courant?: boolean;
+}
+
 export default function PermissionsManager() {
   const { lang } = useLang();
   const isDark = useIsDark();
@@ -57,7 +75,7 @@ export default function PermissionsManager() {
   const [overridesDirty, setOverridesDirty] = useState(false);
 
   // onglet activité
-  const [tab, setTab] = useState<'roles' | 'activity'>('roles');
+  const [tab, setTab] = useState<'roles' | 'activity' | 'devices'>('roles');
   const [activity, setActivity] = useState<ActivityRow[]>([]);
   const [activityOffset, setActivityOffset] = useState(0);
   const [activityHasMore, setActivityHasMore] = useState(true);
@@ -93,6 +111,34 @@ export default function PermissionsManager() {
   }, []);
 
   useEffect(() => { if (tab === 'activity' && activity.length === 0) void loadActivity(0, false); }, [tab, activity.length, loadActivity]);
+
+  // ── Appareils ───────────────────────────────────────────────────────────────
+  // On regarde membre par membre plutot que tout d'un coup : savoir depuis quel
+  // appareil et a quelle heure quelqu'un travaille est une information sensible,
+  // qu'on ouvre a la demande et pas en vrac sur un tableau.
+  const [appareilsDe, setAppareilsDe] = useState<number | null>(null);
+  const [appareils, setAppareils] = useState<AppareilRow[]>([]);
+  const [appareilsCharge, setAppareilsCharge] = useState(false);
+
+  const chargerAppareils = useCallback(async (userId: number) => {
+    setAppareilsCharge(true);
+    const res = await api(`/api/devices?userId=${userId}`);
+    setAppareils(res.devices || []);
+    setAppareilsCharge(false);
+  }, []);
+
+  const basculerRevocation = useCallback(async (a: AppareilRow) => {
+    const action = a.revoked_at ? 'restore' : 'revoke';
+    const res = await api(`/api/devices/${a.id}/${action}`, { method: 'POST' });
+    if (!res.ok) { setErrorMsg(res.error || 'Action impossible'); return; }
+    if (appareilsDe != null) void chargerAppareils(appareilsDe);
+  }, [appareilsDe, chargerAppareils]);
+
+  useEffect(() => {
+    if (tab !== 'devices' || appareilsDe == null) return;
+    void chargerAppareils(appareilsDe);
+  }, [tab, appareilsDe, chargerAppareils]);
+
 
   const rolesById = useMemo(() => {
     const map: Record<string, Role> = {};
@@ -534,6 +580,9 @@ export default function PermissionsManager() {
           <button onClick={() => setTab('activity')} className={`h-8 px-3 text-[12.5px] font-medium inline-flex items-center gap-1.5 border-l ${isDark ? 'border-dk-border' : 'border-slate-200'} ${tab === 'activity' ? '' : isDark ? 'text-dk-muted hover:bg-dk-bg' : 'text-slate-400 hover:bg-slate-50'}`} style={tab === 'activity' ? { background: ACCENT, color: '#fff' } : undefined}>
             <Activity size={13} strokeWidth={1.75} /> {tx(lang, { fr: 'Activité', ar: 'النشاط', en: 'Activity', es: 'Actividad', pt: 'Atividade', tr: 'Etkinlik' })}
           </button>
+          <button onClick={() => setTab('devices')} className={`h-8 px-3 text-[12.5px] font-medium inline-flex items-center gap-1.5 border-l ${isDark ? 'border-dk-border' : 'border-slate-200'} ${tab === 'devices' ? '' : isDark ? 'text-dk-muted hover:bg-dk-bg' : 'text-slate-400 hover:bg-slate-50'}`} style={tab === 'devices' ? { background: ACCENT, color: '#fff' } : undefined}>
+            <Smartphone size={13} strokeWidth={1.75} /> {tx(lang, { fr: 'Appareils', ar: 'الأجهزة', en: 'Devices', es: 'Dispositivos', pt: 'Aparelhos', tr: 'Cihazlar' })}
+          </button>
         </div>
       </div>
 
@@ -584,6 +633,86 @@ export default function PermissionsManager() {
             )}
           </div>
         </>
+      )}
+
+      {tab === 'devices' && (
+        <div className={`rounded-lg border p-4 ${isDark ? 'bg-dk-surface border-dk-border' : 'bg-white border-slate-200'}`}>
+          <h3 className={`text-[13px] font-semibold mb-1 flex items-center gap-1.5 ${isDark ? 'text-dk-text' : 'text-slate-900'}`}>
+            <Smartphone size={14} strokeWidth={1.75} className="text-slate-400" />
+            {tx(lang, { fr: 'Appareils connectés', ar: 'الأجهزة المتصلة', en: 'Connected devices', es: 'Dispositivos conectados', pt: 'Aparelhos ligados', tr: 'Bagli cihazlar' })}
+          </h3>
+          <p className={`text-[11px] mb-3 ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>
+            {tx(lang, {
+              fr: 'Un téléphone perdu se déconnecte ici, sans changer le mot de passe de son propriétaire.',
+              ar: 'تيليفون ضايع كيتسرّح من هنا، بلا ما تبدّل الكلمة السرّية ديال صاحبو.',
+              en: 'A lost phone is disconnected here, without changing its owner’s password.',
+              es: 'Un teléfono perdido se desconecta aquí, sin cambiar la contraseña de su dueño.',
+              pt: 'Um telemóvel perdido desliga-se aqui, sem mudar a palavra-passe do dono.',
+              tr: 'Kayip bir telefon buradan koparilir, sahibinin sifresi degismeden.',
+            })}
+          </p>
+
+          {/* Choix du membre — l'information est sensible, on l'ouvre a la demande */}
+          <select
+            value={appareilsDe ?? ''}
+            onChange={(e) => setAppareilsDe(e.target.value ? Number(e.target.value) : null)}
+            className={`h-8 px-2 rounded-md border text-[12.5px] mb-3 w-full sm:w-64 ${isDark ? 'bg-dk-bg border-dk-border text-dk-text' : 'bg-white border-slate-200 text-slate-700'}`}
+          >
+            <option value="">{tx(lang, { fr: 'Choisir un membre…', ar: 'اختر عضواً…', en: 'Choose a member…', es: 'Elegir un miembro…', pt: 'Escolher um membro…', tr: 'Bir uye secin…' })}</option>
+            {members.map(m => <option key={m.user_id} value={m.user_id}>{m.name || m.email}</option>)}
+          </select>
+
+          {appareilsDe == null && (
+            <p className={`text-[13px] py-3 text-center ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>
+              {tx(lang, { fr: 'Sélectionnez un membre pour voir ses appareils.', ar: 'اختر عضواً باش تشوف الأجهزة ديالو.', en: 'Select a member to see their devices.', es: 'Seleccione un miembro para ver sus dispositivos.', pt: 'Selecione um membro para ver os seus aparelhos.', tr: 'Cihazlarini gormek icin bir uye secin.' })}
+            </p>
+          )}
+
+          {appareilsDe != null && !appareilsCharge && appareils.length === 0 && (
+            <p className={`text-[13px] py-3 text-center ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>
+              {tx(lang, { fr: 'Aucun appareil enregistré.', ar: 'حتى جهاز ما مسجّل.', en: 'No device recorded.', es: 'Ningun dispositivo registrado.', pt: 'Nenhum aparelho registado.', tr: 'Kayitli cihaz yok.' })}
+            </p>
+          )}
+
+          <div className="space-y-1.5">
+            {appareils.map(a => {
+              const revoque = !!a.revoked_at;
+              return (
+                <div key={a.id} className={`flex items-center gap-3 py-2 border-b last:border-0 ${isDark ? 'border-dk-border' : 'border-slate-50'} ${revoque ? 'opacity-50' : ''}`}>
+                  <Smartphone size={14} strokeWidth={1.75} className={`shrink-0 ${isDark ? 'text-dk-muted' : 'text-slate-400'}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-[12.5px] font-medium truncate ${isDark ? 'text-dk-text' : 'text-slate-700'}`}>
+                      {a.label || a.platform || '—'}
+                      {a.courant && (
+                        <span className="ml-2 text-[10.5px] font-bold" style={{ color: ACCENT }}>
+                          {tx(lang, { fr: '· cet appareil', ar: '· هاد الجهاز', en: '· this device', es: '· este dispositivo', pt: '· este aparelho', tr: '· bu cihaz' })}
+                        </span>
+                      )}
+                    </p>
+                    <p className={`text-[11px] ${isDark ? 'text-dk-muted' : 'text-slate-400'}`}>
+                      {revoque
+                        ? tx(lang, { fr: 'Déconnecté', ar: 'مسرَّح', en: 'Disconnected', es: 'Desconectado', pt: 'Desligado', tr: 'Koparildi' })
+                        : `${tx(lang, { fr: 'Vu', ar: 'آخر نشاط', en: 'Seen', es: 'Visto', pt: 'Visto', tr: 'Gorulme' })} ${new Date(a.last_seen_at.replace(' ', 'T') + 'Z').toLocaleString()}`}
+                      {a.ip ? ` · ${a.ip}` : ''}
+                    </p>
+                  </div>
+                  {/* On ne propose pas de se couper soi-meme : le clic serait
+                      irreversible depuis cet ecran, qui deviendrait inaccessible. */}
+                  {!a.courant && (
+                    <button
+                      onClick={() => void basculerRevocation(a)}
+                      className={`shrink-0 h-7 px-2 rounded-md text-[11.5px] font-medium inline-flex items-center gap-1 border ${isDark ? 'border-dk-border hover:bg-dk-bg text-dk-text' : 'border-slate-200 hover:bg-slate-50 text-slate-600'}`}
+                    >
+                      {revoque
+                        ? <><RotateCcw size={12} strokeWidth={1.75} /> {tx(lang, { fr: 'Réactiver', ar: 'رجّع', en: 'Restore', es: 'Restaurar', pt: 'Restaurar', tr: 'Geri al' })}</>
+                        : <><LogOut size={12} strokeWidth={1.75} /> {tx(lang, { fr: 'Déconnecter', ar: 'سرّح', en: 'Disconnect', es: 'Desconectar', pt: 'Desligar', tr: 'Kopar' })}</>}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {tab === 'activity' && (
