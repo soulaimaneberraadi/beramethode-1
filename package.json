@@ -14,7 +14,8 @@
     "electron:dev": "concurrently --kill-others-on-fail --names \"SERVER,ELECTRON\" \"npm run dev:app\" \"electron .\"",
     "electron:build:win": "node scripts/native-electron.mjs && tsup && vite build --mode electron && electron-builder --win",
     "electron:rebuild": "electron-rebuild -f -w better-sqlite3",
-    "dev:app:https": "node scripts/dev-https.mjs"
+    "dev:app:https": "node scripts/dev-https.mjs",
+    "recuperer-admin": "tsx scripts/recuperer-admin.ts"
   },
   "dependencies": {
     "@google/genai": "^1.52.0",
