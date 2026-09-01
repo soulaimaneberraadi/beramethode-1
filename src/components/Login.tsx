@@ -33,7 +33,23 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onGuest?: () => void }) {
-  const [email, setEmail] = useState('');
+  /*
+   * « Se souvenir de moi » — deux effets distincts :
+   *
+   *  - l e-mail est reecrit dans le champ au prochain lancement, pour n avoir
+   *    que le mot de passe a taper ;
+   *  - la session survit a la fermeture du navigateur (le serveur pose alors
+   *    un cookie durable au lieu d un cookie de session).
+   *
+   * Coche par defaut : l usage courant est un telephone ou un poste personnel.
+   * Sur une machine partagee, on decoche — et rien n est ecrit sur le disque.
+   */
+  const [email, setEmail] = useState(() => {
+    try { return localStorage.getItem('bera_dernier_email') || ''; } catch { return ''; }
+  });
+  const [seSouvenir, setSeSouvenir] = useState(() => {
+    try { return localStorage.getItem('bera_se_souvenir') !== '0'; } catch { return true; }
+  });
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -206,7 +222,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
           credentials: 'include',
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email.trim(), password }),
+          body: JSON.stringify({ email: email.trim(), password, remember: seSouvenir }),
           signal: controller.signal,
         });
 
@@ -215,6 +231,18 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
         if (!res.ok) {
           throw new Error(loginErrorMessage(data, 'E-mail ou mot de passe incorrect.'));
         }
+
+        // Sur un poste partage, decocher doit EFFACER ce qui trainait d une
+        // session precedente, pas seulement s abstenir d ecrire.
+        try {
+          if (seSouvenir) {
+            localStorage.setItem('bera_dernier_email', email.trim());
+            localStorage.setItem('bera_se_souvenir', '1');
+          } else {
+            localStorage.removeItem('bera_dernier_email');
+            localStorage.setItem('bera_se_souvenir', '0');
+          }
+        } catch { /* stockage indisponible : sans consequence */ }
 
         notifyServerSessionEstablished(data.user?.id ?? 0);
         if (data.user?.cloudUserId) {
@@ -640,7 +668,21 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                   {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
                 </button>
               </div>
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-3">
+                {/* Se souvenir : l e-mail revient tout seul, et la session
+                    survit a la fermeture du navigateur. Decoche sur un poste
+                    partage, rien n est garde. */}
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={seSouvenir}
+                    onChange={(e) => setSeSouvenir(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 dark:border-dk-border text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                  <span className="text-sm font-medium text-gray-600 dark:text-dk-text-soft">
+                    {tx(lang, {fr:'Rester connecté',ar:'خلّيني داخل',en:'Stay signed in',es:'Mantener sesión',pt:'Manter sessão',tr:'Oturumu acik tut'})}
+                  </span>
+                </label>
                 <button
                   type="button"
                   onClick={() => setShowForgotPassword(true)}

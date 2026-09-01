@@ -19,13 +19,42 @@ const SUPABASE_ANON_KEY =
   process.env.SUPABASE_ANON_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk';
 
-function setAuthCookie(res: Response, user: { id: number; email: string; role: string }): void {
-  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: SESSION_EXPIRES_IN });
+/**
+ * Depose le cookie de session.
+ *
+ * `seSouvenir` vient de la case « Se souvenir de moi » :
+ *
+ *   cochee    la session dure SESSION_DAYS (30 jours par defaut). L appareil
+ *             est a la personne — son telephone, son poste — et lui redemander
+ *             son mot de passe chaque matin ne protege rien : ca produit un
+ *             mot de passe simple, ou note sur un papier.
+ *
+ *   decochee  cookie de session : il disparait a la fermeture du navigateur.
+ *             C est le cas du poste partage de l atelier, ou du telephone d un
+ *             collegue. Ne rien ecrire sur le disque est ici la bonne reponse.
+ *
+ * En cas de doute on ne se souvient pas : une session qui traine sur une
+ * machine partagee est pire qu une reconnexion de trop.
+ */
+function setAuthCookie(
+  res: Response,
+  user: { id: number; email: string; role: string },
+  seSouvenir = false,
+): void {
+  const token = jwt.sign(
+    { id: user.id, email: user.email, role: user.role },
+    JWT_SECRET,
+    // Le jeton porte toujours la duree longue : c est le cookie qui decide de
+    // sa survie. Un jeton court-circuiterait le rafraichissement glissant.
+    { expiresIn: SESSION_EXPIRES_IN },
+  );
   res.cookie('token', token, {
     httpOnly: true,
     secure: isCookieSecure(),
     sameSite: cookieSameSite(),
-    maxAge: SESSION_MS,
+    // Sans maxAge, le navigateur en fait un cookie de session : efface a la
+    // fermeture. C est exactement ce qu on veut quand la case est decochee.
+    ...(seSouvenir ? { maxAge: SESSION_MS } : {}),
   });
 }
 
@@ -119,6 +148,7 @@ export const register = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
   const email = normalizeEmail(req.body.email);
   const { password } = req.body;
+  const seSouvenir = req.body.remember === true;
 
   if (!email || !password) {
     return res.status(400).json({ message: 'Email and password are required' });
@@ -134,7 +164,7 @@ export const login = async (req: Request, res: Response) => {
     }
 
     logAudit({ userId: user.id, action: 'LOGIN', ip: req.ip });
-    setAuthCookie(res, { id: user.id, email: user.email, role: user.role });
+    setAuthCookie(res, { id: user.id, email: user.email, role: user.role }, seSouvenir);
 
     // Mettre en place la session Supabase si les identifiants correspondent
     let cloudUserId: string | undefined;
