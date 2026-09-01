@@ -1115,6 +1115,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   // Seul le PREMIER niveau est route (depth 1) — descendre plus loin dans la
   // pile (modele -> client -> ...) reste un etat local, non partageable.
   const [entitySheetParam, setEntitySheetParam] = useRouteParam({ view: 'sousTraitance', depth: 1 });
+  /** Libelle de l'ecran reste ouvert DERRIERE la fiche (« Encours client »).
+   *  Non nul = fiche ouverte par-dessus, hors URL. */
+  const [entitySheetVolatile, setEntitySheetVolatile] = useState<string | null>(null);
   /** Client dont la fiche a demandé l'édition : c'est le formulaire EXISTANT de
    *  ClientsPanel qui s'ouvre, jamais un second formulaire dupliqué ici. */
   const [pendingEditClientId, setPendingEditClientId] = useState<string | null>(null);
@@ -2984,13 +2987,26 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   /* ---- Navigation entre fiches (modèle ↔ client) ---- */
   const openEntitySheet = (target: SheetTarget) => {
     setEntityStack([target]);
+    setEntitySheetVolatile(null);
     setEntitySheetParam(encodeSheetTarget(target));
+  };
+  /** Ouvrir une fiche PAR-DESSUS un panneau deja ouvert (l'encours, par
+   *  exemple). On n'ecrit alors RIEN dans l'URL : `entitySheetParam` et
+   *  `ventesDetailId` partagent le meme segment (depth 1), et l'y inscrire
+   *  refermait le panneau du dessous — la fiche s'ouvrait sur un tableau de
+   *  bord vide, sans chemin de retour. */
+  const openEntitySheetOver = (target: SheetTarget, libelle: string) => {
+    setEntityStack([target]);
+    setEntitySheetVolatile(libelle);
   };
   const pushEntitySheet = (target: SheetTarget) => setEntityStack(prev => [...prev, target]);
   const backEntitySheet = () => setEntityStack(prev => (prev.length > 1 ? prev.slice(0, -1) : prev));
   const closeEntitySheet = () => {
     setEntityStack([]);
-    setEntitySheetParam(null);
+    // En mode « par-dessus », l'URL n'a jamais bouge : l'effacer refermerait
+    // le panneau reste ouvert derriere la fiche.
+    if (entitySheetVolatile) setEntitySheetVolatile(null);
+    else setEntitySheetParam(null);
   };
   // Lien partage / rechargement de page avec une fiche dans l URL : on la
   // rouvre directement (le premier niveau de la pile se suffit a lui-meme,
@@ -8312,7 +8328,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               currency={currency}
               detail={ventesDetailId as VentesDetailKey}
               onDetailChange={(d) => setVentesDetailId(d)}
-              onOuvrirFicheClient={(c) => openEntitySheet({ kind: 'client', clientId: c.clientId, clientNom: c.nom })}
+              onOuvrirFicheClient={(c) => openEntitySheetOver({ kind: 'client', clientId: c.clientId, clientNom: c.nom }, 'Encours client')}
             />
           )}
 
@@ -11418,6 +11434,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           onPush={pushEntitySheet}
           onBack={backEntitySheet}
           onClose={closeEntitySheet}
+          retourExterne={entitySheetVolatile ? { libelle: entitySheetVolatile, onRetour: closeEntitySheet } : undefined}
           models={models}
           orders={orders}
           clients={atelierClients}

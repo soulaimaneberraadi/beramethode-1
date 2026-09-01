@@ -67,6 +67,11 @@ interface EntitySheetProps {
     /** Renvoie vers le formulaire client existant (ClientsPanel) : on ne
      *  duplique pas la saisie, on la réutilise. */
     onEditClient?: (client: AtelierClient) => void;
+    /** Retour vers l'ecran d'ou l'on vient quand la fiche a ete ouverte
+     *  PAR-DESSUS un autre panneau (l'encours, par exemple). La pile interne
+     *  ne connait pas cet ecran : sans ce rappel, la fleche disparait au
+     *  premier niveau et la fiche redevient un cul-de-sac. */
+    retourExterne?: { libelle: string; onRetour: () => void };
     /** Rechargement des sorties après émission d'une facture de vente : sans
      *  lui, le badge « Payé / Impayé » resterait figé sur l'ancien état. */
     onInvoiced?: () => void;
@@ -2038,7 +2043,7 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
 /* ------------------------------------------------------------------ */
 
 const EntitySheet: React.FC<EntitySheetProps> = (props) => {
-    const { stack, onBack, onClose, models, clients } = props;
+    const { stack, onBack, onClose, models, clients, retourExterne } = props;
     const { lang } = useLang();
     /* Appele AVANT le retour anticipe ci-dessous : un hook conditionnel casserait le rendu. */
     const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
@@ -2067,8 +2072,17 @@ const EntitySheet: React.FC<EntitySheetProps> = (props) => {
             title={current.kind === 'model'
                 ? tx(lang, { fr: 'Fiche modèle', ar: 'بطاقة الموديل', en: 'Model sheet', es: 'Ficha de modelo', pt: 'Ficha de modelo', tr: 'Model kartı' })
                 : tx(lang, { fr: 'Fiche client', ar: 'بطاقة الزبون', en: 'Client sheet', es: 'Ficha de cliente', pt: 'Ficha de cliente', tr: 'Müşteri kartı' })}
-            subtitle={stack.map(crumb).join(' › ')}
-            icon={stack.length > 1 ? (
+            subtitle={[retourExterne?.libelle, ...stack.map(crumb)].filter(Boolean).join(' › ')}
+            icon={stack.length === 1 && retourExterne ? (
+                <button
+                    type="button"
+                    onClick={retourExterne.onRetour}
+                    title={`${tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })} — ${retourExterne.libelle}`}
+                    className="p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated hover:text-slate-600 dark:hover:text-dk-text-soft transition-colors shrink-0"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                </button>
+            ) : stack.length > 1 ? (
                 <button
                     type="button"
                     onClick={onBack}
@@ -2124,6 +2138,22 @@ const EntitySheet: React.FC<EntitySheetProps> = (props) => {
                             onInvoiced={props.onInvoiced}
                             onPrintInvoice={props.onPrintInvoice}
                         />
+                    )}
+                    {/* Le retour au pied de page : la fiche est longue, et sur
+                        telephone remonter jusqu'a la fleche du haut pour revenir
+                        a l'ecran precedent est un trajet inutile. */}
+                    {(retourExterne || stack.length > 1) && (
+                        <div className="pt-4 pb-[env(safe-area-inset-bottom)]">
+                            <button
+                                type="button"
+                                onClick={retourExterne && stack.length === 1 ? retourExterne.onRetour : onBack}
+                                className="w-full sm:w-auto sm:min-w-[220px] sm:mx-auto flex items-center justify-center gap-2 h-11 px-4 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-bold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated active:scale-[0.99] transition"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                {tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}
+                                {retourExterne && stack.length === 1 ? ` — ${retourExterne.libelle}` : ''}
+                            </button>
+                        </div>
                     )}
                 </div>
         </SheetModal>
