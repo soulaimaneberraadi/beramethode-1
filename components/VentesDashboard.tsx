@@ -19,6 +19,7 @@ import { tx } from '../lib/i18n';
 import { aujourdhui, ChampListe, ChampDate } from './ventes/champs';
 import EncoursDetail from './ventes/EncoursDetail';
 import PanneauDetail from './ventes/PanneauDetail';
+import { teinteDe } from './ventes/articles';
 
 /** Sans serveur (deploiement statique), il n'y a ni sorties de stock ni
  *  clients a agreger : le tableau de bord le DIT, au lieu d'afficher une
@@ -245,6 +246,15 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
             pt: 'A maioria das vendas nao tem esta informacao: a reparticao acima cobre apenas uma minoria.',
             tr: 'Satislarin cogunda bu bilgi yok: yukaridaki dagilim yalnizca bir azinligi kapsar.',
         }),
+        sansPrix: tx(lang, {
+            fr: 'Des pieces sont sorties sans prix de vente : le chiffre de cette ligne est incomplet.',
+            ar: 'كاين قطع خرجات بلا ثمن بيع: رقم هاد السطر ناقص.',
+            en: 'Some items left stock without a sale price: this line total is incomplete.',
+            es: 'Hay piezas que salieron sin precio de venta: el total de esta linea esta incompleto.',
+            pt: 'Ha pecas que sairam sem preco de venda: o total desta linha esta incompleto.',
+            tr: 'Bazi parcalar satis fiyati olmadan cikti: bu satirin toplami eksik.',
+        }),
+        sansPrixCourt: tx(lang, { fr: 'sans prix', ar: 'بلا ثمن', en: 'no price', es: 'sin precio', pt: 'sem preco', tr: 'fiyatsiz' }),
         nonRenseigne: tx(lang, { fr: 'Non renseigne', ar: 'غير محدّد', en: 'Not recorded', es: 'Sin indicar', pt: 'Nao indicado', tr: 'Belirtilmemis' }),
         piecesCourt: tx(lang, { fr: 'pcs', ar: 'قطعة', en: 'pcs', es: 'uds', pt: 'pcs', tr: 'adet' }),
         ventesCourt: tx(lang, { fr: 'ventes', ar: 'بيعة', en: 'sales', es: 'ventas', pt: 'vendas', tr: 'satis' }),
@@ -384,7 +394,42 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
      * dire, et le chiffre affiche etait donc faux. Une part se calcule sur une
      * grandeur qui s'additionne : un chiffre d'affaires, un nombre de ventes.
      */
-    const Repartition = ({ titre, lignes, unite }: { titre: string; lignes: Array<{ cle: string; ca: number; valeur?: number; poids?: number; detail: string }>; unite?: string }) => {
+    /** La photo du modele, reprise de sa fiche. A defaut, ses initiales : un
+     *  carre vide ferait croire a une image qui ne charge pas. */
+    const Vignette: React.FC<{ image: string | null; nom: string }> = ({ image, nom }) => (
+        image
+            ? <img src={image} alt="" className="w-7 h-7 rounded-md object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+            : (
+                <span className="w-7 h-7 rounded-md shrink-0 flex items-center justify-center bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[9px] font-black text-slate-400 dark:text-dk-muted">
+                    {nom.slice(0, 2).toUpperCase()}
+                </span>
+            )
+    );
+
+    /** « Bleu Marine » et « Bleu Ciel » se ressemblent en texte et pas du tout
+     *  en rayon : on teinte la pastille avec le meme dictionnaire que les
+     *  factures, jamais un second. Sans correspondance, elle reste grise —
+     *  mieux vaut ne rien dire que mentir sur la teinte. */
+    const PastilleCouleur: React.FC<{ nom: string }> = ({ nom }) => {
+        const hex = teinteDe(nom);
+        return (
+            <span
+                title={nom}
+                className="w-3.5 h-3.5 rounded-full shrink-0 border border-slate-300 dark:border-dk-border"
+                style={{ background: hex || 'transparent' }}
+            >
+                {!hex && <span className="block w-full h-full rounded-full bg-slate-200 dark:bg-dk-elevated" />}
+            </span>
+        );
+    };
+
+    const EtiquetteTaille: React.FC<{ taille: string }> = ({ taille }) => (
+        <span className="min-w-[26px] h-5 px-1.5 shrink-0 inline-flex items-center justify-center rounded-md bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[9px] font-black uppercase text-slate-500 dark:text-dk-muted">
+            {taille}
+        </span>
+    );
+
+    const Repartition = ({ titre, lignes, unite }: { titre: string; lignes: Array<{ cle: string; ca: number; valeur?: number; poids?: number; detail: string; vignette?: React.ReactNode; sansPrix?: boolean }>; unite?: string }) => {
         const valeurDe = (l: { ca: number; valeur?: number }) => (l.valeur == null ? l.ca : l.valeur);
         const poidsDe = (l: { ca: number; poids?: number }) => (l.poids == null ? l.ca : l.poids);
         const total = lignes.reduce((a, l) => a + poidsDe(l), 0);
@@ -397,9 +442,24 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                         const flou = l.cle === 'NON_PRECISE' || l.cle === '—';
                         return (
                             <div key={l.cle}>
-                                <div className="flex items-baseline justify-between gap-2 text-[11px]">
-                                    <span className={`font-bold truncate ${flou ? 'text-slate-400 dark:text-dk-muted italic' : 'text-slate-700 dark:text-dk-text-soft'}`}>
-                                        {libelle(l.cle)}
+                                <div className="flex items-center justify-between gap-2 text-[11px]">
+                                    <span className="flex items-center gap-2 min-w-0">
+                                        {/* Reconnaitre a l'oeil : une photo, une
+                                            pastille de couleur ou une taille se
+                                            lisent plus vite qu'un nom. */}
+                                        {l.vignette}
+                                        <span className={`font-bold truncate ${flou ? 'text-slate-400 dark:text-dk-muted italic' : 'text-slate-700 dark:text-dk-text-soft'}`}>
+                                            {libelle(l.cle)}
+                                        </span>
+                                        {/* Des pieces sorties sans prix : ni erreur
+                                            ni normalite, mais le chiffre d'affaires
+                                            de cette ligne est faux tant qu'on ne
+                                            l'a pas tranche. */}
+                                        {l.sansPrix && (
+                                            <span title={T.sansPrix} className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/50">
+                                                <AlertTriangle className="w-2.5 h-2.5" />{T.sansPrixCourt}
+                                            </span>
+                                        )}
                                     </span>
                                     <span className="shrink-0 tabular-nums">
                                         <span className="font-black text-slate-800 dark:text-dk-text">{nf(part)} %</span>
@@ -903,11 +963,26 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                 <PanneauDetail titre={T.pieces} valeur={nf(data.kpis.pieces)} sous={periodeLisible} onFermer={() => setDetail(null)}>
                     <Repartition titre={T.modeles} unite={T.piecesCourt}
                         lignes={[...data.modeles].sort((a, b) => b.piecesPeriode - a.piecesPeriode).slice(0, 25)
-                            .map(m => ({ cle: m.nom, ca: m.caPeriode, valeur: m.piecesPeriode, poids: m.piecesPeriode, detail: `${nf(m.caPeriode)} ${currency} · ${T.stock} ${nf(m.stock)}` }))} />
+                            .map(m => ({
+                                cle: m.nom, ca: m.caPeriode, valeur: m.piecesPeriode, poids: m.piecesPeriode,
+                                vignette: <Vignette image={m.image} nom={m.nom} />,
+                                sansPrix: m.piecesPeriode > 0 && m.caPeriode <= 0,
+                                detail: `${nf(m.caPeriode)} ${currency} · ${T.stock} ${nf(m.stock)}`,
+                            }))} />
                     <Repartition titre={T.tailles} unite={T.piecesCourt}
-                        lignes={data.tailles.map(t => ({ cle: t.taille, ca: t.ca, valeur: t.pieces, poids: t.pieces, detail: `${nf(t.ca)} ${currency}` }))} />
+                        lignes={data.tailles.map(t => ({
+                            cle: t.taille, ca: t.ca, valeur: t.pieces, poids: t.pieces,
+                            vignette: <EtiquetteTaille taille={t.taille} />,
+                            sansPrix: t.pieces > 0 && t.ca <= 0,
+                            detail: `${nf(t.ca)} ${currency}`,
+                        }))} />
                     <Repartition titre={T.couleurs} unite={T.piecesCourt}
-                        lignes={data.couleurs.map(c => ({ cle: c.couleur, ca: c.ca, valeur: c.pieces, poids: c.pieces, detail: `${nf(c.ca)} ${currency}` }))} />
+                        lignes={data.couleurs.map(c => ({
+                            cle: c.couleur, ca: c.ca, valeur: c.pieces, poids: c.pieces,
+                            vignette: <PastilleCouleur nom={c.couleur} />,
+                            sansPrix: c.pieces > 0 && c.ca <= 0,
+                            detail: `${nf(c.ca)} ${currency}`,
+                        }))} />
                 </PanneauDetail>
             )}
 
