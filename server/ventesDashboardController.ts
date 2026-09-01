@@ -225,6 +225,49 @@ export const getVentesDashboard = (req: Request, res: Response) => {
             ORDER BY pieces DESC
         `).all(...f.params) as any[];
 
+        /**
+         * « Vert Emeraude », « vert emeraude » et « VERT ÉMERAUDE » sont la
+         * même couleur. Saisis libres sur trois ventes, ils faisaient trois
+         * lignes de trois pourcentages — et la couleur la plus vendue pouvait
+         * ne jamais apparaître en tête. Même chose pour « xl » et « XL ».
+         *
+         * Le regroupement SQL ne peut pas les reunir : il compare des octets.
+         * On fusionne donc ici, sur une clef sans accent ni casse. Le GROUP BY
+         * a deja reduit la table a quelques dizaines de lignes : la fusion ne
+         * coûte rien, quel que soit le nombre de ventes.
+         *
+         * L'orthographe affichee est celle qui revient le plus souvent : c'est
+         * celle que l'atelier reconnaît, pas une forme inventee ici.
+         */
+        const clefLibre = (v: string) => String(v ?? '')
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .trim().toLowerCase().replace(/\s+/g, ' ');
+
+        const fusionner = (lignes: any[], champ: string) => {
+            const par = new Map<string, any>();
+            for (const l of lignes) {
+                const brut = String(l[champ] ?? '');
+                const clef = clefLibre(brut);
+                const gagnant = par.get(clef);
+                if (!gagnant) {
+                    par.set(clef, { ...l, _formes: new Map([[brut, Number(l.pieces) || 0]]) });
+                    continue;
+                }
+                gagnant.pieces = (Number(gagnant.pieces) || 0) + (Number(l.pieces) || 0);
+                gagnant.ca = (Number(gagnant.ca) || 0) + (Number(l.ca) || 0);
+                gagnant._formes.set(brut, (gagnant._formes.get(brut) || 0) + (Number(l.pieces) || 0));
+            }
+            return [...par.values()].map(l => {
+                const formes = [...l._formes.entries()] as Array<[string, number]>;
+                formes.sort((a, b) => b[1] - a[1]);
+                const { _formes, ...reste } = l;
+                return { ...reste, [champ]: formes[0][0] };
+            }).sort((a, b) => (Number(b.pieces) || 0) - (Number(a.pieces) || 0));
+        };
+
+        const couleursFusion = fusionner(couleurs, 'couleur');
+        const taillesFusion = fusionner(tailles, 'taille');
+
         // ── Qualité : ce qui est sorti de l'atelier, et dans quel état ───
         // Le taux de défaut se lit sur les ENTRÉES, pas sur les ventes : une
         // pièce à retoucher n'a jamais atteint le rayon, et c'est justement
@@ -476,8 +519,8 @@ export const getVentesDashboard = (req: Request, res: Response) => {
             parSegment: parSegment.map(s => ({ ...s, ca: Number((Number(s.ca) || 0).toFixed(2)) })),
             paniers,
             parPaiement: parPaiement.map(p => ({ ...p, ca: Number((Number(p.ca) || 0).toFixed(2)) })),
-            tailles: tailles.map(t => ({ ...t, ca: Number((Number(t.ca) || 0).toFixed(2)) })),
-            couleurs: couleurs.map(c => ({ ...c, ca: Number((Number(c.ca) || 0).toFixed(2)) })),
+            tailles: taillesFusion.map(t => ({ ...t, ca: Number((Number(t.ca) || 0).toFixed(2)) })),
+            couleurs: couleursFusion.map(c => ({ ...c, ca: Number((Number(c.ca) || 0).toFixed(2)) })),
             qualite: {
                 parEtat: qualite,
                 // Un taux global lu sur la période : c'est lui qui dit si
