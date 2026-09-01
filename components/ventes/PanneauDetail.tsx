@@ -88,13 +88,13 @@ const PanneauDetail: React.FC<{
                     {/* Le retour au pied de page : sur telephone la feuille est
                         longue, et remonter jusqu'a la fleche du haut pour sortir
                         est un trajet inutile. */}
-                    <div className="mt-1 pt-3 border-t border-slate-200 dark:border-dk-border pb-[env(safe-area-inset-bottom)]">
+                    <div className="mt-2 flex justify-center pb-[env(safe-area-inset-bottom)]">
                         <button
                             type="button"
                             onClick={onFermer}
-                            className="inline-flex items-center gap-2 px-3 py-2 -ml-1 rounded-lg text-[12px] font-bold text-slate-500 dark:text-dk-muted hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
+                            className="mx-auto inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full bg-slate-900 dark:bg-dk-elevated text-white text-[12px] font-bold shadow-[0_8px_24px_rgba(15,23,42,0.20)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.40)] hover:bg-slate-800 dark:hover:bg-dk-border active:scale-[0.97] transition"
                         >
-                            <ArrowLeft className="w-4 h-4" />
+                            <span className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center shrink-0"><ArrowLeft className="w-3.5 h-3.5" /></span>
                             {retour ? `Retour — ${retour}` : 'Fermer'}
                         </button>
                     </div>

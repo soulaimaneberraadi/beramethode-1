@@ -2143,13 +2143,13 @@ const EntitySheet: React.FC<EntitySheetProps> = (props) => {
                         telephone remonter jusqu'a la fleche du haut pour revenir
                         a l'ecran precedent est un trajet inutile. */}
                     {(retourExterne || stack.length > 1) && (
-                        <div className="mt-4 pt-3 border-t border-slate-200 dark:border-dk-border pb-[env(safe-area-inset-bottom)]">
+                        <div className="mt-5 flex justify-center pb-[env(safe-area-inset-bottom)]">
                             <button
                                 type="button"
                                 onClick={retourExterne && stack.length === 1 ? retourExterne.onRetour : onBack}
-                                className="inline-flex items-center gap-2 px-3 py-2 -ml-1 rounded-lg text-[12px] font-bold text-slate-500 dark:text-dk-muted hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
+                                className="mx-auto inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full bg-slate-900 dark:bg-dk-elevated text-white text-[12px] font-bold shadow-[0_8px_24px_rgba(15,23,42,0.20)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.40)] hover:bg-slate-800 dark:hover:bg-dk-border active:scale-[0.97] transition"
                             >
-                                <ArrowLeft className="w-4 h-4" />
+                                <span className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center shrink-0"><ArrowLeft className="w-3.5 h-3.5" /></span>
                                 {tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}
                                 {retourExterne && stack.length === 1 ? ` — ${retourExterne.libelle}` : ''}
                             </button>
