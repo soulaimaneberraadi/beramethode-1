@@ -145,6 +145,22 @@ export function parseHash(hash: string): ParsedRoute {
     const clean = sanitizeHash(rawHash);
     if (!clean) return empty();
 
+    // Le fragment n'est pas toujours une adresse de page : les retours
+    // d'authentification y deposent leurs jetons et leurs refus
+    // (#error=access_denied&…, #access_token=…&refresh_token=…). C'est la
+    // convention d'OAuth, pas la notre.
+    //
+    // Sans cette exception, un refus de Google etait lu comme une page
+    // inconnue : l'usager voyait « page introuvable » au lieu de la raison du
+    // refus, et l'ecran de connexion n'avait jamais l'occasion de parler.
+    //
+    // On renvoie « aucune route » plutot que 404 : la page d'accueil s'affiche,
+    // et le code d'authentification lit le fragment comme prevu.
+    if (/^[^/]+=/.test(clean)) {
+      debug('parseHash: fragment d authentification, pas une route');
+      return empty();
+    }
+
     const raw = clean.split('/').filter(Boolean);
     if (raw.length === 0) return empty();
 

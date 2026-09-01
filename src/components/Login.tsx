@@ -57,6 +57,38 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
   const { login, staticLogin, signInWithGoogle } = useAuth();
   const { lang } = useLang();
   const isDark = useIsDark();
+
+  /**
+   * Retour de Google en echec.
+   *
+   * Le refus revient dans le FRAGMENT de l adresse (#error=...), et personne
+   * ne le lisait : on retombait sur l ecran de connexion, muet, comme si rien
+   * ne s etait passe. L usager ne pouvait que reessayer, et rater pareil.
+   *
+   * On le lit, on l affiche, puis on nettoie l adresse — sinon le message
+   * revient a chaque rechargement, longtemps apres avoir cesse d etre vrai.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const frag = new URLSearchParams(window.location.hash.replace(/^#\/?/, ''));
+    const code = frag.get('error_code') || frag.get('error');
+    if (!code) return;
+
+    const detail = frag.get('error_description');
+    setError(
+      code === 'otp_expired'
+        ? tx(lang, {
+            fr: 'Ce lien a expire ou a deja servi. Demandez-en un nouveau.',
+            ar: 'هاد الرابط سالا ولا تستعمل من قبل. طلب واحد جديد.',
+            en: 'This link has expired or was already used. Request a new one.',
+            es: 'Este enlace ha caducado o ya se uso. Solicite uno nuevo.',
+            pt: 'Este link expirou ou ja foi usado. Peca um novo.',
+            tr: 'Bu baglanti suresi doldu veya kullanildi. Yenisini isteyin.',
+          })
+        : (detail ? detail.replace(/\+/g, ' ') : code),
+    );
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, [lang]);
   
   // Forgot Password State
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -273,10 +305,27 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
     try {
       const result = await withTimeout(signInWithGoogle(), LOGIN_TIMEOUT_MS);
       if (!result.ok) {
-        // En cas de succès le navigateur redirige vers Google : pas de reset ici.
         setError(result.message || tx(lang, {fr:'Échec de la connexion avec Google.',ar:'فشل تسجيل الدخول عبر Google.',en:'Google sign-in failed.',es:'Error al iniciar sesión con Google.',pt:'Falha ao iniciar sessão com o Google.',tr:'Google ile giriş başarısız oldu.'}));
         setIsLoading(false);
+        return;
       }
+
+      // Succès annoncé : le navigateur est censé partir vers Google. S'il est
+      // toujours là quelques secondes plus tard, le départ n'a pas eu lieu —
+      // fenêtre bloquée, réseau coupé, retour refusé. Sans ce garde-fou le
+      // bouton tournait indéfiniment : pas d'erreur, pas de sortie, rien à
+      // faire d'autre que recharger la page en se demandant pourquoi.
+      window.setTimeout(() => {
+        setIsLoading(false);
+        setError(tx(lang, {
+          fr: "La page Google ne s'est pas ouverte. Verifiez que les fenetres ne sont pas bloquees, puis reessayez.",
+          ar: 'صفحة Google ما تحلّاتش. تأكّد أن المتصفّح ما كيحبسش النوافذ، وعاود جرّب.',
+          en: "Google's page did not open. Check that windows are not blocked, then try again.",
+          es: 'La pagina de Google no se abrio. Compruebe que no se bloqueen las ventanas e intentelo de nuevo.',
+          pt: 'A pagina do Google nao abriu. Verifique se as janelas nao estao bloqueadas e tente de novo.',
+          tr: 'Google sayfasi acilmadi. Pencerelerin engellenmedigini kontrol edip tekrar deneyin.',
+        }));
+      }, 6000);
     } catch (err: unknown) {
       setError(networkErrorMessage(err));
       setIsLoading(false);
