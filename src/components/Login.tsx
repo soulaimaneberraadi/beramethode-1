@@ -677,7 +677,7 @@ export default function Login({ onSwitch, onGuest }: { onSwitch: () => void, onG
                     type="checkbox"
                     checked={seSouvenir}
                     onChange={(e) => setSeSouvenir(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 dark:border-dk-border text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    className="w-[15px] h-[15px] shrink-0 rounded-[5px] border-2 border-gray-200 dark:border-dk-border accent-emerald-600 cursor-pointer"
                   />
                   <span className="text-sm font-medium text-gray-600 dark:text-dk-text-soft">
                     {tx(lang, {fr:'Rester connecté',ar:'خلّيني داخل',en:'Stay signed in',es:'Mantener sesión',pt:'Manter sessão',tr:'Oturumu acik tut'})}
