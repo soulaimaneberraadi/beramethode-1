@@ -37,6 +37,11 @@ const PanneauDetail: React.FC<{
         return () => { document.removeEventListener('keydown', echap); document.body.style.overflow = avant; };
     }, [onFermer]);
 
+    /** Une feuille empilee ne doit PAS ressembler a celle du dessous : sans
+     *  signe visible, on ne sait plus a quel etage on se trouve. L'en-tete
+     *  sombre est ce signe — un seul coup d'oeil suffit. */
+    const empile = !!retour;
+
     return createPortal(
         <div className="fixed inset-0 z-[120] flex flex-col sm:p-6 bg-slate-900/50">
             <button
@@ -46,39 +51,55 @@ const PanneauDetail: React.FC<{
                 className="sm:hidden h-14 w-full shrink-0"
             />
             <div className="flex-1 min-h-0 flex flex-col rounded-t-2xl sm:rounded-2xl bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border shadow-2xl overflow-hidden">
-                <header className="shrink-0 px-3.5 sm:px-5 pb-3 pt-1.5 sm:pt-3 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border">
+                <header className={`shrink-0 px-3.5 sm:px-5 pb-3 pt-1.5 sm:pt-3 border-b ${empile
+                    ? 'bg-slate-900 border-slate-800'
+                    : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border'}`}>
                     {/* La barre de prehension : sur telephone elle dit que la
                         feuille est une feuille, et que le haut la referme. */}
-                    <div className="sm:hidden mx-auto mb-2 h-1 w-9 rounded-full bg-slate-300 dark:bg-dk-border" />
+                    <div className={`sm:hidden mx-auto mb-2 h-1 w-9 rounded-full ${empile ? 'bg-white/25' : 'bg-slate-300 dark:bg-dk-border'}`} />
                     <div className="flex items-start gap-3">
                         <button
                             type="button"
                             onClick={onFermer}
-                            className="w-9 h-9 sm:w-8 sm:h-8 -ml-1 sm:ml-0 shrink-0 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated active:scale-95 transition"
+                            className={`w-9 h-9 sm:w-8 sm:h-8 -ml-1 sm:ml-0 shrink-0 rounded-lg flex items-center justify-center active:scale-95 transition ${empile
+                                ? 'bg-white/10 text-white hover:bg-white/20'
+                                : 'text-slate-400 hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated'}`}
                         >
                             {retour ? <ArrowLeft className="w-4 h-4" /> : (<><ArrowLeft className="w-4 h-4 sm:hidden" /><X className="w-4 h-4 hidden sm:block" /></>)}
                         </button>
                         <div className="min-w-0 flex-1">
-                            {retour && <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">&larr; {retour}</p>}
+                            {retour && (
+                                <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-white/45">
+                                    &larr; {retour}
+                                </p>
+                            )}
                             {onTitre ? (
                                 <button
                                     type="button"
                                     onClick={onTitre}
                                     title={titreInfo || titre}
-                                    className="max-w-full inline-flex items-center gap-1 py-0.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline decoration-indigo-300 underline-offset-2"
+                                    className={`max-w-full inline-flex items-center gap-1.5 py-0.5 hover:underline underline-offset-2 ${empile
+                                        ? 'text-[17px] sm:text-[19px] font-black text-white decoration-white/40'
+                                        : 'text-[11px] font-extrabold uppercase tracking-[0.08em] text-indigo-600 dark:text-indigo-400 decoration-indigo-300'}`}
                                 >
                                     <span className="truncate">{titre}</span>
-                                    <ExternalLink className="w-3 h-3 shrink-0" />
+                                    <ExternalLink className={empile ? 'w-3.5 h-3.5 shrink-0 opacity-70' : 'w-3 h-3 shrink-0'} />
                                 </button>
                             ) : (
-                                <h2 className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted truncate">{titre}</h2>
+                                <h2 className={empile
+                                    ? 'text-[17px] sm:text-[19px] font-black text-white truncate'
+                                    : 'text-[11px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted truncate'}>
+                                    {titre}
+                                </h2>
                             )}
                             {valeur && (
-                                <p className={`text-[19px] sm:text-[22px] font-black tabular-nums leading-tight ${alerte ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-dk-text'}`}>
+                                <p className={`font-black tabular-nums leading-tight ${empile
+                                    ? `text-[15px] sm:text-[17px] ${alerte ? 'text-amber-300' : 'text-white/85'}`
+                                    : `text-[19px] sm:text-[22px] ${alerte ? 'text-amber-600 dark:text-amber-400' : 'text-slate-900 dark:text-dk-text'}`}`}>
                                     {valeur}
                                 </p>
                             )}
-                            {sous && <p className="text-[11px] text-slate-500 dark:text-dk-muted">{sous}</p>}
+                            {sous && <p className={`text-[11px] ${empile ? 'text-white/50' : 'text-slate-500 dark:text-dk-muted'}`}>{sous}</p>}
                         </div>
                     </div>
                     {barre && <div className="mt-2.5">{barre}</div>}
