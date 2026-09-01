@@ -453,7 +453,20 @@ async function startServer() {
 
   // ── Session Activity Tracking ──────────────────────────────────────
   const userActivity = new Map<number, { lastActivity: number }>();
-  const SESSION_TIMEOUT_MS = 60 * 60 * 1000; // 60 min inactivity → logout
+  // Duree d inactivite avant deconnexion.
+  //
+  // C etait 60 minutes. Sur un telephone pose une heure dans un atelier, ca
+  // veut dire ressaisir son mot de passe a chaque retour — plusieurs fois par
+  // jour. Ce n est pas un reglage de securite, c est un obstacle au travail.
+  //
+  // Ce programme tourne sur le reseau local d une entreprise, sur des appareils
+  // enregistres et revocables un par un (voir user_devices). La bonne reponse a
+  // un telephone perdu est de couper CET appareil, pas de deconnecter tout le
+  // monde toutes les heures.
+  //
+  // BERA_SESSION_DAYS permet de raccourcir pour une entreprise qui le souhaite.
+  const SESSION_DAYS = Math.max(1, Number(process.env.BERA_SESSION_DAYS) || 30);
+  const SESSION_TIMEOUT_MS = SESSION_DAYS * 24 * 60 * 60 * 1000;
 
   // Cleanup stale entries every 5 minutes
   setInterval(() => {

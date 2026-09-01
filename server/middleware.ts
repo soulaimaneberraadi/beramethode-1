@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import db from './db';
-import { SECRET_KEY, isCookieSecure } from './jwtConfig';
+import { SECRET_KEY, isCookieSecure, SESSION_MS, SESSION_EXPIRES_IN } from './jwtConfig';
 import { loadUserContext } from './permissionsController';
 import { can, ResourceType, PermAction } from './permissions/resolver';
 import { isLicenseWritable, isReadOnlyExemptPath, isLicenseLocked, isLockedExemptPath } from './licenseGuard';
@@ -20,7 +20,7 @@ function setTokenCookie(res: Response, token: string): void {
     httpOnly: true,
     secure: isCookieSecure(),
     sameSite: 'strict',
-    maxAge: 24 * 60 * 60 * 1000,
+    maxAge: SESSION_MS,
   });
 }
 
@@ -50,7 +50,7 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
       const newToken = jwt.sign(
         { id: decoded.id, email: decoded.email, role: decoded.role },
         SECRET_KEY,
-        { expiresIn: '24h' }
+        { expiresIn: SESSION_EXPIRES_IN }
       );
       setTokenCookie(res, newToken);
     }

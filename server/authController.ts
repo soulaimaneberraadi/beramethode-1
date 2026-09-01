@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomBytes, randomInt } from 'crypto';
-import { JWT_SECRET, isCookieSecure, cookieSameSite } from './jwtConfig';
+import { JWT_SECRET, isCookieSecure, cookieSameSite, SESSION_MS, SESSION_EXPIRES_IN } from './jwtConfig';
 import db from './db';
 import nodemailer from 'nodemailer';
 import { logAudit } from './auditLogger';
@@ -20,12 +20,12 @@ const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk';
 
 function setAuthCookie(res: Response, user: { id: number; email: string; role: string }): void {
-  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: SESSION_EXPIRES_IN });
   res.cookie('token', token, {
     httpOnly: true,
     secure: isCookieSecure(),
     sameSite: cookieSameSite(),
-    maxAge: 24 * 60 * 60 * 1000,
+    maxAge: SESSION_MS,
   });
 }
 

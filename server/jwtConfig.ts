@@ -18,6 +18,24 @@ export const SECRET_KEY = getJwtSecret();
 export const JWT_SECRET = SECRET_KEY;
 
 /**
+ * Duree de vie d une session, en jours.
+ *
+ * Elle etait de 24 heures : un ouvrier qui reprend son telephone le lendemain
+ * matin devait ressaisir son mot de passe, tous les jours. Sur le terrain, la
+ * consequence n est pas plus de securite — c est un mot de passe simple, note
+ * quelque part, ou partage.
+ *
+ * La revocation d appareil (user_devices) est la vraie reponse a un telephone
+ * perdu : elle coupe CET appareil tout de suite, sans deranger les autres.
+ *
+ * Reglable par BERA_SESSION_DAYS pour une entreprise plus exigeante.
+ */
+export const SESSION_DAYS = Math.max(1, Number(process.env.BERA_SESSION_DAYS) || 30);
+export const SESSION_MS = SESSION_DAYS * 24 * 60 * 60 * 1000;
+/** Format attendu par jsonwebtoken (`expiresIn`). */
+export const SESSION_EXPIRES_IN = `${SESSION_DAYS}d`;
+
+/**
  * Secure cookies when explicitly requested or in production.
  * Production fallback ensures cookies are never sent over plain HTTP,
  * preventing session hijacking via network sniffing.
