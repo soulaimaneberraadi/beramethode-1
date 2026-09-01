@@ -87,7 +87,11 @@ const PanneauDetail: React.FC<{
                     {children}
                     {/* Le retour au pied de page : sur telephone la feuille est
                         longue, et remonter jusqu'a la fleche du haut pour sortir
-                        est un trajet inutile. */}
+                        est un trajet inutile.
+                        Uniquement quand il y a un ECRAN OU REVENIR : au premier
+                        niveau, la pastille ne ferait que repeter la croix du
+                        haut, en plus voyante qu'elle. */}
+                    {retour && (
                     <div className="mt-2 flex justify-center pb-[env(safe-area-inset-bottom)]">
                         <button
                             type="button"
@@ -95,9 +99,10 @@ const PanneauDetail: React.FC<{
                             className="mx-auto inline-flex items-center gap-2 pl-1.5 pr-4 py-1.5 rounded-full bg-slate-900 dark:bg-dk-elevated text-white text-[12px] font-bold shadow-[0_8px_24px_rgba(15,23,42,0.20)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.40)] hover:bg-slate-800 dark:hover:bg-dk-border active:scale-[0.97] transition"
                         >
                             <span className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center shrink-0"><ArrowLeft className="w-3.5 h-3.5" /></span>
-                            {retour ? `Retour — ${retour}` : 'Fermer'}
+                            {`Retour — ${retour}`}
                         </button>
                     </div>
+                    )}
                 </div>
             </div>
         </div>,
