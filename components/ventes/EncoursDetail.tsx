@@ -53,7 +53,13 @@ const MODES = ['ESPECES', 'VIREMENT', 'CHEQUE', 'CARTE', 'EFFET'] as const;
  * sans confirmation, et le partiel refuse un montant superieur au reste — une
  * facture ne peut pas etre payee deux fois.
  */
-const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onFermer, devise }) => {
+const EncoursDetail: React.FC<{
+    onFermer: () => void;
+    devise: string;
+    /** Ouvre la fiche client complete du module (EntitySheet). Absent, le nom
+     *  reste un simple titre : cette feuille sait vivre sans le parent. */
+    onOuvrirFicheClient?: (c: { clientId: string | null; nom: string }) => void;
+}> = ({ onFermer, devise, onOuvrirFicheClient }) => {
     const [data, setData] = React.useState<Reponse | null>(null);
     const [chargement, setChargement] = React.useState(true);
     const [erreur, setErreur] = React.useState<string | null>(null);
@@ -238,6 +244,8 @@ const EncoursDetail: React.FC<{ onFermer: () => void; devise: string }> = ({ onF
                 alerte={fiche.encours > 0}
                 sous="Historique complet — factures et reglements"
                 retour="Encours client"
+                onTitre={onOuvrirFicheClient ? () => onOuvrirFicheClient({ clientId: fiche.clientId, nom: fiche.nom }) : undefined}
+                titreInfo="Ouvrir la fiche client complete"
                 onFermer={() => setFiche(null)}
             >
                 <FicheClientEncours client={fiche} devise={devise} onChange={() => void charger()} />

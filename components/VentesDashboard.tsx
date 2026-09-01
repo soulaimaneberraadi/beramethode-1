@@ -35,6 +35,8 @@ interface Props {
      *  props, le composant garde son etat local (cas Facturation.tsx). */
     detail?: VentesDetailKey;
     onDetailChange?: (detail: VentesDetailKey) => void;
+    /** Le parent (SousTraitance) seul sait ouvrir la fiche client complete. */
+    onOuvrirFicheClient?: (c: { clientId: string | null; nom: string }) => void;
 }
 
 type Modele = {
@@ -93,7 +95,7 @@ const TEINTE_CLIENT: Record<ClientLigne['statut'], string> = {
     DORMANT: 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-dk-elevated dark:text-dk-muted dark:border-dk-border',
 };
 
-export default function VentesDashboard({ lang, currency = 'MAD', detail: detailControlled, onDetailChange }: Props) {
+export default function VentesDashboard({ lang, currency = 'MAD', detail: detailControlled, onDetailChange, onOuvrirFicheClient }: Props) {
     const [jours, setJours] = useState(30);
     /* Filtres : la même question posée à toute la page. Un total en haut qui
      * ne répondrait pas au même filtre que le détail en dessous serait un
@@ -818,7 +820,7 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
             {/* En refermant, on recharge : un encaissement fait dans le detail
                 change l'encours affiche sur la tuile. */}
             {detail === 'encours' && (
-                <EncoursDetail devise={currency} onFermer={() => { setDetail(null); void charger(jours); }} />
+                <EncoursDetail devise={currency} onOuvrirFicheClient={onOuvrirFicheClient} onFermer={() => { setDetail(null); void charger(jours); }} />
             )}
 
             {/* Les quatre autres tuiles se lisent sur les donnees deja

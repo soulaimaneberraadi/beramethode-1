@@ -8312,6 +8312,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
               currency={currency}
               detail={ventesDetailId as VentesDetailKey}
               onDetailChange={(d) => setVentesDetailId(d)}
+              onOuvrirFicheClient={(c) => openEntitySheet({ kind: 'client', clientId: c.clientId, clientNom: c.nom })}
             />
           )}
 
