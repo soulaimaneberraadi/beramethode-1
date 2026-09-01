@@ -57,7 +57,7 @@ const PanneauDetail: React.FC<{
                     {/* La barre de prehension : sur telephone elle dit que la
                         feuille est une feuille, et que le haut la referme. */}
                     <div className={`sm:hidden mx-auto mb-2 h-1 w-9 rounded-full ${empile ? 'bg-white/25' : 'bg-slate-300 dark:bg-dk-border'}`} />
-                    <div className="flex items-start gap-3">
+                    <div className="max-w-5xl mx-auto w-full flex items-start gap-3">
                         <button
                             type="button"
                             onClick={onFermer}
@@ -102,9 +102,14 @@ const PanneauDetail: React.FC<{
                             {sous && <p className={`text-[11px] ${empile ? 'text-white/50' : 'text-slate-500 dark:text-dk-muted'}`}>{sous}</p>}
                         </div>
                     </div>
-                    {barre && <div className="mt-2.5">{barre}</div>}
+                    {barre && <div className="max-w-5xl mx-auto w-full mt-2.5">{barre}</div>}
                 </header>
-                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2.5 sm:px-5 py-3 space-y-2.5">
+                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2.5 sm:px-5 py-3">
+                    {/* Une colonne de lecture, et non toute la largeur de
+                        l'ecran : sur un moniteur large, une liste de quatre
+                        lignes etalee sur 1900 px oblige l'oeil a traverser le
+                        vide entre le libelle et son chiffre. */}
+                    <div className="max-w-5xl mx-auto w-full space-y-2.5">
                     {children}
                     {/* Le retour au pied de page : sur telephone la feuille est
                         longue, et remonter jusqu'a la fleche du haut pour sortir
@@ -124,6 +129,7 @@ const PanneauDetail: React.FC<{
                         </button>
                     </div>
                     )}
+                    </div>
                 </div>
             </div>
         </div>,
