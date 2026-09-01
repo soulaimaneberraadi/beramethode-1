@@ -903,20 +903,20 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                 <PanneauDetail titre={T.pieces} valeur={nf(data.kpis.pieces)} sous={periodeLisible} onFermer={() => setDetail(null)}>
                     <Repartition titre={T.modeles} unite={T.piecesCourt}
                         lignes={[...data.modeles].sort((a, b) => b.piecesPeriode - a.piecesPeriode).slice(0, 25)
-                            .map(m => ({ cle: m.nom, ca: m.caPeriode, valeur: m.piecesPeriode, detail: `${nf(m.caPeriode)} ${currency} · ${T.stock} ${nf(m.stock)}` }))} />
+                            .map(m => ({ cle: m.nom, ca: m.caPeriode, valeur: m.piecesPeriode, poids: m.piecesPeriode, detail: `${nf(m.caPeriode)} ${currency} · ${T.stock} ${nf(m.stock)}` }))} />
                     <Repartition titre={T.tailles} unite={T.piecesCourt}
-                        lignes={data.tailles.map(t => ({ cle: t.taille, ca: t.ca, valeur: t.pieces, detail: `${nf(t.ca)} ${currency}` }))} />
+                        lignes={data.tailles.map(t => ({ cle: t.taille, ca: t.ca, valeur: t.pieces, poids: t.pieces, detail: `${nf(t.ca)} ${currency}` }))} />
                     <Repartition titre={T.couleurs} unite={T.piecesCourt}
-                        lignes={data.couleurs.map(c => ({ cle: c.couleur, ca: c.ca, valeur: c.pieces, detail: `${nf(c.ca)} ${currency}` }))} />
+                        lignes={data.couleurs.map(c => ({ cle: c.couleur, ca: c.ca, valeur: c.pieces, poids: c.pieces, detail: `${nf(c.ca)} ${currency}` }))} />
                 </PanneauDetail>
             )}
 
             {data && detail === 'tickets' && (
                 <PanneauDetail titre={T.tickets} valeur={nf(data.kpis.tickets)} sous={periodeLisible} onFermer={() => setDetail(null)}>
                     <Repartition titre={T.parCanal} unite={T.ventesCourt}
-                        lignes={data.parCanal.map(c => ({ cle: c.canal, ca: c.ca, valeur: c.tickets, detail: `${nf(c.tickets > 0 ? c.ca / c.tickets : 0)} ${currency} ${T.parVente}` }))} />
+                        lignes={data.parCanal.map(c => ({ cle: c.canal, ca: c.ca, valeur: c.tickets, poids: c.tickets, detail: `${nf(c.tickets > 0 ? c.ca / c.tickets : 0)} ${currency} ${T.parVente}` }))} />
                     <Repartition titre={T.parPaiement} unite={T.ventesCourt}
-                        lignes={data.parPaiement.map(p => ({ cle: p.mode, ca: p.ca, valeur: p.tickets, detail: `${nf(p.ca)} ${currency}` }))} />
+                        lignes={data.parPaiement.map(p => ({ cle: p.mode, ca: p.ca, valeur: p.tickets, poids: p.tickets, detail: `${nf(p.ca)} ${currency}` }))} />
                     <TableauJours colonnes={[T.tickets, T.panier, T.pieces]}
                         lignes={[...serieComplete].reverse().filter(j => !j.vide).map(j => ({
                             jour: j.jour,
