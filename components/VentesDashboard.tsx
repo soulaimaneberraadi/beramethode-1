@@ -72,7 +72,15 @@ type Donnees = {
     };
     kpis: { ca: number; pieces: number; tickets: number; panierMoyen: number; encoursTotal: number };
     parCanal: Array<{ canal: string; pieces: number; ca: number; tickets: number }>;
-    parSegment: Array<{ segment: string; pieces: number; ca: number }>;
+    parSegment: Array<{ segment: string; pieces: number; ca: number; tickets: number }>;
+    /** Ce que la moyenne cache : mediane, tranches et extremes. */
+    paniers: {
+        mediane: number;
+        tranches: Array<{ libelle: string; tickets: number; ca: number; pieces: number }>;
+        plusGros: { jour: string | null; client: string | null; pieces: number; montant: number } | null;
+        plusPetit: { jour: string | null; client: string | null; pieces: number; montant: number } | null;
+        piecesParTicket: number;
+    };
     parPaiement: Array<{ mode: string; ca: number; tickets: number }>;
     modeles: Modele[];
     clients: ClientLigne[];
@@ -146,6 +154,9 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                 kpis: body.kpis || { ca: 0, pieces: 0, tickets: 0, panierMoyen: 0, encoursTotal: 0 },
                 parCanal: Array.isArray(body.parCanal) ? body.parCanal : [],
                 parSegment: Array.isArray(body.parSegment) ? body.parSegment : [],
+            // Un serveur d'avant cette version ne renvoie pas `paniers` :
+            // l'ecran doit s'afficher vide plutot que tomber.
+            paniers: body.paniers || { mediane: 0, tranches: [], plusGros: null, plusPetit: null, piecesParTicket: 0 },
                 parPaiement: Array.isArray(body.parPaiement) ? body.parPaiement : [],
             } as Donnees);
         } catch (e: any) {
@@ -217,6 +228,23 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
         actifs: tx(lang, { fr: 'actifs', ar: 'نشيطين', en: 'active', es: 'activos', pt: 'ativos', tr: 'aktif' }),
         filtres: tx(lang, { fr: 'Filtres', ar: 'فلاتر', en: 'Filters', es: 'Filtros', pt: 'Filtros', tr: 'Filtreler' }),
         actualiser: tx(lang, { fr: 'Actualiser', ar: 'تحديث', en: 'Refresh', es: 'Actualizar', pt: 'Atualizar', tr: 'Yenile' }),
+        mediane: tx(lang, { fr: 'Panier median', ar: 'وسيط السلّة', en: 'Median sale', es: 'Ticket mediano', pt: 'Venda mediana', tr: 'Ortanca sepet' }),
+        piecesParVente: tx(lang, { fr: 'Pieces par vente', ar: 'قطع في البيعة', en: 'Items per sale', es: 'Piezas por venta', pt: 'Pecas por venda', tr: 'Satis basina parca' }),
+        parTranche: tx(lang, { fr: 'Par tranche de montant', ar: 'حسب شريحة المبلغ', en: 'By amount bracket', es: 'Por tramo de importe', pt: 'Por faixa de valor', tr: 'Tutar dilimine gore' }),
+        extremes: tx(lang, { fr: 'La plus grosse et la plus petite vente', ar: 'أكبر وأصغر بيعة', en: 'Largest and smallest sale', es: 'Venta mayor y menor', pt: 'Maior e menor venda', tr: 'En buyuk ve en kucuk satis' }),
+        plusGros: tx(lang, { fr: 'Plus grosse vente', ar: 'أكبر بيعة', en: 'Largest sale', es: 'Venta mayor', pt: 'Maior venda', tr: 'En buyuk satis' }),
+        plusPetit: tx(lang, { fr: 'Plus petite vente', ar: 'أصغر بيعة', en: 'Smallest sale', es: 'Venta menor', pt: 'Menor venda', tr: 'En kucuk satis' }),
+        versusPrecedent: tx(lang, { fr: 'vs periode precedente', ar: 'مقابل المدّة السابقة', en: 'vs previous period', es: 'vs periodo anterior', pt: 'vs periodo anterior', tr: 'onceki doneme gore' }),
+        horsNorme: tx(lang, { fr: 'Jour hors norme : ce panier ne ressemble pas aux autres.', ar: 'يوم شاذّ: هاد المعدّل ماشي بحال باقي الأيام.', en: 'Outlier day: this basket is unlike the others.', es: 'Dia atipico: este ticket no se parece a los demas.', pt: 'Dia atipico: este cesto nao se parece com os outros.', tr: 'Aykiri gun: bu sepet digerlerine benzemiyor.' }),
+        moyenneTrompe: tx(lang, { fr: 'Ce que la moyenne cache', ar: 'ما يخفيه المعدّل', en: 'What the average hides', es: 'Lo que oculta la media', pt: 'O que a media esconde', tr: 'Ortalamanin gizledigi' }),
+        majoriteNonRenseigne: tx(lang, {
+            fr: 'La plupart des ventes n\u2019ont pas cette information : la repartition ci-dessus ne represente qu\u2019une minorite.',
+            ar: '\u0623\u063a\u0644\u0628 \u0627\u0644\u0628\u064a\u0639\u0627\u062a \u0628\u0644\u0627 \u0647\u0627\u062f \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0629: \u0627\u0644\u062a\u0648\u0632\u064a\u0639 \u0641\u0648\u0642 \u0643\u064a\u0645\u062b\u0644 \u063a\u064a\u0631 \u0623\u0642\u0644\u064a\u0629.',
+            en: 'Most sales lack this information: the split above covers a minority only.',
+            es: 'La mayoria de las ventas no tienen este dato: el reparto anterior solo cubre una minoria.',
+            pt: 'A maioria das vendas nao tem esta informacao: a reparticao acima cobre apenas uma minoria.',
+            tr: 'Satislarin cogunda bu bilgi yok: yukaridaki dagilim yalnizca bir azinligi kapsar.',
+        }),
         nonRenseigne: tx(lang, { fr: 'Non renseigne', ar: 'غير محدّد', en: 'Not recorded', es: 'Sin indicar', pt: 'Nao indicado', tr: 'Belirtilmemis' }),
         piecesCourt: tx(lang, { fr: 'pcs', ar: 'قطعة', en: 'pcs', es: 'uds', pt: 'pcs', tr: 'adet' }),
         ventesCourt: tx(lang, { fr: 'ventes', ar: 'بيعة', en: 'sales', es: 'ventas', pt: 'vendas', tr: 'satis' }),
@@ -347,15 +375,25 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
      *  veut savoir d'ou vient le chiffre), les PIECES pour les tailles et les
      *  couleurs : une taille sortie 30 fois a prix nul est la plus demandee,
      *  pas la moins — la mesurer en argent la faisait afficher « 0 % ». */
-    const Repartition = ({ titre, lignes, unite }: { titre: string; lignes: Array<{ cle: string; ca: number; valeur?: number; detail: string }>; unite?: string }) => {
+    /**
+     * `valeur` est le CHIFFRE AFFICHE, `poids` ce que mesure la barre.
+     *
+     * Les deux etaient confondus : sur le panier moyen, la barre additionnait
+     * des MOYENNES pour en faire un pourcentage — « ce canal represente 92 %
+     * de la somme des paniers moyens ». Une somme de moyennes ne veut rien
+     * dire, et le chiffre affiche etait donc faux. Une part se calcule sur une
+     * grandeur qui s'additionne : un chiffre d'affaires, un nombre de ventes.
+     */
+    const Repartition = ({ titre, lignes, unite }: { titre: string; lignes: Array<{ cle: string; ca: number; valeur?: number; poids?: number; detail: string }>; unite?: string }) => {
         const valeurDe = (l: { ca: number; valeur?: number }) => (l.valeur == null ? l.ca : l.valeur);
-        const total = lignes.reduce((a, l) => a + valeurDe(l), 0);
+        const poidsDe = (l: { ca: number; poids?: number }) => (l.poids == null ? l.ca : l.poids);
+        const total = lignes.reduce((a, l) => a + poidsDe(l), 0);
         return (
             <Carte titre={titre}>
                 <div className="p-3.5 space-y-2.5">
                     {lignes.length === 0 && <p className="text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</p>}
                     {lignes.map(l => {
-                        const part = total > 0 ? (valeurDe(l) / total) * 100 : 0;
+                        const part = total > 0 ? (poidsDe(l) / total) * 100 : 0;
                         const flou = l.cle === 'NON_PRECISE' || l.cle === '—';
                         return (
                             <div key={l.cle}>
@@ -377,6 +415,20 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                             </div>
                         );
                     })}
+                    {/* Quand l'inconnu domine, la repartition ne decrit plus
+                        l'activite : elle decrit un defaut de saisie. Le dire
+                        vaut mieux que laisser lire un graphique faux. */}
+                    {(() => {
+                        const flous = lignes.filter(l => l.cle === 'NON_PRECISE' || l.cle === '\u2014');
+                        const partFlou = total > 0 ? (flous.reduce((a, l) => a + poidsDe(l), 0) / total) * 100 : 0;
+                        if (partFlou < 50) return null;
+                        return (
+                            <p className="flex items-start gap-1.5 text-[10px] text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 bg-amber-50/70 dark:bg-amber-950/20 rounded-lg px-2.5 py-1.5">
+                                <AlertTriangle className="w-3 h-3 shrink-0 mt-px" />
+                                {T.majoriteNonRenseigne}
+                            </p>
+                        );
+                    })()}
                 </div>
             </Carte>
         );
@@ -384,7 +436,7 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
 
     /** Le jour par jour, du plus recent au plus ancien : sur telephone il
      *  defile a l'interieur de son cadre, il ne pousse pas la page. */
-    const TableauJours = ({ colonnes, lignes }: { colonnes: string[]; lignes: Array<{ jour: string; cellules: string[] }> }) => (
+    const TableauJours = ({ colonnes, lignes }: { colonnes: string[]; lignes: Array<{ jour: string; cellules: string[]; alerte?: string }> }) => (
         <Carte titre={T.jourParJour}>
             <div className="overflow-x-auto">
                 <table className="w-full text-[11px] tabular-nums">
@@ -399,9 +451,17 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                             <tr><td colSpan={colonnes.length + 1} className="px-3.5 py-4 text-center text-slate-400 dark:text-dk-muted">{T.rien}</td></tr>
                         )}
                         {lignes.map(l => (
-                            <tr key={l.jour}>
+                            <tr key={l.jour} className={l.alerte ? 'bg-amber-50/60 dark:bg-amber-950/20' : undefined}>
                                 <td className="px-3.5 py-1.5 font-bold text-slate-500 dark:text-dk-muted whitespace-nowrap">
                                     {l.jour.slice(8, 10)}/{l.jour.slice(5, 7)}
+                                    {/* Un jour hors norme se signale : sans cela, il
+                                        faut comparer les lignes une a une pour voir
+                                        que la moyenne du mois vient de la. */}
+                                    {l.alerte && (
+                                        <span title={l.alerte} className="ml-1.5 inline-flex align-middle text-amber-600 dark:text-amber-400">
+                                            <AlertTriangle className="w-3 h-3" />
+                                        </span>
+                                    )}
                                 </td>
                                 {l.cellules.map((v, i) => (
                                     <td key={i} className={`px-3.5 py-1.5 text-right whitespace-nowrap ${i === 0 ? 'font-black text-slate-800 dark:text-dk-text' : 'text-slate-500 dark:text-dk-text-soft'}`}>{v}</td>
@@ -865,24 +925,132 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                 </PanneauDetail>
             )}
 
-            {data && detail === 'panier' && (
-                <PanneauDetail titre={T.panier} valeur={`${nf(data.kpis.panierMoyen)} ${currency}`} sous={periodeLisible} onFermer={() => setDetail(null)}>
-                    {/* Un panier moyen global melange le gros et le detail : c'est
-                        la comparaison par segment qui dit ce qui a bouge. */}
+            {data && detail === 'panier' && (() => {
+                const pa = data.paniers;
+                const pm = data.kpis.panierMoyen;
+                // La comparaison : un panier moyen sans son passe ne dit ni
+                // « bonne nouvelle » ni « mauvaise ». Le precedent est calcule
+                // sur la meme duree, juste avant la periode affichee.
+                const pmAvant = data.precedent.tickets > 0 ? data.precedent.ca / data.precedent.tickets : 0;
+                const ecart = pmAvant > 0 ? ((pm - pmAvant) / pmAvant) * 100 : null;
+                const joursPanier = [...serieComplete].reverse().filter(j => !j.vide);
+                return (
+                <PanneauDetail titre={T.panier} valeur={`${nf(pm)} ${currency}`} sous={periodeLisible} onFermer={() => setDetail(null)}>
+                    {/* Le chiffre du haut est une MOYENNE. Elle se lit a cote de
+                        sa mediane et de son evolution, sinon elle rassure ou
+                        inquiete sans raison. */}
+                    <Carte titre={T.moyenneTrompe}>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-dk-border">
+                            <div className="p-3.5">
+                                <p className="text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 dark:text-dk-muted">{T.panier}</p>
+                                <p className="text-[15px] font-black tabular-nums text-slate-900 dark:text-dk-text mt-0.5">{nf(pm)} {currency}</p>
+                            </div>
+                            <div className="p-3.5">
+                                <p className="text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 dark:text-dk-muted">{T.mediane}</p>
+                                <p className="text-[15px] font-black tabular-nums text-slate-900 dark:text-dk-text mt-0.5">{nf(pa.mediane)} {currency}</p>
+                                {/* L'ecart moyenne/mediane EST l'information : quand
+                                    la moyenne double la mediane, une poignee de
+                                    grosses ventes porte tout le reste. */}
+                                {pa.mediane > 0 && pm > pa.mediane * 1.5 && (
+                                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
+                                        {nf(pm / pa.mediane)}&times;
+                                    </p>
+                                )}
+                            </div>
+                            <div className="p-3.5">
+                                <p className="text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 dark:text-dk-muted">{T.piecesParVente}</p>
+                                <p className="text-[15px] font-black tabular-nums text-slate-900 dark:text-dk-text mt-0.5">{nf(pa.piecesParTicket)}</p>
+                            </div>
+                            <div className="p-3.5">
+                                <p className="text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 dark:text-dk-muted">{T.versusPrecedent}</p>
+                                {ecart == null ? (
+                                    <p className="text-[15px] font-black text-slate-300 dark:text-dk-muted mt-0.5">&mdash;</p>
+                                ) : (
+                                    <p className={`text-[15px] font-black tabular-nums mt-0.5 flex items-center gap-1 ${ecart >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                        {ecart >= 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+                                        {nf(Math.abs(ecart))} %
+                                    </p>
+                                )}
+                                <p className="text-[10px] text-slate-400 dark:text-dk-muted mt-0.5">{nf(pmAvant)} {currency}</p>
+                            </div>
+                        </div>
+                    </Carte>
+
+                    {/* Les extremes : c'est la vente hors norme qu'on cherche
+                        quand un chiffre surprend, pas la moyenne. */}
+                    {(pa.plusGros || pa.plusPetit) && (
+                        <Carte titre={T.extremes}>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-dk-border">
+                                {[{ t: T.plusGros, v: pa.plusGros }, { t: T.plusPetit, v: pa.plusPetit }].map(({ t, v }) => (
+                                    <div key={t} className="p-3.5">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 dark:text-dk-muted">{t}</p>
+                                        {v ? (
+                                            <>
+                                                <p className="text-[15px] font-black tabular-nums text-slate-900 dark:text-dk-text mt-0.5">{nf(v.montant)} {currency}</p>
+                                                <p className="text-[10px] text-slate-500 dark:text-dk-muted mt-0.5 truncate">
+                                                    {v.client || T.nonRenseigne}
+                                                    {v.jour ? ` · ${v.jour.slice(8, 10)}/${v.jour.slice(5, 7)}` : ''}
+                                                    {` · ${nf(v.pieces)} ${T.piecesCourt}`}
+                                                </p>
+                                            </>
+                                        ) : <p className="text-[11px] text-slate-400 dark:text-dk-muted mt-0.5">{T.rien}</p>}
+                                    </div>
+                                ))}
+                            </div>
+                        </Carte>
+                    )}
+
+                    {/* La forme de la clientele : un seul chiffre moyen ne
+                        distingue pas trente petits paniers d'une grosse vente. */}
+                    <Repartition titre={T.parTranche} unite={T.ventesCourt}
+                        lignes={pa.tranches.filter(t => t.tickets > 0).map(t => ({
+                            cle: `${t.libelle} ${currency}`,
+                            ca: t.ca,
+                            valeur: t.tickets,
+                            poids: t.tickets,
+                            detail: `${nf(t.ca)} ${currency} · ${nf(t.pieces)} ${T.piecesCourt}`,
+                        }))} />
+
+                    {/* La barre mesure la part des VENTES ; le chiffre a droite
+                        est le panier moyen du canal. Additionner des moyennes
+                        n'aurait aucun sens. */}
                     <Repartition titre={T.parCanal} unite={currency}
                         lignes={data.parCanal.map(c => ({
                             cle: c.canal,
                             ca: c.ca,
                             valeur: c.tickets > 0 ? c.ca / c.tickets : 0,
+                            poids: c.tickets,
                             detail: `${nf(c.tickets)} ${T.ventesCourt} · ${nf(c.ca)} ${currency}`,
                         }))} />
-                    <TableauJours colonnes={[T.panier, T.tickets, T.ca]}
-                        lignes={[...serieComplete].reverse().filter(j => !j.vide).map(j => ({
-                            jour: j.jour,
-                            cellules: [`${nf(j.tickets > 0 ? j.ca / j.tickets : 0)} ${currency}`, nf(j.tickets), `${nf(j.ca)} ${currency}`],
+
+                    {/* Le gros n'achete pas comme le detail : c'est la que se
+                        decide une remise ou un minimum de commande. */}
+                    <Repartition titre={T.parSegment} unite={currency}
+                        lignes={data.parSegment.map(sg => ({
+                            cle: sg.segment,
+                            ca: sg.ca,
+                            valeur: sg.tickets > 0 ? sg.ca / sg.tickets : 0,
+                            poids: sg.tickets,
+                            detail: `${nf(sg.tickets)} ${T.ventesCourt} · ${nf(sg.ca)} ${currency}`,
                         }))} />
+
+                    <TableauJours colonnes={[T.panier, T.tickets, T.ca]}
+                        lignes={joursPanier.map(j => {
+                            const panierJour = j.tickets > 0 ? j.ca / j.tickets : 0;
+                            // Deux fois la mediane, ou moitie moins : le seuil est
+                            // volontairement large, on signale l'exception, pas la
+                            // variation ordinaire d'un commerce.
+                            const horsNorme = pa.mediane > 0 && j.tickets > 0
+                                && (panierJour > pa.mediane * 2 || panierJour < pa.mediane / 2);
+                            return {
+                                jour: j.jour,
+                                alerte: horsNorme ? T.horsNorme : undefined,
+                                cellules: [`${nf(panierJour)} ${currency}`, nf(j.tickets), `${nf(j.ca)} ${currency}`],
+                            };
+                        })} />
                 </PanneauDetail>
-            )}
+                );
+            })()}
         </div>
     );
 }

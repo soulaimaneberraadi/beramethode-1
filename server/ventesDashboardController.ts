@@ -262,7 +262,8 @@ export const getVentesDashboard = (req: Request, res: Response) => {
         const parSegment = db.prepare(`
             SELECT COALESCE(type_vente, 'NON_PRECISE') AS segment,
                    SUM(quantite) AS pieces,
-                   SUM(quantite * prix_unitaire) AS ca
+                   SUM(quantite * prix_unitaire) AS ca,
+                   COUNT(DISTINCT COALESCE(ticket_ref, batch_id, id)) AS tickets
             FROM st_stock_sorties s WHERE ${f.where}
             GROUP BY COALESCE(s.type_vente, 'NON_PRECISE')
         `).all(...f.params) as any[];
@@ -373,6 +374,67 @@ export const getVentesDashboard = (req: Request, res: Response) => {
         const caClients = clientsClasses.reduce((a, c) => a + c.ca, 0);
         const caTop3 = clientsClasses.slice(0, 3).reduce((a, c) => a + c.ca, 0);
 
+        // ── Le panier, ticket par ticket ─────────────────────────────────
+        // Une moyenne seule ment : une vente de 137 797 MAD tire la moyenne du
+        // mois vers le haut alors que la vente ORDINAIRE n'a pas bouge. La
+        // mediane, les tranches et les extremes disent ce que la moyenne cache.
+        const ticketsDetail = db.prepare(`
+            SELECT COALESCE(s.ticket_ref, s.batch_id, s.id) AS ticket,
+                   MAX(s.date_sortie) AS jour,
+                   MAX(COALESCE(NULLIF(TRIM(s.client_nom), ''), '')) AS client,
+                   SUM(s.quantite) AS pieces,
+                   SUM(s.quantite * s.prix_unitaire) AS montant
+            FROM st_stock_sorties s WHERE ${f.where}
+            GROUP BY COALESCE(s.ticket_ref, s.batch_id, s.id)
+        `).all(...f.params) as any[];
+
+        const montants = ticketsDetail
+            .map(t => Number(t.montant) || 0)
+            .sort((a, b) => a - b);
+
+        /** La mediane : le panier du milieu. Contrairement a la moyenne, une
+         *  seule vente hors norme ne la deplace pas. */
+        const mediane = montants.length === 0 ? 0
+            : montants.length % 2 === 1
+                ? montants[(montants.length - 1) / 2]
+                : (montants[montants.length / 2 - 1] + montants[montants.length / 2]) / 2;
+
+        // Les bornes sont en dirhams et volontairement rondes : elles parlent
+        // au commercant, pas au statisticien.
+        const BORNES = [0, 500, 2000, 10000, Infinity];
+        const ETIQUETTES = ['< 500', '500 - 2 000', '2 000 - 10 000', '> 10 000'];
+        const tranches = ETIQUETTES.map((libelle, i) => {
+            const dedans = ticketsDetail.filter(t => {
+                const m = Number(t.montant) || 0;
+                return m >= BORNES[i] && m < BORNES[i + 1];
+            });
+            return {
+                libelle,
+                tickets: dedans.length,
+                ca: Number(dedans.reduce((a, t) => a + (Number(t.montant) || 0), 0).toFixed(2)),
+                pieces: dedans.reduce((a, t) => a + (Number(t.pieces) || 0), 0),
+            };
+        });
+
+        const parMontant = [...ticketsDetail].sort((a, b) => (Number(b.montant) || 0) - (Number(a.montant) || 0));
+        const abrege = (t: any) => t ? {
+            jour: t.jour || null,
+            client: String(t.client || '').trim() || null,
+            pieces: Number(t.pieces) || 0,
+            montant: Number((Number(t.montant) || 0).toFixed(2)),
+        } : null;
+
+        const totalPiecesTickets = ticketsDetail.reduce((a, t) => a + (Number(t.pieces) || 0), 0);
+        const paniers = {
+            mediane: Number(mediane.toFixed(2)),
+            tranches,
+            plusGros: abrege(parMontant[0]),
+            plusPetit: abrege(parMontant[parMontant.length - 1]),
+            piecesParTicket: ticketsDetail.length > 0
+                ? Number((totalPiecesTickets / ticketsDetail.length).toFixed(2))
+                : 0,
+        };
+
         const totalCa = parCanal.reduce((a, c) => a + (Number(c.ca) || 0), 0);
         const totalPieces = parCanal.reduce((a, c) => a + (Number(c.pieces) || 0), 0);
         const totalTickets = parCanal.reduce((a, c) => a + (Number(c.tickets) || 0), 0);
@@ -412,6 +474,7 @@ export const getVentesDashboard = (req: Request, res: Response) => {
             },
             parCanal: parCanal.map(c => ({ ...c, ca: Number((Number(c.ca) || 0).toFixed(2)) })),
             parSegment: parSegment.map(s => ({ ...s, ca: Number((Number(s.ca) || 0).toFixed(2)) })),
+            paniers,
             parPaiement: parPaiement.map(p => ({ ...p, ca: Number((Number(p.ca) || 0).toFixed(2)) })),
             tailles: tailles.map(t => ({ ...t, ca: Number((Number(t.ca) || 0).toFixed(2)) })),
             couleurs: couleurs.map(c => ({ ...c, ca: Number((Number(c.ca) || 0).toFixed(2)) })),
