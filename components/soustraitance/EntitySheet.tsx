@@ -2151,7 +2151,6 @@ const EntitySheet: React.FC<EntitySheetProps> = (props) => {
                             >
                                 <span className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center shrink-0"><ArrowLeft className="w-3.5 h-3.5" /></span>
                                 {tx(lang, { fr: 'Retour', ar: 'رجوع', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}
-                                {retourExterne && stack.length === 1 ? ` — ${retourExterne.libelle}` : ''}
                             </button>
                         </div>
                     )}
