@@ -14,7 +14,7 @@ import { createPortal } from 'react-dom';
 import { ModelData } from '../types';
 import { tx } from '../lib/i18n';
 import { fmt } from '../app/constants';
-import { resolveScan, attachScannerListener } from '../lib/scanner';
+import { resolveScan, attachScannerListener, variantAxes } from '../lib/scanner';
 import { sendToCustomerDisplay, autoConnectDisplay, connectDisplay, isWebSerialSupported, getDisplayConfig } from '../lib/customerDisplay';
 import type { AtelierClient } from './soustraitance/ClientsPanel';
 import {
@@ -825,10 +825,19 @@ const Caisse: React.FC<CaisseProps> = ({
     return () => { alive = false; };
   }, [open, isStatic, lignes, tarifsComparatifs]);
 
+  /* Les axes d'une variante viennent de la fiche ET des cellules reellement
+   * presentes en stock : le stock arrive de la commande, la fiche est saisie
+   * ailleurs, et un tiki imprime pour « m » doit rester lisible meme quand la
+   * fiche n'annonce que « 36/38/40 ». */
+  const axesOf = useCallback(
+    (m: ModelData) => variantAxes(m, stockMatrix.get(m.id)?.keys()),
+    [stockMatrix]
+  );
+
   /** Un tiki lu → la pièce au panier. Le même chemin sert au lecteur branché
    *  sur la caisse et au code lu depuis l'écran appelant avant l'ouverture. */
   const traiterCode = useCallback((code: string) => {
-      const hit = resolveScan(candidats, code);
+      const hit = resolveScan(candidats, code, axesOf);
       if (!hit) {
         pip(false);
         setFlash({ ok: false, msg: tx(lang, { fr: 'Tiki inconnu.', ar: 'تيكي غير معروف.', en: 'Unknown label.', es: 'Etiqueta desconocida.', pt: 'Etiqueta desconhecida.', tr: 'Bilinmeyen etiket.' }) });
@@ -841,7 +850,12 @@ const Caisse: React.FC<CaisseProps> = ({
         return;
       }
       ajouter(hit.model, hit.couleur, hit.taille);
-  }, [candidats, ajouter, pip, lang]);
+      /* Le panneau suit le tiki : scanner une piece d'un AUTRE modele bascule
+       * la grille sur ce modele-la. Rester sur le precedent obligeait a le
+       * chercher a la main pour verifier le stock d'une taille voisine, en
+       * plein passage de client. */
+      setModeleOuvert(hit.model);
+  }, [candidats, axesOf, ajouter, pip, lang]);
 
   /** Le lecteur reste actif en permanence tant que la caisse est ouverte. */
   useEffect(() => {

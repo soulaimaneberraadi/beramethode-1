@@ -15,7 +15,8 @@ import ClientsPanel, { AtelierClient } from './soustraitance/ClientsPanel';
 import EntitySheet, { SheetTarget } from './soustraitance/EntitySheet';
 import VentesDashboard, { VentesDetailKey } from './VentesDashboard';
 import { useStoreSyncStates, StoreSyncDot } from './soustraitance/StoreSync';
-import { ean13FromDigits, ean13Variant, renderEAN13, parseScanCode } from '../lib/barcode';
+import { ean13FromDigits, renderEAN13, parseScanCode } from '../lib/barcode';
+import { variantAxes, variantCode, resolveVariantByEAN as resolveVariantEAN } from '../lib/scanner';
 import { buildZplForCells, buildZplTestLabel, type ZplCell } from '../lib/zpl';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import Caisse, { type CaisseLigne, type CaissePaiement, type TypeVente } from './Caisse';
@@ -1580,6 +1581,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   /** Miroir de `modelStockStats` (déclaré plus bas) pour que le lecteur
    *  puisse lire le prix de vente sans dépendre de l'ordre de déclaration. */
   const modelStockStatsRef = useRef<Array<{ model: ModelData; salePrice: number | null; remainingStock: number }>>([]);
+  /** Miroir de `stockMatrixByModel` (déclaré plus bas), pour la même raison :
+   *  les axes d'une variante se lisent avant que la matrice ne soit calculée
+   *  dans l'ordre du fichier. */
+  const stockMatrixRef = useRef<Map<string, Map<string, number>>>(new Map());
+
+  /** Axes (tailles, couleurs) d'un modèle = la fiche PLUS les cellules qui
+   *  n'existent que dans les mouvements de stock. Le stock arrive de la
+   *  commande, la fiche est saisie ailleurs : sans l'union, une pièce entrée
+   *  sous « m » n'a aucun code, le tiki imprimé désigne une case vide et la
+   *  caisse refuse une vente pour une pièce posée sur le comptoir. */
+  const axesOfModel = useCallback(
+    (m: ModelData) => variantAxes(m, stockMatrixRef.current.get(m.id)?.keys()),
+    []
+  );
 
   const playPip = useCallback((ok: boolean) => {
     try {
@@ -1647,33 +1662,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
 
 
   const resolveVariantByEAN = useCallback((ean13: string): { model: ModelData; taille: string; couleur: string } | null => {
-    const key = ean13.trim();
     // Un article acheté n'est pas dans `models` : sans ce passage, un tiki
     // imprimé pour lui se scannait pour rien — le lecteur ne trouvait jamais
     // le code, même si `saveArticleVariantCode` l'avait bien enregistré.
     const candidats: ModelData[] = [...models, ...articles.map(articleAsModel)];
-    for (const m of candidats) {
-      const map = (m.meta_data as any)?.variantCodes;
-      const hit = map && map[key];
-      if (hit && typeof hit.taille === 'string' && typeof hit.couleur === 'string') {
-        return { model: m, taille: hit.taille, couleur: hit.couleur };
-      }
-    }
-    for (const m of candidats) {
-      const fiche: any = m.ficheData || {};
-      const sizes: string[] = fiche.sizes || [];
-      const colors: Array<{ id: string; name: string }> = fiche.colors || [];
-      const base = ean13FromDigits(String(m.id)).slice(0, 10);
-      for (let si = 0; si < sizes.length; si++) {
-        for (let ci = 0; ci < colors.length; ci++) {
-          if (ean13Variant(base, si, ci) === key) {
-            return { model: m, taille: sizes[si], couleur: colors[ci]?.name || '' };
-          }
-        }
-      }
-    }
-    return null;
-  }, [models, articles]);
+    return resolveVariantEAN(candidats, ean13.trim(), axesOfModel);
+  }, [models, articles, axesOfModel]);
 
   /** Un tiki lu, d'ou qu'on soit dans le stock : il part au comptoir. La
    *  lecture n'ouvre plus « Sortie de stock » — une piece qui quitte le
@@ -2260,29 +2254,26 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   /** EAN-13 « variante » d'une cellule (taille × couleur) — formule identique
    *  côté lecteur, donc déchiffrable par notre programme. */
   const variantCodeFor = useCallback((model: ModelData, couleur: string, taille: string): string => {
-    const fiche: any = model.ficheData || {};
-    const sizes: string[] = fiche.sizes || [];
-    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
-    const si = Math.max(0, sizes.indexOf(taille));
-    const ci = Math.max(0, colors.findIndex(c => c.name === couleur));
-    return ean13Variant(ean13FromDigits(String(model.id)).slice(0, 10), si, ci);
-  }, []);
+    /* Chaîne vide quand la cellule n'est sur aucun axe : l'ancienne écriture
+     * repliait l'index manquant sur 0, et toutes les cases inconnues
+     * recevaient le code de la PREMIÈRE case — deux pièces différentes sous
+     * le même code-barres, la pire panne possible pour une caisse. */
+    return variantCode(model, couleur, taille, axesOfModel(model)) || '';
+  }, [axesOfModel]);
 
   /** Cellule de prévisualisation : la première qui a une quantité, sinon la
    *  première de la grille du modèle. */
   const labelPreview = useMemo<{ code: string; couleur: string; taille: string }>(() => {
     if (!labelModel) return { code: '', couleur: '', taille: '' };
-    const fiche: any = labelModel.ficheData || {};
-    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
-    const sizes: string[] = fiche.sizes || [];
+    const { sizes, colors } = axesOfModel(labelModel);
     let sel: { couleur: string; taille: string } | null = null;
     for (const [k, v] of Object.entries(labelGrid)) {
       if (Number(v) > 0) { const [c, t] = k.split('|'); sel = { couleur: c, taille: t }; break; }
     }
-    if (!sel && colors[0] && sizes[0]) sel = { couleur: colors[0].name, taille: sizes[0] };
+    if (!sel && colors[0] && sizes[0]) sel = { couleur: colors[0], taille: sizes[0] };
     if (!sel) return { code: '', couleur: '', taille: '' };
     return { code: variantCodeFor(labelModel, sel.couleur, sel.taille), couleur: sel.couleur, taille: sel.taille };
-  }, [labelModel, labelGrid, variantCodeFor]);
+  }, [labelModel, labelGrid, variantCodeFor, axesOfModel]);
 
   useEffect(() => {
     const canvas = labelCanvasRef.current;
@@ -2358,9 +2349,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   }, [models, articles, saveArticleVariantCode]);
 
   const openLabel = (model: ModelData, opts?: { grid?: OrderGrid; price?: number }) => {
-    const fiche: any = model.ficheData || {};
-    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
-    const sizes: string[] = fiche.sizes || [];
+    /* La grille des tiki suit les axes UNION (fiche + cellules réellement en
+     * stock). Bâtie sur la seule fiche, elle proposait d'imprimer « 36/38/40 »
+     * pendant que la marchandise dormait sous « s/m/l » : chaque tiki sortait
+     * pour une case vide, et aucune des pièces présentes n'était étiquetable. */
+    const cellules = stockMatrixRef.current.get(model.id);
+    const axes = variantAxes(model, cellules?.keys());
+    const colors = axes.colors;
+    const sizes = axes.sizes;
     // Grille de la commande, indexée par libellé normalisé, pour pré-remplir
     // le tableau des étiquettes (une quantité par taille × couleur).
     const orderByNorm: Record<string, Record<string, number>> = {};
@@ -2370,11 +2366,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       orderByNorm[normalizeLabel(cname)] = inner;
     });
     const grid: Record<string, number> = {};
-    colors.forEach(c => {
-      const byNorm = orderByNorm[normalizeLabel(c.name)] || {};
-      sizes.forEach(s => {
-        const key = `${c.name}|${s}`;
-        grid[key] = byNorm[normalizeLabel(s)] || 0;
+    colors.forEach(cname => {
+      const byNorm = orderByNorm[normalizeLabel(cname)] || {};
+      sizes.forEach(sname => {
+        const key = `${cname}|${sname}`;
+        /* À défaut de commande, la quantité en stock : on étiquette ce qui est
+         * là. Une case sans commande ET sans stock reste à 0. */
+        const enStock = Math.max(0, Number(cellules?.get(key) || 0));
+        grid[key] = byNorm[normalizeLabel(sname)] || enStock;
       });
     });
     setLabelModel(model);
@@ -2412,9 +2411,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     if (!labelModel) return;
     const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const nom = labelModel.meta_data?.nom_modele || labelModel.id;
-    const fiche: any = labelModel.ficheData || {};
-    const ficheSizes: string[] = fiche.sizes || [];
-    const ficheColors: Array<{ id: string; name: string }> = fiche.colors || [];
+    const axes = axesOfModel(labelModel);
+    const ficheSizes: string[] = axes.sizes;
+    const ficheColors: string[] = axes.colors;
     const cells: Array<{ couleur: string; taille: string; qty: number }> = [];
     if (labelMode === 'externe') {
       // Un tiki par taille : toutes les couleurs d'une meme taille partagent le
@@ -2439,7 +2438,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     // Trie, un bac se remplit d'un bloc avant de passer au suivant. L'ordre de
     // la fiche fait foi (S, M, L, XL — pas l'alphabet, qui mettrait L avant S).
     const rankSize = (t: string) => { const i = ficheSizes.indexOf(t); return i < 0 ? 9999 : i; };
-    const rankColor = (c: string) => { const i = ficheColors.findIndex(x => x.name === c); return i < 0 ? 9999 : i; };
+    const rankColor = (c: string) => { const i = ficheColors.indexOf(c); return i < 0 ? 9999 : i; };
     cells.sort((a, b) => {
       const primary = labelGroupBy === 'taille'
         ? rankSize(a.taille) - rankSize(b.taille)
@@ -3332,6 +3331,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     });
     return map;
   }, [allStockEntries, allStockSorties]);
+  stockMatrixRef.current = stockMatrixByModel;
 
   /** Le stock réel, remis à la forme attendue par l'étiqueteuse (couleur →
    *  taille → quantité). Une étiquette se colle sur une pièce QUI EXISTE : on
@@ -13741,9 +13741,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   Interne : une par taille × couleur. Externe : le magasin ne voit
                   que la taille, les quantités sont agrégées par taille. */}
               {(() => {
-                const fiche: any = labelModel.ficheData || {};
-                const colors: Array<{ id: string; name: string }> = fiche.colors || [];
-                const sizes: string[] = fiche.sizes || [];
+                /* Les axes union : le tableau doit montrer les cases OÙ IL Y A
+                   de la marchandise, pas seulement celles de la fiche. */
+                const { sizes, colors } = axesOfModel(labelModel);
                 const total = labelMode === 'externe'
                   ? Object.values(labelExterneGrid).reduce((a, v) => a + (Math.floor(Number(v) || 0)), 0)
                   : Object.values(labelGrid).reduce((a, v) => a + (Math.floor(Number(v) || 0)), 0);
@@ -13800,10 +13800,10 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                             </thead>
                             <tbody>
                               {colors.map(c => (
-                                <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-dk-bg/60 transition-colors">
-                                  <td className="p-2 font-semibold text-slate-600 dark:text-dk-text-soft border-b border-slate-100 dark:border-dk-border whitespace-nowrap max-w-[120px] truncate">{c.name}</td>
+                                <tr key={c} className="hover:bg-slate-50 dark:hover:bg-dk-bg/60 transition-colors">
+                                  <td className="p-2 font-semibold text-slate-600 dark:text-dk-text-soft border-b border-slate-100 dark:border-dk-border whitespace-nowrap max-w-[120px] truncate">{c}</td>
                                   {sizes.map(s => {
-                                    const key = `${c.name}|${s}`;
+                                    const key = `${c}|${s}`;
                                     return (
                                       <td key={key} className="p-1.5 border-b border-l border-slate-100 dark:border-dk-border">
                                         <input
