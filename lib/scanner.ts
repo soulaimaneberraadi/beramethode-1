@@ -121,6 +121,21 @@ export function resolveScan(
   code: string,
   axesOf: AxesLookup = axesFromFiche,
 ): ScanHit | null {
+  /* Un code ENREGISTRE fait foi avant toute analyse, quelle que soit sa forme.
+   * Une piece achetee arrive avec le code de son fournisseur : EAN-8, Code-128,
+   * une reference maison — rien qui ressemble a nos 13 chiffres. Le rattacher a
+   * une case, c'est tout ce dont le comptoir a besoin ; exiger notre format
+   * obligerait a re-etiqueter de la marchandise deja etiquetee. */
+  const brut = String(code || '').trim();
+  if (brut) {
+    for (const m of candidats) {
+      const map = (m.meta_data as any)?.variantCodes;
+      const hit = map && map[brut];
+      if (hit && typeof hit.taille === 'string' && typeof hit.couleur === 'string') {
+        return { model: m, taille: hit.taille, couleur: hit.couleur };
+      }
+    }
+  }
   const p = parseScanCode(code);
   if (!p?.ref) return null;
   let model: ModelData | undefined;

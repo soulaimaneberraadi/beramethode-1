@@ -83,3 +83,4 @@ electron/preload.js
 
 # Certificats HTTPS locaux (regeneres automatiquement)
 .certs/
+sauvegardes/

@@ -2354,6 +2354,90 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     } catch { /* silencieux */ }
   }, [models, articles, saveArticleVariantCode]);
 
+  /**
+   * Enregistre PLUSIEURS codes d'un coup. `saveVariantCode` relit et réécrit
+   * le modèle à chaque appel : sur une grille de 27 cases, c'est 27 allers-
+   * retours dont les derniers écrasent les premiers (chacun est parti d'une
+   * copie lue avant les autres). Ici, une lecture, une écriture.
+   *
+   * Renvoie le nombre de codes réellement ajoutés — l'appelant a besoin de
+   * savoir si le geste a servi à quelque chose.
+   */
+  const saveVariantCodes = useCallback(async (
+    modelId: string,
+    entrees: Array<{ code: string; taille: string; couleur: string }>,
+  ): Promise<number> => {
+    const utiles = entrees.filter(e => e.code);
+    if (!modelId || modelId === 'MANUAL' || utiles.length === 0) return 0;
+
+    // Marchandise achetée : elle vit dans sa propre table.
+    const article = articles.find(a => a.id === modelId);
+    if (article) {
+      const prev = article.variantCodes || {};
+      const next = { ...prev };
+      let ajoutes = 0;
+      utiles.forEach(e => {
+        if (next[e.code]?.taille === e.taille && next[e.code]?.couleur === e.couleur) return;
+        next[e.code] = { taille: e.taille, couleur: e.couleur };
+        ajoutes++;
+      });
+      if (ajoutes === 0) return 0;
+      try {
+        const res = await fetch('/api/subcontract/articles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ ...article, variantCodes: next }),
+        });
+        if (!res.ok) return 0;
+        const saved = await res.json();
+        setArticles(list => list.map(a => (a.id === modelId ? saved : a)));
+        return ajoutes;
+      } catch { return 0; }
+    }
+
+    const local = models.find(m => m.id === modelId);
+    if (!local) return 0;
+    try {
+      // On repart de la version du serveur : une carte lue il y a dix minutes
+      // ferait perdre les codes enregistrés entre-temps depuis un autre poste.
+      let base: ModelData = local;
+      if (!IS_STATIC) {
+        const fresh = await fetch('/api/models', { credentials: 'include' });
+        if (fresh.ok) {
+          const list = await fresh.json();
+          const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
+          if (found) base = found;
+        }
+      }
+      const prev = (base.meta_data as any)?.variantCodes || {};
+      const next = { ...prev };
+      let ajoutes = 0;
+      utiles.forEach(e => {
+        if (next[e.code]?.taille === e.taille && next[e.code]?.couleur === e.couleur) return;
+        next[e.code] = { taille: e.taille, couleur: e.couleur };
+        ajoutes++;
+      });
+      if (ajoutes === 0) return 0;
+      const updated: ModelData = {
+        ...base,
+        meta_data: { ...(base.meta_data || {}), variantCodes: next } as ModelData['meta_data'],
+        updatedAt: new Date().toISOString(),
+      };
+      if (!IS_STATIC) {
+        const res = await fetch('/api/models', {
+          credentials: 'include',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated),
+        });
+        if (!res.ok) return 0;
+      }
+      setModels?.(list => list.map(m => (m.id === updated.id ? updated : m)));
+      return ajoutes;
+    } catch { return 0; }
+  }, [models, articles, setModels]);
+
   const openLabel = (model: ModelData, opts?: { grid?: OrderGrid; price?: number }) => {
     /* La grille des tiki suit les axes UNION (fiche + cellules réellement en
      * stock). Bâtie sur la seule fiche, elle proposait d'imprimer « 36/38/40 »
@@ -10653,6 +10737,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         lang={lang}
         fmtDate={fmtDate}
         initialModelId={referentielModel}
+        onSaveCodes={(m, entrees) => saveVariantCodes(String(m.id), entrees)}
         onPrint={m => {
           const stat = modelStockStats.find(it => it.model.id === m.id);
           openLabel(m, { grid: stockGridForLabel(m.id), price: stat?.salePrice ?? undefined });
