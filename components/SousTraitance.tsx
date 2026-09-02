@@ -2389,15 +2389,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           credentials: 'include',
           body: JSON.stringify({ ...article, variantCodes: next }),
         });
-        if (!res.ok) return 0;
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const saved = await res.json();
         setArticles(list => list.map(a => (a.id === modelId ? saved : a)));
         return ajoutes;
-      } catch { return 0; }
+      } catch (e) {
+        /* Un echec DOIT remonter : rendre 0 le faisait lire « tout etait deja
+         * enregistre », et on repartait convaincu que le lecteur connaissait
+         * un produit qu'il ne connaissait pas. */
+        throw e instanceof Error ? e : new Error('save failed');
+      }
     }
 
     const local = models.find(m => m.id === modelId);
-    if (!local) return 0;
+    if (!local) throw new Error('modele introuvable');
     try {
       // On repart de la version du serveur : une carte lue il y a dix minutes
       // ferait perdre les codes enregistrés entre-temps depuis un autre poste.
@@ -2431,11 +2436,13 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updated),
         });
-        if (!res.ok) return 0;
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
       }
       setModels?.(list => list.map(m => (m.id === updated.id ? updated : m)));
       return ajoutes;
-    } catch { return 0; }
+    } catch (e) {
+      throw e instanceof Error ? e : new Error('save failed');
+    }
   }, [models, articles, setModels]);
 
   const openLabel = (model: ModelData, opts?: { grid?: OrderGrid; price?: number }) => {

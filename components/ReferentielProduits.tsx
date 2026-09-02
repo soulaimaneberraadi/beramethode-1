@@ -80,7 +80,7 @@ const CodeBarres: React.FC<{ code: string }> = ({ code }) => {
     if (ref.current && code) renderEAN13(ref.current, code, { height: 34, module: 1.4, quiet: 4 });
   }, [code]);
   if (!code) return null;
-  return <canvas ref={ref} className="max-w-full h-auto" />;
+  return <canvas ref={ref} className="block max-w-full h-auto" />;
 };
 
 const ReferentielProduits: React.FC<Props> = ({
@@ -120,7 +120,7 @@ const ReferentielProduits: React.FC<Props> = ({
     annuler: tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'Iptal' }),
     fait: tx(lang, { fr: 'codes enregistrés.', ar: 'كود تسجّلو.', en: 'codes registered.', es: 'codigos registrados.', pt: 'codigos registados.', tr: 'kod kaydedildi.' }),
     rienAFaire: tx(lang, { fr: 'Tout était déjà enregistré.', ar: 'كلشي كان مسجّل من قبل.', en: 'Everything was already registered.', es: 'Todo ya estaba registrado.', pt: 'Tudo ja estava registado.', tr: 'Her sey zaten kayitliydi.' }),
-    echec: tx(lang, { fr: "L'enregistrement n'a pas abouti.", ar: 'التسجيل ما نجحش.', en: 'The registration failed.', es: 'El registro no se completo.', pt: 'O registo nao foi concluido.', tr: 'Kayit tamamlanmadi.' }),
+    echec: tx(lang, { fr: "L'enregistrement n'a pas abouti — rien n'a été écrit.", ar: 'التسجيل ما نجحش — حتى حاجة ما تكتبات.', en: 'Registration failed - nothing was written.', es: 'El registro fallo - no se escribio nada.', pt: 'O registo falhou - nada foi escrito.', tr: 'Kayit basarisiz - hicbir sey yazilmadi.' }),
     horsFiche: tx(lang, { fr: 'Case absente de la fiche : le stock est entré par la commande sous ce libellé.', ar: 'خانة ماشي فالبطاقة: الستوك دخل من الطلبية بهاد التسمية.', en: 'Cell missing from the record: stock came in from the order under this label.', es: 'Casilla ausente de la ficha: el stock entro por el pedido con esta etiqueta.', pt: 'Celula ausente da ficha: o stock entrou pela encomenda com este rotulo.', tr: 'Karttan eksik hucre: stok siparisten bu etiketle girdi.' }),
   };
 
@@ -249,8 +249,8 @@ const ReferentielProduits: React.FC<Props> = ({
     try {
       const n = await onSaveCodes(ouvert, entrees);
       setFlash(n > 0 ? { ok: true, msg: `${n} ${T.fait}` } : { ok: true, msg: T.rienAFaire });
-    } catch {
-      setFlash({ ok: false, msg: T.echec });
+    } catch (e) {
+      setFlash({ ok: false, msg: `${T.echec} ${(e as Error)?.message || ''}`.trim() });
     } finally {
       setEnregistrement(false);
     }
@@ -268,8 +268,8 @@ const ReferentielProduits: React.FC<Props> = ({
       const n = await onSaveCodes(ouvert, [{ code, taille: saisie.taille, couleur: saisie.couleur }]);
       setFlash(n > 0 ? { ok: true, msg: `1 ${T.fait}` } : { ok: true, msg: T.rienAFaire });
       setSaisie(null);
-    } catch {
-      setFlash({ ok: false, msg: T.echec });
+    } catch (e) {
+      setFlash({ ok: false, msg: `${T.echec} ${(e as Error)?.message || ''}`.trim() });
     } finally {
       setEnregistrement(false);
     }
@@ -312,14 +312,14 @@ const ReferentielProduits: React.FC<Props> = ({
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[130] flex flex-col bg-slate-100 dark:bg-dk-bg">
+    <div className="fixed inset-0 z-[130] flex flex-col bg-slate-50 dark:bg-dk-bg overflow-x-hidden">
       {/* Entête : ce qu'on regarde, et par où on sort. */}
-      <div className="shrink-0 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border">
+      <div className="shrink-0 flex items-center gap-1.5 sm:gap-3 px-2.5 sm:px-5 py-2.5 sm:py-3 bg-white/95 dark:bg-dk-surface/95 backdrop-blur border-b border-slate-200 dark:border-dk-border">
         {ouvert ? (
           <button
             type="button"
             onClick={() => setOuvert(null)}
-            className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
+            className="shrink-0 flex items-center gap-1.5 px-2 sm:px-2.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">{T.retour}</span>
@@ -327,20 +327,19 @@ const ReferentielProduits: React.FC<Props> = ({
         ) : (
           <Layers className="w-5 h-5 text-indigo-600 dark:text-dk-accent shrink-0" />
         )}
-        <div className="min-w-0">
-          <p className="font-extrabold text-slate-800 dark:text-dk-text text-sm sm:text-base truncate">
+        <div className="min-w-0 flex-1">
+          <p className="font-extrabold text-slate-800 dark:text-dk-text text-[13px] sm:text-base truncate">
             {ouvert ? (ouvert.meta_data?.nom_modele || ouvert.id) : T.titre}
           </p>
-          <p className="hidden sm:block text-[11px] text-slate-400 dark:text-dk-muted truncate">
+          <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-dk-muted truncate">
             {ouvert ? (ouvert.meta_data?.reference || String(ouvert.id)) : T.sous}
           </p>
         </div>
-        <div className="flex-1 min-w-0" />
         {ouvert && onPrint && (
           <button
             type="button"
             onClick={() => { onPrint(ouvert); onClose(); }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shrink-0"
+            className="shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
           >
             <Printer className="w-4 h-4" />
             <span className="hidden sm:inline">{T.imprimer}</span>
@@ -355,10 +354,10 @@ const ReferentielProduits: React.FC<Props> = ({
         </button>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden">
         {!ouvert ? (
-          <div className="p-3 sm:p-5">
-            <div className="relative mb-4">
+          <div className="p-2.5 sm:p-5">
+            <div className="relative mb-3 sm:mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-dk-muted pointer-events-none" />
               <input
                 value={recherche}
@@ -371,13 +370,13 @@ const ReferentielProduits: React.FC<Props> = ({
             {liste.length === 0 ? (
               <p className="text-center text-sm text-slate-400 dark:text-dk-muted py-16">{T.vide}</p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5 sm:gap-3">
                 {liste.map(e => (
                   <button
                     key={e.model.id}
                     type="button"
                     onClick={() => ouvrir(e.model)}
-                    className="text-left p-3 rounded-2xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent transition-colors"
+                    className="min-w-0 text-left p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:border-indigo-300 dark:hover:border-dk-accent active:scale-[0.99] transition-all"
                   >
                     <div className="flex items-start gap-3">
                       <div className="relative flex-none">
@@ -439,11 +438,11 @@ const ReferentielProduits: React.FC<Props> = ({
             )}
           </div>
         ) : (
-          <div className="p-3 sm:p-5">
+          <div className="p-2.5 sm:p-5">
             {/* Carte d'identité du produit, puis ses cases une à une. */}
-            <div className="flex items-start gap-3 p-3 rounded-2xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border mb-4">
-              <Vignette model={ouvert} className="w-20 h-20" />
-              <div className="min-w-0 flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="flex items-start gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border mb-3 sm:mb-4">
+              <Vignette model={ouvert} className="w-14 h-14 sm:w-20 sm:h-20" />
+              <div className="min-w-0 flex-1 grid grid-cols-2 sm:grid-cols-4 gap-x-2 gap-y-1.5">
                 <div className="min-w-0">
                   <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-dk-muted">{T.ref}</p>
                   <p className="text-xs font-bold text-slate-700 dark:text-dk-text truncate">{ouvert.meta_data?.reference || String(ouvert.id)}</p>
@@ -505,12 +504,14 @@ const ReferentielProduits: React.FC<Props> = ({
               </p>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5 sm:gap-3">
               {detail?.lignes.map(l => (
                 <div
                   key={`${l.couleur}|${l.taille}`}
-                  className={`p-3 rounded-2xl bg-white dark:bg-dk-surface border ${
-                    l.qte > 0 ? 'border-slate-200 dark:border-dk-border' : 'border-dashed border-slate-200 dark:border-dk-border opacity-70'
+                  className={`min-w-0 p-2.5 sm:p-3 rounded-2xl bg-white dark:bg-dk-surface border transition-colors ${
+                    l.qte > 0
+                      ? 'border-slate-200 dark:border-dk-border'
+                      : 'border-dashed border-slate-200 dark:border-dk-border opacity-60'
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-2">
@@ -565,7 +566,7 @@ const ReferentielProduits: React.FC<Props> = ({
                   ) : l.code ? (
                     <div className="rounded-xl bg-slate-50 dark:bg-dk-bg p-2 flex flex-col items-center">
                       <CodeBarres code={l.code} />
-                      <p className="mt-1 text-[11px] font-mono font-bold tracking-wider text-slate-600 dark:text-dk-text-soft">{l.code}</p>
+                      <p className="mt-1 max-w-full truncate text-[11px] font-mono font-bold tracking-wider text-slate-600 dark:text-dk-text-soft">{l.code}</p>
                       <div className="mt-1.5 w-full flex items-center gap-2">
                         <span className={`flex items-center gap-1 text-[9px] font-bold ${
                           l.enregistre ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
