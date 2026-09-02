@@ -1155,6 +1155,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  Elle partage le stock et l'API de sortie, rien d'autre. */
   const [caisseOpen, setCaisseOpen] = useState(false);
   const [caisseRecherche, setCaisseRecherche] = useState('');
+  /** Tiki lu hors caisse : transmis au comptoir a l'ouverture. */
+  const [caissePendingScan, setCaissePendingScan] = useState<{ code: string; nonce: number } | null>(null);
   const caisseOpenRef = useRef(false);
   caisseOpenRef.current = caisseOpen;
 
@@ -1673,50 +1675,16 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     return null;
   }, [models, articles]);
 
+  /** Un tiki lu, d'ou qu'on soit dans le stock : il part au comptoir. La
+   *  lecture n'ouvre plus « Sortie de stock » — une piece qui quitte le
+   *  magasin passe par la caisse, qui verifie le stock reel, applique le
+   *  tarif du segment et laisse une trace encaissable. La sortie manuelle
+   *  reste accessible par son bouton, pour les cas qui ne sont pas une vente. */
   const traiterScan = useCallback((code: string) => {
     setStockSearch('');
-    const p = parseScanCode(code);
-    if (!p?.ref) { playPip(false); return; }
-    const norm = (s?: string) => (s || '').trim().toUpperCase();
-    let model: ModelData | undefined;
-    let taille = p.taille;
-    let couleur = p.couleur;
-    // EAN-13 variante pure (13 chiffres, sans % ni *): on déchiffre taille/couleur.
-    if (!taille && !couleur && /^\d{13}$/.test(p.ref)) {
-      const hit = resolveVariantByEAN(p.ref);
-      if (hit) { model = hit.model; taille = hit.taille; couleur = hit.couleur; }
-    }
-    if (!model) {
-      // Même repli pour un article acheté : sa référence ou son nom doivent
-      // pouvoir être reconnus au scan comme pour n'importe quel modèle.
-      const candidats: ModelData[] = [...models, ...articles.map(articleAsModel)];
-      model =
-        candidats.find(m => norm(m.meta_data?.reference) === norm(p.ref)) ||
-        candidats.find(m => norm(m.meta_data?.nom_modele) === norm(p.ref));
-    }
-    if (!model) { playPip(false); return; }
-    const fiche: any = model.ficheData || {};
-    const colors: Array<{ id: string; name: string }> = fiche.colors || [];
-    const sizes: string[] = fiche.sizes || [];
-    const color = couleur ? colors.find(c => norm(c.name) === norm(couleur)) : undefined;
-    const size = taille ? sizes.find(s => norm(s) === norm(taille)) : undefined;
-    // La case n'existe que si les DEUX (taille, couleur) correspondent à la
-    // grille du modèle — sinon on ouvre simplement la sortie sans rien remplir.
-    const key = `${color?.name ?? ''}|${size ?? ''}`;
-    const stat = modelStockStatsRef.current.find(it => it.model.id === model.id);
-    const current = sortieFormRef.current;
-    if (current?.model.id === model.id && key !== '|') {
-      // Déjà en sortie pour CE modèle : on incrémente la case scannée sans
-      // toucher au client ni au prix déjà choisis (chaque pièce = +1).
-      setSortieForm(prev => prev ? { ...prev, grid: { ...prev.grid, [key]: (Number(prev.grid[key]) || 0) + 1 } } : prev);
-      playPip(true);
-      return;
-    }
-    const prefill: Record<string, number> = {};
-    if (key !== '|') prefill[key] = 1;
-    openSortieModal(model, stat?.salePrice ?? null, prefill);
-    playPip(true);
-  }, [models, articles, resolveVariantByEAN, playPip]);
+    setCaissePendingScan({ code, nonce: Date.now() });
+    setCaisseOpen(true);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -10657,6 +10625,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         lang={lang}
         isStatic={IS_STATIC}
         initialRecherche={caisseRecherche}
+        pendingScan={caissePendingScan}
         onCreateClient={() => { setCaisseOpen(false); setActiveTab('clients'); }}
         onClientsChanged={loadAtelierClients}
         onEncaisser={encaisserCaisse}

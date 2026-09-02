@@ -104,6 +104,11 @@ export interface CaisseProps {
   isStatic?: boolean;
   /** Ouverte depuis un modèle précis : sa grille est déjà à l'écran. */
   initialRecherche?: string;
+  /** Un tiki lu AVANT que la caisse ne soit à l'écran : l'écran appelant nous
+   *  passe le code au lieu de l'avaler, sinon la première pièce scannée du
+   *  comptoir serait perdue et le vendeur la rescannerait sans savoir
+   *  pourquoi. Le `nonce` distingue deux lectures du MEME tiki. */
+  pendingScan?: { code: string; nonce: number } | null;
   /** Ouvre la création d'un client sans quitter le comptoir. */
   onCreateClient?: () => void;
   /** Une fiche client vient d'etre completee depuis la caisse : l'ecran
@@ -274,7 +279,7 @@ const Vignette: React.FC<{ model: ModelData; className?: string }> = ({ model, c
 
 const Caisse: React.FC<CaisseProps> = ({
   open, onClose, candidats, clients, stockMatrix, currency, lang, onEncaisser, isStatic,
-  initialRecherche, onCreateClient, onTicketAnnule, onClientsChanged,
+  initialRecherche, pendingScan, onCreateClient, onTicketAnnule, onClientsChanged,
 }) => {
   const [lignes, setLignes] = useState<CaisseLigne[]>([]);
   const [clientId, setClientId] = useState<string>('');
@@ -800,10 +805,9 @@ const Caisse: React.FC<CaisseProps> = ({
     return () => { alive = false; };
   }, [open, isStatic, lignes, tarifsComparatifs]);
 
-  /** Le lecteur reste actif en permanence tant que la caisse est ouverte. */
-  useEffect(() => {
-    if (!open) return;
-    return attachScannerListener(code => {
+  /** Un tiki lu → la pièce au panier. Le même chemin sert au lecteur branché
+   *  sur la caisse et au code lu depuis l'écran appelant avant l'ouverture. */
+  const traiterCode = useCallback((code: string) => {
       const hit = resolveScan(candidats, code);
       if (!hit) {
         pip(false);
@@ -817,8 +821,21 @@ const Caisse: React.FC<CaisseProps> = ({
         return;
       }
       ajouter(hit.model, hit.couleur, hit.taille);
-    });
-  }, [open, candidats, ajouter, pip, lang]);
+  }, [candidats, ajouter, pip, lang]);
+
+  /** Le lecteur reste actif en permanence tant que la caisse est ouverte. */
+  useEffect(() => {
+    if (!open) return;
+    return attachScannerListener(traiterCode);
+  }, [open, traiterCode]);
+
+  /** Tiki lu juste avant l'ouverture : on le traite une seule fois. */
+  const dernierScanRef = useRef(0);
+  useEffect(() => {
+    if (!open || !pendingScan || pendingScan.nonce === dernierScanRef.current) return;
+    dernierScanRef.current = pendingScan.nonce;
+    traiterCode(pendingScan.code);
+  }, [open, pendingScan, traiterCode]);
 
   /** Le segment courant doit exister : retirer « Ma boutique » alors qu'elle
    *  etait selectionnee laisserait la vente partir sur un tarif que ce
