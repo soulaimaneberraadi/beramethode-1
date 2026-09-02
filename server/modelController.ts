@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import db from './db';
+import { recordTombstone } from './tombstones';
 
 // Cloisonnement par workspace : on scope sur `companyId` (= owner_id du workspace
 // actif, injecté par authenticateToken), avec repli sur user.id pour robustesse.
@@ -64,6 +65,10 @@ export const deleteModel = (req: Request, res: Response) => {
     if (info.changes === 0) {
       return res.status(404).json({ message: 'Model not found' });
     }
+
+    // La suppression doit voyager : le blob cloud garde encore ce modèle, et la
+    // fusion du push (union, non destructive) le réinstallerait sans cette trace.
+    recordTombstone('models', id, ownerId);
 
     res.json({ message: 'Model deleted successfully' });
   } catch (error) {

@@ -80,13 +80,73 @@ const getSupabaseCloudUserId = async (): Promise<string | null> => {
   return data.user?.id || null;
 };
 
-const cloudOwnerFor = async (userData: Pick<User, 'id' | 'cloudUserId'>): Promise<string> => {
-  if (userData.cloudUserId && isCloudSyncUserId(userData.cloudUserId)) return userData.cloudUserId;
-  const cloudId = await getSupabaseCloudUserId().catch(() => null);
-  return cloudId || String(userData.id);
+/**
+ * Espace de noms localStorage déjà utilisé par un e-mail donné.
+ *
+ * Les clés métier sont suffixées par l'identifiant du compte (`pkey`). Cet
+ * identifiant est l'UUID Supabase quand il est connu, l'identifiant numérique
+ * local sinon. Le jour où Supabase est injoignable au moment de la connexion,
+ * le même compte basculerait donc du premier vers le second : ses données
+ * resteraient écrites sous l'ancien suffixe, invisibles, et tout ce qui serait
+ * créé ensuite le serait sous le nouveau — d'où « ce que j'ajoute disparaît et
+ * les vieilles données reviennent ».
+ *
+ * On mémorise donc le suffixe retenu POUR CET E-MAIL. L'isolation entre comptes
+ * reste entière (la table est indexée par e-mail), mais un même compte ne
+ * change plus d'espace de noms au gré du réseau.
+ */
+const SCOPE_PAR_EMAIL_KEY = 'beramethode_owner_scope_by_email';
+
+const lireScopeMemorise = (email?: string | null): string | null => {
+  if (!email) return null;
+  try {
+    const raw = localStorage.getItem(SCOPE_PAR_EMAIL_KEY);
+    const map = raw ? JSON.parse(raw) : null;
+    const v = map && typeof map === 'object' ? map[email.trim().toLowerCase()] : null;
+    return typeof v === 'string' && v ? v : null;
+  } catch {
+    return null;
+  }
 };
 
-const activateLocalDataOwner = async (userData: Pick<User, 'id' | 'cloudUserId'>): Promise<void> => {
+const memoriserScope = (email: string | null | undefined, ownerId: string): void => {
+  if (!email || !ownerId) return;
+  try {
+    const raw = localStorage.getItem(SCOPE_PAR_EMAIL_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    const cle = email.trim().toLowerCase();
+    if (map && typeof map === 'object' && map[cle] === ownerId) return;
+    localStorage.setItem(SCOPE_PAR_EMAIL_KEY, JSON.stringify({ ...(map || {}), [cle]: ownerId }));
+  } catch { /* ignore */ }
+};
+
+/**
+ * Résolution SYNCHRONE du suffixe, quand elle est possible sans réseau.
+ * `null` = il faut interroger la session Supabase (cas rare).
+ */
+const scopeSynchrone = (userData: Pick<User, 'id' | 'cloudUserId' | 'email'>): string | null => {
+  if (userData.cloudUserId && isCloudSyncUserId(userData.cloudUserId)) {
+    memoriserScope(userData.email, userData.cloudUserId);
+    return userData.cloudUserId;
+  }
+  // Ni le serveur ni rien d'autre ne donne l'UUID : plutôt que de basculer vers
+  // l'identifiant numérique — ce qui rendrait invisibles toutes les données
+  // déjà écrites — on reprend le suffixe déjà utilisé par cet e-mail.
+  return lireScopeMemorise(userData.email);
+};
+
+const cloudOwnerFor = async (userData: Pick<User, 'id' | 'cloudUserId' | 'email'>): Promise<string> => {
+  const direct = scopeSynchrone(userData);
+  if (direct) return direct;
+  const cloudId = await getSupabaseCloudUserId().catch(() => null);
+  if (cloudId) { memoriserScope(userData.email, cloudId); return cloudId; }
+  // Premier login sans aucune identité cloud connue : identifiant numérique.
+  const local = String(userData.id);
+  memoriserScope(userData.email, local);
+  return local;
+};
+
+const activateLocalDataOwner = async (userData: Pick<User, 'id' | 'cloudUserId' | 'email'>): Promise<void> => {
   const ownerId = await cloudOwnerFor(userData);
   ensureLocalDataOwner(ownerId);
   if (isCloudSyncUserId(ownerId)) {
@@ -244,7 +304,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // de l'ANCIEN compte (fuite de données entre comptes sur le même appareil).
       // ⚠️ ensureLocalDataOwner AVANT le pull : pose la clé d'isolation (pkey) du
       // bon compte pour que pullSnapshotFromCloud lise/écrive les bonnes clés scopées.
-      if (u) ensureLocalDataOwner(String(u.id));
+      if (u) { ensureLocalDataOwner(String(u.id)); memoriserScope(u.email, String(u.id)); }
       if (u && IS_STATIC) {
         // IMPORTANT: pull doit terminer AVANT setUser ET finishLoading, sinon :
         // 1. Le localStorage vide est pushé et écrase la donnée distante
@@ -262,7 +322,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const u = mapSupabaseUser(session?.user as never);
       // ensureLocalDataOwner AVANT setUser (cf. ci-dessus : évite la fuite inter-comptes).
-      if (u) ensureLocalDataOwner(String(u.id));
+      if (u) { ensureLocalDataOwner(String(u.id)); memoriserScope(u.email, String(u.id)); }
       if (u && IS_STATIC) {
         await pullSnapshotFromCloud(String(u.id)).catch(() => {});
         startCloudSync(String(u.id));
@@ -287,10 +347,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // voir les données de ce compte (et inversement).
     if (userData?.id != null) {
       const isGuest = userData.id === 0 || userData.id === '0';
-      const ownerId = isGuest ? 'guest' : (userData.cloudUserId && isCloudSyncUserId(userData.cloudUserId) ? userData.cloudUserId : String(userData.id));
-      ensureLocalDataOwner(ownerId);
-      if (!isGuest && isCloudSyncUserId(ownerId)) {
-        void pullSnapshotFromCloud(ownerId).catch(() => {}).finally(() => startCloudSync(ownerId));
+      if (isGuest) {
+        ensureLocalDataOwner('guest');
+      } else {
+        // Le suffixe DOIT être posé avant `setUser` : sinon les composants
+        // rendus juste après liraient les clés de l'ancien compte. On pose donc
+        // d'abord ce qu'on sait sans réseau, et on ne diffère que le cas rare
+        // où seule la session Supabase du navigateur porte l'UUID.
+        const direct = scopeSynchrone(userData);
+        if (direct) {
+          ensureLocalDataOwner(direct);
+          if (isCloudSyncUserId(direct)) {
+            void pullSnapshotFromCloud(direct).catch(() => {}).finally(() => startCloudSync(direct));
+          }
+        } else {
+          void activateLocalDataOwner(userData).catch(() => {});
+        }
       }
     }
     setUser(userData);
@@ -422,6 +494,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const u = mapSupabaseUser(data.user as never);
     if (u) {
       ensureLocalDataOwner(String(u.id));
+      memoriserScope(u.email, String(u.id));
       await pullSnapshotFromCloud(String(u.id)).catch(() => {});
       startCloudSync(String(u.id));
     }
@@ -470,6 +543,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const u = mapSupabaseUser(data.user as never);
     if (u) {
       ensureLocalDataOwner(String(u.id));
+      memoriserScope(u.email, String(u.id));
       await pullSnapshotFromCloud(String(u.id)).catch(() => {});
       startCloudSync(String(u.id));
     }

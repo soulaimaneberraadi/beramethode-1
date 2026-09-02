@@ -3,6 +3,7 @@ import db from './db';
 import { Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { mergeSnapshotIntoSqlite } from './supabaseRealtime';
+import { listTombstones } from './tombstones';
 import path from 'path';
 import fs from 'fs';
 
@@ -312,6 +313,11 @@ const buildSnapshot = async (localUserId: number, accessToken: string, userId: s
   );
 
   return {
+    // Les suppressions faites sur ce poste. Sans elles, la fusion du push
+    // (union) réinstallerait dans le cloud ce que l'utilisateur vient
+    // d'effacer. Elles sont réunies aux pierres tombales déjà présentes dans le
+    // blob par `fusionnerAvecCloud` : aucune des deux listes n'en perd.
+    beramethode_tombstones: listTombstones(localUserId),
     beramethode_library: libraryModels,
     beramethode_planning: extractRawData(planningEvents),
     beramethode_suivis: extractRawData(suiviData),
@@ -387,13 +393,49 @@ const fusionnerAvecCloud = (
   // 1. Base = cloud (préserve les clés que le serveur ne connaît pas).
   const fusion: Record<string, any> = { ...donneesCloud };
 
+  // Pierres tombales : union des deux registres (celui du navigateur déjà dans
+  // le blob, et celui du serveur). C'est la seule chose qui distingue « pas
+  // encore reçu » de « volontairement supprimé », donc on n'en perd jamais.
+  const tombes = new Map<string, any>();
+  for (const source of [donneesCloud.beramethode_tombstones, snapshotLocal.beramethode_tombstones]) {
+    if (!Array.isArray(source)) continue;
+    for (const t of source) {
+      if (!t || t.id == null || !t.type) continue;
+      const cle = `${t.type}:${t.id}`;
+      const precedent = tombes.get(cle);
+      if (!precedent || String(t.deleted_at || '') > String(precedent.deleted_at || '')) tombes.set(cle, t);
+    }
+  }
+  if (tombes.size) fusion.beramethode_tombstones = [...tombes.values()];
+
+  /** Date de suppression d'un modèle, ou `null` s'il n'a pas été supprimé. */
+  const supprimeLe = (id: any): number | null => {
+    const t = tombes.get(`models:${id}`);
+    if (!t) return null;
+    const d = new Date(t.deleted_at).getTime();
+    return Number.isFinite(d) ? d : null;
+  };
+
   for (const [cle, valeurLocale] of Object.entries(snapshotLocal)) {
     const valeurCloud = donneesCloud[cle];
 
-    // 3. Bibliothèque : union par id.
+    if (cle === 'beramethode_tombstones') continue; // déjà fusionné ci-dessus
+
+    // 3. Bibliothèque : union par id, MAIS un modèle supprimé ne revient pas.
+    //    Sans ce filtre, l'union ferait ressusciter dans le cloud tout ce que
+    //    l'utilisateur vient d'effacer sur ce poste. Un modèle ré-édité APRÈS
+    //    sa suppression est conservé : quelqu'un l'a repris ailleurs, et
+    //    écraser ce travail serait pire que de laisser revenir une ligne.
     if (cle === 'beramethode_library' && Array.isArray(valeurLocale) && Array.isArray(valeurCloud)) {
       const idsLocaux = new Set(valeurLocale.map((m: any) => m && m.id));
-      const seulementCloud = valeurCloud.filter((m: any) => m && !idsLocaux.has(m.id));
+      const seulementCloud = valeurCloud.filter((m: any) => {
+        if (!m || idsLocaux.has(m.id)) return false;
+        const del = supprimeLe(m.id);
+        if (del == null) return true;
+        const edit = m.updatedAt || m.updated_at;
+        const e = edit ? new Date(edit).getTime() : 0;
+        return Number.isFinite(e) && e > del;
+      });
       fusion[cle] = seulementCloud.length ? [...valeurLocale, ...seulementCloud] : valeurLocale;
       continue;
     }

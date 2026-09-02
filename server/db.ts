@@ -2512,7 +2512,21 @@ entretenirBase();
 const minuterieEntretien = setInterval(entretenirBase, 6 * 60 * 60 * 1000);
 if (typeof minuterieEntretien.unref === 'function') minuterieEntretien.unref();
 
+// Registre des suppressions faites côté serveur (SQLite).
+//
+// Sans lui, une suppression locale n'existe nulle part : la ligne disparaît de
+// SQLite, mais le blob cloud la garde, et la fusion non destructive du push la
+// réinstalle. Une suppression doit être un FAIT qui voyage, pas une absence —
+// c'est le rôle de la pierre tombale. Le format reprend celui du navigateur
+// (`beramethode_tombstones`) pour que les deux se fusionnent sans traduction.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sync_tombstones (
+    type TEXT NOT NULL,
+    id TEXT NOT NULL,
+    owner_id INTEGER,
+    deleted_at TEXT NOT NULL,
+    PRIMARY KEY (type, id, owner_id)
+  )
+`);
+
 export default db;
-
-
-

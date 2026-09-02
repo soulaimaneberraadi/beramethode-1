@@ -186,8 +186,24 @@ export const login = async (req: Request, res: Response) => {
     logAudit({ userId: user.id, action: 'LOGIN', ip: req.ip });
     setAuthCookie(res, { id: user.id, email: user.email, role: user.role }, seSouvenir);
 
-    // Mettre en place la session Supabase si les identifiants correspondent
-    let cloudUserId: string | undefined;
+    // Identité cloud DÉJÀ connue pour ce compte. Elle sert de socle : le
+    // navigateur s'en sert pour nommer ses clés localStorage (pkey). Si on la
+    // laissait dépendre du seul aller-retour Supabase ci-dessous — 4 s de
+    // délai, et Supabase peut être lent, hors service (522) ou limiter le
+    // débit (429) — une panne passagère renverrait `undefined`, le navigateur
+    // retomberait sur l'identifiant numérique, et TOUTES les données du compte
+    // basculeraient dans un second espace de noms : le travail du jour devient
+    // invisible et d'anciennes données réapparaissent à sa place.
+    let cloudUserId: string | undefined = (() => {
+      try {
+        const row = db
+          .prepare('SELECT supabase_user_id FROM supabase_sessions WHERE user_id = ?')
+          .get(user.id) as { supabase_user_id?: string } | undefined;
+        return row?.supabase_user_id || undefined;
+      } catch {
+        return undefined;
+      }
+    })();
     const SUPABASE_URL = process.env.SUPABASE_URL || '';
     const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
