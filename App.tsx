@@ -520,6 +520,31 @@ export default function App() {
 
 
 
+    // Préférences locales du compte (réglages, machines, liens manuels). Elles
+    // ne transitent pas par le serveur : il faut les relire dès que le compte
+    // est connu, sinon l'application reste sur les valeurs par défaut du montage
+    // — et finit par les réécrire par-dessus les vraies (cf. `prefsChargeesPour`).
+    useEffect(() => {
+        const relirePreferences = () => {
+            try { const s = lsGetMig('beramethode_settings'); if (s) setGlobalSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(s) }); } catch { /* garde l'état courant */ }
+            try { setMachines(loadMachinesFromStorage()); } catch { /* idem */ }
+            try { setMachineFleetHistory(loadMachineFleetHistoryFromStorage()); } catch { /* idem */ }
+            try { const s = lsGetMig(MACHINE_INSTANCES_KEY); if (s) setMachineInstances(JSON.parse(s)); } catch { /* idem */ }
+            try { const s = lsGetMig('beramethode_manual_links'); if (s) setManualLinks(JSON.parse(s)); } catch { /* idem */ }
+            // Marqué APRÈS la relecture : la persistance ne se rouvre qu'ensuite.
+            prefsChargeesPour.current = compteCourant();
+        };
+        relirePreferences();
+        const onCompteChange = () => relirePreferences();
+        const onCloudApplied = () => relirePreferences();
+        window.addEventListener('bera_user_changed', onCompteChange);
+        window.addEventListener('beramethode:cloud-sync-applied', onCloudApplied);
+        return () => {
+            window.removeEventListener('bera_user_changed', onCompteChange);
+            window.removeEventListener('beramethode:cloud-sync-applied', onCloudApplied);
+        };
+    }, [user]);
+
     useEffect(() => {
         const loadFromLocal = () => {
             try { const s = lsGetMig('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
@@ -635,7 +660,39 @@ export default function App() {
         try { const saved = lsGetMig('beramethode_settings'); return saved ? JSON.parse(saved) : DEFAULT_SETTINGS; } catch { return DEFAULT_SETTINGS; }
     });
 
-    useEffect(() => { lsSet('beramethode_settings', JSON.stringify(globalSettings)); }, [globalSettings]);
+    /**
+     * Compte pour lequel les préférences locales (réglages, machines, liens) ont
+     * été chargées. `null` tant que rien n'a été chargé.
+     *
+     * Ces clés ne vivent QUE dans localStorage — le serveur ne les reconstruit
+     * pas — et leur nom est suffixé par le compte. Or au montage, aucun compte
+     * n'est encore connu : les états ci-dessous s'initialisent donc sur les
+     * VALEURS PAR DÉFAUT (réglages usine, 14 machines type, 50 machines tirées
+     * au hasard). Sans ce garde, la première chose que faisait l'application
+     * après la connexion était de réécrire ces valeurs par défaut sur les clés
+     * du compte — écrasant les vraies machines et, plus grave, le prix minute,
+     * la TVA et les marges, puis poussant le tout au cloud.
+     *
+     * On ne persiste donc rien tant que les préférences du compte courant n'ont
+     * pas été relues.
+     */
+    const prefsChargeesPour = useRef<string | null>(null);
+    const compteCourant = (): string => {
+        try { return localStorage.getItem('beramethode_last_sync_user') || ''; } catch { return ''; }
+    };
+    // Un compte doit être connu : sans lui, `pkey()` écrirait sur les clés de
+    // BASE (non suffixées), que la connexion suivante adopterait comme étant
+    // celles du compte. C'est précisément par là que les valeurs par défaut
+    // entraient dans un vrai compte.
+    const prefsPretes = () => {
+        const compte = compteCourant();
+        return compte !== '' && prefsChargeesPour.current === compte;
+    };
+
+    useEffect(() => {
+        if (!prefsPretes()) return;
+        lsSet('beramethode_settings', JSON.stringify(globalSettings));
+    }, [globalSettings]);
 
     const [machines, setMachines] = useState<Machine[]>(loadMachinesFromStorage);
     const [machineFleetHistory, setMachineFleetHistory] = useState<MachineFleetHistoryEntry[]>(loadMachineFleetHistoryFromStorage);
@@ -645,6 +702,9 @@ export default function App() {
     });
 
     useEffect(() => {
+        // Ne jamais fabriquer un parc de démonstration avant d'avoir relu celui
+        // du compte : sinon 50 machines tirées au hasard remplacent le vrai parc.
+        if (!prefsPretes()) return;
         if (machineInstances.length === 0 && machines.length > 0) {
             const brands = ['Juki', 'Brother', 'Pegasus', 'Siruba', 'Jack'];
             const statuses = ['OK', 'OK', 'OK', 'OK', 'PANNE', 'MAINT'];
@@ -666,6 +726,7 @@ export default function App() {
     }, [machineInstances.length, machines]);
 
     useEffect(() => {
+        if (!prefsPretes()) return;
         try {
             lsSet(MACHINES_STORAGE_KEY, JSON.stringify(machines));
         } catch {
@@ -674,10 +735,12 @@ export default function App() {
     }, [machines]);
 
     useEffect(() => {
+        if (!prefsPretes()) return;
         try { lsSet(MACHINE_INSTANCES_KEY, JSON.stringify(machineInstances)); } catch { /* ignore */ }
     }, [machineInstances]);
 
     useEffect(() => {
+        if (!prefsPretes()) return;
         try {
             lsSet(MACHINE_FLEET_HISTORY_KEY, JSON.stringify(machineFleetHistory));
         } catch {
