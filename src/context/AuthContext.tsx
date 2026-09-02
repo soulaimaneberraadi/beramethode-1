@@ -123,6 +123,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const justLoggedOut = typeof window !== 'undefined' && sessionStorage.getItem('bera_just_logged_out') === '1';
           if (justLoggedOut) {
             try { sessionStorage.removeItem('bera_just_logged_out'); } catch {}
+            // Le drapeau ne vit qu'un seul boot. S'il reste ici une session
+            // vivante — cookie survivant à un /logout en échec, ou session
+            // Supabase que le pont réutiliserait — elle serait rouverte au
+            // rafraîchissement SUIVANT, quand plus aucun drapeau ne la retient.
+            // On la tue donc pour de bon, tant qu'on sait encore que l'utilisateur
+            // a voulu partir.
+            if (res.ok) {
+              try { await withTimeout(fetch('/api/auth/logout', { credentials: 'include', method: 'POST' }), 5000); } catch { /* best effort */ }
+              res = new Response(null, { status: 401 });
+            }
+            try { await withTimeout(supabase.auth.signOut({ scope: 'local' }), 5000); } catch { /* ignore */ }
+            try { localStorage.removeItem('beramethode_supabase_session'); } catch { /* ignore */ }
           }
           if (!res.ok
               && !justLoggedOut
@@ -321,6 +333,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try { await withTimeout(pushSnapshotToCloud(ownerId), 10000); } catch { /* keep logout responsive */ }
       }
       stopCloudSync();
+      // La session Supabase DOIT mourir ici aussi, pas seulement le cookie du
+      // serveur local. Sinon `loginLocalServerWithSupabaseSession()` (le pont
+      // Supabase → serveur local, au boot) la retrouve et rouvre le compte : on
+      // se déconnecte, on rafraîchit, et on se retrouve dans le programme.
+      try { await withTimeout(supabase.auth.signOut({ scope: 'local' }), 5000); } catch { /* purge dure ci-dessous */ }
+      try { localStorage.removeItem('beramethode_supabase_session'); } catch { /* ignore */ }
       clearLocalAppData();
       setUser(null);
       try { sessionStorage.setItem('bera_just_logged_out', '1'); } catch {}

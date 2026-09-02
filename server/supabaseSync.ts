@@ -348,6 +348,80 @@ const buildSnapshot = async (localUserId: number, accessToken: string, userId: s
   };
 };
 
+const estVide = (v: any): boolean =>
+  v == null
+  || (Array.isArray(v) && v.length === 0)
+  || (typeof v === 'object' && v.constructor === Object && !Object.keys(v).length);
+
+/**
+ * Fusionne le snapshot SQLite dans le blob cloud existant AU LIEU de le
+ * remplacer.
+ *
+ * Le serveur ne sait reconstruire depuis SQLite que les 8 clés produites par
+ * `buildSnapshot`. Les 16 autres du blob `user_data` appartiennent au
+ * navigateur (machines, nav, rôles, tiki, frais par canal, pierres tombales…) :
+ * il n'en sait rien et ne doit jamais les effacer.
+ *
+ * Sans cela, chaque push du serveur réécrivait la ligne entière avec ses 8
+ * clés : les 16 autres — dont `beramethode_tombstones`, le registre de ce que
+ * l'utilisateur a SUPPRIMÉ — disparaissaient du cloud. Le navigateur, ne
+ * sachant plus qu'une suppression avait eu lieu, ressuscitait à la fusion
+ * suivante tout ce qui avait été effacé : les vieilles données de test
+ * revenaient, et le travail récent fait sur Vercel était écrasé.
+ *
+ * Trois règles, dans cet ordre :
+ *  1. Toute clé étrangère au serveur est reprise telle quelle du cloud.
+ *  2. Une clé serveur vide localement ne remplace jamais une valeur cloud
+ *     pleine (le poste local n'a peut-être simplement pas encore reçu ces
+ *     données).
+ *  3. La bibliothèque est unie par `id` : un modèle présent d'un seul côté
+ *     survit. Les suppressions passent par les pierres tombales, jamais par
+ *     l'absence — c'est le protocole retenu pour la synchro.
+ */
+const fusionnerAvecCloud = (
+  snapshotLocal: Record<string, any>,
+  donneesCloud: Record<string, any> | null | undefined,
+): Record<string, any> => {
+  if (!donneesCloud || typeof donneesCloud !== 'object') return snapshotLocal;
+
+  // 1. Base = cloud (préserve les clés que le serveur ne connaît pas).
+  const fusion: Record<string, any> = { ...donneesCloud };
+
+  for (const [cle, valeurLocale] of Object.entries(snapshotLocal)) {
+    const valeurCloud = donneesCloud[cle];
+
+    // 3. Bibliothèque : union par id.
+    if (cle === 'beramethode_library' && Array.isArray(valeurLocale) && Array.isArray(valeurCloud)) {
+      const idsLocaux = new Set(valeurLocale.map((m: any) => m && m.id));
+      const seulementCloud = valeurCloud.filter((m: any) => m && !idsLocaux.has(m.id));
+      fusion[cle] = seulementCloud.length ? [...valeurLocale, ...seulementCloud] : valeurLocale;
+      continue;
+    }
+
+    // 2. Ne jamais vider une clé pleine côté cloud.
+    if (estVide(valeurLocale) && !estVide(valeurCloud)) continue;
+
+    fusion[cle] = valeurLocale;
+  }
+
+  return fusion;
+};
+
+/** Lit le blob actuel du cloud. `null` = lecture impossible (on ne pousse pas à l'aveugle). */
+const lireBlobCloud = async (state: UserSyncState): Promise<Record<string, any> | null | undefined> => {
+  try {
+    const { data, error } = await state.supabaseClient
+      .from('user_data')
+      .select('data')
+      .eq('user_id', state.supabaseUserId)
+      .maybeSingle();
+    if (error) return null;
+    return ((data as any)?.data as Record<string, any>) ?? undefined; // undefined = pas encore de ligne
+  } catch {
+    return null;
+  }
+};
+
 // ─── Multi-user Session management ──────────────────────────────────────────
 
 const ensureUserSession = async (state: UserSyncState): Promise<boolean> => {
@@ -432,7 +506,14 @@ export const initUserSync = async (localUserId: number, supabaseUserId: string, 
         `).run(currentRefreshToken, localUserId);
       }
     } else {
-      // Owner login fallback
+      // Repli sur les identifiants propriétaire du .env. Il n'ouvre la session
+      // QUE du propriétaire : l'utiliser pour un autre compte local pousserait
+      // les données de ce compte dans le blob cloud du propriétaire — un
+      // écrasement pur et simple des données d'autrui.
+      if (email.trim().toLowerCase() !== OWNER_EMAIL) {
+        console.warn(`[supabaseSync] Pas de refresh_token pour ${email} et ce n'est pas le compte propriétaire : synchronisation non démarrée (aucun push vers le blob du propriétaire).`);
+        return;
+      }
       const { data, error } = await client.auth.signInWithPassword({ email: OWNER_EMAIL, password: OWNER_PASSWORD });
       if (error || !data.session) {
         console.warn(`[supabaseSync] Failed to init sync via password for owner ${email}:`, error?.message);
@@ -512,9 +593,38 @@ const pushNowForUser = async (state: UserSyncState) => {
     const active = await ensureUserSession(state);
     if (!active) return;
 
+    // Un seul blob `user_data` par compte, mais un compte peut posséder
+    // plusieurs workspaces (sociétés isolées par `owner_id`). `buildSnapshot`
+    // ne lit que le workspace principal : tant que le cloud n'est pas scopé par
+    // workspace, pousser depuis un workspace secondaire enverrait un snapshot
+    // vide (perte) ou mélangerait deux sociétés dans le même blob (fuite). On
+    // écoute alors sans pousser.
+    try {
+      const w = db
+        .prepare('SELECT active_owner_id FROM users WHERE id = ?')
+        .get(state.localUserId) as { active_owner_id: number | null } | undefined;
+      const actif = w?.active_owner_id ?? state.localUserId;
+      if (actif !== state.localUserId) {
+        console.warn(`[supabaseSync] Push ignoré pour ${state.email} : workspace secondaire actif (${actif}). Le cloud n'est pas encore scopé par workspace.`);
+        return;
+      }
+    } catch { /* colonne absente (base ancienne) → comportement historique */ }
+
     await ensureBucket(state.accessToken);
 
-    const snapshot = await buildSnapshot(state.localUserId, state.accessToken, state.supabaseUserId);
+    const snapshotLocal = await buildSnapshot(state.localUserId, state.accessToken, state.supabaseUserId);
+
+    // Lecture AVANT écriture : le blob cloud contient des clés que ce serveur
+    // ne reconstruit pas. Un push à l'aveugle les effacerait (cf.
+    // fusionnerAvecCloud). Si la lecture échoue, on s'abstient : ne rien
+    // pousser est toujours moins grave qu'écraser le travail d'un autre poste.
+    const blobCloud = await lireBlobCloud(state);
+    if (blobCloud === null) {
+      console.warn(`[supabaseSync] Push annulé pour ${state.email} : lecture du blob cloud impossible (on ne pousse pas à l'aveugle).`);
+      return;
+    }
+    const snapshot = fusionnerAvecCloud(snapshotLocal, blobCloud);
+
     const bodyStr = JSON.stringify({ user_id: state.supabaseUserId, data: snapshot, updated_at: new Date().toISOString() });
     const sizeKb = (bodyStr.length / 1024).toFixed(1);
     
