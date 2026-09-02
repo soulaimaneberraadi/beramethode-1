@@ -733,6 +733,26 @@ const Caisse: React.FC<CaisseProps> = ({
     const nom = model.meta_data?.nom_modele || '';
     if (restantDe(model.id, couleur, taille) <= 0) {
       pip(false);
+      /* « Rupture » serait un mensonge quand la case n'a JAMAIS existe dans les
+       * mouvements : c'est le cas apres avoir renomme les tailles ou les
+       * couleurs de la fiche, le stock restant enregistre sous les anciens
+       * libelles. Le vendeur cherchait une piece absente alors qu'elle est la,
+       * rangee sous un autre nom. On le dit, au lieu de l'envoyer au depot. */
+      const cellules = stockMatrix.get(model.id);
+      const caseConnue = cellules?.has(cellKey(couleur, taille)) ?? false;
+      const resteAilleurs = Array.from(cellules?.values() || []).some(v => Number(v) > 0);
+      if (!caseConnue && resteAilleurs) {
+        setFlash({ ok: false, msg: tx(lang, {
+          fr: `${nom} : la case ${couleur} ${taille} n'existe pas dans le stock. Les tailles ou couleurs de la fiche ont change depuis l'entree en stock.`.trim(),
+          ar: `${nom}: خانة ${couleur} ${taille} ما كايناش فالمخزون. المقاسات ولا الألوان ديال البطاقة تبدّلو من بعد ما دخلات السلعة.`.trim(),
+          en: `${nom}: cell ${couleur} ${taille} does not exist in stock. The record's sizes or colors changed after the goods came in.`.trim(),
+          es: `${nom}: la casilla ${couleur} ${taille} no existe en el stock. Las tallas o colores de la ficha cambiaron tras la entrada.`.trim(),
+          pt: `${nom}: a celula ${couleur} ${taille} nao existe no stock. Os tamanhos ou cores da ficha mudaram apos a entrada.`.trim(),
+          tr: `${nom}: ${couleur} ${taille} hucresi stokta yok. Mal girisinden sonra kartin bedenleri veya renkleri degisti.`.trim(),
+        }) });
+        setRecherche(nom);
+        return;
+      }
       setFlash({ ok: false, msg: tx(lang, {
         fr: `Rupture : ${nom} ${couleur} ${taille}`.trim(),
         ar: `نافد: ${nom} ${couleur} ${taille}`.trim(),
@@ -755,7 +775,7 @@ const Caisse: React.FC<CaisseProps> = ({
     });
     pip(true);
     setFlash({ ok: true, msg: `${nom || model.id} ${couleur} ${taille}`.trim() });
-  }, [restantDe, pip, lang]);
+  }, [restantDe, stockMatrix, pip, lang]);
 
   /** Le tarif « Ma boutique » vient du serveur, comme partout ailleurs : la
    *  caisse ne recalcule aucun prix, elle demande celui qui fait foi. */
