@@ -2370,8 +2370,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const utiles = entrees.filter(e => e.code);
     if (!modelId || modelId === 'MANUAL' || utiles.length === 0) return 0;
 
+    /* Comparaison sur la CHAÎNE des deux côtés : un identifiant numérique
+     * (1786446804977) ne s'égale pas à sa forme texte avec `===`, et la
+     * recherche échouait sans rien dire — l'écran annonçait « tout était déjà
+     * enregistré » pour un produit dont pas un code n'avait été écrit. */
+    const meme = (a: unknown, b: unknown) => String(a) === String(b);
+
     // Marchandise achetée : elle vit dans sa propre table.
-    const article = articles.find(a => a.id === modelId);
+    const article = articles.find(a => meme(a.id, modelId));
     if (article) {
       const prev = article.variantCodes || {};
       const next = { ...prev };
@@ -2391,7 +2397,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const saved = await res.json();
-        setArticles(list => list.map(a => (a.id === modelId ? saved : a)));
+        setArticles(list => list.map(a => (meme(a.id, modelId) ? saved : a)));
         return ajoutes;
       } catch (e) {
         /* Un echec DOIT remonter : rendre 0 le faisait lire « tout etait deja
@@ -2401,7 +2407,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       }
     }
 
-    const local = models.find(m => m.id === modelId);
+    const local = models.find(m => meme(m.id, modelId));
     if (!local) throw new Error('modele introuvable');
     try {
       // On repart de la version du serveur : une carte lue il y a dix minutes
@@ -2411,7 +2417,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         const fresh = await fetch('/api/models', { credentials: 'include' });
         if (fresh.ok) {
           const list = await fresh.json();
-          const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
+          const found = Array.isArray(list) ? list.find((m: ModelData) => meme(m.id, modelId)) : undefined;
           if (found) base = found;
         }
       }
@@ -2438,7 +2444,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
       }
-      setModels?.(list => list.map(m => (m.id === updated.id ? updated : m)));
+      setModels?.(list => list.map(m => (meme(m.id, updated.id) ? updated : m)));
       return ajoutes;
     } catch (e) {
       throw e instanceof Error ? e : new Error('save failed');
