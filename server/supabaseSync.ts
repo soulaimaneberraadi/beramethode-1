@@ -46,6 +46,8 @@ interface UserSyncState {
 }
 
 const syncStates = new Map<number, UserSyncState>();
+/** Comptes dont l'initialisation est en cours (voir `initUserSync`). */
+const initEnCours = new Set<number>();
 
 // In-memory cache: filename → public URL
 const imageUrlCache = new Map<string, string>();
@@ -515,6 +517,15 @@ export const initUserSync = async (localUserId: number, supabaseUserId: string, 
     if (existing.refreshToken === refreshToken && refreshToken !== null) return;
     cleanupUserSync(localUserId);
   }
+  // `syncStates` n'est renseigné qu'après plusieurs `await` (session, canal).
+  // Deux initialisations lancées coup sur coup pour le même compte — c'est le
+  // cas au démarrage : le repli propriétaire puis la restauration des sessions
+  // enregistrées — se croisaient donc toutes les deux avant que le garde
+  // ci-dessus ne voie quoi que ce soit. Résultat : deux canaux et deux
+  // pousseurs pour un seul compte, qui se marchent dessus et doublent le
+  // trafic. On réserve la place tout de suite.
+  if (initEnCours.has(localUserId)) return;
+  initEnCours.add(localUserId);
 
   try {
     const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -611,6 +622,10 @@ export const initUserSync = async (localUserId: number, supabaseUserId: string, 
     state.safetyTimer = setInterval(() => { void pullAndMergeForUser(state); }, SAFETY_PULL_MS);
   } catch (err) {
     console.warn(`[supabaseSync] initUserSync error for user ${email}:`, err);
+  } finally {
+    // À ce stade `syncStates` porte l'état (ou l'initialisation a échoué) : le
+    // garde du haut prend le relais, la réservation n'a plus lieu d'être.
+    initEnCours.delete(localUserId);
   }
 };
 
