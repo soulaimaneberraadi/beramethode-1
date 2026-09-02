@@ -1,3 +1,29 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Barre d'onglets de Gestion RH.
+ *
+ * Ces règles vivaient dans le <style> d'index.html et ont disparu lors du
+ * passage de Tailwind au build local. Sans elles, la classe ne fait plus rien :
+ * chaque onglet porte `display:flex` en style inline, un bouton devient donc un
+ * bloc pleine largeur, et la barre horizontale se transforme en colonne qui
+ * laisse toute la page vide à sa droite. */
+.gestion-rh-tabs-scroll {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+  margin-bottom: -2px;
+}
+.gestion-rh-tabs-scroll button {
+  flex-shrink: 0;
+}
+
+@media (max-width: 560px) {
+  .gestion-rh-head-compact {
+    padding: 10px 12px !important;
+  }
+}
