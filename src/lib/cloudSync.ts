@@ -189,6 +189,7 @@ const ORIGINAL_SET_ITEM = Storage.prototype.setItem;
 // nécessaire (le snapshot lui-même transite via un SELECT, pas via le canal).
 let syncChannel: ReturnType<typeof supabase.channel> | null = null;
 let beforeUnloadHandler: (() => void) | null = null;
+let visibiliteHandler: (() => void) | null = null;
 
 // Délai de regroupement des écritures avant un push cloud. Une valeur trop
 // basse (ex. 1,5 s) provoque une rafale d'UPSERT du blob `user_data` (~2 Mo)
@@ -197,12 +198,31 @@ let beforeUnloadHandler: (() => void) | null = null;
 // secondes non encore poussées.
 const PUSH_DEBOUNCE_MS = 5000;
 
+/** Plafond du corps d'un `fetch(..., { keepalive: true })` : 64 Kio dans la
+ *  spécification. On garde une marge sous la borne — la longueur en caractères
+ *  d'un JSON quasi-ASCII approche sa taille en octets sans l'égaler. */
+const KEEPALIVE_MAX_OCTETS = 60_000;
+
 // Signature du dernier snapshot RÉELLEMENT poussé (ou tiré) au cloud. Sert à
 // sauter un UPSERT quand le contenu local n'a pas changé : sans ça, chaque
 // setItem (même réécriture d'une valeur identique par un re-render React)
 // renvoie le blob entier ~2 Mo et sature la base free-tier. Réinitialisée à
 // chaque reload : un seul push « inutile » au démarrage au pire, sans risque.
 let lastSyncedSig: string | null = null;
+
+/**
+ * Un instantané dont toutes les clés sont vides n'a rien à sauvegarder — et
+ * l'envoyer EFFACERAIT le cloud, donc les données de tous les autres appareils.
+ * Le cas n'est pas théorique : Safari purge le stockage d'un site resté 7 jours
+ * sans visite, et le téléphone se réveille alors avec un stockage vierge.
+ */
+const instantaneVide = (snapshot: Record<string, unknown>): boolean =>
+  SYNC_KEYS.every(k => {
+    const v = (snapshot as any)[k];
+    return v == null
+      || (Array.isArray(v) && v.length === 0)
+      || (typeof v === 'object' && v.constructor === Object && !Object.keys(v).length);
+  });
 
 /** Hash rapide (djb2) d'une chaîne — empreinte compacte d'un snapshot. */
 const quickSig = (s: string): string => {
@@ -408,8 +428,34 @@ const collectLocalSnapshot = (): Record<string, unknown> => {
   return out;
 };
 
-const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
-  if (!snapshot) return;
+/**
+ * Dit tout haut qu'une écriture locale a été refusée.
+ *
+ * Sur téléphone, le stockage du navigateur est petit (~5 Mo) et les photos des
+ * modèles y tiennent en clair : passé la limite, `setItem` LÈVE une erreur.
+ * Elle était avalée en silence — l'application affichait « enregistré » alors
+ * que rien ne l'était, et le modèle manquait au retour. On la fait remonter :
+ * la trace console pour le diagnostic, l'événement pour que l'interface puisse
+ * prévenir au lieu de laisser croire que tout va bien.
+ */
+const signalerEcritureRefusee = (cle: string, e: unknown): void => {
+  const nom = (e as { name?: string } | null)?.name || '';
+  const message = String((e as { message?: string } | null)?.message || '');
+  const plein =
+    nom === 'QuotaExceededError' ||
+    nom === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    /quota|storage/i.test(message);
+  console.error(`[cloudSync] écriture locale refusée (${cle})`, e);
+  if (!plein) return;
+  try {
+    window.dispatchEvent(new CustomEvent('beramethode:storage-full', { detail: { key: cle } }));
+  } catch { /* ignore */ }
+};
+
+/** @returns false si AU MOINS une clé n'a pas pu être écrite localement. */
+const applySnapshotToLocal = (snapshot: Record<string, unknown> | null): boolean => {
+  let toutApplique = true;
+  if (!snapshot) return true;
   isApplyingRemote = true;
   try {
     for (const k of SYNC_KEYS) {
@@ -418,6 +464,7 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
           if (k === 'beramethode_library') {
             const localRaw = lsGet('beramethode_library');
             if (localRaw) {
+              let modelesFusionnes: any[] | null = null;
               try {
                 const localModels = JSON.parse(localRaw);
                 const cloudModels = snapshot[k] as any[];
@@ -479,10 +526,20 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
                       });
                     }
                   } catch { /* ignore */ }
-                  lsSet(k, JSON.stringify(finalModels));
-                  continue;
+                  modelesFusionnes = finalModels;
                 }
-              } catch { /* fall through */ }
+              } catch { /* liste illisible : on retombe sur la fusion générique */ }
+              if (modelesFusionnes) {
+                // Écriture VOLONTAIREMENT hors du `try` ci-dessus : si elle
+                // échoue (stockage plein), il ne faut PAS retomber sur la
+                // branche générique. Celle-ci finirait par écrire la seule
+                // liste du cloud — plus courte, donc susceptible de passer — et
+                // les modèles qui n'existent que sur cet appareil seraient
+                // perdus. Mieux vaut garder la liste locale telle quelle : le
+                // repère de version n'étant pas posé, la fusion sera retentée.
+                lsSet(k, JSON.stringify(modelesFusionnes));
+                continue;
+              }
             }
           }
           // ── RÈGLE D'OR : la synchro ne SUPPRIME JAMAIS de données. ────────────
@@ -493,6 +550,7 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
           // l'utilisateur (bouton supprimer). En cas de conflit (même id), on garde
           // la version cloud (dernière poussée).
           const cloudVal = (snapshot as any)[k];
+          let fusionGenerique: any[] | null = null;
           try {
             const localRaw2 = lsGet(k);
             const localArr = localRaw2 ? JSON.parse(localRaw2) : null;
@@ -507,25 +565,40 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null) => {
               // l'utilisateur avait supprimé, tant que la copie du cloud n'a
               // pas été purgée. Les pierres tombales sont la seule chose qui
               // distingue « jamais reçu » de « volontairement supprimé ».
-              lsSet(k, JSON.stringify(sansSupprimes(k, [...byId.values()])));
-              continue;
+              fusionGenerique = sansSupprimes(k, [...byId.values()]);
             }
             // Listes sans id : au moins, ne pas écraser du non-vide par du vide.
-            if (Array.isArray(cloudVal) && cloudVal.length === 0 && Array.isArray(localArr) && localArr.length > 0) {
+            if (!fusionGenerique && Array.isArray(cloudVal) && cloudVal.length === 0 && Array.isArray(localArr) && localArr.length > 0) {
               continue; // garde le local
             }
           } catch { /* si illisible, on applique le cloud tel quel */ }
+          // Hors du `try` : un refus d'écriture (stockage plein) ne doit pas
+          // faire retomber la fusion sur la valeur du cloud seule, qui effacerait
+          // ce que cet appareil est seul à connaître.
+          if (fusionGenerique) {
+            lsSet(k, JSON.stringify(fusionGenerique));
+            continue;
+          }
           lsSet(k, JSON.stringify(snapshot[k]));
-        } catch {}
+        } catch (e) {
+          toutApplique = false;
+          signalerEcritureRefusee(k, e);
+        }
       }
     }
     if ('__sqlite_export__' in snapshot) {
-      try { lsSet('__bera_sqlite_export__', JSON.stringify(snapshot.__sqlite_export__)); } catch {}
+      try {
+        lsSet('__bera_sqlite_export__', JSON.stringify(snapshot.__sqlite_export__));
+      } catch (e) {
+        toutApplique = false;
+        signalerEcritureRefusee('__bera_sqlite_export__', e);
+      }
     }
   } finally {
     isApplyingRemote = false;
   }
   window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-applied'));
+  return toutApplique;
 };
 
 // ─── Push ─────────────────────────────────────────────────────────────────────
@@ -536,14 +609,7 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
   let snapshot: Record<string, unknown> = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
 
   // Garde-fou: ne jamais écraser avec un snapshot vide
-  const lib = (snapshot as any).beramethode_library;
-  const plan = (snapshot as any).beramethode_planning;
-  const sqlExp = (snapshot as any).__sqlite_export__;
-  const allEmpty = SYNC_KEYS.every(k => {
-    const v = (snapshot as any)[k];
-    return v == null || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && v.constructor === Object && !Object.keys(v).length);
-  });
-  if (allEmpty) {
+  if (instantaneVide(snapshot)) {
     console.warn('[cloudSync] push annulé: snapshot local vide');
     return true; // rien d'important à pousser — une purge ne perdrait rien
   }
@@ -618,7 +684,18 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
 
 const RELOAD_FLAG = 'beramethode_pulled_once';
 
-export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> => {
+/**
+ * Récupère l'instantané du compte et le fusionne dans le stockage local.
+ *
+ * `force` saute le pull conditionnel (comparaison d'`updated_at`) : c'est ce
+ * que demande le bouton de synchronisation du bandeau. Sans lui, un appareil
+ * qui croit déjà tenir la dernière version ne retéléchargeait RIEN, et le
+ * bouton affichait « synchronisé » sans avoir rien fait.
+ */
+export const pullSnapshotFromCloud = async (
+  userId: string,
+  options?: { force?: boolean },
+): Promise<boolean> => {
   if (!isCloudSyncUserId(userId)) return false;
   window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-start'));
   try {
@@ -630,7 +707,7 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
     if (metaErr || !meta) { window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end')); return false; }
     const remoteAt = (meta as { updated_at?: string }).updated_at || '';
     const localAt = (() => { try { return localStorage.getItem(LAST_PULLED_AT_KEY); } catch { return null; } })();
-    if (remoteAt && remoteAt === localAt) { window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end')); return true; }
+    if (!options?.force && remoteAt && remoteAt === localAt) { window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end')); return true; }
 
     const { data, error } = await supabase
       .from(TABLE)
@@ -642,9 +719,18 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
     const v = typeof snap.__schema_version === 'number' ? (snap.__schema_version as number) : 0;
     if (v < SCHEMA_VERSION) snap = migrateSnapshot(snap, v);
 
-    applySnapshotToLocal(snap);
+    const toutApplique = applySnapshotToLocal(snap);
 
-    try { if (remoteAt) localStorage.setItem(LAST_PULLED_AT_KEY, remoteAt); } catch { /* ignore */ }
+    // On ne retient `updated_at` QUE si TOUT a été écrit. Retenir une version
+    // qu'on n'a pas su enregistrer (stockage du téléphone plein) rendait
+    // l'écart DÉFINITIF : le pull conditionnel sautait ensuite le
+    // téléchargement en croyant l'appareil à jour, et l'écran restait sur 1
+    // modèle pendant que le poste fixe en affichait 4. En cas d'échec on efface
+    // le repère : le prochain démarrage retentera la fusion.
+    try {
+      if (toutApplique && remoteAt) localStorage.setItem(LAST_PULLED_AT_KEY, remoteAt);
+      else if (!toutApplique) localStorage.removeItem(LAST_PULLED_AT_KEY);
+    } catch { /* ignore */ }
 
     try {
       lastSyncedSig = quickSig(JSON.stringify({ ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION }));
@@ -680,8 +766,27 @@ export const pullSnapshotFromCloud = async (userId: string): Promise<boolean> =>
 
 // ─── Sync ───────────────────────────────────────────────────────────────────
 
+/** Retire les écouteurs de fin de session posés par `startCloudSync`. */
+const detacherEcouteurs = () => {
+  if (beforeUnloadHandler) {
+    window.removeEventListener('beforeunload', beforeUnloadHandler);
+    window.removeEventListener('pagehide', beforeUnloadHandler);
+    beforeUnloadHandler = null;
+  }
+  if (visibiliteHandler) {
+    document.removeEventListener('visibilitychange', visibiliteHandler);
+    visibiliteHandler = null;
+  }
+};
+
 export const startCloudSync = (userId: string) => {
   if (!isCloudSyncUserId(userId)) return;
+
+  // Détacher les écouteurs d'un démarrage précédent. `startCloudSync` est
+  // rappelé à chaque changement d'état d'authentification : sans ce retrait,
+  // les gestionnaires s'empilaient et le même instantané partait plusieurs
+  // fois par retour d'application.
+  detacherEcouteurs();
 
   // Push à chaque écriture d'une clé synchronisée, regroupé via PUSH_DEBOUNCE_MS.
   // Restore original first to prevent stacking layers of monkey-patches on repeated calls.
@@ -694,11 +799,55 @@ export const startCloudSync = (userId: string) => {
     }
   };
 
-  // Push final avant fermeture/refresh : les dernières secondes de debounce
-  // ne doivent pas être perdues si l'utilisateur ferme l'onglet.
+  /** Envoie tout de suite ce qui attendait encore la fin du regroupement. */
+  const viderLaFileDAttente = () => {
+    if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+    void pushSnapshotToCloud(userId).catch(() => false);
+  };
+
+  // ── Le téléphone ne prévient pas qu'il s'en va ─────────────────────────────
+  // `beforeunload` ne se déclenche PAS sur mobile : quand on bascule vers une
+  // autre application, la page est gelée puis jetée sans un mot. Tout ce qui
+  // attendait la fin du regroupement (5 s) partait donc à la poubelle — c'est
+  // le « je ferme le téléphone, je reviens, et le modèle n'est plus là ».
+  // `visibilitychange → hidden` est le seul signal fiable des deux côtés, et la
+  // page y est encore vivante : le temps d'un envoi.
+  visibiliteHandler = () => {
+    if (typeof document === 'undefined') return;
+    if (document.visibilityState === 'hidden') { viderLaFileDAttente(); return; }
+    // Retour dans l'application : on rattrape ce qui n'a pas pu partir (réseau
+    // coupé, page gelée trop tôt), PUIS on récupère le travail des autres
+    // appareils. Dans cet ordre : le rattrapage local ne doit pas être noyé par
+    // la fusion du pull. Les deux appels savent ne rien faire s'il n'y a rien de
+    // neuf (signature identique, `updated_at` identique) — aucun trafic inutile.
+    void (async () => {
+      await pushSnapshotToCloud(userId).catch(() => false);
+      await pullSnapshotFromCloud(userId).catch(() => false);
+    })();
+  };
+  document.addEventListener('visibilitychange', visibiliteHandler);
+
+  // Fermeture réelle de l'onglet (poste fixe surtout). `keepalive` laisse la
+  // requête survivre à la page, mais la spécification la plafonne à 64 Kio :
+  // au-delà elle est REJETÉE sans erreur visible — un instantané complet (~2 Mo)
+  // ne partait donc jamais par ce chemin, qui donnait pourtant l'illusion d'un
+  // filet de sécurité. On ne s'en sert que pour les petits comptes ; pour les
+  // autres, le vidage à `hidden` ci-dessus a déjà fait le travail.
+  // `pagehide` et `beforeunload` se suivent sur poste fixe : sans ce garde-fou,
+  // la même fermeture enverrait l'instantané deux fois.
+  let dernierEnvoiCloture = 0;
   beforeUnloadHandler = () => {
-    if (syncTimer) clearTimeout(syncTimer);
+    const maintenant = Date.now();
+    if (maintenant - dernierEnvoiCloture < 2000) return;
+    dernierEnvoiCloture = maintenant;
+    if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
     const snapshot = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
+    // Même garde que le push normal : ne JAMAIS envoyer un instantané vide.
+    // Sans elle, un téléphone dont Safari a purgé le stockage effaçait le cloud
+    // en se fermant, et emportait les données de tous les autres appareils.
+    if (instantaneVide(snapshot)) return;
+    const corps = JSON.stringify({ user_id: userId, data: snapshot, updated_at: new Date().toISOString() });
+    if (corps.length > KEEPALIVE_MAX_OCTETS) { viderLaFileDAttente(); return; }
     try {
       fetch(`${SUPABASE_URL}/rest/v1/user_data?on_conflict=user_id`, {
         method: 'POST',
@@ -707,12 +856,15 @@ export const startCloudSync = (userId: string) => {
           apikey: SUPABASE_ANON_KEY,
           Prefer: 'resolution=merge-duplicates',
         },
-        body: JSON.stringify({ user_id: userId, data: snapshot, updated_at: new Date().toISOString() }),
+        body: corps,
         keepalive: true,
       });
     } catch {}
   };
   window.addEventListener('beforeunload', beforeUnloadHandler);
+  // `pagehide` est la contrepartie mobile de `beforeunload` : sur iOS c'est le
+  // dernier événement reçu avant la mise au rebut de la page.
+  window.addEventListener('pagehide', beforeUnloadHandler);
 
   // Synchro inter-appareils en temps réel via Broadcast (zéro charge DB).
   // À la réception d'un signal « updated », l'appareil pull le dernier snapshot.
@@ -730,10 +882,7 @@ export const startCloudSync = (userId: string) => {
 export const stopCloudSync = () => {
   if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
   if (syncChannel) { syncChannel.unsubscribe(); syncChannel = null; }
-  if (beforeUnloadHandler) {
-    window.removeEventListener('beforeunload', beforeUnloadHandler);
-    beforeUnloadHandler = null;
-  }
+  detacherEcouteurs();
   // Restore original setItem so no further writes trigger push
   Storage.prototype.setItem = ORIGINAL_SET_ITEM;
 };
