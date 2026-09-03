@@ -490,7 +490,14 @@ export default function Library({
                 {isMobileMenu && <div className="fixed inset-0 z-[9998] bg-black/40 dark:bg-black/60 bera-sheet-fade" onClick={() => setContextMenu(null)} />}
                 <div
                     className={isMobileMenu
-                        ? "fixed inset-x-0 bottom-0 z-[9999] bg-white dark:bg-dk-surface rounded-t-3xl shadow-2xl dark:shadow-dk-lg border-t border-slate-100 dark:border-dk-border pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-h-[70vh] overflow-y-auto custom-scrollbar bera-sheet-up [&_button]:py-2.5 [&_button]:text-[13px] [&_button]:gap-2.5"
+                        /* `vh` compte la barre d'adresse du telephone comme
+                           de la place disponible : la feuille depassait donc
+                           sous cette barre, et comme son contenu tenait dans
+                           la hauteur declaree, il n'y avait rien a faire
+                           defiler — les dernieres lignes etaient simplement
+                           inatteignables. `dvh` mesure ce qu'on voit
+                           reellement. */
+                        ? "fixed inset-x-0 bottom-0 z-[9999] bg-white dark:bg-dk-surface rounded-t-3xl shadow-2xl dark:shadow-dk-lg border-t border-slate-100 dark:border-dk-border pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-h-[75dvh] flex flex-col bera-sheet-up"
                         : "fixed bg-white dark:bg-dk-surface rounded-xl shadow-2xl dark:shadow-dk-lg dark:shadow-dk-elevated border border-slate-100 dark:border-dk-border w-56 z-[9999] py-1.5 animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden"}
                     style={isMobileMenu ? undefined : {
                         top: Math.max(8, Math.min(contextMenu.y, window.innerHeight - 420)),
@@ -498,7 +505,29 @@ export default function Library({
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {isMobileMenu && <div className="mx-auto mb-1.5 h-1 w-9 rounded-full bg-slate-300 dark:bg-dk-muted" />}
+                    {isMobileMenu && <div className="mx-auto mb-1.5 h-1 w-9 rounded-full bg-slate-300 dark:bg-dk-muted shrink-0" />}
+                    {/* La feuille recouvre la vignette sur laquelle on vient
+                        d'appuyer : sans rappel, « Supprimer » ne dit plus quoi.
+                        La photo et le nom restent donc en tete, fixes, pendant
+                        que la liste defile dessous. */}
+                    {isMobileMenu && activeModel && (
+                        <div className="shrink-0 px-4 pb-2.5 mb-1 border-b border-slate-100 dark:border-dk-border flex items-center gap-3">
+                            {activeModel.image
+                                ? <img src={activeModel.image} alt="" className="w-11 h-11 rounded-xl object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                                : <span className="w-11 h-11 rounded-xl shrink-0 flex items-center justify-center bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-black text-slate-400 dark:text-dk-muted">
+                                    {(activeModel.meta_data?.nom_modele || activeModel.filename || '?').slice(0, 2).toUpperCase()}
+                                  </span>}
+                            <span className="min-w-0">
+                                <span className="block text-[14px] font-black text-slate-800 dark:text-dk-text truncate">
+                                    {activeModel.meta_data?.nom_modele || activeModel.filename}
+                                </span>
+                                <span className="block text-[11px] text-slate-400 dark:text-dk-muted truncate">
+                                    {[activeModel.meta_data?.reference, activeModel.meta_data?.category].filter(Boolean).join(' · ')}
+                                </span>
+                            </span>
+                        </div>
+                    )}
+                    <div className={isMobileMenu ? "flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar [&_button]:py-2.5 [&_button]:text-[13px] [&_button]:gap-2.5" : "contents"}>
                     {activeModel && (
                         <>
                             <button
@@ -583,6 +612,7 @@ export default function Library({
                             </button>
                         </>
                     )}
+                    </div>
                 </div>
                 </>,
                 document.body
