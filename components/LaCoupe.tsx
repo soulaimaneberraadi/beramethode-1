@@ -8,7 +8,7 @@ import {
     Palette, X, Menu, ChevronLeft, LayoutGrid, List, Calendar, BarChart3,
     Download, Filter, Copy, Edit3, MoreVertical, ArrowRight, TrendingUp,
     ArrowUpDown, RefreshCw, Zap, Target, Star, Hash, Upload, FolderOpen, Check,
-    PanelLeftClose, PanelLeftOpen, Library, ChevronDown
+    PanelLeftClose, PanelLeftOpen, Library, ChevronDown, AlertTriangle
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useRouteSegment } from '../lib/router';
@@ -962,9 +962,70 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         applyFicheUpdate({ ...fiche, colors: [...fiche.colors, newColor] });
     };
 
+    /* ── Garde-fou : renommer ou supprimer un libelle rend le stock invisible ──
+     *
+     * Le stock est enregistre par CASE, et la case est designee par son
+     * LIBELLE : « Vert Emeraude » + « 38 ». Les mouvements deja ecrits gardent
+     * l'ancien nom pour toujours. Renommer une taille dans la fiche coupe donc
+     * le lien : la caisse cherche la nouvelle case, ne la trouve pas, et
+     * annonce une rupture sur des pieces bien presentes en rayon.
+     *
+     * C'est arrive en production sur la totalite du stock d'un atelier, et
+     * personne ne l'a vu avant d'avoir un client devant soi. On n'interdit
+     * rien — l'atelier a parfois de bonnes raisons — mais on le dit, chiffres
+     * a l'appui, et on fait confirmer.
+     */
+    const [mouvementsStock, setMouvementsStock] = useState<Array<{ modelId: string; couleur: string; taille: string; quantite: number }> | null>(null);
+    const [avertirLibelle, setAvertirLibelle] = useState<{
+        quoi: 'taille' | 'couleur';
+        ancien: string;
+        pieces: number;
+        appliquer: () => void;
+    } | null>(null);
+
+    /* Les mouvements ne sont lus qu'a l'ouverture d'un modele : les relire a
+     * chaque frappe ferait un appel reseau par lettre tapee. */
+    useEffect(() => {
+        if (!selectedModel) { setMouvementsStock(null); return; }
+        let vivant = true;
+        Promise.all([
+            fetch('/api/subcontract/stock-entries', { credentials: 'include' }).then(r => (r.ok ? r.json() : [])).catch(() => []),
+            fetch('/api/subcontract/stock-sorties', { credentials: 'include' }).then(r => (r.ok ? r.json() : [])).catch(() => []),
+        ]).then(([entrees, sorties]) => {
+            if (!vivant) return;
+            const lignes = [...(Array.isArray(entrees) ? entrees : []), ...(Array.isArray(sorties) ? sorties : [])];
+            setMouvementsStock(lignes.map((r: any) => ({
+                modelId: String(r.modelId),
+                couleur: String(r.couleur || ''),
+                taille: String(r.taille || ''),
+                quantite: Number(r.quantite) || 0,
+            })));
+        });
+        return () => { vivant = false; };
+    }, [selectedModel?.id]);
+
+    /** Pieces enregistrees sous CE libelle pour le modele ouvert. */
+    const piecesSousLibelle = (quoi: 'taille' | 'couleur', libelle: string): number => {
+        if (!selectedModel || !mouvementsStock) return 0;
+        const cible = String(libelle || '').trim().toUpperCase();
+        if (!cible) return 0;
+        return mouvementsStock
+            .filter(m => String(m.modelId) === String(selectedModel.id))
+            .filter(m => (quoi === 'taille' ? m.taille : m.couleur).trim().toUpperCase() === cible)
+            .reduce((total, m) => total + Math.abs(m.quantite), 0);
+    };
+
+    /** Applique le geste, ou demande confirmation s'il coupe du stock. */
+    const gesteSurLibelle = (quoi: 'taille' | 'couleur', ancien: string, appliquer: () => void) => {
+        const pieces = piecesSousLibelle(quoi, ancien);
+        if (pieces <= 0) { appliquer(); return; }
+        setAvertirLibelle({ quoi, ancien, pieces, appliquer });
+    };
+
     const removeSize = (sizeIndex: number) => {
         if (!selectedModel) return;
         const fiche = buildFiche();
+        const ancien = String(fiche.sizes[sizeIndex] ?? '');
         const updatedSizes = fiche.sizes.filter((_: any, i: number) => i !== sizeIndex);
         const newGrid: Record<string, number> = {};
         Object.entries(fiche.gridQuantities || {}).forEach(([key, val]) => {
@@ -974,12 +1035,15 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             const newIdx = sIdx > sizeIndex ? sIdx - 1 : sIdx;
             newGrid[`${cId}_${newIdx}`] = val as number;
         });
-        applyFicheUpdate({ ...fiche, sizes: updatedSizes, gridQuantities: newGrid });
+        gesteSurLibelle('taille', ancien, () => applyFicheUpdate({ ...fiche, sizes: updatedSizes, gridQuantities: newGrid }));
     };
 
     const removeColor = (colorId: string) => {
         if (!selectedModel) return;
         const fiche = buildFiche();
+        const ancien = String(
+            fiche.colors.find((c: any) => (c.id || (typeof c === 'string' ? c : c.name)) === colorId)?.name ?? colorId
+        );
         const updatedColors = fiche.colors.filter((c: any) => {
             const id = c.id || (typeof c === 'string' ? c : c.name);
             return id !== colorId;
@@ -988,27 +1052,33 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         Object.entries(fiche.gridQuantities || {}).forEach(([key, val]) => {
             if (!key.startsWith(`${colorId}_`)) newGrid[key] = val as number;
         });
-        applyFicheUpdate({ ...fiche, colors: updatedColors, gridQuantities: newGrid });
+        gesteSurLibelle('couleur', ancien, () => applyFicheUpdate({ ...fiche, colors: updatedColors, gridQuantities: newGrid }));
     };
 
     const editSize = (sizeIndex: number, newValue: string) => {
         if (!selectedModel || !newValue.trim()) return;
         const fiche = buildFiche();
+        const ancien = String(fiche.sizes[sizeIndex] ?? '');
         const updatedSizes = [...fiche.sizes];
         updatedSizes[sizeIndex] = newValue.trim().toUpperCase();
-        applyFicheUpdate({ ...fiche, sizes: updatedSizes });
+        if (updatedSizes[sizeIndex] === ancien) { setEditingMatrixItem(null); return; }
+        gesteSurLibelle('taille', ancien, () => applyFicheUpdate({ ...fiche, sizes: updatedSizes }));
         setEditingMatrixItem(null);
     };
 
     const editColor = (colorId: string, newName: string) => {
         if (!selectedModel || !newName.trim()) return;
         const fiche = buildFiche();
+        const ancien = String(
+            fiche.colors.find((c: any) => (c.id || (typeof c === 'string' ? c : c.name)) === colorId)?.name ?? ''
+        );
         const updatedColors = fiche.colors.map((c: any) => {
             const id = c.id || (typeof c === 'string' ? c : c.name);
             if (id === colorId) return { ...c, name: newName.trim() };
             return c;
         });
-        applyFicheUpdate({ ...fiche, colors: updatedColors });
+        if (newName.trim() === ancien) { setEditingMatrixItem(null); return; }
+        gesteSurLibelle('couleur', ancien, () => applyFicheUpdate({ ...fiche, colors: updatedColors }));
         setEditingMatrixItem(null);
     };
 
@@ -2654,6 +2724,59 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             </div>
 
             {/* DELETE CONFIRMATION */}
+            {avertirLibelle && (
+                /* On ne bloque pas : l'atelier a parfois de bonnes raisons de
+                   renommer. On dit ce que ca coute, chiffres a l'appui, et on
+                   fait confirmer — c'est la seule chose qui manquait le jour ou
+                   tout un stock est devenu introuvable a la caisse. */
+                <SheetModal
+                    onClose={() => setAvertirLibelle(null)}
+                    size="sm"
+                    zClass="z-[95]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+                >
+                    <div className="flex items-start gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                            <AlertTriangle className="w-5 h-5 text-amber-500" />
+                        </div>
+                        <div className="min-w-0">
+                            <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">
+                                {avertirLibelle.quoi === 'taille'
+                                    ? tx(lang, { fr: `La taille « ${avertirLibelle.ancien} » porte du stock`, ar: `المقاس « ${avertirLibelle.ancien} » عندو سلعة`, en: `Size "${avertirLibelle.ancien}" holds stock`, es: `La talla « ${avertirLibelle.ancien} » tiene stock`, pt: `O tamanho « ${avertirLibelle.ancien} » tem stock`, tr: `« ${avertirLibelle.ancien} » bedeninde stok var` })
+                                    : tx(lang, { fr: `La couleur « ${avertirLibelle.ancien} » porte du stock`, ar: `اللون « ${avertirLibelle.ancien} » عندو سلعة`, en: `Color "${avertirLibelle.ancien}" holds stock`, es: `El color « ${avertirLibelle.ancien} » tiene stock`, pt: `A cor « ${avertirLibelle.ancien} » tem stock`, tr: `« ${avertirLibelle.ancien} » renginde stok var` })}
+                            </h3>
+                            <p className="text-[12px] text-slate-600 dark:text-dk-text-soft mt-1.5 leading-relaxed">
+                                {tx(lang, {
+                                    fr: `${avertirLibelle.pieces} pièces sont enregistrées sous cet ancien libellé. Les mouvements de stock le gardent : après ce changement, ces pièces deviendront introuvables à la caisse, qui annoncera une rupture alors qu'elles sont en rayon.`,
+                                    ar: `${avertirLibelle.pieces} قطعة مسجّلة بهاد التسمية القديمة. حركات المخزون كتحتافظ بيها: من بعد هاد التبديل، هاد القطع ما غاديش تتلقى فالكاسّة، وغادي تقول نافد حيت هي كاينة فالرّاي.`,
+                                    en: `${avertirLibelle.pieces} pieces are recorded under this old label. Stock movements keep it: after this change, those pieces become unfindable at the till, which will report a stockout while they sit on the shelf.`,
+                                    es: `${avertirLibelle.pieces} piezas estan registradas con esta etiqueta antigua. Los movimientos de stock la conservan: tras este cambio, esas piezas no se encontraran en la caja, que anunciara una rotura aunque esten en la estanteria.`,
+                                    pt: `${avertirLibelle.pieces} pecas estao registadas com este rotulo antigo. Os movimentos de stock mantem-no: apos esta alteracao, essas pecas ficam impossiveis de encontrar na caixa, que anunciara rutura embora estejam na prateleira.`,
+                                    tr: `${avertirLibelle.pieces} parca bu eski etiketle kayitli. Stok hareketleri onu koruyor: bu degisiklikten sonra bu parcalar kasada bulunamayacak ve raftayken stok yok denecek.`,
+                                })}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 mt-5">
+                        <button
+                            type="button"
+                            onClick={() => setAvertirLibelle(null)}
+                            className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
+                        >
+                            {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => { avertirLibelle.appliquer(); setAvertirLibelle(null); }}
+                            className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                        >
+                            {tx(lang, { fr: 'Changer quand même', ar: 'بدّل على أي حال', en: 'Change anyway', es: 'Cambiar de todos modos', pt: 'Alterar mesmo assim', tr: 'Yine de degistir' })}
+                        </button>
+                    </div>
+                </SheetModal>
+            )}
+
             {deleteConfirm && (
                 /* Question courte : aucun en-tête, aucun plein écran. Le fond
                    n'est pas cliquable — une suppression ne s'annule pas par un
