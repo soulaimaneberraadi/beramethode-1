@@ -114,9 +114,13 @@ export const register = async (req: Request, res: Response) => {
 
     setAuthCookie(res, { id: Number(info.lastInsertRowid), email, role });
 
-    // Mettre en place le compte Supabase lors de l'enregistrement local
-    const SUPABASE_URL = process.env.SUPABASE_URL || '';
-    const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+    // Mettre en place le compte Supabase lors de l'enregistrement local.
+    // On utilise les constantes du module (haut du fichier), qui portent les
+    // mêmes valeurs par défaut que le reste du projet. Deux copies locales
+    // déclarées ici retombaient sur '' faute de variable d'environnement, et
+    // masquaient les bonnes : la condition ci-dessous était donc TOUJOURS
+    // fausse sur une installation ordinaire, et le poste ne se liait jamais au
+    // cloud. Voir le commentaire de `login` pour ce que cela coûtait.
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       try {
         const controller = new AbortController();
@@ -204,8 +208,16 @@ export const login = async (req: Request, res: Response) => {
         return undefined;
       }
     })();
-    const SUPABASE_URL = process.env.SUPABASE_URL || '';
-    const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+    // ⚠️ Ne PAS redéclarer SUPABASE_URL / SUPABASE_ANON_KEY ici.
+    //
+    // Deux copies locales sans valeur par défaut vivaient à cet endroit. Elles
+    // masquaient les constantes du module — celles qui portent l'adresse du
+    // projet — et retombaient sur '' dès que `.env` ne les définissait pas,
+    // c'est-à-dire sur toute installation faite d'après `.env.example`, où ces
+    // lignes sont commentées. La condition ci-dessous n'était alors jamais
+    // vraie : aucun jeton Supabase n'était enregistré, `initUserSync` n'était
+    // jamais appelé, et le poste local ne parlait PLUS JAMAIS au cloud. Le
+    // téléphone et le PC vivaient chacun de leur côté sans que rien ne le dise.
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       try {
         const controller = new AbortController();
@@ -376,6 +388,15 @@ export const requestPasswordReset = (req: Request, res: Response) => {
     const code = randomInt(100000, 999999).toString();
     const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
 
+    // Un seul code valide à la fois, et rien qui traîne.
+    //
+    // Chaque demande ajoutait un code SANS retirer les précédents : douze
+    // demandes — ce que la limite de débit autorise en un quart d'heure —
+    // laissaient douze codes à six chiffres ouvrant le même compte pendant
+    // quinze minutes. Demander un nouveau code doit au contraire invalider
+    // l'ancien, comme partout ailleurs. Les codes périmés de tout le monde
+    // partent au passage : sans cela la table ne faisait que grossir.
+    db.prepare('DELETE FROM verification_codes WHERE LOWER(TRIM(email)) = ? OR expires_at <= ?').run(email, Date.now());
     db.prepare('INSERT INTO verification_codes (email, code, expires_at) VALUES (?, ?, ?)').run(email, code, expiresAt);
 
     const allowResetDev =
@@ -411,14 +432,22 @@ export const requestPasswordReset = (req: Request, res: Response) => {
       `,
     };
 
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error('Error sending email:', error);
-        // In production, you might want to handle this error more gracefully or retry
-      } else {
-        console.log('Email sent:', info.response);
-      }
-    });
+    // Sans messagerie configurée, `sendMail` part quand même vers l'adresse
+    // d'exemple (`mail.yourdomain.com`) et échoue après le délai de connexion.
+    // On s'en abstient : la réponse dit déjà `emailIndisponible`, et l'écran
+    // sait alors orienter la personne vers son administrateur.
+    if (!emailConfigure()) {
+      console.warn('[auth] Code de réinitialisation non envoyé : SMTP non configuré (voir .env.example).');
+    } else {
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.error('Error sending email:', error);
+          // In production, you might want to handle this error more gracefully or retry
+        } else {
+          console.log('Email sent:', info.response);
+        }
+      });
+    }
 
     res.json({
       message: 'If the email exists, a verification code has been sent',

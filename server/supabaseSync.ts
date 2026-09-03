@@ -10,8 +10,14 @@ import fs from 'fs';
 const dbPath = process.env.BERA_DB_PATH || path.join(process.cwd(), 'database.sqlite');
 const dbDir = path.dirname(dbPath);
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
+// Mêmes valeurs par défaut que `supabaseRealtime.ts`, `src/lib/supabaseClient.ts`
+// et `vercel.json` : sans elles, `createClient('', '')` ne pouvait rien faire,
+// et la synchronisation du poste local restait muette même quand un jeton de
+// session valide dormait dans SQLite.
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://utrojjhscyatppgcszrt.supabase.co';
+const SUPABASE_ANON_KEY =
+  process.env.SUPABASE_ANON_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk';
 const OWNER_EMAIL = (process.env.SUPABASE_OWNER_EMAIL || '').trim().toLowerCase();
 const OWNER_PASSWORD = process.env.SUPABASE_OWNER_PASSWORD || '';
 const SERVER_SYNC_ENABLED = process.env.SUPABASE_SERVER_SYNC !== 'false';

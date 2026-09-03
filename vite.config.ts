@@ -37,7 +37,10 @@ export default defineConfig(({ mode }) => {
       strictPort: false,
       host: '0.0.0.0',
       proxy: {
-        '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+        // Même port que `npm run dev:app` (7000). Le 8000 qui traînait ici
+        // datait d'avant : `npm run preview` ne trouvait donc aucune API et
+        // recevait du HTML à la place du JSON attendu.
+        '/api': { target: 'http://127.0.0.1:7000', changeOrigin: true },
       },
     },
     plugins: [
