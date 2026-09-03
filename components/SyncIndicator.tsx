@@ -47,8 +47,38 @@ const SyncIndicator: React.FC = () => {
         };
     }, []);
 
-    // Cacher l'indicateur si aucun utilisateur n'est connecté
-    const canCloudSync = Boolean(user && IS_STATIC && isCloudSyncUserId(String(user.id)));
+    // Le compte est-il relié au cloud ? En mode statique (Vercel/téléphone),
+    // l'identifiant EST celui de Supabase. Sur un poste avec serveur local, il
+    // vient de `cloudUserId`, que le serveur obtient en ouvrant une session
+    // Supabase à la connexion.
+    const identifiantCloud = IS_STATIC ? String(user?.id ?? '') : String(user?.cloudUserId ?? '');
+    const canCloudSync = Boolean(user && isCloudSyncUserId(identifiantCloud));
+
+    // ── Poste non relié : le dire, au lieu de ne rien afficher ───────────────
+    //
+    // L'indicateur était simplement absent hors mode statique. Un poste dont la
+    // liaison au cloud avait échoué travaillait donc dans le vide sans que rien
+    // ne l'indique : les modèles restaient dans son SQLite, le téléphone
+    // affichait « Aucun modèle trouvé », et personne ne pouvait faire le lien.
+    // Un avertissement visible vaut mieux qu'une absence muette.
+    if (user && !canCloudSync && !IS_STATIC) {
+        return (
+            <div
+                className="flex items-center justify-center w-8 h-8 rounded-full border bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400"
+                title={tx(lang, {
+                    fr: "Ce poste n'est pas relié au cloud : vos modèles restent ici et n'arrivent pas sur le téléphone. Reconnectez-vous avec le mot de passe de votre compte Supabase.",
+                    ar: 'هذا الجهاز غير مرتبط بالسحابة: نماذجك تبقى هنا ولا تصل إلى الهاتف. أعد تسجيل الدخول بكلمة سرّ حسابك في Supabase.',
+                    en: 'This machine is not linked to the cloud: your models stay here and never reach the phone. Sign in again with your Supabase account password.',
+                    es: 'Este equipo no está conectado a la nube: sus modelos se quedan aquí y no llegan al teléfono.',
+                    pt: 'Este posto não está ligado à nuvem: os seus modelos ficam aqui e não chegam ao telemóvel.',
+                    tr: 'Bu makine buluta bagli degil: modelleriniz burada kalir ve telefona ulasmaz.',
+                })}
+                aria-live="polite"
+            >
+                <AlertTriangle className="w-3.5 h-3.5" />
+            </div>
+        );
+    }
 
     if (!canCloudSync) return null;
 
@@ -71,11 +101,11 @@ const SyncIndicator: React.FC = () => {
             // D'abord POUSSER : le bouton sert surtout au téléphone qui vient de
             // travailler hors ligne. Tirer sans avoir poussé ferait passer la
             // main aux autres appareils avant même que ce travail soit parti.
-            await pushSnapshotToCloud(String(user.id)).catch(() => false);
+            await pushSnapshotToCloud(identifiantCloud).catch(() => false);
             // `force` : sauter le pull conditionnel. Un appareil qui se croit
             // déjà à jour ne retéléchargeait rien, et le bouton affichait
             // « synchronisé » sans avoir rien rapporté.
-            const success = await pullSnapshotFromCloud(String(user.id), { force: true });
+            const success = await pullSnapshotFromCloud(identifiantCloud, { force: true });
             if (success) {
                 setPlein(false);
                 setState('done');
