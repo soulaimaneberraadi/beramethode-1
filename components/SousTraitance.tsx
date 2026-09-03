@@ -5004,15 +5004,29 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   /** Ce que le Référentiel affiche : un produit, son prix, son stock, sa date.
    *  Il ne réunit rien de neuf — il donne accès aux mêmes chiffres que la
    *  carte, augmentés du code de chaque case. */
-  const referentielEntries = useMemo(
-    () => modelStockStats.map(it => ({
+  const referentielEntries = useMemo(() => {
+    const list = modelStockStats.map(it => ({
       model: it.model,
       salePrice: it.salePrice,
       remainingStock: it.remainingStock,
       date: it.startDate,
-    })),
-    [modelStockStats]
-  );
+    }));
+    /* `modelStockStats` naît des COMMANDES : un produit créé au comptoir, qui
+     * n'en a aucune, n'y figure pas. Sans ce rattrapage il disparaîtrait de la
+     * liste à l'instant même où on vient de le créer — et on ne pourrait pas
+     * lui enregistrer le moindre code. */
+    const connus = new Set(list.map(e => String(e.model.id)));
+    for (const m of models) {
+      if (connus.has(String(m.id))) continue;
+      list.push({
+        model: m,
+        salePrice: null,
+        remainingStock: 0,
+        date: (m as any).updatedAt || null,
+      });
+    }
+    return list;
+  }, [modelStockStats, models]);
 
   modelStockStatsRef.current = modelStockStats;
 
