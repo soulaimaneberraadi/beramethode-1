@@ -3,6 +3,7 @@ import type { AppSettings, ModelData, PlanningEvent, PosteSuiviData, HRWorker, O
 import { deriveHourGrid } from './shared/hours';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
+import { useIsMobile } from '../planning/shared/useIsMobile';
 import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown } from 'lucide-react';
 
 interface Props {
@@ -62,6 +63,10 @@ function todayStr(): string {
 
 export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate }: Props) {
     const { lang } = useLang();
+    /* Le releve se fait au pied de la chaine, telephone en main : sur petit
+       ecran chaque poste devient une carte, un tableau de sept colonnes n'y
+       tient pas. */
+    const isMobile = useIsMobile();
     const date = globalDate || todayStr();
 
     const [posteSuivis, setPosteSuivis] = useState<PosteSuiviData[]>([]);
@@ -287,6 +292,98 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                 ) : !activeModel || postes.length === 0 ? (
                     <div className="flex items-center justify-center py-16 text-slate-400 dark:text-dk-muted text-sm font-bold text-center px-6">
                         {tx(lang, L.noModel)}
+                    </div>
+                ) : isMobile ? (
+                    <div className="space-y-2.5">
+                        {postes.map(poste => {
+                            const d = getDraft(poste.id);
+                            const rowsToday = suivisByPoste.get(poste.id) || [];
+                            const totalQtyToday = rowsToday.reduce((sum, r) => sum + (r.pieces_sorties || 0), 0);
+                            const scoresJour = rowsToday.map(scoreReleve).filter((x): x is number => x !== null);
+                            const scorePoste = scoresJour.length > 0
+                                ? Math.round(scoresJour.reduce((a, b) => a + b, 0) / scoresJour.length)
+                                : null;
+                            const isSaving = savingId === poste.id;
+                            const isSaved = savedId === poste.id;
+                            return (
+                                <div key={poste.id} className="rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface p-3 space-y-2.5">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <p className="font-black text-[13px] text-slate-800 dark:text-dk-text">{poste.description || poste.id}</p>
+                                            {poste.machineName && <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">{poste.machineName}</p>}
+                                        </div>
+                                        {scorePoste !== null && (
+                                            <span className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-black tabular-nums ${classeScore(scorePoste)}`}>{scorePoste}%</span>
+                                        )}
+                                    </div>
+
+                                    <div className="relative">
+                                        <select
+                                            value={d.workerId}
+                                            onChange={(e) => setDraft(poste.id, { workerId: e.target.value })}
+                                            className="w-full min-h-[44px] appearance-none text-[13px] font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl pl-3 pr-8 outline-none"
+                                        >
+                                            <option value="">{tx(lang, L.chooseWorker)}</option>
+                                            {workersSorted.map(w => (
+                                                <option key={w.id} value={w.id}>{w.full_name}{w.chaine_id === selectedChaineId ? '' : ` (${w.chaine_id || '-'})`}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <label className="block">
+                                            <span className="block mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang, L.qty)}</span>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                placeholder="0"
+                                                value={d.qty}
+                                                onChange={(e) => setDraft(poste.id, { qty: e.target.value === '' ? '' : Number(e.target.value) })}
+                                                className="w-full min-h-[44px] text-[14px] font-black text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 outline-none"
+                                            />
+                                        </label>
+                                        <label className="block">
+                                            <span className="block mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang, L.defects)}</span>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                placeholder="0"
+                                                value={d.defauts}
+                                                onChange={(e) => setDraft(poste.id, { defauts: e.target.value === '' ? '' : Number(e.target.value) })}
+                                                className="w-full min-h-[44px] text-[14px] font-bold text-slate-600 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 outline-none"
+                                            />
+                                        </label>
+                                    </div>
+
+                                    <MiniChrono
+                                        open={chronoOpenFor === poste.id}
+                                        onToggle={() => setChronoOpenFor(cur => (cur === poste.id ? null : poste.id))}
+                                        onFinish={(ms) => setDraft(poste.id, { tempsMs: ms })}
+                                        lang={lang}
+                                        tempsMs={d.tempsMs}
+                                    />
+
+                                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">
+                                            {totalQtyToday} pcs · {rowsToday.length} {tx(lang, L.entriesToday)}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            disabled={d.qty === '' || isSaving}
+                                            onClick={() => saveRow(poste)}
+                                            className={`min-h-[44px] px-4 flex items-center justify-center gap-1.5 rounded-xl text-[12px] font-black transition-colors ${
+                                                d.qty === '' ? 'bg-slate-100 dark:bg-dk-elevated/60 text-slate-300 dark:text-dk-muted cursor-not-allowed' :
+                                                isSaved ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                            }`}
+                                        >
+                                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : isSaved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                                            {isSaved ? tx(lang, L.saved) : tx(lang, L.saveRow)}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 ) : (
                     <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface">
