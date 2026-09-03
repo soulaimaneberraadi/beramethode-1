@@ -203,6 +203,30 @@ export const getVentesDashboard = (req: Request, res: Response) => {
             };
         }).sort((a, b) => b.caPeriode - a.caPeriode || b.vendu - a.vendu);
 
+        // ── D'ou vient le modele ────────────────────────────────────────
+        // « Les modeles de tel sous-traitant se vendent-ils mieux ? » ne se
+        // repondait qu'en ouvrant les bons de sous-traitance un par un. La
+        // provenance voyage donc avec le modele : elle sert de filtre, jamais
+        // de calcul — aucun chiffre de vente n'en depend.
+        const provenance = new Map<string, { soustraitants: string[]; donneurs: string[] }>();
+        for (const r of db.prepare(`
+            SELECT modelId,
+                   COALESCE(NULLIF(TRIM(subcontractorName), ''), '') AS soustraitant,
+                   COALESCE(NULLIF(TRIM(clientName), ''), '') AS donneur
+            FROM subcontract_orders WHERE owner_id = ?
+        `).all(companyId) as any[]) {
+            const cle = String(r.modelId);
+            if (!provenance.has(cle)) provenance.set(cle, { soustraitants: [], donneurs: [] });
+            const e = provenance.get(cle)!;
+            if (r.soustraitant && !e.soustraitants.includes(r.soustraitant)) e.soustraitants.push(String(r.soustraitant));
+            if (r.donneur && !e.donneurs.includes(r.donneur)) e.donneurs.push(String(r.donneur));
+        }
+        const modelesAvecProvenance = modeles.map(m => ({
+            ...m,
+            soustraitants: provenance.get(m.modelId)?.soustraitants || [],
+            donneurs: provenance.get(m.modelId)?.donneurs || [],
+        }));
+
         // ── Ce que le marché demande : tailles et couleurs ───────────────
         // Un atelier ne coupe pas « 200 pièces », il coupe une répartition.
         // La demande réelle, taille par taille, est ce qui empêche de refaire
@@ -566,7 +590,7 @@ export const getVentesDashboard = (req: Request, res: Response) => {
                     taux: Number((((Number(d.defauts) || 0) / Math.max(1, (Number(d.ok) || 0) + (Number(d.defauts) || 0))) * 100).toFixed(1)),
                 })),
             },
-            modeles,
+            modeles: modelesAvecProvenance,
             clients: clientsClasses,
         });
     } catch (error) {

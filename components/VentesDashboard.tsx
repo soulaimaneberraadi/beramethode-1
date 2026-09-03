@@ -20,6 +20,7 @@ import { aujourdhui, jourLocal, ChampListe, ChampDate } from './ventes/champs';
 import EncoursDetail from './ventes/EncoursDetail';
 import PanneauDetail from './ventes/PanneauDetail';
 import AxeDetail, { AxeOuvert } from './ventes/AxeDetail';
+import ModelesDetail from './ventes/ModelesDetail';
 import { teinteDe } from './ventes/articles';
 
 /** Sans serveur (deploiement statique), il n'y a ni sorties de stock ni
@@ -50,6 +51,10 @@ type Modele = {
     ageJours: number | null; ecoule: number; parJour: number;
     joursAvantRupture: number | null;
     statut: 'TOP' | 'OK' | 'LENT' | 'MORT' | 'NEUF';
+    /** D'ou vient le modele : sert de filtre sur la page des modeles, jamais
+     *  de calcul — aucun chiffre de vente n'en depend. */
+    soustraitants?: string[];
+    donneurs?: string[];
 };
 
 type ClientLigne = {
@@ -140,6 +145,10 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
     /** La valeur ouverte en fiche : chaque ligne de repartition est une
      *  question ouverte, pas un chiffre a contempler. */
     const [axeOuvert, setAxeOuvert] = useState<AxeOuvert | null>(null);
+    /** La page complete des modeles : recherche, essais, provenance, et ou
+     *  chaque modele se vend le mieux. La carte du tableau de bord n'en
+     *  montre que le haut. */
+    const [modelesOuverts, setModelesOuverts] = useState(false);
     // Une tuile ne dit qu un total : le detail s ouvre par-dessus la page.
     // Pilote par l URL quand le parent le controle (voir Props), sinon local.
     const [detailLocal, setDetailLocal] = useState<VentesDetailKey>(null);
@@ -294,6 +303,7 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
         aujourdhuiCourt: tx(lang, { fr: "Auj.", ar: "اليوم", en: "Today", es: "Hoy", pt: "Hoje", tr: "Bugun" }),
         aujourdhui: tx(lang, { fr: "Aujourd hui", ar: "اليوم", en: "Today", es: "Hoy", pt: "Hoje", tr: "Bugun" }),
         choisir: tx(lang, { fr: 'jj/mm/aaaa', ar: 'يوم/شهر/عام', en: 'dd/mm/yyyy', es: 'dd/mm/aaaa', pt: 'dd/mm/aaaa', tr: 'gg/aa/yyyy' }),
+        toutVoir: tx(lang, { fr: 'Tout voir', ar: 'شوف كلشي', en: 'See all', es: 'Ver todo', pt: 'Ver tudo', tr: 'Tumunu gor' }),
         parMois: tx(lang, { fr: 'Mois', ar: 'شهر', en: 'Month', es: 'Mes', pt: 'Mes', tr: 'Ay' }),
         parAnnee: tx(lang, { fr: 'Annee', ar: 'عام', en: 'Year', es: 'Ano', pt: 'Ano', tr: 'Yil' }),
         precedent: tx(lang, { fr: 'Precedent', ar: 'السابق', en: 'Previous', es: 'Anterior', pt: 'Anterior', tr: 'Onceki' }),
@@ -1032,7 +1042,13 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                     <Carte
                         titre={T.modeles}
                         droite={
-                            <div className="flex gap-1 flex-wrap">
+                            <div className="flex gap-1 flex-wrap items-center">
+                                <button
+                                    onClick={() => setModelesOuverts(true)}
+                                    className="px-2 py-0.5 rounded-md text-[10px] font-black border border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:text-slate-900 dark:hover:text-dk-text"
+                                >
+                                    {T.toutVoir}
+                                </button>
                                 {(['TOUS', 'TOP', 'LENT', 'MORT', 'NEUF'] as const).map(f => (
                                     <button
                                         key={f}
@@ -1052,7 +1068,11 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                                 <p className="px-4 py-6 text-center text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</p>
                             )}
                             {modelesFiltres.slice(0, 40).map(m => (
-                                <div key={m.modelId} className="px-3.5 py-2.5 flex items-center gap-3 hover:bg-slate-50/60 dark:hover:bg-dk-elevated/40">
+                                <button
+                                    key={m.modelId}
+                                    type="button"
+                                    onClick={() => setAxeOuvert({ axe: 'modele', valeur: m.modelId, titre: m.nom })}
+                                    className="w-full text-left px-3.5 py-2.5 flex items-center gap-3 hover:bg-slate-50/60 dark:hover:bg-dk-elevated/40 active:scale-[0.997] transition">
                                     {m.image
                                         ? <img src={m.image} alt="" className="w-10 h-10 rounded-lg object-cover flex-none border border-slate-200 dark:border-dk-border" />
                                         : <span className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-dk-elevated flex-none flex items-center justify-center text-[9px] font-black text-slate-300">{m.nom.slice(0, 2).toUpperCase()}</span>}
@@ -1095,7 +1115,7 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                                         <span className="block text-[12px] font-black tabular-nums text-slate-900 dark:text-dk-text">{nf(m.caPeriode)}</span>
                                         <span className="block text-[10px] text-slate-400 dark:text-dk-muted">{currency}</span>
                                     </div>
-                                </div>
+                                </button>
                             ))}
                         </div>
                     </Carte>
@@ -1202,6 +1222,19 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                     lang={lang}
                     contexte={{ canal: canal || undefined, segment: segment || undefined, clientId: clientId || undefined }}
                     onFermer={() => setAxeOuvert(null)}
+                />
+            )}
+
+            {data && modelesOuverts && (
+                <ModelesDetail
+                    modeles={data.modeles as any}
+                    du={du || data.depuis || ''}
+                    au={au || aujourdhui()}
+                    periode={periodeLisible}
+                    currency={currency}
+                    lang={lang}
+                    contexte={{ canal: canal || undefined, segment: segment || undefined, clientId: clientId || undefined }}
+                    onFermer={() => setModelesOuverts(false)}
                 />
             )}
 
