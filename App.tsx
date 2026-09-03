@@ -2031,7 +2031,46 @@ export default function App() {
                             onRenameModel={renameModel}
                             onCreateNewProject={createNewProject}
                             onTransferToCoupe={handleTransferToCoupe}
-                            onTransferToPlanning={handleTransferToPlanning}
+                            onTransferToPlanning={(m) => {
+                                /* « Transferer vers Planning » ne posait qu'un
+                                   workflowStatus que personne ne lit : le modele
+                                   n'apparaissait jamais sur le planning et il
+                                   fallait le recreer a la main. On cree ici l'OF
+                                   pour de vrai, sur la chaine courante, a partir
+                                   d'aujourd'hui — il reste a le deplacer et a
+                                   fixer sa DDS dans le planning. */
+                                const deja = planningEvents.find(p => p.modelId === m.id);
+                                if (deja) {
+                                    setGlobalChaineId(deja.chaineId || globalChaineId);
+                                    setCurrentView('planning');
+                                    navigate('planning');
+                                    return;
+                                }
+                                if (!window.confirm(`Planifier "${m.meta_data?.nom_modele || 'Sans Nom'}" (Envoyer vers Planning) ?`)) return;
+                                const aujourdhui = new Date().toISOString().split('T')[0];
+                                const qte = Number(m.meta_data?.quantity) || 0;
+                                const nouvelOF: import('./types').PlanningEvent = {
+                                    id: `plan_${m.id}_${Date.now()}`,
+                                    modelId: m.id,
+                                    chaineId: globalChaineId,
+                                    dateLancement: aujourdhui,
+                                    startDate: aujourdhui,
+                                    dateExport: aujourdhui,
+                                    estimatedEndDate: aujourdhui,
+                                    qteTotal: qte,
+                                    totalQuantity: qte,
+                                    qteProduite: 0,
+                                    producedQuantity: 0,
+                                    status: 'READY',
+                                    modelName: m.meta_data?.nom_modele || 'Sans Nom',
+                                    clientName: m.ficheData?.client || '',
+                                    color: '#6366f1',
+                                } as any;
+                                setPlanningEvents(prev => [...prev, nouvelOF]);
+                                setModels(prev => prev.map(x => x.id === m.id ? { ...x, workflowStatus: 'PLANNING' } : x));
+                                setCurrentView('planning');
+                                navigate('planning');
+                            }}
                             onStartSuivi={(m) => {
                                 // PHASE 6 — Lancer Suivi depuis Bibliothèque sans passer par Planning
                                 const existing = planningEvents.find(p => p.modelId === m.id);

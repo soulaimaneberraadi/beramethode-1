@@ -1781,6 +1781,68 @@ export default function SuiviProduction({
                                                 const isCellLocked = isFutureHour && !isOverrideMode;
                                                 const displayValue = cell?.downtime || (cell?.value !== undefined && cell?.value !== null && cell.value !== 0 ? cell.value : '');
                                                 const ofId = selectedActiveModelId || activeModels[0]?.id;
+                                                /* Sur telephone aussi, une heure peut porter deux OF : sans
+                                                   cela la production du second modele serait invisible. */
+                                                const partsM = cell?.parts || [];
+                                                const manqueOFM = partsM.length > 0 && !!ofId && !partsM.some(p => p.ofKey === ofId) && !isCellLocked;
+                                                if (partsM.length > 1 || manqueOFM) {
+                                                    const infoOF = activeModels.find(m => m.id === ofId);
+                                                    const saisir = (valStr: string) => {
+                                                        const v = valStr.trim().toUpperCase();
+                                                        if (['L', 'P', 'M', 'S'].includes(v)) handleSaveCell(selectedChartDate, h.key, 0, ofId, v, 0, 'Couture');
+                                                        else handleSaveCell(selectedChartDate, h.key, v === '' ? 0 : parseInt(v) || 0, ofId, null, 0, 'Couture');
+                                                    };
+                                                    return (
+                                                        <div key={h.key} className="flex items-start gap-2">
+                                                            <span className="w-[88px] shrink-0 pt-2 text-[11px] font-bold text-slate-500 dark:text-dk-muted tabular-nums">{h.label}</span>
+                                                            <div className="flex-1 rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border divide-y divide-white/40 dark:divide-black/30">
+                                                                {partsM.map(p => (
+                                                                    <div
+                                                                        key={p.entry.id}
+                                                                        style={p.model?.style ? { backgroundColor: p.model.style.bg, color: p.model.style.text } : undefined}
+                                                                        className={`flex items-center justify-between gap-2 px-2 py-2 text-[13px] font-black tabular-nums ${p.model?.style ? '' : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft'} ${p.ofKey === ofId ? 'ring-1 ring-inset ring-black/25 dark:ring-white/40' : ''}`}
+                                                                    >
+                                                                        <span className="truncate text-[10px] font-bold opacity-80">{p.model?.ofTag || p.model?.reference || '—'}</span>
+                                                                        {p.ofKey === ofId && !isCellLocked ? (
+                                                                            <input
+                                                                                type="text"
+                                                                                inputMode="numeric"
+                                                                                value={p.downtime || (p.value || '')}
+                                                                                onChange={(e) => saisir(e.target.value)}
+                                                                                className="w-14 bg-transparent text-right outline-none font-black"
+                                                                            />
+                                                                        ) : (
+                                                                            <span>{p.downtime || p.value}</span>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                                {manqueOFM && (
+                                                                    <div
+                                                                        style={infoOF?.style ? { backgroundColor: infoOF.style.bg, color: infoOF.style.text } : undefined}
+                                                                        className="flex items-center justify-between gap-2 px-2 py-2 text-[13px] font-black tabular-nums opacity-60 ring-1 ring-inset ring-black/25 dark:ring-white/40"
+                                                                    >
+                                                                        <span className="truncate text-[10px] font-bold opacity-80">{infoOF?.ofTag || infoOF?.reference || '—'}</span>
+                                                                        <input
+                                                                            type="text"
+                                                                            inputMode="numeric"
+                                                                            value=""
+                                                                            placeholder="+"
+                                                                            onChange={(e) => { if (e.target.value.trim() !== '') saisir(e.target.value); }}
+                                                                            className="w-14 bg-transparent text-right outline-none font-black placeholder:opacity-70"
+                                                                        />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => !isCellLocked && ofId && handleOpenCellModal(selectedChartDate, h.key, h.label)}
+                                                                className="w-8 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-400 dark:text-dk-muted"
+                                                            >
+                                                                <Sliders className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                }
                                                 return (
                                                     <div key={h.key} className="flex items-center gap-2">
                                                         <span className="w-[88px] shrink-0 text-[11px] font-bold text-slate-500 dark:text-dk-muted tabular-nums">{h.label}</span>
