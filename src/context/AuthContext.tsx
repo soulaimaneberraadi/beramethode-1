@@ -305,14 +305,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // ⚠️ ensureLocalDataOwner AVANT le pull : pose la clé d'isolation (pkey) du
       // bon compte pour que pullSnapshotFromCloud lise/écrive les bonnes clés scopées.
       if (u) { ensureLocalDataOwner(String(u.id)); memoriserScope(u.email, String(u.id)); }
+      // ⚠️ setUser AVANT le pull. L'identité est connue dès maintenant ; la
+      // faire attendre le téléchargement de l'instantané (~2 Mo, plusieurs
+      // secondes en 5G) faisait expirer le garde-fou de 8 secondes ci-dessus :
+      // l'application se débloquait avec `user` encore nul et affichait l'ÉCRAN
+      // DE CONNEXION à quelqu'un dont la session était parfaitement valide.
+      // « À chaque ouverture je dois me reconnecter » venait de là.
+      //
+      // Rien n'est poussé pendant ce temps : seul `startCloudSync` arme les
+      // envois, et il reste APRÈS le pull. Et les écrans savent se remplir
+      // après coup — ils écoutent tous `beramethode:cloud-sync-applied`.
+      setUser(u);
       if (u && IS_STATIC) {
-        // IMPORTANT: pull doit terminer AVANT setUser ET finishLoading, sinon :
-        // 1. Le localStorage vide est pushé et écrase la donnée distante
-        // 2. Les composants rendent sans données (localStorage pas encore rempli)
         await pullSnapshotFromCloud(String(u.id)).catch(() => {});
         startCloudSync(String(u.id));
       }
-      setUser(u);
       finishLoading();
     }).catch(() => {
       clearTimeout(sessionTimeout);
@@ -323,13 +330,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const u = mapSupabaseUser(session?.user as never);
       // ensureLocalDataOwner AVANT setUser (cf. ci-dessus : évite la fuite inter-comptes).
       if (u) { ensureLocalDataOwner(String(u.id)); memoriserScope(u.email, String(u.id)); }
+      // Même ordre qu'au démarrage : l'identité d'abord, les données ensuite.
+      setUser(u);
       if (u && IS_STATIC) {
         await pullSnapshotFromCloud(String(u.id)).catch(() => {});
         startCloudSync(String(u.id));
       } else {
         stopCloudSync();
       }
-      setUser(u);
     });
 
     return () => {

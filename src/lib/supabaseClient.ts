@@ -1,4 +1,35 @@
 import { createClient } from '@supabase/supabase-js';
+import { libererDeLaPlace, signalerStockagePlein } from '../../lib/stockageLocal';
+
+/**
+ * Le stockage du jeton de session, avec une place garantie.
+ *
+ * `localStorage` plafonne autour de 5 Mo sur téléphone, et les photos des
+ * modèles l'occupent presque entièrement. Quand il déborde, `setItem` lève —
+ * y compris pour les quelques kilo-octets du jeton, que le client réécrit à
+ * chaque rotation (toutes les heures environ). Le jeton renouvelé n'était alors
+ * enregistré nulle part, et l'ouverture suivante ramenait l'écran de connexion.
+ *
+ * Ici, un refus n'est pas une fatalité : on sacrifie des vignettes — présentes
+ * dans le cloud, et que le prochain envoi rendra — pour garder la session.
+ * L'adaptateur ne lève jamais : au pire il prévient l'interface.
+ */
+const stockageSession = {
+  getItem: (cle: string): string | null => {
+    try { return localStorage.getItem(cle); } catch { return null; }
+  },
+  setItem: (cle: string, valeur: string): void => {
+    try {
+      localStorage.setItem(cle, valeur);
+    } catch (e) {
+      if (!libererDeLaPlace()) { signalerStockagePlein(cle, e); return; }
+      try { localStorage.setItem(cle, valeur); } catch (e2) { signalerStockagePlein(cle, e2); }
+    }
+  },
+  removeItem: (cle: string): void => {
+    try { localStorage.removeItem(cle); } catch { /* ignore */ }
+  },
+};
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://utrojjhscyatppgcszrt.supabase.co';
 const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_KEY as string) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk';
@@ -10,6 +41,8 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
     persistSession: true,
     autoRefreshToken: true,
     storageKey: 'beramethode_supabase_session',
+    // Voir `stockageSession` : la session passe avant les vignettes.
+    storage: stockageSession,
     // Désactive le verrou Web Locks de Supabase : un refresh de token bloqué
     // (ex. session périmée en cache) ne doit jamais geler signInWithPassword.
     // On exécute simplement la fonction sans sérialisation cross-onglets.

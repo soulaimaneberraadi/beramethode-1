@@ -127,3 +127,39 @@ export const ecrireModelesAuMieux = (cle: string, models: any[]): ResultatEcritu
     }
   }
 };
+
+/**
+ * Clé de la bibliothèque. Doit rester alignée sur `LIBRARY_KEY`
+ * (`app/constants.ts`) et sur `SYNC_KEYS` (`cloudSync.ts`) — on la répète ici
+ * plutôt que d'importer `app/constants`, qui embarque toutes les traductions.
+ */
+const CLE_BIBLIOTHEQUE = 'beramethode_library';
+
+/**
+ * Fait de la place, en dernier recours, pour une écriture vitale.
+ *
+ * Les photos des modèles sont, de loin, ce qui occupe le plus de place — et ce
+ * dont on peut se passer le plus longtemps : elles sont dans le cloud, et le
+ * push les y rendra (cf. `PHOTOS_ELAGUEES_KEY`). Un jeton de session, lui, pèse
+ * quelques kilo-octets et vaut infiniment plus : sans lui, l'utilisateur
+ * retrouve l'écran de connexion à chaque ouverture.
+ *
+ * @returns true si de la place a effectivement été libérée.
+ */
+export const libererDeLaPlace = (): boolean => {
+  try {
+    const raw = lsGet(CLE_BIBLIOTHEQUE);
+    if (!raw) return false;
+    const models = JSON.parse(raw);
+    if (!Array.isArray(models)) return false;
+    const { modeles, elagues } = sansPhotos(models);
+    if (elagues.length === 0) return false;      // rien à sacrifier
+    lsSet(CLE_BIBLIOTHEQUE, JSON.stringify(modeles));
+    const marques = lirePhotosElaguees();
+    for (const id of elagues) marques.add(id);
+    ecrirePhotosElaguees(marques);
+    return true;
+  } catch {
+    return false;
+  }
+};
