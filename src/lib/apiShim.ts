@@ -29,8 +29,24 @@ const readJson = (key: string): any => {
   try { const v = localStorage.getItem(p(key)); return v ? JSON.parse(v) : null; } catch { return null; }
 };
 
+/**
+ * Écrit — ou LÈVE une erreur.
+ *
+ * L'échec était avalé ici : le stockage du téléphone refusait la ligne
+ * (mémoire pleine), la fonction n'en disait rien, et l'écran affichait
+ * « enregistré » sur un modèle qui n'existait nulle part. On préfère une
+ * erreur franche, qui remonte jusqu'à l'utilisateur, à un succès imaginaire.
+ */
 const writeJson = (key: string, value: any) => {
-  try { localStorage.setItem(p(key), JSON.stringify(value)); } catch (e) { console.warn(`writeJson ${key}`, e); }
+  try {
+    localStorage.setItem(p(key), JSON.stringify(value));
+  } catch (e) {
+    console.error(`[apiShim] écriture refusée (${key})`, e);
+    try {
+      window.dispatchEvent(new CustomEvent('beramethode:storage-full', { detail: { key } }));
+    } catch { /* ignore */ }
+    throw e;
+  }
 };
 
 // ─── Entity store registry ───────────────────────────────────────────────────
@@ -299,7 +315,7 @@ const handleGet = (pathname: string): any => {
   }
   // Tombstones inspection endpoint (for Corbeille UI)
   if (/^\/api\/_tombstones$/.test(pathname)) {
-    purgeExpiredTombstones();
+    try { purgeExpiredTombstones(); } catch { /* stockage plein : on montre au moins la corbeille */ }
     // La Corbeille ne montre que ce qu'elle peut encore rendre : l'historique
     // complet sert a la synchro, pas a l'ecran.
     return restorableTombstones();
@@ -354,37 +370,51 @@ export const installApiShim = () => {
       body = txt ? JSON.parse(txt) : null;
     } catch { body = null; }
 
-    // Identité société : persiste dans le localStorage (clé synchronisée).
-    if (/^\/api\/permissions\/company$/.test(url.pathname) && (method === 'PUT' || method === 'POST')) {
-      const prev = readJson('beramethode_company') || {};
-      writeJson('beramethode_company', { ...prev, ...(body || {}) });
-      return reply(readCompany());
-    }
+    // 507 « Insufficient Storage » : la mémoire du navigateur a refusé
+    // l'écriture. Ce code existe pour ça, et il vaut mille fois mieux qu'un 200
+    // menteur — l'écran peut enfin dire à l'utilisateur que rien n'est
+    // enregistré, au lieu de le lui laisser découvrir le lendemain.
+    const stockagePlein = () => reply({
+      ok: false,
+      error: 'storage_full',
+      message: "Mémoire de l'appareil pleine : l'enregistrement a échoué. Libérez de l'espace puis réessayez.",
+    }, 507);
 
-    const r = resolveTypeAndId(url.pathname);
-    if (!r) return reply({ ok: true, static: true, note: 'no store for path' });
+    try {
+      // Identité société : persiste dans le localStorage (clé synchronisée).
+      if (/^\/api\/permissions\/company$/.test(url.pathname) && (method === 'PUT' || method === 'POST')) {
+        const prev = readJson('beramethode_company') || {};
+        writeJson('beramethode_company', { ...prev, ...(body || {}) });
+        return reply(readCompany());
+      }
 
-    // POST → upsert (with body) ; PUT/PATCH → upsert at id ; DELETE → soft delete
-    if (method === 'POST') {
-      if (body == null) return reply({ ok: false, error: 'empty body' }, 400);
-      const saved = upsertItem(r.type, body);
-      return reply(saved ?? { ok: true });
+      const r = resolveTypeAndId(url.pathname);
+      if (!r) return reply({ ok: true, static: true, note: 'no store for path' });
+
+      // POST → upsert (with body) ; PUT/PATCH → upsert at id ; DELETE → soft delete
+      if (method === 'POST') {
+        if (body == null) return reply({ ok: false, error: 'empty body' }, 400);
+        const saved = upsertItem(r.type, body);
+        return reply(saved ?? { ok: true });
+      }
+      if (method === 'PUT' || method === 'PATCH') {
+        if (body == null && r.id == null) return reply({ ok: false }, 400);
+        const item = { ...(body || {}), id: r.id ?? body?.id };
+        // merge=true : PUT/PATCH sont partiels côté front (cf. upsertItem).
+        // S'aligne sur le serveur SQLite dont l'UPDATE ne touche que les champs fournis.
+        const saved = upsertItem(r.type, item, true);
+        return reply(saved ?? { ok: true });
+      }
+      if (method === 'DELETE') {
+        const id = r.id ?? body?.id;
+        if (!id) return reply({ ok: false, error: 'no id' }, 400);
+        const ok = softDeleteItem(r.type, String(id));
+        return reply({ ok, soft_deleted: ok, recoverable_for_ms: TOMBSTONE_TTL_MS });
+      }
+      return reply({ ok: true, static: true });
+    } catch (e) {
+      return stockagePlein();
     }
-    if (method === 'PUT' || method === 'PATCH') {
-      if (body == null && r.id == null) return reply({ ok: false }, 400);
-      const item = { ...(body || {}), id: r.id ?? body?.id };
-      // merge=true : PUT/PATCH sont partiels côté front (cf. upsertItem).
-      // S'aligne sur le serveur SQLite dont l'UPDATE ne touche que les champs fournis.
-      const saved = upsertItem(r.type, item, true);
-      return reply(saved ?? { ok: true });
-    }
-    if (method === 'DELETE') {
-      const id = r.id ?? body?.id;
-      if (!id) return reply({ ok: false, error: 'no id' }, 400);
-      const ok = softDeleteItem(r.type, String(id));
-      return reply({ ok, soft_deleted: ok, recoverable_for_ms: TOMBSTONE_TTL_MS });
-    }
-    return reply({ ok: true, static: true });
   };
 };
 

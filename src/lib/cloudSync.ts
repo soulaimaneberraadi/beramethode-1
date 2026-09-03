@@ -1,6 +1,12 @@
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient';
 import { SCHEMA_VERSION, migrateSnapshot } from './dataVersion';
 import { pkey, lsGet, lsSet, isSyncKey, getCurrentEmail } from '../../lib/storageKeys';
+import {
+  aPhotoEnClair,
+  ecrireModelesAuMieux,
+  lirePhotosElaguees,
+  signalerStockagePlein,
+} from '../../lib/stockageLocal';
 
 /** Durée pendant laquelle une suppression reste opposable à la fusion.
  *  Doit rester alignée sur `TOMBSTONE_KEEP_MS` d'`apiShim.ts` : ces deux
@@ -428,30 +434,6 @@ const collectLocalSnapshot = (): Record<string, unknown> => {
   return out;
 };
 
-/**
- * Dit tout haut qu'une écriture locale a été refusée.
- *
- * Sur téléphone, le stockage du navigateur est petit (~5 Mo) et les photos des
- * modèles y tiennent en clair : passé la limite, `setItem` LÈVE une erreur.
- * Elle était avalée en silence — l'application affichait « enregistré » alors
- * que rien ne l'était, et le modèle manquait au retour. On la fait remonter :
- * la trace console pour le diagnostic, l'événement pour que l'interface puisse
- * prévenir au lieu de laisser croire que tout va bien.
- */
-const signalerEcritureRefusee = (cle: string, e: unknown): void => {
-  const nom = (e as { name?: string } | null)?.name || '';
-  const message = String((e as { message?: string } | null)?.message || '');
-  const plein =
-    nom === 'QuotaExceededError' ||
-    nom === 'NS_ERROR_DOM_QUOTA_REACHED' ||
-    /quota|storage/i.test(message);
-  console.error(`[cloudSync] écriture locale refusée (${cle})`, e);
-  if (!plein) return;
-  try {
-    window.dispatchEvent(new CustomEvent('beramethode:storage-full', { detail: { key: cle } }));
-  } catch { /* ignore */ }
-};
-
 /** @returns false si AU MOINS une clé n'a pas pu être écrite localement. */
 const applySnapshotToLocal = (snapshot: Record<string, unknown> | null): boolean => {
   let toutApplique = true;
@@ -535,9 +517,15 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null): boolean
                 // branche générique. Celle-ci finirait par écrire la seule
                 // liste du cloud — plus courte, donc susceptible de passer — et
                 // les modèles qui n'existent que sur cet appareil seraient
-                // perdus. Mieux vaut garder la liste locale telle quelle : le
-                // repère de version n'étant pas posé, la fusion sera retentée.
-                lsSet(k, JSON.stringify(modelesFusionnes));
+                // perdus.
+                // Si le téléphone n'a plus la place pour les photos, la
+                // bibliothèque est enregistrée SANS elles plutôt que pas du
+                // tout : c'est la différence entre un écran « Aucun modèle
+                // trouvé » et un modèle qu'on peut ouvrir, avec sa gamme et ses
+                // prix, en attendant que sa vignette revienne. Les identifiants
+                // élagués sont notés — le push leur rendra leur photo depuis le
+                // cloud au lieu de l'effacer chez les autres.
+                if (ecrireModelesAuMieux(k, modelesFusionnes) === 'echec') toutApplique = false;
                 continue;
               }
             }
@@ -575,14 +563,20 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null): boolean
           // Hors du `try` : un refus d'écriture (stockage plein) ne doit pas
           // faire retomber la fusion sur la valeur du cloud seule, qui effacerait
           // ce que cet appareil est seul à connaître.
-          if (fusionGenerique) {
-            lsSet(k, JSON.stringify(fusionGenerique));
+          const aEcrire = fusionGenerique ?? (snapshot as any)[k];
+          // La bibliothèque passe TOUJOURS par l'écriture « au mieux », y compris
+          // ici : un téléphone qui n'en a encore aucune copie ne rencontre pas la
+          // branche de fusion plus haut, et c'est justement le cas où tout se
+          // joue — la première réception de modèles volumineux. Sans ce passage,
+          // l'appareil restait avec « Aucun modèle trouvé ».
+          if (k === 'beramethode_library' && Array.isArray(aEcrire)) {
+            if (ecrireModelesAuMieux(k, aEcrire) === 'echec') toutApplique = false;
             continue;
           }
-          lsSet(k, JSON.stringify(snapshot[k]));
+          lsSet(k, JSON.stringify(aEcrire));
         } catch (e) {
           toutApplique = false;
-          signalerEcritureRefusee(k, e);
+          signalerStockagePlein(k, e);
         }
       }
     }
@@ -591,7 +585,7 @@ const applySnapshotToLocal = (snapshot: Record<string, unknown> | null): boolean
         lsSet('__bera_sqlite_export__', JSON.stringify(snapshot.__sqlite_export__));
       } catch (e) {
         toutApplique = false;
-        signalerEcritureRefusee('__bera_sqlite_export__', e);
+        signalerStockagePlein('__bera_sqlite_export__', e);
       }
     }
   } finally {
@@ -628,22 +622,44 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
   // des deux côtés). Lecture faite UNIQUEMENT en cas de risque (limite l'egress).
   const isEmptyVal = (v: any) => v == null || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && v.constructor === Object && !Object.keys(v).length);
   const hasEmptyKey = SYNC_KEYS.some(k => isEmptyVal((snapshot as any)[k]));
-  if (hasEmptyKey) {
+  // Photos écartées faute de place : cet appareil détient une bibliothèque
+  // amputée. L'envoyer telle quelle effacerait les photos de tout le monde.
+  const photosElaguees = lirePhotosElaguees();
+  if (hasEmptyKey || photosElaguees.size) {
+    let cloudData: Record<string, any> | null = null;
     try {
       const { data: existing } = await supabase.from(TABLE).select('data').eq('user_id', userId).maybeSingle();
-      const cloudData: Record<string, any> = ((existing as any)?.data as any) || {};
+      cloudData = ((existing as any)?.data as any) || {};
+    } catch { cloudData = null; }
+    if (!cloudData && photosElaguees.size) {
+      // Impossible de relire le cloud alors qu'on sait notre copie incomplète :
+      // on renonce à l'envoi. Reporter vaut mieux qu'effacer des photos qu'on
+      // n'a pas les moyens de rendre.
+      console.warn('[cloudSync] push reporté: bibliothèque locale amputée et cloud illisible');
+      return false;
+    }
+    if (cloudData) {
       for (const k of SYNC_KEYS) {
         const localV = (snapshot as any)[k];
         const cloudV = cloudData[k];
         if (k === 'beramethode_library' && Array.isArray(localV) && Array.isArray(cloudV)) {
-          const ids = new Set(localV.map((m: any) => m && m.id));
-          const extra = cloudV.filter((m: any) => m && !ids.has(m.id));
-          if (extra.length) (snapshot as any)[k] = [...localV, ...extra];
+          const parIdCloud = new Map<string, any>();
+          for (const cm of cloudV) if (cm) parIdCloud.set(String(cm.id), cm);
+          // 1. Rendre sa photo à chaque modèle élagué qui n'en a plus.
+          const rendus = localV.map((lm: any) => {
+            if (!lm || !photosElaguees.has(String(lm.id)) || aPhotoEnClair(lm)) return lm;
+            const cm = parIdCloud.get(String(lm.id));
+            return cm ? withPreservedPreview(lm, cm) : lm;
+          });
+          // 2. Conserver les modèles que le cloud est seul à connaître.
+          const ids = new Set(rendus.map((m: any) => m && String(m.id)));
+          const extra = cloudV.filter((m: any) => m && !ids.has(String(m.id)));
+          (snapshot as any)[k] = extra.length ? [...rendus, ...extra] : rendus;
         } else if (isEmptyVal(localV) && !isEmptyVal(cloudV)) {
           (snapshot as any)[k] = cloudV; // préserve le cloud non vide
         }
       }
-    } catch { /* lecture cloud impossible → on pousse le local tel quel */ }
+    }
   }
 
   // Replace base64 images with Storage URLs (or compressed inline data-URLs)

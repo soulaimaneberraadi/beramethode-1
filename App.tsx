@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense } fr
 import { preloadAllChunks } from './lib/preloader';
 import { lazyWithRetry } from './lib/lazyWithRetry';
 import { lsGet, lsSet, lsGetMig } from './lib/storageKeys';
+import { ecrireModelesAuMieux } from './lib/stockageLocal';
 import './src/context/ThemeContext';
 import GlobalLoader from './components/GlobalLoader';
 import BandeauHorsLigne from './components/shared/BandeauHorsLigne';
@@ -1349,9 +1350,24 @@ export default function App() {
                     modelStampRef.current[m.id] = { sig, updatedAt: ua };
                     return { ...m, updatedAt: ua };
                 });
-                lsSet(LIBRARY_KEY, JSON.stringify(stamped));
+                // Écriture « au mieux » : si la mémoire du téléphone déborde,
+                // les modèles sont enregistrés SANS leurs photos plutôt que pas
+                // du tout. Avant, l'échec était seulement écrit dans la console
+                // — l'écran avait déjà annoncé « Modèle sauvegardé avec succès »
+                // et la bibliothèque revenait vide au redémarrage suivant.
+                const resultat = ecrireModelesAuMieux(LIBRARY_KEY, stamped);
+                if (resultat === 'echec') {
+                    showToast(tx(lang, {
+                        fr: "Mémoire de l'appareil pleine : la bibliothèque n'a pas pu être enregistrée.",
+                        ar: 'ذاكرة الجهاز ممتلئة: تعذّر حفظ المكتبة.',
+                        en: 'Device storage full: the library could not be saved.',
+                        es: 'Memoria del dispositivo llena: no se pudo guardar la biblioteca.',
+                        pt: 'Memória do aparelho cheia: não foi possível gravar a biblioteca.',
+                        tr: 'Cihaz belleği dolu: kütüphane kaydedilemedi.',
+                    }), 'error');
+                }
             } catch (e) {
-                console.error("Failed to save Library (Quota?)", e);
+                console.error("Failed to save Library", e);
             }
         }
     }, [models, user]);
@@ -1439,7 +1455,13 @@ export default function App() {
     useEffect(() => {
         setSaveStatus('saving');
         const timer = setTimeout(() => {
-            const dataToSave = { currentModelId, articleName, operations, assignments, postes, ficheData, ficheImages, efficiency, numWorkers, presenceTime, layoutMemory, activeLayout, manualLinks, savedPlantations, chronoData, chronoCustomStations, chronoLayoutSide, lastSaved: Date.now() };
+            // `ficheImages` n'est PAS enregistré ici. Les deux chemins de
+            // restauration (local et serveur) ne le relisent jamais : les photos
+            // reviennent du modèle, par `loadModel`. Les garder revenait à
+            // stocker une seconde copie des images en base64 — plusieurs
+            // centaines de kilo-octets qui ne servaient à rien, prises sur les
+            // ~5 Mo du téléphone et renvoyées dans chaque instantané cloud.
+            const dataToSave = { currentModelId, articleName, operations, assignments, postes, ficheData, efficiency, numWorkers, presenceTime, layoutMemory, activeLayout, manualLinks, savedPlantations, chronoData, chronoCustomStations, chronoLayoutSide, lastSaved: Date.now() };
             try {
                 lsSet(AUTO_SAVE_KEY, JSON.stringify(dataToSave));
                 setSaveStatus('saved');
