@@ -86,6 +86,33 @@ const SUIVI_LABELS = {
 
 type SuiviLabels = Record<keyof typeof SUIVI_LABELS, string>;
 
+type EffectifsSnapshot = Pick<SuiviData, 'chaf' | 'recta' | 'sujet' | 'transp' | 'man' | 'sp' | 'stager'> & { customEffectifs?: SuiviData['customEffectifs'] };
+
+const EFFECTIF_ZERO: EffectifsSnapshot = { chaf: 0, recta: 0, sujet: 0, transp: 0, man: 0, sp: 0, stager: 0 };
+
+/* Effectifs d'une nouvelle ligne de suivi : ils viennent de la page Effectifs,
+   jamais d'une valeur inventee. On prend d'abord une ligne du meme jour et de
+   la meme chaine, sinon la derniere journee renseignee avant cette date. */
+function heritEffectifs(rows: SuiviData[], chaineId: string, dateStr: string): EffectifsSnapshot {
+    const pool = rows.filter(s => s.chaineId === chaineId);
+    const nonVide = (s: SuiviData) =>
+        (s.chaf || 0) + (s.recta || 0) + (s.sujet || 0) + (s.transp || 0) + (s.man || 0) + (s.sp || 0) + (s.stager || 0) > 0;
+    const source =
+        pool.find(s => s.date === dateStr && nonVide(s)) ||
+        pool.filter(s => s.date < dateStr && nonVide(s)).sort((a, b) => b.date.localeCompare(a.date))[0];
+    if (!source) return { ...EFFECTIF_ZERO };
+    return {
+        chaf: source.chaf || 0,
+        recta: source.recta || 0,
+        sujet: source.sujet || 0,
+        transp: source.transp || 0,
+        man: source.man || 0,
+        sp: source.sp || 0,
+        stager: source.stager || 0,
+        ...(source.customEffectifs ? { customEffectifs: { ...source.customEffectifs } } : {}),
+    };
+}
+
 function buildSuiviLabels(lang: string): SuiviLabels {
     return Object.fromEntries(
         Object.entries(SUIVI_LABELS).map(([key, value]) => [key, tx(lang, value)])
@@ -570,13 +597,10 @@ export default function SuiviProduction({
                 enCour: 0,
                 resteEntrer: 0,
                 resteSortie: 0,
-                chaf: 1,
-                recta: 15,
-                sujet: 6,
-                transp: 1,
-                man: 2,
-                sp: 0,
-                stager: 0,
+                /* Effectifs : jamais de chiffres inventes. On reprend ceux deja
+                   saisis dans Effectifs pour cette chaine (meme jour, sinon le
+                   dernier jour renseigne) ; a defaut tout reste a zero. */
+                ...heritEffectifs(newSuivis, selectedChaineId, dateStr),
                 totalWorkers: 0,
                 downtimes: {},
                 defauts: [],
