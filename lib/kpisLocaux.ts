@@ -66,8 +66,26 @@ export const calculerKpisLocaux = (s: SourcesKpis) => {
   const pointageDuJour = (s.hrPointage || []).filter(
     (p: any) => p && dateSeule(p.date) === aujourdhui && idsActifs.has(String(p.worker_id)),
   );
-  const presents = pointageDuJour.filter((p: any) => p.statut === 'PRESENT' || p.statut === 'RETARD').length;
-  const totalEffectif = actifs.length;
+  const presentsRH = pointageDuJour.filter((p: any) => p.statut === 'PRESENT' || p.statut === 'RETARD').length;
+
+  // ── L'effectif du jour, tel que l'atelier le connait ───────────────────────
+  //
+  // Le module RH (`hr_workers` + `hr_pointage`) est la source de reference :
+  // des personnes nommees, avec contrat et pointage. Beaucoup d'ateliers ne
+  // l'utilisent pas. Ils saisissent l'effectif par chaine dans l'ecran
+  // Effectifs, qui l'inscrit dans le suivi du jour (`totalWorkers`).
+  //
+  // Sans ce repli, le tableau de bord affichait « — » et « 0 present » pendant
+  // que l'ecran Effectifs, a un doigt de la, montrait vingt-quatre personnes.
+  // Le chiffre existait ; il n'etait simplement lu par personne. On prend donc
+  // le RH quand il est renseigne, et l'effectif de production sinon : quelqu'un
+  // compte sur une chaine aujourd'hui, c'est quelqu'un de present.
+  const suivisDuJour = (s.suivis || []).filter((x: any) => x && dateSeule(x.date) === aujourdhui);
+  const effectifProduction = suivisDuJour.reduce((n: number, x: any) => n + nombre(x.totalWorkers), 0);
+  const suitLeRH = actifs.length > 0;
+
+  const totalEffectif = suitLeRH ? actifs.length : effectifProduction;
+  const presents = suitLeRH ? presentsRH : effectifProduction;
 
   // ── Stock ──────────────────────────────────────────────────────────────────
   const lotsDisponibles = (s.lots || []).filter((l: any) => l && l.etat === 'disponible');
@@ -122,8 +140,10 @@ export const calculerKpisLocaux = (s: SourcesKpis) => {
       total: totalEffectif,
       cdi: actifs.filter((w: any) => w.type_contrat === 'CDI').length,
       presents,
-      absents: pointageDuJour.filter((p: any) => p.statut === 'ABSENT').length,
-      retards: pointageDuJour.filter((p: any) => p.statut === 'RETARD').length,
+      absents: suitLeRH ? pointageDuJour.filter((p: any) => p.statut === 'ABSENT').length : 0,
+      retards: suitLeRH ? pointageDuJour.filter((p: any) => p.statut === 'RETARD').length : 0,
+      /** D'ou vient le chiffre : le module RH, ou l'effectif saisi par chaine. */
+      source: suitLeRH ? 'rh' : 'production',
       taux_presence: totalEffectif > 0 ? Math.round((presents / totalEffectif) * 100) : 0,
     },
     stock: {
