@@ -3,6 +3,7 @@ import { Search, AlertTriangle } from 'lucide-react';
 import { tx } from '../../lib/i18n';
 import PanneauDetail from './PanneauDetail';
 import AxeDetail, { AxeOuvert } from './AxeDetail';
+import { Carte, Vignette, nf } from './ui';
 
 /**
  * La page des modeles.
@@ -33,8 +34,6 @@ export type ModeleLigne = {
     donneurs?: string[];
 };
 
-const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
-
 const TEINTE: Record<ModeleLigne['statut'], string> = {
     TOP: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50',
     OK: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-dk-elevated dark:text-dk-muted dark:border-dk-border',
@@ -49,6 +48,57 @@ const SEUIL_ESSAI_PIECES = 30;
 const SEUIL_ESSAI_JOURS = 21;
 const estEssai = (m: ModeleLigne) => m.produit > 0 && m.produit <= SEUIL_ESSAI_PIECES
     && (m.ageJours == null || m.ageJours <= SEUIL_ESSAI_JOURS);
+
+type TextesLigne = { stock: string; jours: string; parJour: string; essai: string; essaiInfo: string };
+
+/** Une ligne de modele : la photo, l'etat, ce qui se vend, et ce qu'il en
+ *  reste. Definie ici et non dans la page : un composant declare dans le
+ *  corps de son parent est remonte a chaque frappe. */
+const LigneModele: React.FC<{
+    m: ModeleLigne;
+    rang?: number;
+    devise: string;
+    textes: TextesLigne;
+    onOuvrir: (m: ModeleLigne) => void;
+}> = ({ m, rang, devise, textes, onOuvrir }) => (
+    <button
+        type="button"
+        onClick={() => onOuvrir(m)}
+        className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-slate-50/70 dark:hover:bg-dk-elevated/40 active:scale-[0.997] transition"
+    >
+        {rang != null && (
+            <span className="w-5 shrink-0 text-[11px] font-black tabular-nums text-slate-300 dark:text-dk-muted">{rang}</span>
+        )}
+        <Vignette image={m.image} nom={m.nom} taille="w-9 h-9" />
+        <div className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[12px] font-bold text-slate-800 dark:text-dk-text truncate">{m.nom}</span>
+                <span className={`shrink-0 px-1.5 py-px rounded-full text-[9px] font-black border ${TEINTE[m.statut]}`}>{m.statut}</span>
+                {estEssai(m) && (
+                    <span title={textes.essaiInfo} className="shrink-0 px-1.5 py-px rounded-full text-[9px] font-black border bg-slate-50 text-slate-500 border-slate-200 dark:bg-dk-elevated dark:text-dk-muted dark:border-dk-border">
+                        {textes.essai}
+                    </span>
+                )}
+            </span>
+            <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">
+                {[
+                    `${nf(m.piecesPeriode)} pcs`,
+                    `${nf(m.parJour)}${textes.parJour}`,
+                    m.canalFort ? `${m.canalFort} ${nf(m.partCanalFort || 0)} %` : null,
+                    (m.soustraitants || [])[0] || null,
+                ].filter(Boolean).join(' · ')}
+            </span>
+        </div>
+        <div className="text-right shrink-0">
+            <span className="block text-[12px] font-black tabular-nums text-slate-900 dark:text-dk-text">{nf(m.caPeriode)} {devise}</span>
+            <span className={`block text-[10px] font-bold tabular-nums ${m.joursAvantRupture != null && m.joursAvantRupture <= 14
+                ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-dk-muted'}`}>
+                {textes.stock} {nf(m.stock)}
+                {m.joursAvantRupture != null ? ` · ${nf(m.joursAvantRupture)} ${textes.jours}` : ''}
+            </span>
+        </div>
+    </button>
+);
 
 interface Props {
     modeles: ModeleLigne[];
@@ -162,66 +212,8 @@ const ModelesDetail: React.FC<Props> = ({ modeles, du, au, periode, currency, la
             .slice(0, 8)
     ), [modeles, partMaison]);
 
-    const Carte: React.FC<{ titre: string; droite?: React.ReactNode; children: React.ReactNode }> = ({ titre, droite, children }) => (
-        <section className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface overflow-hidden">
-            <header className="h-9 px-3.5 flex items-center justify-between gap-2 border-b border-slate-100 dark:border-dk-border">
-                <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted truncate">{titre}</span>
-                {droite}
-            </header>
-            {children}
-        </section>
-    );
-
-    const Vignette: React.FC<{ m: ModeleLigne }> = ({ m }) => (
-        m.image
-            ? <img src={m.image} alt="" className="w-9 h-9 rounded-md object-cover border border-slate-200 dark:border-dk-border shrink-0" />
-            : (
-                <span className="w-9 h-9 rounded-md shrink-0 flex items-center justify-center bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[10px] font-black text-slate-400 dark:text-dk-muted">
-                    {m.nom.slice(0, 2).toUpperCase()}
-                </span>
-            )
-    );
-
-    const Ligne: React.FC<{ m: ModeleLigne; rang?: number }> = ({ m, rang }) => (
-        <button
-            type="button"
-            onClick={() => setOuvert({ axe: 'modele', valeur: m.modelId, titre: m.nom })}
-            className="w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-slate-50/70 dark:hover:bg-dk-elevated/40 active:scale-[0.997] transition"
-        >
-            {rang != null && (
-                <span className="w-5 shrink-0 text-[11px] font-black tabular-nums text-slate-300 dark:text-dk-muted">{rang}</span>
-            )}
-            <Vignette m={m} />
-            <div className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-[12px] font-bold text-slate-800 dark:text-dk-text truncate">{m.nom}</span>
-                    <span className={`shrink-0 px-1.5 py-px rounded-full text-[9px] font-black border ${TEINTE[m.statut]}`}>{m.statut}</span>
-                    {estEssai(m) && (
-                        <span title={T.essaiInfo} className="shrink-0 px-1.5 py-px rounded-full text-[9px] font-black border bg-slate-50 text-slate-500 border-slate-200 dark:bg-dk-elevated dark:text-dk-muted dark:border-dk-border">
-                            {T.essai}
-                        </span>
-                    )}
-                </span>
-                <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">
-                    {[
-                        `${nf(m.piecesPeriode)} pcs`,
-                        `${nf(m.parJour)}${T.parJour}`,
-                        m.canalFort ? `${m.canalFort} ${nf(m.partCanalFort || 0)} %` : null,
-                        (m.soustraitants || [])[0] || null,
-                    ].filter(Boolean).join(' · ')}
-                </span>
-            </div>
-            <div className="text-right shrink-0">
-                <span className="block text-[12px] font-black tabular-nums text-slate-900 dark:text-dk-text">{nf(m.caPeriode)} {currency}</span>
-                <span className={`block text-[10px] font-bold tabular-nums ${m.joursAvantRupture != null && m.joursAvantRupture <= 14
-                    ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-dk-muted'}`}>
-                    {T.stock} {nf(m.stock)}
-                    {m.joursAvantRupture != null ? ` · ${nf(m.joursAvantRupture)} ${T.jours}` : ''}
-                </span>
-            </div>
-        </button>
-    );
-
+    const textesLigne = { stock: T.stock, jours: T.jours, parJour: T.parJour, essai: T.essai, essaiInfo: T.essaiInfo };
+    const ouvrirModele = (m: ModeleLigne) => setOuvert({ axe: 'modele', valeur: m.modelId, titre: m.nom });
     const puce = (actif: boolean) => `px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors ${actif
         ? 'bg-slate-900 dark:bg-dk-accent text-white border-transparent'
         : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'}`;
@@ -287,7 +279,7 @@ const ModelesDetail: React.FC<Props> = ({ modeles, du, au, periode, currency, la
                 {filtres.length > 0 && (
                     <Carte titre={T.top}>
                         <div className="divide-y divide-slate-100 dark:divide-dk-border">
-                            {filtres.slice(0, 10).map((m, i) => <Ligne key={m.modelId} m={m} rang={i + 1} />)}
+                            {filtres.slice(0, 10).map((m, i) => <LigneModele key={m.modelId} m={m} rang={i + 1} devise={currency} textes={textesLigne} onOuvrir={ouvrirModele} />)}
                         </div>
                     </Carte>
                 )}
@@ -304,7 +296,7 @@ const ModelesDetail: React.FC<Props> = ({ modeles, du, au, periode, currency, la
                                     className="w-full text-left rounded-lg -mx-1 px-1 py-0.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/50 transition">
                                     <div className="flex items-center justify-between gap-2 text-[11px]">
                                         <span className="flex items-center gap-2 min-w-0">
-                                            <Vignette m={m} />
+                                            <Vignette image={m.image} nom={m.nom} taille="w-9 h-9" />
                                             <span className="min-w-0">
                                                 <span className="block font-bold text-slate-700 dark:text-dk-text-soft truncate">{m.nom}</span>
                                                 <span className="block text-[10px] text-slate-400 dark:text-dk-muted truncate">
@@ -323,7 +315,7 @@ const ModelesDetail: React.FC<Props> = ({ modeles, du, au, periode, currency, la
                 {filtres.length > 10 && (
                     <Carte titre={T.liste} droite={<span className="text-[10px] tabular-nums text-slate-400 dark:text-dk-muted">{nf(filtres.length)}</span>}>
                         <div className="divide-y divide-slate-100 dark:divide-dk-border">
-                            {filtres.map(m => <Ligne key={m.modelId} m={m} />)}
+                            {filtres.map(m => <LigneModele key={m.modelId} m={m} devise={currency} textes={textesLigne} onOuvrir={ouvrirModele} />)}
                         </div>
                     </Carte>
                 )}

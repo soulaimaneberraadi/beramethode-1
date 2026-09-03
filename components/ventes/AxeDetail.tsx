@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { tx } from '../../lib/i18n';
 import PanneauDetail from './PanneauDetail';
-import { teinteDe } from './articles';
+import { Carte, Chiffre, Vignette, PastilleCouleur, EtiquetteTaille, Repartition as RepartitionUI, nf } from './ui';
 
 /**
  * La fiche d'une valeur de vente : MAGASIN, GROS, ESPECES, la taille 42, le
@@ -46,8 +46,6 @@ export type AxeOuvert = {
     /** Ce qu'on affiche en titre : le nom du modele, pas son identifiant. */
     titre?: string;
 };
-
-const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
 
 interface Props {
     ouvert: AxeOuvert;
@@ -159,72 +157,25 @@ const AxeDetail: React.FC<Props> = ({ ouvert, du, au, currency, lang, contexte, 
         return out;
     }, [data]);
 
-    const Carte: React.FC<{ titre: string; droite?: React.ReactNode; children: React.ReactNode }> = ({ titre: t, droite, children }) => (
-        <section className="border border-slate-200 dark:border-dk-border rounded-xl bg-white dark:bg-dk-surface overflow-hidden">
-            <header className="h-9 px-3.5 flex items-center justify-between gap-2 border-b border-slate-100 dark:border-dk-border">
-                <span className="text-[10px] font-extrabold uppercase tracking-[0.08em] text-slate-400 dark:text-dk-muted truncate">{t}</span>
-                {droite}
-            </header>
-            {children}
-        </section>
-    );
-
-    /** Une repartition dont CHAQUE ligne est un bouton : c'est la promesse de
-     *  la page — aucun chiffre affiche n'est un cul-de-sac. */
+    /** Une repartition dont CHAQUE ligne ouvre sa propre page : c'est la
+     *  promesse de l'ecran — aucun chiffre affiche n'est un cul-de-sac. */
     const Repartition: React.FC<{
         titre: string;
         lignes: Array<{ cle: string; libelle?: string; ca: number; detail: string; vignette?: React.ReactNode }>;
         axe: AxeOuvert['axe'] | null;
     }> = ({ titre: t, lignes, axe }) => {
-        const total = lignes.reduce((a, l) => a + l.ca, 0);
         if (lignes.length === 0) return null;
         return (
-            <Carte titre={t}>
-                <div className="p-3.5 space-y-2.5">
-                    {lignes.map(l => {
-                        const part = total > 0 ? (l.ca / total) * 100 : 0;
-                        const flou = l.cle === 'NON_PRECISE' || l.cle === '—';
-                        const contenu = (
-                            <>
-                                <div className="flex items-center justify-between gap-2 text-[11px]">
-                                    <span className="flex items-center gap-2 min-w-0">
-                                        {l.vignette}
-                                        <span className={`font-bold truncate ${flou ? 'text-slate-400 dark:text-dk-muted italic' : 'text-slate-700 dark:text-dk-text-soft'}`}>
-                                            {l.libelle || libelle(l.cle)}
-                                        </span>
-                                    </span>
-                                    <span className="shrink-0 tabular-nums">
-                                        <span className="font-black text-slate-800 dark:text-dk-text">{nf(part)} %</span>
-                                        <span className="ml-1.5 text-[10px] text-slate-400 dark:text-dk-muted">{nf(l.ca)} {currency}</span>
-                                    </span>
-                                </div>
-                                <div className="h-1 rounded-full bg-slate-100 dark:bg-dk-elevated mt-1 overflow-hidden">
-                                    <div className={`h-full rounded-full ${flou ? 'bg-slate-300 dark:bg-dk-border' : 'bg-slate-800 dark:bg-dk-accent'}`} style={{ width: `${Math.max(1.5, part)}%` }} />
-                                </div>
-                                <span className="block mt-0.5 text-[10px] text-slate-400 dark:text-dk-muted">{l.detail}</span>
-                            </>
-                        );
-                        return axe ? (
-                            <button key={l.cle} type="button" onClick={() => setEnfant({ axe, valeur: l.cle, titre: l.libelle })}
-                                className="w-full text-left rounded-lg -mx-1 px-1 py-0.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/50 active:scale-[0.995] transition">
-                                {contenu}
-                            </button>
-                        ) : <div key={l.cle}>{contenu}</div>;
-                    })}
-                </div>
-            </Carte>
+            <RepartitionUI
+                titre={t}
+                unite={currency}
+                lignes={lignes.map(l => ({ cle: l.cle, titre: l.libelle, ca: l.ca, detail: l.detail, vignette: l.vignette }))}
+                textes={{ rien: T.rien, sansPrix: '', sansPrixCourt: '', majoriteNonRenseigne: '' }}
+                libelle={libelle}
+                onOuvrir={axe ? (l => setEnfant({ axe, valeur: l.cle, titre: l.titre })) : undefined}
+            />
         );
     };
-
-    const Vignette: React.FC<{ image: string | null; nom: string }> = ({ image, nom }) => (
-        image
-            ? <img src={image} alt="" className="w-7 h-7 rounded-md object-cover border border-slate-200 dark:border-dk-border shrink-0" />
-            : (
-                <span className="w-7 h-7 rounded-md shrink-0 flex items-center justify-center bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[9px] font-black text-slate-400 dark:text-dk-muted">
-                    {nom.slice(0, 2).toUpperCase()}
-                </span>
-            )
-    );
 
     /** En descendant d'un cran, la valeur ouverte devient un FILTRE : depuis
      *  le magasin, la taille 42 doit rester « la taille 42 au magasin ». Sans
@@ -240,14 +191,6 @@ const AxeDetail: React.FC<Props> = ({ ouvert, du, au, currency, lang, contexte, 
     const delta = data && data.precedent.ca > 0
         ? ((data.kpis.ca - data.precedent.ca) / data.precedent.ca) * 100
         : null;
-
-    const Chiffre: React.FC<{ titre: string; valeur: string; sous?: React.ReactNode }> = ({ titre: t, valeur, sous }) => (
-        <div className="p-3">
-            <p className="text-[9px] font-black uppercase tracking-[0.06em] text-slate-400 dark:text-dk-muted truncate">{t}</p>
-            <p className="text-[15px] font-black tabular-nums text-slate-900 dark:text-dk-text mt-0.5">{valeur}</p>
-            {sous && <p className="text-[10px] text-slate-400 dark:text-dk-muted mt-0.5">{sous}</p>}
-        </div>
-    );
 
     return (
         <>
@@ -362,14 +305,9 @@ const AxeDetail: React.FC<Props> = ({ ouvert, du, au, currency, lang, contexte, 
                             <Repartition key={k} titre={titreAxe[k]} axe={k}
                                 lignes={(data.axes[k] || []).map(l => ({
                                     cle: l.cle, ca: l.ca,
-                                    vignette: k === 'couleur' ? (
-                                        <span className="w-3.5 h-3.5 rounded-full shrink-0 border border-slate-300 dark:border-dk-border"
-                                            style={{ background: teinteDe(l.cle) || 'transparent' }} />
-                                    ) : k === 'taille' ? (
-                                        <span className="min-w-[26px] h-5 px-1.5 shrink-0 inline-flex items-center justify-center rounded-md bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[9px] font-black uppercase text-slate-500 dark:text-dk-muted">
-                                            {l.cle}
-                                        </span>
-                                    ) : undefined,
+                                    vignette: k === 'couleur' ? <PastilleCouleur nom={l.cle} />
+                                        : k === 'taille' ? <EtiquetteTaille taille={l.cle} />
+                                        : undefined,
                                     detail: `${nf(l.pieces)} ${T.piecesCourt} · ${nf(l.tickets)} ${T.ventesCourt}`,
                                 }))} />
                         ))}
