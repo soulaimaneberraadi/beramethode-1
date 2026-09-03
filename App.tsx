@@ -1349,6 +1349,8 @@ export default function App() {
     // appareils qui changent la même photo convergent au lieu de faire du ping-pong).
     const modelStampRef = useRef<Record<string, { sig: string; updatedAt: string }>>({});
     const ecritureBibliothequeRef = useRef(0);
+    /** Contenu du dernier espace de travail enregistre (horodatage exclu). */
+    const derniereSauvegardeRef = useRef('');
     useEffect(() => {
         if (models.length > 0) {
             try {
@@ -1489,6 +1491,32 @@ export default function App() {
             // centaines de kilo-octets qui ne servaient à rien, prises sur les
             // ~5 Mo du téléphone et renvoyées dans chaque instantané cloud.
             const dataToSave = { currentModelId, articleName, operations, assignments, postes, ficheData, efficiency, numWorkers, presenceTime, layoutMemory, activeLayout, manualLinks, savedPlantations, chronoData, chronoCustomStations, chronoLayoutSide, lastSaved: Date.now() };
+
+            // ── Ne rien faire si rien n'a change ────────────────────────────
+            //
+            // Cet effet tournait EN BOUCLE, toutes les deux secondes, sans fin
+            // et sans que personne ne touche a rien : il appelle
+            // `saveCurrentModel`, qui repose `layoutMemory` avec un objet neuf
+            // (meme contenu, autre identite) ; `layoutMemory` est dans ses
+            // dependances, donc l'effet repartait, et ainsi de suite.
+            //
+            // Le prix etait bien plus lourd qu'une ecriture inutile : chaque
+            // tour reposait la cle synchronisee, et CHAQUE ecriture repousse de
+            // cinq secondes l'envoi au cloud. Une ecriture toutes les deux
+            // secondes signifie un envoi qui n'a JAMAIS lieu — le telephone
+            // enregistrait bien ses modeles, mais ils ne partaient nulle part.
+            //
+            // On compare donc le contenu, horodatage exclu : identique, on
+            // s'arrete la. La boucle se referme apres un tour au lieu de courir
+            // indefiniment.
+            const { lastSaved: _horodatage, ...contenu } = dataToSave;
+            const signature = JSON.stringify(contenu);
+            if (signature === derniereSauvegardeRef.current) {
+                setSaveStatus('saved');
+                return;
+            }
+            derniereSauvegardeRef.current = signature;
+
             try {
                 lsSet(AUTO_SAVE_KEY, JSON.stringify(dataToSave));
                 setSaveStatus('saved');

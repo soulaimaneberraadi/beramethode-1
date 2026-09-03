@@ -209,6 +209,24 @@ let visibiliteHandler: (() => void) | null = null;
 // secondes non encore poussées.
 const PUSH_DEBOUNCE_MS = 5000;
 
+/**
+ * Au-dela de cette attente, on pousse meme si les ecritures continuent.
+ *
+ * Le regroupement repartait a zero a CHAQUE ecriture. Un composant qui ecrit
+ * plus souvent que le delai de regroupement repoussait donc l'envoi sans fin :
+ * la sauvegarde automatique de l'espace de travail, qui tournait toutes les
+ * deux secondes, suffisait a ce que RIEN ne parte jamais au cloud. Le
+ * telephone enregistrait ses modeles et personne d'autre ne les voyait.
+ *
+ * Le defaut de la sauvegarde est corrige, mais le regroupement ne doit plus
+ * jamais pouvoir etre affame : passe ce delai depuis la premiere ecriture en
+ * attente, l'envoi part, quitte a en refaire un plus tard.
+ */
+const PUSH_ATTENTE_MAX_MS = 20000;
+
+/** Horodatage de la premiere ecriture non encore poussee (0 = rien en attente). */
+let attenteDepuis = 0;
+
 /** Plafond du corps d'un `fetch(..., { keepalive: true })` : 64 Kio dans la
  *  spécification. On garde une marge sous la borne — la longueur en caractères
  *  d'un JSON quasi-ASCII approche sa taille en octets sans l'égaler. */
@@ -849,14 +867,20 @@ export const startCloudSync = (userId: string) => {
   Storage.prototype.setItem = function (key: string, value: string) {
     ORIGINAL_SET_ITEM.call(this, key, value);
     if (this === localStorage && isSyncKey(key, SYNC_KEYS) && !isApplyingRemote) {
+      const maintenant = Date.now();
+      if (!attenteDepuis) attenteDepuis = maintenant;
       if (syncTimer) clearTimeout(syncTimer);
-      syncTimer = setTimeout(() => pushSnapshotToCloud(userId), PUSH_DEBOUNCE_MS);
+      // Le regroupement repousse l'envoi, mais jamais au-dela de
+      // `PUSH_ATTENTE_MAX_MS` apres la premiere ecriture en attente.
+      const delai = Math.max(0, Math.min(PUSH_DEBOUNCE_MS, attenteDepuis + PUSH_ATTENTE_MAX_MS - maintenant));
+      syncTimer = setTimeout(() => { attenteDepuis = 0; void pushSnapshotToCloud(userId); }, delai);
     }
   };
 
   /** Envoie tout de suite ce qui attendait encore la fin du regroupement. */
   const viderLaFileDAttente = () => {
     if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+    attenteDepuis = 0;
     void pushSnapshotToCloud(userId).catch(() => false);
   };
 
@@ -942,6 +966,7 @@ export const startCloudSync = (userId: string) => {
 
 export const stopCloudSync = () => {
   if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+  attenteDepuis = 0;
   if (syncChannel) { syncChannel.unsubscribe(); syncChannel = null; }
   detacherEcouteurs();
   // Restore original setItem so no further writes trigger push
