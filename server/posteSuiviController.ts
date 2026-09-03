@@ -40,7 +40,7 @@ export const savePosteSuivi = (req: Request, res: Response) => {
                 INSERT INTO poste_suivi 
                 (id, owner_id, planningId, modelId, posteId, workerId, date, heure_debut, heure_fin, pieces_entrees, pieces_sorties, pieces_defaut, temps_reel_par_piece, temps_prevu_par_piece, notes, problemes, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(planningId, posteId, date) DO UPDATE SET
+                ON CONFLICT(planningId, posteId, date, heure_debut) DO UPDATE SET
                 workerId=excluded.workerId, heure_debut=excluded.heure_debut, heure_fin=excluded.heure_fin, pieces_entrees=excluded.pieces_entrees, pieces_sorties=excluded.pieces_sorties, pieces_defaut=excluded.pieces_defaut, temps_reel_par_piece=excluded.temps_reel_par_piece, temps_prevu_par_piece=excluded.temps_prevu_par_piece, notes=excluded.notes, problemes=excluded.problemes, updated_at=CURRENT_TIMESTAMP
             `);
 

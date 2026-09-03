@@ -15,6 +15,7 @@ import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
+import SuiviPostes from './suivi/SuiviPostes';
 
 interface Props {
     models: ModelData[];
@@ -131,6 +132,7 @@ export default function SuiviProduction({
     const { lang } = useLang();
     const isDark = useIsDark();
     const isMobile = useIsMobile();
+    const [subView, setSubView] = useState<'grille' | 'postes'>('grille');
     const [localSelectedChaineId, localSetSelectedChaineId] = useState<string>('CHAINE 1');
     const selectedChaineId = propSelectedChaineId !== undefined ? propSelectedChaineId : localSelectedChaineId;
     const setSelectedChaineId = propSetSelectedChaineId !== undefined ? propSetSelectedChaineId : localSetSelectedChaineId;
@@ -1086,7 +1088,38 @@ export default function SuiviProduction({
 
     return (
         <div className="flex flex-col h-full bg-[#fafbfe] dark:bg-dk-bg overflow-hidden font-sans antialiased text-slate-800 dark:text-dk-text">
-            
+
+            {/* Sous-onglets : grille horaire (existante) vs suivi par poste/ouvrier */}
+            <div className="shrink-0 flex items-center gap-1 px-3 pt-2 sm:px-6 sm:pt-3 bg-[#fafbfe] dark:bg-dk-bg">
+                <button
+                    type="button"
+                    onClick={() => setSubView('grille')}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-black transition-colors min-h-[40px] sm:min-h-0 ${subView === 'grille' ? 'bg-slate-900 dark:bg-dk-accent text-white' : 'bg-slate-100 dark:bg-dk-elevated/80 text-slate-500 dark:text-dk-muted hover:text-slate-800'}`}
+                >
+                    {tx(lang, { fr: 'Grille horaire', ar: 'الجدول بالساعة', en: 'Hourly grid', es: 'Tabla horaria', pt: 'Grelha horária', tr: 'Saatlik tablo' })}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setSubView('postes')}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-black transition-colors min-h-[40px] sm:min-h-0 ${subView === 'postes' ? 'bg-slate-900 dark:bg-dk-accent text-white' : 'bg-slate-100 dark:bg-dk-elevated/80 text-slate-500 dark:text-dk-muted hover:text-slate-800'}`}
+                >
+                    {tx(lang, { fr: 'Suivi par poste / ouvrier', ar: 'التتبع حسب المحطة/العامل', en: 'Poste / worker tracking', es: 'Seguimiento por puesto/operario', pt: 'Acompanhamento por posto/operário', tr: 'İstasyon/işçi takibi' })}
+                </button>
+            </div>
+
+            {subView === 'postes' ? (
+                <SuiviPostes
+                    models={models}
+                    planningEvents={planningEvents}
+                    settings={settings}
+                    chainsList={chainsList}
+                    selectedChaineId={selectedChaineId}
+                    setSelectedChaineId={setSelectedChaineId}
+                    globalDate={globalDate}
+                    setGlobalDate={setGlobalDate}
+                />
+            ) : (
+            <>
             {/* Top SaaS Header Bar */}
             <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border/60 px-3 py-2.5 sm:px-6 sm:py-4 flex flex-wrap items-center justify-between gap-2 sm:gap-4 shrink-0 shadow-sm dark:shadow-dk-sm z-20">
                 <div className="flex items-center gap-2 sm:gap-3">
@@ -2342,6 +2375,8 @@ export default function SuiviProduction({
                 />
             )}
 
+            </>
+            )}
         </div>
     );
 }

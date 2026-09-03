@@ -378,9 +378,50 @@ CREATE TABLE IF NOT EXISTS poste_suivi (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
-  UNIQUE(planningId, posteId, date)
+  UNIQUE(planningId, posteId, date, heure_debut)
 );
 `);
+
+// Migration : l'ancienne contrainte UNIQUE(planningId, posteId, date) limitait
+// poste_suivi a une seule ligne par poste par jour, ce qui empechait d'accumuler
+// un releve par creneau horaire (necessaire pour le suivi par poste/ouvrier et
+// le futur calcul de score). On reconstruit la table si l'ancien schema est detecte.
+try {
+  const posteSuiviSchema = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='poste_suivi'").get() as any;
+  if (posteSuiviSchema && posteSuiviSchema.sql && posteSuiviSchema.sql.includes('UNIQUE(planningId, posteId, date)')) {
+    db.exec(`
+      ALTER TABLE poste_suivi RENAME TO poste_suivi_old_v1;
+      CREATE TABLE poste_suivi (
+        id TEXT PRIMARY KEY,
+        owner_id INTEGER NOT NULL,
+        planningId TEXT NOT NULL,
+        modelId TEXT NOT NULL,
+        posteId TEXT NOT NULL,
+        workerId TEXT,
+        date TEXT NOT NULL,
+        heure_debut TEXT,
+        heure_fin TEXT,
+        pieces_entrees INTEGER DEFAULT 0,
+        pieces_sorties INTEGER DEFAULT 0,
+        pieces_defaut INTEGER DEFAULT 0,
+        temps_reel_par_piece REAL,
+        temps_prevu_par_piece REAL,
+        notes TEXT,
+        problemes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(planningId, posteId, date, heure_debut)
+      );
+      INSERT INTO poste_suivi (id, owner_id, planningId, modelId, posteId, workerId, date, heure_debut, heure_fin, pieces_entrees, pieces_sorties, pieces_defaut, temps_reel_par_piece, temps_prevu_par_piece, notes, problemes, created_at, updated_at)
+        SELECT id, owner_id, planningId, modelId, posteId, workerId, date, heure_debut, heure_fin, pieces_entrees, pieces_sorties, pieces_defaut, temps_reel_par_piece, temps_prevu_par_piece, notes, problemes, created_at, updated_at
+        FROM poste_suivi_old_v1;
+      DROP TABLE poste_suivi_old_v1;
+    `);
+  }
+} catch (e) {
+  console.error('poste_suivi migration (heure_debut in unique key) error:', e);
+}
 
 // PHASE 5 — Effectifs: Skills + Pointage
 // NOTE: la table `workers` legacy a été supprimée. `hr_workers` est la seule
