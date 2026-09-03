@@ -139,19 +139,52 @@ export const register = async (req: Request, res: Response) => {
           signal: controller.signal,
         });
         clearTimeout(timeoutId);
+        const lierSession = (sbData: { refresh_token?: string; user?: { id: string } }): boolean => {
+          if (!sbData.refresh_token || !sbData.user) return false;
+          db.prepare(`
+            INSERT INTO supabase_sessions (user_id, supabase_user_id, refresh_token)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+              supabase_user_id = excluded.supabase_user_id,
+              refresh_token = excluded.refresh_token,
+              updated_at = CURRENT_TIMESTAMP
+          `).run(info.lastInsertRowid, sbData.user.id, sbData.refresh_token);
+          cloudUserId = sbData.user.id;
+          void initUserSync(Number(info.lastInsertRowid), sbData.user.id, email, sbData.refresh_token);
+          return true;
+        };
+
+        let lie = false;
         if (sbRes.ok) {
-          const sbData = await sbRes.json() as { refresh_token?: string; user?: { id: string } };
-          if (sbData.refresh_token && sbData.user) {
-            db.prepare(`
-              INSERT INTO supabase_sessions (user_id, supabase_user_id, refresh_token)
-              VALUES (?, ?, ?)
-              ON CONFLICT(user_id) DO UPDATE SET
-                supabase_user_id = excluded.supabase_user_id,
-                refresh_token = excluded.refresh_token,
-                updated_at = CURRENT_TIMESTAMP
-            `).run(info.lastInsertRowid, sbData.user.id, sbData.refresh_token);
-            cloudUserId = sbData.user.id;
-            void initUserSync(Number(info.lastInsertRowid), sbData.user.id, email, sbData.refresh_token);
+          lie = lierSession(await sbRes.json() as { refresh_token?: string; user?: { id: string } });
+        }
+
+        // Le compte existe déjà côté Supabase — le cas ordinaire quand on
+        // recrée un poste avec une adresse déjà utilisée. `signup` répond alors
+        // sans session, et l'ancien code s'arrêtait là : le poste restait muet,
+        // non relié au cloud, et l'utilisateur ne l'apprenait que par une
+        // infobulle lui conseillant de « se reconnecter » — ce qui ne changeait
+        // rien. On ouvre donc la session avec les mêmes identifiants.
+        if (!lie) {
+          const c2 = new AbortController();
+          const t2 = setTimeout(() => c2.abort(), 4000);
+          try {
+            const sbLogin = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', apikey: SUPABASE_ANON_KEY },
+              body: JSON.stringify({ email, password }),
+              signal: c2.signal,
+            });
+            if (sbLogin.ok) {
+              lie = lierSession(await sbLogin.json() as { refresh_token?: string; user?: { id: string } });
+            } else {
+              // Adresse connue de Supabase mais mot de passe différent : seul cas
+              // où l'utilisateur doit agir. On le dit clairement au lieu de
+              // laisser le poste silencieusement hors ligne.
+              console.warn(`[authController] ${email} existe sur Supabase avec un autre mot de passe : poste non relié au cloud.`);
+            }
+          } finally {
+            clearTimeout(t2);
           }
         }
       } catch (err) {
