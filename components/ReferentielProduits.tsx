@@ -87,7 +87,19 @@ const ReferentielProduits: React.FC<Props> = ({
   open, onClose, entries, stockMatrix, axesOf, currency, lang, fmtDate, onPrint, initialModelId, onSaveCodes,
 }) => {
   const [recherche, setRecherche] = useState('');
-  const [ouvert, setOuvert] = useState<ModelData | null>(null);
+  /* On retient l'IDENTIFIANT, pas l'objet. Garder la fiche elle-même la figeait
+   * dans l'état où elle était à l'ouverture : les codes qu'on venait
+   * d'enregistrer n'apparaissaient jamais, l'écran continuait d'annoncer
+   * « sans tiki » sur un produit désormais enregistré. */
+  const [ouvertId, setOuvertId] = useState<string | null>(null);
+  const ouvert = useMemo(
+    () => entries.find(e => String(e.model.id) === String(ouvertId))?.model ?? null,
+    [entries, ouvertId]
+  );
+  const setOuvert = useCallback(
+    (m: ModelData | null) => setOuvertId(m ? String(m.id) : null),
+    []
+  );
   const [enregistrement, setEnregistrement] = useState(false);
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
   /** Case dont on saisit le code à la main ou au lecteur. */
