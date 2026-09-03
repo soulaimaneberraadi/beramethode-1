@@ -414,6 +414,17 @@ export default function App() {
             } else if (route.isNotFound) {
                 setRouteNotFound(true);
                 setRouteTokens([]);
+            } else {
+                // Page connue du routeur mais absente de la liste ci-dessus
+                // (`login`, `signup`, ou une page ajoutee au routeur et oubliee
+                // ici). Aucune des branches precedentes ne s'appliquait : ni la
+                // vue ni l'ecran « page introuvable » n'etaient mis a jour, et
+                // l'application restait sur ce qu'elle affichait avant — y
+                // compris un « page introuvable » d'avant, qui semblait alors
+                // surgir de nulle part. On retombe sur le tableau de bord.
+                setCurrentView('dashboard');
+                setRouteTokens([]);
+                setRouteNotFound(false);
             }
         };
         syncHashToView();
@@ -1676,6 +1687,12 @@ export default function App() {
 
         setCurrentView(targetView);
         setRouteTokens([]);
+        // Une destination choisie efface l'ecran « page introuvable » sans
+        // attendre que le routeur relise l'adresse : si cette relecture ne
+        // conclut pas (adresse identique, page hors liste), l'ecran restait
+        // bloque sur l'erreur alors que l'application avait bel et bien change
+        // de page.
+        setRouteNotFound(false);
         // Choisir une destination dans le menu, c'est commencer autre chose :
         // le « retour » vers l'ecran d'ou l'on venait n'a plus de sens.
         //
@@ -2309,7 +2326,14 @@ export default function App() {
                         <div className="absolute bottom-4 right-4 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
                             <button
                                 onClick={() => {
-                                    handleNavigation(navigationContext as any);
+                                    // Le libelle retombe sur « Planning » pour toute
+                                    // valeur inattendue ; la navigation, elle, ne doit
+                                    // pas suivre une valeur qui n'est pas une page —
+                                    // c'est ainsi qu'un bouton mene a « page
+                                    // introuvable ».
+                                    const destinations = ['coupe', 'planning', 'sousTraitance'] as const;
+                                    const cible = destinations.find(d => d === navigationContext) || 'planning';
+                                    handleNavigation(cible as any);
                                 }}
                                 title={`Retourner au ${navigationContext === 'coupe' ? 'La Coupe' : navigationContext === 'sousTraitance' ? 'Sous-traitance' : 'Planning'}`}
                                 className="group flex items-center gap-2 bg-slate-900 dark:bg-dk-surface border border-slate-700 dark:border-dk-border text-white dark:text-dk-text rounded-full pl-2.5 pr-3.5 py-1.5 shadow-lg hover:bg-slate-800 dark:hover:bg-dk-elevated/80 hover:-translate-y-0.5 transition-all"
