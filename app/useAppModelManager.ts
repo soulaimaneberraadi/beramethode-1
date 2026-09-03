@@ -290,12 +290,6 @@ export function useAppModelManager({
         setCurrentView('coupe');
     }, [setCurrentView, setModels]);
 
-    const handleTransferToPlanning = useCallback((model: ModelData) => {
-        if (!window.confirm(`Planifier "${model.meta_data.nom_modele}" (Envoyer vers Planning) ?`)) return;
-        setModels(prev => prev.map(m => m.id === model.id ? { ...m, workflowStatus: 'PLANNING' } : m));
-        setCurrentView('planning');
-    }, [setCurrentView, setModels]);
-
     const createNewProject = useCallback(() => {
         lsRemove(AUTO_SAVE_KEY);
         if (!IS_STATIC) {
@@ -350,7 +344,6 @@ export function useAppModelManager({
         duplicateModel,
         renameModel,
         handleTransferToCoupe,
-        handleTransferToPlanning,
         createNewProject
     };
 }

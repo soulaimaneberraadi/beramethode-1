@@ -41,6 +41,7 @@ const L = {
     score: { fr: 'Score', ar: 'النتيجة', en: 'Score', es: 'Puntuación', pt: 'Pontuação', tr: 'Puan' },
     progression: { fr: 'Progression des ouvriers', ar: 'تقدّم العمّال', en: 'Worker progression', es: 'Progresión de operarios', pt: 'Progressão dos operários', tr: 'İşçi gelişimi' },
     progressionVide: { fr: "Pas encore de relevé chronométré : le score apparaît dès qu'un temps est mesuré.", ar: 'لا يوجد تسجيل مُوقَّت بعد: النتيجة تظهر بمجرّد قياس زمن.', en: 'No timed entry yet: the score appears as soon as a time is measured.', es: 'Aún no hay registro cronometrado: la puntuación aparece en cuanto se mide un tiempo.', pt: 'Ainda sem registo cronometrado: a pontuação aparece assim que um tempo for medido.', tr: 'Henüz süre ölçümü yok: bir süre ölçülür ölçülmez puan görünür.' },
+    scoreEstime: { fr: 'Score estime depuis la quantite (pas de chronometrage)', ar: 'نتيجة مُقدَّرة من الكمية (بلا كرونومتراج)', en: 'Score estimated from quantity (no timing)', es: 'Puntuacion estimada por la cantidad (sin cronometraje)', pt: 'Pontuacao estimada pela quantidade (sem cronometragem)', tr: 'Miktardan tahmin edilen puan (olcum yok)' },
     postesTenus: { fr: 'postes tenus', ar: 'مناصب مشغولة', en: 'stations held', es: 'puestos cubiertos', pt: 'postos ocupados', tr: 'tutulan istasyon' },
 };
 
@@ -211,13 +212,51 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         }
     };
 
-    /* Score d'un releve : temps prevu de la gamme / temps reel mesure. 100% =
-       l'ouvrier tient exactement la gamme, au-dessus il va plus vite. Sans
-       chronometrage il n'y a pas de score — on n'invente pas de note. */
-    const scoreReleve = (r: PosteSuiviData): number | null => {
-        if (!r.temps_reel_par_piece || !r.temps_prevu_par_piece || r.temps_reel_par_piece <= 0) return null;
-        return Math.round((r.temps_prevu_par_piece / r.temps_reel_par_piece) * 100);
+    /* Minutes reellement travaillables dans un creneau : une heure pleine, moins
+       ce que la pause lui prend. Sans cela l'objectif d'un creneau coupe par la
+       pause serait surevalue et l'ouvrier note trop bas. */
+    const minutesCreneau = (heureKey?: string): number => {
+        if (!heureKey) return 60;
+        const hh = Number(heureKey.replace('h', '').slice(0, 2));
+        const mm = Number(heureKey.replace('h', '').slice(2, 4));
+        if (!Number.isFinite(hh)) return 60;
+        const debut = hh * 60 + (Number.isFinite(mm) ? mm : 0);
+        const fin = debut + 60;
+        const toMin = (t: string) => {
+            const [a, b] = (t || '').split(':').map(Number);
+            return (Number.isFinite(a) ? a * 60 : 0) + (Number.isFinite(b) ? b : 0);
+        };
+        let pause = 0;
+        (settings.pauses || []).forEach(pz => {
+            const d = Math.max(debut, toMin(pz.start));
+            const f = Math.min(fin, toMin(pz.end));
+            if (f > d) pause += f - d;
+        });
+        return Math.max(5, 60 - pause);
     };
+
+    /* Score d'un releve, par ordre de fiabilite :
+       1. Chronometre : temps prevu / temps mesure — c'est la mesure la plus juste.
+       2. A defaut, la quantite : ce que le poste a sorti face a ce que la gamme
+          permettait de sortir dans le creneau (minutes disponibles / temps prevu).
+       Sans temps prevu dans la gamme il n'y a pas de reference, donc pas de note :
+       on n'invente jamais un score. */
+    const scoreReleve = (r: PosteSuiviData): number | null => {
+        if (!r.temps_prevu_par_piece || r.temps_prevu_par_piece <= 0) return null;
+        if (r.temps_reel_par_piece && r.temps_reel_par_piece > 0) {
+            return Math.round((r.temps_prevu_par_piece / r.temps_reel_par_piece) * 100);
+        }
+        const pieces = r.pieces_sorties || 0;
+        if (pieces <= 0) return null;
+        const objectif = minutesCreneau(r.heure_debut) / r.temps_prevu_par_piece;
+        if (objectif <= 0) return null;
+        return Math.round((pieces / objectif) * 100);
+    };
+
+    /* Vrai quand la note vient d'un chronometrage : l'utilisateur doit savoir si
+       la note est mesuree ou seulement deduite de la quantite. */
+    const scoreChronometre = (r: PosteSuiviData): boolean =>
+        !!(r.temps_reel_par_piece && r.temps_reel_par_piece > 0);
 
     const classeScore = (sc: number) =>
         sc >= 100 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
@@ -300,6 +339,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                             const rowsToday = suivisByPoste.get(poste.id) || [];
                             const totalQtyToday = rowsToday.reduce((sum, r) => sum + (r.pieces_sorties || 0), 0);
                             const scoresJour = rowsToday.map(scoreReleve).filter((x): x is number => x !== null);
+                            const scoreMesure = rowsToday.some(scoreChronometre);
                             const scorePoste = scoresJour.length > 0
                                 ? Math.round(scoresJour.reduce((a, b) => a + b, 0) / scoresJour.length)
                                 : null;
@@ -313,7 +353,12 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                             {poste.machineName && <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">{poste.machineName}</p>}
                                         </div>
                                         {scorePoste !== null && (
-                                            <span className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-black tabular-nums ${classeScore(scorePoste)}`}>{scorePoste}%</span>
+                                            <span
+                                                className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-black tabular-nums ${classeScore(scorePoste)}`}
+                                                title={scoreMesure ? undefined : tx(lang, L.scoreEstime)}
+                                            >
+                                                {scoreMesure ? '' : '~'}{scorePoste}%
+                                            </span>
                                         )}
                                     </div>
 
@@ -406,6 +451,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                     const rowsToday = suivisByPoste.get(poste.id) || [];
                                     const totalQtyToday = rowsToday.reduce((s, r) => s + (r.pieces_sorties || 0), 0);
                                     const scoresJour = rowsToday.map(scoreReleve).filter((x): x is number => x !== null);
+                                    const scoreMesure = rowsToday.some(scoreChronometre);
                                     const scorePoste = scoresJour.length > 0
                                         ? Math.round(scoresJour.reduce((a, b) => a + b, 0) / scoresJour.length)
                                         : null;
@@ -466,7 +512,12 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                     {scorePoste === null ? (
                                                         <span className="text-slate-300 dark:text-dk-muted font-bold">—</span>
                                                     ) : (
-                                                        <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-black tabular-nums ${classeScore(scorePoste)}`}>{scorePoste}%</span>
+                                                        <span
+                                                            className={`inline-block rounded-md px-2 py-1 text-[11px] font-black tabular-nums ${classeScore(scorePoste)}`}
+                                                            title={scoreMesure ? undefined : tx(lang, L.scoreEstime)}
+                                                        >
+                                                            {scoreMesure ? '' : '~'}{scorePoste}%
+                                                        </span>
                                                     )}
                                                 </td>
                                                 <td className="px-3 py-2.5 align-top">

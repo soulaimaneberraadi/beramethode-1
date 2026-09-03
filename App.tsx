@@ -82,6 +82,7 @@ import { useLang } from './src/context/LanguageContext';
 import { isLegacyBundledMachineFleet, looksLikeGeneratedDemoFleet, isDemoMachineName, mergeServerFleetWithPendingLocal, loadMachinesFromStorage, loadMachineFleetHistoryFromStorage, normalizeLoadedLayout, loadManualLinksByModel, saveManualLinksByModel, deleteManualLinksByModel } from './app/machineUtils';
 import AppHeader, { VIEW_DEFS } from './app/AppHeader';
 import NavConfirmModal from './app/NavConfirmModal';
+import EnvoiPlanningModal from './app/EnvoiPlanningModal';
 import { useAppModelManager } from './app/useAppModelManager';
 
 /** Valeurs initiales globales — identiques à `DEFAULT_CALENDAR_APP_SETTINGS` (calendrier + App). */
@@ -285,6 +286,10 @@ export default function App() {
     const [companyLogo, setCompanyLogo] = useState<string | null>(null);
     const [companyName, setCompanyName] = useState<string>('');
     const [directSuiviModelId, setDirectSuiviModelId] = useState<string | null>(null);
+    /* Modele en attente d'etre envoye au planning ou lance en suivi : la chaine
+       et la DDS se choisissent dans une fenetre de l'application, plus dans une
+       boite systeme qui acceptait n'importe quel texte. */
+    const [envoiPlanning, setEnvoiPlanning] = useState<{ model: ModelData; mode: 'planning' | 'suivi' } | null>(null);
     const [globalChaineId, setGlobalChaineId] = useState<string>('CHAINE 2');
     const [globalDate, setGlobalDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
     const [hrInitialWorker, setHrInitialWorker] = useState<{ name: string; ts: number } | null>(null);
@@ -1434,7 +1439,6 @@ export default function App() {
         duplicateModel,
         renameModel,
         handleTransferToCoupe,
-        handleTransferToPlanning,
         createNewProject: rawCreateNewProject
     } = useAppModelManager({
         user, models, setModels, currentModelId, setCurrentModelId,
@@ -2034,11 +2038,8 @@ export default function App() {
                             onTransferToPlanning={(m) => {
                                 /* « Transferer vers Planning » ne posait qu'un
                                    workflowStatus que personne ne lit : le modele
-                                   n'apparaissait jamais sur le planning et il
-                                   fallait le recreer a la main. On cree ici l'OF
-                                   pour de vrai, sur la chaine courante, a partir
-                                   d'aujourd'hui — il reste a le deplacer et a
-                                   fixer sa DDS dans le planning. */
+                                   n'apparaissait jamais sur le planning. On ouvre
+                                   maintenant la fenetre qui cree l'OF pour de vrai. */
                                 const deja = planningEvents.find(p => p.modelId === m.id);
                                 if (deja) {
                                     setGlobalChaineId(deja.chaineId || globalChaineId);
@@ -2046,69 +2047,24 @@ export default function App() {
                                     navigate('planning');
                                     return;
                                 }
-                                if (!window.confirm(`Planifier "${m.meta_data?.nom_modele || 'Sans Nom'}" (Envoyer vers Planning) ?`)) return;
-                                const aujourdhui = new Date().toISOString().split('T')[0];
-                                const qte = Number(m.meta_data?.quantity) || 0;
-                                const nouvelOF: import('./types').PlanningEvent = {
-                                    id: `plan_${m.id}_${Date.now()}`,
-                                    modelId: m.id,
-                                    chaineId: globalChaineId,
-                                    dateLancement: aujourdhui,
-                                    startDate: aujourdhui,
-                                    dateExport: aujourdhui,
-                                    estimatedEndDate: aujourdhui,
-                                    qteTotal: qte,
-                                    totalQuantity: qte,
-                                    qteProduite: 0,
-                                    producedQuantity: 0,
-                                    status: 'READY',
-                                    modelName: m.meta_data?.nom_modele || 'Sans Nom',
-                                    clientName: m.ficheData?.client || '',
-                                    color: '#6366f1',
-                                } as any;
-                                setPlanningEvents(prev => [...prev, nouvelOF]);
-                                setModels(prev => prev.map(x => x.id === m.id ? { ...x, workflowStatus: 'PLANNING' } : x));
-                                setCurrentView('planning');
-                                navigate('planning');
+                                setEnvoiPlanning({ model: m, mode: 'planning' });
                             }}
                             onStartSuivi={(m) => {
-                                // PHASE 6 — Lancer Suivi depuis Bibliothèque sans passer par Planning
+                                /* Suivi direct depuis la Bibliotheque : si l'OF
+                                   existe deja on va dessus, sinon on demande la
+                                   chaine dans la fenetre (l'ancien window.prompt
+                                   acceptait une chaine inexistante). */
                                 const existing = planningEvents.find(p => p.modelId === m.id);
-                                let chaineId = 'CHAINE 1';
-                                const today = new Date().toISOString().split('T')[0];
-                                if (!existing) {
-                                    chaineId = window.prompt(
-                                        `Chaîne pour le suivi direct de "${m.meta_data?.nom_modele || 'Sans Nom'}" ?`,
-                                        'CHAINE 1'
-                                    ) || 'CHAINE 1';
-                                    const syntheticEvent: import('./types').PlanningEvent = {
-                                        id: `suivi_direct_${Date.now()}`,
-                                        modelId: m.id,
-                                        chaineId,
-                                        dateLancement: today,
-                                        startDate: today,
-                                        dateExport: today,
-                                        estimatedEndDate: today,
-                                        qteTotal: Number(m.meta_data?.quantity) || 0,
-                                        totalQuantity: Number(m.meta_data?.quantity) || 0,
-                                        qteProduite: 0,
-                                        producedQuantity: 0,
-                                        status: 'IN_PROGRESS',
-                                        modelName: m.meta_data?.nom_modele || 'Sans Nom',
-                                        clientName: m.ficheData?.client || '',
-                                        color: '#6366f1',
-                                        // @ts-ignore — Phase 6 flag
-                                        source: 'LIBRARY_DIRECT',
-                                    } as any;
-                                    setPlanningEvents(prev => [...prev, syntheticEvent]);
-                                } else {
-                                    if (existing.chaineId) chaineId = existing.chaineId;
+                                if (existing) {
+                                    const today = new Date().toISOString().split('T')[0];
+                                    setDirectSuiviModelId(m.id);
+                                    setGlobalChaineId(existing.chaineId || globalChaineId);
+                                    setGlobalDate(existing.startDate || existing.dateLancement || today);
+                                    setCurrentView('suivi');
+                                    navigate('suivi');
+                                    return;
                                 }
-                                setDirectSuiviModelId(m.id);
-                                setGlobalChaineId(chaineId);
-                                setGlobalDate(existing ? (existing.startDate || existing.dateLancement || today) : today);
-                                setCurrentView('suivi');
-                                navigate('suivi');
+                                setEnvoiPlanning({ model: m, mode: 'suivi' });
                             }}
                         />
                     )}
@@ -2407,6 +2363,59 @@ export default function App() {
                     user={user}
                     onConfirm={handleModalConfirm}
                 />
+
+                {/* Envoi vers le Planning / lancement du suivi : chaine reelle, DDS posee tout de suite. */}
+                {envoiPlanning && (() => {
+                    const nbChaines = globalSettings?.chainsCount || 4;
+                    const chains: string[] = [];
+                    for (let i = 1; i <= nbChaines; i++) chains.push(`CHAINE ${i}`);
+                    if (globalChaineId && !chains.includes(globalChaineId)) chains.push(globalChaineId);
+                    const m = envoiPlanning.model;
+                    return (
+                        <EnvoiPlanningModal
+                            mode={envoiPlanning.mode}
+                            modelName={m.meta_data?.nom_modele || 'Sans Nom'}
+                            chains={chains}
+                            chaineParDefaut={globalChaineId}
+                            quantiteParDefaut={Number(m.meta_data?.quantity) || 0}
+                            onClose={() => setEnvoiPlanning(null)}
+                            onConfirm={({ chaineId, dateLancement, dds, quantite }) => {
+                                const enSuivi = envoiPlanning.mode === 'suivi';
+                                const nouvelOF: import('./types').PlanningEvent = {
+                                    id: enSuivi ? `suivi_direct_${Date.now()}` : `plan_${m.id}_${Date.now()}`,
+                                    modelId: m.id,
+                                    chaineId,
+                                    dateLancement,
+                                    startDate: dateLancement,
+                                    dateExport: dds,
+                                    estimatedEndDate: dds,
+                                    qteTotal: quantite,
+                                    totalQuantity: quantite,
+                                    qteProduite: 0,
+                                    producedQuantity: 0,
+                                    status: enSuivi ? 'IN_PROGRESS' : 'READY',
+                                    modelName: m.meta_data?.nom_modele || 'Sans Nom',
+                                    clientName: m.ficheData?.client || '',
+                                    color: '#6366f1',
+                                    ...(enSuivi ? { source: 'LIBRARY_DIRECT' } : {}),
+                                } as any;
+                                setPlanningEvents(prev => [...prev, nouvelOF]);
+                                setModels(prev => prev.map(x => x.id === m.id ? { ...x, workflowStatus: 'PLANNING' } : x));
+                                setGlobalChaineId(chaineId);
+                                setEnvoiPlanning(null);
+                                if (enSuivi) {
+                                    setDirectSuiviModelId(m.id);
+                                    setGlobalDate(dateLancement);
+                                    setCurrentView('suivi');
+                                    navigate('suivi');
+                                } else {
+                                    setCurrentView('planning');
+                                    navigate('planning');
+                                }
+                            }}
+                        />
+                    );
+                })()}
 
                 {/* SYNC TOAST — barre de synchronisation background bien visible */}
                 <SyncToast />

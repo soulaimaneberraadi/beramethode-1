@@ -487,10 +487,10 @@ export default function Library({
             </div>
             {contextMenu && createPortal(
                 <>
-                {isMobileMenu && <div className="fixed inset-0 z-[9998] bg-black/30 dark:bg-dk-bg/50" onClick={() => setContextMenu(null)} />}
+                {isMobileMenu && <div className="fixed inset-0 z-[9998] bg-black/40 dark:bg-black/60 bera-sheet-fade" onClick={() => setContextMenu(null)} />}
                 <div
                     className={isMobileMenu
-                        ? "fixed inset-x-0 bottom-0 z-[9999] bg-white dark:bg-dk-surface rounded-t-2xl shadow-2xl dark:shadow-dk-lg border-t border-slate-100 dark:border-dk-border py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-h-[75vh] overflow-y-auto custom-scrollbar [&_button]:py-3.5 [&_button]:text-sm"
+                        ? "fixed inset-x-0 bottom-0 z-[9999] bg-white dark:bg-dk-surface rounded-t-3xl shadow-2xl dark:shadow-dk-lg border-t border-slate-100 dark:border-dk-border pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-h-[70vh] overflow-y-auto custom-scrollbar bera-sheet-up [&_button]:py-2.5 [&_button]:text-[13px] [&_button]:gap-2.5"
                         : "fixed bg-white dark:bg-dk-surface rounded-xl shadow-2xl dark:shadow-dk-lg dark:shadow-dk-elevated border border-slate-100 dark:border-dk-border w-56 z-[9999] py-1.5 animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden"}
                     style={isMobileMenu ? undefined : {
                         top: Math.max(8, Math.min(contextMenu.y, window.innerHeight - 420)),
@@ -498,7 +498,7 @@ export default function Library({
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {isMobileMenu && <div className="mx-auto mb-1 h-1 w-10 rounded-full bg-slate-300 dark:bg-dk-muted" />}
+                    {isMobileMenu && <div className="mx-auto mb-1.5 h-1 w-9 rounded-full bg-slate-300 dark:bg-dk-muted" />}
                     {activeModel && (
                         <>
                             <button

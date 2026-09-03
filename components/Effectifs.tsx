@@ -586,8 +586,12 @@ export default function Effectifs({
     return cols.reduce((sum, col) => sum + parseInt(getEffectifValue(col.id, roleId, col.type) as string || '0'), 0);
   };
 
+  /* Le total d'une colonne ne compte que les roles coches (bouton calculatrice).
+     Il additionnait tout le monde : decocher un role ne changeait rien au chiffre
+     affiche, alors que Suivi, lui, l'excluait deja — les deux pages annoncaient
+     donc un effectif different pour la meme chaine. */
   const calculateTotalForCol = (colId: string, colType: 'chain'|'global'|'custom', category: string) => {
-    const catRoles = roles.filter(r => r.category === category);
+    const catRoles = roles.filter(r => r.category === category && r.isCalculated !== false);
     return catRoles.reduce((sum, role) => sum + parseInt(getEffectifValue(colId, role.id, colType) as string || '0'), 0);
   };
 
@@ -1513,7 +1517,10 @@ export default function Effectifs({
                     {visibleRoles.map(row => {
                       const totalRow = calculateTotalForRow(row.id, category);
                       return (
-                      <tr key={row.id} className={`hover:bg-slate-50/50 transition-colors group ${row.isArchived ? 'opacity-60 bg-slate-50 dark:bg-dk-bg' : ''}`}>
+                      /* Un role decoche ne compte plus dans le total de la colonne :
+                         il doit se voir comme tel, sinon on cherche longtemps
+                         pourquoi la somme affichee ne tombe pas juste. */
+                      <tr key={row.id} className={`hover:bg-slate-50/50 transition-colors group ${row.isArchived ? 'opacity-60 bg-slate-50 dark:bg-dk-bg' : ''} ${row.isCalculated === false ? 'opacity-70' : ''}`}>
                         <td className={`px-2 py-2 sm:px-4 sm:py-3 font-medium text-slate-700 dark:text-dk-text-soft bg-white dark:bg-dk-surface group-hover:bg-slate-50/50 sticky left-0 shadow-[1px_0_0_0_#e2e8f0] dark:shadow-[1px_0_0_0_#2E463C] z-10 flex flex-wrap items-center justify-between gap-x-1 gap-y-1 min-w-[6.75rem] w-[28vw] max-w-[10rem] sm:min-w-[11rem] sm:w-44 sm:max-w-none md:min-w-[12rem] md:w-auto md:max-w-none lg:min-w-[200px] ${row.isArchived ? 'bg-slate-50 dark:bg-dk-bg' : ''}`}>
                           <div className="flex min-w-0 flex-1 items-center gap-1 sm:gap-2">
                             {isEditMode ? (
@@ -1598,7 +1605,7 @@ export default function Effectifs({
                             </td>
                           );
                         })}
-                        <td className="px-4 py-3 text-center font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text bg-slate-100/50 dark:bg-dk-elevated/50">
+                        <td className={`px-4 py-3 text-center font-black bg-slate-100/50 dark:bg-dk-elevated/50 ${row.isCalculated === false ? 'text-slate-400 dark:text-dk-muted line-through decoration-slate-300' : 'text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text'}`}>
                           {totalRow}
                         </td>
                       </tr>
