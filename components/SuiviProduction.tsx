@@ -525,28 +525,41 @@ export default function SuiviProduction({
     };
 
     // Get value & model metadata for a cell
+    /* Une heure peut porter la production de plusieurs OF : on renvoie donc
+       toutes les parts de la case, pas la premiere trouvee. `value`, `model` et
+       les autres champs restent ceux de la part principale (l'OF selectionne
+       s'il est present) pour ne rien casser chez les appelants existants. */
     const getCellMeta = React.useCallback((dateStr: string, hourKey: string) => {
         const dayEntries = suivis.filter(s => s.chaineId === selectedChaineId && s.date === dateStr);
+        const parts: {
+            value: number; model: typeof activeModels[number] | undefined; ofKey: string;
+            entry: SuiviData; downtime: string | null; defectsQty: number; defects: any[];
+        }[] = [];
+
         for (const entry of dayEntries) {
             const val = entry.sorties?.[hourKey];
-            if (val !== undefined && val !== null) {
-                const ofKey = entryOFKey(entry);
-                const mInfo = activeModels.find(x => x.id === ofKey);
-                const defectsForHour = entry.defauts?.filter(d => d.hour === hourKey) || [];
-                const defectsQty = defectsForHour.reduce((acc, d) => acc + d.quantity, 0);
-                
-                return {
-                    value: val,
-                    model: mInfo,
-                    entry,
-                    downtime: entry.downtimes?.[hourKey] || null,
-                    defectsQty,
-                    defects: defectsForHour,
-                };
-            }
+            if (val === undefined || val === null) continue;
+            const ofKey = entryOFKey(entry);
+            const defectsForHour = entry.defauts?.filter(d => d.hour === hourKey) || [];
+            parts.push({
+                value: val,
+                model: activeModels.find(x => x.id === ofKey),
+                ofKey,
+                entry,
+                downtime: entry.downtimes?.[hourKey] || null,
+                defectsQty: defectsForHour.reduce((acc, d) => acc + d.quantity, 0),
+                defects: defectsForHour,
+            });
         }
-        return null;
-    }, [suivis, selectedChaineId, activeModels, entryOFKey]);
+        if (parts.length === 0) return null;
+
+        const primary = parts.find(p => p.ofKey === selectedActiveModelId) || parts[0];
+        return {
+            ...primary,
+            parts,
+            total: parts.reduce((acc, p) => acc + (typeof p.value === 'number' ? p.value : 0), 0),
+        };
+    }, [suivis, selectedChaineId, activeModels, entryOFKey, selectedActiveModelId]);
 
     // Handle cell updates (quantity, model, downtime, defects)
     const handleSaveCell = (
@@ -563,12 +576,15 @@ export default function SuiviProduction({
 
         let newSuivis = [...suivis];
 
-        // 1. Remove this hour slot from other models on this chain and date
+        /* 1. Deux modeles peuvent tourner dans la meme heure : on ne vide plus
+              l'heure chez les autres OF de la chaine. Seul l'OF saisi est touche,
+              et il ne quitte la case que si on efface sa quantite. */
+        const videCetOF = quantity === 0 && !downtime;
         newSuivis = newSuivis.map(s => {
-            if (s.chaineId === selectedChaineId && s.date === dateStr) {
+            if (s.chaineId === selectedChaineId && s.date === dateStr && entryOFKey(s) === ofId && videCetOF) {
                 const updatedSorties = { ...s.sorties };
                 delete updatedSorties[hourKey];
-                
+
                 const updatedDowntimes = { ...s.downtimes };
                 delete updatedDowntimes[hourKey];
 
@@ -579,6 +595,11 @@ export default function SuiviProduction({
             }
             return s;
         });
+        if (videCetOF) {
+            setSuivis(newSuivis);
+            handleSave(newSuivis);
+            return;
+        }
 
         // 2. Get or initialize entry — on identifie l'OF par planningId.
         let targetEntry = newSuivis.find(s => s.chaineId === selectedChaineId && s.date === dateStr && entryOFKey(s) === mInfo.id);
@@ -634,7 +655,7 @@ export default function SuiviProduction({
         }
 
         const totalHeure = Object.values(updatedSorties).reduce((acc: number, v) => acc + (typeof v === 'number' ? v : 0), 0);
-        const totalWorkers = targetEntry.totalWorkers !== undefined ? targetEntry.totalWorkers : ((targetEntry.chaf || 0) + (targetEntry.recta || 0) + (targetEntry.sujet || 0) + (targetEntry.transp || 0) + (targetEntry.man || 0) + (targetEntry.sp || 0) + (targetEntry.stager || 0) || 25);
+        const totalWorkers = targetEntry.totalWorkers !== undefined ? targetEntry.totalWorkers : ((targetEntry.chaf || 0) + (targetEntry.recta || 0) + (targetEntry.sujet || 0) + (targetEntry.transp || 0) + (targetEntry.man || 0) + (targetEntry.sp || 0) + (targetEntry.stager || 0));
 
         newSuivis = newSuivis.map(s => {
             if (s.id === targetEntry!.id) {
@@ -666,7 +687,7 @@ export default function SuiviProduction({
 
         const totalWorkers = workerFields.totalWorkers !== undefined 
             ? workerFields.totalWorkers 
-            : (existing.totalWorkers !== undefined ? existing.totalWorkers : 25);
+            : (existing.totalWorkers !== undefined ? existing.totalWorkers : 0);
 
         if (dayEntries.length === 0) {
             const mInfo = activeModels[0];
@@ -1493,7 +1514,85 @@ export default function SuiviProduction({
                                                 const isFutureHour = new Date(day.dateStr).setHours(hourBlockLimit) > Date.now();
                                                 const isCellLocked = isFutureHour && !isOverrideMode;
                                                 const ofId = selectedActiveModelId;
+                                                const selectedOFInfo = activeModels.find(m => m.id === ofId);
+                                                const selectedOFStyle = selectedOFInfo?.style;
                                                 const displayValue = cell?.downtime || (cell?.value !== undefined && cell?.value !== null && cell.value !== 0 ? cell.value : '');
+
+                                                /* Deux modeles dans la meme heure : la case se partage en
+                                                   bandes de couleur, une par OF, celle de l'OF selectionne
+                                                   restant saisissable. */
+                                                const parts = cell?.parts || [];
+                                                /* Si l'heure est deja prise par un autre OF, on ajoute une bande
+                                                   vide pour l'OF selectionne : c'est ainsi qu'on met deux
+                                                   productions dans la meme heure. */
+                                                const manqueOFCourant = parts.length > 0 && !!ofId && !parts.some(p => p.ofKey === ofId) && !isCellLocked;
+                                                if (parts.length > 1 || manqueOFCourant) {
+                                                    return (
+                                                        <td key={h.key} className="p-1 border-r border-slate-100 dark:border-dk-border/60 text-center relative w-28 group align-top">
+                                                            <div
+                                                                className="w-full rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border divide-y divide-white/40 dark:divide-black/30 cursor-pointer"
+                                                                onDoubleClick={() => !isCellLocked && ofId && handleOpenCellModal(day.dateStr, h.key, h.label)}
+                                                                title={parts.map(p => `${p.model?.reference || '?'} : ${p.downtime || p.value}`).join(' | ')}
+                                                            >
+                                                                {parts.map(p => {
+                                                                    const st = p.model?.style;
+                                                                    const estCourant = p.ofKey === ofId;
+                                                                    return (
+                                                                        <div
+                                                                            key={p.entry.id}
+                                                                            style={st ? { backgroundColor: st.bg, color: st.text } : undefined}
+                                                                            className={`flex items-center justify-between gap-1 px-1.5 py-1 text-[11px] font-black tabular-nums ${st ? '' : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft'} ${estCourant ? 'ring-1 ring-inset ring-black/25 dark:ring-white/40' : ''}`}
+                                                                        >
+                                                                            <span className="truncate text-[9px] font-bold opacity-80">{p.model?.ofTag || p.model?.reference || '—'}</span>
+                                                                            {estCourant && !isCellLocked ? (
+                                                                                <input
+                                                                                    type="text"
+                                                                                    inputMode="numeric"
+                                                                                    value={p.downtime || (p.value || '')}
+                                                                                    onChange={(e) => {
+                                                                                        const valStr = e.target.value.trim().toUpperCase();
+                                                                                        if (['L', 'P', 'M', 'S'].includes(valStr)) {
+                                                                                            handleSaveCell(day.dateStr, h.key, 0, ofId, valStr, 0, 'Couture');
+                                                                                        } else {
+                                                                                            handleSaveCell(day.dateStr, h.key, valStr === '' ? 0 : parseInt(valStr) || 0, ofId, null, 0, 'Couture');
+                                                                                        }
+                                                                                    }}
+                                                                                    className="w-10 bg-transparent text-right outline-none font-black"
+                                                                                />
+                                                                            ) : (
+                                                                                <span>{p.downtime || p.value}</span>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                                {manqueOFCourant && (
+                                                                    <div
+                                                                        style={selectedOFStyle ? { backgroundColor: selectedOFStyle.bg, color: selectedOFStyle.text } : undefined}
+                                                                        className="flex items-center justify-between gap-1 px-1.5 py-1 text-[11px] font-black tabular-nums opacity-60 ring-1 ring-inset ring-black/25 dark:ring-white/40"
+                                                                    >
+                                                                        <span className="truncate text-[9px] font-bold opacity-80">{selectedOFInfo?.ofTag || selectedOFInfo?.reference || '—'}</span>
+                                                                        <input
+                                                                            type="text"
+                                                                            inputMode="numeric"
+                                                                            value=""
+                                                                            placeholder="+"
+                                                                            onChange={(e) => {
+                                                                                const valStr = e.target.value.trim().toUpperCase();
+                                                                                if (['L', 'P', 'M', 'S'].includes(valStr)) {
+                                                                                    handleSaveCell(day.dateStr, h.key, 0, ofId, valStr, 0, 'Couture');
+                                                                                } else if (valStr !== '') {
+                                                                                    handleSaveCell(day.dateStr, h.key, parseInt(valStr) || 0, ofId, null, 0, 'Couture');
+                                                                                }
+                                                                            }}
+                                                                            className="w-10 bg-transparent text-right outline-none font-black placeholder:opacity-70"
+                                                                        />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="mt-0.5 text-[9px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">{cell?.total}</div>
+                                                        </td>
+                                                    );
+                                                }
 
                                                 return (
                                                     <td key={h.key} className="p-1 border-r border-slate-100 dark:border-dk-border/60 text-center relative w-28 group">
