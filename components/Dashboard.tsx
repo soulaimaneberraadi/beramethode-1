@@ -124,23 +124,23 @@ const KpiCard = React.memo(function KpiCard({ kpi, showLoading, onNavigateModule
   const Inner = (
     <>
       <div className="flex items-center gap-2 mb-2">
-        <div className={`w-7 h-7 rounded-lg ${kpi.iconBg} flex items-center justify-center shrink-0`}>
-          <kpi.icon className={`w-4 h-4 ${kpi.iconColor}`} />
+        <div className={`w-8 h-8 rounded-lg ${kpi.iconBg} flex items-center justify-center shrink-0`}>
+          <kpi.icon className={`w-5 h-5 ${kpi.iconColor}`} />
         </div>
-        <p className="text-[10px] sm:text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider truncate">{kpi.label}</p>
+        <p className="text-[11px] sm:text-xs font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider truncate">{kpi.label}</p>
         {onNavigateModule && (
           <ChevronRight className="w-3.5 h-3.5 text-slate-300 dark:text-dk-muted ml-auto opacity-0 group-hover:opacity-100 transition-opacity shrink-0" aria-hidden />
         )}
       </div>
       <div className="flex items-end justify-between gap-2">
-        <p title={fullValue} className={`text-xl sm:text-2xl font-black text-slate-800 dark:text-dk-text leading-none tabular-nums tracking-tight ${fullValue ? 'cursor-help decoration-dotted decoration-slate-300 underline-offset-4 hover:underline' : ''}`}>
-          {showLoading ? <span className="inline-block h-5 sm:h-6 w-16 rounded-md bg-slate-200 dark:bg-dk-elevated/70 animate-pulse align-middle" aria-hidden /> : kpi.value}
+        <p title={fullValue} className={`text-2xl sm:text-3xl font-black text-slate-800 dark:text-dk-text leading-none tabular-nums tracking-tight ${fullValue ? 'cursor-help decoration-dotted decoration-slate-300 underline-offset-4 hover:underline' : ''}`}>
+          {showLoading ? <span className="inline-block h-6 sm:h-7 w-16 rounded-md bg-slate-200 dark:bg-dk-elevated/70 animate-pulse align-middle" aria-hidden /> : kpi.value}
         </p>
         {kpi.sparkData && kpi.sparkData.length > 0 && (
           <Sparkline data={kpi.sparkData} color={kpi.sparkColor || '#6366f1'} />
         )}
       </div>
-      <p className="text-[10px] sm:text-xs text-slate-500 dark:text-dk-muted mt-1.5 font-medium truncate">{kpi.sub}</p>
+      <p className="text-[11px] sm:text-sm text-slate-500 dark:text-dk-muted mt-1.5 font-medium truncate">{kpi.sub}</p>
     </>
   );
   const shell = 'bg-white dark:bg-dk-surface rounded-xl p-3 sm:p-3.5 border border-slate-200 dark:border-dk-border border-l-[3px] shadow-sm dark:shadow-dk-sm flex flex-col group hover:border-slate-300 dark:hover:border-dk-border/90 hover:shadow-md transition-all duration-200 cursor-pointer';
