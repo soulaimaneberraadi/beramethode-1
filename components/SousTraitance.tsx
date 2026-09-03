@@ -2410,42 +2410,40 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     const local = models.find(m => meme(m.id, modelId));
     if (!local) throw new Error('modele introuvable');
     try {
-      // On repart de la version du serveur : une carte lue il y a dix minutes
-      // ferait perdre les codes enregistrés entre-temps depuis un autre poste.
-      let base: ModelData = local;
-      if (!IS_STATIC) {
-        const fresh = await fetch('/api/models', { credentials: 'include' });
-        if (fresh.ok) {
-          const list = await fresh.json();
-          const found = Array.isArray(list) ? list.find((m: ModelData) => meme(m.id, modelId)) : undefined;
-          if (found) base = found;
-        }
-      }
-      const prev = (base.meta_data as any)?.variantCodes || {};
-      const next = { ...prev };
-      let ajoutes = 0;
-      utiles.forEach(e => {
-        if (next[e.code]?.taille === e.taille && next[e.code]?.couleur === e.couleur) return;
-        next[e.code] = { taille: e.taille, couleur: e.couleur };
-        ajoutes++;
-      });
-      if (ajoutes === 0) return 0;
-      const updated: ModelData = {
-        ...base,
-        meta_data: { ...(base.meta_data || {}), variantCodes: next } as ModelData['meta_data'],
-        updatedAt: new Date().toISOString(),
-      };
-      if (!IS_STATIC) {
-        const res = await fetch('/api/models', {
-          credentials: 'include',
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updated),
+      // Route dédiée côté serveur (permission stock, pas ingénierie) qui ne
+      // fusionne que meta_data.variantCodes : plus de lecture-puis-réécriture
+      // de la fiche entière ici, donc plus de risque d'écraser un autre poste.
+      if (IS_STATIC) {
+        const prev = (local.meta_data as any)?.variantCodes || {};
+        const next = { ...prev };
+        let ajoutes = 0;
+        utiles.forEach(e => {
+          if (next[e.code]?.taille === e.taille && next[e.code]?.couleur === e.couleur) return;
+          next[e.code] = { taille: e.taille, couleur: e.couleur };
+          ajoutes++;
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (ajoutes === 0) return 0;
+        const updated: ModelData = {
+          ...local,
+          meta_data: { ...(local.meta_data || {}), variantCodes: next } as ModelData['meta_data'],
+          updatedAt: new Date().toISOString(),
+        };
+        setModels?.(list => list.map(m => (meme(m.id, updated.id) ? updated : m)));
+        return ajoutes;
       }
-      setModels?.(list => list.map(m => (meme(m.id, updated.id) ? updated : m)));
-      return ajoutes;
+
+      const res = await fetch(`/api/models/${encodeURIComponent(modelId)}/variant-codes`, {
+        credentials: 'include',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entrees: utiles }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { added, model: updated } = await res.json();
+      if (added > 0 && updated) {
+        setModels?.(list => list.map(m => (meme(m.id, updated.id) ? updated : m)));
+      }
+      return added || 0;
     } catch (e) {
       throw e instanceof Error ? e : new Error('save failed');
     }
@@ -2883,7 +2881,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           }
         }
       }
-      imprimerTicket(payload, ticketRef);
+      /* Le ticket ne part QUE si le comptoir l'a demandé. Sur un poste sans
+       * imprimante, l'ouverture systématique d'une fenêtre vide à chaque vente
+       * obligeait le vendeur à la fermer, client devant lui. La vente, elle,
+       * est enregistrée dans tous les cas et reste réimprimable depuis la
+       * Journée. */
+      if ((payload as any).imprimerTicket !== false) imprimerTicket(payload, ticketRef);
       return null;
     } finally {
       // Le stock affiche doit suivre, meme apres un echec partiel.
@@ -10751,6 +10754,52 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
         fmtDate={fmtDate}
         initialModelId={referentielModel}
         onSaveCodes={(m, entrees) => saveVariantCodes(String(m.id), entrees)}
+        onSaveReference={async (m, reference) => {
+          /* La référence voyage sur le tiki et sur la facture : on la corrige
+           * ici sans passer par la fiche technique, mais on ne réécrit QUE ce
+           * champ — le reste de la fiche appartient au bureau d'études. */
+          const updated: ModelData = {
+            ...m,
+            meta_data: { ...(m.meta_data || {}), reference } as ModelData['meta_data'],
+            updatedAt: new Date().toISOString(),
+          };
+          if (!IS_STATIC) {
+            const res = await fetch('/api/models', {
+              credentials: 'include',
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updated),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          }
+          setModels?.(list => list.map(x => (String(x.id) === String(m.id) ? updated : x)));
+        }}
+        onCreate={async ({ nom, reference, couleurs, tailles }) => {
+          /* Un produit acheté au comptoir n'a ni commande ni fiche technique.
+           * On lui crée le minimum dont le référentiel a besoin : un nom, une
+           * référence, et les deux axes qui définissent ses cases. */
+          const id = String(Date.now());
+          const nouveau = {
+            id,
+            meta_data: { nom_modele: nom, reference },
+            ficheData: {
+              sizes: tailles,
+              colors: couleurs.map((name, i) => ({ id: `c${i}`, name })),
+            },
+            updatedAt: new Date().toISOString(),
+          } as unknown as ModelData;
+          if (!IS_STATIC) {
+            const res = await fetch('/api/models', {
+              credentials: 'include',
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(nouveau),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          }
+          setModels?.(list => [...list, nouveau]);
+          return id;
+        }}
         onPrint={m => {
           const stat = modelStockStats.find(it => it.model.id === m.id);
           openLabel(m, { grid: stockGridForLabel(m.id), price: stat?.salePrice ?? undefined });

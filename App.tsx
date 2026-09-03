@@ -1603,6 +1603,9 @@ export default function App() {
             return (
                 <Suspense fallback={<GlobalLoader isActive={true} progress={30} text="BERAMETHODE" subText="Chargement du setup…" />}>
                     <Setup
+                        // L'appareil est vierge, mais le compte peut déjà exister
+                        // ailleurs : laisser une porte vers l'écran de connexion.
+                        onBackToLogin={() => { setSetupNeeded(false); setAuthView('login'); }}
                         onComplete={(newUser) => {
                             // Le serveur a créé le compte et retourné l'utilisateur.
                             // On l'injecte via login() (même chemin que la connexion normale).

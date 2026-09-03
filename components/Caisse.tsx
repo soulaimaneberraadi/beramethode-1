@@ -99,6 +99,10 @@ export interface CaisseProps {
     /** Especes : ce que le client a tendu, et ce qu'on lui rend. */
     recu: number | null;
     rendu: number | null;
+    /** Reglage « Ticket » du poste : false coupe l'ouverture de la fenetre
+     *  d'impression apres l'encaissement (le ticket reste consultable et
+     *  reimprimable depuis la Journee). */
+    imprimerTicket: boolean;
   }) => Promise<string | null>;
   /** Mode statique : aucune API, la caisse ne peut pas enregistrer. */
   isStatic?: boolean;
@@ -501,6 +505,22 @@ const Caisse: React.FC<CaisseProps> = ({
    *  travers ne doit pas defaire une vente encaissee. */
   const [ticketAConfirmer, setTicketAConfirmer] = useState<string | null>(null);
   const [annulEnCours, setAnnulEnCours] = useState<string | null>(null);
+
+  /** Reglage « Ticket » : imprimer ou non a chaque encaissement. Un poste sans
+   *  imprimante thermique n'a rien a faire d'une fenetre about:blank a chaque
+   *  vente — le ticket reste consultable et reimprimable depuis la Journee
+   *  meme quand ce reglage est coupe. Persiste en localStorage (try/catch :
+   *  le quota peut etre plein, ou le stockage bloque en navigation privee). */
+  const [ticketActif, setTicketActifState] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem('beramethode_caisse_ticket');
+      return v === null ? true : v === '1';
+    } catch { return true; }
+  });
+  const setTicketActif = useCallback((v: boolean) => {
+    setTicketActifState(v);
+    try { localStorage.setItem('beramethode_caisse_ticket', v ? '1' : '0'); } catch {}
+  }, []);
 
   const chargerJournal = useCallback(async (jour: string) => {
     if (isStatic) { setJournal(null); setJournalErreur(null); return; }
@@ -1039,6 +1059,7 @@ const Caisse: React.FC<CaisseProps> = ({
       facture: factureRequise,
       recu: paiement === 'ESPECES' && encaisse !== '' ? Number(encaisse) : null,
       rendu: paiement === 'ESPECES' && rendu != null ? rendu : null,
+      imprimerTicket: ticketActif,
     });
     setSaving(false);
     if (msg) { setErreur(msg); pip(false); return; }
@@ -1082,6 +1103,7 @@ const Caisse: React.FC<CaisseProps> = ({
     moyen: tx(lang, { fr: 'Moyen', ar: 'متوسّط', en: 'Medium', es: 'Medio', pt: 'Medio', tr: 'Orta' }),
     large: tx(lang, { fr: 'Large', ar: 'واسع', en: 'Wide', es: 'Ancho', pt: 'Largo', tr: 'Genis' }),
     photos: tx(lang, { fr: 'Photos des articles', ar: 'صور المنتجات', en: 'Item photos', es: 'Fotos de articulos', pt: 'Fotos dos artigos', tr: 'Urun fotograflari' }),
+    ticketReglage: tx(lang, { fr: 'Ticket', ar: 'التيكي', en: 'Ticket', es: 'Ticket', pt: 'Talao', tr: 'Fis' }),
     enregistrer: tx(lang, { fr: 'Enregistrer', ar: 'سجّل', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' }),
     ajouterPhoto: tx(lang, { fr: 'Ajouter une photo', ar: 'زيد تصويرة', en: 'Add a photo', es: 'Anadir una foto', pt: 'Adicionar foto', tr: 'Fotograf ekle' }),
     changerPhoto: tx(lang, { fr: 'Changer la photo', ar: 'بدّل التصويرة', en: 'Change photo', es: 'Cambiar la foto', pt: 'Mudar a foto', tr: 'Fotografi degistir' }),
@@ -1961,6 +1983,17 @@ const Caisse: React.FC<CaisseProps> = ({
             >
               {vue.photos ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />} {T.photos}
             </button>
+            {/* Sur un poste sans imprimante thermique, ce reglage evite une
+                fenetre about:blank vide a chaque vente — le ticket reste
+                consultable et reimprimable depuis la Journee, coupe ou pas. */}
+            <button
+              onClick={() => setTicketActif(!ticketActif)}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors ${ticketActif
+                ? 'bg-slate-800 dark:bg-dk-text text-white dark:text-dk-bg border-transparent'
+                : 'bg-slate-50 dark:bg-dk-elevated text-slate-400 dark:text-dk-muted border-slate-200 dark:border-dk-border line-through'}`}
+            >
+              <Receipt className="w-3.5 h-3.5" /> {T.ticketReglage}
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -2077,27 +2110,29 @@ const Caisse: React.FC<CaisseProps> = ({
           scanner un article dans le vide. */}
       {journeeOuverte && (
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <div className="flex flex-wrap items-center gap-2 px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-2 px-3 sm:px-5 py-3 border-b border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shrink-0">
             <input
               type="date"
               value={journalJour}
               onChange={e => { setJournalJour(e.target.value); setTicketAConfirmer(null); }}
-              className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm font-bold text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40"
+              className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-sm font-bold text-slate-800 dark:text-dk-text focus:outline-none focus:ring-2 focus:ring-slate-400/40 min-w-0"
             />
-            {journalCharge && <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-dk-muted" />}
-            <div className="flex-1 min-w-0" />
-            <div className="flex items-center gap-3 sm:gap-5 text-right">
-              <div>
+            {journalCharge && <Loader2 className="w-4 h-4 animate-spin text-slate-400 dark:text-dk-muted shrink-0" />}
+            <div className="hidden sm:block flex-1 min-w-0" />
+            {/* Sur telephone, ces trois chiffres passent en pleine largeur sous
+                la date : cote a cote avec elle ils finissaient ecrases. */}
+            <div className="flex items-center gap-3 sm:gap-5 w-full sm:w-auto justify-between sm:justify-end text-left sm:text-right">
+              <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.tickets}</p>
                 <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">{journal?.totaux.tickets ?? 0}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.pieces}</p>
                 <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">{journal?.totaux.pieces ?? 0}</p>
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{T.encaisseJour}</p>
-                <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">{fmt(journal?.totaux.total ?? 0)} {currency}</p>
+                <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums truncate">{fmt(journal?.totaux.total ?? 0)} {currency}</p>
               </div>
             </div>
           </div>
@@ -2118,13 +2153,13 @@ const Caisse: React.FC<CaisseProps> = ({
           {journal && Object.keys(journal.parMode).length > 0 && (
             <div className="flex flex-wrap gap-2 px-3 sm:px-5 py-3 shrink-0">
               {Object.entries(journal.parMode).map(([mode, agg]) => (
-                <div key={mode} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border">
+                <div key={mode} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border min-w-0">
                   <Banknote className="w-4 h-4 text-slate-400 dark:text-dk-muted shrink-0" />
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted truncate">
                       {modes.find(m => m.v === mode)?.l || T.modeAutre}
                     </p>
-                    <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">
+                    <p className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums whitespace-nowrap">
                       {fmt(agg.total)} {currency}
                       <span className="ml-1.5 text-[10px] font-bold text-slate-400 dark:text-dk-muted">({agg.tickets})</span>
                     </p>
@@ -2134,69 +2169,76 @@ const Caisse: React.FC<CaisseProps> = ({
             </div>
           )}
 
+          {/* Chaque ticket est une carte : sur telephone, une ligne unique
+              melangeait reference, client, mode et total jusqu'a deborder de
+              l'ecran. Empiler « en-tete / articles / total+action » garde
+              tout lisible sans jamais faire defiler la page de cote. */}
           <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-5 pb-4 space-y-2">
             {!journalCharge && (journal?.tickets.length ?? 0) === 0 && (
               <p className="p-8 text-center text-xs text-slate-400 dark:text-dk-muted">{T.aucunTicket}</p>
             )}
             {journal?.tickets.map(t => (
               <div key={t.ticket} className="rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border overflow-hidden">
-                <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b border-slate-100 dark:border-dk-border">
-                  <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-dk-muted">{t.ticket}</span>
-                  {t.clientNom && (
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-slate-700 dark:text-dk-text">
-                      <User className="w-3 h-3" />{t.clientNom}
+                <div className="flex flex-col gap-2 px-3 py-2.5 border-b border-slate-100 dark:border-dk-border sm:flex-row sm:flex-wrap sm:items-center">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
+                    <span className="font-mono text-[11px] font-bold text-slate-500 dark:text-dk-muted shrink-0">{t.ticket}</span>
+                    {t.clientNom && (
+                      <span className="flex items-center gap-1 min-w-0 text-[11px] font-bold text-slate-700 dark:text-dk-text">
+                        <User className="w-3 h-3 shrink-0" /><span className="truncate max-w-[36vw] sm:max-w-[180px]">{t.clientNom}</span>
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-dk-elevated text-[10px] font-bold text-slate-600 dark:text-dk-muted shrink-0">
+                      {modes.find(m => m.v === t.modePaiement)?.l || T.modeAutre}
                     </span>
-                  )}
-                  <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-dk-elevated text-[10px] font-bold text-slate-600 dark:text-dk-muted">
-                    {modes.find(m => m.v === t.modePaiement)?.l || T.modeAutre}
-                  </span>
-                  {t.factureNumero && (
-                    <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-[10px] font-bold text-indigo-700 dark:text-indigo-400">
-                      {t.factureNumero}
-                    </span>
-                  )}
-                  <div className="flex-1 min-w-0" />
-                  <span className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums">{fmt(t.total)} {currency}</span>
-                  {ticketAConfirmer === t.ticket ? (
-                    <div className="flex items-center gap-1.5">
+                    {t.factureNumero && (
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 text-[10px] font-bold text-indigo-700 dark:text-indigo-400 shrink-0">
+                        {t.factureNumero}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 sm:ml-auto sm:justify-end sm:shrink-0">
+                    <span className="text-sm font-black text-slate-800 dark:text-dk-text tabular-nums whitespace-nowrap">{fmt(t.total)} {currency}</span>
+                    {ticketAConfirmer === t.ticket ? (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => void annulerTicket(t.ticket)}
+                          disabled={annulEnCours === t.ticket}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold hover:bg-rose-700 disabled:opacity-60 transition-colors whitespace-nowrap"
+                        >
+                          {annulEnCours === t.ticket
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <RotateCcw className="w-3.5 h-3.5" />}
+                          <span className="hidden xs:inline">{T.confirmerAnnul}</span>
+                        </button>
+                        <button
+                          onClick={() => setTicketAConfirmer(null)}
+                          className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors shrink-0"
+                        >
+                          {T.renoncer}
+                        </button>
+                      </div>
+                    ) : (
                       <button
-                        onClick={() => void annulerTicket(t.ticket)}
-                        disabled={annulEnCours === t.ticket}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold hover:bg-rose-700 disabled:opacity-60 transition-colors"
+                        onClick={() => setTicketAConfirmer(t.ticket)}
+                        disabled={isStatic}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 disabled:opacity-40 transition-colors shrink-0"
                       >
-                        {annulEnCours === t.ticket
-                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          : <RotateCcw className="w-3.5 h-3.5" />}
-                        {T.confirmerAnnul}
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">{T.annuler}</span>
                       </button>
-                      <button
-                        onClick={() => setTicketAConfirmer(null)}
-                        className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated transition-colors"
-                      >
-                        {T.renoncer}
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setTicketAConfirmer(t.ticket)}
-                      disabled={isStatic}
-                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 disabled:opacity-40 transition-colors"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">{T.annuler}</span>
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </div>
                 <div className="divide-y divide-slate-50 dark:divide-dk-border/50">
                   {t.lignes.map(l => (
-                    <div key={l.id} className="flex items-center gap-2 px-3 py-1.5 text-[11px]">
-                      <span className="font-bold text-slate-700 dark:text-dk-text truncate">{l.modelNom}</span>
-                      <span className="text-slate-400 dark:text-dk-muted truncate">
+                    <div key={l.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-3 py-1.5 text-[11px] min-w-0">
+                      <span className="font-bold text-slate-700 dark:text-dk-text truncate min-w-0 max-w-full">{l.modelNom}</span>
+                      <span className="text-slate-400 dark:text-dk-muted truncate min-w-0 shrink">
                         {[l.couleur, l.taille].filter(Boolean).join(' / ') || '—'}
                       </span>
-                      <div className="flex-1 min-w-0" />
-                      <span className="text-slate-500 dark:text-dk-muted tabular-nums">{l.quantite} x {fmt(l.prixUnitaire)}</span>
-                      <span className="font-bold text-slate-700 dark:text-dk-text tabular-nums w-20 text-right">
+                      <div className="flex-1 min-w-0 basis-0" />
+                      <span className="text-slate-500 dark:text-dk-muted tabular-nums whitespace-nowrap shrink-0">{l.quantite} x {fmt(l.prixUnitaire)}</span>
+                      <span className="font-bold text-slate-700 dark:text-dk-text tabular-nums w-16 sm:w-20 text-right shrink-0 whitespace-nowrap">
                         {fmt(l.quantite * l.prixUnitaire)}
                       </span>
                     </div>

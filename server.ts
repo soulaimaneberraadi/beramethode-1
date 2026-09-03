@@ -26,7 +26,7 @@ import {
   getCompanyInfo, updateCompanyInfo,
 } from './server/permissionsController';
 import { getMyProfile, updateMyProfile } from './server/profileController';
-import { getModels, saveModel, deleteModel } from './server/modelController';
+import { getModels, saveModel, deleteModel, saveModelVariantCodes } from './server/modelController';
 import {
   getMagasinProducts,
   saveMagasinProduct,
@@ -85,6 +85,7 @@ import {
 import { getClients, saveClient, deleteClient, getClientDossier, getStockEntries, createStockEntry, deleteStockEntry, deleteStockBatch, getStockSorties, createStockSortie, deleteStockSortieBatch, createClientInvoice, cancelClientInvoice, createCommandeNormale } from './server/clientsController';
 import { getCaisseJournal, annulerTicketCaisse } from './server/caisseController';
 import { getVentesDashboard, getVentesEncours, getClientHistorique, getRecuPaiement } from './server/ventesDashboardController';
+import { getVentesAxe } from './server/ventesAxeController';
 import { getGaranties, saveGarantie, changerStatutGarantie, deleteGarantie } from './server/garantiesController';
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
 import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat, checkStockIntegrity, repairStockIntegrity } from './server/achatsController';
@@ -640,6 +641,9 @@ async function startServer() {
   app.get('/api/models', authenticateToken, requirePermission('page', 'ingenierie', 'view'), getModels);
   app.post('/api/models', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), saveModel);
   app.delete('/api/models/:id', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), ownershipGuard('models', 'user_id'), deleteModel);
+  // Geste de magasin (lecteur code-barres), pas de bureau d'études : permission
+  // stock, pas ingénierie, sinon un vendeur ne peut pas enregistrer un code.
+  app.post('/api/models/:id/variant-codes', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), saveModelVariantCodes);
 
   app.get('/api/magasin/products', authenticateToken, requirePermission('page', 'magasin', 'view'), getMagasinProducts);
   app.post('/api/magasin/products', authenticateToken, requirePermission('page', 'magasin', 'edit'), saveMagasinProduct);
@@ -740,6 +744,7 @@ async function startServer() {
   // Tableau de bord des ventes : ce qui part, ce qui dort, et qui doit.
   app.get('/api/ventes/dashboard', authenticateToken, requirePermission('page', 'facturation', 'view'), getVentesDashboard);
   // Le detail de l'encours : qui doit, sur quelle facture, et depuis combien de jours.
+  app.get('/api/ventes/axe', authenticateToken, requirePermission('page', 'facturation', 'view'), getVentesAxe);
   app.get('/api/ventes/encours', authenticateToken, requirePermission('page', 'facturation', 'view'), getVentesEncours);
   // Historique complet d'un client : toutes ses factures et tous ses reglements.
   // Recu de versement : le reste a payer se calcule dans la base, jamais dans l ecran.

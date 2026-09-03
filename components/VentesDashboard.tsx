@@ -19,6 +19,7 @@ import { tx } from '../lib/i18n';
 import { aujourdhui, jourLocal, ChampListe, ChampDate } from './ventes/champs';
 import EncoursDetail from './ventes/EncoursDetail';
 import PanneauDetail from './ventes/PanneauDetail';
+import AxeDetail, { AxeOuvert } from './ventes/AxeDetail';
 import { teinteDe } from './ventes/articles';
 
 /** Sans serveur (deploiement statique), il n'y a ni sorties de stock ni
@@ -136,6 +137,9 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
     const [axeCourbe, setAxeCourbe] = useState<'canal' | 'segment'>('canal');
     const [sansSerie, setSansSerie] = useState<string[]>([]);
     const [cumule, setCumule] = useState(false);
+    /** La valeur ouverte en fiche : chaque ligne de repartition est une
+     *  question ouverte, pas un chiffre a contempler. */
+    const [axeOuvert, setAxeOuvert] = useState<AxeOuvert | null>(null);
     // Une tuile ne dit qu un total : le detail s ouvre par-dessus la page.
     // Pilote par l URL quand le parent le controle (voir Props), sinon local.
     const [detailLocal, setDetailLocal] = useState<VentesDetailKey>(null);
@@ -537,7 +541,7 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
         </span>
     );
 
-    const Repartition = ({ titre, lignes, unite }: { titre: string; lignes: Array<{ cle: string; ca: number; valeur?: number; poids?: number; detail: string; vignette?: React.ReactNode; sansPrix?: boolean }>; unite?: string }) => {
+    const Repartition = ({ titre, lignes, unite, axe }: { titre: string; lignes: Array<{ cle: string; ca: number; valeur?: number; poids?: number; detail: string; vignette?: React.ReactNode; sansPrix?: boolean; titre?: string }>; unite?: string; axe?: AxeOuvert['axe'] }) => {
         const valeurDe = (l: { ca: number; valeur?: number }) => (l.valeur == null ? l.ca : l.valeur);
         const poidsDe = (l: { ca: number; poids?: number }) => (l.poids == null ? l.ca : l.poids);
         const total = lignes.reduce((a, l) => a + poidsDe(l), 0);
@@ -548,8 +552,20 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                     {lignes.map(l => {
                         const part = total > 0 ? (poidsDe(l) / total) * 100 : 0;
                         const flou = l.cle === 'NON_PRECISE' || l.cle === '—';
+                        /* Une ligne cliquable ouvre SA page : le magasin, le
+                           gros, les especes, la taille 42. Sans cela, chaque
+                           pourcentage etait un cul-de-sac qu'il fallait aller
+                           creuser dans un tableur. */
+                        const Bloc: any = axe ? 'button' : 'div';
                         return (
-                            <div key={l.cle}>
+                            <Bloc
+                                key={l.cle}
+                                {...(axe ? {
+                                    type: 'button',
+                                    onClick: () => setAxeOuvert({ axe, valeur: l.cle, titre: l.titre }),
+                                    className: 'w-full text-left rounded-lg -mx-1 px-1 py-0.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/50 active:scale-[0.995] transition',
+                                } : {})}
+                            >
                                 <div className="flex items-center justify-between gap-2 text-[11px]">
                                     <span className="flex items-center gap-2 min-w-0">
                                         {/* Reconnaitre a l'oeil : une photo, une
@@ -557,7 +573,7 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                                             lisent plus vite qu'un nom. */}
                                         {l.vignette}
                                         <span className={`font-bold truncate ${flou ? 'text-slate-400 dark:text-dk-muted italic' : 'text-slate-700 dark:text-dk-text-soft'}`}>
-                                            {libelle(l.cle)}
+                                            {l.titre || libelle(l.cle)}
                                         </span>
                                         {/* Des pieces sorties sans prix : ni erreur
                                             ni normalite, mais le chiffre d'affaires
@@ -580,7 +596,7 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                                     <div className={`h-full rounded-full ${flou ? 'bg-slate-300 dark:bg-dk-border' : 'bg-slate-800 dark:bg-dk-accent'}`} style={{ width: `${Math.max(1.5, part)}%` }} />
                                 </div>
                                 <span className="block mt-0.5 text-[10px] text-slate-400 dark:text-dk-muted">{l.detail}</span>
-                            </div>
+                            </Bloc>
                         );
                     })}
                     {/* Quand l'inconnu domine, la repartition ne decrit plus
@@ -1174,6 +1190,21 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
 
             {/* En refermant, on recharge : un encaissement fait dans le detail
                 change l'encours affiche sur la tuile. */}
+            {/* La fiche d'une valeur : ouverte par n'importe quelle ligne de
+                n'importe quelle repartition, y compris depuis une feuille de
+                detail deja ouverte. */}
+            {axeOuvert && (
+                <AxeDetail
+                    ouvert={axeOuvert}
+                    du={du || data?.depuis || ''}
+                    au={au || aujourdhui()}
+                    currency={currency}
+                    lang={lang}
+                    contexte={{ canal: canal || undefined, segment: segment || undefined, clientId: clientId || undefined }}
+                    onFermer={() => setAxeOuvert(null)}
+                />
+            )}
+
             {detail === 'encours' && (
                 <EncoursDetail devise={currency} onOuvrirFicheClient={onOuvrirFicheClient} onFermer={() => { setDetail(null); void charger(jours); }} />
             )}
@@ -1183,11 +1214,11 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                 decompose le total sous les axes qui expliquent son mouvement. */}
             {data && detail === 'ca' && (
                 <PanneauDetail titre={T.ca} valeur={`${nf(data.kpis.ca)} ${currency}`} sous={periodeLisible} onFermer={() => setDetail(null)}>
-                    <Repartition titre={T.parCanal} unite={currency}
+                    <Repartition titre={T.parCanal} unite={currency} axe="canal"
                         lignes={data.parCanal.map(c => ({ cle: c.canal, ca: c.ca, detail: `${nf(c.pieces)} ${T.piecesCourt} · ${nf(c.tickets)} ${T.ventesCourt}` }))} />
-                    <Repartition titre={T.parSegment} unite={currency}
+                    <Repartition titre={T.parSegment} unite={currency} axe="segment"
                         lignes={data.parSegment.map(c => ({ cle: c.segment, ca: c.ca, detail: `${nf(c.pieces)} ${T.piecesCourt}` }))} />
-                    <Repartition titre={T.parPaiement} unite={currency}
+                    <Repartition titre={T.parPaiement} unite={currency} axe="paiement"
                         lignes={data.parPaiement.map(p => ({ cle: p.mode, ca: p.ca, detail: `${nf(p.tickets)} ${T.ventesCourt}` }))} />
                     <TableauJours colonnes={[T.ca, T.pieces, T.tickets]}
                         lignes={[...serieComplete].reverse().filter(j => !j.vide).map(j => ({ jour: j.jour, cellules: [`${nf(j.ca)} ${currency}`, nf(j.pieces), nf(j.tickets)] }))} />
@@ -1196,10 +1227,10 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
 
             {data && detail === 'pieces' && (
                 <PanneauDetail titre={T.pieces} valeur={nf(data.kpis.pieces)} sous={periodeLisible} onFermer={() => setDetail(null)}>
-                    <Repartition titre={T.modeles} unite={T.piecesCourt}
+                    <Repartition titre={T.modeles} unite={T.piecesCourt} axe="modele"
                         lignes={[...data.modeles].sort((a, b) => b.piecesPeriode - a.piecesPeriode).slice(0, 25)
                             .map(m => ({
-                                cle: m.nom, ca: m.caPeriode, valeur: m.piecesPeriode, poids: m.piecesPeriode,
+                                cle: m.modelId, titre: m.nom, ca: m.caPeriode, valeur: m.piecesPeriode, poids: m.piecesPeriode,
                                 vignette: <Vignette image={m.image} nom={m.nom} />,
                                 sansPrix: m.piecesPeriode > 0 && m.caPeriode <= 0,
                                 detail: `${nf(m.caPeriode)} ${currency} · ${T.stock} ${nf(m.stock)}`,
@@ -1222,16 +1253,16 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                         // Un seul systeme en service : le titre general suffit,
                         // inutile d'annoncer une distinction qui n'existe pas ici.
                         if (chiffrees.length === 0 || lettres.length === 0) {
-                            return <Repartition titre={T.tailles} unite={T.piecesCourt} lignes={data.tailles.map(ligneTaille)} />;
+                            return <Repartition titre={T.tailles} unite={T.piecesCourt} axe="taille" lignes={data.tailles.map(ligneTaille)} />;
                         }
                         return (
                             <>
-                                <Repartition titre={T.taillesChiffrees} unite={T.piecesCourt} lignes={chiffrees.map(ligneTaille)} />
-                                <Repartition titre={T.taillesLettres} unite={T.piecesCourt} lignes={lettres.map(ligneTaille)} />
+                                <Repartition titre={T.taillesChiffrees} unite={T.piecesCourt} axe="taille" lignes={chiffrees.map(ligneTaille)} />
+                                <Repartition titre={T.taillesLettres} unite={T.piecesCourt} axe="taille" lignes={lettres.map(ligneTaille)} />
                             </>
                         );
                     })()}
-                    <Repartition titre={T.couleurs} unite={T.piecesCourt}
+                    <Repartition titre={T.couleurs} unite={T.piecesCourt} axe="couleur"
                         lignes={data.couleurs.map(c => ({
                             cle: c.couleur, ca: c.ca, valeur: c.pieces, poids: c.pieces,
                             vignette: <PastilleCouleur nom={c.couleur} />,

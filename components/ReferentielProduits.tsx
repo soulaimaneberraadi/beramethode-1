@@ -18,7 +18,7 @@ import { tx } from '../lib/i18n';
 import { fmt } from '../app/constants';
 import { variantCode, attachScannerListener, type VariantAxes } from '../lib/scanner';
 import { renderEAN13 } from '../lib/barcode';
-import { X, Search, ArrowLeft, Barcode, Package, AlertTriangle, Printer, Layers, Check, Pencil, ScanLine, Loader2, ShieldCheck } from 'lucide-react';
+import { X, Search, ArrowLeft, Barcode, Package, AlertTriangle, Printer, Layers, Check, Pencil, ScanLine, Loader2, ShieldCheck, Plus } from 'lucide-react';
 
 export type ReferentielEntry = {
   model: ModelData;
@@ -49,6 +49,12 @@ type Props = {
     model: ModelData,
     entrees: Array<{ code: string; taille: string; couleur: string }>,
   ) => Promise<number>;
+  /** Écrit la référence commerciale du produit. Absente, la référence reste
+   *  en lecture seule. */
+  onSaveReference?: (model: ModelData, reference: string) => Promise<void>;
+  /** Crée un produit de toutes pièces. Renvoie son identifiant, pour ouvrir
+   *  aussitôt sa fiche. Absente, le bouton « nouveau produit » n'apparaît pas. */
+  onCreate?: (p: { nom: string; reference: string; couleurs: string[]; tailles: string[] }) => Promise<string>;
 };
 
 /** Ce que le programme SAIT d'un produit : un code enregistré est un code que
@@ -84,7 +90,8 @@ const CodeBarres: React.FC<{ code: string }> = ({ code }) => {
 };
 
 const ReferentielProduits: React.FC<Props> = ({
-  open, onClose, entries, stockMatrix, axesOf, currency, lang, fmtDate, onPrint, initialModelId, onSaveCodes,
+  open, onClose, entries, stockMatrix, axesOf, currency, lang, fmtDate, onPrint, initialModelId,
+  onSaveCodes, onSaveReference, onCreate,
 }) => {
   const [recherche, setRecherche] = useState('');
   /* On retient l'IDENTIFIANT, pas l'objet. Garder la fiche elle-même la figeait
@@ -104,6 +111,10 @@ const ReferentielProduits: React.FC<Props> = ({
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
   /** Case dont on saisit le code à la main ou au lecteur. */
   const [saisie, setSaisie] = useState<{ couleur: string; taille: string; valeur: string } | null>(null);
+  /** Référence en cours d'édition — `null` tant qu'on ne la modifie pas. */
+  const [refDraft, setRefDraft] = useState<string | null>(null);
+  /** Formulaire de création — `null` tant qu'on ne crée rien. */
+  const [creation, setCreation] = useState<{ nom: string; reference: string; couleurs: string; tailles: string } | null>(null);
 
   const T = {
     titre: tx(lang, { fr: 'Référentiel produits', ar: 'قاعدة المنتجات', en: 'Product reference', es: 'Referencial de productos', pt: 'Referencial de produtos', tr: 'Ürün referansı' }),
@@ -131,6 +142,14 @@ const ReferentielProduits: React.FC<Props> = ({
     valider: tx(lang, { fr: 'Valider', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' }),
     annuler: tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'Iptal' }),
     fait: tx(lang, { fr: 'codes enregistrés.', ar: 'كود تسجّلو.', en: 'codes registered.', es: 'codigos registrados.', pt: 'codigos registados.', tr: 'kod kaydedildi.' }),
+    nouveau: tx(lang, { fr: 'Nouveau produit', ar: 'منتوج جديد', en: 'New product', es: 'Nuevo producto', pt: 'Novo produto', tr: 'Yeni urun' }),
+    nom: tx(lang, { fr: 'Nom du produit', ar: 'اسم المنتوج', en: 'Product name', es: 'Nombre del producto', pt: 'Nome do produto', tr: 'Urun adi' }),
+    couleursCsv: tx(lang, { fr: 'Couleurs, séparées par une virgule', ar: 'الألوان، مفصولة بفاصلة', en: 'Colors, comma separated', es: 'Colores, separados por comas', pt: 'Cores, separadas por virgula', tr: 'Renkler, virgulle ayrilmis' }),
+    taillesCsv: tx(lang, { fr: 'Tailles, séparées par une virgule', ar: 'المقاسات، مفصولة بفاصلة', en: 'Sizes, comma separated', es: 'Tallas, separadas por comas', pt: 'Tamanhos, separados por virgula', tr: 'Bedenler, virgulle ayrilmis' }),
+    creer: tx(lang, { fr: 'Créer', ar: 'إنشاء', en: 'Create', es: 'Crear', pt: 'Criar', tr: 'Olustur' }),
+    manque: tx(lang, { fr: 'Il faut un nom, au moins une couleur et au moins une taille.', ar: 'خاصو اسم، على الأقل لون واحد وعلى الأقل مقاس واحد.', en: 'A name, at least one color and one size are required.', es: 'Se requiere un nombre, al menos un color y una talla.', pt: 'E preciso um nome, pelo menos uma cor e um tamanho.', tr: 'Bir ad, en az bir renk ve bir beden gerekli.' }),
+    modifierRef: tx(lang, { fr: 'Modifier la référence', ar: 'بدّل المرجع', en: 'Edit the reference', es: 'Editar la referencia', pt: 'Editar a referencia', tr: 'Referansi duzenle' }),
+    refEnregistree: tx(lang, { fr: 'Référence enregistrée.', ar: 'المرجع تسجّل.', en: 'Reference saved.', es: 'Referencia guardada.', pt: 'Referencia guardada.', tr: 'Referans kaydedildi.' }),
     rienAFaire: tx(lang, { fr: 'Tout était déjà enregistré.', ar: 'كلشي كان مسجّل من قبل.', en: 'Everything was already registered.', es: 'Todo ya estaba registrado.', pt: 'Tudo ja estava registado.', tr: 'Her sey zaten kayitliydi.' }),
     echec: tx(lang, { fr: "L'enregistrement n'a pas abouti — rien n'a été écrit.", ar: 'التسجيل ما نجحش — حتى حاجة ما تكتبات.', en: 'Registration failed - nothing was written.', es: 'El registro fallo - no se escribio nada.', pt: 'O registo falhou - nada foi escrito.', tr: 'Kayit basarisiz - hicbir sey yazilmadi.' }),
     horsFiche: tx(lang, { fr: 'Case absente de la fiche : le stock est entré par la commande sous ce libellé.', ar: 'خانة ماشي فالبطاقة: الستوك دخل من الطلبية بهاد التسمية.', en: 'Cell missing from the record: stock came in from the order under this label.', es: 'Casilla ausente de la ficha: el stock entro por el pedido con esta etiqueta.', pt: 'Celula ausente da ficha: o stock entrou pela encomenda com este rotulo.', tr: 'Karttan eksik hucre: stok siparisten bu etiketle girdi.' }),
@@ -287,6 +306,47 @@ const ReferentielProduits: React.FC<Props> = ({
     }
   }, [ouvert, onSaveCodes, saisie, T.fait, T.rienAFaire, T.echec]);
 
+  /** Crée le produit puis ouvre sa fiche : le geste suivant est toujours
+   *  d'enregistrer ses codes, autant y être déjà. */
+  const validerCreation = useCallback(async () => {
+    if (!onCreate || !creation) return;
+    const nom = creation.nom.trim();
+    const couleurs = creation.couleurs.split(',').map(v => v.trim()).filter(Boolean);
+    const tailles = creation.tailles.split(',').map(v => v.trim()).filter(Boolean);
+    if (!nom || couleurs.length === 0 || tailles.length === 0) {
+      setFlash({ ok: false, msg: T.manque });
+      return;
+    }
+    setEnregistrement(true);
+    try {
+      const id = await onCreate({ nom, reference: creation.reference.trim() || nom, couleurs, tailles });
+      setCreation(null);
+      setOuvertId(String(id));
+    } catch (e) {
+      setFlash({ ok: false, msg: `${T.echec} ${(e as Error)?.message || ''}`.trim() });
+    } finally {
+      setEnregistrement(false);
+    }
+  }, [onCreate, creation, T.manque, T.echec]);
+
+  const validerReference = useCallback(async () => {
+    if (!ouvert || !onSaveReference || refDraft === null) return;
+    setEnregistrement(true);
+    try {
+      await onSaveReference(ouvert, refDraft.trim());
+      setFlash({ ok: true, msg: T.refEnregistree });
+      setRefDraft(null);
+    } catch (e) {
+      setFlash({ ok: false, msg: `${T.echec} ${(e as Error)?.message || ''}`.trim() });
+    } finally {
+      setEnregistrement(false);
+    }
+  }, [ouvert, onSaveReference, refDraft, T.refEnregistree, T.echec]);
+
+  /* Fermer la fiche abandonne une référence en cours de saisie : la garder
+   * ferait réapparaître le brouillon sur le produit suivant. */
+  useEffect(() => { setRefDraft(null); }, [ouvertId]);
+
   /* Pendant la saisie d'une case, le lecteur remplit le champ : présenter la
    * pièce est plus sûr que recopier treize chiffres à la main. */
   useEffect(() => {
@@ -347,6 +407,16 @@ const ReferentielProduits: React.FC<Props> = ({
             {ouvert ? (ouvert.meta_data?.reference || String(ouvert.id)) : T.sous}
           </p>
         </div>
+        {!ouvert && onCreate && (
+          <button
+            type="button"
+            onClick={() => setCreation({ nom: '', reference: '', couleurs: '', tailles: '' })}
+            className="shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">{T.nouveau}</span>
+          </button>
+        )}
         {ouvert && onPrint && (
           <button
             type="button"
@@ -369,6 +439,59 @@ const ReferentielProduits: React.FC<Props> = ({
       <div className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden">
         {!ouvert ? (
           <div className="p-2.5 sm:p-5">
+            {/* Création : le produit acheté au comptoir n'a ni commande ni
+                fiche technique. Sans cette porte, il fallait ouvrir une
+                commande fictive pour pouvoir lui coller une étiquette. */}
+            {creation && onCreate && (
+              <div className="mb-3 sm:mb-4 p-3 rounded-2xl bg-white dark:bg-dk-surface border border-indigo-200 dark:border-dk-accent/40">
+                <p className="text-xs font-extrabold text-slate-700 dark:text-dk-text mb-2.5">{T.nouveau}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    autoFocus
+                    value={creation.nom}
+                    onChange={e => setCreation(c => c && { ...c, nom: e.target.value })}
+                    placeholder={T.nom}
+                    className="min-w-0 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-sm text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 dark:focus:border-dk-accent"
+                  />
+                  <input
+                    value={creation.reference}
+                    onChange={e => setCreation(c => c && { ...c, reference: e.target.value })}
+                    placeholder={T.ref}
+                    className="min-w-0 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-sm text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 dark:focus:border-dk-accent"
+                  />
+                  <input
+                    value={creation.couleurs}
+                    onChange={e => setCreation(c => c && { ...c, couleurs: e.target.value })}
+                    placeholder={T.couleursCsv}
+                    className="min-w-0 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-sm text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 dark:focus:border-dk-accent"
+                  />
+                  <input
+                    value={creation.tailles}
+                    onChange={e => setCreation(c => c && { ...c, tailles: e.target.value })}
+                    placeholder={T.taillesCsv}
+                    className="min-w-0 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-sm text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 dark:focus:border-dk-accent"
+                  />
+                </div>
+                <div className="flex items-center gap-2 mt-2.5">
+                  <button
+                    type="button"
+                    onClick={() => void validerCreation()}
+                    disabled={enregistrement}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-800 dark:bg-dk-accent text-white disabled:opacity-50"
+                  >
+                    {enregistrement ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    {T.creer}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreation(null)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                  >
+                    {T.annuler}
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="relative mb-3 sm:mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-dk-muted pointer-events-none" />
               <input
@@ -457,7 +580,53 @@ const ReferentielProduits: React.FC<Props> = ({
               <div className="min-w-0 flex-1 grid grid-cols-2 sm:grid-cols-4 gap-x-2 gap-y-1.5">
                 <div className="min-w-0">
                   <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-dk-muted">{T.ref}</p>
-                  <p className="text-xs font-bold text-slate-700 dark:text-dk-text truncate">{ouvert.meta_data?.reference || String(ouvert.id)}</p>
+                  {/* La référence est ce que le vendeur annonce et ce que le
+                      client lit sur le tiki : elle doit pouvoir se corriger
+                      ici, sans repasser par la fiche technique. */}
+                  {refDraft !== null && onSaveReference ? (
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <input
+                        autoFocus
+                        value={refDraft}
+                        onChange={e => setRefDraft(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') void validerReference();
+                          if (e.key === 'Escape') setRefDraft(null);
+                        }}
+                        className="min-w-0 flex-1 px-2 py-1 rounded-lg bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-xs font-bold text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 dark:focus:border-dk-accent"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void validerReference()}
+                        disabled={enregistrement}
+                        className="shrink-0 p-1.5 rounded-lg bg-slate-800 dark:bg-dk-accent text-white disabled:opacity-50"
+                      >
+                        {enregistrement ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRefDraft(null)}
+                        className="shrink-0 p-1.5 rounded-lg text-slate-400 dark:text-dk-muted hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!onSaveReference}
+                      onClick={() => setRefDraft(ouvert.meta_data?.reference || '')}
+                      title={onSaveReference ? T.modifierRef : undefined}
+                      className="group flex items-center gap-1 max-w-full text-left disabled:cursor-default"
+                    >
+                      <span className="text-xs font-bold text-slate-700 dark:text-dk-text truncate">
+                        {ouvert.meta_data?.reference || String(ouvert.id)}
+                      </span>
+                      {onSaveReference && (
+                        <Pencil className="w-3 h-3 shrink-0 text-slate-300 dark:text-dk-muted group-hover:text-indigo-500 dark:group-hover:text-dk-accent" />
+                      )}
+                    </button>
+                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-dk-muted">{T.date}</p>

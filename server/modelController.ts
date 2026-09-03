@@ -54,6 +54,48 @@ export const saveModel = (req: Request, res: Response) => {
   }
 };
 
+export const saveModelVariantCodes = (req: Request, res: Response) => {
+  const ownerId = ownerOf(req);
+  const { id } = req.params;
+  const entrees: Array<{ code: string; taille: string; couleur: string }> = req.body?.entrees;
+
+  if (!Array.isArray(entrees) || entrees.length === 0) {
+    return res.status(400).json({ message: 'entrees is required' });
+  }
+
+  try {
+    const row = db.prepare('SELECT data FROM models WHERE id = ? AND owner_id = ?').get(id, ownerId) as { data: string } | undefined;
+    if (!row) {
+      return res.status(404).json({ message: 'Model not found' });
+    }
+
+    // On ne touche QUE meta_data.variantCodes : réécrire la fiche entière depuis
+    // ce point d'entrée magasin effacerait le travail fait entre-temps côté
+    // ingénierie sur les autres champs (gamme, chrono, coûts...).
+    const model = JSON.parse(row.data);
+    const prev = (model.meta_data as any)?.variantCodes || {};
+    const next = { ...prev };
+    let added = 0;
+    entrees.forEach(e => {
+      if (!e || !e.code) return;
+      if (next[e.code]?.taille === e.taille && next[e.code]?.couleur === e.couleur) return;
+      next[e.code] = { taille: e.taille, couleur: e.couleur };
+      added++;
+    });
+
+    model.meta_data = { ...(model.meta_data || {}), variantCodes: next };
+    model.updatedAt = new Date().toISOString();
+
+    db.prepare('UPDATE models SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND owner_id = ?')
+      .run(JSON.stringify(model), id, ownerId);
+
+    res.json({ added, model });
+  } catch (error) {
+    console.error('Save model variant codes error:', error);
+    res.status(500).json({ message: 'Error saving variant codes' });
+  }
+};
+
 export const deleteModel = (req: Request, res: Response) => {
   const ownerId = ownerOf(req);
   const { id } = req.params;

@@ -8,6 +8,7 @@ import { deshydraterModeles, rehydraterModeles } from '../lib/photosLocales';
 import { Search, FolderOpen, MoreVertical, FileJson, Clock, Users, Calendar, Download, Copy, Trash2, Edit2, SortAsc, Scissors, Filter, Upload, AlertTriangle, Plus, Share2, LayoutGrid, ZoomIn, ZoomOut, List as ListIcon, Database, UploadCloud, DownloadCloud, CheckCircle2, Loader2, FileText, X } from 'lucide-react';
 import InlineInvoiceList from './InlineInvoiceList';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
+import { useIsMobile } from './planning/shared/useIsMobile';
 import { ModelData } from '../types';
 
 function getModelAbbrev(model: ModelData): string {
@@ -78,6 +79,8 @@ export default function Library({
     const [libFullscreen, toggleLibFullscreen] = useSheetFullscreen();
     const { user } = useAuth();
     const { lang } = useLang();
+    /* Telephone : le menu s'ouvre en feuille basse, sinon il deborde de l'ecran. */
+    const isMobileMenu = useIsMobile();
     const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true' || !window.location.hostname.includes('localhost');
 
     useEffect(() => {
@@ -330,7 +333,7 @@ export default function Library({
                                     <div
                                         key={model.id}
                                         onClick={() => { if (renamingId !== model.id) onLoadModel(model); }}
-                                        onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.pageX, y: e.pageY, modelId: model.id }); }}
+                                        onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, modelId: model.id }); }}
                                         className="group bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated hover:shadow-md dark:hover:shadow-dk-elevated hover:border-indigo-300 dark:hover:border-dk-accent hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col h-full"
                                     >
                                         <div className="aspect-[4/3] bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border flex items-center justify-center group-hover:bg-indigo-50 dark:bg-dk-accent/20 dark:group-hover:bg-dk-elevated/20 transition-colors relative overflow-hidden">
@@ -344,9 +347,9 @@ export default function Library({
                                                     <span className="text-xs text-slate-600 dark:text-dk-muted font-medium">{tx(lang, { fr: "Aucun aperçu", ar: "لا توجد معاينة", en: "No preview", es: "Sin vista previa", pt: "Sem pré-visualização", tr: "Önizleme yok" })}</span>
                                                 </div>
                                             )}
-                                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-2">
+                                            <div className="absolute top-2 right-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10 flex gap-2">
                                                 <button
-                                                    onClick={(e) => { e.stopPropagation(); setContextMenu({ x: e.pageX, y: e.pageY, modelId: model.id }); }}
+                                                    onClick={(e) => { e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, modelId: model.id }); }}
                                                     aria-label={tx(lang, { fr: "Options du modèle", ar: "خيارات النموذج", en: "Model options", es: "Opciones del modelo", pt: "Opções do modelo", tr: "Model seçenekleri" })}
                                                     className="p-1.5 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm rounded-full shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-dk-accent hover:bg-white dark:hover:bg-dk-surface"
                                                 >
@@ -409,7 +412,7 @@ export default function Library({
                                     <div
                                         key={model.id}
                                         onClick={() => { if (renamingId !== model.id) onLoadModel(model); }}
-                                        onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.pageX, y: e.pageY, modelId: model.id }); }}
+                                        onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, modelId: model.id }); }}
                                         className="group bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated hover:shadow-md dark:hover:shadow-dk-elevated hover:border-indigo-300 dark:hover:border-dk-accent flex items-center p-2 gap-4 cursor-pointer transition-all duration-200"
                                     >
                                         <div className="w-16 h-16 shrink-0 bg-slate-50 dark:bg-dk-bg rounded-lg overflow-hidden border border-slate-100 dark:border-dk-border flex items-center justify-center relative">
@@ -454,8 +457,8 @@ export default function Library({
                                             </div>
                                         </div>
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); setContextMenu({ x: e.pageX, y: e.pageY, modelId: model.id }); }}
-                                            className="p-2 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-dk-accent transition-colors opacity-0 group-hover:opacity-100"
+                                            onClick={(e) => { e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, modelId: model.id }); }}
+                                            className="p-2 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-dk-accent transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                                         >
                                             <MoreVertical className="w-4 h-4" />
                                         </button>
@@ -483,11 +486,19 @@ export default function Library({
                 )}
             </div>
             {contextMenu && createPortal(
+                <>
+                {isMobileMenu && <div className="fixed inset-0 z-[9998] bg-black/30 dark:bg-dk-bg/50" onClick={() => setContextMenu(null)} />}
                 <div
-                    className="fixed bg-white dark:bg-dk-surface rounded-xl shadow-2xl dark:shadow-dk-lg dark:shadow-dk-elevated border border-slate-100 dark:border-dk-border w-56 z-[9999] py-1.5 animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden"
-                    style={{ top: contextMenu.y, left: contextMenu.x }}
+                    className={isMobileMenu
+                        ? "fixed inset-x-0 bottom-0 z-[9999] bg-white dark:bg-dk-surface rounded-t-2xl shadow-2xl dark:shadow-dk-lg border-t border-slate-100 dark:border-dk-border py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-h-[75vh] overflow-y-auto custom-scrollbar [&_button]:py-3.5 [&_button]:text-sm"
+                        : "fixed bg-white dark:bg-dk-surface rounded-xl shadow-2xl dark:shadow-dk-lg dark:shadow-dk-elevated border border-slate-100 dark:border-dk-border w-56 z-[9999] py-1.5 animate-in fade-in zoom-in-95 duration-100 origin-top-left overflow-hidden"}
+                    style={isMobileMenu ? undefined : {
+                        top: Math.max(8, Math.min(contextMenu.y, window.innerHeight - 420)),
+                        left: Math.max(8, Math.min(contextMenu.x, window.innerWidth - 232)),
+                    }}
                     onClick={(e) => e.stopPropagation()}
                 >
+                    {isMobileMenu && <div className="mx-auto mb-1 h-1 w-10 rounded-full bg-slate-300 dark:bg-dk-muted" />}
                     {activeModel && (
                         <>
                             <button
@@ -572,7 +583,8 @@ export default function Library({
                             </button>
                         </>
                     )}
-                </div>,
+                </div>
+                </>,
                 document.body
             )}
             {deleteConfirm && (
