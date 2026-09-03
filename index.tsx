@@ -43,12 +43,51 @@ if (import.meta.env.VITE_STATIC_MODE === 'true' && !apiOrigine) {
   console.log(`%cBERAMETHODE ${APP_VERSION} (static + Supabase sync)`, 'color:#10b981;font-weight:bold');
 }
 
+/**
+ * Sortie de secours : `?sw=reset` desinstalle le service worker et vide ses
+ * caches, puis recharge.
+ *
+ * Un service worker fautif peut rendre le site impossible a ouvrir, et la seule
+ * reparation connue passait alors par les reglages d'iOS — inaccessible a
+ * quelqu'un qui est devant sa machine a coudre. Une adresse a taper suffit
+ * desormais. La reparation vaut aussi quand le worker est sain : elle ne
+ * detruit que des copies, jamais des donnees (les modeles, les photos et les
+ * reglages vivent dans localStorage et IndexedDB, auxquels on ne touche pas).
+ */
+const reinitialiserServiceWorker = async (): Promise<void> => {
+  try {
+    if ('serviceWorker' in navigator) {
+      const enregistrements = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(enregistrements.map(r => r.unregister().catch(() => false)));
+    }
+    if (typeof caches !== 'undefined') {
+      const noms = await caches.keys();
+      await Promise.all(noms.map(n => caches.delete(n).catch(() => false)));
+    }
+  } catch { /* on recharge quand meme : au pire rien n'a change */ }
+  const propre = new URL(window.location.href);
+  propre.searchParams.delete('sw');
+  window.location.replace(propre.toString());
+};
+
+if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('sw') === 'reset') {
+  void reinitialiserServiceWorker();
+}
+
 // Register service worker for offline support (production only)
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // Service worker registration failed — app works anyway
-    });
+    // `updateViaCache: 'none'` : sans lui, Safari peut servir `/sw.js` depuis
+    // son cache HTTP pendant 24 h. Un correctif du worker — y compris un
+    // correctif qui repare un worker cassé — mettrait donc jusqu'a une journee
+    // a atteindre l'appareil. On force la relecture, et on demande en plus une
+    // verification de mise a jour a chaque demarrage.
+    navigator.serviceWorker
+      .register('/sw.js', { updateViaCache: 'none' })
+      .then(enregistrement => { void enregistrement.update().catch(() => undefined); })
+      .catch(() => {
+        // Service worker registration failed — app works anyway
+      });
   });
 }
 
