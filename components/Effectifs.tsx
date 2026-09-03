@@ -172,6 +172,10 @@ const DEFAULT_ROLES: RoleDefinition[] = [
   { id: 'sujet', label: 'Surjeteuses', category: 'Les chaines' },
   { id: 'sp', label: 'Spéciales', category: 'Les chaines' },
   { id: 'man', label: 'Manutention', category: 'Les chaines' },
+  // La personne qui distribue la matière aux postes de la chaîne. Identifiant
+  // `transpMat` et non `transp` : celui-là sert déjà aux plieurs/emballeurs,
+  // et le réutiliser mélangerait deux effectifs sans que rien ne le signale.
+  { id: 'transpMat', label: 'Transport matière', category: 'Les chaines' },
   { id: 'chaf', label: 'Chef de chaine', category: 'Responsables & Encadrement' },
   { id: 'methodes', label: 'Méthodes', category: 'Responsables & Encadrement' },
   { id: 'qualite', label: 'Responsable Qualité', category: 'Responsables & Encadrement' },
@@ -277,7 +281,24 @@ export default function Effectifs({
   const [roles, setRoles] = useState<RoleDefinition[]>(() => {
     try {
       const saved = lsGet('BERA_CUSTOM_ROLES') ?? localStorage.getItem('BERA_CUSTOM_ROLES');
-      return saved ? JSON.parse(saved) : DEFAULT_ROLES;
+      if (!saved) return DEFAULT_ROLES;
+      const enregistres: RoleDefinition[] = JSON.parse(saved);
+      if (!Array.isArray(enregistres)) return DEFAULT_ROLES;
+      // La liste enregistrée remplaçait purement et simplement celle du
+      // programme : un rôle ajouté à l'application n'atteignait donc JAMAIS un
+      // atelier déjà configuré — c'est-à-dire tous. On complète la liste de
+      // l'atelier avec les rôles standard qui lui manquent, chacun à la suite
+      // de sa catégorie, sans toucher ni à son ordre ni à ses rôles à lui.
+      const connus = new Set(enregistres.map(r => r && r.id));
+      const manquants = DEFAULT_ROLES.filter(r => !connus.has(r.id));
+      if (manquants.length === 0) return enregistres;
+      const fusion = [...enregistres];
+      for (const role of manquants) {
+        const dernierDeLaCategorie = fusion.map(r => r.category).lastIndexOf(role.category);
+        if (dernierDeLaCategorie === -1) fusion.push(role);
+        else fusion.splice(dernierDeLaCategorie + 1, 0, role);
+      }
+      return fusion;
     } catch {
       return DEFAULT_ROLES;
     }

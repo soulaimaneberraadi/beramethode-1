@@ -798,6 +798,8 @@ export type SuiviData = {
   recta?: number;
   sujet?: number;
   transp?: number;
+  /** Transport matière : la personne qui distribue la matière aux postes. */
+  transpMat?: number;
   man?: number;
   sp?: number;
   stager?: number;
