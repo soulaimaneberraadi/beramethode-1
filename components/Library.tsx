@@ -197,6 +197,23 @@ export default function Library({
         } catch (error) { console.log('Share failed, falling back to download:', error); handleExport(model); }
     };
 
+    /**
+     * Le temps du modele, ecrit sans jamais faire tomber la page.
+     *
+     * `total_temps` est declare obligatoire mais peut manquer a l'appel : un
+     * modele venu d'une version anterieure, ou enregistre par un chemin qui ne
+     * le renseigne pas. `undefined.toFixed()` leve alors, et comme cela arrive
+     * pendant le rendu d'une liste, ce n'est pas une carte qui manque — c'est
+     * TOUTE la bibliotheque qui laisse place a « Cette page a rencontre une
+     * erreur ». Un seul modele incomplet, et l'atelier ne voit plus rien.
+     *
+     * Le tri, lui, se protegeait deja (`|| 0`) ; l'affichage avait ete oublie.
+     */
+    const tempsAffiche = (m: ModelData): string => {
+        const t = Number(m?.meta_data?.total_temps);
+        return (Number.isFinite(t) ? t : 0).toFixed(2);
+    };
+
     const filteredModels = models
         .filter(m => m && m.meta_data)
         .filter(m => m.isPublishedToLibrary !== false)
@@ -375,11 +392,11 @@ export default function Library({
                                             <div className="mt-auto grid grid-cols-2 gap-2">
                                                 <div className="bg-slate-50 dark:bg-dk-bg rounded-lg p-1.5 border border-slate-100 dark:border-dk-border flex flex-col items-center justify-center">
                                                     <Clock className="w-3 h-3 text-slate-400 dark:text-dk-muted mb-0.5" />
-                                                    <span className="text-[10px] font-bold text-slate-700 dark:text-dk-text">{model.meta_data.total_temps.toFixed(2)}m</span>
+                                                    <span className="text-[10px] font-bold text-slate-700 dark:text-dk-text">{tempsAffiche(model)}m</span>
                                                 </div>
                                                 <div className="bg-slate-50 dark:bg-dk-bg rounded-lg p-1.5 border border-slate-100 dark:border-dk-border flex flex-col items-center justify-center">
                                                     <Users className="w-3 h-3 text-slate-400 dark:text-dk-muted mb-0.5" />
-                                                    <span className="text-[10px] font-bold text-slate-700 dark:text-dk-text">{model.meta_data.effectif} {tx(lang, { fr: "Op.", ar: "عامل", en: "Op.", es: "Op.", pt: "Op.", tr: "Op." })}</span>
+                                                    <span className="text-[10px] font-bold text-slate-700 dark:text-dk-text">{model.meta_data.effectif ?? 0} {tx(lang, { fr: "Op.", ar: "عامل", en: "Op.", es: "Op.", pt: "Op.", tr: "Op." })}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -429,11 +446,11 @@ export default function Library({
                                         <div className="flex items-center gap-6 mr-4 hidden sm:flex">
                                             <div className="flex flex-col items-center w-16">
                                                 <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang, { fr: "Temps", ar: "الوقت", en: "Time", es: "Tiempo", pt: "Tempo", tr: "Süre" })}</span>
-                                                <span className="text-sm font-bold text-slate-700 dark:text-dk-text">{model.meta_data.total_temps.toFixed(2)}m</span>
+                                                <span className="text-sm font-bold text-slate-700 dark:text-dk-text">{tempsAffiche(model)}m</span>
                                             </div>
                                             <div className="flex flex-col items-center w-16">
                                                 <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang, { fr: "Effectif", ar: "العدد", en: "Staff", es: "Personal", pt: "Efetivo", tr: "Personel" })}</span>
-                                                <span className="text-sm font-bold text-slate-700 dark:text-dk-text">{model.meta_data.effectif} {tx(lang, { fr: "Op.", ar: "عامل", en: "Op.", es: "Op.", pt: "Op.", tr: "Op." })}</span>
+                                                <span className="text-sm font-bold text-slate-700 dark:text-dk-text">{model.meta_data.effectif ?? 0} {tx(lang, { fr: "Op.", ar: "عامل", en: "Op.", es: "Op.", pt: "Op.", tr: "Op." })}</span>
                                             </div>
                                         </div>
                                         <button

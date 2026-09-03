@@ -1676,7 +1676,17 @@ export default function App() {
 
         setCurrentView(targetView);
         setRouteTokens([]);
-        if (targetView !== 'ingenierie' && targetView !== 'library') setNavigationContext(null);
+        // Choisir une destination dans le menu, c'est commencer autre chose :
+        // le « retour » vers l'ecran d'ou l'on venait n'a plus de sens.
+        //
+        // La Bibliotheque et l'Ingenierie en etaient exemptees, si bien qu'un
+        // detour par le Planning laissait un bouton « Retour Planning » flotter
+        // au-dessus de la Bibliotheque longtemps apres — pour un voyage termine
+        // depuis longtemps, et sans que rien n'explique sa presence. Le vrai
+        // aller-retour (Planning → ouvrir un modele → revenir) ne passe pas par
+        // ici : `loadModel` pose le contexte et change de vue lui-meme. Il n'est
+        // donc pas touche.
+        setNavigationContext(null);
         navigate(targetView);
     };
 
