@@ -1,11 +1,23 @@
 // Service worker BERAMETHODE.
+//
+// ⚠️ RÈGLE ABSOLUE : tout ce qui entre dans `respondWith` doit se terminer par
+// une vraie réponse. Une promesse qui vaut `undefined` — c'est ce que rend
+// `caches.match()` quand l'entrée n'existe pas — fait échouer la navigation
+// avec « FetchEvent.respondWith received an error: Returned response is null »,
+// et le site devient tout simplement impossible à ouvrir. C'est arrivé : le
+// repli de navigation pointait vers `/index.html`, que RIEN ne mettait jamais
+// en cache. Le repli censé sauver la page hors ligne la condamnait à chaque
+// hoquet de réseau.
+//
 // ⚠️ Le code (JS/CSS) est servi en NETWORK-FIRST : sinon un ancien bundle mis en
 // cache continue de tourner après un déploiement (les correctifs n'arrivent
 // jamais sur l'appareil, surtout mobile/PWA). Le cache ne sert que de repli
 // hors-ligne. Les médias (images/polices) restent en cache-first (rarement
 // modifiés). Bump du nom de cache → l'ancien cache est purgé à l'activation.
-const CACHE = 'beramethode-v4';
+const CACHE = 'beramethode-v5';
 const CACHE_DONNEES = 'beramethode-donnees-v1';
+
+const CLE_PAGE = '/index.html';
 
 // Lectures que l on garde sur l appareil : ouvrir l application hors reseau
 // doit montrer le dernier etat connu plutot qu une page vide.
@@ -13,7 +25,40 @@ const API_LECTURE = new RegExp("^/api/(ventes|facturation|clients|subcontract|ma
 const CODE_REGEX = /\.(js|css)$/;
 const MEDIA_REGEX = /\.(png|jpg|jpeg|gif|svg|ico|woff2?)$/;
 
-self.addEventListener('install', () => self.skipWaiting());
+/** Dernier recours : une réponse, toujours. Jamais `undefined`. */
+const reponseIndisponible = (message) =>
+  new Response(message, {
+    status: 504,
+    statusText: 'Hors ligne',
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
+
+/** Page minimale quand la coquille de l'application n'a jamais pu être mise en cache. */
+const pageHorsLigne = () =>
+  new Response(
+    '<!doctype html><html lang="fr"><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>BERAMETHODE — hors ligne</title>' +
+    '<body style="font-family:system-ui,sans-serif;display:grid;place-items:center;' +
+    'min-height:100vh;margin:0;background:#0b1220;color:#e5e7eb;text-align:center;padding:24px">' +
+    '<div><h1 style="margin:0 0 8px;font-size:20px">BERAMETHODE</h1>' +
+    '<p style="margin:0;color:#9ca3af">Pas de connexion. Réessayez une fois le réseau revenu.</p>' +
+    '<p style="margin:16px 0 0"><button onclick="location.reload()" ' +
+    'style="padding:10px 18px;border:0;border-radius:8px;background:#10b981;color:#fff;font-size:15px">' +
+    'Réessayer</button></p></div></body></html>',
+    { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
+  );
+
+// La coquille est mise en cache DÈS l'installation : sans elle, le repli
+// hors-ligne des navigations n'aurait rien à servir (c'était le défaut).
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE)
+      .then((c) => c.add(new Request(CLE_PAGE, { cache: 'reload' })))
+      .catch(() => undefined)      // hors ligne à l'installation : on réessaiera à la 1re navigation
+      .then(() => self.skipWaiting()),
+  );
+});
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
@@ -30,9 +75,21 @@ self.addEventListener('fetch', (e) => {
   // Same-origin only
   if (url.origin !== location.origin) return;
 
-  // Navigation → network-first (toujours le dernier index.html)
+  // Navigation → network-first (toujours le dernier index.html), et on garde
+  // une copie fraîche de la coquille à chaque succès : le repli hors-ligne ne
+  // peut ainsi jamais être vide une fois la première visite faite.
   if (request.mode === 'navigate') {
-    e.respondWith(fetch(request).catch(() => caches.match('/index.html')));
+    e.respondWith(
+      fetch(request)
+        .then((res) => {
+          if (res.ok) {
+            const copie = res.clone();
+            caches.open(CACHE).then((c) => c.put(CLE_PAGE, copie)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(async () => (await caches.match(CLE_PAGE)) || pageHorsLigne()),
+    );
     return;
   }
 
@@ -41,10 +98,12 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(request)
         .then((res) => {
-          if (res.ok) caches.open(CACHE).then((c) => c.put(request, res.clone()));
+          if (res.ok) caches.open(CACHE).then((c) => c.put(request, res.clone())).catch(() => {});
           return res;
         })
-        .catch(() => caches.match(request)) // repli hors-ligne
+        // Repli hors-ligne. `caches.match` peut ne rien trouver : on répond
+        // alors 504 plutôt que `undefined`, qui casserait la page entière.
+        .catch(async () => (await caches.match(request)) || reponseIndisponible('script indisponible hors ligne')),
     );
     return;
   }
@@ -52,15 +111,18 @@ self.addEventListener('fetch', (e) => {
   // Médias (images/polices) → cache-first (rarement modifiés)
   if (MEDIA_REGEX.test(url.pathname)) {
     e.respondWith(
-      caches.open(CACHE).then((cache) =>
-        cache.match(request).then((cached) => {
-          const fetchAndCache = fetch(request).then((res) => {
-            if (res.ok) cache.put(request, res.clone());
-            return res;
-          });
-          return cached || fetchAndCache;
-        })
-      )
+      caches.open(CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        try {
+          const res = await fetch(request);
+          if (res.ok) cache.put(request, res.clone()).catch(() => {});
+          return res;
+        } catch {
+          // Une image manquante ne doit pas faire tomber la page qui la porte.
+          return reponseIndisponible('média indisponible hors ligne');
+        }
+      }),
     );
     return;
   }
@@ -77,22 +139,28 @@ self.addEventListener('fetch', (e) => {
         .then((res) => {
           if (res.ok) {
             const copie = res.clone();
-            caches.open(CACHE_DONNEES).then((c) => c.put(request, copie));
+            caches.open(CACHE_DONNEES).then((c) => c.put(request, copie)).catch(() => {});
           }
           return res;
         })
         .catch(async () => {
-          const cache = await caches.open(CACHE_DONNEES);
-          const garde = await cache.match(request);
-          if (!garde) throw new Error('hors ligne');
-          const entetes = new Headers(garde.headers);
-          entetes.set('X-Bera-Cache', '1');
-          return new Response(await garde.blob(), { status: 200, headers: entetes });
-        })
+          try {
+            const cache = await caches.open(CACHE_DONNEES);
+            const garde = await cache.match(request);
+            if (garde) {
+              const entetes = new Headers(garde.headers);
+              entetes.set('X-Bera-Cache', '1');
+              return new Response(await garde.blob(), { status: 200, headers: entetes });
+            }
+          } catch { /* cache illisible : on tombe sur la réponse ci-dessous */ }
+          // Auparavant on levait une exception ici : l'appelant recevait une
+          // erreur réseau opaque. Un 504 explicite se lit et se rattrape.
+          return reponseIndisponible('hors ligne');
+        }),
     );
     return;
   }
 
-  // Le reste → network-only
-  e.respondWith(fetch(request));
+  // Le reste → réseau, avec une réponse d'erreur claire si le réseau manque.
+  e.respondWith(fetch(request).catch(() => reponseIndisponible('hors ligne')));
 });
