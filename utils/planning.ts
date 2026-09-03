@@ -1,4 +1,5 @@
 import type { ModelData, PlanningEvent, AppSettings, Operation, ModelSectionSettings } from '../types';
+import { minutesTravailleesDuJour } from '../lib/horaires';
 
 const DEFAULT_WORK_MIN_PER_DAY = 8 * 60;
 
@@ -40,12 +41,14 @@ export const addWorkingDays = (start: Date, days: number, settings: AppSettings)
   return d;
 };
 
-const workMinutesPerDay = (settings: AppSettings): number => {
-  const [sh, sm] = (settings.workingHoursStart || '08:00').split(':').map(Number);
-  const [eh, em] = (settings.workingHoursEnd || '18:00').split(':').map(Number);
-  const total = (eh * 60 + em) - (sh * 60 + sm);
-  const pauses = (settings.pauses || []).reduce((acc, p) => acc + (p.durationMin || 0), 0);
-  const v = total - pauses;
+/* Une seule definition des horaires dans tout le programme (`lib/horaires.ts`) :
+   cette fonction en avait sa propre copie, et elle sommait `durationMin` des
+   pauses — un champ qui peut mentir quand on deplace les bornes d'une pause sans
+   toucher sa duree. En passant par le helper, la capacite du planning suit
+   exactement les horaires regles dans Admin, exceptions par jour comprises quand
+   une date est fournie. */
+const workMinutesPerDay = (settings: AppSettings, dateOrDay?: Date | number): number => {
+  const v = minutesTravailleesDuJour(settings, dateOrDay);
   return v > 0 ? v : DEFAULT_WORK_MIN_PER_DAY;
 };
 
@@ -130,7 +133,7 @@ export const getActiveSection = (
 };
 
 /** Minutes de travail net par jour (pauses déduites) — même logique que `calculateSectionDates`. */
-export const getWorkMinutesPerDay = (settings: AppSettings): number => workMinutesPerDay(settings);
+export const getWorkMinutesPerDay = (settings: AppSettings, dateOrDay?: Date | number): number => workMinutesPerDay(settings, dateOrDay);
 
 // ── Planning / Gantt : jour civil à midi local + jours ouvrés (aligné `components/Planning.tsx`) ──
 

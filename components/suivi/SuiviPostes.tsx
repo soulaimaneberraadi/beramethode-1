@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AppSettings, ModelData, PlanningEvent, PosteSuiviData, HRWorker, Operation } from '../../types';
 import { deriveHourGrid } from './shared/hours';
+import { pauseOverlapMinutes, horairesDuJour } from '../../lib/horaires';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { useIsMobile } from '../planning/shared/useIsMobile';
@@ -102,7 +103,10 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         return () => { cancelled = true; };
     }, []);
 
-    const hourGrid = useMemo(() => deriveHourGrid(settings), [settings]);
+    /* Les creneaux sont ceux du jour saisi : sinon un vendredi personnalise
+       proposerait les heures des autres jours, et l'objectif du creneau (donc le
+       score de l'ouvrier) serait calcule sur une duree qui n'existe pas. */
+    const hourGrid = useMemo(() => deriveHourGrid(settings, date ? new Date(date) : undefined), [settings, date]);
     const nowBlock = useMemo(() => currentHourBlock(hourGrid.hours, hourGrid.keys), [hourGrid]);
 
     // Le planning actif de la chaine selectionnee, a la date choisie (meme logique que la grille horaire).
@@ -222,16 +226,11 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         if (!Number.isFinite(hh)) return 60;
         const debut = hh * 60 + (Number.isFinite(mm) ? mm : 0);
         const fin = debut + 60;
-        const toMin = (t: string) => {
-            const [a, b] = (t || '').split(':').map(Number);
-            return (Number.isFinite(a) ? a * 60 : 0) + (Number.isFinite(b) ? b : 0);
-        };
-        let pause = 0;
-        (settings.pauses || []).forEach(pz => {
-            const d = Math.max(debut, toMin(pz.start));
-            const f = Math.min(fin, toMin(pz.end));
-            if (f > d) pause += f - d;
-        });
+        // Source unique des pauses (lib/horaires.ts) : évite de dupliquer ici
+        // la logique de chevauchement pause/créneau.
+        /* Les pauses du JOUR saisi, pas celles du reglage general : un vendredi
+           avec une coupure plus longue reduit d'autant l'objectif du creneau. */
+        const pause = pauseOverlapMinutes(horairesDuJour(settings, date ? new Date(date) : undefined).pauses, debut, fin);
         return Math.max(5, 60 - pause);
     };
 

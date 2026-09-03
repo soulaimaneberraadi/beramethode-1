@@ -35,6 +35,9 @@ interface Props {
     onDragOverCell: (chaineId: string, dateKey: string) => void;
     onDropOnCell: (chaineId: string, dateKey: string) => void;
     onDragEnd: () => void;
+    /** OF arme pour un deplacement : lui seul est glissable, et un clic sur une case le pose. */
+    movingId?: string | null;
+    onPlaceOnCell?: (chaineId: string, dateKey: string) => void;
     onChainContextMenu?: (e: React.MouseEvent, chaineId: string) => void;
     machines: Machine[];
 }
@@ -47,6 +50,7 @@ function GanttRow({
     showHeatMap, showCRColors, rowHeight = 80,
     onSelectEvent, onEditEvent, onContextMenu,
     onDragStart, onDragOverCell, onDropOnCell, onDragEnd,
+    movingId, onPlaceOnCell,
     onChainContextMenu, sidebarCollapsed = false, sidebarW,
     machines = [],
 }: Props) {
@@ -351,10 +355,14 @@ function GanttRow({
                                     onDropOnCell(chain.id, key);
                                     onDragEnd();
                                 }}
+                                /* Au doigt, le glisser-deposer HTML5 ne se declenche pas :
+                                   une fois l'OF arme, un simple appui sur la case de
+                                   destination le pose. */
+                                onClick={() => { if (movingId && onPlaceOnCell) onPlaceOnCell(chain.id, key); }}
                                 title={tooltip}
                                 className={`border-r border-slate-50 dark:border-dk-border/30 last:border-r-0 transition-colors ${
                                     isWeekend ? 'bg-slate-50 dark:bg-dk-bg/40 dark:bg-dk-bg/60' : ''
-                                } ${isDragOver ? '!bg-slate-100 dark:bg-dk-elevated dark:!bg-dk-elevated' : ''}`}
+                                } ${isDragOver ? '!bg-slate-100 dark:bg-dk-elevated dark:!bg-dk-elevated' : ''} ${movingId ? 'cursor-copy hover:!bg-indigo-50 dark:hover:!bg-dk-accent/20' : ''}`}
                                 style={cellStyle}
                             />
                         );
@@ -381,6 +389,7 @@ function GanttRow({
                             onDragStart(ev.id);
                         }}
                         onDragEnd={onDragEnd}
+                        armed={movingId === ev.id}
                         settings={settings}
                     />
                 ))}

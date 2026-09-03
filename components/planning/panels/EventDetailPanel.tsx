@@ -296,8 +296,16 @@ export default function EventDetailPanel({
                 </div>
 
                 <div className="flex items-start gap-3 pr-8">
-                    <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-black text-white shrink-0 shadow-sm dark:shadow-dk-sm" style={{ background: getClientColor(client) }}>
-                        {(client || '?')[0].toUpperCase()}
+                    {/* La photo du modele etait calculee mais jamais affichee : on
+                        voyait un carre de couleur a la place de la piece. Elle
+                        reprend sa place, l'initiale du client ne servant plus que
+                        de repli quand la fiche n'a pas d'image. */}
+                    <div className="w-11 h-11 rounded-xl overflow-hidden flex items-center justify-center text-sm font-black text-white shrink-0 shadow-sm dark:shadow-dk-sm" style={{ background: getClientColor(client) }}>
+                        {thumb ? (
+                            <img src={thumb} alt={modelName} className="w-full h-full object-cover" />
+                        ) : (
+                            (client || '?')[0].toUpperCase()
+                        )}
                     </div>
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">

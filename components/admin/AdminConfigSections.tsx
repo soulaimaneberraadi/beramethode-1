@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Coins, Clock, Calendar, Plus, Trash2, Save, Loader2, Users, Shield, Building, CheckCircle } from 'lucide-react';
+import { Coins, Plus, Trash2, Save, Loader2, Users, Shield, Building, CheckCircle } from 'lucide-react';
 import { AppSettings, Machine } from '../../types';
 import { tx, pickT } from '../../lib/i18n';
 import { TRANSLATIONS, CURRENCIES } from '../configTranslations';
+import HorairesTravail from '../shared/HorairesTravail';
 
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
@@ -10,28 +11,49 @@ type Lang = 'fr' | 'ar' | 'en' | 'es' | 'pt' | 'tr';
 
 // Hook partage : brouillon local + sauvegarde explicite (POST /api/settings),
 // identique au mecanisme de la page Configuration.
+//
+// POURQUOI le suivi des clés touchées (`touchedKeysRef`) : deux pages (cette
+// page Admin et Configuration.tsx) éditent le MÊME objet AppSettings, chacune
+// avec son propre brouillon local pris au moment de l'ouverture. Si on postait
+// le brouillon ENTIER à l'enregistrement, la page ouverte en second écraserait
+// les champs modifiés entre-temps par l'autre (ex. Configuration.tsx change
+// `chainsCount` pendant qu'Admin a encore un vieux brouillon ouvert → Admin
+// enregistre et remet l'ancien `chainsCount`). En ne mémorisant QUE les clés
+// top-level réellement changées par CETTE section, on peut à l'enregistrement
+// repartir de l'état le plus frais (`prev` dans `setSettings`) et n'y
+// remplacer que ces clés-là — les autres, touchées ailleurs entre-temps,
+// restent intactes.
 function useSettingsDraft(settings, setSettings) {
     const [draft, setDraftState] = useState(settings);
     const [isDirty, setIsDirty] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [showToast, setShowToast] = useState(false);
+    const touchedKeysRef = React.useRef(new Set<string>());
     useEffect(() => { if (!isDirty) setDraftState(settings); }, [settings, isDirty]);
     const setDraft = (updater) => {
-        setDraftState(prev => (typeof updater === 'function' ? updater(prev) : updater));
+        setDraftState(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            Object.keys(next).forEach(k => { if (next[k] !== prev[k]) touchedKeysRef.current.add(k); });
+            return next;
+        });
         setIsDirty(true);
     };
     const handleSave = async () => {
         setIsSaving(true);
         try {
+            const touched = Array.from(touchedKeysRef.current);
+            const merged = { ...settings };
+            touched.forEach(k => { merged[k] = draft[k]; });
             if (!IS_STATIC) {
                 const res = await fetch('/api/settings', {
                     method: 'POST', credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ global_settings: draft }),
+                    body: JSON.stringify({ global_settings: merged }),
                 });
                 if (!res.ok) throw new Error('save failed');
             }
-            setSettings(draft);
+            setSettings(merged);
+            touchedKeysRef.current.clear();
             setIsDirty(false);
             setShowToast(true);
             setTimeout(() => setShowToast(false), 2500);
@@ -77,36 +99,8 @@ export function CompanyParamsSection({ settings, setSettings, lang }) {
         const { name, value, type } = e.target;
         setDraft(prev => ({ ...prev, [name]: type === 'number' ? (value === '' ? '' : Number(value)) : value }));
     };
-    const toggleWorkingDay = (dayIndex) => {
-        setDraft(prev => {
-            const current = prev.workingDays || [];
-            const days = current.includes(dayIndex) ? current.filter(d => d !== dayIndex) : [...current, dayIndex].sort((a, b) => a - b);
-            return { ...prev, workingDays: days };
-        });
-    };
-    const addPause = () => {
-        setDraft(prev => ({ ...prev, pauses: [...(prev.pauses || []), { id: Date.now().toString(), name: 'Nouvelle Pause', start: '12:00', end: '13:00', durationMin: 60 }] }));
-    };
-    const updatePause = (id, field, value) => {
-        setDraft(prev => ({
-            ...prev,
-            pauses: (prev.pauses || []).map(p => {
-                if (p.id !== id) return p;
-                const updated = { ...p, [field]: value };
-                if ((field === 'start' || field === 'end') && updated.start && updated.end) {
-                    const [sh, sm] = updated.start.split(':').map(Number);
-                    const [eh, em] = updated.end.split(':').map(Number);
-                    let diffMinutes = (eh * 60 + em) - (sh * 60 + sm);
-                    if (diffMinutes < 0) diffMinutes += 24 * 60;
-                    updated.durationMin = diffMinutes;
-                }
-                return updated;
-            })
-        }));
-    };
-    const removePause = (id) => {
-        setDraft(prev => ({ ...prev, pauses: (prev.pauses || []).filter(p => p.id !== id) }));
-    };
+    // Édition des horaires (heures, jours, pauses, exceptions par jour) déléguée
+    // à HorairesTravail — c'est l'UNIQUE endroit qui les édite (cf. HorairesTravail.tsx).
 
     return (
         <div className="space-y-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -138,91 +132,8 @@ export function CompanyParamsSection({ settings, setSettings, lang }) {
                             </div>
                         </div>
 
-                        {/* Working Hours */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{t.workingHoursStart}</label>
-                                <input type="time" name="workingHoursStart" value={draft.workingHoursStart} onChange={handleChange} className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-lg text-slate-700 dark:text-dk-text-soft transition-all text-center" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-2">{t.workingHoursEnd}</label>
-                                <input type="time" name="workingHoursEnd" value={draft.workingHoursEnd} onChange={handleChange} className="w-full bg-slate-50 dark:bg-dk-bg border-2 border-slate-200 dark:border-dk-border rounded-xl px-4 py-3 outline-none focus:border-indigo-500 font-bold text-lg text-slate-700 dark:text-dk-text-soft transition-all text-center" />
-                            </div>
-                        </div>
-
-                        {/* Working Days */}
-                        <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <label className="flex items-center gap-2 block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">{t.workingDays} <span className="text-[10px] text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-0.5 rounded-full border border-indigo-100 font-black tracking-widest">{(draft.workingDays || []).length}/7</span></label>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setDraft(prev => ({ ...prev, workingDays: [1, 2, 3, 4, 5, 6, 7] }))} className="text-xs font-bold text-slate-500 hover:text-indigo-600 dark:text-dk-accent-text transition-colors uppercase pr-2 border-r border-slate-200 dark:border-dk-border hidden sm:block">{tx(lang, { fr: 'Tous', ar: 'الكل', en: 'All', es: 'Todos', pt: 'Todos', tr: 'Tümü' })}</button>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-4 sm:flex sm:flex-wrap gap-2">
-                                {[1, 2, 3, 4, 5, 6, 7].map((dayCode, idx) => {
-                                    const isActive = (draft.workingDays || []).includes(dayCode);
-                                    return (
-                                        <button
-                                            key={dayCode}
-                                            onClick={() => toggleWorkingDay(dayCode)}
-                                            className={`flex-1 min-w-[3.5rem] py-2.5 rounded-lg font-bold text-xs sm:text-sm transition-all border-2 active:scale-95 ${isActive
-                                                ? 'bg-indigo-600 dark:bg-dk-accent text-white border-indigo-600 shadow-md shadow-indigo-600/20'
-                                                : 'bg-white dark:bg-dk-surface text-slate-400 border-slate-200 dark:border-dk-border hover:border-indigo-300 hover:text-indigo-600 dark:text-dk-accent-text'
-                                                }`}
-                                        >
-                                            {t.days[idx].substring(0, 3)}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Breaks / Pauses */}
-                        <div className="pt-6 border-t border-slate-100 dark:border-dk-border">
-                            <div className="flex items-center justify-between mb-4">
-                                <div>
-                                    <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">{t.pauses}</label>
-                                    <span className="text-[10px] text-slate-400 dark:text-dk-muted">Ces temps seront déduits des temps de présence.</span>
-                                </div>
-                                <button onClick={addPause} className="text-xs font-bold bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text flex items-center gap-1 hover:text-indigo-700 dark:text-dk-accent-text hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100">
-                                    <Plus className="w-3.5 h-3.5" /> {t.addPause}
-                                </button>
-                            </div>
-
-                            <div className="space-y-3">
-                                {(draft.pauses || []).map((pause, index) => (
-                                    <div key={pause.id} className="flex flex-col sm:flex-row items-center gap-3 bg-slate-50 dark:bg-dk-bg p-3 rounded-xl border border-slate-200 dark:border-dk-border hover:border-indigo-200 transition-colors">
-                                        <span className="text-xs font-bold text-slate-400 dark:text-dk-muted w-6 text-center">{index + 1}.</span>
-                                        <div className="flex-1 flex flex-col xl:flex-row gap-3 w-full">
-                                            <div className="flex-[1.5]">
-                                                <span className="text-[10px] uppercase text-slate-400 dark:text-dk-muted font-bold block mb-1">{t.pauseName}</span>
-                                                <input type="text" value={pause.name || ''} onChange={(e) => updatePause(pause.id, 'name', e.target.value)} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 py-1.5 outline-none focus:border-indigo-500 text-sm font-bold text-slate-700 dark:text-dk-text-soft placeholder:text-slate-300" placeholder={tx(lang, { fr: 'Ex: Déjeuner', ar: 'مثال: غداء', en: 'Ex: Lunch', es: 'Ej: Almuerzo', pt: 'Ex: Almoço', tr: 'Örn: Öğle yemeği' })} />
-                                            </div>
-                                            <div className="flex-1">
-                                                <span className="text-[10px] uppercase text-slate-400 dark:text-dk-muted font-bold block mb-1">{t.pauseStart}</span>
-                                                <input type="time" value={pause.start} onChange={(e) => updatePause(pause.id, 'start', e.target.value)} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 outline-none focus:border-indigo-500 text-sm font-bold text-slate-700 dark:text-dk-text-soft text-center" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <span className="text-[10px] uppercase text-slate-400 dark:text-dk-muted font-bold block mb-1">{t.pauseEnd}</span>
-                                                <input type="time" value={pause.end} onChange={(e) => updatePause(pause.id, 'end', e.target.value)} className="w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-2 py-1.5 outline-none focus:border-indigo-500 text-sm font-bold text-slate-700 dark:text-dk-text-soft text-center" />
-                                            </div>
-                                            <div className="w-20">
-                                                <span className="text-[10px] uppercase text-slate-400 dark:text-dk-muted font-bold block mb-1">{t.pauseDuration}</span>
-                                                <div className="w-full bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 rounded-lg px-2 py-1.5 text-center text-sm font-bold text-indigo-700 dark:text-dk-accent-text select-none">
-                                                    {pause.durationMin} m
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <button onClick={() => removePause(pause.id)} className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 border border-transparent hover:border-rose-100 rounded-lg transition-colors Shrink-0 mt-4 sm:mt-0" title={tx(lang, { fr: 'Supprimer cette pause', ar: 'حذف هذا الاستراحة', en: 'Delete this break', es: 'Eliminar esta pausa', pt: 'Eliminar esta pausa', tr: 'Bu molayı sil' })}>
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                                {(draft.pauses || []).length === 0 && (
-                                    <p className="text-sm text-slate-500 dark:text-dk-muted italic text-center py-4 bg-slate-50 dark:bg-dk-bg rounded-lg border border-dashed border-slate-200 dark:border-dk-border">{tx(lang, { fr: 'Aucune pause définie pour le moment.', ar: 'لا توجد أي استراحة معرفة حالياً.', en: 'No break defined at the moment.', es: 'Ninguna pausa definida por el momento.', pt: 'Nenhuma pausa definida de momento.', tr: 'Henüz mola tanımlanmamış.' })}</p>
-                                )}
-                            </div>
-                        </div>
+                        {/* Heures / jours / pauses / exceptions par jour : UNIQUE éditeur, partagé. */}
+                        <HorairesTravail draft={draft} onChange={setDraft} />
             </div>
             <SaveBar lang={lang} isDirty={isDirty} isSaving={isSaving} showToast={showToast} onSave={handleSave} />
         </div>

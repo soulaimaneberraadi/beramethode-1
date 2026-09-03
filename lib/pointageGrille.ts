@@ -4,6 +4,7 @@
  * Stockée par jour : `hr_pointage.grille_presence` (JSON boolé[], même longueur que les tranches).
  */
 import type { AppSettings } from '../types';
+import { horairesDuJour } from './horaires';
 
 export type PointageTrancheSlot = { label: string; start: string; end: string };
 
@@ -163,8 +164,12 @@ function workSegmentsForAtelier(
 export function buildPointageTranchesFromAppSettings(settings: AppSettings | null | undefined): PointageTranchesConfig {
   const def = getDefaultPointageTranches();
   if (!settings) return def;
-  const a = normalizeHHMM(String(settings.workingHoursStart || ''));
-  const b0 = normalizeHHMM(String(settings.workingHoursEnd || ''));
+  // Source unique : lib/horaires.ts. Ici on veut l'horaire GÉNÉRIQUE (pas un
+  // jour précis), donc horairesDuJour(settings) sans jour retombe sur le
+  // réglage global — identique au comportement historique de cette fonction.
+  const generic = horairesDuJour(settings);
+  const a = normalizeHHMM(String(generic.start || ''));
+  const b0 = normalizeHHMM(String(generic.end || ''));
   if (!a || !b0) return def;
   let e = timeToMin(a);
   const s0 = timeToMin(b0);
@@ -172,7 +177,7 @@ export function buildPointageTranchesFromAppSettings(settings: AppSettings | nul
   const s = s0;
 
   const dayPauses: { a: number; b: number }[] = [];
-  for (const p of settings.pauses || []) {
+  for (const p of generic.pauses || []) {
     const aP = normalizeHHMM(String(p.start));
     const aQ = normalizeHHMM(String(p.end));
     if (!aP || !aQ) continue;

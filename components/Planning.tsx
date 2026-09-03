@@ -122,6 +122,10 @@ export default function Planning({
     const [splitResult, setSplitResult] = useState<{ original: PlanningEvent; newEvents: PlanningEvent[] } | null>(null);
     const [autoOpen, setAutoOpen] = useState(false);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+    /* OF arme pour un deplacement. Sans ce passage explicite par « Deplacer », un
+       simple glissement du doigt sur le planning decalait une production sans que
+       personne ne s'en rende compte. */
+    const [movingId, setMovingId] = useState<string | null>(null);
     const [chainCtxMenu, setChainCtxMenu] = useState<{ x: number; y: number; chainId: string } | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -1028,6 +1032,8 @@ export default function Planning({
                         onContextMenu={handleContextMenu}
                         onChainContextMenu={(e, chainId) => { e.preventDefault(); setChainCtxMenu({ x: e.clientX, y: e.clientY, chainId }); }}
                         onMoveEvent={eventsApi.moveEvent}
+                        movingId={movingId}
+                        onMovingIdChange={setMovingId}
                         onAddEvent={openCreate}
                         onResetFilters={filtersApi.resetFilters}
                         soloChainId={soloChainId}
@@ -1441,6 +1447,7 @@ export default function Planning({
                         if (ev) setSplitOpen(ev);
                     }}
                     onDuplicate={() => eventsApi.duplicateEvent(contextMenu.id)}
+                    onMove={() => setMovingId(contextMenu.id)}
                     onDelete={() => setDeleteConfirm(contextMenu.id)}
                     isPaused={planningEvents.find(e => e.id === contextMenu.id)?.status === 'BLOCKED_STOCK'}
                     onTogglePause={() => {
@@ -1449,6 +1456,33 @@ export default function Planning({
                         eventsApi.setStatus(contextMenu.id, isPaused ? 'READY' : 'BLOCKED_STOCK');
                     }}
                 />
+            )}
+
+            {/* Mode deplacement : il faut voir qu'on est dedans, et pouvoir en
+                sortir sans rien bouger — sinon on ne sait plus si le prochain
+                appui selectionne ou deplace. */}
+            {movingId && (
+                <div className="fixed inset-x-0 bottom-0 z-[80] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                    <div className="mx-auto flex max-w-md items-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-600 px-3 py-2.5 text-white shadow-lg dark:border-dk-accent/40">
+                        <span className="min-w-0 flex-1 text-[12px] font-bold leading-tight">
+                            {tx(lang, {
+                                fr: 'Choisissez la case de destination (chaîne et jour).',
+                                ar: 'اختر خانة الوجهة (السلسلة واليوم).',
+                                en: 'Pick the destination cell (line and day).',
+                                es: 'Elija la celda de destino (cadena y día).',
+                                pt: 'Escolha a célula de destino (linha e dia).',
+                                tr: 'Hedef hücreyi seçin (hat ve gün).',
+                            })}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setMovingId(null)}
+                            className="min-h-[40px] shrink-0 rounded-xl bg-white/15 px-3 text-[12px] font-black hover:bg-white/25"
+                        >
+                            {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}
+                        </button>
+                    </div>
+                </div>
             )}
 
             {deleteConfirm && (

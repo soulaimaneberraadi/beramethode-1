@@ -346,6 +346,15 @@ export interface CompanyProfile {
   operatingCostsMonthly?: number;
 }
 
+/** Une pause de la journée de travail (nommée : "Déjeuner", "Café"...). */
+export interface Pause {
+  id: string;
+  name: string;
+  start: string; // "HH:MM"
+  end: string; // "HH:MM"
+  durationMin: number;
+}
+
 export interface AppSettings {
   // --- EXISTING FINANCIAL SETTINGS ---
   costMinute: number;
@@ -359,8 +368,19 @@ export interface AppSettings {
   workingHoursStart: string; // e.g. "08:00"
   workingHoursEnd: string; // e.g. "18:00"
   timeFormat: '12h' | '24h'; // Whether to display time in 12h AM/PM or 24h format
-  pauses: { id: string, name: string, start: string, end: string, durationMin: number }[]; // Added 'name' for pause
+  pauses: Pause[]; // Added 'name' for pause
   workingDays: number[]; // e.g [1,2,3,4,5] (Monday to Friday, 1=Monday)
+  /**
+   * Exceptions d'horaire PAR JOUR (clé = 1..7, 1=lundi, comme `workingDays`).
+   * Champ OPTIONNEL : une installation existante sans cette clé continue de
+   * fonctionner exactement comme avant (tous les jours suivent le réglage
+   * global). Utile au Maroc pour le vendredi, dont la pause de midi est
+   * souvent plus longue que les autres jours. Chaque champ présent dans
+   * l'exception l'emporte sur le réglage global ; un champ absent hérite.
+   * `closed: true` marque le jour comme non travaillé même s'il figure
+   * dans `workingDays`.
+   */
+  dayScheduleOverrides?: Record<number, { start?: string; end?: string; pauses?: Pause[]; closed?: boolean }>;
   currency: string; // 'MAD' | 'EUR' | 'USD'
   chainsCount: number; // e.g 12
   chainNames?: Record<string, string>; // NEW: custom chain names matching "CHAINE 1" => "My Custom Chain"

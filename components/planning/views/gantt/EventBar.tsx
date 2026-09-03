@@ -25,6 +25,8 @@ interface Props {
     onContextMenu: (e: React.MouseEvent) => void;
     onDragStart: (e: React.DragEvent) => void;
     onDragEnd?: (e: React.DragEvent) => void;
+    /** Barre armee pour le deplacement (via « Deplacer » du menu). Elle seule bouge. */
+    armed?: boolean;
     settings?: AppSettings;
 }
 
@@ -41,7 +43,7 @@ function hexToRgba(hex: string, alpha: number): string {
 
 export default function EventBar({
     event, models, style, selected, dimmed, compact, showCRColors,
-    onClick, onDoubleClick, onContextMenu, onDragStart, onDragEnd, settings,
+    onClick, onDoubleClick, onContextMenu, onDragStart, onDragEnd, armed, settings,
 }: Props) {
     const { lang } = useLang();
     const isDark = useIsDark();
@@ -119,19 +121,25 @@ export default function EventBar({
     ].filter(Boolean).join('\n');
 
     return (
+        /* Un OF ne se deplace plus par simple glissement : au doigt, defiler le
+           planning suffisait a decaler une production d'un jour ou de chaine sans
+           que personne s'en apercoive. Il faut d'abord l'armer par « Deplacer »
+           dans le menu contextuel. */
         <div
-            draggable={!done}
+            draggable={!done && !!armed}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
             onClick={onClick}
             onDoubleClick={onDoubleClick}
             onContextMenu={onContextMenu}
             title={title}
-            className={`planning-event-bar absolute top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing transition-all duration-150 group overflow-hidden rounded-md ${
-                selected
+            className={`planning-event-bar absolute top-1/2 -translate-y-1/2 transition-all duration-150 group overflow-hidden rounded-md ${
+                armed ? 'cursor-grab active:cursor-grabbing ring-2 ring-offset-1 ring-indigo-500 dark:ring-dk-accent animate-pulse z-30' : 'cursor-pointer'
+            } ${
+                selected && !armed
                     ? 'ring-2 ring-offset-1 ring-slate-900 dark:ring-dk-accent z-20'
-                    : 'hover:ring-1 hover:ring-slate-300 dark:hover:ring-dk-border z-10'
-            } ${dimmed ? 'opacity-25' : 'opacity-100'} ${isPulse ? 'animate-pulse' : ''}`}
+                    : (!armed ? 'hover:ring-1 hover:ring-slate-300 dark:hover:ring-dk-border z-10' : '')
+            } ${dimmed ? 'opacity-25' : 'opacity-100'} ${isPulse && !armed ? 'animate-pulse' : ''}`}
             style={{
                 ...style,
                 height: h,

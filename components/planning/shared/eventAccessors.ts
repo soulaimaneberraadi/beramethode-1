@@ -35,7 +35,11 @@ export const evModelName = (ev: PlanningEvent, models?: ModelData[]): string => 
     return m?.meta_data?.nom_modele || 'Ordre';
 };
 
+/* Meme ordre de preference que la Bibliotheque : une fiche dont la photo est
+   rangee dans photo_url ou seulement de dos y apparait, elle doit donc aussi
+   apparaitre ici — sinon le planning montre un carre de couleur pour un modele
+   qui a bel et bien une photo. */
 export const evModelThumb = (ev: PlanningEvent, models?: ModelData[]): string | null => {
     const m = models?.find(x => x.id === ev.modelId);
-    return m?.images?.front || m?.image || null;
+    return m?.images?.front || m?.image || m?.meta_data?.photo_url || m?.images?.back || null;
 };

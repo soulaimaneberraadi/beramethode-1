@@ -74,8 +74,19 @@ export default function Configuration({ settings, setSettings, lang, machines, n
     useEffect(() => {
         if (!isDirty) setDraftState(settings);
     }, [settings, isDirty]);
+    // POURQUOI ce suivi : la page Admin édite le MÊME AppSettings (ex. les
+    // horaires, désormais uniquement là-bas). Sans mémoriser les clés
+    // réellement changées ICI, l'enregistrement de cette page écraserait au
+    // passage tout ce que l'autre page aurait changé entre-temps.
+    const touchedKeysRef = React.useRef<Set<string>>(new Set());
     const setDraft: typeof setSettings = (updater) => {
-        setDraftState(prev => (typeof updater === 'function' ? (updater as (p: AppSettings) => AppSettings)(prev) : updater));
+        setDraftState(prev => {
+            const next = typeof updater === 'function' ? (updater as (p: AppSettings) => AppSettings)(prev) : updater;
+            (Object.keys(next) as (keyof AppSettings)[]).forEach(k => {
+                if (next[k] !== prev[k]) touchedKeysRef.current.add(k as string);
+            });
+            return next;
+        });
         setIsDirty(true);
     };
 
@@ -231,51 +242,18 @@ export default function Configuration({ settings, setSettings, lang, machines, n
         }));
     };
 
-    const toggleWorkingDay = (dayIndex: number) => {
-        setDraft(prev => {
-            const current = prev.workingDays || [];
-            const days = current.includes(dayIndex)
-                ? current.filter(d => d !== dayIndex)
-                : [...current, dayIndex].sort((a, b) => a - b);
-            return { ...prev, workingDays: days };
-        });
-    };
-
-    const addPause = () => {
-        setDraft(prev => ({
-            ...prev,
-            pauses: [...(prev.pauses || []), { id: Date.now().toString(), name: 'Nouvelle Pause', start: '12:00', end: '13:00', durationMin: 60 }]
-        }));
-    };
-
-    const updatePause = (id: string, field: 'start' | 'end' | 'name', value: string) => {
-        setDraft(prev => ({
-            ...prev,
-            pauses: (prev.pauses || []).map(p => {
-                if (p.id !== id) return p;
-                const updated = { ...p, [field]: value };
-                if ((field === 'start' || field === 'end') && updated.start && updated.end) {
-                    const [sh, sm] = updated.start.split(':').map(Number);
-                    const [eh, em] = updated.end.split(':').map(Number);
-                    let diffMinutes = (eh * 60 + em) - (sh * 60 + sm);
-                    if (diffMinutes < 0) diffMinutes += 24 * 60;
-                    updated.durationMin = diffMinutes;
-                }
-                return updated;
-            })
-        }));
-    };
-
-    const removePause = (id: string) => {
-        setDraft(prev => ({
-            ...prev,
-            pauses: (prev.pauses || []).filter(p => p.id !== id)
-        }));
-    };
+    // Horaires (jours/pauses) : édition retirée d'ici, voir Admin → HorairesTravail.
 
     const handleSave = async () => {
         setIsSaving(true);
         try {
+            // Merge par clés touchées (voir touchedKeysRef ci-dessus) : on repart
+            // de l'état le plus frais et on n'y remplace QUE ce que cette page a
+            // réellement modifié, pour ne jamais écraser un changement fait
+            // entre-temps ailleurs (ex. Admin).
+            const touched = Array.from(touchedKeysRef.current) as (keyof AppSettings)[];
+            const merged: AppSettings = { ...settings };
+            touched.forEach(k => { (merged as any)[k] = (draft as any)[k]; });
             // En mode statique (Vercel, sans serveur Express), /api/settings n'existe pas :
             // la persistance passe par localStorage + Supabase via setSettings (cf. App.tsx).
             if (!IS_STATIC) {
@@ -283,11 +261,12 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ global_settings: draft }),
+                    body: JSON.stringify({ global_settings: merged }),
                 });
                 if (!res.ok) throw new Error('save failed');
             }
-            setSettings(draft); // applique le brouillon au reste de l'app seulement maintenant
+            setSettings(merged); // applique le brouillon fusionné au reste de l'app
+            touchedKeysRef.current.clear();
             setIsDirty(false);
             setShowSaveToast(true);
             setTimeout(() => setShowSaveToast(false), 3000);
@@ -360,6 +339,19 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             <ChevronDown className={`w-5 h-5 text-slate-400 dark:text-dk-muted ml-auto shrink-0 transition-transform ${openSec['gen'] ? 'rotate-180' : ''}`} />
                         </div>
                         <div className={`p-5 space-y-6 flex-1 ${openSec['gen'] ? '' : 'hidden'}`}>
+                            {/* Les horaires (heures, jours ouvrables, pauses + exceptions par jour comme le
+                                vendredi) ne s'éditent plus ici : un seul endroit, pour ne plus jamais avoir
+                                deux brouillons qui s'écrasent l'un l'autre. */}
+                            <p className="text-xs text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3">
+                                {tx(lang, {
+                                    fr: 'Les horaires de travail (heures, jours ouvrables, pauses) se règlent désormais uniquement dans Admin → Paramètres entreprise.',
+                                    ar: 'أوقات العمل (الساعات، أيام العمل، الاستراحات) تُضبط الآن فقط في الإدارة ← إعدادات الشركة.',
+                                    en: 'Working hours (times, working days, breaks) are now set only in Admin → Company settings.',
+                                    es: 'Los horarios de trabajo (horas, días laborables, pausas) se configuran ahora solo en Admin → Parámetros de la empresa.',
+                                    pt: 'Os horários de trabalho (horas, dias úteis, pausas) configuram-se agora apenas em Admin → Parâmetros da empresa.',
+                                    tr: 'Çalışma saatleri (saatler, çalışma günleri, molalar) artık yalnızca Yönetici → Şirket ayarları bölümünden düzenlenir.',
+                                })}
+                            </p>
                             <div className="pt-4 border-t border-slate-100 dark:border-dk-border">
                                 <div className="flex items-center gap-2 mb-3">
                                     <div className="w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 shrink-0">

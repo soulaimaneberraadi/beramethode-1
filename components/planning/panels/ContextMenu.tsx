@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Edit2, Split, Copy, Trash2, Eye, Pause, Play } from 'lucide-react';
+import { Edit2, Split, Copy, Trash2, Eye, Pause, Play, Move } from 'lucide-react';
 import { useIsMobile } from '../shared/useIsMobile';
 import { tx } from '../../../lib/i18n';
 import { useLang } from '../../../src/context/LanguageContext';
@@ -14,12 +14,14 @@ interface Props {
     onSplit: () => void;
     onDuplicate: () => void;
     onDelete: () => void;
+    /** Arme le deplacement de l'OF : sans ce passage explicite, rien ne bouge. */
+    onMove?: () => void;
     isPaused?: boolean;
     onTogglePause?: () => void;
 }
 
 export default function ContextMenu({
-    x, y, onClose, onView, onEdit, onSplit, onDuplicate, onDelete, isPaused, onTogglePause
+    x, y, onClose, onView, onEdit, onSplit, onDuplicate, onDelete, onMove, isPaused, onTogglePause
 }: Props) {
     const ref = useRef<HTMLDivElement>(null);
     const isMobile = useIsMobile();
@@ -44,6 +46,7 @@ export default function ContextMenu({
     const items = [
         { id: 'view', label: tx(lang, { fr: 'Voir les détails', ar: 'عرض التفاصيل', en: 'View details', es: 'Ver detalles', pt: 'Ver detalhes', tr: 'Detayları görüntüle' }), Icon: Eye },
         { id: 'edit', label: tx(lang, { fr: 'Modifier', ar: 'تعديل', en: 'Edit', es: 'Editar', pt: 'Editar', tr: 'Düzenle' }), Icon: Edit2 },
+        ...(onMove ? [{ id: 'move', label: tx(lang, { fr: 'Déplacer', ar: 'نقل', en: 'Move', es: 'Mover', pt: 'Mover', tr: 'Taşı' }), Icon: Move }] : []),
         { id: 'split', label: tx(lang, { fr: 'Fractionner', ar: 'تجزئة', en: 'Split', es: 'Dividir', pt: 'Dividir', tr: 'Böl' }), Icon: Split },
         { id: 'duplicate', label: tx(lang, { fr: 'Dupliquer', ar: 'نسخ', en: 'Duplicate', es: 'Duplicar', pt: 'Duplicar', tr: 'Çoğalt' }), Icon: Copy },
         ...(onTogglePause ? [{
@@ -59,6 +62,7 @@ export default function ContextMenu({
         edit: onEdit,
         split: onSplit,
         duplicate: onDuplicate,
+        move: onMove || (() => {}),
         delete: onDelete,
         togglePause: onTogglePause || (() => {}),
     };

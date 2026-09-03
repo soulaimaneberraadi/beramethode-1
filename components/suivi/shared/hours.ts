@@ -1,42 +1,19 @@
 import type { AppSettings } from '../../../types';
+import { creneauxDuJour } from '../../../lib/horaires';
 
 /**
  * Dérive la grille horaire à partir des settings.
  * Saute les heures dont la pause occupe ≥ 30 min.
+ *
+ * Passe désormais par `lib/horaires.ts` (source unique de vérité) : si un
+ * jour est fourni, l'exception de CE jour (ex. vendredi) est appliquée ;
+ * sinon on retombe sur le réglage global, comme avant.
  */
-export function deriveHourGrid(settings: AppSettings): { hours: string[]; keys: string[] } {
-    const startStr = settings.workingHoursStart || '08:00';
-    const endStr = settings.workingHoursEnd || '18:00';
-    const pauses = settings.pauses || [];
+export function deriveHourGrid(settings: AppSettings, dateOrDay?: Date | number): { hours: string[]; keys: string[] } {
+    const creneaux = creneauxDuJour(settings, dateOrDay);
 
-    const toMin = (s: string) => {
-        const [h, m] = s.split(':').map(Number);
-        return (Number.isFinite(h) ? h * 60 : 0) + (Number.isFinite(m) ? m : 0);
-    };
-
-    const startMin = toMin(startStr) || 480;
-    const endMin = toMin(endStr) || 1080;
-
-    const hours: string[] = [];
-    const keys: string[] = [];
-
-    for (let m = startMin; m < endMin; m += 60) {
-        const blockEnd = m + 60;
-        let overlap = 0;
-        for (const p of pauses) {
-            const pStart = toMin(p.start);
-            const pEnd = toMin(p.end);
-            const oStart = Math.max(m, pStart);
-            const oEnd = Math.min(blockEnd, pEnd);
-            if (oEnd > oStart) overlap += oEnd - oStart;
-        }
-        if (overlap < 30) {
-            const hStart = Math.floor(m / 60).toString().padStart(2, '0');
-            const mStart = (m % 60).toString().padStart(2, '0');
-            hours.push(`${hStart}:${mStart}`);
-            keys.push(`h${hStart}${mStart}`);
-        }
-    }
+    const hours = creneaux.map(c => c.label);
+    const keys = creneaux.map(c => c.key);
 
     if (hours.length === 0) {
         return {

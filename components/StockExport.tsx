@@ -850,7 +850,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
                                 if (!activeModel) return null;
                                 const sizes = activeModel.ficheData?.sizes || activeModel.meta_data?.sizes || [];
                                 const cols = sizes.length ? sizes : ['Total'];
-                                const grid = settings ? deriveHourGrid(settings) : deriveHourGrid({} as AppSettings);
+                                const grid = deriveHourGrid(settings || ({} as AppSettings), selectedDate ? new Date(selectedDate) : undefined);
                                 const agg = getModelAggregations(activeModel);
                                 const cumul = activeTab === 'finition' ? agg.totalFinitionOut : agg.totalDepotIn;
                                 const reste = Math.max(0, agg.totalExpected - agg.totalDepotIn);

@@ -52,6 +52,9 @@ interface Props {
     onContextMenu: (e: React.MouseEvent, id: string) => void;
     onChainContextMenu?: (e: React.MouseEvent, chaineId: string) => void;
     onMoveEvent: (id: string, chaineId: string, dateKey: string) => void;
+    /** OF arme pour un deplacement depuis le menu contextuel, et de quoi le desarmer. */
+    movingId?: string | null;
+    onMovingIdChange?: (id: string | null) => void;
     onAddEvent?: () => void;
     onResetFilters?: () => void;
     soloChainId?: string | null;
@@ -67,6 +70,7 @@ export default function GanttView({
     currentDate, zoom, onZoomChange, pulseToday,
     selectedId, selectedIds, focusedId,
     onSelectEvent, onEditEvent, onContextMenu, onChainContextMenu, onMoveEvent,
+    movingId, onMovingIdChange,
     onAddEvent, onResetFilters,
     soloChainId, onToggleSolo,
     showHeatMap, density = 'comfortable', showMiniMap = true,
@@ -300,9 +304,11 @@ export default function GanttView({
     const handleDrop = useCallback((chaineId: string, dateKey: string) => {
         if (!dragging) return;
         onMoveEvent(dragging, chaineId, dateKey);
+        try { navigator.vibrate?.(10); } catch { /* API absente ou refusee */ }
+        onMovingIdChange?.(null);
         setDragging(null);
         setDragOver(null);
-    }, [dragging, onMoveEvent]);
+    }, [dragging, onMoveEvent, onMovingIdChange]);
 
     const handleToggleSolo = useCallback((id: string) => {
         onToggleSolo?.(id);
@@ -312,14 +318,35 @@ export default function GanttView({
         setDragging(id);
     }, []);
 
-    const handleDragOverCell = useCallback((chaineId: string, dateKey: string) => {
-        setDragOver({ chaineId, dateKey });
+    /* Une vibration tres courte a chaque changement de case : sur telephone, on
+       ne voit pas ce qui se passe sous le doigt, la main doit sentir que l'OF a
+       change de chaine ou de jour. Ignoree la ou l'API n'existe pas. */
+    const vibrer = useCallback(() => {
+        try { navigator.vibrate?.(10); } catch { /* API absente ou refusee */ }
     }, []);
+
+    const handleDragOverCell = useCallback((chaineId: string, dateKey: string) => {
+        setDragOver(prev => {
+            if (prev && prev.chaineId === chaineId && prev.dateKey === dateKey) return prev;
+            vibrer();
+            return { chaineId, dateKey };
+        });
+    }, [vibrer]);
 
     const handleDragEnd = useCallback(() => {
         setDragging(null);
         setDragOver(null);
     }, []);
+
+    /* Pose au doigt : l'OF arme se depose d'un appui sur la case voulue. */
+    const handlePlaceOnCell = useCallback((chaineId: string, dateKey: string) => {
+        if (!movingId) return;
+        onMoveEvent(movingId, chaineId, dateKey);
+        vibrer();
+        onMovingIdChange?.(null);
+        setDragging(null);
+        setDragOver(null);
+    }, [movingId, onMoveEvent, onMovingIdChange, vibrer]);
 
     const totalHeight = useMemo(() => {
         let h = headerHeight; // hauteur réelle de l'en-tête temporel
@@ -437,6 +464,8 @@ export default function GanttView({
                             onDragOverCell={handleDragOverCell}
                             onDropOnCell={handleDrop}
                             onDragEnd={handleDragEnd}
+                            movingId={movingId}
+                            onPlaceOnCell={handlePlaceOnCell}
                             machines={machines}
                         />
                     ))}

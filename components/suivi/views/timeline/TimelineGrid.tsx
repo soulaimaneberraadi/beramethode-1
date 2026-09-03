@@ -25,7 +25,9 @@ export default function TimelineGrid({
     currentHourKey, selectedCell, onSelectCell,
 }: Props) {
     const { lang } = useLang();
-    const { hours, keys } = useMemo(() => deriveHourGrid(settings), [settings]);
+    /* La grille suit le jour affiche : un vendredi aux horaires propres doit
+       montrer SES creneaux, pas ceux du reste de la semaine. */
+    const { hours, keys } = useMemo(() => deriveHourGrid(settings, date ? new Date(date) : undefined), [settings, date]);
     const active = useSuiviActiveContext({ date, planningEvents, models });
     const grid = useSuiviGrid({ date, chainIds, hourKeys: keys, suivis, planningEvents });
 
