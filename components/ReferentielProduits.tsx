@@ -18,7 +18,7 @@ import { tx } from '../lib/i18n';
 import { fmt } from '../app/constants';
 import { variantCode, attachScannerListener, type VariantAxes } from '../lib/scanner';
 import { renderEAN13 } from '../lib/barcode';
-import { X, Search, ArrowLeft, Barcode, Package, AlertTriangle, Printer, Layers, Check, Pencil, ScanLine, Loader2, ShieldCheck, Plus } from 'lucide-react';
+import { X, Search, ArrowLeft, Package, AlertTriangle, Printer, Layers, Check, Pencil, ScanLine, Loader2, ShieldCheck, Plus } from 'lucide-react';
 
 export type ReferentielEntry = {
   model: ModelData;

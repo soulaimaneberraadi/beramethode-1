@@ -35,6 +35,10 @@ export type CaisseLigne = {
   prixTouched?: boolean;
   /** remise par ligne en MAD (montant fixe) */
   remise?: number;
+  /** La piece a ete scannee alors que sa case n'existe pas dans les mouvements
+   *  (libelles renommes depuis l'entree en stock). La vente passe — la piece
+   *  est physiquement la — mais l'ecart doit rester VISIBLE, jamais avale. */
+  horsStock?: boolean;
 };
 
 export type TypeVente = 'BOUTIQUE' | 'DETAIL' | 'GROS';
@@ -749,6 +753,23 @@ const Caisse: React.FC<CaisseProps> = ({
     return dispoDe(modelId, couleur, taille) - enPanier;
   }, [dispoDe]);
 
+  /** Pose la piece dans le panier. Partage par les deux chemins : la vente
+   *  normale, et celle d'un tiki dont la case a ete renommee — refuser cette
+   *  derniere renverrait le vendeur au depot pour une piece qu'il tient
+   *  deja dans la main. */
+  const ajouterLigne = useCallback((model: ModelData, couleur: string, taille: string, horsStock: boolean) => {
+    const key = `${model.id}::${cellKey(couleur, taille)}`;
+    setLignes(prev => {
+      const i = prev.findIndex(l => l.key === key);
+      if (i >= 0) {
+        const copy = [...prev];
+        copy[i] = { ...copy[i], qte: copy[i].qte + 1, horsStock: copy[i].horsStock || horsStock };
+        return copy;
+      }
+      return [...prev, { key, model, couleur, taille, qte: 1, prix: 0, horsStock: horsStock || undefined }];
+    });
+  }, []);
+
   const ajouter = useCallback((model: ModelData, couleur: string, taille: string) => {
     const nom = model.meta_data?.nom_modele || '';
     if (restantDe(model.id, couleur, taille) <= 0) {
@@ -770,7 +791,7 @@ const Caisse: React.FC<CaisseProps> = ({
           pt: `${nom}: a celula ${couleur} ${taille} nao existe no stock. Os tamanhos ou cores da ficha mudaram apos a entrada.`.trim(),
           tr: `${nom}: ${couleur} ${taille} hucresi stokta yok. Mal girisinden sonra kartin bedenleri veya renkleri degisti.`.trim(),
         }) });
-        setRecherche(nom);
+        ajouterLigne(model, couleur, taille, true);
         return;
       }
       setFlash({ ok: false, msg: tx(lang, {
@@ -783,19 +804,10 @@ const Caisse: React.FC<CaisseProps> = ({
       }) });
       return;
     }
-    const key = `${model.id}::${cellKey(couleur, taille)}`;
-    setLignes(prev => {
-      const i = prev.findIndex(l => l.key === key);
-      if (i >= 0) {
-        const copy = [...prev];
-        copy[i] = { ...copy[i], qte: copy[i].qte + 1 };
-        return copy;
-      }
-      return [...prev, { key, model, couleur, taille, qte: 1, prix: 0 }];
-    });
+    ajouterLigne(model, couleur, taille, false);
     pip(true);
     setFlash({ ok: true, msg: `${nom || model.id} ${couleur} ${taille}`.trim() });
-  }, [restantDe, stockMatrix, pip, lang]);
+  }, [restantDe, stockMatrix, pip, lang, ajouterLigne]);
 
   /** Le tarif « Ma boutique » vient du serveur, comme partout ailleurs : la
    *  caisse ne recalcule aucun prix, elle demande celui qui fait foi. */
@@ -1325,6 +1337,22 @@ const Caisse: React.FC<CaisseProps> = ({
                         <span className="text-[10px] text-slate-400 dark:text-dk-muted truncate">· {l.model.meta_data.reference}</span>
                       )}
                     </span>
+                    {/* La vente passe, mais l'ecart reste sous les yeux : cette
+                        piece n'a pas de case dans les mouvements, son stock ne
+                        se decrementera pas la ou on le cherchera. */}
+                    {l.horsStock && (
+                      <span className="flex items-center gap-1 mt-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                        <AlertTriangle className="w-3 h-3 shrink-0" />
+                        {tx(lang, {
+                          fr: 'Hors stock enregistre',
+                          ar: 'خارج المخزون المسجّل',
+                          en: 'Outside recorded stock',
+                          es: 'Fuera del stock registrado',
+                          pt: 'Fora do stock registado',
+                          tr: 'Kayitli stok disinda',
+                        })}
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={() => setLignes(prev => prev.filter(x => x.key !== l.key))}
