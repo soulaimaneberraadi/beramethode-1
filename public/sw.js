@@ -49,15 +49,41 @@ const pageHorsLigne = () =>
     { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
   );
 
-// La coquille est mise en cache DÈS l'installation : sans elle, le repli
-// hors-ligne des navigations n'aurait rien à servir (c'était le défaut).
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE)
-      .then((c) => c.add(new Request(CLE_PAGE, { cache: 'reload' })))
-      .catch(() => undefined)      // hors ligne à l'installation : on réessaiera à la 1re navigation
-      .then(() => self.skipWaiting()),
+// `skipWaiting()` EN PREMIER, avant toute attente.
+//
+// Il etait appele au bout de la chaine, apres la mise en cache de la coquille —
+// donc apres un aller-retour reseau. Le nouveau worker ne prenait la main
+// qu'une fois ce telechargement termine : parfois pendant la premiere
+// ouverture, parfois pas, au hasard du reseau. Or c'est exactement le moment
+// qui compte, celui ou un worker fautif doit ceder la place. Il cede
+// maintenant tout de suite ; la coquille se met en cache derriere, sans
+// retenir personne.
+/**
+ * Met de cote la coquille ET les fichiers qu'elle reclame.
+ *
+ * La coquille seule ne suffit pas : hors reseau, la page s'ouvrait mais restait
+ * BLANCHE, parce que son bundle n'etait pas la. Le premier chargement d'une
+ * page se fait avant que le worker n'en prenne le controle — ses fichiers ne
+ * passent donc jamais par lui. On lit la coquille, on y releve les adresses des
+ * scripts et des feuilles de style, et on range le tout ensemble. Des la
+ * premiere visite, l'atelier peut rouvrir l'application sans reseau.
+ */
+const precharger = async () => {
+  const cache = await caches.open(CACHE);
+  const reponse = await fetch(new Request(CLE_PAGE, { cache: 'reload' }));
+  if (!reponse.ok) return;
+  const html = await reponse.clone().text();
+  await cache.put(CLE_PAGE, reponse);
+  const adresses = new Set(
+    [...html.matchAll(/(?:src|href)="(\/[^"]+\.(?:js|css))"/g)].map((m) => m[1]),
   );
+  await Promise.all([...adresses].map((a) => cache.add(a).catch(() => undefined)));
+};
+
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
+  // Hors ligne a l'installation : on reessaiera a la 1re navigation.
+  e.waitUntil(precharger().catch(() => undefined));
 });
 
 self.addEventListener('activate', (e) => {
