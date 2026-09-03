@@ -2987,6 +2987,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   };
 
 
+  /** Le stock magasin (matieres) n'etait charge qu'a l'ouverture du module :
+   *  une reception confirmee ailleurs, ou une sortie faite depuis Magasin,
+   *  laissait cette page calculer la disponibilite sur un stock perime tant
+   *  qu'on ne rechargeait pas la fenetre. */
+  const loadMagasinData = async () => {
+    try {
+      const res = await fetch('/api/magasin/products', { credentials: 'include' });
+      if (res.ok) {
+        const d = await res.json();
+        setMagasinData(Array.isArray(d) ? d : []);
+      }
+    } catch {
+      // Hors-ligne : on garde le dernier stock connu plutot que de le vider.
+    }
+  };
+
   const loadStockMovements = async () => {
     try {
       const [e, x] = await Promise.all([
@@ -3040,6 +3056,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       if (!res.ok) throw new Error();
       const created = await res.json();
       setAtelierClients(prev => [...prev, created]);
+      // L'onglet Tiers tient sa PROPRE liste : sans cette annonce, un client
+      // cree ici n'y apparaissait qu'apres etre sorti puis revenu.
+      window.dispatchEvent(new CustomEvent('bera:soustraitance-refresh', { detail: { scope: 'clients' } }));
       setSortieForm(prev => prev && ({ ...prev, clientId: created.id }));
       setClientQuickAdd(false);
       setClientQuickAddNom('');
@@ -3565,6 +3584,32 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     }
     setLoading(false);
   };
+
+  /* Un signal unique, ecoute par toute la page : n'importe quel ecran qui
+   * ecrit annonce ce qu'il a touche, et les listes concernees se relisent.
+   * C'est la reponse au « il faut recharger pour voir » — sans changer la
+   * facon dont chaque onglet detient son etat.
+   *
+   * Le retour sur l'onglet du navigateur vaut la meme annonce : une vente
+   * encaissee sur un autre poste, ou une reception confirmee dans Magasin,
+   * doit se voir en revenant ici, pas apres un F5. */
+  useEffect(() => {
+    const rafraichir = (e: Event) => {
+      const quoi = (e as CustomEvent)?.detail?.scope as string | undefined;
+      if (!quoi || quoi === 'stock') { void loadMagasinData(); void loadStockMovements(); }
+      if (!quoi || quoi === 'clients') { void loadAtelierClients(); }
+      if (!quoi || quoi === 'commandes') { void fetchData(); }
+    };
+    const auRetour = () => {
+      if (document.visibilityState === 'visible') { void loadMagasinData(); void loadStockMovements(); }
+    };
+    window.addEventListener('bera:soustraitance-refresh', rafraichir);
+    document.addEventListener('visibilitychange', auRetour);
+    return () => {
+      window.removeEventListener('bera:soustraitance-refresh', rafraichir);
+      document.removeEventListener('visibilitychange', auRetour);
+    };
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();

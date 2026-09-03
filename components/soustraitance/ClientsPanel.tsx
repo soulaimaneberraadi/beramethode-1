@@ -208,6 +208,18 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
 
     useEffect(() => { load(); }, []);
 
+    /* Cette liste est la seconde source de verite sur les tiers : le parent
+     * tient la sienne. Un client cree ailleurs (creation rapide pendant une
+     * sortie de stock) n'apparaissait ici qu'au remontage de l'onglet. */
+    useEffect(() => {
+        const rafraichir = (e: Event) => {
+            const quoi = (e as CustomEvent)?.detail?.scope as string | undefined;
+            if (!quoi || quoi === 'clients') void load();
+        };
+        window.addEventListener('bera:soustraitance-refresh', rafraichir);
+        return () => window.removeEventListener('bera:soustraitance-refresh', rafraichir);
+    }, []);
+
     /** Un tiers « les deux » appartient aux deux listes : le masquer d'un côté
      *  le ferait recréer en double. */
     const roleOf = (c: AtelierClient): TiersRole => c.role || 'CLIENT';
