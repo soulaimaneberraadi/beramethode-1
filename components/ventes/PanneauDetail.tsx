@@ -60,6 +60,7 @@ const PanneauDetail: React.FC<{
                     <div className="max-w-5xl mx-auto w-full flex items-start gap-3">
                         <button
                             type="button"
+                            aria-label={retour || 'Fermer'}
                             onClick={onFermer}
                             className={`w-9 h-9 sm:w-8 sm:h-8 -ml-1 sm:ml-0 shrink-0 rounded-lg flex items-center justify-center active:scale-95 transition ${empile
                                 ? 'bg-white/10 text-white hover:bg-white/20'

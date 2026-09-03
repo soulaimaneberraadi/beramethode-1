@@ -26,7 +26,13 @@ const fenetre = (v: unknown): number => {
     return Math.min(365, Math.max(7, n));
 };
 
-const jourISO = (d: Date) => d.toISOString().split('T')[0];
+/** Le jour du SERVEUR, pas celui de Greenwich. `toISOString()` bascule d'un
+ *  jour des que le fuseau n'est pas UTC : entre minuit UTC et minuit local, la
+ *  meme facture etait « en retard » sur un ecran et pas sur l'autre. */
+const jourISO = (d: Date) => {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
 
 /** Seuils de lecture d'un modèle. Ils sont ici, nommés, plutôt que dispersés
  *  dans des `if` : c'est la politique commerciale, elle se relit. */
@@ -66,7 +72,11 @@ const construireFiltre = (q: any, companyId: number | string) => {
 const fenetrePrecedente = (du: string, au: string | null) => {
     const debut = new Date(`${du}T00:00:00`).getTime();
     const fin = au ? new Date(`${au}T00:00:00`).getTime() : Date.now();
-    const duree = Math.max(86400000, fin - debut);
+    // Les bornes sont incluses : du 1er au 30 fait trente jours, pas
+    // vingt-neuf. Sans ce jour, la periode de comparaison etait plus courte
+    // d'une journee et le pourcentage d'evolution ne se comparait pas a celui
+    // affiche dans les fiches de detail.
+    const duree = Math.max(86400000, fin - debut + 86400000);
     return {
         du: jourISO(new Date(debut - duree)),
         au: jourISO(new Date(debut - 86400000)),
@@ -92,7 +102,7 @@ export const getVentesDashboard = (req: Request, res: Response) => {
                    MAX(s.date_sortie) AS derniere,
                    COUNT(DISTINCT COALESCE(s.ticket_ref, s.batch_id, s.id)) AS tickets
             FROM st_stock_sorties s
-            LEFT JOIN models m ON m.id = s.modelId AND m.user_id = s.owner_id
+            LEFT JOIN models m ON m.id = s.modelId AND (m.owner_id = s.owner_id OR (m.owner_id IS NULL AND m.user_id = s.owner_id))
             WHERE ${f.where}
             GROUP BY s.modelId
         `).all(...f.params) as any[];
@@ -131,7 +141,7 @@ export const getVentesDashboard = (req: Request, res: Response) => {
                    SUM(e.quantite) AS produit,
                    MIN(e.date_entree) AS premiereEntree
             FROM st_stock_entries e
-            LEFT JOIN models m ON m.id = e.modelId AND m.user_id = e.owner_id
+            LEFT JOIN models m ON m.id = e.modelId AND (m.owner_id = e.owner_id OR (m.owner_id IS NULL AND m.user_id = e.owner_id))
             WHERE e.owner_id = ? AND e.qualite = 'ACCEPTED'
             GROUP BY e.modelId
         `).all(companyId) as any[];
@@ -169,7 +179,11 @@ export const getVentesDashboard = (req: Request, res: Response) => {
             const joursAvantRupture = parJour > 0 ? Math.round(stock / parJour) : null;
 
             let statut: 'TOP' | 'OK' | 'LENT' | 'MORT' | 'NEUF';
-            if (ageJours == null || ageJours < 3) statut = 'NEUF';
+            // Aucune entree de stock acceptee : on ne sait pas ce qui a ete
+            // produit, donc on ne sait pas ce qui reste a ecouler. Classer ce
+            // modele « MORT » ferait solder un article qui se vend.
+            if (produit <= 0) statut = sortiTotal > 0 ? 'OK' : 'NEUF';
+            else if (ageJours == null || ageJours < 3) statut = 'NEUF';
             else if (ecoule >= SEUIL_TOP) statut = 'TOP';
             else if (ageJours >= DELAI_JUGEMENT && ecoule < SEUIL_LENT) statut = sortiTotal === 0 ? 'MORT' : 'LENT';
             else statut = 'OK';
@@ -308,7 +322,7 @@ export const getVentesDashboard = (req: Request, res: Response) => {
                    SUM(CASE WHEN COALESCE(e.qualite, 'ACCEPTED') = 'ACCEPTED' THEN e.quantite ELSE 0 END) AS ok,
                    SUM(CASE WHEN COALESCE(e.qualite, 'ACCEPTED') != 'ACCEPTED' THEN e.quantite ELSE 0 END) AS defauts
             FROM st_stock_entries e
-            LEFT JOIN models m ON m.id = e.modelId AND m.user_id = e.owner_id
+            LEFT JOIN models m ON m.id = e.modelId AND (m.owner_id = e.owner_id OR (m.owner_id IS NULL AND m.user_id = e.owner_id))
             WHERE e.owner_id = ?
             GROUP BY e.modelId
             HAVING defauts > 0

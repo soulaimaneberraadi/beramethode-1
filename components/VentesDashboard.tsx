@@ -202,8 +202,14 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
 
     // Retour depuis l annuaire : on rouvre le panneau d ou l on etait parti,
     // sinon le voyage aller n a pas de retour.
+    // L'ecouteur est pose une fois ; il appelle la version COURANTE de
+    // `setDetail` via une reference. Sans elle, un parent qui repasse une
+    // fonction differente a chaque rendu laissait l'ecouteur appeler
+    // l'ancienne, et le retour depuis l'annuaire n'ouvrait plus rien.
+    const setDetailRef = React.useRef(setDetail);
+    setDetailRef.current = setDetail;
     useEffect(() => {
-        const revenir = () => setDetail('encours');
+        const revenir = () => setDetailRef.current('encours');
         window.addEventListener('bera:retour-encours', revenir);
         return () => window.removeEventListener('bera:retour-encours', revenir);
     }, []);
@@ -793,14 +799,14 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                     depasse jamais aujourd'hui - un mois a venir n'a pas de
                     ventes, seulement un tableau vide qui inquiete. */}
                 {modePeriode !== 'fenetre' && (
-                    <div className="inline-flex items-center gap-0.5 border border-slate-200 dark:border-dk-border rounded-lg bg-white dark:bg-dk-surface h-8 px-0.5">
+                    <div className="inline-flex items-center gap-0.5 border border-slate-200 dark:border-dk-border rounded-lg bg-white dark:bg-dk-surface h-10 sm:h-8 px-0.5">
                         <button onClick={() => decalerPeriode(-1)} title={T.precedent}
-                            className="w-7 h-7 rounded-md text-slate-400 hover:text-slate-900 dark:hover:text-dk-text">&lsaquo;</button>
+                            className="w-9 h-9 sm:w-7 sm:h-7 rounded-md text-slate-400 hover:text-slate-900 dark:hover:text-dk-text">&lsaquo;</button>
                         <span className="px-1.5 text-[11px] font-bold tabular-nums text-slate-700 dark:text-dk-text whitespace-nowrap">
                             {etiquettePeriode}
                         </span>
                         <button onClick={() => decalerPeriode(1)} title={T.suivant} disabled={!peutAvancer}
-                            className="w-7 h-7 rounded-md text-slate-400 enabled:hover:text-slate-900 dark:enabled:hover:text-dk-text disabled:opacity-30">&rsaquo;</button>
+                            className="w-9 h-9 sm:w-7 sm:h-7 rounded-md text-slate-400 enabled:hover:text-slate-900 dark:enabled:hover:text-dk-text disabled:opacity-30">&rsaquo;</button>
                     </div>
                 )}
 

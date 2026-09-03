@@ -96,8 +96,16 @@ export const getVentesAxe = (req: Request, res: Response) => {
 
         // Le total de la PERIODE ENTIERE, tous axes confondus : c'est lui qui
         // donne le « part du total », le seul chiffre qui situe la valeur.
+        // Le total de reference porte les MEMES filtres que la page d'ou l'on
+        // vient : ouvert depuis un tableau filtre sur ONLINE, « part du total »
+        // doit dire la part dans ONLINE. Compare a toute la maison, le
+        // pourcentage serait juste et pourtant trompeur.
         const clausesTotal = ['s.owner_id = ?', 's.date_sortie >= ?', 's.date_sortie <= ?'];
         const paramsTotal: any[] = [companyId, du, au];
+        for (const [cle, col] of [['canal', 's.canal'], ['segment', 's.type_vente'], ['clientId', 's.client_id']] as const) {
+            const v = q[cle] ? String(q[cle]) : '';
+            if (v && cle !== axe) { clausesTotal.push(`${col} = ?`); paramsTotal.push(v); }
+        }
         const global = db.prepare(`
             SELECT SUM(s.quantite) AS pieces,
                    SUM(s.quantite * s.prix_unitaire) AS ca,
@@ -106,7 +114,10 @@ export const getVentesAxe = (req: Request, res: Response) => {
         `).get(...paramsTotal) as any;
 
         const p = fenetrePrecedente(du, au);
-        const paramsAvant = params.map((v, i) => (i === 1 ? p.du : i === 2 ? p.au : v));
+        // Les bornes sont remplacees par NOM et non par position : une clause
+        // ajoutee un jour avant les dates decalerait silencieusement la
+        // periode de comparaison, sans la moindre erreur a l'ecran.
+        const paramsAvant = [companyId, p.du, p.au, ...params.slice(3)];
         const avant = db.prepare(`
             SELECT SUM(s.quantite) AS pieces,
                    SUM(s.quantite * s.prix_unitaire) AS ca,
@@ -144,7 +155,7 @@ export const getVentesAxe = (req: Request, res: Response) => {
                    SUM(s.quantite * s.prix_unitaire) AS ca,
                    COUNT(DISTINCT COALESCE(s.ticket_ref, s.batch_id, s.id)) AS tickets
             FROM st_stock_sorties s
-            LEFT JOIN models m ON m.id = s.modelId AND m.owner_id = s.owner_id
+            LEFT JOIN models m ON m.id = s.modelId AND (m.owner_id = s.owner_id OR (m.owner_id IS NULL AND m.user_id = s.owner_id))
             WHERE ${where}
             GROUP BY s.modelId ORDER BY ca DESC LIMIT 40
         `).all(...params) as any[];
