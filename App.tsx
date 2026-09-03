@@ -3,6 +3,7 @@ import { preloadAllChunks } from './lib/preloader';
 import { lazyWithRetry } from './lib/lazyWithRetry';
 import { lsGet, lsSet, lsGetMig } from './lib/storageKeys';
 import { ecrireModelesAuMieux } from './lib/stockageLocal';
+import { deshydraterModeles, nettoyerPhotosOrphelines, rehydraterModeles } from './lib/photosLocales';
 import './src/context/ThemeContext';
 import GlobalLoader from './components/GlobalLoader';
 import BandeauHorsLigne from './components/shared/BandeauHorsLigne';
@@ -1286,18 +1287,30 @@ export default function App() {
         });
     }, [suivis, models, globalSettings, user]);
 
+    // Deux lectures peuvent se chevaucher (démarrage + fusion cloud qui arrive) :
+    // seule la plus récente a le droit d'écrire dans l'état, sinon une lecture
+    // lente écraserait le résultat d'une lecture plus fraîche.
+    const lectureBibliothequeRef = useRef(0);
     useEffect(() => {
         const loadFromLocal = () => {
             const savedLibrary = lsGetMig(LIBRARY_KEY);
-            if (savedLibrary) {
-                try {
-                    const parsed = JSON.parse(savedLibrary);
-                    if (Array.isArray(parsed)) setModels(parsed);
-                } catch (e) {
-                    console.error("Failed to load Library", e);
-                }
-            } else {
-                setModels([]);
+            if (!savedLibrary) { setModels([]); return; }
+            const monTour = ++lectureBibliothequeRef.current;
+            try {
+                const parsed = JSON.parse(savedLibrary);
+                if (!Array.isArray(parsed)) return;
+                // Les photos sont dans IndexedDB ; la bibliothèque n'en garde
+                // qu'une référence. On les rend AVANT l'affichage — le reste de
+                // l'application ne voit donc aucune différence.
+                rehydraterModeles(parsed)
+                    .then(avecPhotos => {
+                        if (monTour === lectureBibliothequeRef.current) setModels(avecPhotos);
+                    })
+                    .catch(() => {
+                        if (monTour === lectureBibliothequeRef.current) setModels(parsed);
+                    });
+            } catch (e) {
+                console.error("Failed to load Library", e);
             }
         };
         if (user && !IS_STATIC) {
@@ -1335,6 +1348,7 @@ export default function App() {
     // fusion cloud résolve les conflits par « dernière édition gagne » (deux
     // appareils qui changent la même photo convergent au lieu de faire du ping-pong).
     const modelStampRef = useRef<Record<string, { sig: string; updatedAt: string }>>({});
+    const ecritureBibliothequeRef = useRef(0);
     useEffect(() => {
         if (models.length > 0) {
             try {
@@ -1350,22 +1364,35 @@ export default function App() {
                     modelStampRef.current[m.id] = { sig, updatedAt: ua };
                     return { ...m, updatedAt: ua };
                 });
-                // Écriture « au mieux » : si la mémoire du téléphone déborde,
-                // les modèles sont enregistrés SANS leurs photos plutôt que pas
-                // du tout. Avant, l'échec était seulement écrit dans la console
-                // — l'écran avait déjà annoncé « Modèle sauvegardé avec succès »
-                // et la bibliothèque revenait vide au redémarrage suivant.
-                const resultat = ecrireModelesAuMieux(LIBRARY_KEY, stamped);
-                if (resultat === 'echec') {
-                    showToast(tx(lang, {
-                        fr: "Mémoire de l'appareil pleine : la bibliothèque n'a pas pu être enregistrée.",
-                        ar: 'ذاكرة الجهاز ممتلئة: تعذّر حفظ المكتبة.',
-                        en: 'Device storage full: the library could not be saved.',
-                        es: 'Memoria del dispositivo llena: no se pudo guardar la biblioteca.',
-                        pt: 'Memória do aparelho cheia: não foi possível gravar a biblioteca.',
-                        tr: 'Cihaz belleği dolu: kütüphane kaydedilemedi.',
-                    }), 'error');
-                }
+                // Les photos partent dans IndexedDB ; `localStorage` ne reçoit
+                // que des références. C'est ce qui fait passer la bibliothèque
+                // de plusieurs mégaoctets à quelques kilo-octets.
+                //
+                // L'écriture « au mieux » reste le filet en dessous : si même
+                // ainsi la mémoire déborde (ou si IndexedDB est indisponible,
+                // en navigation privée), les modèles sont enregistrés SANS leurs
+                // photos plutôt que pas du tout. Avant, l'échec n'était qu'une
+                // ligne de console — l'écran avait déjà annoncé « Modèle
+                // sauvegardé avec succès » et la bibliothèque revenait vide.
+                const monTour = ++ecritureBibliothequeRef.current;
+                void deshydraterModeles(stamped)
+                    .catch(() => stamped)
+                    .then(aRanger => {
+                        if (monTour !== ecritureBibliothequeRef.current) return;  // une écriture plus fraîche a pris la main
+                        const resultat = ecrireModelesAuMieux(LIBRARY_KEY, aRanger);
+                        // Le ménage se fait APRÈS l'enregistrement, et d'après
+                        // lui : les photos que plus aucun modèle enregistré ne
+                        // réclame peuvent partir.
+                        if (resultat !== 'echec') { void nettoyerPhotosOrphelines(); return; }
+                        showToast(tx(lang, {
+                            fr: "Mémoire de l'appareil pleine : la bibliothèque n'a pas pu être enregistrée.",
+                            ar: 'ذاكرة الجهاز ممتلئة: تعذّر حفظ المكتبة.',
+                            en: 'Device storage full: the library could not be saved.',
+                            es: 'Memoria del dispositivo llena: no se pudo guardar la biblioteca.',
+                            pt: 'Memória do aparelho cheia: não foi possível gravar a biblioteca.',
+                            tr: 'Cihaz belleği dolu: kütüphane kaydedilemedi.',
+                        }), 'error');
+                    });
             } catch (e) {
                 console.error("Failed to save Library", e);
             }

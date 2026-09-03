@@ -7,6 +7,11 @@ import {
   lirePhotosElaguees,
   signalerStockagePlein,
 } from '../../lib/stockageLocal';
+import {
+  contientDesReferences,
+  deshydraterModeles,
+  rehydraterModeles,
+} from '../../lib/photosLocales';
 
 /** Durée pendant laquelle une suppression reste opposable à la fusion.
  *  Doit rester alignée sur `TOMBSTONE_KEEP_MS` d'`apiShim.ts` : ces deux
@@ -434,10 +439,32 @@ const collectLocalSnapshot = (): Record<string, unknown> => {
   return out;
 };
 
-/** @returns false si AU MOINS une clé n'a pas pu être écrite localement. */
-const applySnapshotToLocal = (snapshot: Record<string, unknown> | null): boolean => {
+/**
+ * Écrit l'instantané du cloud dans le stockage local.
+ *
+ * Les photos qu'il transporte ne vont PAS dans `localStorage` : elles sont
+ * rangées dans IndexedDB, et la bibliothèque n'en garde qu'une référence.
+ * C'est ce qui permet à un téléphone de recevoir quarante modèles illustrés
+ * sans jamais approcher son plafond de 5 Mo.
+ *
+ * @returns false si AU MOINS une clé n'a pas pu être écrite localement.
+ */
+const applySnapshotToLocal = async (snapshot: Record<string, unknown> | null): Promise<boolean> => {
   let toutApplique = true;
   if (!snapshot) return true;
+
+  // Déshydratation AVANT d'entrer dans la boucle d'écriture : celle-ci est
+  // synchrone, et c'est très bien ainsi — le drapeau `isApplyingRemote` ne doit
+  // pas rester levé pendant une attente, sinon un push concurrent serait rejeté.
+  if (Array.isArray((snapshot as any).beramethode_library)) {
+    try {
+      snapshot = {
+        ...snapshot,
+        beramethode_library: await deshydraterModeles((snapshot as any).beramethode_library),
+      };
+    } catch { /* magasin indisponible : on écrira les photos en clair, comme avant */ }
+  }
+
   isApplyingRemote = true;
   try {
     for (const k of SYNC_KEYS) {
@@ -602,6 +629,18 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
   if (!isCloudSyncUserId(userId) || isApplyingRemote) return false;
   let snapshot: Record<string, unknown> = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
 
+  // Les photos vivent dans IndexedDB ; la bibliothèque locale n'en garde qu'une
+  // référence. Le cloud, lui, doit recevoir les images EN CLAIR : un autre
+  // appareil ne saurait pas quoi faire d'une référence pointant vers un magasin
+  // qui n'est pas le sien. On les rend donc ici, avant tout le reste — ainsi
+  // tout ce qui suit (garde anti-vide, signature, fusion, compression) voit
+  // exactement ce qu'il voyait avant que les photos déménagent.
+  if (Array.isArray((snapshot as any).beramethode_library)) {
+    try {
+      snapshot.beramethode_library = await rehydraterModeles((snapshot as any).beramethode_library);
+    } catch { /* magasin illisible : on pousse ce qu'on a */ }
+  }
+
   // Garde-fou: ne jamais écraser avec un snapshot vide
   if (instantaneVide(snapshot)) {
     console.warn('[cloudSync] push annulé: snapshot local vide');
@@ -735,7 +774,7 @@ export const pullSnapshotFromCloud = async (
     const v = typeof snap.__schema_version === 'number' ? (snap.__schema_version as number) : 0;
     if (v < SCHEMA_VERSION) snap = migrateSnapshot(snap, v);
 
-    const toutApplique = applySnapshotToLocal(snap);
+    const toutApplique = await applySnapshotToLocal(snap);
 
     // On ne retient `updated_at` QUE si TOUT a été écrit. Retenir une version
     // qu'on n'a pas su enregistrer (stockage du téléphone plein) rendait
@@ -858,6 +897,12 @@ export const startCloudSync = (userId: string) => {
     dernierEnvoiCloture = maintenant;
     if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
     const snapshot = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
+    // Ce chemin est synchrone : impossible d'aller rechercher les photos dans
+    // IndexedDB. Envoyer la bibliothèque telle quelle enverrait des RÉFÉRENCES,
+    // que les autres appareils ne sauraient pas résoudre — et qui effaceraient
+    // les vraies images. On s'abstient : le vidage à `hidden`, lui, a tout le
+    // temps de réhydrater, et c'est désormais le chemin principal.
+    if (contientDesReferences((snapshot as any).beramethode_library)) return;
     // Même garde que le push normal : ne JAMAIS envoyer un instantané vide.
     // Sans elle, un téléphone dont Safari a purgé le stockage effaçait le cloud
     // en se fermant, et emportait les données de tous les autres appareils.

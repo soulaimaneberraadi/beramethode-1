@@ -12,6 +12,7 @@
  */
 
 import { pkey } from '../../lib/storageKeys';
+import { deshydraterModeles, nettoyerPhotosOrphelines, rehydraterModeles } from '../../lib/photosLocales';
 
 const TOMBSTONES_KEY = 'beramethode_tombstones';
 const SQLITE_EXPORT_KEY = '__bera_sqlite_export__';
@@ -199,7 +200,7 @@ const purgeExpiredTombstones = () => {
  * intégral effaçait alors pricePerPiece, totalQuantity et la grille couleur×taille
  * — perte de données à impact financier direct.
  */
-const upsertItem = (type: string, item: any, merge = false): any => {
+const upsertItem = async (type: string, item: any, merge = false): Promise<any> => {
   if (!STORES[type]) return null;
   const id = String(item.id ?? Date.now());
   const arr = readArray(type);
@@ -207,7 +208,12 @@ const upsertItem = (type: string, item: any, merge = false): any => {
   const existing = idx >= 0 ? arr[idx] : null;
   const next = merge && existing ? { ...existing, ...item, id } : { ...item, id };
   if (idx >= 0) arr[idx] = next; else arr.push(next);
-  writeArray(type, arr);
+  // Un modèle arrive ici avec ses photos en clair (il vient d'une lecture
+  // réhydratée). On les range dans IndexedDB avant d'écrire : sans cela, la
+  // bibliothèque regonflerait à chaque enregistrement et retrouverait le
+  // plafond de 5 Mo qu'on vient de lui faire quitter.
+  writeArray(type, type === 'models' ? await deshydraterModeles(arr) : arr);
+  if (type === 'models') void nettoyerPhotosOrphelines();
   removeTombstone(type, id); // restoring a deleted item by upserting
   return next;
 };
@@ -360,7 +366,19 @@ export const installApiShim = () => {
     if (url.pathname.startsWith('/api/auth/')) return reply({ ok: true });
 
     if (method === 'GET' || method === 'HEAD') {
-      return reply(handleGet(url.pathname));
+      const resultat = handleGet(url.pathname);
+      // Les modèles sortent du stockage avec des références ; l'appelant, lui,
+      // attend des images. La Coupe et l'export lisent par ici.
+      const r = resolveTypeAndId(url.pathname);
+      if (r?.type === 'models' && resultat) {
+        try {
+          const rendu = Array.isArray(resultat)
+            ? await rehydraterModeles(resultat)
+            : (await rehydraterModeles([resultat]))[0];
+          return reply(rendu);
+        } catch { /* magasin illisible : on répond sans les images */ }
+      }
+      return reply(resultat);
     }
 
     // Parse body
@@ -394,7 +412,7 @@ export const installApiShim = () => {
       // POST → upsert (with body) ; PUT/PATCH → upsert at id ; DELETE → soft delete
       if (method === 'POST') {
         if (body == null) return reply({ ok: false, error: 'empty body' }, 400);
-        const saved = upsertItem(r.type, body);
+        const saved = await upsertItem(r.type, body);
         return reply(saved ?? { ok: true });
       }
       if (method === 'PUT' || method === 'PATCH') {
@@ -402,7 +420,7 @@ export const installApiShim = () => {
         const item = { ...(body || {}), id: r.id ?? body?.id };
         // merge=true : PUT/PATCH sont partiels côté front (cf. upsertItem).
         // S'aligne sur le serveur SQLite dont l'UPDATE ne touche que les champs fournis.
-        const saved = upsertItem(r.type, item, true);
+        const saved = await upsertItem(r.type, item, true);
         return reply(saved ?? { ok: true });
       }
       if (method === 'DELETE') {
@@ -427,7 +445,8 @@ export const beraCorbeille = {
   },
   restore: (type: string, id: string): boolean => {
     removeTombstone(type, id);
-    // Trigger sync push
+    // Trigger sync push. Les valeurs relues sont déjà déshydratées : on les
+    // réécrit telles quelles, sans repasser par le magasin de photos.
     const arr = readArray(type);
     writeArray(type, arr);
     return true;

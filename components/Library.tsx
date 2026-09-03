@@ -4,6 +4,7 @@ import { useAuth } from '../src/context/AuthContext';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 import { lsGet, lsSet, lsGetMig } from '../lib/storageKeys';
+import { deshydraterModeles, rehydraterModeles } from '../lib/photosLocales';
 import { Search, FolderOpen, MoreVertical, FileJson, Clock, Users, Calendar, Download, Copy, Trash2, Edit2, SortAsc, Scissors, Filter, Upload, AlertTriangle, Plus, Share2, LayoutGrid, ZoomIn, ZoomOut, List as ListIcon, Database, UploadCloud, DownloadCloud, CheckCircle2, Loader2, FileText, X } from 'lucide-react';
 import InlineInvoiceList from './InlineInvoiceList';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
@@ -94,13 +95,19 @@ export default function Library({
         if (fileInputRef.current) { fileInputRef.current.value = ''; fileInputRef.current.click(); }
     };
 
-    const handleBackupDatabase = () => {
+    const handleBackupDatabase = async () => {
         setDbStatus('processing');
         try {
             const library = lsGetMig('beramethode_library');
             const autosave = lsGetMig('beramethode_autosave_v1');
             const layouts = localStorage.getItem('beramethode_layouts');
-            const backupData = { type: 'BERAMETHODE_FULL_BACKUP', date: new Date().toISOString(), version: 1, data: { library: library ? JSON.parse(library) : [], autosave: autosave ? JSON.parse(autosave) : null, layouts: layouts ? JSON.parse(layouts) : [] } };
+            // Les photos vivent dans IndexedDB : sans cette réhydratation, le
+            // fichier de sauvegarde ne contiendrait que des références vers un
+            // magasin qu'il ne transporte pas — une sauvegarde sans images,
+            // découverte le jour où on en aurait besoin.
+            const modeles = library ? JSON.parse(library) : [];
+            const modelesAvecPhotos = Array.isArray(modeles) ? await rehydraterModeles(modeles) : modeles;
+            const backupData = { type: 'BERAMETHODE_FULL_BACKUP', date: new Date().toISOString(), version: 1, data: { library: modelesAvecPhotos, autosave: autosave ? JSON.parse(autosave) : null, layouts: layouts ? JSON.parse(layouts) : [] } };
             const jsonString = JSON.stringify(backupData, null, 2);
             const blob = new Blob([jsonString], { type: "application/json" });
             const url = URL.createObjectURL(blob);
@@ -134,11 +141,19 @@ export default function Library({
         }))) { e.target.value = ''; return; }
         setDbStatus('processing');
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = async (event) => {
             try {
                 const json = JSON.parse(event.target?.result as string);
                 if (json.type !== 'BERAMETHODE_FULL_BACKUP' || !json.data) throw new Error(tx(lang, { fr: "Format de fichier invalide", ar: "صيغة الملف غير صالحة", en: "Invalid file format", es: "Formato de archivo no válido", pt: "Formato de arquivo inválido", tr: "Geçersiz dosya biçimi" }));
-                if (json.data.library) lsSet('beramethode_library', JSON.stringify(json.data.library));
+                if (json.data.library) {
+                    // Le fichier porte les photos en clair : on les range dans
+                    // IndexedDB, sinon la restauration remettrait plusieurs
+                    // mégaoctets dans un stockage qui n'en veut pas.
+                    const restaure = Array.isArray(json.data.library)
+                        ? await deshydraterModeles(json.data.library)
+                        : json.data.library;
+                    lsSet('beramethode_library', JSON.stringify(restaure));
+                }
                 if (json.data.autosave) lsSet('beramethode_autosave_v1', JSON.stringify(json.data.autosave));
                 if (json.data.layouts) localStorage.setItem('beramethode_layouts', JSON.stringify(json.data.layouts));
                 setDbStatus('success');
