@@ -13,6 +13,7 @@
 
 import { pkey } from '../../lib/storageKeys';
 import { deshydraterModeles, nettoyerPhotosOrphelines, rehydraterModeles } from '../../lib/photosLocales';
+import { calculerKpisLocaux } from '../../lib/kpisLocaux';
 
 const TOMBSTONES_KEY = 'beramethode_tombstones';
 const SQLITE_EXPORT_KEY = '__bera_sqlite_export__';
@@ -279,6 +280,23 @@ const readCompany = () => {
 const handleGet = (pathname: string): any => {
   // Specials
   if (/^\/api\/auth\/me$/.test(pathname)) return { user: null };
+  // Indicateurs du tableau de bord : calcules ici, faute de serveur. Sans cela
+  // la requete tombait dans « aucun magasin pour ce chemin » et renvoyait un
+  // tableau vide — d'ou un tableau de bord entierement a zero alors que les
+  // donnees etaient bien la.
+  if (/^\/api\/dashboard\/kpis$/.test(pathname)) {
+    return calculerKpisLocaux({
+      planning: filterAlive('planning', readArray('planning')),
+      suivis: filterAlive('suivi', readArray('suivi')),
+      hrWorkers: readArray('hr/workers'),
+      hrPointage: readArray('hr/pointage'),
+      hrAvances: readArray('hr/avances'),
+      produits: readArray('magasin/products'),
+      lots: readArray('magasin/lots'),
+      mouvements: readArray('magasin/mouvements'),
+      demandesAppro: filterAlive('demandes-appro', readArray('demandes-appro')),
+    });
+  }
   if (/^\/api\/network-info$/.test(pathname)) return { ip: '127.0.0.1', host: 'static' };
   if (/^\/api\/settings$/.test(pathname)) return readJson('beramethode_settings') || {};
   // Identité société (onglet Entreprise de l'admin) — sinon « Chargement… » infini.

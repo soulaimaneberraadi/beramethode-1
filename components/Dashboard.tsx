@@ -195,11 +195,19 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
 
   const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
+  /**
+   * Va chercher les indicateurs — y compris en mode statique.
+   *
+   * Cet appel etait purement et simplement saute quand il n'y a pas de serveur
+   * (« if (IS_STATIC) return »), et le tableau de bord se rabattait sur
+   * `staticLiveKPIs`, qui ne calcule QUE le planning. Effectif actif, valeur du
+   * stock et avances n'avaient donc aucune source : ils affichaient « — » et
+   * « 0 » pendant que l'ecran Effectifs, lui, montrait les vingt-quatre
+   * personnes de la chaine. En mode statique la reponse vient desormais du
+   * relais `/api/*`, qui calcule les memes indicateurs a partir du stockage
+   * local — la lecture est immediate, aucun reseau n'est sollicite.
+   */
   const fetchKPIs = useCallback(() => {
-    if (IS_STATIC) {
-      setKpiLoading(false);
-      return;
-    }
     setKpiLoading((prev) => (liveConnected ? prev : true));
     fetch('/api/dashboard/kpis', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
@@ -220,8 +228,12 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
       // sur « Hors ligne ». On reflète le VRAI état : connectivité réseau réelle,
       // confirmée « en direct » dès qu'une synchro cloud a lieu (start/end/applied).
       const updateOnline = () => setLiveConnected(typeof navigator === 'undefined' ? true : navigator.onLine);
-      const onSynced = () => setLiveConnected(true);
+      // Une synchro qui vient d'aboutir a rempli le stockage local : c'est le
+      // moment de recompter. Sans ce rappel, les indicateurs resteraient sur
+      // l'etat d'avant l'arrivee des donnees.
+      const onSynced = () => { setLiveConnected(true); fetchKPIs(); };
       updateOnline();
+      fetchKPIs();
       window.addEventListener('online', updateOnline);
       window.addEventListener('offline', updateOnline);
       window.addEventListener('beramethode:cloud-sync-start', onSynced);
