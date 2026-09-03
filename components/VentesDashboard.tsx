@@ -16,7 +16,7 @@ import {
     TrendingUp, PackageX, AlertTriangle, RefreshCw, Users, Wallet, Boxes, Search, Filter, Receipt, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
-import { aujourdhui, ChampListe, ChampDate } from './ventes/champs';
+import { aujourdhui, jourLocal, ChampListe, ChampDate } from './ventes/champs';
 import EncoursDetail from './ventes/EncoursDetail';
 import PanneauDetail from './ventes/PanneauDetail';
 import { teinteDe } from './ventes/articles';
@@ -61,6 +61,9 @@ type ClientLigne = {
 type Donnees = {
     jours: number; depuis: string;
     serie: Array<{ jour: string; ca: number; pieces: number; tickets: number }>;
+    /** La meme serie, decomposee : une ligne par canal / par segment. */
+    serieCanal: Array<{ jour: string; cle: string; ca: number; pieces: number; tickets: number }>;
+    serieSegment: Array<{ jour: string; cle: string; ca: number; pieces: number; tickets: number }>;
     precedent: { du: string; au: string; ca: number; pieces: number; tickets: number };
     parJourSemaine: Array<{ jour: number; ca: number; pieces: number }>;
     concentration: { partTop3: number; clientsActifs: number };
@@ -88,6 +91,10 @@ type Donnees = {
 };
 
 const nf = (n: number) => (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+
+/** Les couleurs des courbes : lisibles cote a cote, et distinctes meme pour
+ *  un oeil qui confond le rouge et le vert (bleu / ambre / violet en tete). */
+const PALETTE_SERIES = ['#1e293b', '#2563eb', '#f59e0b', '#7c3aed', '#0d9488', '#e11d48', '#65a30d'];
 
 const TEINTE_STATUT: Record<Modele['statut'], string> = {
     TOP: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50',
@@ -123,6 +130,12 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
     const [recherche, setRecherche] = useState('');
     const [filtreModele, setFiltreModele] = useState<'TOUS' | Modele['statut']>('TOUS');
     const [filtresOuverts, setFiltresOuverts] = useState(false);
+    /** L'axe de decomposition de la courbe : une ligne par canal (boutique,
+     *  vente en ligne, atelier) ou par segment (detail, gros). Une courbe
+     *  unique dit que ca monte ; trois disent LAQUELLE monte. */
+    const [axeCourbe, setAxeCourbe] = useState<'canal' | 'segment'>('canal');
+    const [sansSerie, setSansSerie] = useState<string[]>([]);
+    const [cumule, setCumule] = useState(false);
     // Une tuile ne dit qu un total : le detail s ouvre par-dessus la page.
     // Pilote par l URL quand le parent le controle (voir Props), sinon local.
     const [detailLocal, setDetailLocal] = useState<VentesDetailKey>(null);
@@ -149,6 +162,10 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
             setData({
                 ...body,
                 serie: Array.isArray(body.serie) ? body.serie : [],
+                // Un serveur d'avant cette version ne decompose pas la courbe :
+                // l'ecran retombe alors sur la ligne unique, sans tomber.
+                serieCanal: Array.isArray(body.serieCanal) ? body.serieCanal : [],
+                serieSegment: Array.isArray(body.serieSegment) ? body.serieSegment : [],
                 precedent: body.precedent || { du: '', au: '', ca: 0, pieces: 0, tickets: 0 },
                 parJourSemaine: Array.isArray(body.parJourSemaine) ? body.parJourSemaine : [],
                 concentration: body.concentration || { partTop3: 0, clientsActifs: 0 },
@@ -273,6 +290,13 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
         aujourdhuiCourt: tx(lang, { fr: "Auj.", ar: "اليوم", en: "Today", es: "Hoy", pt: "Hoje", tr: "Bugun" }),
         aujourdhui: tx(lang, { fr: "Aujourd hui", ar: "اليوم", en: "Today", es: "Hoy", pt: "Hoje", tr: "Bugun" }),
         choisir: tx(lang, { fr: 'jj/mm/aaaa', ar: 'يوم/شهر/عام', en: 'dd/mm/yyyy', es: 'dd/mm/aaaa', pt: 'dd/mm/aaaa', tr: 'gg/aa/yyyy' }),
+        parMois: tx(lang, { fr: 'Mois', ar: 'شهر', en: 'Month', es: 'Mes', pt: 'Mes', tr: 'Ay' }),
+        parAnnee: tx(lang, { fr: 'Annee', ar: 'عام', en: 'Year', es: 'Ano', pt: 'Ano', tr: 'Yil' }),
+        precedent: tx(lang, { fr: 'Precedent', ar: 'السابق', en: 'Previous', es: 'Anterior', pt: 'Anterior', tr: 'Onceki' }),
+        suivant: tx(lang, { fr: 'Suivant', ar: 'التالي', en: 'Next', es: 'Siguiente', pt: 'Seguinte', tr: 'Sonraki' }),
+        total: tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' }),
+        comparer: tx(lang, { fr: 'Comparer', ar: 'قارن', en: 'Compare', es: 'Comparar', pt: 'Comparar', tr: 'Karsilastir' }),
+        cumule: tx(lang, { fr: 'Cumul', ar: 'التراكم', en: 'Cumulative', es: 'Acumulado', pt: 'Acumulado', tr: 'Kumulatif' }),
         retard: tx(lang, { fr: 'facture(s) en retard', ar: 'فاتورة متأخّرة', en: 'overdue invoice(s)', es: 'factura(s) vencida(s)', pt: 'fatura(s) vencida(s)', tr: 'gecikmis fatura' }),
     };
 
@@ -284,7 +308,10 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
     const serieComplete = useMemo(() => {
         type Pt = { jour: string; ca: number; pieces: number; tickets: number; vide: boolean };
         if (!data) return [] as Pt[];
-        const iso = (d: Date) => d.toISOString().slice(0, 10);
+        // Le fuseau, pas Greenwich : avec `toISOString()` le dernier jour
+        // manquait et la vente du jour n'apparaissait ni dans la courbe ni
+        // dans le jour par jour.
+        const iso = (d: Date) => jourLocal(d);
         const debut = du || data.depuis || data.serie[0]?.jour;
         const fin = au || iso(new Date());
         if (!debut) return [] as Pt[];
@@ -301,6 +328,33 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
         }
         return out.length ? out : data.serie.map(x => ({ ...x, vide: false }));
     }, [data, du, au]);
+
+    /** Une ligne par valeur de l'axe, alignee sur les MEMES jours que la
+     *  courbe : deux lignes qui ne partagent pas leur axe des x ne se
+     *  comparent pas, elles se superposent par hasard. */
+    const seriesAxe = useMemo(() => {
+        if (!data || serieComplete.length === 0) return [] as Array<{ cle: string; couleur: string; total: number; points: number[] }>;
+        const src = (axeCourbe === 'canal' ? data.serieCanal : data.serieSegment) || [];
+        const parCle = new Map<string, Map<string, number>>();
+        for (const r of src) {
+            if (!parCle.has(r.cle)) parCle.set(r.cle, new Map());
+            const m = parCle.get(r.cle)!;
+            m.set(r.jour, (m.get(r.jour) || 0) + (Number(r.ca) || 0));
+        }
+        return [...parCle.entries()]
+            .map(([cle, m]) => ({
+                cle,
+                total: [...m.values()].reduce((a, b) => a + b, 0),
+                points: serieComplete.map(j => m.get(j.jour) || 0),
+            }))
+            .sort((a, b) => b.total - a.total)
+            .map((x, i) => ({ ...x, couleur: PALETTE_SERIES[i % PALETTE_SERIES.length] }));
+    }, [data, axeCourbe, serieComplete]);
+
+    const seriesVisibles = useMemo(
+        () => seriesAxe.filter(x => !sansSerie.includes(x.cle)),
+        [seriesAxe, sansSerie],
+    );
 
     const modelesFiltres = useMemo(() => {
         if (!data) return [];
@@ -334,6 +388,58 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                 {children}
             </section>
         );
+
+    /** La courbe multi-lignes.
+     *
+     *  Le viewBox est en pourcentage d'aire (100x100) et les traits gardent
+     *  leur epaisseur reelle (`vector-effect`) : la meme courbe reste lisible
+     *  sur un telephone de 360 px et sur un ecran de bureau, sans recalcul.
+     *  Un seul jour n'a pas de segment a tracer : on pose un point, sinon la
+     *  ligne serait invisible et l'ecran paraitrait vide alors qu'il y a bien
+     *  une vente. */
+    const Courbes: React.FC<{
+        jours: string[];
+        series: Array<{ cle: string; couleur: string; points: number[] }>;
+        cumul: boolean;
+    }> = ({ jours, series, cumul }) => {
+        const cumuler = (p: number[]) => { let a = 0; return p.map(v => (a += v)); };
+        const traces = series.map(s => ({ ...s, valeurs: cumul ? cumuler(s.points) : s.points }));
+        const max = Math.max(1, ...traces.flatMap(t => t.valeurs));
+        const n = jours.length;
+        const x = (i: number) => (n <= 1 ? 50 : (i / (n - 1)) * 100);
+        const y = (v: number) => 100 - (v / max) * 92 - 4;
+        return (
+            <div className="relative">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-28 sm:h-40 overflow-visible">
+                    {[0, 25, 50, 75, 100].map(g => (
+                        <line key={g} x1="0" x2="100" y1={y((max * g) / 100)} y2={y((max * g) / 100)}
+                            className="stroke-slate-100 dark:stroke-dk-border" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                    ))}
+                    {traces.map(t => (
+                        <g key={t.cle}>
+                            <polyline
+                                points={t.valeurs.map((v, i) => `${x(i)},${y(v)}`).join(' ')}
+                                fill="none" stroke={t.couleur} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"
+                                vectorEffect="non-scaling-stroke"
+                            />
+                            {/* Les jours a vente sont marques : sur 90 jours, une
+                                journee isolee se perd sinon dans la ligne plate. */}
+                            {t.valeurs.map((v, i) => (v > 0 ? (
+                                <circle key={i} cx={x(i)} cy={y(v)} r="2.5" fill={t.couleur} vectorEffect="non-scaling-stroke">
+                                    <title>{`${jours[i]} · ${libelle(t.cle)} · ${nf(v)} ${currency}`}</title>
+                                </circle>
+                            ) : null))}
+                        </g>
+                    ))}
+                </svg>
+                {/* L'echelle : une courbe sans son maximum ne dit pas si le pic
+                    vaut 800 ou 80 000. */}
+                <span className="absolute top-0 left-0 text-[9px] font-bold tabular-nums text-slate-300 dark:text-dk-muted pointer-events-none">
+                    {nf(max)} {currency}
+                </span>
+            </div>
+        );
+    };
 
     /** « NON_PRECISE » vient des ventes anterieures au suivi du canal : on le
      *  nomme au lieu de laisser un mot de base de donnees a l'ecran. */
@@ -536,6 +642,71 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
         </Carte>
     );
 
+    /* -- La periode : jour, mois, annee -----------------------------------
+     * Un mois se choisit par son nom, pas par deux dates saisies a la main.
+     * Les bornes restent des dates : le serveur, lui, ne connait que du/au. */
+    const dernierJourDuMois = (a: number, m: number) => new Date(a, m + 1, 0);
+    const poserMois = (d: Date) => {
+        const a = d.getFullYear(), m = d.getMonth();
+        const fin = dernierJourDuMois(a, m);
+        setDu(jourLocal(new Date(a, m, 1)));
+        setAu(jourLocal(fin > new Date() ? new Date() : fin));
+    };
+    const poserAnnee = (a: number) => {
+        const fin = new Date(a, 11, 31);
+        setDu(jourLocal(new Date(a, 0, 1)));
+        setAu(jourLocal(fin > new Date() ? new Date() : fin));
+    };
+
+    /** Le mode se DEDUIT des bornes : un seul etat a tenir, donc jamais de
+     *  bouton allume sur une periode qui n'est plus la sienne. */
+    const modePeriode: 'jour' | 'mois' | 'annee' | 'perso' | 'fenetre' = useMemo(() => {
+        if (!du || !au) return 'fenetre';
+        if (du === au) return 'jour';
+        const d = new Date(du + 'T00:00:00');
+        const finMois = jourLocal(dernierJourDuMois(d.getFullYear(), d.getMonth()));
+        const finAnnee = jourLocal(new Date(d.getFullYear(), 11, 31));
+        const clot = (f: string) => au === f || au === aujourdhui();
+        if (d.getDate() === 1 && d.getMonth() === 0 && clot(finAnnee) && au >= jourLocal(new Date(d.getFullYear(), 0, 31))) return 'annee';
+        if (d.getDate() === 1 && clot(finMois)) return 'mois';
+        return 'perso';
+    }, [du, au]);
+
+    const etiquettePeriode = useMemo(() => {
+        if (!du) return '';
+        const d = new Date(du + 'T00:00:00');
+        if (modePeriode === 'annee') return String(d.getFullYear());
+        if (modePeriode === 'mois') return `${T.moisNoms[d.getMonth()]} ${d.getFullYear()}`;
+        if (modePeriode === 'jour') return `${du.slice(8, 10)}/${du.slice(5, 7)}/${du.slice(0, 4)}`;
+        return `${du.slice(8, 10)}/${du.slice(5, 7)} - ${au.slice(8, 10)}/${au.slice(5, 7)}`;
+    }, [du, au, modePeriode, T.moisNoms]);
+
+    /** Reculer d'un cran garde la NATURE de la periode : un mois recule d'un
+     *  mois, pas de trente jours - sinon fevrier deborde sur janvier. */
+    const decalerPeriode = (sens: 1 | -1) => {
+        if (!du) return;
+        const d = new Date(du + 'T00:00:00');
+        if (modePeriode === 'annee') return poserAnnee(d.getFullYear() + sens);
+        if (modePeriode === 'mois') return poserMois(new Date(d.getFullYear(), d.getMonth() + sens, 1));
+        if (modePeriode === 'jour') {
+            const n = new Date(d); n.setDate(n.getDate() + sens);
+            if (jourLocal(n) > aujourdhui()) return;
+            setDu(jourLocal(n)); setAu(jourLocal(n));
+            return;
+        }
+        // Periode libre : on la deplace de sa propre longueur.
+        const f = new Date(au + 'T00:00:00');
+        const largeur = Math.round((f.getTime() - d.getTime()) / 86400000) + 1;
+        const nd = new Date(d), nfin = new Date(f);
+        nd.setDate(nd.getDate() + sens * largeur);
+        nfin.setDate(nfin.getDate() + sens * largeur);
+        if (jourLocal(nd) > aujourdhui()) return;
+        setDu(jourLocal(nd));
+        setAu(jourLocal(nfin) > aujourdhui() ? aujourdhui() : jourLocal(nfin));
+    };
+
+    const peutAvancer = !!au && au < aujourdhui();
+
     const periodeLisible = serieComplete.length
         ? `${serieComplete[0].jour} → ${serieComplete[serieComplete.length - 1].jour}`
         : undefined;
@@ -551,12 +722,13 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
             <div className="flex flex-wrap items-center gap-2 min-w-0">
                 <h2 className="text-[13px] font-black uppercase tracking-[0.08em] text-slate-900 dark:text-dk-text mr-1">{T.titre}</h2>
 
+                {/* La periode : un jour, un mois, une annee - et les fleches
+                    pour reculer. Comparer septembre a aout demandait jusqu'ici
+                    de taper deux dates a la main, ce que personne ne fait. */}
                 <div className="bg-slate-100/70 dark:bg-dk-elevated rounded-lg p-0.5 inline-flex">
-                    {/* Le serveur ne descend pas sous 7 jours : aujourd'hui passe
-                        donc par les bornes de date, pas par la fenetre. */}
                     <button
                         onClick={() => { setDu(aujourdhui()); setAu(aujourdhui()); }}
-                        className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${du === aujourdhui() && au === aujourdhui()
+                        className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${modePeriode === 'jour'
                             ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm'
                             : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`}
                     >
@@ -573,7 +745,38 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                             {n}{T.jours.slice(0, 1)}
                         </button>
                     ))}
+                    <button
+                        onClick={() => poserMois(new Date())}
+                        className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${modePeriode === 'mois'
+                            ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm'
+                            : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`}
+                    >
+                        {T.parMois}
+                    </button>
+                    <button
+                        onClick={() => poserAnnee(new Date().getFullYear())}
+                        className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors ${modePeriode === 'annee'
+                            ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm'
+                            : 'text-slate-500 dark:text-dk-muted hover:text-slate-700'}`}
+                    >
+                        {T.parAnnee}
+                    </button>
                 </div>
+
+                {/* Le pas de recul : la meme fenetre, un cran plus tot. Elle ne
+                    depasse jamais aujourd'hui - un mois a venir n'a pas de
+                    ventes, seulement un tableau vide qui inquiete. */}
+                {modePeriode !== 'fenetre' && (
+                    <div className="inline-flex items-center gap-0.5 border border-slate-200 dark:border-dk-border rounded-lg bg-white dark:bg-dk-surface h-8 px-0.5">
+                        <button onClick={() => decalerPeriode(-1)} title={T.precedent}
+                            className="w-7 h-7 rounded-md text-slate-400 hover:text-slate-900 dark:hover:text-dk-text">&lsaquo;</button>
+                        <span className="px-1.5 text-[11px] font-bold tabular-nums text-slate-700 dark:text-dk-text whitespace-nowrap">
+                            {etiquettePeriode}
+                        </span>
+                        <button onClick={() => decalerPeriode(1)} title={T.suivant} disabled={!peutAvancer}
+                            className="w-7 h-7 rounded-md text-slate-400 enabled:hover:text-slate-900 dark:enabled:hover:text-dk-text disabled:opacity-30">&rsaquo;</button>
+                    </div>
+                )}
 
                 <button
                     onClick={() => setFiltresOuverts(v => !v)}
@@ -718,27 +921,57 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                                     <p className="text-[11px] text-slate-400 dark:text-dk-muted">{T.rien}</p>
                                 ) : (
                                     <>
-                                        <div className="flex items-end gap-[2px] h-24">
-                                            {(() => {
-                                                const max = Math.max(...serieComplete.map(x => x.ca), 1);
-                                                return serieComplete.map(p => {
-                                                    const h = p.vide ? 2 : Math.max(4, (p.ca / max) * 100);
-                                                    return (
-                                                        <div
-                                                            key={p.jour}
-                                                            title={p.vide ? `${p.jour} · —` : `${p.jour} · ${nf(p.ca)} ${currency} · ${nf(p.pieces)} ${T.piecesCourt}`}
-                                                            className={`flex-1 min-w-[2px] max-w-[22px] rounded-t transition-colors ${p.vide
-                                                                ? 'bg-slate-100 dark:bg-dk-elevated'
-                                                                : 'bg-slate-800 dark:bg-dk-accent hover:bg-slate-600'}`}
-                                                            style={{ height: `${h}%` }}
-                                                        />
-                                                    );
-                                                });
-                                            })()}
+                                        {/* L'axe se change d'un doigt : la meme
+                                            periode, lue par canal puis par
+                                            segment, ne raconte pas la meme
+                                            histoire commerciale. */}
+                                        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                            <div className="bg-slate-100/70 dark:bg-dk-elevated rounded-lg p-0.5 inline-flex">
+                                                {([['canal', T.parCanal], ['segment', T.parSegment]] as const).map(([k, t]) => (
+                                                    <button key={k} onClick={() => setAxeCourbe(k)}
+                                                        className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors ${axeCourbe === k
+                                                            ? 'bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text shadow-sm'
+                                                            : 'text-slate-500 dark:text-dk-muted'}`}>{t}</button>
+                                                ))}
+                                            </div>
+                                            <button onClick={() => setCumule(v => !v)}
+                                                className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-colors ${cumule
+                                                    ? 'bg-slate-900 dark:bg-dk-accent text-white border-transparent'
+                                                    : 'bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted border-slate-200 dark:border-dk-border'}`}>
+                                                {T.cumule}
+                                            </button>
                                         </div>
+
+                                        {seriesVisibles.length === 0 ? (
+                                            <p className="text-[11px] text-slate-400 dark:text-dk-muted py-8 text-center">{T.rien}</p>
+                                        ) : (
+                                            <Courbes jours={serieComplete.map(j => j.jour)} series={seriesVisibles} cumul={cumule} />
+                                        )}
+
+                                        {/* La legende porte le total de chaque
+                                            ligne et l'eteint d'un clic : une
+                                            grosse boutique ecrase les autres
+                                            courbes tant qu'on ne la retire pas. */}
+                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                            {seriesAxe.map(x => {
+                                                const off = sansSerie.includes(x.cle);
+                                                return (
+                                                    <button key={x.cle}
+                                                        onClick={() => setSansSerie(l => (off ? l.filter(c => c !== x.cle) : [...l, x.cle]))}
+                                                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px] font-bold transition-colors ${off
+                                                            ? 'border-slate-200 dark:border-dk-border text-slate-300 dark:text-dk-muted'
+                                                            : 'border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft bg-white dark:bg-dk-surface'}`}>
+                                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: off ? 'transparent' : x.couleur, border: `1.5px solid ${x.couleur}` }} />
+                                                        {libelle(x.cle)}
+                                                        <span className="tabular-nums text-slate-400 dark:text-dk-muted">{nf(x.total)}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
                                         <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-400 dark:text-dk-muted tabular-nums">
                                             <span>{serieComplete[0]?.jour}</span>
-                                            <span>{T.meilleurJour} : {(() => {
+                                            <span className="hidden sm:inline">{T.meilleurJour} : {(() => {
                                                 const best = [...data.serie].sort((a, b) => b.ca - a.ca)[0];
                                                 return best ? `${best.jour} · ${nf(best.ca)} ${currency}` : '—';
                                             })()}</span>

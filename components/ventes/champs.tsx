@@ -50,7 +50,15 @@ export const Flottant: React.FC<{ ancre: React.RefObject<HTMLElement>; largeurAn
  * les feuilles de detail les reutilisent : un selecteur natif ouvert au milieu
  * d'un panneau maison se voit immediatement.
  */
-export const aujourdhui = () => new Date().toISOString().slice(0, 10);
+/** La date du POSTE, pas celle de Greenwich : `toISOString()` bascule d'un
+ *  jour des que le fuseau n'est pas UTC, et une vente d'aujourd'hui tombait
+ *  alors hors de la periode affichee. */
+export const jourLocal = (d: Date = new Date()) => {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+export const aujourdhui = () => jourLocal();
 
 /** Le champ date natif affiche mm/dd/yyyy des que le navigateur est en
  *  anglais, et n'ouvre l'agenda que sur la petite icone. Ici la date se lit

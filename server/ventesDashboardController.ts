@@ -333,6 +333,31 @@ export const getVentesDashboard = (req: Request, res: Response) => {
             ORDER BY s.date_sortie
         `).all(...f.params) as any[];
 
+        // ── La même courbe, décomposée ───────────────────────────────────
+        // Une seule ligne dit « les ventes montent ». Trois lignes disent
+        // LAQUELLE monte : la boutique, la vente en ligne ou le gros. C'est
+        // la différence entre constater et décider.
+        const serieAxe = (colonne: 'canal' | 'type_vente') => db.prepare(`
+            SELECT s.date_sortie AS jour,
+                   COALESCE(s.${colonne}, 'NON_PRECISE') AS cle,
+                   SUM(s.quantite) AS pieces,
+                   SUM(s.quantite * s.prix_unitaire) AS ca,
+                   COUNT(DISTINCT COALESCE(s.ticket_ref, s.batch_id, s.id)) AS tickets
+            FROM st_stock_sorties s
+            WHERE ${f.where}
+            GROUP BY s.date_sortie, COALESCE(s.${colonne}, 'NON_PRECISE')
+            ORDER BY s.date_sortie
+        `).all(...f.params) as any[];
+        const normaliserSerieAxe = (l: any[]) => l.map(r => ({
+            jour: String(r.jour),
+            cle: String(r.cle),
+            pieces: Number(r.pieces) || 0,
+            ca: Number((Number(r.ca) || 0).toFixed(2)),
+            tickets: Number(r.tickets) || 0,
+        }));
+        const serieCanal = normaliserSerieAxe(serieAxe('canal'));
+        const serieSegment = normaliserSerieAxe(serieAxe('type_vente'));
+
         // ── Le même filtre, une fenêtre plus tôt ─────────────────────────
         const p = fenetrePrecedente(f.du, f.au);
         const clausesP = ['s.owner_id = ?', 's.date_sortie >= ?', 's.date_sortie <= ?'];
@@ -499,6 +524,8 @@ export const getVentesDashboard = (req: Request, res: Response) => {
                 ca: Number((Number(j.ca) || 0).toFixed(2)),
                 tickets: Number(j.tickets) || 0,
             })),
+            serieCanal,
+            serieSegment,
             precedent: {
                 du: p.du,
                 au: p.au,
