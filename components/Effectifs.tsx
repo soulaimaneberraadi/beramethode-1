@@ -1560,10 +1560,27 @@ export default function Effectifs({
                               key={`${row.id}-${c.id}`}
                               className={`px-2 py-2 text-center ${c.type === 'custom' && c.isHistorical ? 'bg-amber-50 dark:bg-amber-900/50' : ''}`}
                             >
+                              {/* Saisie de chiffres, et rien d'autre.
+
+                                  `type="number"` fait apparaitre sur iPhone le
+                                  clavier « chiffres ET ponctuation » : des
+                                  parentheses, des tirets, une livre sterling —
+                                  au milieu desquels il faut viser un chiffre,
+                                  debout devant une chaine. `inputMode` et
+                                  `pattern` demandent le pave numerique, celui
+                                  qui n'a que dix touches.
+
+                                  Le champ passe en `text` a dessein : c'est la
+                                  combinaison que les navigateurs mobiles
+                                  honorent. Rien n'est perdu — la saisie etait
+                                  deja filtree a la touche et a la frappe, et
+                                  sur ordinateur on gagne au passage de ne plus
+                                  changer un effectif d'un coup de molette. */}
                               <input
-                                type="number"
-                                min="0"
-                                step="1"
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                autoComplete="off"
                                 value={val === 0 ? '' : val}
                                 onKeyDown={(e) => {
                                   if (['.', ',', '-', 'e', 'E', '+'].includes(e.key)) {
