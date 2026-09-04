@@ -47,6 +47,26 @@ Deux causes, mesurées et corrigées :
    eu lieu *après* l'enregistrement serveur mais *avant* la réponse, le serveur
    reconnaît la clé et rend la réponse d'origine au lieu de réexécuter.
 
+### La synchronisation vers le serveur n'est pas touchée
+
+C'est la question qui compte : rien de tout cela ne doit ralentir ou fausser la
+remontée vers le serveur. Vérifié, mesuré :
+
+| Chemin de synchro | État |
+|---|---|
+| Flux SSE `/api/dashboard/kpis/stream` | Traverse le worker sans être mis en cache (161/161 événements reçus) |
+| `POST /api/sync/push-now` | Passe intact, jamais mis en file |
+| Supabase / `cloudSync` (URL absolue) | Hors de portée : le worker est *same-origin*, la file ne regarde que `/api/` |
+| Lectures pendant que le réseau est là | **Toujours le serveur** (network-first) — jamais une copie périmée |
+
+En corrigeant on a d'ailleurs trouvé une bévue introduite en élargissant le
+cache : un flux SSE ne se termine jamais, et `cache.put` sur son clone ne peut
+donc jamais aboutir — l'entrée n'apparaît d'ailleurs **jamais** dans le cache
+(mesuré : `[]`), pendant que le navigateur bufferise le clone tant que le
+tableau de bord reste ouvert. Les événements arrivaient quand même : ce n'était
+pas une panne, mais un travail commencé sans fin. Les flux sont désormais
+exclus, par leur adresse **et** par leur `Content-Type`.
+
 ### Ce qui n'entre jamais en file
 
 `/api/auth/`, `/api/gemini`, `/api/ai/`, `/api/license`, `/api/sync/`,

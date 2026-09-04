@@ -31,7 +31,13 @@ const CLE_PAGE = '/index.html';
 // Restent dehors ce qu il serait faux ou inutile de rendre depuis une copie :
 // se connecter, se deconnecter, l IA, la licence et la synchro.
 const API_LECTURE = /^\/api\//;
-const API_JAMAIS_EN_CACHE = /^\/api\/(auth\/(login|logout|register|reset)|gemini|ai\/|license|sync\/)/;
+//
+// `stream` en fait partie, et pour une raison plus grave que les autres : un
+// flux SSE (`/api/dashboard/kpis/stream`) ne se termine JAMAIS. Le mettre en
+// cache reviendrait a en lire le corps jusqu'au bout — c'est-a-dire a le
+// retenir indefiniment, en memoire, pendant que le tableau de bord attend ses
+// chiffres.
+const API_JAMAIS_EN_CACHE = /^\/api\/(auth\/(login|logout|register|reset)|gemini|ai\/|license|sync\/|.*stream)/;
 const CODE_REGEX = /\.(js|css)$/;
 const MEDIA_REGEX = /\.(png|jpg|jpeg|gif|svg|ico|woff2?)$/;
 
@@ -212,7 +218,12 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(request)
         .then((res) => {
-          if (res.ok) {
+          // Ceinture ET bretelles : une route de flux qui ne dirait pas
+          // « stream » dans son adresse se reconnait encore a son type. La
+          // mettre en cache figerait le tableau de bord sur une attente sans
+          // fin.
+          const flux = /event-stream/i.test(res.headers.get('content-type') || '');
+          if (res.ok && !flux) {
             const copie = res.clone();
             caches.open(CACHE_DONNEES).then((c) => c.put(request, copie)).catch(() => {});
           }
