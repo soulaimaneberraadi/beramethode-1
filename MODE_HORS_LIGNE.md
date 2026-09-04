@@ -12,6 +12,27 @@ tombe, cela veut dire ressaisir une demi-journée de pointage.
 | `server/idempotence.ts` | Empêche un renvoi de créer une deuxième facture / sortie de stock |
 | `public/sw.js` | Garde en cache **toutes** les lectures `/api/`, et ne masque plus l'échec des écritures |
 | `components/shared/BandeauHorsLigne.tsx` | Affiche le nombre de saisies en attente, l'envoi en cours, les refus |
+| `vite.config.ts` + `public/sw.js` | Écrit et précharge la liste **complète** des fichiers du build |
+| `lib/lazyWithRetry.ts` | Ne recharge plus la page hors réseau (c'était la page noire) |
+
+## Pourquoi l'écran restait noir
+
+Deux causes, mesurées et corrigées :
+
+1. **11 fichiers JS sur 57 étaient gardés.** Le worker ne préchargeait que la
+   coquille et les scripts cités dans `index.html`. Tous les écrans chargés en
+   `lazy` (planning, magasin, facturation…) n'arrivaient qu'au moment où on les
+   ouvrait — donc seulement avec du réseau. Couper le Wi-Fi avant d'avoir visité
+   un écran, et cet écran n'existait plus : import dynamique en échec, page
+   noire. La liste complète est désormais écrite à la construction
+   (`dist/sw-precache.json`) et rangée dès l'installation, puis regarnie à
+   chaque déploiement (un déploiement renomme tous les fichiers).
+
+2. **`lazyWithRetry` rechargeait la page.** Ce rechargement répare le cas pour
+   lequel il a été écrit — un chunk supprimé par un déploiement. Sans réseau il
+   ne répare rien : il rouvre la même page, qui redemande le même fichier
+   absent, et entre les deux l'écran est noir. Hors ligne, l'erreur remonte
+   maintenant au garde-fou, qui explique et propose de revenir au menu.
 
 ## Comment ça marche
 
@@ -47,6 +68,10 @@ tombe, cela veut dire ressaisir une demi-journée de pointage.
 
 ## Vérifications effectuées
 
+- Hors ligne dans un vrai Chromium, **sans avoir ouvert un seul écran au
+  préalable** : 57 fichiers JS gardés (contre 11), la page s'ouvre, le tableau
+  de bord s'ouvre, l'écran « Planning » — jamais visité en ligne — s'affiche,
+  aucun échec d'import dynamique.
 - Idempotence serveur : un rejeu ne réexécute pas (compteur inchangé, en-tête
   `X-Bera-Rejeu`) ; un échec `4xx` n'est **pas** mémorisé et reste rejouable ;
   une requête sans clé passe intacte.

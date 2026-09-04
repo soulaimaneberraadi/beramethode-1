@@ -14,7 +14,7 @@
 // jamais sur l'appareil, surtout mobile/PWA). Le cache ne sert que de repli
 // hors-ligne. Les médias (images/polices) restent en cache-first (rarement
 // modifiés). Bump du nom de cache → l'ancien cache est purgé à l'activation.
-const CACHE = 'beramethode-v7';
+const CACHE = 'beramethode-v8';
 const CACHE_DONNEES = 'beramethode-donnees-v1';
 
 const CLE_PAGE = '/index.html';
@@ -87,7 +87,30 @@ const precharger = async () => {
   const adresses = new Set(
     [...html.matchAll(/(?:src|href)="(\/[^"]+\.(?:js|css))"/g)].map((m) => m[1]),
   );
-  await Promise.all([...adresses].map((a) => cache.add(a).catch(() => undefined)));
+
+  // La coquille ne cite que ses entrees : onze fichiers sur cinquante-sept.
+  // Tous les ecrans charges en `lazy` — planning, magasin, facturation — n
+  // arrivaient qu au moment ou on les ouvrait, donc seulement avec du reseau.
+  // Couper le Wi-Fi avant d avoir visite un ecran, et il n existait plus :
+  // import dynamique en echec, page NOIRE. La liste ecrite a la construction
+  // les nomme tous ; on les range des l installation.
+  try {
+    const liste = await fetch('/sw-precache.json', { cache: 'reload' });
+    if (liste.ok) {
+      const { fichiers } = await liste.json();
+      if (Array.isArray(fichiers)) fichiers.forEach((f) => adresses.add(f));
+    }
+  } catch {
+    // Pas de liste (ancienne version, reseau coupe en plein vol) : on garde au
+    // moins la coquille. Le reste se mettra en cache au fil des visites.
+  }
+
+  // Par paquets : `addAll` echoue en bloc des qu un seul fichier manque, et
+  // cinquante-sept telechargements lances d un coup etranglent un telephone.
+  const tableau = [...adresses];
+  for (let i = 0; i < tableau.length; i += 6) {
+    await Promise.all(tableau.slice(i, i + 6).map((a) => cache.add(a).catch(() => undefined)));
+  }
 };
 
 self.addEventListener('install', (e) => {
@@ -101,6 +124,11 @@ self.addEventListener('activate', (e) => {
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE && k !== CACHE_DONNEES).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
+      // Un nouveau deploiement renomme tous les fichiers : le cache qu on vient
+      // de purger est vide, et l appareil serait a nouveau sans rien hors
+      // reseau jusqu a ce qu on rouvre chaque ecran. On le regarnit tout de
+      // suite, pendant que la connexion est encore la.
+      .then(() => precharger().catch(() => undefined))
   );
 });
 

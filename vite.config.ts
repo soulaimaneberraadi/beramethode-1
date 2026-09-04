@@ -1,7 +1,37 @@
+import fs from 'fs';
 import path from 'path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import obfuscator from 'vite-plugin-javascript-obfuscator';
+
+/**
+ * La liste de TOUT ce que l'application a besoin pour s'ouvrir sans reseau.
+ *
+ * Le service worker mettait de cote la coquille et les scripts cites dans
+ * `index.html` — onze fichiers sur cinquante-sept. Tout le reste (chaque ecran
+ * charge en `lazy` : le planning, le magasin, la facturation...) n'arrivait
+ * qu'au moment ou on l'ouvrait, donc seulement si le reseau etait la. Couper le
+ * Wi-Fi avant d'avoir visite un ecran, et cet ecran n'existait plus : import
+ * dynamique en echec, page NOIRE.
+ *
+ * On ecrit donc la liste complete a la construction, et le worker la precharge
+ * d'un bloc. L'atelier peut alors ouvrir n'importe quel ecran hors reseau, y
+ * compris un ecran qu'il n'avait jamais ouvert.
+ */
+const listePrechargement = () => ({
+  name: 'bera-liste-prechargement',
+  apply: 'build' as const,
+  writeBundle(_options: unknown, bundle: Record<string, unknown>) {
+    const fichiers = Object.keys(bundle)
+      .filter((f) => /\.(js|css)$/.test(f))
+      .map((f) => '/' + f);
+    fs.writeFileSync(
+      path.resolve('dist', 'sw-precache.json'),
+      JSON.stringify({ genere: Date.now(), fichiers }, null, 2),
+    );
+    console.log(`  📦 sw-precache.json : ${fichiers.length} fichiers a garder hors ligne`);
+  },
+});
 
 export default defineConfig(({ mode }) => {
   // base './' uniquement pour le build Electron (fichiers chargés via file://)
@@ -45,6 +75,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      listePrechargement(),
       // Pas d'obfuscation en mode 'static' (Vercel) NI 'electron' (EXE) :
       // l'obfuscation (controlFlowFlattening + deadCodeInjection) casse les
       // imports dynamiques (React.lazy) → "Failed to fetch dynamically imported".

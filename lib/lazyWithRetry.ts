@@ -47,6 +47,20 @@ export function lazyWithRetry<T extends ComponentType<any>>(
       }
       return module;
     } catch (error) {
+      // HORS RESEAU, ne PAS recharger.
+      //
+      // Le rechargement repare le cas pour lequel il a ete ecrit : un chunk
+      // supprime par un nouveau deploiement, que la page suivante ira chercher
+      // a sa nouvelle adresse. Sans reseau il ne repare rien — il rouvre la
+      // meme page, qui redemande le meme fichier absent. Entre les deux, la
+      // Suspense reste en attente et l'ecran est NOIR : la personne devant sa
+      // machine ne voit ni erreur, ni explication, ni bouton. Mieux vaut
+      // laisser l'erreur remonter jusqu'au garde-fou, qui dit ce qui manque et
+      // propose de revenir au menu.
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        throw error;
+      }
+
       if (
         typeof window !== 'undefined' &&
         isRecoverableChunkError(error)
