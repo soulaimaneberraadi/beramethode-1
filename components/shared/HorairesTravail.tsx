@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, MoreVertical, Clock, X } from 'lucide-react';
+import { Plus, Trash2, MoreVertical, Clock, X, AlertTriangle } from 'lucide-react';
 import type { AppSettings, Pause } from '../../types';
+import { creneauxDuJour } from '../../lib/horaires';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import SheetModal from './SheetModal';
@@ -176,6 +177,8 @@ export default function HorairesTravail({ draft, onChange }: HorairesTravailProp
                     pauses={draft.pauses || []}
                     onUpdate={updatePause}
                     onRemove={removePause}
+                    dayStart={draft.workingHoursStart}
+                    dayEnd={draft.workingHoursEnd}
                 />
             </div>
 
@@ -230,17 +233,114 @@ export default function HorairesTravail({ draft, onChange }: HorairesTravailProp
 /* Liste de pauses (réutilisée pour le global et pour un jour)          */
 /* ------------------------------------------------------------------ */
 
-function PauseList({ lang, t, pauses, onUpdate, onRemove }: {
+/** "HH:MM" -> minutes depuis minuit (NaN si vide/illisible). */
+function hhmmToMin(v: string | undefined | null): number {
+    if (!v) return NaN;
+    const m = /^(\d{1,2}):(\d{2})/.exec(v);
+    if (!m) return NaN;
+    return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function minToHHMM(m: number): string {
+    return `${Math.floor(m / 60).toString().padStart(2, '0')}:${(m % 60).toString().padStart(2, '0')}`;
+}
+
+/** Durée lisible : 45 -> "45 m", 735 -> "12h15" (735 m ne saute pas aux yeux). */
+function dureeLisible(min: number | undefined): string {
+    const v = Number(min) || 0;
+    if (v < 60) return `${v} m`;
+    const h = Math.floor(v / 60);
+    const r = v % 60;
+    return r === 0 ? `${h}h` : `${h}h${String(r).padStart(2, '0')}`;
+}
+
+interface PauseAnomalie {
+    niveau: 'erreur' | 'alerte';
+    message: string;
+    /** Heure de fin proposée en un tap (confusion AM/PM sur téléphone). */
+    correctionFin?: string;
+}
+
+/**
+ * Contrôle d'une pause face à l'horaire de l'atelier.
+ *
+ * POURQUOI : le sélecteur d'heure d'iOS est en AM/PM — saisir « 9:15 PM » au
+ * lieu de « 9:15 AM » donnait une pause de 735 min (12h15) acceptée sans un
+ * mot, qui avalait toute la journée dans la grille de Suivi. Rien n'avertissait
+ * l'utilisateur : la case affichait juste « 735 m ».
+ */
+function analyserPause(pause: Pause, autres: Pause[], dayStartMin: number, dayEndMin: number, lang: string): PauseAnomalie | null {
+    const s = hhmmToMin(pause.start);
+    const e = hhmmToMin(pause.end);
+    if (!Number.isFinite(s) || !Number.isFinite(e)) return null;
+
+    if (e <= s) {
+        return {
+            niveau: 'erreur',
+            message: tx(lang, { fr: "L'heure de fin est avant l'heure de début.", ar: 'وقت النهاية قبل وقت البداية.', en: 'End time is before start time.', es: 'La hora de fin es anterior a la de inicio.', pt: 'A hora de fim é anterior à de início.', tr: 'Bitiş saati başlangıçtan önce.' }),
+        };
+    }
+
+    const horsAtelier = Number.isFinite(dayStartMin) && Number.isFinite(dayEndMin) && (s < dayStartMin || e > dayEndMin);
+    if (horsAtelier) {
+        /* Confusion AM/PM : 21:15 alors que 09:15 tient dans la journée. */
+        const versMatin = e - 12 * 60;
+        const correctionFin = e > dayEndMin && versMatin > s && versMatin <= dayEndMin ? minToHHMM(versMatin) : undefined;
+        return {
+            niveau: 'erreur',
+            message: tx(lang, { fr: `Hors horaire de l'atelier (${minToHHMM(dayStartMin)} → ${minToHHMM(dayEndMin)}).`, ar: `خارج توقيت الورشة (${minToHHMM(dayStartMin)} → ${minToHHMM(dayEndMin)}).`, en: `Outside workshop hours (${minToHHMM(dayStartMin)} → ${minToHHMM(dayEndMin)}).`, es: `Fuera del horario del taller (${minToHHMM(dayStartMin)} → ${minToHHMM(dayEndMin)}).`, pt: `Fora do horário da oficina (${minToHHMM(dayStartMin)} → ${minToHHMM(dayEndMin)}).`, tr: `Atölye mesaisi dışında (${minToHHMM(dayStartMin)} → ${minToHHMM(dayEndMin)}).` }),
+            correctionFin,
+        };
+    }
+
+    const chevauche = autres.some(o => {
+        const os = hhmmToMin(o.start);
+        const oe = hhmmToMin(o.end);
+        return Number.isFinite(os) && Number.isFinite(oe) && oe > os && Math.min(e, oe) > Math.max(s, os);
+    });
+    if (chevauche) {
+        return {
+            niveau: 'alerte',
+            message: tx(lang, { fr: 'Chevauche une autre pause.', ar: 'تتداخل مع استراحة أخرى.', en: 'Overlaps another break.', es: 'Se solapa con otra pausa.', pt: 'Sobrepõe outra pausa.', tr: 'Başka bir molayla çakışıyor.' }),
+        };
+    }
+
+    if (e - s >= 240) {
+        return {
+            niveau: 'alerte',
+            message: tx(lang, { fr: 'Pause de plus de 4 h — vérifiez AM / PM.', ar: 'استراحة تتجاوز 4 ساعات — تحقّق من AM / PM.', en: 'Break longer than 4 h — check AM / PM.', es: 'Pausa de más de 4 h — verifique AM / PM.', pt: 'Pausa de mais de 4 h — verifique AM / PM.', tr: '4 saatten uzun mola — AM / PM kontrol edin.' }),
+        };
+    }
+
+    return null;
+}
+
+function PauseList({ lang, t, pauses, onUpdate, onRemove, dayStart, dayEnd }: {
     lang: string;
     t: any;
     pauses: Pause[];
     onUpdate: (id: string, field: 'start' | 'end' | 'name', value: string) => void;
     onRemove: (id: string) => void;
+    /** Bornes de la journée d'atelier, pour signaler une pause qui en sort. */
+    dayStart: string;
+    dayEnd: string;
 }) {
+    const dayStartMin = hhmmToMin(dayStart);
+    const dayEndMin = hhmmToMin(dayEnd);
+
     return (
         <div className="space-y-3">
-            {pauses.map((pause, index) => (
-                <div key={pause.id} className="flex flex-col gap-3 bg-slate-50 dark:bg-dk-bg p-3 rounded-xl border border-slate-200 dark:border-dk-border hover:border-indigo-200 transition-colors">
+            {pauses.map((pause, index) => {
+                const anomalie = analyserPause(pause, pauses.filter(p => p.id !== pause.id), dayStartMin, dayEndMin, lang);
+                const enErreur = anomalie?.niveau === 'erreur';
+                return (
+                <div key={pause.id} className={`flex flex-col gap-3 p-3 rounded-xl border transition-colors ${
+                    enErreur
+                        ? 'bg-rose-50/70 dark:bg-rose-900/20 border-rose-300 dark:border-rose-800'
+                        : anomalie
+                            ? 'bg-amber-50/70 dark:bg-amber-900/20 border-amber-300 dark:border-amber-800'
+                            : 'bg-slate-50 dark:bg-dk-bg border-slate-200 dark:border-dk-border hover:border-indigo-200'
+                }`}>
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-400 dark:text-dk-muted">{index + 1}.</span>
                         <button type="button" onClick={() => onRemove(pause.id)} className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 border border-transparent hover:border-rose-100 rounded-lg transition-colors" title={tx(lang, { fr: 'Supprimer cette pause', ar: 'حذف هذا الاستراحة', en: 'Delete this break', es: 'Eliminar esta pausa', pt: 'Eliminar esta pausa', tr: 'Bu molayı sil' })}>
@@ -262,13 +362,34 @@ function PauseList({ lang, t, pauses, onUpdate, onRemove }: {
                         </div>
                         <div>
                             <span className="text-[10px] uppercase text-slate-400 dark:text-dk-muted font-bold block mb-1">{t.pauseDuration}</span>
-                            <div className="w-full min-h-[44px] flex items-center justify-center bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100 rounded-lg px-2 py-1.5 text-center text-sm font-bold text-indigo-700 dark:text-dk-accent-text select-none">
-                                {pause.durationMin} m
+                            <div className={`w-full min-h-[44px] flex items-center justify-center border rounded-lg px-2 py-1.5 text-center text-sm font-bold select-none ${
+                                enErreur
+                                    ? 'bg-rose-100 dark:bg-rose-900/40 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                                    : 'bg-indigo-50 dark:bg-dk-accent/20 border-indigo-100 text-indigo-700 dark:text-dk-accent-text'
+                            }`}>
+                                {dureeLisible(pause.durationMin)}
                             </div>
                         </div>
                     </div>
+
+                    {anomalie && (
+                        <div className={`flex flex-wrap items-center gap-2 text-[11px] font-bold ${enErreur ? 'text-rose-700 dark:text-rose-300' : 'text-amber-700 dark:text-amber-300'}`}>
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{anomalie.message}</span>
+                            {anomalie.correctionFin && (
+                                <button
+                                    type="button"
+                                    onClick={() => onUpdate(pause.id, 'end', anomalie.correctionFin!)}
+                                    className="px-2 py-1 rounded-md bg-white dark:bg-dk-surface border border-current hover:opacity-80 transition-opacity"
+                                >
+                                    {tx(lang, { fr: `Corriger → ${anomalie.correctionFin}`, ar: `تصحيح ← ${anomalie.correctionFin}`, en: `Fix → ${anomalie.correctionFin}`, es: `Corregir → ${anomalie.correctionFin}`, pt: `Corrigir → ${anomalie.correctionFin}`, tr: `Düzelt → ${anomalie.correctionFin}` })}
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
-            ))}
+                );
+            })}
             {pauses.length === 0 && (
                 <p className="text-sm text-slate-500 dark:text-dk-muted italic text-center py-4 bg-slate-50 dark:bg-dk-bg rounded-lg border border-dashed border-slate-200 dark:border-dk-border">
                     {tx(lang, { fr: 'Aucune pause définie pour le moment.', ar: 'لا توجد أي استراحة معرفة حالياً.', en: 'No break defined at the moment.', es: 'Ninguna pausa definida por el momento.', pt: 'Nenhuma pausa definida de momento.', tr: 'Henüz mola tanımlanmamış.' })}
@@ -302,6 +423,18 @@ function DayOverrideEditor({
     const closed = override?.closed === true;
     const pauses = override?.pauses ?? globalPauses;
     const usesOwnPauses = override?.pauses != null;
+    const dayStart = override?.start ?? globalStart;
+    const dayEnd = override?.end ?? globalEnd;
+
+    /* Aperçu calculé par la MÊME fonction que la grille de Suivi : ce que
+       l'atelier verra vraiment. Une pause aberrante (AM/PM) se voit ici tout
+       de suite — le total tombe à 2 h au lieu de 9 h 45. */
+    const apercu = React.useMemo(() => {
+        const faux = { workingHoursStart: dayStart, workingHoursEnd: dayEnd, pauses } as unknown as AppSettings;
+        const creneaux = creneauxDuJour(faux);
+        const total = creneaux.reduce((acc, c) => acc + c.duration, 0);
+        return { nb: creneaux.length, total };
+    }, [dayStart, dayEnd, pauses]);
 
     return (
         <div className="space-y-5">
@@ -325,6 +458,15 @@ function DayOverrideEditor({
                         </div>
                     </div>
 
+                    <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 dark:border-dk-border">
+                        <span className="text-[11px] font-bold text-indigo-700 dark:text-dk-accent-text">
+                            {tx(lang, { fr: 'Production nette de ce jour', ar: 'الإنتاج الصافي لهذا اليوم', en: 'Net production this day', es: 'Producción neta de este día', pt: 'Produção líquida deste dia', tr: 'Bu günün net üretimi' })}
+                        </span>
+                        <span className="text-sm font-black tabular-nums text-indigo-800 dark:text-dk-accent-text shrink-0">
+                            {dureeLisible(apercu.total)} · {apercu.nb} {tx(lang, { fr: 'créneaux', ar: 'فترات', en: 'slots', es: 'tramos', pt: 'intervalos', tr: 'dilim' })}
+                        </span>
+                    </div>
+
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-bold uppercase text-slate-500 dark:text-dk-muted">{t.pauses}</span>
@@ -337,7 +479,15 @@ function DayOverrideEditor({
                                 {tx(lang, { fr: 'Pauses générales affichées ici. Ajouter une pause pour ce jour crée sa propre liste.', ar: 'الاستراحات العامة معروضة هنا. إضافة استراحة لهذا اليوم تنشئ قائمته الخاصة.', en: 'General breaks shown here. Adding a break for this day creates its own list.', es: 'Pausas generales mostradas aquí. Añadir una pausa para este día crea su propia lista.', pt: 'Pausas gerais mostradas aqui. Adicionar uma pausa para este dia cria a sua própria lista.', tr: 'Genel molalar burada gösterilir. Bu gün için mola eklemek kendi listesini oluşturur.' })}
                             </p>
                         )}
-                        <PauseList lang={lang} t={t} pauses={pauses} onUpdate={onUpdatePause} onRemove={onRemovePause} />
+                        <PauseList
+                            lang={lang}
+                            t={t}
+                            pauses={pauses}
+                            onUpdate={onUpdatePause}
+                            onRemove={onRemovePause}
+                            dayStart={override?.start ?? globalStart}
+                            dayEnd={override?.end ?? globalEnd}
+                        />
                     </div>
                 </>
             )}
