@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import type { AppSettings, ModelData, PlanningEvent, SuiviData, MaterialReceipt, InventoryMovement, MouvementStock, PlanningStatus } from '../types';
 import { deriveHourGrid, type HourBlock } from './suivi/shared/hours';
+import { horairesDuJour, dayNumberFromDate } from '../lib/horaires';
 
 /** Creneau de la grille, plus un marqueur pour les saisies hors horaire du jour. */
 type GridBlock = HourBlock & { orphan?: boolean };
@@ -1830,6 +1831,26 @@ export default function SuiviProduction({
                                 const dm = getDailyMetrics(selectedChartDate);
                                 return (
                                     <>
+                                        {/* Quel horaire la grille a-t-elle appliqué ? Sans cette ligne, un
+                                            horaire de jour resté dans le brouillon (non enregistré) était
+                                            indiscernable d'un horaire appliqué : la grille montrait les
+                                            créneaux généraux sans dire pourquoi. */}
+                                        {(() => {
+                                            const jour = new Date(selectedChartDate);
+                                            const h = horairesDuJour(settings, jour);
+                                            const propre = !!settings?.dayScheduleOverrides?.[dayNumberFromDate(jour)];
+                                            return (
+                                                <div className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold ${propre ? 'bg-indigo-50 dark:bg-dk-accent/20 border-indigo-100 dark:border-dk-border text-indigo-700 dark:text-dk-accent-text' : 'bg-slate-50 dark:bg-dk-bg border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted'}`}>
+                                                    <span className="tabular-nums">{h.start} → {h.end}</span>
+                                                    <span>
+                                                        {propre
+                                                            ? tx(lang, { fr: 'horaire de ce jour', ar: 'توقيت هذا اليوم', en: 'this day schedule', es: 'horario de este día', pt: 'horário deste dia', tr: 'bu günün mesaisi' })
+                                                            : tx(lang, { fr: 'horaire général', ar: 'التوقيت العام', en: 'general schedule', es: 'horario general', pt: 'horário geral', tr: 'genel mesai' })}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
+
                                         {/* Résumé jour compact */}
                                         <div className="grid grid-cols-4 gap-1.5">
                                             {[

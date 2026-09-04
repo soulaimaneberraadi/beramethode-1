@@ -133,7 +133,7 @@ export function CompanyParamsSection({ settings, setSettings, lang }) {
                         </div>
 
                         {/* Heures / jours / pauses / exceptions par jour : UNIQUE éditeur, partagé. */}
-                        <HorairesTravail draft={draft} onChange={setDraft} />
+                        <HorairesTravail draft={draft} onChange={setDraft} isDirty={isDirty} onSave={handleSave} isSaving={isSaving} />
             </div>
             <SaveBar lang={lang} isDirty={isDirty} isSaving={isSaving} showToast={showToast} onSave={handleSave} />
         </div>
