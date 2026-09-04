@@ -25,6 +25,11 @@ import { TRANSLATIONS } from '../configTranslations';
 interface HorairesTravailProps {
     draft: AppSettings;
     onChange: (updater: (prev: AppSettings) => AppSettings) => void;
+    /** Le brouillon de la page hôte contient des changements non enregistrés. */
+    isDirty?: boolean;
+    /** Enregistrement de la page hôte, pour que « Terminé » sauvegarde vraiment. */
+    onSave?: () => void | Promise<void>;
+    isSaving?: boolean;
 }
 
 function makePause(): Pause {
@@ -40,7 +45,7 @@ function recomputeDuration(p: Pause): Pause {
     return { ...p, durationMin: diff };
 }
 
-export default function HorairesTravail({ draft, onChange }: HorairesTravailProps) {
+export default function HorairesTravail({ draft, onChange, isDirty, onSave, isSaving }: HorairesTravailProps) {
     const { lang } = useLang();
     const t = pickT(TRANSLATIONS, lang);
     const [dayModalFor, setDayModalFor] = useState<number | null>(null);
@@ -199,12 +204,25 @@ export default function HorairesTravail({ draft, onChange }: HorairesTravailProp
                                     {tx(lang, { fr: 'Revenir à l\'horaire général', ar: 'الرجوع إلى التوقيت العام', en: 'Revert to general schedule', es: 'Volver al horario general', pt: 'Voltar ao horário geral', tr: 'Genel çalışma saatine dön' })}
                                 </button>
                             )}
+                            {/* « Terminé » ne faisait que fermer la feuille : l'horaire du jour
+                                restait dans le brouillon, et il fallait retrouver le bouton
+                                d'enregistrement en bas d'une longue page — sur téléphone, personne
+                                ne le voyait. La grille de Suivi affichait donc encore l'horaire
+                                général. Ici le bouton ENREGISTRE quand la page hôte le permet. */}
                             <button
                                 type="button"
-                                onClick={() => setDayModalFor(null)}
-                                className="px-5 py-2.5 min-h-[44px] rounded-xl text-sm font-bold bg-indigo-600 dark:bg-dk-accent text-white hover:bg-indigo-700 transition-colors"
+                                disabled={isSaving}
+                                onClick={async () => {
+                                    if (onSave) { try { await onSave(); } catch { /* la page hôte signale l'échec */ } }
+                                    setDayModalFor(null);
+                                }}
+                                className="px-5 py-2.5 min-h-[44px] rounded-xl text-sm font-bold bg-indigo-600 dark:bg-dk-accent text-white hover:bg-indigo-700 disabled:opacity-60 transition-colors"
                             >
-                                {tx(lang, { fr: 'Terminé', ar: 'تم', en: 'Done', es: 'Hecho', pt: 'Concluído', tr: 'Tamam' })}
+                                {isSaving
+                                    ? '…'
+                                    : onSave
+                                        ? tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' })
+                                        : tx(lang, { fr: 'Terminé', ar: 'تم', en: 'Done', es: 'Hecho', pt: 'Concluído', tr: 'Tamam' })}
                             </button>
                         </>
                     )}
@@ -212,6 +230,7 @@ export default function HorairesTravail({ draft, onChange }: HorairesTravailProp
                     <DayOverrideEditor
                         lang={lang}
                         t={t}
+                        nonEnregistre={!!isDirty}
                         globalStart={draft.workingHoursStart}
                         globalEnd={draft.workingHoursEnd}
                         globalPauses={draft.pauses || []}
@@ -404,11 +423,13 @@ function PauseList({ lang, t, pauses, onUpdate, onRemove, dayStart, dayEnd }: {
 /* ------------------------------------------------------------------ */
 
 function DayOverrideEditor({
-    lang, t, globalStart, globalEnd, globalPauses, override,
+    lang, t, globalStart, globalEnd, globalPauses, override, nonEnregistre,
     onSetClosed, onSetStart, onSetEnd, onAddPause, onUpdatePause, onRemovePause,
 }: {
     lang: string;
     t: any;
+    /** Affiche que ces réglages ne sont pas encore enregistrés. */
+    nonEnregistre?: boolean;
     globalStart: string;
     globalEnd: string;
     globalPauses: Pause[];
@@ -438,6 +459,14 @@ function DayOverrideEditor({
 
     return (
         <div className="space-y-5">
+            {nonEnregistre && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                        {tx(lang, { fr: "Non enregistré — la grille de Suivi garde l'horaire général tant que vous n'enregistrez pas.", ar: 'غير محفوظ — تبقى شبكة المتابعة على التوقيت العام حتى تحفظ.', en: 'Not saved — the tracking grid keeps the general schedule until you save.', es: 'Sin guardar — la cuadrícula de seguimiento mantiene el horario general hasta que guarde.', pt: 'Não guardado — a grelha de acompanhamento mantém o horário geral até guardar.', tr: 'Kaydedilmedi — kaydedene kadar takip ızgarası genel mesaiyi kullanır.' })}
+                    </span>
+                </div>
+            )}
             <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg cursor-pointer min-h-[44px]">
                 <input type="checkbox" checked={closed} onChange={(e) => onSetClosed(e.target.checked)} className="w-5 h-5 accent-rose-600" />
                 <span className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">
