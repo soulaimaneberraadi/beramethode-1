@@ -10,8 +10,10 @@ export interface HourBlock {
     end: string;
     /** Étiquette complète affichée dans la grille : "08:00/09:00". */
     label: string;
-    /** Durée réelle en minutes (60, ou moins si la pause / la fin du jour coupe le créneau). */
+    /** Minutes réellement produites (60, ou moins si une pause tombe dedans / le jour se termine). */
     duration: number;
+    /** Minutes de pause courte incluses dans le créneau (0 la plupart du temps). */
+    pauseMin: number;
     startMin: number;
     endMin: number;
 }
@@ -27,6 +29,7 @@ const FALLBACK: CreneauJour[] = ['08:00', '09:00', '10:00', '11:00', '14:00', '1
         startMin,
         endMin,
         duration: 60,
+        pauseMin: 0,
     };
 });
 
@@ -36,8 +39,9 @@ const FALLBACK: CreneauJour[] = ['08:00', '09:00', '10:00', '11:00', '14:00', '1
  * Passe par `lib/horaires.ts` (source unique de vérité) : si un jour est
  * fourni, l'exception de CE jour (ex. vendredi) est appliquée ; sinon on
  * retombe sur le réglage global. Les créneaux sont COUPÉS par les pauses :
- * un créneau ne chevauche jamais une pause et sa `duration` dit sa vraie
- * longueur (une pause de 30 min ne fait plus disparaître une heure entière).
+ * une pause longue (≥ 30 min) coupe la grille, une pause courte (rabouz) est
+ * simplement retranchée du créneau : `duration` donne les minutes réellement
+ * produites, `pauseMin` ce que la pause y a pris.
  */
 export function deriveHourGrid(settings: AppSettings, dateOrDay?: Date | number): { hours: string[]; keys: string[]; blocks: HourBlock[] } {
     const creneaux = creneauxDuJour(settings, dateOrDay);
@@ -49,6 +53,7 @@ export function deriveHourGrid(settings: AppSettings, dateOrDay?: Date | number)
         end: c.endLabel,
         label: `${c.label}/${c.endLabel}`,
         duration: c.duration,
+        pauseMin: c.pauseMin,
         startMin: c.startMin,
         endMin: c.endMin,
     }));
