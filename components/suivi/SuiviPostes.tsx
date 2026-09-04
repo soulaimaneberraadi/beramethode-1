@@ -44,6 +44,14 @@ const L = {
     progressionVide: { fr: "Pas encore de relevé chronométré : le score apparaît dès qu'un temps est mesuré.", ar: 'لا يوجد تسجيل مُوقَّت بعد: النتيجة تظهر بمجرّد قياس زمن.', en: 'No timed entry yet: the score appears as soon as a time is measured.', es: 'Aún no hay registro cronometrado: la puntuación aparece en cuanto se mide un tiempo.', pt: 'Ainda sem registo cronometrado: a pontuação aparece assim que um tempo for medido.', tr: 'Henüz süre ölçümü yok: bir süre ölçülür ölçülmez puan görünür.' },
     scoreEstime: { fr: 'Score estime depuis la quantite (pas de chronometrage)', ar: 'نتيجة مُقدَّرة من الكمية (بلا كرونومتراج)', en: 'Score estimated from quantity (no timing)', es: 'Puntuacion estimada por la cantidad (sin cronometraje)', pt: 'Pontuacao estimada pela quantidade (sem cronometragem)', tr: 'Miktardan tahmin edilen puan (olcum yok)' },
     postesTenus: { fr: 'postes tenus', ar: 'مناصب مشغولة', en: 'stations held', es: 'puestos cubiertos', pt: 'postos ocupados', tr: 'tutulan istasyon' },
+    modeleActif: { fr: 'Modèle actif', ar: 'الموديل النشط', en: 'Active model', es: 'Modelo activo', pt: 'Modelo ativo', tr: 'Aktif model' },
+    grilleJour: { fr: 'Grille du jour — poste par heure', ar: 'شبكة اليوم — محطة لكل ساعة', en: 'Day grid — poste by hour', es: 'Cuadrícula del día — puesto por hora', pt: 'Grelha do dia — posto por hora', tr: 'Gün ızgarası — saat başına istasyon' },
+    grilleJourHint: { fr: "Chaque case est ce que le poste a sorti dans ce créneau. Les créneaux sont ceux de CE jour.", ar: 'كل خانة هي اللي خرّج ديك المنصب فديك الفترة. الفترات هي ديال هاد النهار بالضبط.', en: 'Each cell is what the poste produced in that slot. The slots are those of THIS day.', es: 'Cada casilla es lo que el puesto produjo en ese tramo. Los tramos son los de ESTE día.', pt: 'Cada célula é o que o posto produziu nesse intervalo. Os intervalos são os deste dia.', tr: 'Her hücre, istasyonun o dilimde ürettiğidir. Dilimler BU güne aittir.' },
+    cadence: { fr: 'Cadence', ar: 'الوتيرة', en: 'Rate', es: 'Cadencia', pt: 'Cadência', tr: 'Tempo' },
+    cadenceMesuree: { fr: 'Cadence mesurée au chronomètre', ar: 'وتيرة مقيسة بالكرونومتر', en: 'Rate measured with the stopwatch', es: 'Cadencia medida con cronómetro', pt: 'Cadência medida com cronómetro', tr: 'Kronometreyle ölçülen tempo' },
+    cadenceGamme: { fr: 'Cadence prévue par la gamme (pas encore chronométrée)', ar: 'الوتيرة المتوقّعة من الگام (مازال بلا كرونومتراج)', en: 'Rate expected from the gamme (not timed yet)', es: 'Cadencia prevista por la gama (aún sin cronometrar)', pt: 'Cadência prevista pela gama (ainda sem cronometragem)', tr: 'Gamme’ın öngördüğü tempo (henüz ölçülmedi)' },
+    total: { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' },
+    saisieRapide: { fr: 'Relevé rapide — créneau en cours', ar: 'تسجيل سريع — الفترة الجارية', en: 'Quick entry — current slot', es: 'Registro rápido — franja actual', pt: 'Registo rápido — faixa atual', tr: 'Hızlı kayıt — geçerli dilim' },
 };
 
 // Retourne le bloc horaire (cle+label) qui contient l'heure courante, ou le dernier bloc passe.
@@ -109,15 +117,28 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
     const hourGrid = useMemo(() => deriveHourGrid(settings, date ? new Date(date) : undefined), [settings, date]);
     const nowBlock = useMemo(() => currentHourBlock(hourGrid.hours, hourGrid.keys), [hourGrid]);
 
-    // Le planning actif de la chaine selectionnee, a la date choisie (meme logique que la grille horaire).
-    const activePlanning = useMemo(() => {
-        return planningEvents.find(p => {
-            if (p.chaineId !== selectedChaineId) return false;
-            const start = (p.startDate || p.dateLancement || '').split('T')[0];
-            const end = (p.estimatedEndDate || p.dateExport || p.dateFin || start).split('T')[0];
-            return start <= date && end >= date;
-        }) || null;
-    }, [planningEvents, selectedChaineId, date]);
+    /* TOUS les OF de la chaine qui couvrent la date, et on en choisit un — comme
+       sur la grille horaire. Avant, le premier trouve gagnait en silence : deux OF
+       sur la meme chaine et le second etait tout simplement introuvable ici. Un OF
+       marque `Terminé` ne se propose plus : il n'a plus rien a relever. */
+    const planningsChaine = useMemo(() => planningEvents.filter(p => {
+        if (p.chaineId !== selectedChaineId) return false;
+        if (p.status === 'DONE') return false;
+        const start = (p.startDate || p.dateLancement || '').split('T')[0];
+        const end = (p.estimatedEndDate || p.dateExport || p.dateFin || start).split('T')[0];
+        return start <= date && end >= date;
+    }), [planningEvents, selectedChaineId, date]);
+
+    const [selectedPlanningId, setSelectedPlanningId] = useState<string>('');
+    useEffect(() => {
+        if (planningsChaine.length === 0) { setSelectedPlanningId(''); return; }
+        if (!planningsChaine.some(p => p.id === selectedPlanningId)) setSelectedPlanningId(planningsChaine[0].id);
+    }, [planningsChaine, selectedPlanningId]);
+
+    const activePlanning = useMemo(
+        () => planningsChaine.find(p => p.id === selectedPlanningId) || planningsChaine[0] || null,
+        [planningsChaine, selectedPlanningId],
+    );
 
     const activeModel = useMemo(() => {
         if (!activePlanning) return null;
@@ -214,6 +235,102 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         } finally {
             setSavingId(null);
         }
+    };
+
+    /* ─── Grille du jour : un poste par ligne, les creneaux du jour en colonnes ───
+       Le releve rapide ci-dessous ne remplit que le creneau EN COURS : on ne
+       pouvait donc pas rattraper une heure passee, ni relire la journee poste par
+       poste. La grille, elle, montre et accepte les heures du jour entier, avec
+       exactement les creneaux de CE jour (donc l'exception du vendredi comprise). */
+    const idCellule = (posteId: string, hourKey: string) => `${activePlanning?.id}-${posteId}-${date}-${hourKey}`;
+
+    const celluleDe = (posteId: string, hourKey: string): PosteSuiviData | undefined =>
+        posteSuivis.find(s => s.id === idCellule(posteId, hourKey));
+
+    /* L'ouvrier tenu sur un poste vaut pour la journee : on prend celui du premier
+       releve du jour, sinon celui choisi dans la saisie rapide. */
+    const ouvrierDuPoste = (posteId: string): string => {
+        const rows = suivisByPoste.get(posteId) || [];
+        const avecOuvrier = rows.find(r => r.workerId);
+        return String(avecOuvrier?.workerId || getDraft(posteId).workerId || '');
+    };
+
+    const [cellSavingId, setCellSavingId] = useState<string | null>(null);
+
+    const persisterCellules = async (payloads: PosteSuiviData[]) => {
+        if (payloads.length === 0) return;
+        try {
+            const res = await fetch('/api/poste-suivi', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ suivis: payloads }),
+            });
+            if (!res.ok) console.error('SuiviPostes: enregistrement refuse', res.status);
+        } catch (e) {
+            console.error('SuiviPostes: save cellule error', e);
+        }
+    };
+
+    /* Une case de la grille porte une valeur ABSOLUE (ce que le poste a sorti dans
+       ce creneau), pas un cumul : c'est une correction, pas un ajout. Le releve
+       rapide, lui, cumule — il sert a annoncer au fil de l'heure. */
+    const saveCellule = async (poste: Operation, hourKey: string, valeur: number | null) => {
+        if (!activePlanning || !activeModel) return;
+        const rowId = idCellule(poste.id, hourKey);
+        const existing = celluleDe(poste.id, hourKey);
+        const workerId = ouvrierDuPoste(poste.id);
+
+        if (valeur === null || valeur === 0) {
+            /* Case videe : on n'ecrit pas une ligne a zero qui ferait croire a un
+               releve fait a zero piece. Si rien n'existait, il n'y a rien a faire. */
+            if (!existing) return;
+        }
+
+        const payload: PosteSuiviData = {
+            ...(existing || {} as PosteSuiviData),
+            id: rowId,
+            planningId: activePlanning.id,
+            modelId: activeModel.id,
+            posteId: poste.id,
+            workerId: workerId || existing?.workerId,
+            date,
+            heure_debut: hourKey,
+            heure_fin: existing?.heure_fin,
+            pieces_entrees: valeur ?? 0,
+            pieces_sorties: valeur ?? 0,
+            pieces_defaut: existing?.pieces_defaut || 0,
+            temps_reel_par_piece: existing?.temps_reel_par_piece,
+            temps_prevu_par_piece: poste.time,
+            notes: existing?.notes,
+            problemes: existing?.problemes || [],
+        };
+
+        setCellSavingId(rowId);
+        setPosteSuivis(prev => [...prev.filter(s => s.id !== rowId), payload]);
+        await persisterCellules([payload]);
+        setCellSavingId(cur => (cur === rowId ? null : cur));
+    };
+
+    /* Changer l'ouvrier d'un poste rejaillit sur TOUS ses releves du jour :
+       sinon la moitie de la journee resterait creditee a la personne precedente. */
+    const changerOuvrierPoste = async (poste: Operation, workerId: string) => {
+        setDraft(poste.id, { workerId });
+        const rows = (suivisByPoste.get(poste.id) || []).filter(r => String(r.workerId || '') !== workerId);
+        if (rows.length === 0) return;
+        const majs = rows.map(r => ({ ...r, workerId: workerId || undefined }));
+        setPosteSuivis(prev => prev.map(s => majs.find(m => m.id === s.id) || s));
+        await persisterCellules(majs);
+    };
+
+    /* Cadence visee d'un poste, en pieces/heure : le temps mesure au chrono s'il
+       existe (c'est la realite du poste), sinon le temps prevu par la gamme. */
+    const cadencePoste = (poste: Operation): { valeur: number | null; mesuree: boolean } => {
+        const rows = suivisByPoste.get(poste.id) || [];
+        const mesure = rows.find(r => r.temps_reel_par_piece && r.temps_reel_par_piece > 0)?.temps_reel_par_piece;
+        const tpp = mesure || poste.time;
+        if (!tpp || tpp <= 0) return { valeur: null, mesuree: false };
+        return { valeur: Math.round(60 / tpp), mesuree: !!mesure };
     };
 
     /* Minutes reellement travaillables dans un creneau : une heure pleine, moins
@@ -322,6 +439,36 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                 </div>
             </div>
 
+            {/* Modele actif : on CHOISIT l'OF de la chaine, comme sur la grille horaire.
+                Sans ce choix, deux OF sur la meme chaine et le second etait invisible. */}
+            {planningsChaine.length > 0 && (
+                <div className="shrink-0 px-3 sm:px-6 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-slate-100 dark:border-dk-border/40 bg-white dark:bg-dk-surface">
+                    <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">
+                        {tx(lang, L.modeleActif)}
+                    </span>
+                    {planningsChaine.map(p => {
+                        const m = models.find(x => x.id === p.modelId);
+                        const ref = m?.meta_data?.reference || p.modelName || p.id.slice(0, 8);
+                        const actif = activePlanning?.id === p.id;
+                        return (
+                            <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => setSelectedPlanningId(p.id)}
+                                className={`shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all min-h-[36px] ${
+                                    actif
+                                        ? 'bg-indigo-600 text-white shadow-sm'
+                                        : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
+                                }`}
+                            >
+                                {ref}
+                                {p.qteTotal ? <span className={`ml-1.5 font-bold ${actif ? 'text-indigo-100' : 'text-slate-400 dark:text-dk-muted'}`}>{p.qteTotal} pcs</span> : null}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
             {/* Creneau horaire courant (auto), rappel pour l'utilisateur */}
             <div className="shrink-0 px-3 sm:px-6 py-2 flex items-center gap-2 text-[11px] font-bold text-slate-500 dark:text-dk-muted bg-[#fafbfe] dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border/40">
                 <Clock className="w-3.5 h-3.5" />
@@ -337,7 +484,118 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                     <div className="flex items-center justify-center py-16 text-slate-400 dark:text-dk-muted text-sm font-bold text-center px-6">
                         {tx(lang, L.noModel)}
                     </div>
-                ) : isMobile ? (
+                ) : (
+                  <>
+                    {/* ─── Grille du jour : postes en lignes, creneaux du jour en colonnes ─── */}
+                    <div className="mb-4 rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface overflow-hidden">
+                        <div className="px-3 sm:px-4 py-2.5 border-b border-slate-100 dark:border-dk-border/50 bg-slate-50 dark:bg-dk-elevated/40">
+                            <p className="text-[11px] font-black text-slate-700 dark:text-dk-text">{tx(lang, L.grilleJour)}</p>
+                            <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang, L.grilleJourHint)}</p>
+                        </div>
+                        <div className="overflow-x-auto scrollbar-thin">
+                            <table className="w-full text-[12px] border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50 dark:bg-dk-elevated/60 text-slate-500 dark:text-dk-muted text-[10px] uppercase tracking-wider font-black">
+                                        <th className="text-left px-3 py-2.5 sticky left-0 bg-slate-50 dark:bg-dk-elevated/60 z-10 min-w-[150px]">{tx(lang, L.poste)}</th>
+                                        <th className="text-left px-3 py-2.5 min-w-[150px]">{tx(lang, L.worker)}</th>
+                                        <th className="text-center px-2 py-2.5 w-20">{tx(lang, L.cadence)}</th>
+                                        {hourGrid.blocks.map(b => (
+                                            <th key={b.key} className="text-center px-1 py-2.5 w-[70px] border-l border-slate-100 dark:border-dk-border/40" title={`${b.label} — ${b.duration} min`}>
+                                                {b.start}
+                                                {b.duration < 60 && <span className="block text-[8px] normal-case tracking-normal text-indigo-500 dark:text-dk-accent-text">{b.duration} min</span>}
+                                            </th>
+                                        ))}
+                                        <th className="text-center px-2 py-2.5 w-16 border-l border-slate-200 dark:border-dk-border/60">{tx(lang, L.total)}</th>
+                                        <th className="text-center px-2 py-2.5 w-16">{tx(lang, L.score)}</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-dk-border/40">
+                                    {postes.map(poste => {
+                                        const cad = cadencePoste(poste);
+                                        const rowsToday = suivisByPoste.get(poste.id) || [];
+                                        const totalJour = rowsToday.reduce((s, r) => s + (r.pieces_sorties || 0), 0);
+                                        const scores = rowsToday.map(scoreReleve).filter((x): x is number => x !== null);
+                                        const scoreJour = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+                                        const workerId = ouvrierDuPoste(poste.id);
+                                        return (
+                                            <tr key={poste.id} className="hover:bg-slate-50/60 dark:hover:bg-dk-elevated/30">
+                                                <td className="px-3 py-2 sticky left-0 bg-white dark:bg-dk-surface z-10">
+                                                    <p className="font-black text-slate-800 dark:text-dk-text truncate">{poste.description || poste.id}</p>
+                                                    {poste.machineName && <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold truncate">{poste.machineName}</p>}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    <select
+                                                        value={workerId}
+                                                        onChange={(e) => void changerOuvrierPoste(poste, e.target.value)}
+                                                        className="w-full min-h-[34px] text-[11px] font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg px-2 outline-none"
+                                                    >
+                                                        <option value="">{tx(lang, L.chooseWorker)}</option>
+                                                        {workersSorted.map(w => (
+                                                            <option key={w.id} value={String(w.id)}>{w.full_name}</option>
+                                                        ))}
+                                                    </select>
+                                                </td>
+                                                <td className="px-2 py-2 text-center">
+                                                    {cad.valeur === null ? (
+                                                        <span className="text-slate-300 dark:text-dk-muted font-bold">—</span>
+                                                    ) : (
+                                                        <span
+                                                            className={`inline-block px-2 py-1 rounded-lg text-[11px] font-black tabular-nums ${cad.mesuree ? 'bg-indigo-50 text-indigo-700 dark:bg-dk-accent/20 dark:text-dk-accent-text' : 'bg-slate-100 text-slate-500 dark:bg-dk-bg dark:text-dk-muted'}`}
+                                                            title={tx(lang, cad.mesuree ? L.cadenceMesuree : L.cadenceGamme)}
+                                                        >
+                                                            {cad.mesuree ? '' : '~'}{cad.valeur} p/h
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                {hourGrid.blocks.map(b => {
+                                                    const cellule = celluleDe(poste.id, b.key);
+                                                    const val = cellule?.pieces_sorties;
+                                                    /* Un creneau qui n'est pas encore fini ne se saisit pas :
+                                                       on ne releve pas une heure qui n'a pas eu lieu. */
+                                                    const futur = new Date(date).setHours(0, b.endMin, 0, 0) > Date.now();
+                                                    const enCours = cellSavingId === idCellule(poste.id, b.key);
+                                                    return (
+                                                        <td key={b.key} className="p-1 border-l border-slate-100 dark:border-dk-border/40">
+                                                            <input
+                                                                type="text"
+                                                                inputMode="numeric"
+                                                                disabled={futur}
+                                                                value={val === undefined || val === null || val === 0 ? '' : val}
+                                                                onChange={(e) => {
+                                                                    const s = e.target.value.trim();
+                                                                    void saveCellule(poste, b.key, s === '' ? null : (parseInt(s, 10) || 0));
+                                                                }}
+                                                                placeholder="—"
+                                                                className={`w-full h-9 text-center text-[12px] font-black tabular-nums rounded-lg border outline-none transition-all ${
+                                                                    futur
+                                                                        ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
+                                                                        : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
+                                                                } ${enCours ? 'opacity-60' : ''}`}
+                                                            />
+                                                        </td>
+                                                    );
+                                                })}
+                                                <td className="px-2 py-2 text-center font-black tabular-nums text-slate-800 dark:text-dk-text border-l border-slate-200 dark:border-dk-border/60">
+                                                    {totalJour || '—'}
+                                                </td>
+                                                <td className="px-2 py-2 text-center">
+                                                    {scoreJour === null ? (
+                                                        <span className="text-slate-300 dark:text-dk-muted font-bold">—</span>
+                                                    ) : (
+                                                        <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-black tabular-nums ${classeScore(scoreJour)}`}>{scoreJour}%</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang, L.saisieRapide)}</p>
+
+                    {isMobile ? (
                     <div className="space-y-2.5">
                         {postes.map(poste => {
                             const d = getDraft(poste.id);
@@ -550,6 +808,8 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                             </tbody>
                         </table>
                     </div>
+                    )}
+                  </>
                 )}
 
                 {/* Progression : ce que les releves accumules finissent par dire de
