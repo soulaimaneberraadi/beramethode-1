@@ -836,6 +836,77 @@ export default function SuiviProduction({
         handleSave(newSuivis);
     };
 
+    /**
+     * Ramène les saisies « hors horaire » d'un jour dans les créneaux de sa grille.
+     *
+     * Après un changement d'horaire, une production saisie sous 13:30/14:30 n'a
+     * plus de créneau : elle s'affichait à côté de la grille, si bien que la même
+     * heure apparaissait deux fois — une case vide et une case ambre avec les
+     * pièces. Ici, chaque saisie orpheline rejoint le créneau de la grille avec
+     * lequel elle se CHEVAUCHE LE PLUS (égalité -> le plus tôt), et les quantités
+     * s'ADDITIONNENT si le créneau en portait déjà une : le total du jour ne
+     * bouge pas d'une pièce, seule la répartition se recale sur l'horaire réel.
+     */
+    const fusionnerHorsHoraire = React.useCallback((dateStr: string) => {
+        const grille = deriveHourGrid(settings, new Date(dateStr)).blocks;
+        if (grille.length === 0) return;
+        const connues = new Set(grille.map(b => b.key));
+
+        /* Créneau d'accueil : celui qui partage le plus de minutes avec l'heure
+           orpheline (supposée d'une heure, comme elle était saisie). */
+        const creneauDAccueil = (key: string): string | null => {
+            const m = /^h(\d{2})(\d{2})$/.exec(key);
+            if (!m) return null;
+            const debut = Number(m[1]) * 60 + Number(m[2]);
+            const fin = debut + 60;
+            let meilleur: string | null = null;
+            let meilleurChevauchement = 0;
+            for (const b of grille) {
+                const chevauchement = Math.min(fin, b.endMin) - Math.max(debut, b.startMin);
+                if (chevauchement > meilleurChevauchement) { meilleurChevauchement = chevauchement; meilleur = b.key; }
+            }
+            return meilleurChevauchement > 0 ? meilleur : null;
+        };
+
+        let quelqueChoseADeplacer = false;
+        const majSuivis = suivis.map(s => {
+            if (s.chaineId !== selectedChaineId || s.date !== dateStr) return s;
+            const orphelines = Object.keys(s.sorties || {}).filter(k => !connues.has(k));
+            const orphelinesArrets = Object.keys(s.downtimes || {}).filter(k => !connues.has(k));
+            if (orphelines.length === 0 && orphelinesArrets.length === 0) return s;
+
+            const sorties: Record<string, any> = { ...(s.sorties || {}) };
+            const downtimes: Record<string, any> = { ...(s.downtimes || {}) };
+            const remap = new Map<string, string>();
+
+            for (const k of orphelines) {
+                const cible = creneauDAccueil(k);
+                if (!cible) continue;                       // hors de la journée : on n'invente pas où la mettre
+                const valeur = Number(sorties[k]) || 0;
+                delete sorties[k];
+                sorties[cible] = (Number(sorties[cible]) || 0) + valeur;
+                remap.set(k, cible);
+                quelqueChoseADeplacer = true;
+            }
+            for (const k of orphelinesArrets) {
+                const cible = remap.get(k) ?? creneauDAccueil(k);
+                const code = downtimes[k];
+                delete downtimes[k];
+                // Un arrêt déjà noté sur le créneau d'accueil prime : on n'en écrase aucun.
+                if (cible && !downtimes[cible]) downtimes[cible] = code;
+                quelqueChoseADeplacer = true;
+            }
+
+            const defauts = (s.defauts || []).map(d => (remap.has(d.hour) ? { ...d, hour: remap.get(d.hour) as string } : d));
+            const totalHeure = Object.values(sorties).reduce((acc: number, v) => acc + (typeof v === 'number' ? v : 0), 0);
+            return { ...s, sorties, downtimes, defauts, totalHeure };
+        });
+
+        if (!quelqueChoseADeplacer) return;
+        setSuivis(majSuivis);
+        handleSave(majSuivis);
+    }, [settings, suivis, selectedChaineId, setSuivis]);
+
     // Calculations for Daily Rows
     const getDailyMetrics = (dateStr: string) => {
         /* Les creneaux de CE jour : un vendredi plus court (ou coupe par sa
@@ -1848,6 +1919,27 @@ export default function SuiviProduction({
                                                             : tx(lang, { fr: 'horaire général', ar: 'التوقيت العام', en: 'general schedule', es: 'horario general', pt: 'horário geral', tr: 'genel mesai' })}
                                                     </span>
                                                 </div>
+                                            );
+                                        })()}
+
+                                        {/* Saisies restées sous d'anciens créneaux : un tap les recale
+                                            dans la grille du jour, sans changer le total. */}
+                                        {(() => {
+                                            const orphelins = hourBlocks.filter(b => b.orphan);
+                                            if (orphelins.length === 0) return null;
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => fusionnerHorsHoraire(selectedChartDate)}
+                                                    className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800 text-[11px] font-bold text-amber-700 dark:text-amber-300 active:scale-[0.99] transition-transform"
+                                                >
+                                                    <span>
+                                                        {orphelins.length} {tx(lang, { fr: 'saisies hors horaire', ar: 'إدخالات خارج التوقيت', en: 'off-schedule entries', es: 'entradas fuera de horario', pt: 'entradas fora do horário', tr: 'mesai dışı girişler' })}
+                                                    </span>
+                                                    <span className="px-2 py-1 rounded-lg bg-white dark:bg-dk-surface border border-current shrink-0">
+                                                        {tx(lang, { fr: 'Fusionner dans la grille', ar: 'دمجها في الشبكة', en: 'Merge into the grid', es: 'Fusionar en la cuadrícula', pt: 'Fundir na grelha', tr: 'Izgaraya birleştir' })}
+                                                    </span>
+                                                </button>
                                             );
                                         })()}
 
