@@ -332,32 +332,38 @@ export default function SuiviProduction({
         }
     };
 
-    // 2. Derive Dynamic Shift Hours from settings
-    const hourBlocks = useMemo(() => {
-        const { hours: rawHours, keys: rawKeys } = deriveHourGrid(settings);
-        return rawHours.map((h, i) => {
-            const [hStr, mStr] = h.split(':').map(Number);
-            const startMin = (hStr || 8) * 60 + (mStr || 0);
-            
-            // Custom shift rules matching lunch gap in Excel sheet
-            let duration = 60;
-            if (rawHours[i] === '15:00' || rawKeys[i] === 'h1500') {
-                duration = 30; // last block is 30 mins
-            }
-            
-            const endMin = startMin + duration;
-            const hEnd = Math.floor(endMin / 60).toString().padStart(2, '0');
-            const mEnd = (endMin % 60).toString().padStart(2, '0');
-
-            return {
-                key: rawKeys[i],
-                label: `${h}/${hEnd}:${mEnd}`,
-                duration,
-            };
-        });
+    /* 2. Creneaux horaires — resolus POUR CHAQUE JOUR (lib/horaires.ts) :
+       un jour personnalise (ex. vendredi : 06:30-17:00 avec Lftor 13:30-14:00)
+       doit montrer SES creneaux, coupes a la pause. Avant, la grille etait
+       calculee une seule fois sur le reglage general avec une duree figee a
+       60 min : la pause du jour n'etait ni appliquee ni retranchee, et une
+       coupure de 30 min faisait disparaitre une heure entiere de saisie. */
+    const blocksForDate = React.useCallback((dateStr?: string) => {
+        return deriveHourGrid(settings, dateStr ? new Date(dateStr) : undefined).blocks;
     }, [settings]);
 
+    /* Creneaux du jour affiche (graphique, chronologie, vue mobile). */
+    const hourBlocks = useMemo(
+        () => blocksForDate(selectedChartDate || globalDate),
+        [blocksForDate, selectedChartDate, globalDate],
+    );
 
+    /* Le tableau hebdomadaire a UNE colonne par creneau pour toute la semaine :
+       on prend l'union des creneaux des jours affiches, triee par heure. Un
+       jour qui n'a pas un creneau (pause propre, ou jour ferme) affiche une
+       case grisee au lieu d'une saisie qui n'existe pas. */
+    const weekHourBlocks = useMemo(() => {
+        const byKey = new Map<string, ReturnType<typeof blocksForDate>[number]>();
+        weekDays.forEach(d => {
+            blocksForDate(d.dateStr).forEach(b => {
+                const prev = byKey.get(b.key);
+                // Meme debut mais duree differente selon le jour : on garde la plus longue
+                // pour que l'en-tete couvre l'amplitude reelle de la colonne.
+                if (!prev || b.duration > prev.duration) byKey.set(b.key, b);
+            });
+        });
+        return Array.from(byKey.values()).sort((a, b) => a.startMin - b.startMin);
+    }, [blocksForDate, weekDays]);
 
     // Dynamic chains list based on settings and active data
     const chainsList = useMemo(() => {
@@ -789,6 +795,9 @@ export default function SuiviProduction({
 
     // Calculations for Daily Rows
     const getDailyMetrics = (dateStr: string) => {
+        /* Les creneaux de CE jour : un vendredi plus court (ou coupe par sa
+           propre pause) ne doit pas etre mesure sur les heures des autres jours. */
+        const dayBlocks = blocksForDate(dateStr);
         const dayEntries = suivis.filter(s => s.chaineId === selectedChaineId && s.date === dateStr);
         const totalPiece = dayEntries.reduce((acc, s) => acc + (s.totalHeure || 0), 0);
         const totalDefects = dayEntries.reduce((acc, s) => acc + (s.defauts?.reduce((a, d) => a + d.quantity, 0) || 0), 0);
@@ -813,7 +822,7 @@ export default function SuiviProduction({
         let totalActiveMinutes = 0;
         let downtimeMinutes = 0;
         
-        hourBlocks.forEach(h => {
+        dayBlocks.forEach(h => {
             const cellMeta = getCellMeta(dateStr, h.key);
             if (cellMeta) {
                 totalActiveMinutes += h.duration;
@@ -840,7 +849,7 @@ export default function SuiviProduction({
 
             let modelMinutes = 0;
             let modelDowntime = 0;
-            hourBlocks.forEach(h => {
+            dayBlocks.forEach(h => {
                 const val = s.sorties?.[h.key];
                 if (val !== undefined && val !== null) {
                     modelMinutes += h.duration;
@@ -1485,8 +1494,8 @@ export default function SuiviProduction({
                                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted w-28 sticky left-0 bg-slate-50 dark:bg-dk-bg z-20 border-r border-slate-100 dark:border-dk-border/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{l.date}</th>
                                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted w-24 sticky left-[112px] bg-slate-50 dark:bg-dk-bg z-20 border-r border-slate-100 dark:border-dk-border/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{l.day}</th>
                                     
-                                    {/* Hour Headers (Dynamic Shift hours) */}
-                                    {hourBlocks.map(h => (
+                                    {/* Hour Headers (creneaux de la semaine, union des jours) */}
+                                    {weekHourBlocks.map(h => (
                                         <th key={h.key} className="py-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-28 border-r border-slate-100 dark:border-dk-border/50">
                                             {h.label}
                                         </th>
@@ -1505,6 +1514,10 @@ export default function SuiviProduction({
                             <tbody className="divide-y divide-slate-50 dark:divide-dk-border">
                                 {weekDays.map(day => {
                                     const metrics = getDailyMetrics(day.dateStr);
+                                    /* Creneaux reellement travailles CE jour-la : une colonne de la
+                                       semaine qui n'existe pas ce jour (pause propre au jour, jour
+                                       ferme) reste grisee au lieu d'accepter une saisie. */
+                                    const dayBlockKeys = new Set(blocksForDate(day.dateStr).map(b => b.key));
  
                                     return (
                                         <tr key={day.dateStr} className={`hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${selectedChartDate === day.dateStr ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/20' : ''}`}>
@@ -1527,7 +1540,19 @@ export default function SuiviProduction({
                                             </td>
 
                                             {/* Shift hour cells */}
-                                            {hourBlocks.map(h => {
+                                            {weekHourBlocks.map(h => {
+                                                if (!dayBlockKeys.has(h.key)) {
+                                                    return (
+                                                        <td key={h.key} className="p-1 border-r border-slate-100 dark:border-dk-border/60 text-center w-28">
+                                                            <div
+                                                                className="w-full h-10 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-dk-bg/50 border border-dashed border-slate-200 dark:border-dk-border/60 text-[10px] font-bold text-slate-300 dark:text-dk-muted"
+                                                                title={tx(lang, { fr: 'Hors horaire de ce jour', ar: 'خارج توقيت هذا اليوم', en: 'Outside this day schedule', es: 'Fuera del horario de este día', pt: 'Fora do horário deste dia', tr: 'Bu günün mesaisi dışında' })}
+                                                            >
+                                                                —
+                                                            </div>
+                                                        </td>
+                                                    );
+                                                }
                                                 const cell = getCellMeta(day.dateStr, h.key);
                                                 const cellStyle = (() => {
                                                     if (cell?.downtime) {
@@ -1543,8 +1568,10 @@ export default function SuiviProduction({
                                                     return null;
                                                 })();
 
-                                                const hourBlockLimit = parseInt(h.label.split('/')[1]?.split(':')[0] || '18');
-                                                const isFutureHour = new Date(day.dateStr).setHours(hourBlockLimit) > Date.now();
+                                                /* Fin REELLE du creneau (minutes) : un creneau coupe par la
+                                                   pause se termine a 13:30, pas a 14:00 — sans cela il resterait
+                                                   verrouille apres avoir ete travaille. */
+                                                const isFutureHour = new Date(day.dateStr).setHours(0, h.endMin, 0, 0) > Date.now();
                                                 const isCellLocked = isFutureHour && !isOverrideMode;
                                                 const ofId = selectedActiveModelId;
                                                 const selectedOFInfo = activeModels.find(m => m.id === ofId);
@@ -1776,8 +1803,10 @@ export default function SuiviProduction({
                                             {hourBlocks.map(h => {
                                                 const cell = getCellMeta(selectedChartDate, h.key);
                                                 const cellStyle = cell?.model ? { backgroundColor: cell.model.style.bg, color: cell.model.style.text, borderColor: cell.model.style.border } : null;
-                                                const hourBlockLimit = parseInt(h.label.split('/')[1]?.split(':')[0] || '18');
-                                                const isFutureHour = new Date(selectedChartDate).setHours(hourBlockLimit) > Date.now();
+                                                /* Fin REELLE du creneau (minutes) : un creneau coupe par la
+                                                   pause se termine a 13:30, pas a 14:00 — sans cela il resterait
+                                                   verrouille apres avoir ete travaille. */
+                                                const isFutureHour = new Date(selectedChartDate).setHours(0, h.endMin, 0, 0) > Date.now();
                                                 const isCellLocked = isFutureHour && !isOverrideMode;
                                                 const displayValue = cell?.downtime || (cell?.value !== undefined && cell?.value !== null && cell.value !== 0 ? cell.value : '');
                                                 const ofId = selectedActiveModelId || activeModels[0]?.id;

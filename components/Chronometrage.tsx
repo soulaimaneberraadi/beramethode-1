@@ -7,6 +7,7 @@ import {
     Plus, History, Trash2, TrendingUp, Pencil, Check, Eye
 } from 'lucide-react';
 import SheetModal from './shared/SheetModal';
+import WorkerPicker, { type WorkersStatus } from './shared/WorkerPicker';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
@@ -779,24 +780,58 @@ export default function Chronometrage({
         }
     }, [plantationOpsKey, plantationOperators]);
 
-    useEffect(() => {
-        console.log('[Chrono] Fetching active workers...');
-        fetch('/api/hr/workers?active=1', { credentials: 'include' })
-            .then(res => {
-                console.log('[Chrono] Fetch status:', res.status);
-                return res.ok ? res.json() : [];
-            })
-            .then(data => {
-                console.log('[Chrono] Fetched active workers count:', data.length);
-                if (Array.isArray(data)) {
-                    setActiveWorkers(data);
-                }
-            })
-            .catch(err => console.error("[Chrono] Error fetching active workers:", err));
-    }, []);
+    /* Etat du chargement des effectifs. Avant, un echec (403 sans droit Gestion RH,
+       hors ligne, serveur arrete) etait avale par `res.ok ? json : []` : la liste
+       restait vide et le menu affichait "Chargement des effectifs..." pour
+       toujours. On distingue maintenant charge / vide / en erreur. */
+    const [workersStatus, setWorkersStatus] = useState<WorkersStatus>('loading');
+    const [workersError, setWorkersError] = useState<string | null>(null);
+    const [workersReload, setWorkersReload] = useState(0);
+    const retryWorkers = useCallback(() => setWorkersReload(n => n + 1), []);
 
-    const workerSuggestions = useMemo(() => {
-        const term = operatorFilter.toLowerCase();
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setWorkersStatus('loading');
+            setWorkersError(null);
+            try {
+                const res = await fetch('/api/hr/workers?active=1', { credentials: 'include' });
+                if (!res.ok) {
+                    const droit = res.status === 401 || res.status === 403;
+                    throw new Error(droit
+                        ? tx(lang, { fr: "Accès aux effectifs refusé (droit Gestion RH requis)", ar: 'الوصول إلى قائمة العمال مرفوض (يتطلب صلاحية الموارد البشرية)', en: 'Staff access denied (HR permission required)', es: 'Acceso al personal denegado (permiso RRHH requerido)', pt: 'Acesso aos efetivos negado (permissão RH necessária)', tr: 'Personel erişimi reddedildi (İK izni gerekli)' })
+                        : tx(lang, { fr: `Effectifs indisponibles (erreur ${res.status})`, ar: `قائمة العمال غير متاحة (خطأ ${res.status})`, en: `Staff unavailable (error ${res.status})`, es: `Personal no disponible (error ${res.status})`, pt: `Efetivos indisponíveis (erro ${res.status})`, tr: `Personel kullanılamıyor (hata ${res.status})` }));
+                }
+                let data = await res.json();
+                /* Atelier ou `is_active` n'a jamais ete renseigne : le filtre `active=1`
+                   renvoie 0 ligne alors que des ouvriers existent. On retombe sur la
+                   liste complete plutot que de proposer un menu vide. */
+                if (Array.isArray(data) && data.length === 0) {
+                    const tous = await fetch('/api/hr/workers', { credentials: 'include' });
+                    if (tous.ok) {
+                        const d2 = await tous.json();
+                        if (Array.isArray(d2)) data = d2;
+                    }
+                }
+                if (cancelled) return;
+                setActiveWorkers(Array.isArray(data) ? data : []);
+                setWorkersStatus('ready');
+            } catch (err) {
+                if (cancelled) return;
+                console.error('[Chrono] Error fetching active workers:', err);
+                setActiveWorkers([]);
+                setWorkersError(err instanceof Error ? err.message : null);
+                setWorkersStatus('error');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [workersReload, lang]);
+
+    /* Deux listes : ceux qu'on peut affecter, et ceux deja pris ailleurs. Les
+       seconds restaient invisibles — la liste paraissait incomplete (voire vide
+       quand toute la chaine etait affectee) sans qu'on sache pourquoi. */
+    const { workerSuggestions, assignedSuggestions } = useMemo(() => {
+        const term = operatorFilter.trim().toLowerCase();
         // Exclude workers assigned to OTHER stations, not the current one
         // En "Plantation" chaque carte (poste + opération) a sa propre clé `stId__opId`.
         const assignedWorkerNames = new Set([
@@ -809,21 +844,20 @@ export default function Chronometrage({
                 .map(([, name]) => name)
                 .filter(Boolean),
         ]);
-        
-        const filtered = activeWorkers.filter(w => {
-            // Exclude if already assigned elsewhere
-            if (w.full_name && assignedWorkerNames.has(w.full_name)) return false;
-            
-            // Filter by search term (match full_name or matricule)
-            if (!term) return true;
-            return (
-                (w.full_name || '').toLowerCase().includes(term) ||
-                (w.matricule || '').toLowerCase().includes(term)
-            );
+
+        const matchesTerm = (w: HRWorker) => !term || (
+            (w.full_name || '').toLowerCase().includes(term) ||
+            (w.matricule || '').toLowerCase().includes(term)
+        );
+
+        const libres: HRWorker[] = [];
+        const pris: HRWorker[] = [];
+        activeWorkers.filter(matchesTerm).forEach(w => {
+            if (w.full_name && assignedWorkerNames.has(w.full_name)) pris.push(w);
+            else libres.push(w);
         });
 
-        console.log('[Chrono] Suggestions term:', term, 'assigned:', Array.from(assignedWorkerNames), 'filtered count:', filtered.length);
-        return filtered;
+        return { workerSuggestions: libres, assignedSuggestions: pris };
     }, [operatorFilter, activeWorkers, chronoCustomStations, plantationOperators, activeOperatorStationId]);
 
     const fillCustomStationFromOperation = (stationId: string, op: Operation) => {
@@ -2157,54 +2191,19 @@ export default function Chronometrage({
 
                                     {/* Liste des effectifs : ancrée juste sous le champ "Opé" */}
                                     {activeOperatorStationId === `${st.id}__${op.id}` && (
-                                        <div
-                                            onClick={e => e.stopPropagation()}
-                                            className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl dark:shadow-dk-elevated divide-y divide-slate-100 dark:divide-dk-border p-1.5"
-                                        >
-                                            <div className="px-3 py-2 bg-slate-50 dark:bg-dk-bg/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
-                                                <span>{tx(lang, { fr: "Membres d'effectifs disponibles", ar: 'أعضاء الفريق المتاحين', en: 'Available staff members', es: 'Miembros de personal disponibles', pt: 'Membros da equipe disponíveis', tr: 'Mevcut personel üyeleri' })}</span>
-                                                <span className="text-[8px] bg-slate-200/60 text-slate-500 px-1 py-0.2 rounded font-mono">
-                                                    {workerSuggestions.length} {tx(lang, { fr: 'dispo', ar: 'متاح', en: 'avail.', es: 'disp.', pt: 'disp.', tr: 'mevcut' })}
-                                                </span>
-                                            </div>
-                                            {activeWorkers.length === 0 ? (
-                                                <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
-                                                    {tx(lang, { fr: 'Chargement des effectifs...', ar: 'جاري تحميل الفريق...', en: 'Loading staff...', es: 'Cargando personal...', pt: 'Carregando equipe...', tr: 'Personel yükleniyor...' })}
-                                                </div>
-                                            ) : workerSuggestions.length === 0 ? (
-                                                <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
-                                                    {tx(lang, { fr: 'Aucun membre disponible', ar: 'لا يوجد عضو متاح', en: 'No member available', es: 'Ningún miembro disponible', pt: 'Nenhum membre disponible', tr: 'Mevcut üye yok' })}
-                                                </div>
-                                            ) : (
-                                                workerSuggestions.map(w => (
-                                                    <button
-                                                        key={w.id}
-                                                        type="button"
-                                                        onMouseDown={e => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                        }}
-                                                        onClick={() => {
-                                                            setPlantationOperators(prev => ({ ...prev, [`${st.id}__${op.id}`]: w.full_name }));
-                                                            setActiveOperatorStationId(null);
-                                                        }}
-                                                        className="w-full text-left px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 active:bg-slate-100/70 transition-colors flex items-center justify-between gap-2"
-                                                    >
-                                                        <div className="flex flex-col gap-0.5 min-w-0">
-                                                            <span className="text-xs sm:text-sm font-bold text-slate-800 dark:text-dk-text truncate">{w.full_name}</span>
-                                                            <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 dark:text-dk-muted truncate">
-                                                                {tx(lang, { fr: 'Matricule :', ar: 'الرقم الوظيفي:', en: 'ID:', es: 'Matrícula:', pt: 'Matrícula:', tr: 'Sicil No:' })} {w.matricule}
-                                                            </span>
-                                                        </div>
-                                                        {w.role && (
-                                                            <span className="text-[8px] sm:text-[9px] font-bold text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100/30 px-1.5 py-0.5 rounded-lg shrink-0 uppercase tracking-wider">
-                                                                {w.role}
-                                                            </span>
-                                                        )}
-                                                    </button>
-                                                ))
-                                            )}
-                                        </div>
+                                        <WorkerPicker
+                                            available={workerSuggestions}
+                                            assigned={assignedSuggestions}
+                                            total={activeWorkers.length}
+                                            query={operatorFilter}
+                                            status={workersStatus}
+                                            error={workersError}
+                                            onRetry={retryWorkers}
+                                            onPick={w => {
+                                                setPlantationOperators(prev => ({ ...prev, [`${st.id}__${op.id}`]: w.full_name }));
+                                                setActiveOperatorStationId(null);
+                                            }}
+                                        />
                                     )}
                                 </div>
                             </div>
@@ -2950,56 +2949,21 @@ export default function Chronometrage({
 
                                         {/* Liste des effectifs : ancrée juste sous le champ "Opé" */}
                                         {activeOperatorStationId === station.id && (
-                                            <div
-                                                onClick={e => e.stopPropagation()}
-                                                className="absolute z-[200] left-0 top-full mt-1.5 w-full sm:w-72 max-h-60 sm:max-h-72 overflow-y-auto bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/90 rounded-xl sm:rounded-2xl shadow-xl dark:shadow-dk-elevated divide-y divide-slate-100 dark:divide-dk-border p-1.5"
-                                            >
-                                                <div className="px-3 py-2 bg-slate-50 dark:bg-dk-bg/80 rounded-t-lg text-[9px] sm:text-[10px] font-black text-slate-400 dark:text-dk-muted uppercase tracking-wider sticky top-0 z-10 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
-                                                    <span>{tx(lang, { fr: "Membres d'effectifs disponibles", ar: 'أعضاء الفريق المتاحين', en: 'Available staff members', es: 'Miembros de personal disponibles', pt: 'Membros da equipe disponíveis', tr: 'Mevcut personel üyeleri' })}</span>
-                                                    <span className="text-[8px] bg-slate-200/60 text-slate-500 dark:text-dk-muted px-1 py-0.2 rounded font-mono">
-                                                        {workerSuggestions.length} {tx(lang, { fr: 'dispo', ar: 'متاح', en: 'avail.', es: 'disp.', pt: 'disp.', tr: 'mevcut' })}
-                                                    </span>
-                                                </div>
-                                                {activeWorkers.length === 0 ? (
-                                                    <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
-                                                        {tx(lang, { fr: 'Chargement des effectifs...', ar: 'جاري تحميل الفريق...', en: 'Loading staff...', es: 'Cargando personal...', pt: 'Carregando equipe...', tr: 'Personel yükleniyor...' })}
-                                                    </div>
-                                                ) : workerSuggestions.length === 0 ? (
-                                                    <div className="px-4 py-4 text-center text-xs text-slate-450 font-semibold">
-                                                        {tx(lang, { fr: 'Aucun membre disponible', ar: 'لا يوجد عضو متاح', en: 'No member available', es: 'Ningún miembro disponible', pt: 'Nenhum membre disponível', tr: 'Mevcut üye yok' })}
-                                                    </div>
-                                                ) : (
-                                                    workerSuggestions.map(w => (
-                                                        <button
-                                                            key={w.id}
-                                                            type="button"
-                                                            onMouseDown={e => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                            }}
-                                                            onClick={() => {
-                                                                setChronoCustomStations?.(prev =>
-                                                                    prev.map(s => s.id === station.id ? { ...s, operatorName: w.full_name } : s)
-                                                                );
-                                                                setActiveOperatorStationId(null);
-                                                            }}
-                                                            className="w-full text-left px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 active:bg-slate-100/70 transition-colors flex items-center justify-between gap-2"
-                                                        >
-                                                            <div className="flex flex-col gap-0.5 min-w-0">
-                                                                <span className="text-xs sm:text-sm font-bold text-slate-800 dark:text-dk-text truncate">{w.full_name}</span>
-                                                                <span className="text-[9px] sm:text-[10px] font-semibold text-slate-400 dark:text-dk-muted truncate">
-                                                                    {tx(lang, { fr: 'Matricule :', ar: 'الرقم الوظيفي:', en: 'ID:', es: 'Matrícula:', pt: 'Matrícula:', tr: 'Sicil No:' })} {w.matricule}
-                                                                </span>
-                                                            </div>
-                                                            {w.role && (
-                                                                <span className="text-[8px] sm:text-[9px] font-bold text-indigo-650 dark:text-dk-accent-text bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 border border-indigo-100/30 px-1.5 py-0.5 rounded-lg shrink-0 uppercase tracking-wider">
-                                                                    {w.role}
-                                                                </span>
-                                                            )}
-                                                        </button>
-                                                    ))
-                                                )}
-                                            </div>
+                                            <WorkerPicker
+                                                available={workerSuggestions}
+                                                assigned={assignedSuggestions}
+                                                total={activeWorkers.length}
+                                                query={operatorFilter}
+                                                status={workersStatus}
+                                                error={workersError}
+                                                onRetry={retryWorkers}
+                                                onPick={w => {
+                                                    setChronoCustomStations?.(prev =>
+                                                        prev.map(s => s.id === station.id ? { ...s, operatorName: w.full_name } : s)
+                                                    );
+                                                    setActiveOperatorStationId(null);
+                                                }}
+                                            />
                                         )}
                                     </div>
                                 </div>

@@ -221,6 +221,12 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
        pause serait surevalue et l'ouvrier note trop bas. */
     const minutesCreneau = (heureKey?: string): number => {
         if (!heureKey) return 60;
+        /* La grille du jour donne deja la duree REELLE du creneau : elle est
+           coupee a la pause (ex. 13:30/14:00 = 30 min), donc pas de soustraction
+           a refaire ici. */
+        const bloc = hourGrid.blocks.find(b => b.key === heureKey);
+        if (bloc) return Math.max(5, bloc.duration);
+        // Releve d'une ancienne grille : on retombe sur l'heure pleine moins la pause.
         const hh = Number(heureKey.replace('h', '').slice(0, 2));
         const mm = Number(heureKey.replace('h', '').slice(2, 4));
         if (!Number.isFinite(hh)) return 60;
