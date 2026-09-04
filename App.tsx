@@ -551,6 +551,8 @@ export default function App() {
             try { const s = lsGetMig('beramethode_manual_links'); if (s) setManualLinks(JSON.parse(s)); } catch { /* idem */ }
             // Marqué APRÈS la relecture : la persistance ne se rouvre qu'ensuite.
             prefsChargeesPour.current = compteCourant();
+            // Rejoue l'écriture qui aurait été refusée avant ce point.
+            setPrefsPretesTick(t => t + 1);
         };
         relirePreferences();
         const onCompteChange = () => relirePreferences();
@@ -707,10 +709,19 @@ export default function App() {
         return compte !== '' && prefsChargeesPour.current === compte;
     };
 
+    /* Le garde ci-dessus refuse d'écrire tant que le compte n'est pas connu.
+       L'effet ne dépendant que de `globalSettings`, un enregistrement tombé
+       pendant cette fenêtre était PERDU SANS RETOUR : rien ne le rejouait
+       ensuite, et le réglage (un horaire de jour, par exemple) disparaissait au
+       redémarrage alors que l'écran avait bien affiché « enregistré ».
+       Ce compteur, incrémenté dès que les préférences sont relues, redéclenche
+       l'effet et écrit enfin ce qui attendait. */
+    const [prefsPretesTick, setPrefsPretesTick] = useState(0);
+
     useEffect(() => {
         if (!prefsPretes()) return;
         lsSet('beramethode_settings', JSON.stringify(globalSettings));
-    }, [globalSettings]);
+    }, [globalSettings, prefsPretesTick]);
 
     const [machines, setMachines] = useState<Machine[]>(loadMachinesFromStorage);
     const [machineFleetHistory, setMachineFleetHistory] = useState<MachineFleetHistoryEntry[]>(loadMachineFleetHistoryFromStorage);
