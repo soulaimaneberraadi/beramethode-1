@@ -201,6 +201,20 @@ const ORIGINAL_SET_ITEM = Storage.prototype.setItem;
 let syncChannel: ReturnType<typeof supabase.channel> | null = null;
 let beforeUnloadHandler: (() => void) | null = null;
 let visibiliteHandler: (() => void) | null = null;
+/** Filet de securite quand le canal Realtime ne passe pas (voir POLL_PULL_MS). */
+let pollPullTimer: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Intervalle du pull de secours, appareil au premier plan uniquement.
+ *
+ * Le temps reel repose sur un canal WebSocket : pare-feu d'atelier, reseau
+ * mobile capricieux ou Realtime indisponible sur le projet, et le signal
+ * « quelqu'un a modifie » n'arrive jamais — deux telephones ouverts cote a cote
+ * ne se voyaient plus jusqu'a ce qu'on bascule hors de l'application et qu'on y
+ * revienne. Ce rappel ne coute qu'un SELECT d'une colonne : le blob n'est
+ * telecharge que si `updated_at` a change.
+ */
+const POLL_PULL_MS = 60000;
 
 // Délai de regroupement des écritures avant un push cloud. Une valeur trop
 // basse (ex. 1,5 s) provoque une rafale d'UPSERT du blob `user_data` (~2 Mo)
@@ -645,6 +659,31 @@ const applySnapshotToLocal = async (snapshot: Record<string, unknown> | null): P
 /** @returns true si le snapshot est bien arrivé au cloud (ou s'il n'y avait rien à pousser). */
 export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
   if (!isCloudSyncUserId(userId) || isApplyingRemote) return false;
+
+  /* ── D'ABORD RECUPERER, ENSUITE ENVOYER ──────────────────────────────────
+   * L'UPSERT remplace la ligne entiere : envoyer sans avoir fusionne l'etat du
+   * cloud EFFACE ce qu'un autre appareil vient d'y mettre. Deux telephones sur
+   * le meme compte se comportaient ainsi : celui qui revenait en dernier
+   * ecrasait le travail de l'autre, puis notait l'horodatage de SON envoi comme
+   * « derniere version connue » — son pull suivant se croyait a jour et sautait
+   * le telechargement. Rien ne passait plus d'un telephone a l'autre.
+   *
+   * Un SELECT d'une seule colonne suffit a savoir si le cloud a bouge depuis
+   * notre dernier pull ; on ne telecharge le blob que dans ce cas. La fusion du
+   * pull est une union : elle ne perd aucune donnee locale. */
+  try {
+    const { data: meta } = await supabase
+      .from(TABLE)
+      .select('updated_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const remoteAt = (meta as { updated_at?: string } | null)?.updated_at || '';
+    const localAt = (() => { try { return localStorage.getItem(LAST_PULLED_AT_KEY); } catch { return null; } })();
+    if (remoteAt && remoteAt !== localAt) {
+      await pullSnapshotFromCloud(userId).catch(() => false);
+    }
+  } catch { /* cloud illisible : on tente l'envoi, c'est mieux que de perdre le travail local */ }
+
   let snapshot: Record<string, unknown> = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
 
   // Les photos vivent dans IndexedDB ; la bibliothèque locale n'en garde qu'une
@@ -805,9 +844,13 @@ export const pullSnapshotFromCloud = async (
       else if (!toutApplique) localStorage.removeItem(LAST_PULLED_AT_KEY);
     } catch { /* ignore */ }
 
-    try {
-      lastSyncedSig = quickSig(JSON.stringify({ ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION }));
-    } catch { /* signature best-effort */ }
+    /* La signature sert a sauter un envoi dont le contenu est DEJA dans le
+     * cloud. Apres une fusion, l'etat local n'est plus celui du cloud : il
+     * contient en plus ce que cet appareil n'a pas encore envoye. Y inscrire la
+     * signature du local faisait sauter l'envoi suivant — le travail local
+     * restait sur l'appareil, invisible pour les autres. On efface : le prochain
+     * envoi partira, et il portera l'etat fusionne. */
+    lastSyncedSig = null;
 
     const wasEmpty = !sessionStorage.getItem(RELOAD_FLAG);
     const sig = (() => {
@@ -900,8 +943,12 @@ export const startCloudSync = (userId: string) => {
     // la fusion du pull. Les deux appels savent ne rien faire s'il n'y a rien de
     // neuf (signature identique, `updated_at` identique) — aucun trafic inutile.
     void (async () => {
-      await pushSnapshotToCloud(userId).catch(() => false);
+      // Dans CET ordre : la fusion du pull est une union (rien de local ne se
+      // perd), et l'envoi qui suit part d'un etat qui contient deja le travail
+      // des autres appareils. L'ordre inverse envoyait l'etat local par-dessus
+      // le leur, puis sautait le pull en se croyant a jour.
       await pullSnapshotFromCloud(userId).catch(() => false);
+      await pushSnapshotToCloud(userId).catch(() => false);
     })();
   };
   document.addEventListener('visibilitychange', visibiliteHandler);
@@ -951,6 +998,14 @@ export const startCloudSync = (userId: string) => {
   // dernier événement reçu avant la mise au rebut de la page.
   window.addEventListener('pagehide', beforeUnloadHandler);
 
+  // Pull de secours quand le canal temps réel ne passe pas (cf. POLL_PULL_MS).
+  if (pollPullTimer) { clearInterval(pollPullTimer); pollPullTimer = null; }
+  pollPullTimer = setInterval(() => {
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+    if (isApplyingRemote) return;
+    void pullSnapshotFromCloud(userId).catch(() => false);
+  }, POLL_PULL_MS);
+
   // Synchro inter-appareils en temps réel via Broadcast (zéro charge DB).
   // À la réception d'un signal « updated », l'appareil pull le dernier snapshot.
   // IMPORTANT: on n'utilise PAS postgres_changes (décodage WAL du blob ~2 Mo)
@@ -966,6 +1021,7 @@ export const startCloudSync = (userId: string) => {
 
 export const stopCloudSync = () => {
   if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+  if (pollPullTimer) { clearInterval(pollPullTimer); pollPullTimer = null; }
   attenteDepuis = 0;
   if (syncChannel) { syncChannel.unsubscribe(); syncChannel = null; }
   detacherEcouteurs();
