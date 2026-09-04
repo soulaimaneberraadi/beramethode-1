@@ -14,14 +14,24 @@
 // jamais sur l'appareil, surtout mobile/PWA). Le cache ne sert que de repli
 // hors-ligne. Les médias (images/polices) restent en cache-first (rarement
 // modifiés). Bump du nom de cache → l'ancien cache est purgé à l'activation.
-const CACHE = 'beramethode-v6';
+const CACHE = 'beramethode-v7';
 const CACHE_DONNEES = 'beramethode-donnees-v1';
 
 const CLE_PAGE = '/index.html';
 
 // Lectures que l on garde sur l appareil : ouvrir l application hors reseau
 // doit montrer le dernier etat connu plutot qu une page vide.
-const API_LECTURE = new RegExp("^/api/(ventes|facturation|clients|subcontract|magasin)/");
+//
+// TOUTES les lectures de l API, et non plus cinq domaines choisis : l atelier
+// qui perd le Wi-Fi ouvrait bien la page, puis tombait sur des ecrans vides des
+// qu il quittait la facturation — le planning, les effectifs et le suivi n
+// etaient gardes nulle part. Y compris `/api/auth/me` : sans lui, la coquille
+// s ouvre sur l ecran de connexion, et se connecter sans reseau est impossible.
+//
+// Restent dehors ce qu il serait faux ou inutile de rendre depuis une copie :
+// se connecter, se deconnecter, l IA, la licence et la synchro.
+const API_LECTURE = /^\/api\//;
+const API_JAMAIS_EN_CACHE = /^\/api\/(auth\/(login|logout|register|reset)|gemini|ai\/|license|sync\/)/;
 const CODE_REGEX = /\.(js|css)$/;
 const MEDIA_REGEX = /\.(png|jpg|jpeg|gif|svg|ico|woff2?)$/;
 
@@ -170,7 +180,7 @@ self.addEventListener('fetch', (e) => {
   // pendant que la connexion marche ferait prendre une decision sur un montant
   // faux. Hors reseau en revanche, le dernier etat connu vaut mieux qu'une page
   // vide — et la reponse est marquee pour que l'ecran puisse le dire.
-  if (request.method === 'GET' && API_LECTURE.test(url.pathname)) {
+  if (request.method === 'GET' && API_LECTURE.test(url.pathname) && !API_JAMAIS_EN_CACHE.test(url.pathname)) {
     e.respondWith(
       fetch(request)
         .then((res) => {
@@ -197,6 +207,17 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
+
+  // ÉCRITURES de l'API → on ne touche à rien, volontairement.
+  //
+  // Le repli ci-dessous transforme une panne de réseau en réponse 504. Pour une
+  // lecture c'est un progrès : l'appelant lit un code au lieu d'une erreur
+  // opaque. Pour une écriture c'est un désastre : la file hors ligne de la page
+  // reconnaît la coupure au REJET du fetch, et un 504 est une réponse — donc
+  // pas un rejet. La saisie était comptée comme envoyée, et perdue. En laissant
+  // passer la requête sans l'habiller, le fetch échoue pour de vrai et la file
+  // la garde.
+  if (url.pathname.startsWith('/api/') && request.method !== 'GET') return;
 
   // Le reste → réseau, avec une réponse d'erreur claire si le réseau manque.
   e.respondWith(fetch(request).catch(() => reponseIndisponible('hors ligne')));

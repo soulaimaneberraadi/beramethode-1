@@ -133,6 +133,7 @@ import {
 } from './server/facturationController';
 import { getDashboardKPIs, streamDashboardKPIs } from './server/dashboardController';
 import { authenticateToken, requirePermission, clearAuthCookie } from './server/middleware';
+import { idempotence } from './server/idempotence';
 import { listerAppareils, revoquerAppareil, restaurerAppareil } from './server/devicesController';
 import { postAnalyzeTextile, postSuggestVocabulary, postGenerateOperations, postOptimizePlanning } from './server/geminiController';
 import { forcePushNow, supabaseSyncMiddleware, logSupabaseSyncStatus, startSupabaseSync } from './server/supabaseSync';
@@ -542,6 +543,11 @@ async function startServer() {
   // Emits an in-process event after every successful write so SSE clients
   // can push the new snapshot instantly (no polling).
   app.use(dataChangeNotifier);
+
+  // Rejeu sans doublon : une ecriture renvoyee par la file hors ligne du
+  // navigateur porte une cle. Si le serveur l'a deja traitee, il rend la
+  // reponse d'alors au lieu de creer une seconde fois la meme piece.
+  app.use('/api', idempotence);
 
   // Agent 3 — UUID & Path Security: validate route params + track violations
   app.use('/api', (req, res, next) => {

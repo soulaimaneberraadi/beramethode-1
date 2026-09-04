@@ -15,6 +15,7 @@ import { installerEnteteAppareil } from './src/lib/deviceId';
 import { APP_VERSION } from './src/lib/dataVersion';
 import { initDiagnostics } from './src/lib/diagnostics';
 import { demarrerRelaisPlantages } from './src/lib/crashRelay';
+import { installerFileHorsLigne } from './src/lib/filaHorsLigne';
 
 // Capture des breadcrumbs (console + erreurs) le plus tôt possible, pour les
 // joindre aux réclamations en cas de bug.
@@ -35,6 +36,12 @@ installerRedirectionApi();
 // voir l'adresse encore relative (`/api/...`) pour reconnaître nos routes —
 // une fois réécrite vers un serveur distant, elle ne s'en distingue plus.
 installerEnteteAppareil();
+
+// La file hors ligne. Posee EN DERNIER, donc executee EN PREMIER : elle doit
+// voir l'adresse encore relative (`/api/...`) pour reconnaitre nos routes. Ce
+// qui ne peut pas partir est garde sur l'appareil et renvoye — dans l'ordre —
+// des que le reseau revient, en repassant par les enveloppes posees avant elle.
+installerFileHorsLigne();
 
 // En static mode (Vercel) SANS API distante, on intercepte les /api/* pour les
 // servir depuis le snapshot cloud localStorage. Aucun serveur backend requis.
