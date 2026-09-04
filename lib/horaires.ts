@@ -135,14 +135,8 @@ export interface CreneauJour {
   pauseMin: number;
 }
 
-/**
- * Durée à partir de laquelle une pause COUPE la grille au lieu d'être absorbée
- * dans le créneau. En dessous (rabouz de 15 min), l'atelier garde son rythme
- * d'horloge — le créneau reste 08:30/09:30 et compte simplement 45 min de
- * production ; au-dessus (déjeuner / prière de 30 min et plus), le créneau
- * s'arrête à la pause et un nouveau repart à la fin de celle-ci.
- */
-export const SEUIL_PAUSE_COUPANTE_MIN = 30;
+/** Minutes de production visées par créneau : un créneau = une heure de travail. */
+const MINUTES_PAR_CRENEAU = 60;
 
 /** Durée minimale d'un créneau conservé (un reliquat plus court n'est pas une heure de production). */
 const MIN_CRENEAU_MIN = 5;
@@ -166,9 +160,9 @@ function pausesDuJourNormalisees(pauses: Pause[], dayStart: number, dayEnd: numb
 }
 
 /**
- * Plages de travail continues du jour : [début, fin] moins les pauses LONGUES
- * (≥ `SEUIL_PAUSE_COUPANTE_MIN`). Les pauses courtes ne coupent pas la plage —
- * elles sont retranchées du créneau qui les contient (voir `creneauxDuJour`).
+ * Plages de travail continues du jour : [début, fin] moins les pauses.
+ * Sert aux écrans qui ont besoin du temps travaillé brut (capacité, pointage) ;
+ * la grille de Suivi, elle, passe par `creneauxDuJour`.
  */
 export function plagesTravailleesDuJour(settings: AppSettings, dateOrDay?: Date | number): Intervalle[] {
   const h = horairesDuJour(settings, dateOrDay);
@@ -177,12 +171,10 @@ export function plagesTravailleesDuJour(settings: AppSettings, dateOrDay?: Date 
   const dayEnd = toMin(h.end) || 1080;
   if (dayEnd <= dayStart) return []; // horaire incohérent (ou vide) : aucune plage
 
-  const coupantes = pausesDuJourNormalisees(h.pauses, dayStart, dayEnd)
-    .filter(p => p.end - p.start >= SEUIL_PAUSE_COUPANTE_MIN);
-
+  const pauses = pausesDuJourNormalisees(h.pauses, dayStart, dayEnd);
   const plages: Intervalle[] = [];
   let cursor = dayStart;
-  for (const p of coupantes) {
+  for (const p of pauses) {
     if (p.start > cursor) plages.push({ start: cursor, end: p.start });
     cursor = Math.max(cursor, p.end);
   }
@@ -191,47 +183,78 @@ export function plagesTravailleesDuJour(settings: AppSettings, dateOrDay?: Date 
 }
 
 /**
- * Blocs horaires du jour, mêmes conventions de clés que `deriveHourGrid`
+ * Créneaux du jour, mêmes conventions de clés que `deriveHourGrid`
  * (components/suivi/shared/hours.ts) : une clé 'h0800' par créneau.
  *
- * Deux règles, selon la longueur de la pause :
+ * RÈGLE : un créneau = UNE HEURE DE PRODUCTION. La pause n'ampute pas le
+ * créneau, elle DÉCALE l'horloge — la fenêtre du créneau s'allonge d'autant.
+ * L'atelier compte ainsi une heure pleine dans chaque case, quel que soit
+ * l'endroit où tombe la coupure ; seul le dernier créneau de la journée peut
+ * être plus court, avec ce qui reste avant la fermeture.
  *
- * - Pause LONGUE (≥ 30 min : déjeuner, prière du vendredi) -> elle COUPE la
- *   grille. Le créneau s'arrête à son début et un nouveau repart à sa fin
- *   (… 12:30/13:30, pause 13:30-14:00, puis 14:00/15:00 …).
- * - Pause COURTE (< 30 min : rabouz) -> le créneau garde ses bornes d'horloge
- *   et perd seulement les minutes de la pause (08:30/09:30 avec rabouz
- *   09:00-09:15 = 45 min de production). Sans cela, la grille se décalait d'un
- *   quart d'heure pour tout le reste de la journée (09:15/10:15, 10:15/11:15…).
- *
- * Vendredi 06:30-17:00, rabouz 09:00-09:15 et déjeuner 13:30-14:00 :
- * 10 créneaux, 585 min = 9 h 45 de production nette.
+ * Vendredi 06:30-17:00, rabouz 09:00-09:15, déjeuner + prière 13:30-14:30 :
+ *   06:30/07:30 · 07:30/08:30 · 08:30/09:45 (60 min de travail + 15 de pause)
+ *   09:45/10:45 · 10:45/11:45 · 11:45/12:45
+ *   12:45/14:45 (60 de travail + 60 de pause) · 14:45/15:45 · 15:45/16:45
+ *   16:45/17:00 (15 min)
+ *   -> 10 créneaux, 555 min = 9 h 15 de production nette.
  */
 export function creneauxDuJour(settings: AppSettings, dateOrDay?: Date | number): CreneauJour[] {
   const h = horairesDuJour(settings, dateOrDay);
   if (h.closed) return [];
   const dayStart = toMin(h.start) || 480;
   const dayEnd = toMin(h.end) || 1080;
-  const courtes = pausesDuJourNormalisees(h.pauses, dayStart, dayEnd)
-    .filter(p => p.end - p.start < SEUIL_PAUSE_COUPANTE_MIN);
+  if (dayEnd <= dayStart) return [];
+
+  const pauses = pausesDuJourNormalisees(h.pauses, dayStart, dayEnd);
+  /** La pause qui couvre cet instant, s'il y en a une. */
+  const pauseÀ = (m: number): Intervalle | undefined => pauses.find(p => m >= p.start && m < p.end);
+  /** Le début de la prochaine pause après cet instant (fin du jour à défaut). */
+  const prochainePause = (m: number): number => {
+    for (const p of pauses) if (p.start > m) return p.start;
+    return dayEnd;
+  };
 
   const out: CreneauJour[] = [];
-  for (const plage of plagesTravailleesDuJour(settings, dateOrDay)) {
-    for (let m = plage.start; m < plage.end; m += 60) {
-      const end = Math.min(m + 60, plage.end);
-      const pauseMin = chevauchementMinutes(courtes, m, end);
-      const duration = (end - m) - pauseMin;
-      if (duration < MIN_CRENEAU_MIN) continue;
-      out.push({
-        label: minToHHMM(m),
-        endLabel: minToHHMM(end),
-        key: `h${minToHHMM(m).replace(':', '')}`,
-        startMin: m,
-        endMin: end,
-        duration,
-        pauseMin,
-      });
+  let cursor = dayStart;
+
+  while (cursor < dayEnd) {
+    // Un créneau ne commence jamais dans une pause : on la franchit d'abord.
+    let enPause = pauseÀ(cursor);
+    while (enPause && cursor < dayEnd) { cursor = enPause.end; enPause = pauseÀ(cursor); }
+    if (cursor >= dayEnd) break;
+
+    const start = cursor;
+    let restant = MINUTES_PAR_CRENEAU;
+
+    // On consomme l'horloge, mais seules les minutes hors pause comptent.
+    while (restant > 0 && cursor < dayEnd) {
+      const p = pauseÀ(cursor);
+      if (p) { cursor = Math.min(p.end, dayEnd); continue; }
+      const borne = Math.min(dayEnd, prochainePause(cursor), cursor + restant);
+      restant -= borne - cursor;
+      cursor = borne;
     }
+
+    /* L'heure de production est faite : on absorbe la pause qui commence
+       pile ici, pour que le créneau suivant démarre sur du temps productif
+       et que les fenêtres restent jointives (… 08:30/09:45, 09:45/10:45 …). */
+    let collee = pauses.find(p => p.start === cursor);
+    while (collee && cursor < dayEnd) { cursor = Math.min(collee.end, dayEnd); collee = pauses.find(p => p.start === cursor); }
+
+    const end = cursor;
+    const duration = MINUTES_PAR_CRENEAU - restant;
+    if (duration < MIN_CRENEAU_MIN) break; // reliquat trop court pour être une case de saisie
+    out.push({
+      label: minToHHMM(start),
+      endLabel: minToHHMM(end),
+      key: `h${minToHHMM(start).replace(':', '')}`,
+      startMin: start,
+      endMin: end,
+      duration,
+      pauseMin: (end - start) - duration,
+    });
   }
+
   return out;
 }

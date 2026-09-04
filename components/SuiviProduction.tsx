@@ -405,6 +405,7 @@ export default function SuiviProduction({
         return Array.from(byKey.values()).sort((a, b) => a.startMin - b.startMin);
     }, [blocksForDate, weekDays]);
 
+    const pauseTag = tx(lang, { fr: 'pause', ar: 'استراحة', en: 'break', es: 'pausa', pt: 'pausa', tr: 'mola' });
     const horsGrilleTag = tx(lang, { fr: 'hors horaire', ar: 'خارج التوقيت', en: 'off-schedule', es: 'fuera de horario', pt: 'fora do horário', tr: 'mesai dışı' });
     const horsGrilleHint = tx(lang, { fr: "Saisie faite sous un créneau que l'horaire de ce jour ne produit plus (horaire modifié). La production reste comptée.", ar: 'إدخال تحت فترة لم يعد توقيت هذا اليوم ينتجها (تم تغيير التوقيت). الإنتاج لا يزال محتسباً.', en: 'Entered under a slot this day schedule no longer produces (schedule changed). The output is still counted.', es: 'Introducido en un tramo que el horario de este día ya no produce (horario modificado). La producción sigue contando.', pt: 'Introduzido num intervalo que o horário deste dia já não produz (horário alterado). A produção continua contada.', tr: 'Bu günün mesaisinin artık üretmediği bir dilime girilmiş (mesai değişti). Üretim yine de sayılır.' });
 
@@ -1616,6 +1617,10 @@ export default function SuiviProduction({
                                                 <span className="block text-[8px] font-bold normal-case tracking-normal text-amber-600 dark:text-amber-300">{horsGrilleTag}</span>
                                             ) : h.duration < 60 ? (
                                                 <span className="block text-[8px] font-bold normal-case tracking-normal text-indigo-500 dark:text-dk-accent-text">{h.duration} min</span>
+                                            ) : h.pauseMin > 0 ? (
+                                                /* Fenetre allongee par la pause : l'heure de production est entiere,
+                                                   c'est l'horloge qui a avance. */
+                                                <span className="block text-[8px] font-bold normal-case tracking-normal text-slate-400 dark:text-dk-muted">+{h.pauseMin} min {pauseTag}</span>
                                             ) : null}
                                         </th>
                                     ))}
@@ -2043,6 +2048,8 @@ export default function SuiviProduction({
                                                                 <span className="block text-[9px] font-bold text-amber-600 dark:text-amber-300" title={horsGrilleHint}>{horsGrilleTag}</span>
                                                             ) : h.duration < 60 ? (
                                                                 <span className="block text-[9px] font-bold text-indigo-500 dark:text-dk-accent-text">{h.duration} min</span>
+                                                            ) : h.pauseMin > 0 ? (
+                                                                <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted">+{h.pauseMin} min {pauseTag}</span>
                                                             ) : null}
                                                         </span>
                                                         <input
