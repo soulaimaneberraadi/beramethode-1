@@ -9,6 +9,7 @@ import {
   Mail, Key, Copy, LayoutGrid, Table2, Truck, Navigation, Lock,
 } from 'lucide-react';
 import { HRWorkerProfilePanel } from './HRWorkerProfilePanel';
+import RhPointageSettings from './rh/RhPointageSettings';
 import SensitiveValue, { useFieldAccess } from './ui/SensitiveValue';
 import * as XLSX from 'xlsx';
 import { HRWorker, HRPointage, HRAvance, HRWorkerRole, HRContractType, HRPointageStatus, SuiviData, PlanningEvent, AppSettings, HRTransportLigne } from '../types';
@@ -1126,6 +1127,8 @@ interface GestionRHProps {
   suivis?: SuiviData[];
   planningEvents?: PlanningEvent[];
   settings?: AppSettings;
+  /** Applique un reglage RH au reste de l'app (onglet Sage / Paie -> RhPointageSettings). */
+  setSettings?: React.Dispatch<React.SetStateAction<AppSettings>>;
   onBack?: () => void;
   /** Ouvre directement le profil d'un opérateur (par nom) — ex. depuis le Catalogue de Temps. */
   initialWorkerName?: string;
@@ -1136,7 +1139,7 @@ interface GestionRHProps {
 }
 
 export default function GestionRH({ 
-  suivis = [], planningEvents = [], settings, onBack, initialWorkerName, initialWorkerNonce,
+  suivis = [], planningEvents = [], settings, setSettings, onBack, initialWorkerName, initialWorkerNonce,
   selectedDate: propSelectedDate,
   setSelectedDate: propSetSelectedDate,
   selectedChaineId
@@ -3245,6 +3248,11 @@ export default function GestionRH({
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* Reglages qui gouvernent ces exports (venus de la page Configuration). */}
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <RhPointageSettings settings={settings || ({} as AppSettings)} setSettings={setSettings} lang={lang} />
                 </div>
               </div>
             )}
