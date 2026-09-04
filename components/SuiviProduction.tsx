@@ -1496,8 +1496,11 @@ export default function SuiviProduction({
                                     
                                     {/* Hour Headers (creneaux de la semaine, union des jours) */}
                                     {weekHourBlocks.map(h => (
-                                        <th key={h.key} className="py-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-28 border-r border-slate-100 dark:border-dk-border/50">
+                                        <th key={h.key} className="py-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-28 border-r border-slate-100 dark:border-dk-border/50" title={`${h.label} — ${h.duration} min${h.pauseMin ? ` (pause ${h.pauseMin} min)` : ''}`}>
                                             {h.label}
+                                            {h.duration < 60 && (
+                                                <span className="block text-[8px] font-bold normal-case tracking-normal text-indigo-500 dark:text-dk-accent-text">{h.duration} min</span>
+                                            )}
                                         </th>
                                     ))}
                                     <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-24">{l.pJournaliere}</th>
@@ -1874,7 +1877,14 @@ export default function SuiviProduction({
                                                 }
                                                 return (
                                                     <div key={h.key} className="flex items-center gap-2">
-                                                        <span className="w-[88px] shrink-0 text-[11px] font-bold text-slate-500 dark:text-dk-muted tabular-nums">{h.label}</span>
+                                                        <span className="w-[88px] shrink-0 text-[11px] font-bold text-slate-500 dark:text-dk-muted tabular-nums">
+                                                            {h.label}
+                                                            {/* Creneau ampute par un rabouz (ou fin de journee) : on dit combien de
+                                                                minutes il compte vraiment, sinon 45 min ressemble a une heure pleine. */}
+                                                            {h.duration < 60 && (
+                                                                <span className="block text-[9px] font-bold text-indigo-500 dark:text-dk-accent-text">{h.duration} min</span>
+                                                            )}
+                                                        </span>
                                                         <input
                                                             type="text"
                                                             inputMode="numeric"
