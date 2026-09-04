@@ -94,17 +94,20 @@ export default function HorairesTravail({ draft, onChange, isDirty, onSave, isSa
         });
     };
 
+    /* Tant que le jour n'a pas SA liste, la feuille affiche les pauses générales.
+       Toucher l'une d'elles part donc de cette liste-là : repartir d'un tableau
+       vide (l'ancien `|| []`) transformait la moindre correction en SUPPRESSION
+       de toutes les pauses du jour — l'atelier se retrouvait sans coupure. */
+    const pausesDuJour = (day: number): Pause[] => getOverride(day)?.pauses ?? (draft.pauses || []).map(p => ({ ...p }));
+
     const addOverridePause = (day: number) => {
-        const cur = getOverride(day)?.pauses || [];
-        setOverride(day, { pauses: [...cur, makePause()] });
+        setOverride(day, { pauses: [...pausesDuJour(day), makePause()] });
     };
     const updateOverridePause = (day: number, id: string, field: 'start' | 'end' | 'name', value: string) => {
-        const cur = getOverride(day)?.pauses || [];
-        setOverride(day, { pauses: cur.map(p => (p.id === id ? recomputeDuration({ ...p, [field]: value }) : p)) });
+        setOverride(day, { pauses: pausesDuJour(day).map(p => (p.id === id ? recomputeDuration({ ...p, [field]: value }) : p)) });
     };
     const removeOverridePause = (day: number, id: string) => {
-        const cur = getOverride(day)?.pauses || [];
-        setOverride(day, { pauses: cur.filter(p => p.id !== id) });
+        setOverride(day, { pauses: pausesDuJour(day).filter(p => p.id !== id) });
     };
 
     const dayModalOverride = dayModalFor != null ? getOverride(dayModalFor) : undefined;
