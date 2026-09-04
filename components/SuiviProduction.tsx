@@ -1,6 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import type { AppSettings, ModelData, PlanningEvent, SuiviData, MaterialReceipt, InventoryMovement, MouvementStock, PlanningStatus } from '../types';
-import { deriveHourGrid } from './suivi/shared/hours';
+import { deriveHourGrid, type HourBlock } from './suivi/shared/hours';
+
+/** Creneau de la grille, plus un marqueur pour les saisies hors horaire du jour. */
+type GridBlock = HourBlock & { orphan?: boolean };
 import { getOFColor, OF_COLOR_CHOICES, type OFStyle } from './suivi/shared/ofColors';
 import { useIsMobile } from './planning/shared/useIsMobile';
 import { 
@@ -338,9 +341,44 @@ export default function SuiviProduction({
        calculee une seule fois sur le reglage general avec une duree figee a
        60 min : la pause du jour n'etait ni appliquee ni retranchee, et une
        coupure de 30 min faisait disparaitre une heure entiere de saisie. */
-    const blocksForDate = React.useCallback((dateStr?: string) => {
-        return deriveHourGrid(settings, dateStr ? new Date(dateStr) : undefined).blocks;
-    }, [settings]);
+    const blocksForDate = React.useCallback((dateStr?: string): GridBlock[] => {
+        const grille: GridBlock[] = deriveHourGrid(settings, dateStr ? new Date(dateStr) : undefined).blocks;
+        if (!dateStr) return grille;
+
+        /* Creneaux HORS grille : une production a deja ete saisie sous une cle
+           que l'horaire du jour ne produit plus (horaire modifie, pause ajoutee,
+           ancienne grille). On les rattache a la fin, marques `orphan`, plutot
+           que de faire disparaitre des pieces reellement produites. */
+        const connues = new Set(grille.map(b => b.key));
+        const orphelins = new Map<string, GridBlock>();
+        suivis
+            .filter(s => s.chaineId === selectedChaineId && s.date === dateStr)
+            .forEach(s => {
+                Object.entries(s.sorties || {}).forEach(([key, val]) => {
+                    if (connues.has(key) || orphelins.has(key)) return;
+                    if (val === undefined || val === null || val === 0) return;
+                    const m = /^h(\d{2})(\d{2})$/.exec(key);
+                    if (!m) return;
+                    const startMin = Number(m[1]) * 60 + Number(m[2]);
+                    const endMin = startMin + 60;
+                    const hhmm = (min: number) => `${Math.floor(min / 60).toString().padStart(2, '0')}:${(min % 60).toString().padStart(2, '0')}`;
+                    orphelins.set(key, {
+                        key,
+                        start: hhmm(startMin),
+                        end: hhmm(endMin),
+                        label: `${hhmm(startMin)}/${hhmm(endMin)}`,
+                        duration: 60,
+                        pauseMin: 0,
+                        startMin,
+                        endMin,
+                        orphan: true,
+                    });
+                });
+            });
+
+        if (orphelins.size === 0) return grille;
+        return [...grille, ...orphelins.values()].sort((a, b) => a.startMin - b.startMin);
+    }, [settings, suivis, selectedChaineId]);
 
     /* Creneaux du jour affiche (graphique, chronologie, vue mobile). */
     const hourBlocks = useMemo(
@@ -353,17 +391,21 @@ export default function SuiviProduction({
        jour qui n'a pas un creneau (pause propre, ou jour ferme) affiche une
        case grisee au lieu d'une saisie qui n'existe pas. */
     const weekHourBlocks = useMemo(() => {
-        const byKey = new Map<string, ReturnType<typeof blocksForDate>[number]>();
+        const byKey = new Map<string, GridBlock>();
         weekDays.forEach(d => {
             blocksForDate(d.dateStr).forEach(b => {
                 const prev = byKey.get(b.key);
                 // Meme debut mais duree differente selon le jour : on garde la plus longue
-                // pour que l'en-tete couvre l'amplitude reelle de la colonne.
-                if (!prev || b.duration > prev.duration) byKey.set(b.key, b);
+                // pour que l'en-tete couvre l'amplitude reelle de la colonne. Un creneau
+                // present dans la grille d'un jour n'est plus "hors grille" pour la semaine.
+                if (!prev || (prev.orphan && !b.orphan) || b.duration > prev.duration) byKey.set(b.key, b);
             });
         });
         return Array.from(byKey.values()).sort((a, b) => a.startMin - b.startMin);
     }, [blocksForDate, weekDays]);
+
+    const horsGrilleTag = tx(lang, { fr: 'hors horaire', ar: 'خارج التوقيت', en: 'off-schedule', es: 'fuera de horario', pt: 'fora do horário', tr: 'mesai dışı' });
+    const horsGrilleHint = tx(lang, { fr: "Saisie faite sous un créneau que l'horaire de ce jour ne produit plus (horaire modifié). La production reste comptée.", ar: 'إدخال تحت فترة لم يعد توقيت هذا اليوم ينتجها (تم تغيير التوقيت). الإنتاج لا يزال محتسباً.', en: 'Entered under a slot this day schedule no longer produces (schedule changed). The output is still counted.', es: 'Introducido en un tramo que el horario de este día ya no produce (horario modificado). La producción sigue contando.', pt: 'Introduzido num intervalo que o horário deste dia já não produz (horário alterado). A produção continua contada.', tr: 'Bu günün mesaisinin artık üretmediği bir dilime girilmiş (mesai değişti). Üretim yine de sayılır.' });
 
     // Dynamic chains list based on settings and active data
     const chainsList = useMemo(() => {
@@ -1496,11 +1538,13 @@ export default function SuiviProduction({
                                     
                                     {/* Hour Headers (creneaux de la semaine, union des jours) */}
                                     {weekHourBlocks.map(h => (
-                                        <th key={h.key} className="py-4 px-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-28 border-r border-slate-100 dark:border-dk-border/50" title={`${h.label} — ${h.duration} min${h.pauseMin ? ` (pause ${h.pauseMin} min)` : ''}`}>
+                                        <th key={h.key} className={`py-4 px-2 text-[10px] font-black uppercase tracking-widest text-center w-28 border-r border-slate-100 dark:border-dk-border/50 ${h.orphan ? 'text-amber-600 dark:text-amber-300' : 'text-slate-400 dark:text-dk-muted'}`} title={h.orphan ? horsGrilleHint : `${h.label} — ${h.duration} min${h.pauseMin ? ` (pause ${h.pauseMin} min)` : ''}`}>
                                             {h.label}
-                                            {h.duration < 60 && (
+                                            {h.orphan ? (
+                                                <span className="block text-[8px] font-bold normal-case tracking-normal text-amber-600 dark:text-amber-300">{horsGrilleTag}</span>
+                                            ) : h.duration < 60 ? (
                                                 <span className="block text-[8px] font-bold normal-case tracking-normal text-indigo-500 dark:text-dk-accent-text">{h.duration} min</span>
-                                            )}
+                                            ) : null}
                                         </th>
                                     ))}
                                     <th className="py-4 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-24">{l.pJournaliere}</th>
@@ -1880,10 +1924,13 @@ export default function SuiviProduction({
                                                         <span className="w-[88px] shrink-0 text-[11px] font-bold text-slate-500 dark:text-dk-muted tabular-nums">
                                                             {h.label}
                                                             {/* Creneau ampute par un rabouz (ou fin de journee) : on dit combien de
-                                                                minutes il compte vraiment, sinon 45 min ressemble a une heure pleine. */}
-                                                            {h.duration < 60 && (
+                                                                minutes il compte vraiment, sinon 45 min ressemble a une heure pleine.
+                                                                `orphan` = saisie faite sous un creneau que l'horaire du jour ne produit plus. */}
+                                                            {h.orphan ? (
+                                                                <span className="block text-[9px] font-bold text-amber-600 dark:text-amber-300" title={horsGrilleHint}>{horsGrilleTag}</span>
+                                                            ) : h.duration < 60 ? (
                                                                 <span className="block text-[9px] font-bold text-indigo-500 dark:text-dk-accent-text">{h.duration} min</span>
-                                                            )}
+                                                            ) : null}
                                                         </span>
                                                         <input
                                                             type="text"

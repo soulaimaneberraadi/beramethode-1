@@ -5,6 +5,7 @@ import { AppSettings } from '../types';
 import { pickT, tx } from '../lib/i18n';
 import { useIsDark } from '../src/context/ThemeContext';
 import type { Lang } from '../app/constants';
+import { horairesDuJour, minutesTravailleesDuJour } from '../lib/horaires';
 
 // ── National Holidays Database ──────────────────────────────────────────────
 // Fixed dates: MM-DD format. Islamic dates: exact YYYY-MM-DD per year.
@@ -374,9 +375,9 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
 
     // Helper: is a date string a default working day?
     const isDefaultWorkingDay = (dateStr: string): boolean => {
-        const d = new Date(dateStr);
-        let isoDay = d.getDay() === 0 ? 7 : d.getDay();
-        return settings.workingDays.includes(isoDay);
+        /* `horairesDuJour` applique aussi l'exception du jour (`dayScheduleOverrides`) :
+           un samedi rouvert par exception restait affiché non travaillé ici. */
+        return !horairesDuJour(settings, new Date(dateStr)).closed;
     };
 
     // True effective status (considering exceptions AND national holidays)
@@ -504,9 +505,9 @@ export default function AgendaModal({ isOpen, onClose, settings, setSettings, la
                         <span className="text-sm font-black text-indigo-900">{settings.workingHoursStart} → {settings.workingHoursEnd}</span>
                         <span className="ml-auto text-xs text-indigo-500 font-bold bg-indigo-100 px-2 py-0.5 rounded-full">
                             {(() => {
-                                const [sh, sm] = (settings.workingHoursStart || '08:00').split(':').map(Number);
-                                const [eh, em] = (settings.workingHoursEnd || '18:00').split(':').map(Number);
-                                const totalMin = (eh * 60 + em) - (sh * 60 + sm) - (settings.pauses?.reduce((a, p) => a + (p.durationMin || 0), 0) || 0);
+                                /* Source unique `lib/horaires.ts` : le calcul maison se basait sur
+                                   `pause.durationMin`, absent des pauses créées ailleurs. */
+                                const totalMin = minutesTravailleesDuJour(settings);
                                 return `${Math.floor(totalMin / 60)}h${totalMin % 60 > 0 ? String(totalMin % 60).padStart(2, '0') : ''} eff.`;
                             })()}
                         </span>

@@ -5,6 +5,7 @@ import { ChevronDown, Package, Zap, CheckCircle2, AlertCircle, AlertTriangle, Cl
 import { tx } from '../../../lib/i18n';
 import { useLang } from '../../../src/context/LanguageContext';
 import { addWorkingDaysFromLaunchIso, planningLocalDateKey } from '../../../utils/planning';
+import { minutesTravailleesDuJour } from '../../../lib/horaires';
 
 function getModelThumb(m: ModelData): string | null {
     return m.images?.front || m.image || null;
@@ -65,15 +66,13 @@ function computeMetrics(
     }
 
     const operators = (chainId && settings) ? (settings.chainOperators?.[chainId] ?? 30) : 30;
-    const workMins = settings ? (
-        (() => {
-            const [sh, sm] = (settings.workingHoursStart || '08:00').split(':').map(Number);
-            const [eh, em] = (settings.workingHoursEnd || '18:00').split(':').map(Number);
-            const total = (eh * 60 + em) - (sh * 60 + sm);
-            const pauses = (settings.pauses || []).reduce((acc, p) => acc + (p.durationMin || 0), 0);
-            return total - pauses > 0 ? total - pauses : workingHoursPerDay * 60;
-        })()
-    ) : workingHoursPerDay * 60;
+    /* Minutes travaillées d'une journée type : source unique `lib/horaires.ts`.
+       Le calcul fait ici à la main s'appuyait sur `pause.durationMin`, un champ
+       recopié à l'édition : une pause venue d'ailleurs (exception de jour,
+       import) pouvait ne pas l'avoir, et la capacité était alors surévaluée. */
+    const workMins = settings
+        ? (minutesTravailleesDuJour(settings) || workingHoursPerDay * 60)
+        : workingHoursPerDay * 60;
 
     const pcsPerHour = sam > 0 ? Math.round(((operators * 60) / sam) * 100) / 100 : 0;
     const eff = Math.max(0, Math.min(1, chainEfficiency));
