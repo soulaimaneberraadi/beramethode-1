@@ -2103,6 +2103,7 @@ export default function App() {
                                 suivis={suivis}
                                 planningEvents={planningEvents}
                                 settings={globalSettings}
+                                setSettings={setGlobalSettings}
                                 onBack={() => handleNavigation('dashboard')}
                                 initialWorkerName={hrInitialWorker?.name}
                                 initialWorkerNonce={hrInitialWorker?.ts}
