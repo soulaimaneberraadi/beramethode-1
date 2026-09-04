@@ -405,6 +405,13 @@ export default function SuiviProduction({
         return Array.from(byKey.values()).sort((a, b) => a.startMin - b.startMin);
     }, [blocksForDate, weekDays]);
 
+    /* Jours de la semaine affichée qui portent encore des saisies sous d'anciens
+       créneaux — c'est ce que le bandeau de fusion propose de recaler. */
+    const joursHorsHoraire = useMemo(
+        () => weekDays.filter(d => blocksForDate(d.dateStr).some(b => b.orphan)).map(d => d.dateStr),
+        [weekDays, blocksForDate],
+    );
+
     const pauseTag = tx(lang, { fr: 'pause', ar: 'استراحة', en: 'break', es: 'pausa', pt: 'pausa', tr: 'mola' });
     const horsGrilleTag = tx(lang, { fr: 'hors horaire', ar: 'خارج التوقيت', en: 'off-schedule', es: 'fuera de horario', pt: 'fora do horário', tr: 'mesai dışı' });
     const horsGrilleHint = tx(lang, { fr: "Saisie faite sous un créneau que l'horaire de ce jour ne produit plus (horaire modifié). La production reste comptée.", ar: 'إدخال تحت فترة لم يعد توقيت هذا اليوم ينتجها (تم تغيير التوقيت). الإنتاج لا يزال محتسباً.', en: 'Entered under a slot this day schedule no longer produces (schedule changed). The output is still counted.', es: 'Introducido en un tramo que el horario de este día ya no produce (horario modificado). La producción sigue contando.', pt: 'Introduzido num intervalo que o horário deste dia já não produz (horário alterado). A produção continua contada.', tr: 'Bu günün mesaisinin artık üretmediği bir dilime girilmiş (mesai değişti). Üretim yine de sayılır.' });
@@ -848,14 +855,23 @@ export default function SuiviProduction({
      * s'ADDITIONNENT si le créneau en portait déjà une : le total du jour ne
      * bouge pas d'une pièce, seule la répartition se recale sur l'horaire réel.
      */
-    const fusionnerHorsHoraire = React.useCallback((dateStr: string) => {
-        const grille = deriveHourGrid(settings, new Date(dateStr)).blocks;
-        if (grille.length === 0) return;
-        const connues = new Set(grille.map(b => b.key));
+    const fusionnerHorsHoraire = React.useCallback((dates: string[]) => {
+        /* Une SEULE passe pour tous les jours demandés : traiter les dates l'une
+           après l'autre relirait un `suivis` périmé et perdrait la fusion
+           précédente. */
+        const grilleParJour = new Map<string, ReturnType<typeof blocksForDate>>();
+        const connuesParJour = new Map<string, Set<string>>();
+        for (const d of dates) {
+            const g = deriveHourGrid(settings, new Date(d)).blocks;
+            if (g.length === 0) continue;
+            grilleParJour.set(d, g);
+            connuesParJour.set(d, new Set(g.map(b => b.key)));
+        }
+        if (grilleParJour.size === 0) return;
 
         /* Créneau d'accueil : celui qui partage le plus de minutes avec l'heure
            orpheline (supposée d'une heure, comme elle était saisie). */
-        const creneauDAccueil = (key: string): string | null => {
+        const creneauDAccueil = (grille: ReturnType<typeof blocksForDate>, key: string): string | null => {
             const m = /^h(\d{2})(\d{2})$/.exec(key);
             if (!m) return null;
             const debut = Number(m[1]) * 60 + Number(m[2]);
@@ -871,7 +887,10 @@ export default function SuiviProduction({
 
         let quelqueChoseADeplacer = false;
         const majSuivis = suivis.map(s => {
-            if (s.chaineId !== selectedChaineId || s.date !== dateStr) return s;
+            if (s.chaineId !== selectedChaineId) return s;
+            const grille = grilleParJour.get(s.date);
+            const connues = connuesParJour.get(s.date);
+            if (!grille || !connues) return s;
             const orphelines = Object.keys(s.sorties || {}).filter(k => !connues.has(k));
             const orphelinesArrets = Object.keys(s.downtimes || {}).filter(k => !connues.has(k));
             if (orphelines.length === 0 && orphelinesArrets.length === 0) return s;
@@ -881,7 +900,7 @@ export default function SuiviProduction({
             const remap = new Map<string, string>();
 
             for (const k of orphelines) {
-                const cible = creneauDAccueil(k);
+                const cible = creneauDAccueil(grille, k);
                 if (!cible) continue;                       // hors de la journée : on n'invente pas où la mettre
                 const valeur = Number(sorties[k]) || 0;
                 delete sorties[k];
@@ -890,7 +909,7 @@ export default function SuiviProduction({
                 quelqueChoseADeplacer = true;
             }
             for (const k of orphelinesArrets) {
-                const cible = remap.get(k) ?? creneauDAccueil(k);
+                const cible = remap.get(k) ?? creneauDAccueil(grille, k);
                 const code = downtimes[k];
                 delete downtimes[k];
                 // Un arrêt déjà noté sur le créneau d'accueil prime : on n'en écrase aucun.
@@ -906,7 +925,7 @@ export default function SuiviProduction({
         if (!quelqueChoseADeplacer) return;
         setSuivis(majSuivis);
         handleSave(majSuivis);
-    }, [settings, suivis, selectedChaineId, setSuivis]);
+    }, [settings, suivis, selectedChaineId, setSuivis, blocksForDate]);
 
     // Calculations for Daily Rows
     const getDailyMetrics = (dateStr: string) => {
@@ -1598,6 +1617,24 @@ export default function SuiviProduction({
                     </div>
                 )}
 
+                {/* Saisies restées sous d'anciens créneaux, sur toute la semaine : un tap
+                    les recale dans la grille de CHAQUE jour, sans changer les totaux. */}
+                {joursHorsHoraire.length > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => fusionnerHorsHoraire(joursHorsHoraire)}
+                        className="w-full flex flex-wrap items-center justify-between gap-2 px-4 py-3 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800 text-xs font-bold text-amber-700 dark:text-amber-300 active:scale-[0.995] transition-transform"
+                    >
+                        <span className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            {joursHorsHoraire.length} {tx(lang, { fr: 'jour(s) avec des saisies hors horaire', ar: 'يوم/أيام فيها إدخالات خارج التوقيت', en: 'day(s) with off-schedule entries', es: 'día(s) con entradas fuera de horario', pt: 'dia(s) com entradas fora do horário', tr: 'mesai dışı girişi olan gün(ler)' })}
+                        </span>
+                        <span className="px-3 py-1.5 rounded-lg bg-white dark:bg-dk-surface border border-current shrink-0">
+                            {tx(lang, { fr: 'Tout fusionner dans la grille', ar: 'دمج الكل في الشبكة', en: 'Merge all into the grid', es: 'Fusionar todo en la cuadrícula', pt: 'Fundir tudo na grelha', tr: 'Tümünü ızgaraya birleştir' })}
+                        </span>
+                    </button>
+                )}
+
                 {/* Primary Weekly Grid Table */}
                 <div className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border/60 rounded-2xl shadow-sm dark:shadow-dk-sm overflow-hidden z-10 relative">
                     {/* ─── Tableau hebdomadaire complet (desktop, ou mobile si vue semaine) ─── */}
@@ -1935,7 +1972,7 @@ export default function SuiviProduction({
                                             return (
                                                 <button
                                                     type="button"
-                                                    onClick={() => fusionnerHorsHoraire(selectedChartDate)}
+                                                    onClick={() => fusionnerHorsHoraire([selectedChartDate])}
                                                     className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800 text-[11px] font-bold text-amber-700 dark:text-amber-300 active:scale-[0.99] transition-transform"
                                                 >
                                                     <span>
