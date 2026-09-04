@@ -1963,63 +1963,60 @@ export default function SuiviProduction({
                                     if (joursHorsNorme.has(day.dateStr)) {
                                         const blocsJour = blocksForDate(day.dateStr);
                                         const hj = horairesDuJour(settings, new Date(day.dateStr));
+                                        const estSel = selectedChartDate === day.dateStr;
                                         return (
-                                            <tr key={day.dateStr} className="bg-slate-50/70 dark:bg-dk-bg/40">
-                                                <td colSpan={weekHourBlocks.length + 7} className="p-0">
-                                                    <div className="sticky left-0 w-[min(1180px,calc(100vw-3rem))] p-2">
-                                                        <div className="rounded-2xl border border-indigo-200 dark:border-dk-border overflow-hidden bg-white dark:bg-dk-surface">
-                                                            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-indigo-50 dark:bg-dk-accent/20 border-b border-indigo-100 dark:border-dk-border">
-                                                                <div className="flex items-center gap-2">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => selectChartDate(day.dateStr)}
-                                                                        className={`w-3 h-3 rounded-full border ${selectedChartDate === day.dateStr ? 'bg-indigo-600 dark:bg-dk-accent border-indigo-600 dark:border-indigo-800' : 'border-slate-300 dark:border-dk-border'}`}
-                                                                        title="Sélectionner pour le graphique"
-                                                                    />
-                                                                    <span className="text-xs font-black text-slate-800 dark:text-dk-text">{day.label}</span>
-                                                                    <span className="font-mono text-[10px] font-bold text-slate-400 dark:text-dk-muted">{day.displayDate}</span>
-                                                                </div>
-                                                                <span className="text-[10px] font-bold text-indigo-700 dark:text-dk-accent-text tabular-nums">
-                                                                    {hj.start} → {hj.end}
-                                                                    <span className="ml-2 font-black uppercase tracking-widest">
-                                                                        {tx(lang, { fr: 'horaire de ce jour', ar: 'توقيت هذا اليوم', en: 'this day schedule', es: 'horario de este día', pt: 'horário deste dia', tr: 'bu günün mesaisi' })}
-                                                                    </span>
-                                                                </span>
-                                                            </div>
-                                                            <div className="overflow-x-auto scrollbar-thin">
-                                                                <table className="w-full text-left border-collapse">
-                                                                    <thead>
-                                                                        <tr className="border-b border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg/50">
-                                                                            {blocsJour.map(h => (
-                                                                                <th key={h.key} className={`py-2.5 px-2 text-[10px] font-black uppercase tracking-widest text-center w-28 border-r border-slate-100 dark:border-dk-border/50 ${h.orphan ? 'text-amber-600 dark:text-amber-300' : 'text-slate-400 dark:text-dk-muted'}`} title={h.orphan ? horsGrilleHint : `${h.label} — ${h.duration} min${h.pauseMin ? ` (pause ${h.pauseMin} min)` : ''}`}>
-                                                                                    {h.label}
-                                                                                    {h.orphan ? (
-                                                                                        <span className="block text-[8px] font-bold normal-case tracking-normal text-amber-600 dark:text-amber-300">{horsGrilleTag}</span>
-                                                                                    ) : h.duration < 60 ? (
-                                                                                        <span className="block text-[8px] font-bold normal-case tracking-normal text-indigo-500 dark:text-dk-accent-text">{h.duration} min</span>
-                                                                                    ) : h.pauseMin > 0 ? (
-                                                                                        <span className="block text-[8px] font-bold normal-case tracking-normal text-slate-400 dark:text-dk-muted">+{h.pauseMin} min {pauseTag}</span>
-                                                                                    ) : null}
-                                                                                </th>
-                                                                            ))}
-                                                                            <th className="py-2.5 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-24">{l.pJournaliere}</th>
-                                                                            <th className="py-2.5 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-20">{l.totalHours}</th>
-                                                                            <th className="py-2.5 px-3 text-[10px] font-black uppercase tracking-widest text-indigo-500 dark:text-indigo-300 text-center w-24 border-l border-slate-100 dark:border-dk-border/60">{l.effectif}</th>
-                                                                            <th className="py-2.5 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-32 border-l border-slate-100 dark:border-dk-border/60">{tx(lang, { fr: 'R1 / R2 %', ar: 'مردودية R1 / R2 %', en: 'R1 / R2 %', es: 'R1 / R2 %', pt: 'R1 / R2 %', tr: 'R1 / R2 %' })}</th>
-                                                                            <th className="py-2.5 px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted text-center w-28">{l.yieldDay}</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        <tr>
-                                                                            {renderCasesHoraires(day, blocsJour)}
-                                                                            {renderColonnesBilan(metrics)}
-                                                                        </tr>
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                        </div>
+                                            <tr key={day.dateStr} className={`hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${estSel ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20' : ''}`}>
+                                                {/* Date */}
+                                                <td className={`py-4 px-4 font-mono text-xs text-slate-500 dark:text-dk-muted font-bold sticky left-0 z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${estSel ? 'bg-[#f4f6fe] dark:bg-dk-elevated' : 'bg-white dark:bg-dk-surface'}`}>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => selectChartDate(day.dateStr)}
+                                                            className={`w-3 h-3 rounded-full border ${estSel ? 'bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 border-indigo-600 dark:border-indigo-800' : 'border-slate-300 dark:border-dk-border'}`}
+                                                            title="Sélectionner pour le graphique"
+                                                        />
+                                                        {day.displayDate}
                                                     </div>
                                                 </td>
+
+                                                {/* Day Name */}
+                                                <td className={`py-4 px-4 font-black text-xs text-slate-800 dark:text-dk-text sticky left-[112px] z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${estSel ? 'bg-[#f4f6fe] dark:bg-dk-elevated' : 'bg-white dark:bg-dk-surface'}`}>
+                                                    {day.label}
+                                                    <span className="block mt-0.5 text-[9px] font-bold text-indigo-600 dark:text-dk-accent-text tabular-nums">{hj.start} → {hj.end}</span>
+                                                </td>
+
+                                                {/* Sous-grille des heures : SEULES les colonnes horaires changent.
+                                                    Les colonnes Date/Jour a gauche et les colonnes de bilan a droite
+                                                    restent celles du tableau, a leur place et dans le meme style. */}
+                                                <td colSpan={weekHourBlocks.length} className="p-1 border-r border-slate-100 dark:border-dk-border/60 align-middle">
+                                                    <div className="rounded-xl border border-indigo-200 dark:border-dk-border overflow-hidden bg-white dark:bg-dk-surface">
+                                                        <table className="w-full text-left border-collapse table-fixed">
+                                                            <thead>
+                                                                <tr className="bg-indigo-50/70 dark:bg-dk-accent/20 border-b border-indigo-100 dark:border-dk-border">
+                                                                    {blocsJour.map(h => (
+                                                                        <th key={h.key} className={`py-2 px-1 text-[10px] font-black uppercase tracking-widest text-center border-r border-indigo-100/70 dark:border-dk-border/50 last:border-r-0 ${h.orphan ? 'text-amber-600 dark:text-amber-300' : 'text-indigo-500 dark:text-dk-accent-text'}`} title={h.orphan ? horsGrilleHint : `${h.label} — ${h.duration} min${h.pauseMin ? ` (pause ${h.pauseMin} min)` : ''}`}>
+                                                                            {h.label}
+                                                                            {h.orphan ? (
+                                                                                <span className="block text-[8px] font-bold normal-case tracking-normal text-amber-600 dark:text-amber-300">{horsGrilleTag}</span>
+                                                                            ) : h.duration < 60 ? (
+                                                                                <span className="block text-[8px] font-bold normal-case tracking-normal text-indigo-500 dark:text-dk-accent-text">{h.duration} min</span>
+                                                                            ) : h.pauseMin > 0 ? (
+                                                                                <span className="block text-[8px] font-bold normal-case tracking-normal text-slate-400 dark:text-dk-muted">+{h.pauseMin} min {pauseTag}</span>
+                                                                            ) : null}
+                                                                        </th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr>
+                                                                    {renderCasesHoraires(day, blocsJour)}
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </td>
+
+                                                {renderColonnesBilan(metrics)}
                                             </tr>
                                         );
                                     }
