@@ -531,7 +531,13 @@ export default function SuiviProduction({
 
         planningEvents.filter(p => {
             if (p.chaineId !== selectedChaineId) return false;
-            
+            /* Un OF termine ne s'invite plus dans la liste juste parce que ses dates
+               de planning couvrent la semaine affichee : une fois marque `Terminé` il
+               n'a plus rien a saisir. Il reste visible par la source (b) ci-dessous
+               des que la semaine porte VRAIMENT de sa production — on peut donc
+               revenir sur une semaine passee et retrouver son suivi intact. */
+            if (p.status === 'DONE') return false;
+
             const evStart = p.startDate || p.dateLancement || '';
             const evEnd = p.estimatedEndDate || p.dateExport || p.dateFin || evStart;
             
@@ -659,6 +665,41 @@ export default function SuiviProduction({
             total: parts.reduce((acc, p) => acc + (typeof p.value === 'number' ? p.value : 0), 0),
         };
     }, [suivis, selectedChaineId, activeModels, entryOFKey, selectedActiveModelId]);
+
+    /* Rendement d'UN creneau, avec exactement la regle de la colonne R du tableau :
+       minutes gagnees (pieces x SAM du modele) divisees par les minutes de presence
+       (effectif x duree reelle du creneau, arret declare deduit). Sur telephone on
+       saisit une heure puis on veut savoir tout de suite ce qu'elle vaut, sans
+       attendre le total du jour. Sans effectif saisi il n'y a pas de denominateur :
+       on ne montre rien plutot qu'un pourcentage invente. */
+    const rendementCreneau = React.useCallback((dateStr: string, h: { key: string; duration: number }): number | null => {
+        const cell = getCellMeta(dateStr, h.key);
+        if (!cell) return null;
+
+        const effectifEntries = suivis.filter(s => s.chaineId === selectedChaineId && s.date === dateStr);
+        const effectif = effectifEntries.reduce((max, s) => {
+            const w = typeof s.totalWorkers === 'number' ? s.totalWorkers : 0;
+            return w > max ? w : max;
+        }, 0);
+        if (effectif <= 0) return null;
+
+        let minutesGagnees = 0;
+        let arret = 0;
+        for (const p of cell.parts) {
+            const sam = p.model?.sam;
+            if (sam && typeof p.value === 'number') minutesGagnees += p.value * sam;
+            if (p.downtime === 'L') arret = Math.max(arret, 60);
+            else if (p.downtime === 'P') arret = Math.max(arret, 15);
+            else if (p.downtime === 'M') arret = Math.max(arret, 30);
+            else if (p.downtime === 'S') arret = Math.max(arret, 45);
+        }
+        if (minutesGagnees <= 0) return null;
+
+        const minutesUtiles = Math.max(0, h.duration - arret);
+        if (minutesUtiles <= 0) return null;
+
+        return Math.round((minutesGagnees / (effectif * minutesUtiles)) * 100);
+    }, [getCellMeta, suivis, selectedChaineId]);
 
     // Handle cell updates (quantity, model, downtime, defects)
     const handleSaveCell = (
@@ -2257,6 +2298,27 @@ export default function SuiviProduction({
                                                         {cell?.defectsQty !== undefined && cell.defectsQty > 0 && (
                                                             <span className="w-1.5 h-1.5 rounded-full bg-rose-50 dark:bg-rose-900/300 shrink-0" title={`Défauts: ${cell.defectsQty}`} />
                                                         )}
+                                                        {/* Rendement de CETTE heure, des qu'elle est remplie : sur telephone
+                                                            on saisit heure par heure, il faut voir tout de suite si l'heure
+                                                            tient la cadence sans attendre le total de la journee. */}
+                                                        {(() => {
+                                                            const r = rendementCreneau(selectedChartDate, h);
+                                                            if (r === null) return null;
+                                                            return (
+                                                                <span
+                                                                    className={`w-11 shrink-0 text-center text-[11px] font-black tabular-nums rounded-lg py-1 ${
+                                                                        r >= 90
+                                                                            ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30'
+                                                                            : r >= 80
+                                                                                ? 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30'
+                                                                                : 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30'
+                                                                    }`}
+                                                                    title={tx(lang, { fr: 'Rendement de cette heure', ar: 'مردود هاد الساعة', en: 'Yield for this hour', es: 'Rendimiento de esta hora', pt: 'Rendimento desta hora', tr: 'Bu saatin verimi' })}
+                                                                >
+                                                                    {r}%
+                                                                </span>
+                                                            );
+                                                        })()}
                                                         <button
                                                             type="button"
                                                             onClick={() => !isCellLocked && ofId && handleOpenCellModal(selectedChartDate, h.key, h.label)}
@@ -2809,10 +2871,42 @@ export default function SuiviProduction({
                     isOpen={true}
                     event={editingStatusEvent}
                     lang={lang}
+                    chainsList={chainsList}
+                    currentChaineId={selectedChaineId}
+                    piecesSaisies={suivis
+                        .filter(s => s.chaineId === selectedChaineId && s.planningId === editingStatusEvent.id)
+                        .reduce((acc, s) => acc + (s.totalHeure || 0), 0)}
                     onClose={() => setEditingStatusEvent(null)}
-                    onSave={(newStatus) => {
+                    onSave={({ status, chaineId }) => {
                         if (setPlanningEvents) {
-                            setPlanningEvents(prev => prev.map(p => p.id === editingStatusEvent.id ? { ...p, status: newStatus } : p));
+                            setPlanningEvents(prev => prev.map(p => p.id === editingStatusEvent.id ? { ...p, status, chaineId } : p));
+                        }
+                        /* La chaine de l'OF change : ses saisies le suivent, sinon la
+                           production resterait affichee sous l'ancienne chaine alors que
+                           l'ordre, lui, a demenage. */
+                        if (chaineId !== selectedChaineId) {
+                            const majSuivis = suivis.map(s =>
+                                s.planningId === editingStatusEvent.id && s.chaineId === selectedChaineId
+                                    ? { ...s, chaineId }
+                                    : s,
+                            );
+                            setSuivis(majSuivis);
+                            handleSave(majSuivis);
+                        }
+                        setEditingStatusEvent(null);
+                        setModelDropdownOpen(false);
+                    }}
+                    onRemove={({ supprimerSaisies }) => {
+                        /* Retrait = l'OF est detache de la chaine, pas efface du planning :
+                           on peut le reaffecter ailleurs. Les saisies ne partent que si
+                           c'est demande explicitement dans le modal. */
+                        if (setPlanningEvents) {
+                            setPlanningEvents(prev => prev.map(p => p.id === editingStatusEvent.id ? { ...p, chaineId: '' } : p));
+                        }
+                        if (supprimerSaisies) {
+                            const majSuivis = suivis.filter(s => !(s.planningId === editingStatusEvent.id && s.chaineId === selectedChaineId));
+                            setSuivis(majSuivis);
+                            handleSave(majSuivis);
                         }
                         setEditingStatusEvent(null);
                         setModelDropdownOpen(false);
@@ -3020,19 +3114,32 @@ function Section({ title, isMobile, children, defaultOpen = false, icon, badge }
     );
 }
 
-// Custom Modal to change Planning Status for an active model
+/* Gestion d'un OF depuis la liste des modeles actifs : statut, chaine, et
+   retrait. Avant, on ne pouvait que changer le statut — un OF pose sur la
+   mauvaise chaine y restait pour de bon, sans aucun moyen de le deplacer ni de
+   l'enlever. Les trois actions passent par le meme bouton Confirmer. */
 interface StatusChangeModalProps {
     isOpen: boolean;
     event: PlanningEvent;
     lang: string;
+    chainsList: string[];
+    currentChaineId: string;
+    /** Pieces deja saisies pour cet OF sur cette chaine — ce qu'un retrait ferait perdre. */
+    piecesSaisies: number;
     onClose: () => void;
-    onSave: (newStatus: PlanningStatus) => void;
+    onSave: (changes: { status: PlanningStatus; chaineId: string }) => void;
+    onRemove: (options: { supprimerSaisies: boolean }) => void;
 }
 
 function StatusChangeModal({
-    isOpen, event, lang, onClose, onSave
+    isOpen, event, lang, chainsList, currentChaineId, piecesSaisies, onClose, onSave, onRemove
 }: StatusChangeModalProps) {
     const [selectedStatus, setSelectedStatus] = useState<PlanningStatus>(event.status as PlanningStatus);
+    const [selectedChaine, setSelectedChaine] = useState<string>(currentChaineId);
+    /* Le retrait demande une confirmation explicite dans le modal : c'est une
+       action qu'on ne retrouve pas, surtout quand des pieces sont deja saisies. */
+    const [confirmeRetrait, setConfirmeRetrait] = useState(false);
+    const [supprimerSaisies, setSupprimerSaisies] = useState(false);
 
     if (!isOpen) return null;
 
@@ -3044,9 +3151,12 @@ function StatusChangeModal({
         { key: 'DONE', label: tx(lang, { fr: 'Terminé', ar: 'منتهٍ', en: 'Done', es: 'Terminado', pt: 'Concluído', tr: 'Tamamlandı' }), color: '#6B7280' },
     ];
 
-    const title = tx(lang, { fr: 'CHANGER LE STATUT', ar: 'تغيير الحالة', en: 'CHANGE STATUS', es: 'CAMBIAR ESTADO', pt: 'ALTERAR ESTADO', tr: 'DURUMU DEĞİŞTİR' });
+    const title = tx(lang, { fr: "GÉRER L'ORDRE", ar: 'إدارة الأمر', en: 'MANAGE ORDER', es: 'GESTIONAR LA ORDEN', pt: 'GERIR A ORDEM', tr: 'EMRİ YÖNET' });
     const confirmLabel = tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' });
     const cancelLabel = tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' });
+    const statutLabel = tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Estado', tr: 'Durum' });
+    const chaineLabel = tx(lang, { fr: 'Chaîne', ar: 'الشين', en: 'Chain', es: 'Cadena', pt: 'Cadeia', tr: 'Hat' });
+    const retirerLabel = tx(lang, { fr: 'Retirer de cette chaîne', ar: 'إزالة من هذه الشين', en: 'Remove from this chain', es: 'Quitar de esta cadena', pt: 'Remover desta cadeia', tr: 'Bu hattan kaldır' });
 
     return (
         /* Changement de statut d'un ordre : choix court, donc pas de bouton
@@ -3069,14 +3179,18 @@ function StatusChangeModal({
                     </button>
                     <button
                         type="button"
-                        onClick={() => onSave(selectedStatus)}
-                        className="rounded-xl bg-[#2149C1] hover:bg-[#1a3ba5] text-white px-5 py-2.5 sm:py-2 font-black shadow-sm dark:shadow-dk-sm transition-colors"
+                        onClick={() => {
+                            if (confirmeRetrait) onRemove({ supprimerSaisies });
+                            else onSave({ status: selectedStatus, chaineId: selectedChaine });
+                        }}
+                        className={`rounded-xl px-5 py-2.5 sm:py-2 font-black text-white shadow-sm dark:shadow-dk-sm transition-colors ${confirmeRetrait ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#2149C1] hover:bg-[#1a3ba5]'}`}
                     >
-                        {confirmLabel}
+                        {confirmeRetrait ? retirerLabel : confirmLabel}
                     </button>
                 </div>
             }
         >
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">{statutLabel}</p>
                     <div className="grid grid-cols-2 gap-2">
                         {statusesList.map(s => {
                             const isSelected = selectedStatus === s.key;
@@ -3084,6 +3198,7 @@ function StatusChangeModal({
                                 <button
                                     key={s.key}
                                     type="button"
+                                    disabled={confirmeRetrait}
                                     onClick={() => setSelectedStatus(s.key)}
                                     className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all text-left ${
                                         isSelected 
@@ -3096,6 +3211,103 @@ function StatusChangeModal({
                                 </button>
                             );
                         })}
+                    </div>
+
+                    <p className="pt-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">{chaineLabel}</p>
+                    <div className="flex flex-wrap gap-2">
+                        {chainsList.map(c => {
+                            const isSelected = selectedChaine === c;
+                            return (
+                                <button
+                                    key={c}
+                                    type="button"
+                                    disabled={confirmeRetrait}
+                                    onClick={() => setSelectedChaine(c)}
+                                    className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all disabled:opacity-40 ${
+                                        isSelected
+                                            ? 'bg-slate-950 dark:bg-dk-bg text-white shadow-md dark:shadow-dk-md'
+                                            : 'bg-slate-50 dark:bg-dk-bg hover:bg-slate-100 text-slate-700 dark:text-dk-text-soft border border-slate-100 dark:border-dk-border/80'
+                                    }`}
+                                >
+                                    {c}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {selectedChaine !== currentChaineId && !confirmeRetrait && (
+                        <p className="text-[11px] font-bold text-indigo-600 dark:text-dk-accent-text">
+                            {tx(lang, {
+                                fr: `Les saisies déjà faites suivront l'ordre vers ${selectedChaine}.`,
+                                ar: `الإدخالات المسجّلة غادي تتبع الأمر نحو ${selectedChaine}.`,
+                                en: `Existing entries will follow the order to ${selectedChaine}.`,
+                                es: `Las entradas ya hechas seguirán la orden a ${selectedChaine}.`,
+                                pt: `As entradas já feitas seguirão a ordem para ${selectedChaine}.`,
+                                tr: `Mevcut girişler emirle birlikte ${selectedChaine} hattına geçer.`,
+                            })}
+                        </p>
+                    )}
+
+                    <div className="pt-3 mt-1 border-t border-slate-100 dark:border-dk-border/60">
+                        {!confirmeRetrait ? (
+                            <button
+                                type="button"
+                                onClick={() => setConfirmeRetrait(true)}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-black text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/30 border border-rose-100 dark:border-rose-900/40 transition-colors"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                {retirerLabel}
+                            </button>
+                        ) : (
+                            <div className="space-y-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900/40">
+                                <p className="text-[11px] font-black text-rose-700 dark:text-rose-300">
+                                    {tx(lang, {
+                                        fr: `Retirer cet ordre de ${currentChaineId} ?`,
+                                        ar: `نزيل هاد الأمر من ${currentChaineId}؟`,
+                                        en: `Remove this order from ${currentChaineId}?`,
+                                        es: `¿Quitar esta orden de ${currentChaineId}?`,
+                                        pt: `Remover esta ordem de ${currentChaineId}?`,
+                                        tr: `Bu emir ${currentChaineId} hattından kaldırılsın mı?`,
+                                    })}
+                                </p>
+                                <p className="text-[11px] font-bold text-rose-600/90 dark:text-rose-300/80">
+                                    {tx(lang, {
+                                        fr: "L'ordre est détaché de la chaîne : il reste dans le planning et peut être réaffecté.",
+                                        ar: 'الأمر كيتفصل من الشين: كيبقى فالتخطيط ويمكن ترجّعو لشي شين أخرى.',
+                                        en: 'The order is detached from the chain: it stays in the planning and can be reassigned.',
+                                        es: 'La orden se separa de la cadena: sigue en la planificación y puede reasignarse.',
+                                        pt: 'A ordem é separada da cadeia: continua no planeamento e pode ser reatribuída.',
+                                        tr: 'Emir hattan ayrılır: planlamada kalır ve yeniden atanabilir.',
+                                    })}
+                                </p>
+                                {piecesSaisies > 0 && (
+                                    <label className="flex items-start gap-2 pt-1 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={supprimerSaisies}
+                                            onChange={(e) => setSupprimerSaisies(e.target.checked)}
+                                            className="mt-0.5 w-4 h-4 accent-rose-600 shrink-0"
+                                        />
+                                        <span className="text-[11px] font-bold text-rose-700 dark:text-rose-300">
+                                            {tx(lang, {
+                                                fr: `Supprimer aussi les ${piecesSaisies} pcs déjà saisies sur cette chaîne (définitif).`,
+                                                ar: `نمسحو حتى ${piecesSaisies} قطعة مسجّلة فهاد الشين (بلا رجعة).`,
+                                                en: `Also delete the ${piecesSaisies} pcs already recorded on this chain (permanent).`,
+                                                es: `Eliminar también las ${piecesSaisies} pzs ya registradas en esta cadena (definitivo).`,
+                                                pt: `Eliminar também as ${piecesSaisies} pçs já registadas nesta cadeia (definitivo).`,
+                                                tr: `Bu hatta kayıtlı ${piecesSaisies} adet de silinsin (kalıcı).`,
+                                            })}
+                                        </span>
+                                    </label>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => { setConfirmeRetrait(false); setSupprimerSaisies(false); }}
+                                    className="text-[11px] font-black text-slate-500 dark:text-dk-muted underline"
+                                >
+                                    {cancelLabel}
+                                </button>
+                            </div>
+                        )}
                     </div>
         </SheetModal>
     );
