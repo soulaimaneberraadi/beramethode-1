@@ -275,6 +275,62 @@ const quickSig = (s: string): string => {
   return `${s.length}:${(h >>> 0).toString(36)}`;
 };
 
+/**
+ * Empreinte, cle par cle, de ce que le CLOUD detient — le point de comparaison
+ * qui distingue « cette cle n'a pas bouge ici » de « je l'ai modifiee et mon
+ * envoi n'est pas encore parti ».
+ *
+ * POURQUOI : la fusion d'un pull remplace sans condition les valeurs qui ne
+ * sont pas des listes (les reglages, la fiche entreprise, la barre de
+ * navigation). Un reglage tout juste enregistre — un horaire du vendredi, par
+ * exemple — etait donc efface par le premier pull qui arrivait avant que
+ * l'envoi groupe (5 s) ne soit parti. L'utilisateur voyait son reglage revenir
+ * a l'ancienne valeur tout seul.
+ */
+const REPERES_KEY = 'beramethode_sync_reperes';
+
+const lireReperes = (): Record<string, string> => {
+  try {
+    const raw = localStorage.getItem(REPERES_KEY);
+    const o = raw ? JSON.parse(raw) : null;
+    return o && typeof o === 'object' ? o : {};
+  } catch { return {}; }
+};
+
+const ecrireReperes = (r: Record<string, string>): void => {
+  try { localStorage.setItem(REPERES_KEY, JSON.stringify(r)); } catch { /* place manquante : on repart sans repere */ }
+};
+
+/** Empreinte d'une valeur de cle (identique des deux cotes pour une meme valeur). */
+const sigValeur = (v: unknown): string => {
+  try { return quickSig(JSON.stringify(v ?? null)); } catch { return ''; }
+};
+
+/** Empreinte de la valeur LOCALE d'une cle. */
+const sigLocal = (k: string): string => {
+  try {
+    const raw = lsGet(k);
+    return raw == null ? '' : quickSig(JSON.stringify(JSON.parse(raw)));
+  } catch { return ''; }
+};
+
+/**
+ * La cle porte-t-elle une modification locale que le cloud n'a pas encore recue ?
+ * Sans repere connu on repond NON : au premier demarrage, le cloud fait foi.
+ */
+const modifieeLocalement = (k: string): boolean => {
+  const repere = lireReperes()[k];
+  if (!repere) return false;
+  return sigLocal(k) !== repere;
+};
+
+/** Aligne les reperes sur l'etat local courant (apres un envoi confirme, ou une fusion). */
+const majReperes = (cles: readonly string[]): void => {
+  const r = lireReperes();
+  for (const k of cles) r[k] = sigLocal(k);
+  ecrireReperes(r);
+};
+
 // ─── Image processing ─────────────────────────────────────────────────────────
 
 const IMAGE_FIELDS = new Set(['image', 'photo', 'fournisseurLogo']);
@@ -597,6 +653,11 @@ const applySnapshotToLocal = async (snapshot: Record<string, unknown> | null): P
           // l'utilisateur (bouton supprimer). En cas de conflit (même id), on garde
           // la version cloud (dernière poussée).
           const cloudVal = (snapshot as any)[k];
+          /* Valeur qui n'est pas une liste (reglages, entreprise, navigation) :
+             la suite la remplace telle quelle par celle du cloud. On ne le fait
+             PAS quand cette cle porte ici une modification pas encore envoyee,
+             sinon le pull annule ce que l'utilisateur vient d'enregistrer. */
+          if (!Array.isArray(cloudVal) && modifieeLocalement(k)) continue;
           let fusionGenerique: any[] | null = null;
           try {
             const localRaw2 = lsGet(k);
@@ -647,6 +708,7 @@ const applySnapshotToLocal = async (snapshot: Record<string, unknown> | null): P
         signalerStockagePlein('__bera_sqlite_export__', e);
       }
     }
+    majReperes(SYNC_KEYS);
   } finally {
     isApplyingRemote = false;
   }
@@ -778,6 +840,8 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
     // UPSERT confirmé : mémorise la signature pour sauter les prochains push
     // identiques (re-renders qui réécrivent la même valeur).
     lastSyncedSig = sig;
+    // Le cloud detient desormais l'etat local : les reperes le disent, cle par cle.
+    majReperes(SYNC_KEYS);
     // On vient d'écrire ce contenu : aligne `updated_at` local pour que le
     // prochain pull conditionnel de CET appareil saute le re-téléchargement.
     try { localStorage.setItem(LAST_PULLED_AT_KEY, nowIso); } catch { /* ignore */ }
@@ -927,6 +991,18 @@ export const startCloudSync = (userId: string) => {
     void pushSnapshotToCloud(userId).catch(() => false);
   };
 
+  /* Ce qui attend encore la fin du regroupement part AVANT le pull : sinon un
+     reglage tout juste enregistre se ferait doubler par la version du cloud. */
+  const recupererApresAvoirEnvoye = async () => {
+    if (syncTimer) {
+      clearTimeout(syncTimer);
+      syncTimer = null;
+      attenteDepuis = 0;
+      await pushSnapshotToCloud(userId).catch(() => false);
+    }
+    await pullSnapshotFromCloud(userId).catch(() => false);
+  };
+
   // ── Le téléphone ne prévient pas qu'il s'en va ─────────────────────────────
   // `beforeunload` ne se déclenche PAS sur mobile : quand on bascule vers une
   // autre application, la page est gelée puis jetée sans un mot. Tout ce qui
@@ -947,7 +1023,7 @@ export const startCloudSync = (userId: string) => {
       // perd), et l'envoi qui suit part d'un etat qui contient deja le travail
       // des autres appareils. L'ordre inverse envoyait l'etat local par-dessus
       // le leur, puis sautait le pull en se croyant a jour.
-      await pullSnapshotFromCloud(userId).catch(() => false);
+      await recupererApresAvoirEnvoye();
       await pushSnapshotToCloud(userId).catch(() => false);
     })();
   };
@@ -1003,7 +1079,7 @@ export const startCloudSync = (userId: string) => {
   pollPullTimer = setInterval(() => {
     if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
     if (isApplyingRemote) return;
-    void pullSnapshotFromCloud(userId).catch(() => false);
+    void recupererApresAvoirEnvoye();
   }, POLL_PULL_MS);
 
   // Synchro inter-appareils en temps réel via Broadcast (zéro charge DB).
@@ -1014,7 +1090,7 @@ export const startCloudSync = (userId: string) => {
   syncChannel = supabase
     .channel(`bera_sync_${userId}`, { config: { broadcast: { self: false } } })
     .on('broadcast', { event: 'updated' }, () => {
-      if (!isApplyingRemote) pullSnapshotFromCloud(userId);
+      if (!isApplyingRemote) void recupererApresAvoirEnvoye();
     })
     .subscribe();
 };
