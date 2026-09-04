@@ -381,6 +381,19 @@ export interface AppSettings {
    * dans `workingDays`.
    */
   dayScheduleOverrides?: Record<number, { start?: string; end?: string; pauses?: Pause[]; closed?: boolean }>;
+  /**
+   * Primes de rendement par ouvrier (Suivi par poste).
+   *
+   * Le seuil comme le montant se décident dans l'entreprise, pas dans le code :
+   * ici on ne fait que les stocker et les appliquer. Un ouvrier dont le score
+   * MOYEN dépasse `seuil` sur la période touche `montant` (dans la devise du
+   * réglage). Champ optionnel : sans lui, aucune prime n'est calculée ni
+   * affichée — on ne promet pas une prime que personne n'a décidée.
+   */
+  primeRules?: {
+    jour?: { seuil: number; montant: number };
+    semaine?: { seuil: number; montant: number };
+  };
   currency: string; // 'MAD' | 'EUR' | 'USD'
   chainsCount: number; // e.g 12
   chainNames?: Record<string, string>; // NEW: custom chain names matching "CHAINE 1" => "My Custom Chain"

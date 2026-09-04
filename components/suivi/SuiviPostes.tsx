@@ -52,6 +52,11 @@ const L = {
     cadenceGamme: { fr: 'Cadence prévue par la gamme (pas encore chronométrée)', ar: 'الوتيرة المتوقّعة من الگام (مازال بلا كرونومتراج)', en: 'Rate expected from the gamme (not timed yet)', es: 'Cadencia prevista por la gama (aún sin cronometrar)', pt: 'Cadência prevista pela gama (ainda sem cronometragem)', tr: 'Gamme’ın öngördüğü tempo (henüz ölçülmedi)' },
     total: { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' },
     saisieRapide: { fr: 'Relevé rapide — créneau en cours', ar: 'تسجيل سريع — الفترة الجارية', en: 'Quick entry — current slot', es: 'Registro rápido — franja actual', pt: 'Registo rápido — faixa atual', tr: 'Hızlı kayıt — geçerli dilim' },
+    primeJour: { fr: 'Jour', ar: 'اليوم', en: 'Day', es: 'Día', pt: 'Dia', tr: 'Gün' },
+    primeSemaine: { fr: 'Semaine', ar: 'الأسبوع', en: 'Week', es: 'Semana', pt: 'Semana', tr: 'Hafta' },
+    prime: { fr: 'Prime', ar: 'العلاوة', en: 'Bonus', es: 'Prima', pt: 'Prémio', tr: 'Prim' },
+    primeAucuneRegle: { fr: "Aucune règle de prime réglée — Admin › Paramètres entreprise.", ar: 'ما كايناش قاعدة ديال العلاوة — Admin › إعدادات الشركة.', en: 'No bonus rule set — Admin › Company settings.', es: 'Sin regla de prima definida — Admin › Ajustes de empresa.', pt: 'Sem regra de prémio definida — Admin › Definições da empresa.', tr: 'Prim kuralı ayarlanmadı — Admin › Şirket ayarları.' },
+    postesMaitrises: { fr: 'Postes tenus (meilleur score en tête)', ar: 'المناصب اللي كيتقنها (الأحسن أولاً)', en: 'Postes held (best score first)', es: 'Puestos cubiertos (mejor puntuación primero)', pt: 'Postos ocupados (melhor pontuação primeiro)', tr: 'Tutulan istasyonlar (en iyi puan önce)' },
 };
 
 // Retourne le bloc horaire (cle+label) qui contient l'heure courante, ou le dernier bloc passe.
@@ -388,26 +393,95 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
     /* Progression : moyenne des scores de chaque ouvrier sur TOUT l'historique
        charge, pas seulement la journee — c'est la raison d'etre du releve. */
     const progression = useMemo(() => {
-        const parOuvrier = new Map<string, { somme: number; n: number; pieces: number; postes: Set<string> }>();
+        type Acc = {
+            somme: number; n: number; pieces: number;
+            postes: Map<string, { somme: number; n: number }>;
+            jour: { somme: number; n: number };
+            semaine: { somme: number; n: number };
+        };
+        /* Bornes de la semaine du jour affiche (lundi → dimanche), pour la prime
+           hebdomadaire : sans elles on melangerait des semaines entieres. */
+        const ref = new Date(date);
+        const dow = ref.getDay() === 0 ? 7 : ref.getDay();
+        const lundi = new Date(ref); lundi.setDate(ref.getDate() - (dow - 1));
+        const dimanche = new Date(lundi); dimanche.setDate(lundi.getDate() + 6);
+        const debutSemaine = lundi.toISOString().split('T')[0];
+        const finSemaine = dimanche.toISOString().split('T')[0];
+
+        const parOuvrier = new Map<string, Acc>();
         posteSuivis.forEach(r => {
             if (!r.workerId) return;
-            const acc = parOuvrier.get(r.workerId) || { somme: 0, n: 0, pieces: 0, postes: new Set<string>() };
+            const id = String(r.workerId);
+            const acc = parOuvrier.get(id) || {
+                somme: 0, n: 0, pieces: 0,
+                postes: new Map<string, { somme: number; n: number }>(),
+                jour: { somme: 0, n: 0 },
+                semaine: { somme: 0, n: 0 },
+            };
             const sc = scoreReleve(r);
-            if (sc !== null) { acc.somme += sc; acc.n += 1; }
+            if (sc !== null) {
+                acc.somme += sc; acc.n += 1;
+                /* Le score par poste est ce qui dit quel poste l'ouvrier TIENT
+                   vraiment : c'est lui qu'on regarde pour l'affecter la fois
+                   suivante, pas sa moyenne generale tous postes confondus. */
+                const p = acc.postes.get(r.posteId) || { somme: 0, n: 0 };
+                p.somme += sc; p.n += 1;
+                acc.postes.set(r.posteId, p);
+                if (r.date === date) { acc.jour.somme += sc; acc.jour.n += 1; }
+                if (r.date >= debutSemaine && r.date <= finSemaine) { acc.semaine.somme += sc; acc.semaine.n += 1; }
+            }
             acc.pieces += r.pieces_sorties || 0;
-            acc.postes.add(r.posteId);
-            parOuvrier.set(r.workerId, acc);
+            if (!acc.postes.has(r.posteId)) acc.postes.set(r.posteId, { somme: 0, n: 0 });
+            parOuvrier.set(id, acc);
         });
+
+        const nomPoste = (posteId: string) => {
+            for (const m of models) {
+                const op = (m.gamme_operatoire || []).find(o => o.id === posteId);
+                if (op) return op.description || posteId;
+            }
+            return posteId;
+        };
+
+        const regles = settings?.primeRules;
         return Array.from(parOuvrier.entries())
-            .map(([id, a]) => ({
-                id,
-                nom: workers.find(w => String(w.id) === String(id))?.full_name || id,
-                moyenne: a.n > 0 ? Math.round(a.somme / a.n) : null,
-                pieces: a.pieces,
-                postes: a.postes.size,
-            }))
+            .map(([id, a]) => {
+                const scoreJour = a.jour.n > 0 ? Math.round(a.jour.somme / a.jour.n) : null;
+                const scoreSemaine = a.semaine.n > 0 ? Math.round(a.semaine.somme / a.semaine.n) : null;
+                /* Prime : on n'en calcule une que si une regle a ete decidee ET que
+                   la periode a vraiment ete mesuree. Pas de regle, pas de prime —
+                   on n'invente pas un montant que personne n'a fixe. */
+                let prime = 0;
+                const detailPrime: string[] = [];
+                if (regles?.jour && scoreJour !== null && scoreJour >= regles.jour.seuil) {
+                    prime += regles.jour.montant;
+                    detailPrime.push(`${tx(lang, L.primeJour)} ${scoreJour}% ≥ ${regles.jour.seuil}%`);
+                }
+                if (regles?.semaine && scoreSemaine !== null && scoreSemaine >= regles.semaine.seuil) {
+                    prime += regles.semaine.montant;
+                    detailPrime.push(`${tx(lang, L.primeSemaine)} ${scoreSemaine}% ≥ ${regles.semaine.seuil}%`);
+                }
+                return {
+                    id,
+                    nom: workers.find(w => String(w.id) === String(id))?.full_name || id,
+                    moyenne: a.n > 0 ? Math.round(a.somme / a.n) : null,
+                    pieces: a.pieces,
+                    postes: a.postes.size,
+                    scoreJour,
+                    scoreSemaine,
+                    prime,
+                    detailPrime,
+                    /* Postes maitrises : les mieux tenus d'abord, c'est la reponse a
+                       « qui je mets sur ce poste demain ». */
+                    postesMaitrises: Array.from(a.postes.entries())
+                        .filter(([, v]) => v.n > 0)
+                        .map(([pid, v]) => ({ id: pid, nom: nomPoste(pid), score: Math.round(v.somme / v.n) }))
+                        .sort((x, y) => y.score - x.score)
+                        .slice(0, 4),
+                };
+            })
             .sort((a, b) => (b.moyenne ?? -1) - (a.moyenne ?? -1));
-    }, [posteSuivis, workers]);
+    }, [posteSuivis, workers, models, date, settings?.primeRules, lang]);
 
     return (
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -819,21 +893,58 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                         <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
                             <User className="w-3.5 h-3.5" /> {tx(lang, L.progression)}
                         </div>
+                        {/* Sans regle decidee, aucune prime ne s'affiche : on le dit
+                            plutot que de laisser croire qu'il n'y a jamais de prime. */}
+                        {!settings?.primeRules?.jour && !settings?.primeRules?.semaine && (
+                            <p className="mb-2 text-[10px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang, L.primeAucuneRegle)}</p>
+                        )}
                         {progression.length === 0 ? (
                             <p className="text-[11px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang, L.progressionVide)}</p>
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                                 {progression.map(p => (
-                                    <div key={p.id} className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 dark:bg-dk-bg px-3 py-2">
-                                        <span className="min-w-0 truncate text-[12px] font-bold text-slate-700 dark:text-dk-text">{p.nom}</span>
-                                        <span className="shrink-0 text-right">
-                                            <span className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums ${p.moyenne === null ? 'text-slate-300 dark:text-dk-muted' : classeScore(p.moyenne)}`}>
-                                                {p.moyenne === null ? '—' : `${p.moyenne}%`}
+                                    <div key={p.id} className="rounded-xl bg-slate-50 dark:bg-dk-bg px-3 py-2 space-y-1.5">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="min-w-0 truncate text-[12px] font-bold text-slate-700 dark:text-dk-text">{p.nom}</span>
+                                            <span className="shrink-0 text-right">
+                                                <span className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums ${p.moyenne === null ? 'text-slate-300 dark:text-dk-muted' : classeScore(p.moyenne)}`}>
+                                                    {p.moyenne === null ? '—' : `${p.moyenne}%`}
+                                                </span>
+                                                <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">
+                                                    {p.pieces} pcs · {p.postes} {tx(lang, L.postesTenus)}
+                                                </span>
                                             </span>
-                                            <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">
-                                                {p.pieces} pcs · {p.postes} {tx(lang, L.postesTenus)}
+                                        </div>
+
+                                        {/* Scores de periode : ce sur quoi la prime se decide. */}
+                                        <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-black tabular-nums">
+                                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted">
+                                                {tx(lang, L.primeJour)} {p.scoreJour === null ? '—' : `${p.scoreJour}%`}
                                             </span>
-                                        </span>
+                                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted">
+                                                {tx(lang, L.primeSemaine)} {p.scoreSemaine === null ? '—' : `${p.scoreSemaine}%`}
+                                            </span>
+                                            {p.prime > 0 && (
+                                                <span
+                                                    className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                                    title={p.detailPrime.join(' · ')}
+                                                >
+                                                    {tx(lang, L.prime)} {p.prime} {settings?.currency || ''}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Postes tenus, les mieux notes d'abord : c'est la reponse a
+                                            « qui je mets sur ce poste la prochaine fois ». */}
+                                        {p.postesMaitrises.length > 0 && (
+                                            <div className="flex flex-wrap gap-1" title={tx(lang, L.postesMaitrises)}>
+                                                {p.postesMaitrises.map(pm => (
+                                                    <span key={pm.id} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${classeScore(pm.score)}`}>
+                                                        {pm.nom} {pm.score}%
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

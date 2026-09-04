@@ -4,7 +4,7 @@ import { useIsMobile } from './planning/shared/useIsMobile';
 import SheetModal from './shared/SheetModal';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
-import type { ModelData, AppSettings, ChronoData, Operation } from '../types';
+import type { ModelData, AppSettings, ChronoData, Operation, PosteSuiviData, HRWorker } from '../types';
 import { useRouteParam } from '../lib/router';
 import {
     Search, X, Layers, Boxes, Cpu, Gauge, TrendingUp,
@@ -214,6 +214,35 @@ function chronoForOp(chronoData: Record<string, ChronoData> | undefined, opId: s
 
 export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsProps) {
     const { lang } = useLang();
+    /* Relevés de `Suivi par poste` : chaque fois qu'un poste est chronométré au
+       pied de la chaîne, on obtient un temps par pièce MESURÉ, avec l'ouvrier qui
+       le tenait. Ces mesures ne remontaient nulle part — le catalogue ne voyait
+       que le Chronométrage. Elles rejoignent maintenant les autres, au même titre,
+       et se regroupent par le même clustering. */
+    const [relevesPostes, setRelevesPostes] = useState<PosteSuiviData[]>([]);
+    const [ouvriers, setOuvriers] = useState<HRWorker[]>([]);
+    useEffect(() => {
+        let annule = false;
+        (async () => {
+            try {
+                const [rs, rw] = await Promise.all([
+                    fetch('/api/poste-suivi', { credentials: 'include' }),
+                    fetch('/api/hr/workers?active=1', { credentials: 'include' }),
+                ]);
+                const ds = rs.ok ? await rs.json() : [];
+                const dw = rw.ok ? await rw.json() : [];
+                if (!annule) {
+                    setRelevesPostes(Array.isArray(ds) ? ds : []);
+                    setOuvriers(Array.isArray(dw) ? dw : []);
+                }
+            } catch (e) {
+                // Le catalogue reste utilisable sans ces relevés : on n'affiche pas d'erreur bloquante.
+                console.error('CatalogueTemps: relevés postes indisponibles', e);
+            }
+        })();
+        return () => { annule = true; };
+    }, []);
+
     const [query, setQuery] = useState('');
     const [machineFilter, setMachineFilter] = useState<string | null>(null);
     const [matiereFilter, setMatiereFilter] = useState<string | null>(null);
@@ -331,8 +360,40 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
             }
         }
 
+        /* Relevés chronométrés au pied de la chaîne (`Suivi par poste`). Ils portent
+           un temps par pièce RÉEL et le nom de l'ouvrier qui tenait le poste : c'est
+           exactement ce que le catalogue cherche, et cela vaut mieux qu'un TS de
+           gamme. On retrouve l'opération par son `posteId` dans la gamme du modèle. */
+        for (const r of relevesPostes) {
+            const tpp = r.temps_reel_par_piece;
+            if (!tpp || tpp <= 0) continue;
+            const m = models.find(x => x.id === r.modelId);
+            if (!m) continue;
+            const op = (m.gamme_operatoire || []).find(o => o.id === r.posteId);
+            if (!op?.description) continue;
+
+            const machine = (op.machineName || op.machineClass || op.machineId || 'Machine').toString();
+            const nomOuvrier = ouvriers.find(w => String(w.id) === String(r.workerId))?.full_name;
+            modelSet.add(m.id);
+            list.push({
+                modelId: m.id,
+                modelName: m.meta_data?.nom_modele || m.filename || 'Modèle',
+                reference: m.meta_data?.reference || m.ficheData?.designation || '',
+                client: m.ficheData?.client || '—',
+                category: m.ficheData?.category || m.meta_data?.category || '—',
+                matiere: m.ficheData?.designation || '—',
+                operationDesc: op.description.trim(),
+                machine, machineKey: normMachine(machine),
+                section: op.section,
+                operator: nomOuvrier,
+                length: op.length,
+                timeMin: tpp,
+                measured: true,
+            });
+        }
+
         return { measures: list, modelCount: modelSet.size };
-    }, [models]);
+    }, [models, relevesPostes, ouvriers]);
 
     // — Facettes en cascade : chaque liste ne montre que les valeurs compatibles
     //   avec les AUTRES filtres actifs (filtrage croisé / dépendant). —
