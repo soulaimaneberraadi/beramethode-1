@@ -101,8 +101,11 @@ const precharger = async () => {
   // import dynamique en echec, page NOIRE. La liste ecrite a la construction
   // les nomme tous ; on les range des l installation.
   try {
-    const liste = await fetch('/sw-precache.json', { cache: 'reload' });
-    if (liste.ok) {
+    // Sous `/assets/` : l'hebergeur reecrit tout le reste vers index.html, et
+    // une liste qui revient en HTML ne se lit pas.
+    const liste = await fetch('/assets/sw-precache.json', { cache: 'reload' });
+    const type = liste.headers.get('content-type') || '';
+    if (liste.ok && /json/i.test(type)) {
       const { fichiers } = await liste.json();
       if (Array.isArray(fichiers)) fichiers.forEach((f) => adresses.add(f));
     }

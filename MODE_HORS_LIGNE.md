@@ -34,6 +34,20 @@ Deux causes, mesurées et corrigées :
    absent, et entre les deux l'écran est noir. Hors ligne, l'erreur remonte
    maintenant au garde-fou, qui explique et propose de revenir au menu.
 
+## Déploiement (Vercel)
+
+La liste de préchargement est écrite dans **`dist/assets/sw-precache.json`**,
+et pas à la racine : `vercel.json` réécrit vers `index.html` tout ce qui ne
+commence pas par `/assets/`. Une liste posée à la racine serait revenue en HTML,
+le worker n'y aurait rien compris, et le préchargement serait retombé en silence
+sur la coquille seule — c'est-à-dire sur la page noire qu'on vient de corriger.
+Vérifié dans une simulation de l'hébergeur : à la racine la liste revient bien
+en HTML, sous `/assets/` elle revient en JSON.
+
+**Sur l'appareil, la première ouverture doit se faire AVEC du réseau.** Le worker
+a besoin d'une connexion pour ranger les 57 fichiers (~20 s). Ensuite seulement,
+couper le Wi-Fi laisse l'application entière disponible.
+
 ## Comment ça marche
 
 1. **Hors ligne** — un `POST/PUT/PATCH/DELETE` vers `/api/` est rangé dans

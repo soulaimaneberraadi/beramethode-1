@@ -25,8 +25,13 @@ const listePrechargement = () => ({
     const fichiers = Object.keys(bundle)
       .filter((f) => /\.(js|css)$/.test(f))
       .map((f) => '/' + f);
+    // DANS `assets/`, et pas a la racine. Sur Vercel, `vercel.json` reecrit
+    // vers index.html tout ce qui ne commence pas par `/assets/` : une liste
+    // posee a la racine risquait de revenir en HTML, le worker n'y aurait rien
+    // compris, et le prechargement serait retombe en silence sur la coquille
+    // seule — c'est-a-dire sur la page noire qu'on vient de corriger.
     fs.writeFileSync(
-      path.resolve('dist', 'sw-precache.json'),
+      path.resolve('dist', 'assets', 'sw-precache.json'),
       JSON.stringify({ genere: Date.now(), fichiers }, null, 2),
     );
     console.log(`  📦 sw-precache.json : ${fichiers.length} fichiers a garder hors ligne`);
