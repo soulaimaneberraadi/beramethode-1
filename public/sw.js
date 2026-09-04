@@ -14,7 +14,7 @@
 // jamais sur l'appareil, surtout mobile/PWA). Le cache ne sert que de repli
 // hors-ligne. Les médias (images/polices) restent en cache-first (rarement
 // modifiés). Bump du nom de cache → l'ancien cache est purgé à l'activation.
-const CACHE = 'beramethode-v5';
+const CACHE = 'beramethode-v6';
 const CACHE_DONNEES = 'beramethode-donnees-v1';
 
 const CLE_PAGE = '/index.html';
@@ -124,6 +124,17 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(request)
         .then((res) => {
+          // Un chunk supprimé par un nouveau déploiement peut revenir en 200
+          // avec index.html (repli SPA de l'hébergeur). Le mettre en cache
+          // condamnerait l'appareil : chaque chargement suivant recevrait du
+          // HTML à la place d'un module JS ("'text/html' is not a valid
+          // JavaScript MIME type"). On ne garde que du vrai code, et on purge
+          // l'entrée empoisonnée d'une ancienne version.
+          const type = res.headers.get('content-type') || '';
+          if (res.ok && !/javascript|ecmascript|text\/css/i.test(type)) {
+            caches.open(CACHE).then((c) => c.delete(request)).catch(() => {});
+            return res;
+          }
           if (res.ok) caches.open(CACHE).then((c) => c.put(request, res.clone())).catch(() => {});
           return res;
         })
