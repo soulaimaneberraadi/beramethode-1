@@ -1790,6 +1790,7 @@ export default function App() {
                     logout={logout}
                     companyLogo={companyLogo}
                     companyName={companyName}
+                    navigationContext={navigationContext}
                 />
 
                 {/* MOBILE NAV OVERLAY — toujours dispo (la nav desktop est cachée sur mobile) */}
@@ -2330,28 +2331,6 @@ export default function App() {
                     )}
                     </>)}
 
-                    {/* --- FLOATING RETURN BUTTON --- */}
-                    {navigationContext && (currentView === 'library' || currentView === 'ingenierie') && (
-                        <div className="absolute bottom-4 right-4 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
-                            <button
-                                onClick={() => {
-                                    // Le libelle retombe sur « Planning » pour toute
-                                    // valeur inattendue ; la navigation, elle, ne doit
-                                    // pas suivre une valeur qui n'est pas une page —
-                                    // c'est ainsi qu'un bouton mene a « page
-                                    // introuvable ».
-                                    const destinations = ['coupe', 'planning', 'sousTraitance'] as const;
-                                    const cible = destinations.find(d => d === navigationContext) || 'planning';
-                                    handleNavigation(cible as any);
-                                }}
-                                title={`Retourner au ${navigationContext === 'coupe' ? 'La Coupe' : navigationContext === 'sousTraitance' ? 'Sous-traitance' : 'Planning'}`}
-                                className="group flex items-center gap-2 bg-slate-900 dark:bg-dk-surface border border-slate-700 dark:border-dk-border text-white dark:text-dk-text rounded-full pl-2.5 pr-3.5 py-1.5 shadow-lg hover:bg-slate-800 dark:hover:bg-dk-elevated/80 hover:-translate-y-0.5 transition-all"
-                            >
-                                <LogOut className="w-3.5 h-3.5 text-white rotate-180 shrink-0" />
-                                <span className="text-[11px] font-semibold whitespace-nowrap">Retour {navigationContext === 'coupe' ? 'La Coupe' : navigationContext === 'sousTraitance' ? 'Sous-traitance' : 'Planning'}</span>
-                            </button>
-                        </div>
-                    )}
                   </ErrorBoundary>
                 </main>
 
