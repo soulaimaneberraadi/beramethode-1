@@ -134,8 +134,104 @@ export function CompanyParamsSection({ settings, setSettings, lang }) {
 
                         {/* Heures / jours / pauses / exceptions par jour : UNIQUE éditeur, partagé. */}
                         <HorairesTravail draft={draft} onChange={setDraft} isDirty={isDirty} onSave={handleSave} isSaving={isSaving} />
+
+                        {/* Primes de rendement (Suivi par poste). Le seuil et le montant se
+                            décident dans l'entreprise : tant qu'ils ne sont pas réglés ici,
+                            aucune prime n'est calculée ni affichée nulle part. */}
+                        <PrimesRendement draft={draft} setDraft={setDraft} lang={lang} />
             </div>
             <SaveBar lang={lang} isDirty={isDirty} isSaving={isSaving} showToast={showToast} onSave={handleSave} />
+        </div>
+    );
+}
+
+/**
+ * Primes de rendement par ouvrier, appliquées dans « Suivi par poste ».
+ *
+ * Deux règles indépendantes : une sur le score MOYEN de la journée, une sur
+ * celui de la semaine. Une règle décochée n'existe pas — aucune prime n'est
+ * alors calculée, plutôt qu'un montant par défaut que personne n'a décidé.
+ */
+function PrimesRendement({ draft, setDraft, lang }) {
+    const regles = draft.primeRules || {};
+    const devise = draft.currency || '';
+
+    const majRegle = (cle, patch) => {
+        setDraft(prev => {
+            const courantes = { ...(prev.primeRules || {}) };
+            if (patch === null) delete courantes[cle];
+            else courantes[cle] = { seuil: 80, montant: 0, ...(courantes[cle] || {}), ...patch };
+            return { ...prev, primeRules: courantes };
+        });
+    };
+
+    const lignes = [
+        { cle: 'jour', titre: tx(lang, { fr: 'Prime journalière', ar: 'علاوة يومية', en: 'Daily bonus', es: 'Prima diaria', pt: 'Prémio diário', tr: 'Günlük prim' }) },
+        { cle: 'semaine', titre: tx(lang, { fr: 'Prime hebdomadaire', ar: 'علاوة أسبوعية', en: 'Weekly bonus', es: 'Prima semanal', pt: 'Prémio semanal', tr: 'Haftalık prim' }) },
+    ];
+
+    return (
+        <div className="pt-2">
+            <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-1">
+                {tx(lang, { fr: 'Primes de rendement', ar: 'علاوات المردودية', en: 'Performance bonuses', es: 'Primas de rendimiento', pt: 'Prémios de rendimento', tr: 'Verim primleri' })}
+            </label>
+            <p className="mb-3 text-[11px] font-bold text-slate-400 dark:text-dk-muted">
+                {tx(lang, {
+                    fr: "L'ouvrier touche la prime quand son score moyen sur la période atteint le seuil.",
+                    ar: 'العامل كياخد العلاوة ملي النتيجة المتوسطة ديالو فالمدّة توصل للعتبة.',
+                    en: 'The worker earns the bonus when their average score over the period reaches the threshold.',
+                    es: 'El operario recibe la prima cuando su puntuación media del periodo alcanza el umbral.',
+                    pt: 'O operário recebe o prémio quando a sua pontuação média no período atinge o limiar.',
+                    tr: 'İşçi, dönemdeki ortalama puanı eşiğe ulaştığında primi alır.',
+                })}
+            </p>
+            <div className="space-y-2">
+                {lignes.map(({ cle, titre }) => {
+                    const active = !!regles[cle];
+                    return (
+                        <div key={cle} className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg p-3">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={active}
+                                    onChange={(e) => majRegle(cle, e.target.checked ? {} : null)}
+                                    className="w-4 h-4 accent-indigo-600"
+                                />
+                                <span className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{titre}</span>
+                            </label>
+                            {active && (
+                                <div className="mt-3 grid grid-cols-2 gap-3">
+                                    <label className="block">
+                                        <span className="block mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
+                                            {tx(lang, { fr: 'Seuil (%)', ar: 'العتبة (%)', en: 'Threshold (%)', es: 'Umbral (%)', pt: 'Limiar (%)', tr: 'Eşik (%)' })}
+                                        </span>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            value={regles[cle].seuil ?? ''}
+                                            onChange={(e) => majRegle(cle, { seuil: e.target.value === '' ? 0 : Number(e.target.value) })}
+                                            className="w-full min-h-[44px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 outline-none focus:border-indigo-500 font-black text-slate-800 dark:text-dk-text text-center"
+                                        />
+                                    </label>
+                                    <label className="block">
+                                        <span className="block mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
+                                            {tx(lang, { fr: 'Montant', ar: 'المبلغ', en: 'Amount', es: 'Importe', pt: 'Montante', tr: 'Tutar' })} {devise}
+                                        </span>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            step="0.01"
+                                            value={regles[cle].montant ?? ''}
+                                            onChange={(e) => majRegle(cle, { montant: e.target.value === '' ? 0 : Number(e.target.value) })}
+                                            className="w-full min-h-[44px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 outline-none focus:border-indigo-500 font-black text-slate-800 dark:text-dk-text text-center"
+                                        />
+                                    </label>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }

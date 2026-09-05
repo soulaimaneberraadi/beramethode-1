@@ -387,14 +387,54 @@ export default function SuiviProduction({
         [blocksForDate, selectedChartDate, globalDate],
     );
 
+    /* Signature de l'horaire d'un jour : deux jours qui la partagent partagent
+       exactement les memes colonnes. Les creneaux `orphan` en sont exclus — une
+       vieille saisie ne doit pas faire passer un jour normal pour un jour a
+       horaire particulier. */
+    const signatureHoraire = React.useCallback(
+        (dateStr: string) => blocksForDate(dateStr).filter(b => !b.orphan).map(b => `${b.key}:${b.duration}`).join('|'),
+        [blocksForDate],
+    );
+
+    /* Horaire MAJORITAIRE de la semaine : c'est lui qui donne les colonnes du
+       grand tableau. Avant, le tableau prenait l'union des creneaux des sept
+       jours : un seul jour regle a part dans Admin (le vendredi au Maroc, mais
+       n'importe quel autre jour au meme titre) ajoutait ses heures en colonnes
+       pour TOUT LE MONDE. On se retrouvait avec 16 colonnes qui se chevauchent
+       (11:00/12:00 a cote de 10:45/11:45) pour n'en remplir que quatre.
+       Desormais un jour dont l'horaire differe sort dans son propre bloc, avec
+       ses propres colonnes, et laisse la grille commune tranquille. */
+    const { joursHorsNorme, joursNorme } = useMemo(() => {
+        const compte = new Map<string, number>();
+        weekDays.forEach(d => {
+            const sig = signatureHoraire(d.dateStr);
+            if (!sig) return; // jour ferme : ne vote pas
+            compte.set(sig, (compte.get(sig) || 0) + 1);
+        });
+        let majoritaire = '';
+        let meilleur = 0;
+        compte.forEach((n, sig) => {
+            if (n > meilleur) { meilleur = n; majoritaire = sig; }
+        });
+        const hors = new Set<string>();
+        const norme: string[] = [];
+        weekDays.forEach(d => {
+            const sig = signatureHoraire(d.dateStr);
+            // Un jour ferme reste dans la grille commune : il n'a rien a montrer a part.
+            if (sig && sig !== majoritaire) hors.add(d.dateStr);
+            else norme.push(d.dateStr);
+        });
+        return { joursHorsNorme: hors, joursNorme: norme };
+    }, [weekDays, signatureHoraire]);
+
     /* Le tableau hebdomadaire a UNE colonne par creneau pour toute la semaine :
-       on prend l'union des creneaux des jours affiches, triee par heure. Un
-       jour qui n'a pas un creneau (pause propre, ou jour ferme) affiche une
-       case grisee au lieu d'une saisie qui n'existe pas. */
+       on prend l'union des creneaux des jours a horaire majoritaire, triee par
+       heure. Un jour qui n'a pas un creneau (pause propre, ou jour ferme)
+       affiche une case grisee au lieu d'une saisie qui n'existe pas. */
     const weekHourBlocks = useMemo(() => {
         const byKey = new Map<string, GridBlock>();
-        weekDays.forEach(d => {
-            blocksForDate(d.dateStr).forEach(b => {
+        joursNorme.forEach(dateStr => {
+            blocksForDate(dateStr).forEach(b => {
                 const prev = byKey.get(b.key);
                 // Meme debut mais duree differente selon le jour : on garde la plus longue
                 // pour que l'en-tete couvre l'amplitude reelle de la colonne. Un creneau
@@ -403,7 +443,7 @@ export default function SuiviProduction({
             });
         });
         return Array.from(byKey.values()).sort((a, b) => a.startMin - b.startMin);
-    }, [blocksForDate, weekDays]);
+    }, [blocksForDate, joursNorme]);
 
     /* Jours de la semaine affichée qui portent encore des saisies sous d'anciens
        créneaux — c'est ce que le bandeau de fusion propose de recaler. */
@@ -491,7 +531,13 @@ export default function SuiviProduction({
 
         planningEvents.filter(p => {
             if (p.chaineId !== selectedChaineId) return false;
-            
+            /* Un OF termine ne s'invite plus dans la liste juste parce que ses dates
+               de planning couvrent la semaine affichee : une fois marque `Terminé` il
+               n'a plus rien a saisir. Il reste visible par la source (b) ci-dessous
+               des que la semaine porte VRAIMENT de sa production — on peut donc
+               revenir sur une semaine passee et retrouver son suivi intact. */
+            if (p.status === 'DONE') return false;
+
             const evStart = p.startDate || p.dateLancement || '';
             const evEnd = p.estimatedEndDate || p.dateExport || p.dateFin || evStart;
             
@@ -619,6 +665,41 @@ export default function SuiviProduction({
             total: parts.reduce((acc, p) => acc + (typeof p.value === 'number' ? p.value : 0), 0),
         };
     }, [suivis, selectedChaineId, activeModels, entryOFKey, selectedActiveModelId]);
+
+    /* Rendement d'UN creneau, avec exactement la regle de la colonne R du tableau :
+       minutes gagnees (pieces x SAM du modele) divisees par les minutes de presence
+       (effectif x duree reelle du creneau, arret declare deduit). Sur telephone on
+       saisit une heure puis on veut savoir tout de suite ce qu'elle vaut, sans
+       attendre le total du jour. Sans effectif saisi il n'y a pas de denominateur :
+       on ne montre rien plutot qu'un pourcentage invente. */
+    const rendementCreneau = React.useCallback((dateStr: string, h: { key: string; duration: number }): number | null => {
+        const cell = getCellMeta(dateStr, h.key);
+        if (!cell) return null;
+
+        const effectifEntries = suivis.filter(s => s.chaineId === selectedChaineId && s.date === dateStr);
+        const effectif = effectifEntries.reduce((max, s) => {
+            const w = typeof s.totalWorkers === 'number' ? s.totalWorkers : 0;
+            return w > max ? w : max;
+        }, 0);
+        if (effectif <= 0) return null;
+
+        let minutesGagnees = 0;
+        let arret = 0;
+        for (const p of cell.parts) {
+            const sam = p.model?.sam;
+            if (sam && typeof p.value === 'number') minutesGagnees += p.value * sam;
+            if (p.downtime === 'L') arret = Math.max(arret, 60);
+            else if (p.downtime === 'P') arret = Math.max(arret, 15);
+            else if (p.downtime === 'M') arret = Math.max(arret, 30);
+            else if (p.downtime === 'S') arret = Math.max(arret, 45);
+        }
+        if (minutesGagnees <= 0) return null;
+
+        const minutesUtiles = Math.max(0, h.duration - arret);
+        if (minutesUtiles <= 0) return null;
+
+        return Math.round((minutesGagnees / (effectif * minutesUtiles)) * 100);
+    }, [getCellMeta, suivis, selectedChaineId]);
 
     // Handle cell updates (quantity, model, downtime, defects)
     const handleSaveCell = (
@@ -955,10 +1036,17 @@ export default function SuiviProduction({
 
         let totalActiveMinutes = 0;
         let downtimeMinutes = 0;
-        
+        /* Part de `totalActiveMinutes` qui vient de creneaux `orphan` (saisies restees
+           sous un ancien horaire). On la RETIENT dans le calcul — sinon le rendement,
+           qui divise une production reelle par ces minutes, serait surevalue — mais on
+           la remonte a part pour que la colonne `Total H` puisse dire pourquoi elle
+           depasse l'horaire regle du jour au lieu de laisser croire a une erreur. */
+        let orphanMinutes = 0;
+
         dayBlocks.forEach(h => {
             const cellMeta = getCellMeta(dateStr, h.key);
             if (cellMeta) {
+                if (h.orphan) orphanMinutes += h.duration;
                 totalActiveMinutes += h.duration;
                 if (cellMeta.downtime) {
                     const dtCode = cellMeta.downtime;
@@ -967,7 +1055,7 @@ export default function SuiviProduction({
                     else if (dtCode === 'M') downtimeMinutes += 30;
                     else if (dtCode === 'S') downtimeMinutes += 45;
                 }
-            } else {
+            } else if (!h.orphan) {
                 if (dayEntries.length > 0) totalActiveMinutes += h.duration;
             }
         });
@@ -1039,6 +1127,7 @@ export default function SuiviProduction({
             oee,
             totalActiveMinutes,
             activeMinutes,
+            orphanMinutes,
         };
     };
 
@@ -1228,6 +1317,236 @@ export default function SuiviProduction({
 
         return alerts;
     }, [activeModels, models, mvts, products, selectedChaineId]);
+    /* Cases horaires d'une ligne de jour. Extrait de la ligne du tableau parce
+       qu'un jour a horaire particulier (regle a part dans Admin) rend ses cases
+       dans son PROPRE sous-tableau, avec ses propres colonnes, au lieu de la
+       grille commune de la semaine. */
+    const renderCasesHoraires = (day: { dateStr: string; label: string; displayDate: string }, blocsLigne: GridBlock[]) => {
+        const dayBlockKeys = new Set(blocksForDate(day.dateStr).map(b => b.key));
+                                            return blocsLigne.map(h => {
+                                                if (!dayBlockKeys.has(h.key)) {
+                                                    return (
+                                                        <td key={h.key} className="p-1 border-r border-slate-100 dark:border-dk-border/60 text-center w-28">
+                                                            <div
+                                                                className="w-full h-10 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-dk-bg/50 border border-dashed border-slate-200 dark:border-dk-border/60 text-[10px] font-bold text-slate-300 dark:text-dk-muted"
+                                                                title={tx(lang, { fr: 'Hors horaire de ce jour', ar: 'خارج توقيت هذا اليوم', en: 'Outside this day schedule', es: 'Fuera del horario de este día', pt: 'Fora do horário deste dia', tr: 'Bu günün mesaisi dışında' })}
+                                                            >
+                                                                —
+                                                            </div>
+                                                        </td>
+                                                    );
+                                                }
+                                                const cell = getCellMeta(day.dateStr, h.key);
+                                                const cellStyle = (() => {
+                                                    if (cell?.downtime) {
+                                                        const dt = cell.downtime;
+                                                        if (dt === 'L') return isDark ? { backgroundColor: '#1c1c1c', color: '#94A3B8', borderColor: '#2E463C' } : { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' };
+                                                        if (dt === 'P') return isDark ? { backgroundColor: '#1a2a3d', color: '#60A5FA', borderColor: '#1e3a5f' } : { backgroundColor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' };
+                                                        if (dt === 'M') return isDark ? { backgroundColor: '#3d1a1a', color: '#F87171', borderColor: '#5f1e1e', fontWeight: 'bold' } : { backgroundColor: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca', fontWeight: 'bold' };
+                                                        if (dt === 'S') return isDark ? { backgroundColor: '#3d2e1a', color: '#fbbf24', borderColor: '#78350f', fontWeight: 'bold' } : { backgroundColor: '#fffbeb', color: '#b45309', borderColor: '#fde68a', fontWeight: 'bold' };
+                                                    }
+                                                    if (cell?.model) {
+                                                        return { backgroundColor: cell.model.style.bg, color: cell.model.style.text, borderColor: cell.model.style.border };
+                                                    }
+                                                    return null;
+                                                })();
+
+                                                /* Fin REELLE du creneau (minutes) : un creneau coupe par la
+                                                   pause se termine a 13:30, pas a 14:00 — sans cela il resterait
+                                                   verrouille apres avoir ete travaille. */
+                                                const isFutureHour = new Date(day.dateStr).setHours(0, h.endMin, 0, 0) > Date.now();
+                                                const isCellLocked = isFutureHour && !isOverrideMode;
+                                                const ofId = selectedActiveModelId;
+                                                const selectedOFInfo = activeModels.find(m => m.id === ofId);
+                                                const selectedOFStyle = selectedOFInfo?.style;
+                                                const displayValue = cell?.downtime || (cell?.value !== undefined && cell?.value !== null && cell.value !== 0 ? cell.value : '');
+
+                                                /* Deux modeles dans la meme heure : la case se partage en
+                                                   bandes de couleur, une par OF, celle de l'OF selectionne
+                                                   restant saisissable. */
+                                                const parts = cell?.parts || [];
+                                                /* Si l'heure est deja prise par un autre OF, on ajoute une bande
+                                                   vide pour l'OF selectionne : c'est ainsi qu'on met deux
+                                                   productions dans la meme heure. */
+                                                const manqueOFCourant = parts.length > 0 && !!ofId && !parts.some(p => p.ofKey === ofId) && !isCellLocked;
+                                                if (parts.length > 1 || manqueOFCourant) {
+                                                    return (
+                                                        <td key={h.key} className="p-1 border-r border-slate-100 dark:border-dk-border/60 text-center relative w-28 group align-top">
+                                                            <div
+                                                                className="w-full rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border divide-y divide-white/40 dark:divide-black/30 cursor-pointer"
+                                                                onDoubleClick={() => !isCellLocked && ofId && handleOpenCellModal(day.dateStr, h.key, h.label)}
+                                                                title={parts.map(p => `${p.model?.reference || '?'} : ${p.downtime || p.value}`).join(' | ')}
+                                                            >
+                                                                {parts.map(p => {
+                                                                    const st = p.model?.style;
+                                                                    const estCourant = p.ofKey === ofId;
+                                                                    return (
+                                                                        <div
+                                                                            key={p.entry.id}
+                                                                            style={st ? { backgroundColor: st.bg, color: st.text } : undefined}
+                                                                            className={`flex items-center justify-between gap-1 px-1.5 py-1 text-[11px] font-black tabular-nums ${st ? '' : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft'} ${estCourant ? 'ring-1 ring-inset ring-black/25 dark:ring-white/40' : ''}`}
+                                                                        >
+                                                                            <span className="truncate text-[9px] font-bold opacity-80">{p.model?.ofTag || p.model?.reference || '—'}</span>
+                                                                            {estCourant && !isCellLocked ? (
+                                                                                <input
+                                                                                    type="text"
+                                                                                    inputMode="numeric"
+                                                                                    value={p.downtime || (p.value || '')}
+                                                                                    onChange={(e) => {
+                                                                                        const valStr = e.target.value.trim().toUpperCase();
+                                                                                        if (['L', 'P', 'M', 'S'].includes(valStr)) {
+                                                                                            handleSaveCell(day.dateStr, h.key, 0, ofId, valStr, 0, 'Couture');
+                                                                                        } else {
+                                                                                            handleSaveCell(day.dateStr, h.key, valStr === '' ? 0 : parseInt(valStr) || 0, ofId, null, 0, 'Couture');
+                                                                                        }
+                                                                                    }}
+                                                                                    className="w-10 bg-transparent text-right outline-none font-black"
+                                                                                />
+                                                                            ) : (
+                                                                                <span>{p.downtime || p.value}</span>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                                {manqueOFCourant && (
+                                                                    <div
+                                                                        style={selectedOFStyle ? { backgroundColor: selectedOFStyle.bg, color: selectedOFStyle.text } : undefined}
+                                                                        className="flex items-center justify-between gap-1 px-1.5 py-1 text-[11px] font-black tabular-nums opacity-60 ring-1 ring-inset ring-black/25 dark:ring-white/40"
+                                                                    >
+                                                                        <span className="truncate text-[9px] font-bold opacity-80">{selectedOFInfo?.ofTag || selectedOFInfo?.reference || '—'}</span>
+                                                                        <input
+                                                                            type="text"
+                                                                            inputMode="numeric"
+                                                                            value=""
+                                                                            placeholder="+"
+                                                                            onChange={(e) => {
+                                                                                const valStr = e.target.value.trim().toUpperCase();
+                                                                                if (['L', 'P', 'M', 'S'].includes(valStr)) {
+                                                                                    handleSaveCell(day.dateStr, h.key, 0, ofId, valStr, 0, 'Couture');
+                                                                                } else if (valStr !== '') {
+                                                                                    handleSaveCell(day.dateStr, h.key, parseInt(valStr) || 0, ofId, null, 0, 'Couture');
+                                                                                }
+                                                                            }}
+                                                                            className="w-10 bg-transparent text-right outline-none font-black placeholder:opacity-70"
+                                                                        />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="mt-0.5 text-[9px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">{cell?.total}</div>
+                                                        </td>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <td key={h.key} className="p-1 border-r border-slate-100 dark:border-dk-border/60 text-center relative w-28 group">
+                                                        <input
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            disabled={isCellLocked || !ofId}
+                                                            value={displayValue}
+                                                            onDoubleClick={() => !isCellLocked && ofId && handleOpenCellModal(day.dateStr, h.key, h.label)}
+                                                            onChange={(e) => {
+                                                                if (!ofId) return;
+                                                                const valStr = e.target.value.trim().toUpperCase();
+                                                                if (['L', 'P', 'M', 'S'].includes(valStr)) {
+                                                                    handleSaveCell(day.dateStr, h.key, 0, ofId, valStr, 0, 'Couture');
+                                                                } else {
+                                                                    const parsedVal = valStr === '' ? 0 : parseInt(valStr) || 0;
+                                                                    handleSaveCell(day.dateStr, h.key, parsedVal, ofId, null, 0, 'Couture');
+                                                                }
+                                                            }}
+                                                            style={cellStyle ? { backgroundColor: cellStyle.backgroundColor, color: cellStyle.color, borderColor: cellStyle.borderColor } : {}}
+                                                            className={`w-full h-10 text-center text-xs font-black outline-none border transition-all rounded-lg ${
+                                                                cellStyle 
+                                                                    ? 'shadow-sm dark:shadow-dk-sm font-bold border-transparent' 
+                                                                    : (isCellLocked || !ofId)
+                                                                        ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/60 text-slate-300 dark:text-dk-muted' 
+                                                                        : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border hover:border-indigo-400 focus:border-indigo-600 dark:border-indigo-800 focus:ring-1 focus:ring-indigo-600'
+                                                            } ${cell?.downtime === 'M' ? 'animate-pulse' : ''}`}
+                                                            placeholder="—"
+                                                            title={!isCellLocked ? l.doubleClick : undefined}
+                                                        />
+                                                        {cell?.defectsQty !== undefined && cell.defectsQty > 0 && (
+                                                            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-50 dark:bg-rose-900/300 animate-ping" title={`Défauts: ${cell.defectsQty}`} />
+                                                        )}
+                                                    </td>
+                                                );
+                                            });
+    };
+
+    /* Colonnes de bilan d'une ligne de jour (production, heures, effectif,
+       rendements) : identiques que la ligne soit dans la grille commune ou dans
+       le bloc d'un jour a horaire particulier. */
+    const renderColonnesBilan = (metrics: ReturnType<typeof getDailyMetrics>) => (
+        <>
+                                            {/* P. Journaliere */}
+                                            <td className="py-4 px-3 text-center font-black text-slate-800 dark:text-dk-text tabular-nums">
+                                                {metrics.totalPiece}
+                                                {metrics.totalDefects > 0 && (
+                                                    <span className="block text-[9px] text-rose-500 dark:text-rose-300 font-bold">Def: {metrics.totalDefects}</span>
+                                                )}
+                                            </td>
+
+                                            {/* Total Heure */}
+                                            <td className="py-4 px-3 text-center font-mono text-xs text-slate-500 dark:text-dk-muted font-bold tabular-nums">
+                                                {metrics.totalHeur}
+                                                {/* Ces minutes viennent de saisies restees sous un ancien
+                                                    horaire : elles comptent dans le rendement (la production
+                                                    est reelle), mais sans cette mention le total depassait
+                                                    l'horaire regle du jour sans dire pourquoi. */}
+                                                {metrics.orphanMinutes > 0 && (
+                                                    <span className="block text-[9px] font-bold text-amber-600 dark:text-amber-300 normal-case">
+                                                        +{(metrics.orphanMinutes / 60).toFixed(2)} {horsGrilleTag}
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            {/* Effectif (lecture seule — saisi dans la page Effectifs) */}
+                                            <td className="p-1 text-center border-l border-slate-100 dark:border-dk-border/60 w-24">
+                                                <div
+                                                    className="w-full text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1.5 tabular-nums text-slate-700 dark:text-dk-text-soft dark:text-dk-text"
+                                                    title={tx(lang, { fr: 'Saisir dans la page Effectifs', ar: 'يتم إدخاله في صفحة Effectifs', en: 'Enter on the Effectifs page', es: 'Introducir en la página Effectifs', pt: 'Inserir na página Effectifs', tr: 'Effectifs sayfasında girilir' })}
+                                                >
+                                                    {metrics.totalM || 0}
+                                                </div>
+                                            </td>
+
+                                            {/* R1 / R2 % */}
+                                            <td className="py-4 px-3 text-center border-l border-slate-100 dark:border-dk-border/60">
+                                                {metrics.yields.length === 0 ? (
+                                                    <span className="text-slate-300 dark:text-dk-muted font-bold">—</span>
+                                                ) : (
+                                                    <div className="flex flex-col gap-1 items-center justify-center">
+                                                        {metrics.yields.map((y, idx) => (
+                                                            <div key={idx} className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-lg border" style={{ backgroundColor: y.style.bg, color: y.style.text, borderColor: y.style.border }}>
+                                                                <span>{y.modelName}</span>
+                                                                <span>:</span>
+                                                                <span className="tabular-nums">{y.efficiency}%</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </td>
+
+                                            {/* R. TOTAL DAY */}
+                                            <td className="py-4 px-3 text-center">
+                                                {metrics.rTotalDay > 0 ? (
+                                                    <span className={`px-4 py-1.5 rounded-2xl text-xs font-black shadow-sm dark:shadow-dk-sm ${
+                                                        metrics.rTotalDay >= 90 
+                                                            ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 border border-emerald-200/50' 
+                                                            : metrics.rTotalDay >= 80 
+                                                                ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 border border-orange-200/50' 
+                                                                : 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 border border-rose-200 dark:border-rose-800/50'
+                                                    }`}>
+                                                        {metrics.rTotalDay}%
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-slate-300 dark:text-dk-muted font-bold">0%</span>
+                                                )}
+                                            </td>
+        </>
+    );
+
 
     return (
         <div className="flex flex-col h-full bg-[#fafbfe] dark:bg-dk-bg overflow-hidden font-sans antialiased text-slate-800 dark:text-dk-text">
@@ -1675,11 +1994,74 @@ export default function SuiviProduction({
                             <tbody className="divide-y divide-slate-50 dark:divide-dk-border">
                                 {weekDays.map(day => {
                                     const metrics = getDailyMetrics(day.dateStr);
-                                    /* Creneaux reellement travailles CE jour-la : une colonne de la
-                                       semaine qui n'existe pas ce jour (pause propre au jour, jour
-                                       ferme) reste grisee au lieu d'accepter une saisie. */
-                                    const dayBlockKeys = new Set(blocksForDate(day.dateStr).map(b => b.key));
- 
+
+                                    /* Jour a horaire particulier : il sort de la grille commune et
+                                       recoit SON tableau, avec SES colonnes. Sans cela ses heures
+                                       s'ajoutaient en colonnes pour toute la semaine et la grille
+                                       finissait avec des colonnes qui se chevauchent, presque toutes
+                                       vides. Le bloc reste colle a gauche pour rester lisible quand
+                                       le grand tableau defile horizontalement. */
+                                    if (joursHorsNorme.has(day.dateStr)) {
+                                        const blocsJour = blocksForDate(day.dateStr);
+                                        const hj = horairesDuJour(settings, new Date(day.dateStr));
+                                        const estSel = selectedChartDate === day.dateStr;
+                                        return (
+                                            <tr key={day.dateStr} className={`hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${estSel ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20' : ''}`}>
+                                                {/* Date */}
+                                                <td className={`py-4 px-4 font-mono text-xs text-slate-500 dark:text-dk-muted font-bold sticky left-0 z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${estSel ? 'bg-[#f4f6fe] dark:bg-dk-elevated' : 'bg-white dark:bg-dk-surface'}`}>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => selectChartDate(day.dateStr)}
+                                                            className={`w-3 h-3 rounded-full border ${estSel ? 'bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 border-indigo-600 dark:border-indigo-800' : 'border-slate-300 dark:border-dk-border'}`}
+                                                            title="Sélectionner pour le graphique"
+                                                        />
+                                                        {day.displayDate}
+                                                    </div>
+                                                </td>
+
+                                                {/* Day Name */}
+                                                <td className={`py-4 px-4 font-black text-xs text-slate-800 dark:text-dk-text sticky left-[112px] z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${estSel ? 'bg-[#f4f6fe] dark:bg-dk-elevated' : 'bg-white dark:bg-dk-surface'}`}>
+                                                    {day.label}
+                                                    <span className="block mt-0.5 text-[9px] font-bold text-indigo-600 dark:text-dk-accent-text tabular-nums">{hj.start} → {hj.end}</span>
+                                                </td>
+
+                                                {/* Sous-grille des heures : SEULES les colonnes horaires changent.
+                                                    Les colonnes Date/Jour a gauche et les colonnes de bilan a droite
+                                                    restent celles du tableau, a leur place et dans le meme style. */}
+                                                <td colSpan={weekHourBlocks.length} className="p-1 border-r border-slate-100 dark:border-dk-border/60 align-middle">
+                                                    <div className="rounded-xl border border-indigo-200 dark:border-dk-border overflow-hidden bg-white dark:bg-dk-surface">
+                                                        <table className="w-full text-left border-collapse table-fixed">
+                                                            <thead>
+                                                                <tr className="bg-indigo-50/70 dark:bg-dk-accent/20 border-b border-indigo-100 dark:border-dk-border">
+                                                                    {blocsJour.map(h => (
+                                                                        <th key={h.key} className={`py-2 px-1 text-[10px] font-black uppercase tracking-widest text-center border-r border-indigo-100/70 dark:border-dk-border/50 last:border-r-0 ${h.orphan ? 'text-amber-600 dark:text-amber-300' : 'text-indigo-500 dark:text-dk-accent-text'}`} title={h.orphan ? horsGrilleHint : `${h.label} — ${h.duration} min${h.pauseMin ? ` (pause ${h.pauseMin} min)` : ''}`}>
+                                                                            {h.label}
+                                                                            {h.orphan ? (
+                                                                                <span className="block text-[8px] font-bold normal-case tracking-normal text-amber-600 dark:text-amber-300">{horsGrilleTag}</span>
+                                                                            ) : h.duration < 60 ? (
+                                                                                <span className="block text-[8px] font-bold normal-case tracking-normal text-indigo-500 dark:text-dk-accent-text">{h.duration} min</span>
+                                                                            ) : h.pauseMin > 0 ? (
+                                                                                <span className="block text-[8px] font-bold normal-case tracking-normal text-slate-400 dark:text-dk-muted">+{h.pauseMin} min {pauseTag}</span>
+                                                                            ) : null}
+                                                                        </th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr>
+                                                                    {renderCasesHoraires(day, blocsJour)}
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </td>
+
+                                                {renderColonnesBilan(metrics)}
+                                            </tr>
+                                        );
+                                    }
+
                                     return (
                                         <tr key={day.dateStr} className={`hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors ${selectedChartDate === day.dateStr ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/20' : ''}`}>
                                             {/* Date */}
@@ -1701,210 +2083,9 @@ export default function SuiviProduction({
                                             </td>
 
                                             {/* Shift hour cells */}
-                                            {weekHourBlocks.map(h => {
-                                                if (!dayBlockKeys.has(h.key)) {
-                                                    return (
-                                                        <td key={h.key} className="p-1 border-r border-slate-100 dark:border-dk-border/60 text-center w-28">
-                                                            <div
-                                                                className="w-full h-10 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-dk-bg/50 border border-dashed border-slate-200 dark:border-dk-border/60 text-[10px] font-bold text-slate-300 dark:text-dk-muted"
-                                                                title={tx(lang, { fr: 'Hors horaire de ce jour', ar: 'خارج توقيت هذا اليوم', en: 'Outside this day schedule', es: 'Fuera del horario de este día', pt: 'Fora do horário deste dia', tr: 'Bu günün mesaisi dışında' })}
-                                                            >
-                                                                —
-                                                            </div>
-                                                        </td>
-                                                    );
-                                                }
-                                                const cell = getCellMeta(day.dateStr, h.key);
-                                                const cellStyle = (() => {
-                                                    if (cell?.downtime) {
-                                                        const dt = cell.downtime;
-                                                        if (dt === 'L') return isDark ? { backgroundColor: '#1c1c1c', color: '#94A3B8', borderColor: '#2E463C' } : { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' };
-                                                        if (dt === 'P') return isDark ? { backgroundColor: '#1a2a3d', color: '#60A5FA', borderColor: '#1e3a5f' } : { backgroundColor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' };
-                                                        if (dt === 'M') return isDark ? { backgroundColor: '#3d1a1a', color: '#F87171', borderColor: '#5f1e1e', fontWeight: 'bold' } : { backgroundColor: '#fef2f2', color: '#b91c1c', borderColor: '#fecaca', fontWeight: 'bold' };
-                                                        if (dt === 'S') return isDark ? { backgroundColor: '#3d2e1a', color: '#fbbf24', borderColor: '#78350f', fontWeight: 'bold' } : { backgroundColor: '#fffbeb', color: '#b45309', borderColor: '#fde68a', fontWeight: 'bold' };
-                                                    }
-                                                    if (cell?.model) {
-                                                        return { backgroundColor: cell.model.style.bg, color: cell.model.style.text, borderColor: cell.model.style.border };
-                                                    }
-                                                    return null;
-                                                })();
+                                            {renderCasesHoraires(day, weekHourBlocks)}
 
-                                                /* Fin REELLE du creneau (minutes) : un creneau coupe par la
-                                                   pause se termine a 13:30, pas a 14:00 — sans cela il resterait
-                                                   verrouille apres avoir ete travaille. */
-                                                const isFutureHour = new Date(day.dateStr).setHours(0, h.endMin, 0, 0) > Date.now();
-                                                const isCellLocked = isFutureHour && !isOverrideMode;
-                                                const ofId = selectedActiveModelId;
-                                                const selectedOFInfo = activeModels.find(m => m.id === ofId);
-                                                const selectedOFStyle = selectedOFInfo?.style;
-                                                const displayValue = cell?.downtime || (cell?.value !== undefined && cell?.value !== null && cell.value !== 0 ? cell.value : '');
-
-                                                /* Deux modeles dans la meme heure : la case se partage en
-                                                   bandes de couleur, une par OF, celle de l'OF selectionne
-                                                   restant saisissable. */
-                                                const parts = cell?.parts || [];
-                                                /* Si l'heure est deja prise par un autre OF, on ajoute une bande
-                                                   vide pour l'OF selectionne : c'est ainsi qu'on met deux
-                                                   productions dans la meme heure. */
-                                                const manqueOFCourant = parts.length > 0 && !!ofId && !parts.some(p => p.ofKey === ofId) && !isCellLocked;
-                                                if (parts.length > 1 || manqueOFCourant) {
-                                                    return (
-                                                        <td key={h.key} className="p-1 border-r border-slate-100 dark:border-dk-border/60 text-center relative w-28 group align-top">
-                                                            <div
-                                                                className="w-full rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border divide-y divide-white/40 dark:divide-black/30 cursor-pointer"
-                                                                onDoubleClick={() => !isCellLocked && ofId && handleOpenCellModal(day.dateStr, h.key, h.label)}
-                                                                title={parts.map(p => `${p.model?.reference || '?'} : ${p.downtime || p.value}`).join(' | ')}
-                                                            >
-                                                                {parts.map(p => {
-                                                                    const st = p.model?.style;
-                                                                    const estCourant = p.ofKey === ofId;
-                                                                    return (
-                                                                        <div
-                                                                            key={p.entry.id}
-                                                                            style={st ? { backgroundColor: st.bg, color: st.text } : undefined}
-                                                                            className={`flex items-center justify-between gap-1 px-1.5 py-1 text-[11px] font-black tabular-nums ${st ? '' : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft'} ${estCourant ? 'ring-1 ring-inset ring-black/25 dark:ring-white/40' : ''}`}
-                                                                        >
-                                                                            <span className="truncate text-[9px] font-bold opacity-80">{p.model?.ofTag || p.model?.reference || '—'}</span>
-                                                                            {estCourant && !isCellLocked ? (
-                                                                                <input
-                                                                                    type="text"
-                                                                                    inputMode="numeric"
-                                                                                    value={p.downtime || (p.value || '')}
-                                                                                    onChange={(e) => {
-                                                                                        const valStr = e.target.value.trim().toUpperCase();
-                                                                                        if (['L', 'P', 'M', 'S'].includes(valStr)) {
-                                                                                            handleSaveCell(day.dateStr, h.key, 0, ofId, valStr, 0, 'Couture');
-                                                                                        } else {
-                                                                                            handleSaveCell(day.dateStr, h.key, valStr === '' ? 0 : parseInt(valStr) || 0, ofId, null, 0, 'Couture');
-                                                                                        }
-                                                                                    }}
-                                                                                    className="w-10 bg-transparent text-right outline-none font-black"
-                                                                                />
-                                                                            ) : (
-                                                                                <span>{p.downtime || p.value}</span>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                                {manqueOFCourant && (
-                                                                    <div
-                                                                        style={selectedOFStyle ? { backgroundColor: selectedOFStyle.bg, color: selectedOFStyle.text } : undefined}
-                                                                        className="flex items-center justify-between gap-1 px-1.5 py-1 text-[11px] font-black tabular-nums opacity-60 ring-1 ring-inset ring-black/25 dark:ring-white/40"
-                                                                    >
-                                                                        <span className="truncate text-[9px] font-bold opacity-80">{selectedOFInfo?.ofTag || selectedOFInfo?.reference || '—'}</span>
-                                                                        <input
-                                                                            type="text"
-                                                                            inputMode="numeric"
-                                                                            value=""
-                                                                            placeholder="+"
-                                                                            onChange={(e) => {
-                                                                                const valStr = e.target.value.trim().toUpperCase();
-                                                                                if (['L', 'P', 'M', 'S'].includes(valStr)) {
-                                                                                    handleSaveCell(day.dateStr, h.key, 0, ofId, valStr, 0, 'Couture');
-                                                                                } else if (valStr !== '') {
-                                                                                    handleSaveCell(day.dateStr, h.key, parseInt(valStr) || 0, ofId, null, 0, 'Couture');
-                                                                                }
-                                                                            }}
-                                                                            className="w-10 bg-transparent text-right outline-none font-black placeholder:opacity-70"
-                                                                        />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="mt-0.5 text-[9px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">{cell?.total}</div>
-                                                        </td>
-                                                    );
-                                                }
-
-                                                return (
-                                                    <td key={h.key} className="p-1 border-r border-slate-100 dark:border-dk-border/60 text-center relative w-28 group">
-                                                        <input
-                                                            type="text"
-                                                            inputMode="numeric"
-                                                            disabled={isCellLocked || !ofId}
-                                                            value={displayValue}
-                                                            onDoubleClick={() => !isCellLocked && ofId && handleOpenCellModal(day.dateStr, h.key, h.label)}
-                                                            onChange={(e) => {
-                                                                if (!ofId) return;
-                                                                const valStr = e.target.value.trim().toUpperCase();
-                                                                if (['L', 'P', 'M', 'S'].includes(valStr)) {
-                                                                    handleSaveCell(day.dateStr, h.key, 0, ofId, valStr, 0, 'Couture');
-                                                                } else {
-                                                                    const parsedVal = valStr === '' ? 0 : parseInt(valStr) || 0;
-                                                                    handleSaveCell(day.dateStr, h.key, parsedVal, ofId, null, 0, 'Couture');
-                                                                }
-                                                            }}
-                                                            style={cellStyle ? { backgroundColor: cellStyle.backgroundColor, color: cellStyle.color, borderColor: cellStyle.borderColor } : {}}
-                                                            className={`w-full h-10 text-center text-xs font-black outline-none border transition-all rounded-lg ${
-                                                                cellStyle 
-                                                                    ? 'shadow-sm dark:shadow-dk-sm font-bold border-transparent' 
-                                                                    : (isCellLocked || !ofId)
-                                                                        ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/60 text-slate-300 dark:text-dk-muted' 
-                                                                        : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border hover:border-indigo-400 focus:border-indigo-600 dark:border-indigo-800 focus:ring-1 focus:ring-indigo-600'
-                                                            } ${cell?.downtime === 'M' ? 'animate-pulse' : ''}`}
-                                                            placeholder="—"
-                                                            title={!isCellLocked ? l.doubleClick : undefined}
-                                                        />
-                                                        {cell?.defectsQty !== undefined && cell.defectsQty > 0 && (
-                                                            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-50 dark:bg-rose-900/300 animate-ping" title={`Défauts: ${cell.defectsQty}`} />
-                                                        )}
-                                                    </td>
-                                                );
-                                            })}
-
-                                            {/* P. Journaliere */}
-                                            <td className="py-4 px-3 text-center font-black text-slate-800 dark:text-dk-text tabular-nums">
-                                                {metrics.totalPiece}
-                                                {metrics.totalDefects > 0 && (
-                                                    <span className="block text-[9px] text-rose-500 dark:text-rose-300 font-bold">Def: {metrics.totalDefects}</span>
-                                                )}
-                                            </td>
-
-                                            {/* Total Heure */}
-                                            <td className="py-4 px-3 text-center font-mono text-xs text-slate-500 dark:text-dk-muted font-bold tabular-nums">{metrics.totalHeur}</td>
-
-                                            {/* Effectif (lecture seule — saisi dans la page Effectifs) */}
-                                            <td className="p-1 text-center border-l border-slate-100 dark:border-dk-border/60 w-24">
-                                                <div
-                                                    className="w-full text-center font-black text-xs bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border/60 rounded-lg py-1.5 tabular-nums text-slate-700 dark:text-dk-text-soft dark:text-dk-text"
-                                                    title={tx(lang, { fr: 'Saisir dans la page Effectifs', ar: 'يتم إدخاله في صفحة Effectifs', en: 'Enter on the Effectifs page', es: 'Introducir en la página Effectifs', pt: 'Inserir na página Effectifs', tr: 'Effectifs sayfasında girilir' })}
-                                                >
-                                                    {metrics.totalM || 0}
-                                                </div>
-                                            </td>
-
-                                            {/* R1 / R2 % */}
-                                            <td className="py-4 px-3 text-center border-l border-slate-100 dark:border-dk-border/60">
-                                                {metrics.yields.length === 0 ? (
-                                                    <span className="text-slate-300 dark:text-dk-muted font-bold">—</span>
-                                                ) : (
-                                                    <div className="flex flex-col gap-1 items-center justify-center">
-                                                        {metrics.yields.map((y, idx) => (
-                                                            <div key={idx} className="flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-lg border" style={{ backgroundColor: y.style.bg, color: y.style.text, borderColor: y.style.border }}>
-                                                                <span>{y.modelName}</span>
-                                                                <span>:</span>
-                                                                <span className="tabular-nums">{y.efficiency}%</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </td>
-
-                                            {/* R. TOTAL DAY */}
-                                            <td className="py-4 px-3 text-center">
-                                                {metrics.rTotalDay > 0 ? (
-                                                    <span className={`px-4 py-1.5 rounded-2xl text-xs font-black shadow-sm dark:shadow-dk-sm ${
-                                                        metrics.rTotalDay >= 90 
-                                                            ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 border border-emerald-200/50' 
-                                                            : metrics.rTotalDay >= 80 
-                                                                ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-800 border border-orange-200/50' 
-                                                                : 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 border border-rose-200 dark:border-rose-800/50'
-                                                    }`}>
-                                                        {metrics.rTotalDay}%
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-slate-300 dark:text-dk-muted font-bold">0%</span>
-                                                )}
-                                            </td>
+                                            {renderColonnesBilan(metrics)}
                                         </tr>
                                     );
                                 })}
@@ -2117,6 +2298,27 @@ export default function SuiviProduction({
                                                         {cell?.defectsQty !== undefined && cell.defectsQty > 0 && (
                                                             <span className="w-1.5 h-1.5 rounded-full bg-rose-50 dark:bg-rose-900/300 shrink-0" title={`Défauts: ${cell.defectsQty}`} />
                                                         )}
+                                                        {/* Rendement de CETTE heure, des qu'elle est remplie : sur telephone
+                                                            on saisit heure par heure, il faut voir tout de suite si l'heure
+                                                            tient la cadence sans attendre le total de la journee. */}
+                                                        {(() => {
+                                                            const r = rendementCreneau(selectedChartDate, h);
+                                                            if (r === null) return null;
+                                                            return (
+                                                                <span
+                                                                    className={`w-11 shrink-0 text-center text-[11px] font-black tabular-nums rounded-lg py-1 ${
+                                                                        r >= 90
+                                                                            ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30'
+                                                                            : r >= 80
+                                                                                ? 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30'
+                                                                                : 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30'
+                                                                    }`}
+                                                                    title={tx(lang, { fr: 'Rendement de cette heure', ar: 'مردود هاد الساعة', en: 'Yield for this hour', es: 'Rendimiento de esta hora', pt: 'Rendimento desta hora', tr: 'Bu saatin verimi' })}
+                                                                >
+                                                                    {r}%
+                                                                </span>
+                                                            );
+                                                        })()}
                                                         <button
                                                             type="button"
                                                             onClick={() => !isCellLocked && ofId && handleOpenCellModal(selectedChartDate, h.key, h.label)}
@@ -2669,10 +2871,42 @@ export default function SuiviProduction({
                     isOpen={true}
                     event={editingStatusEvent}
                     lang={lang}
+                    chainsList={chainsList}
+                    currentChaineId={selectedChaineId}
+                    piecesSaisies={suivis
+                        .filter(s => s.chaineId === selectedChaineId && s.planningId === editingStatusEvent.id)
+                        .reduce((acc, s) => acc + (s.totalHeure || 0), 0)}
                     onClose={() => setEditingStatusEvent(null)}
-                    onSave={(newStatus) => {
+                    onSave={({ status, chaineId }) => {
                         if (setPlanningEvents) {
-                            setPlanningEvents(prev => prev.map(p => p.id === editingStatusEvent.id ? { ...p, status: newStatus } : p));
+                            setPlanningEvents(prev => prev.map(p => p.id === editingStatusEvent.id ? { ...p, status, chaineId } : p));
+                        }
+                        /* La chaine de l'OF change : ses saisies le suivent, sinon la
+                           production resterait affichee sous l'ancienne chaine alors que
+                           l'ordre, lui, a demenage. */
+                        if (chaineId !== selectedChaineId) {
+                            const majSuivis = suivis.map(s =>
+                                s.planningId === editingStatusEvent.id && s.chaineId === selectedChaineId
+                                    ? { ...s, chaineId }
+                                    : s,
+                            );
+                            setSuivis(majSuivis);
+                            handleSave(majSuivis);
+                        }
+                        setEditingStatusEvent(null);
+                        setModelDropdownOpen(false);
+                    }}
+                    onRemove={({ supprimerSaisies }) => {
+                        /* Retrait = l'OF est detache de la chaine, pas efface du planning :
+                           on peut le reaffecter ailleurs. Les saisies ne partent que si
+                           c'est demande explicitement dans le modal. */
+                        if (setPlanningEvents) {
+                            setPlanningEvents(prev => prev.map(p => p.id === editingStatusEvent.id ? { ...p, chaineId: '' } : p));
+                        }
+                        if (supprimerSaisies) {
+                            const majSuivis = suivis.filter(s => !(s.planningId === editingStatusEvent.id && s.chaineId === selectedChaineId));
+                            setSuivis(majSuivis);
+                            handleSave(majSuivis);
                         }
                         setEditingStatusEvent(null);
                         setModelDropdownOpen(false);
@@ -2880,19 +3114,32 @@ function Section({ title, isMobile, children, defaultOpen = false, icon, badge }
     );
 }
 
-// Custom Modal to change Planning Status for an active model
+/* Gestion d'un OF depuis la liste des modeles actifs : statut, chaine, et
+   retrait. Avant, on ne pouvait que changer le statut — un OF pose sur la
+   mauvaise chaine y restait pour de bon, sans aucun moyen de le deplacer ni de
+   l'enlever. Les trois actions passent par le meme bouton Confirmer. */
 interface StatusChangeModalProps {
     isOpen: boolean;
     event: PlanningEvent;
     lang: string;
+    chainsList: string[];
+    currentChaineId: string;
+    /** Pieces deja saisies pour cet OF sur cette chaine — ce qu'un retrait ferait perdre. */
+    piecesSaisies: number;
     onClose: () => void;
-    onSave: (newStatus: PlanningStatus) => void;
+    onSave: (changes: { status: PlanningStatus; chaineId: string }) => void;
+    onRemove: (options: { supprimerSaisies: boolean }) => void;
 }
 
 function StatusChangeModal({
-    isOpen, event, lang, onClose, onSave
+    isOpen, event, lang, chainsList, currentChaineId, piecesSaisies, onClose, onSave, onRemove
 }: StatusChangeModalProps) {
     const [selectedStatus, setSelectedStatus] = useState<PlanningStatus>(event.status as PlanningStatus);
+    const [selectedChaine, setSelectedChaine] = useState<string>(currentChaineId);
+    /* Le retrait demande une confirmation explicite dans le modal : c'est une
+       action qu'on ne retrouve pas, surtout quand des pieces sont deja saisies. */
+    const [confirmeRetrait, setConfirmeRetrait] = useState(false);
+    const [supprimerSaisies, setSupprimerSaisies] = useState(false);
 
     if (!isOpen) return null;
 
@@ -2904,9 +3151,12 @@ function StatusChangeModal({
         { key: 'DONE', label: tx(lang, { fr: 'Terminé', ar: 'منتهٍ', en: 'Done', es: 'Terminado', pt: 'Concluído', tr: 'Tamamlandı' }), color: '#6B7280' },
     ];
 
-    const title = tx(lang, { fr: 'CHANGER LE STATUT', ar: 'تغيير الحالة', en: 'CHANGE STATUS', es: 'CAMBIAR ESTADO', pt: 'ALTERAR ESTADO', tr: 'DURUMU DEĞİŞTİR' });
+    const title = tx(lang, { fr: "GÉRER L'ORDRE", ar: 'إدارة الأمر', en: 'MANAGE ORDER', es: 'GESTIONAR LA ORDEN', pt: 'GERIR A ORDEM', tr: 'EMRİ YÖNET' });
     const confirmLabel = tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' });
     const cancelLabel = tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' });
+    const statutLabel = tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Estado', tr: 'Durum' });
+    const chaineLabel = tx(lang, { fr: 'Chaîne', ar: 'الشين', en: 'Chain', es: 'Cadena', pt: 'Cadeia', tr: 'Hat' });
+    const retirerLabel = tx(lang, { fr: 'Retirer de cette chaîne', ar: 'إزالة من هذه الشين', en: 'Remove from this chain', es: 'Quitar de esta cadena', pt: 'Remover desta cadeia', tr: 'Bu hattan kaldır' });
 
     return (
         /* Changement de statut d'un ordre : choix court, donc pas de bouton
@@ -2929,14 +3179,18 @@ function StatusChangeModal({
                     </button>
                     <button
                         type="button"
-                        onClick={() => onSave(selectedStatus)}
-                        className="rounded-xl bg-[#2149C1] hover:bg-[#1a3ba5] text-white px-5 py-2.5 sm:py-2 font-black shadow-sm dark:shadow-dk-sm transition-colors"
+                        onClick={() => {
+                            if (confirmeRetrait) onRemove({ supprimerSaisies });
+                            else onSave({ status: selectedStatus, chaineId: selectedChaine });
+                        }}
+                        className={`rounded-xl px-5 py-2.5 sm:py-2 font-black text-white shadow-sm dark:shadow-dk-sm transition-colors ${confirmeRetrait ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#2149C1] hover:bg-[#1a3ba5]'}`}
                     >
-                        {confirmLabel}
+                        {confirmeRetrait ? retirerLabel : confirmLabel}
                     </button>
                 </div>
             }
         >
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">{statutLabel}</p>
                     <div className="grid grid-cols-2 gap-2">
                         {statusesList.map(s => {
                             const isSelected = selectedStatus === s.key;
@@ -2944,6 +3198,7 @@ function StatusChangeModal({
                                 <button
                                     key={s.key}
                                     type="button"
+                                    disabled={confirmeRetrait}
                                     onClick={() => setSelectedStatus(s.key)}
                                     className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs transition-all text-left ${
                                         isSelected 
@@ -2956,6 +3211,103 @@ function StatusChangeModal({
                                 </button>
                             );
                         })}
+                    </div>
+
+                    <p className="pt-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">{chaineLabel}</p>
+                    <div className="flex flex-wrap gap-2">
+                        {chainsList.map(c => {
+                            const isSelected = selectedChaine === c;
+                            return (
+                                <button
+                                    key={c}
+                                    type="button"
+                                    disabled={confirmeRetrait}
+                                    onClick={() => setSelectedChaine(c)}
+                                    className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all disabled:opacity-40 ${
+                                        isSelected
+                                            ? 'bg-slate-950 dark:bg-dk-bg text-white shadow-md dark:shadow-dk-md'
+                                            : 'bg-slate-50 dark:bg-dk-bg hover:bg-slate-100 text-slate-700 dark:text-dk-text-soft border border-slate-100 dark:border-dk-border/80'
+                                    }`}
+                                >
+                                    {c}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {selectedChaine !== currentChaineId && !confirmeRetrait && (
+                        <p className="text-[11px] font-bold text-indigo-600 dark:text-dk-accent-text">
+                            {tx(lang, {
+                                fr: `Les saisies déjà faites suivront l'ordre vers ${selectedChaine}.`,
+                                ar: `الإدخالات المسجّلة غادي تتبع الأمر نحو ${selectedChaine}.`,
+                                en: `Existing entries will follow the order to ${selectedChaine}.`,
+                                es: `Las entradas ya hechas seguirán la orden a ${selectedChaine}.`,
+                                pt: `As entradas já feitas seguirão a ordem para ${selectedChaine}.`,
+                                tr: `Mevcut girişler emirle birlikte ${selectedChaine} hattına geçer.`,
+                            })}
+                        </p>
+                    )}
+
+                    <div className="pt-3 mt-1 border-t border-slate-100 dark:border-dk-border/60">
+                        {!confirmeRetrait ? (
+                            <button
+                                type="button"
+                                onClick={() => setConfirmeRetrait(true)}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-black text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 hover:bg-rose-100 dark:hover:bg-rose-900/30 border border-rose-100 dark:border-rose-900/40 transition-colors"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                {retirerLabel}
+                            </button>
+                        ) : (
+                            <div className="space-y-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900/40">
+                                <p className="text-[11px] font-black text-rose-700 dark:text-rose-300">
+                                    {tx(lang, {
+                                        fr: `Retirer cet ordre de ${currentChaineId} ?`,
+                                        ar: `نزيل هاد الأمر من ${currentChaineId}؟`,
+                                        en: `Remove this order from ${currentChaineId}?`,
+                                        es: `¿Quitar esta orden de ${currentChaineId}?`,
+                                        pt: `Remover esta ordem de ${currentChaineId}?`,
+                                        tr: `Bu emir ${currentChaineId} hattından kaldırılsın mı?`,
+                                    })}
+                                </p>
+                                <p className="text-[11px] font-bold text-rose-600/90 dark:text-rose-300/80">
+                                    {tx(lang, {
+                                        fr: "L'ordre est détaché de la chaîne : il reste dans le planning et peut être réaffecté.",
+                                        ar: 'الأمر كيتفصل من الشين: كيبقى فالتخطيط ويمكن ترجّعو لشي شين أخرى.',
+                                        en: 'The order is detached from the chain: it stays in the planning and can be reassigned.',
+                                        es: 'La orden se separa de la cadena: sigue en la planificación y puede reasignarse.',
+                                        pt: 'A ordem é separada da cadeia: continua no planeamento e pode ser reatribuída.',
+                                        tr: 'Emir hattan ayrılır: planlamada kalır ve yeniden atanabilir.',
+                                    })}
+                                </p>
+                                {piecesSaisies > 0 && (
+                                    <label className="flex items-start gap-2 pt-1 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={supprimerSaisies}
+                                            onChange={(e) => setSupprimerSaisies(e.target.checked)}
+                                            className="mt-0.5 w-4 h-4 accent-rose-600 shrink-0"
+                                        />
+                                        <span className="text-[11px] font-bold text-rose-700 dark:text-rose-300">
+                                            {tx(lang, {
+                                                fr: `Supprimer aussi les ${piecesSaisies} pcs déjà saisies sur cette chaîne (définitif).`,
+                                                ar: `نمسحو حتى ${piecesSaisies} قطعة مسجّلة فهاد الشين (بلا رجعة).`,
+                                                en: `Also delete the ${piecesSaisies} pcs already recorded on this chain (permanent).`,
+                                                es: `Eliminar también las ${piecesSaisies} pzs ya registradas en esta cadena (definitivo).`,
+                                                pt: `Eliminar também as ${piecesSaisies} pçs já registadas nesta cadeia (definitivo).`,
+                                                tr: `Bu hatta kayıtlı ${piecesSaisies} adet de silinsin (kalıcı).`,
+                                            })}
+                                        </span>
+                                    </label>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => { setConfirmeRetrait(false); setSupprimerSaisies(false); }}
+                                    className="text-[11px] font-black text-slate-500 dark:text-dk-muted underline"
+                                >
+                                    {cancelLabel}
+                                </button>
+                            </div>
+                        )}
                     </div>
         </SheetModal>
     );
