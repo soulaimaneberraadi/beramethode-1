@@ -11,7 +11,7 @@ tombe, cela veut dire ressaisir une demi-journée de pointage.
 | `src/lib/filaHorsLigne.ts` | File d'attente (IndexedDB) des écritures qui n'ont pas pu partir |
 | `server/idempotence.ts` | Empêche un renvoi de créer une deuxième facture / sortie de stock |
 | `public/sw.js` | Garde en cache **toutes** les lectures `/api/`, et ne masque plus l'échec des écritures |
-| `components/shared/BandeauHorsLigne.tsx` | Affiche le nombre de saisies en attente, l'envoi en cours, les refus |
+| `components/shared/BandeauHorsLigne.tsx` | Pastille du header : état hors ligne, saisies en attente, envoi, refus |
 | `vite.config.ts` + `public/sw.js` | Écrit et précharge la liste **complète** des fichiers du build |
 | `lib/lazyWithRetry.ts` | Ne recharge plus la page hors réseau (c'était la page noire) |
 

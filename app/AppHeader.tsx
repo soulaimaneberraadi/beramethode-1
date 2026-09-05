@@ -34,6 +34,7 @@ import { TRANSLATIONS, CATEGORY_TRANSLATIONS } from './constants';
 import { tx } from '../lib/i18n';
 import SupportWidget from '../components/SupportWidget';
 import SyncIndicator from '../components/SyncIndicator';
+import BandeauHorsLigne from '../components/shared/BandeauHorsLigne';
 import { clearLocalAppData } from '../src/lib/cloudSync';
 import { createRouteUrl } from '../lib/router';
 
@@ -370,6 +371,10 @@ export default function AppHeader({
                             <Database className="w-3.5 h-3.5" />
                         </button>
                     )}
+
+                    {/* Une copie hors ligne ne doit jamais passer pour l'etat du
+                        jour. A cote de la synchro, pas en travers du contenu. */}
+                    <BandeauHorsLigne />
 
                     <SyncIndicator />
 

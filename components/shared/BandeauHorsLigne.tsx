@@ -1,28 +1,30 @@
 import React from 'react';
 import { WifiOff, UploadCloud, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { tx } from '../../lib/i18n';
+import { useLang } from '../../src/context/LanguageContext';
 import { etatFile, viderFile, relancerEchecs, type EtatFile } from '../../src/lib/filaHorsLigne';
 
 /**
- * Le bandeau hors-ligne.
+ * L'etat hors-ligne, dans le header.
  *
- * L'application continue de s'ouvrir sans reseau — le service worker rend le
- * dernier etat connu. Mais un solde de la veille ressemble trait pour trait a
- * un solde d'aujourd'hui, et c'est de l'argent : il faut que l'ecran DISE
- * qu'il montre une copie, sinon on encaisse sur un chiffre perime.
+ * Il occupait le bas de l'ecran, en travers du contenu : sur un telephone il
+ * recouvrait la carte et le bouton qu'on cherchait justement a atteindre. Un
+ * avertissement qui cache ce dont il parle finit par etre ignore, ou pire, par
+ * gener. Il tient desormais sa place a cote des autres indicateurs, a la meme
+ * taille qu'eux, et ne mange plus une ligne de travail.
  *
- * Il porte aussi le compte des saisies faites pendant la coupure et pas encore
- * parties. Sans ce chiffre, personne ne peut savoir s'il est prudent d'eteindre
- * le poste : le travail de l'apres-midi dort dans le navigateur, et le fermer
- * pour de bon avant le retour du reseau l'emporterait avec lui.
- *
- * Il disparait de lui-meme quand la connexion est revenue ET que la file est
- * vide.
+ * Ce qu'il dit reste indispensable : sans reseau, l'application montre le
+ * dernier etat connu, et un solde de la veille ressemble trait pour trait a un
+ * solde d'aujourd'hui — c'est de l'argent. Il porte aussi le compte des saisies
+ * pas encore parties : sans ce chiffre, personne ne peut savoir s'il est
+ * prudent d'eteindre le poste.
  */
 const BandeauHorsLigne: React.FC = () => {
+    const { lang } = useLang();
     const [horsLigne, setHorsLigne] = React.useState(() => typeof navigator !== 'undefined' && navigator.onLine === false);
     const [file, setFile] = React.useState<EtatFile>(() => etatFile());
-    // Confirmation breve apres un envoi reussi : sans elle, le bandeau
-    // disparait sans rien dire et on ignore si le travail est bien parti.
+    // Confirmation breve apres un envoi reussi : sans elle, l'indicateur
+    // s'eteint sans rien dire et on ignore si le travail est bien parti.
     const [envoye, setEnvoye] = React.useState(0);
 
     React.useEffect(() => {
@@ -31,7 +33,7 @@ const BandeauHorsLigne: React.FC = () => {
         const majFile = (e: Event) => setFile((e as CustomEvent<EtatFile>).detail);
         const videe = (e: Event) => {
             setEnvoye((e as CustomEvent<{ envoyees: number }>).detail.envoyees);
-            window.setTimeout(() => setEnvoye(0), 4000);
+            window.setTimeout(() => setEnvoye(0), 6000);
         };
         window.addEventListener('offline', partie);
         window.addEventListener('online', revenue);
@@ -45,34 +47,83 @@ const BandeauHorsLigne: React.FC = () => {
         };
     }, []);
 
-    const enveloppe = 'fixed bottom-3 left-1/2 -translate-x-1/2 z-[300] px-3.5 py-2 rounded-full text-white text-[11px] font-black shadow-lg inline-flex items-center gap-2';
+    // Meme gabarit que ses voisins (SyncIndicator, support, profil) : une
+    // pastille ronde. Elle s'allonge pour porter un chiffre ou un mot quand
+    // l'ecran est assez large — jamais au point de pousser les autres dehors.
+    const pastille = 'flex items-center justify-center h-8 min-w-8 px-1.5 gap-1 rounded-full border text-[11px] font-black transition-colors';
+
+    const etats = {
+        echecs: {
+            classe: 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400',
+            titre: tx(lang, {
+                fr: `${file.echecs} saisie(s) refusée(s) par le serveur. Touchez pour réessayer.`,
+                ar: `${file.echecs} إدخال رفضه الخادم. المس لإعادة المحاولة.`,
+                en: `${file.echecs} entr(y/ies) refused by the server. Tap to retry.`,
+                es: `${file.echecs} entrada(s) rechazada(s) por el servidor. Toque para reintentar.`,
+                pt: `${file.echecs} entrada(s) recusada(s) pelo servidor. Toque para tentar de novo.`,
+                tr: `Sunucu ${file.echecs} kaydi reddetti. Yeniden denemek icin dokunun.`,
+            }),
+        },
+        horsLigne: {
+            classe: 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400',
+            titre: tx(lang, {
+                fr: "Hors ligne — vous voyez les données de la dernière connexion." + (file.enAttente > 0 ? ` ${file.enAttente} saisie(s) attendent le retour du réseau.` : ''),
+                ar: 'غير متصل — أنت ترى بيانات آخر اتصال.' + (file.enAttente > 0 ? ` ${file.enAttente} إدخال ينتظر عودة الشبكة.` : ''),
+                en: 'Offline — you are seeing data from the last connection.' + (file.enAttente > 0 ? ` ${file.enAttente} entr(y/ies) waiting for the network.` : ''),
+                es: 'Sin conexión — ve los datos de la última conexión.' + (file.enAttente > 0 ? ` ${file.enAttente} entrada(s) esperan la red.` : ''),
+                pt: 'Offline — vê os dados da última ligação.' + (file.enAttente > 0 ? ` ${file.enAttente} entrada(s) aguardam a rede.` : ''),
+                tr: 'Cevrimdisi — son baglantinin verilerini goruyorsunuz.' + (file.enAttente > 0 ? ` ${file.enAttente} kayit agi bekliyor.` : ''),
+            }),
+        },
+        envoi: {
+            classe: 'bg-sky-50 dark:bg-sky-900/30 border-sky-200 dark:border-sky-800 text-sky-600 dark:text-sky-400',
+            titre: tx(lang, {
+                fr: `Envoi des saisies faites hors ligne — ${file.enAttente} restante(s).`,
+                ar: `جارٍ إرسال الإدخالات المسجّلة دون اتصال — بقي ${file.enAttente}.`,
+                en: `Sending entries made offline — ${file.enAttente} left.`,
+                es: `Enviando entradas hechas sin conexión — quedan ${file.enAttente}.`,
+                pt: `A enviar entradas feitas offline — faltam ${file.enAttente}.`,
+                tr: `Cevrimdisi yapilan kayitlar gonderiliyor — ${file.enAttente} kaldi.`,
+            }),
+        },
+        envoye: {
+            classe: 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400',
+            titre: tx(lang, {
+                fr: `${envoye} saisie(s) hors ligne envoyée(s). Touchez pour actualiser l'écran.`,
+                ar: `تم إرسال ${envoye} إدخال. المس لتحديث الشاشة.`,
+                en: `${envoye} offline entr(y/ies) sent. Tap to refresh the screen.`,
+                es: `${envoye} entrada(s) enviada(s). Toque para actualizar la pantalla.`,
+                pt: `${envoye} entrada(s) enviada(s). Toque para atualizar o ecrã.`,
+                tr: `${envoye} kayit gonderildi. Ekrani yenilemek icin dokunun.`,
+            }),
+        },
+    };
 
     // Priorite a ce qui reclame une action : des saisies abandonnees se perdent
-    // en silence si le bandeau prefere annoncer la coupure.
+    // en silence si l'indicateur prefere annoncer la coupure.
     if (file.echecs > 0) {
         return (
-            <button type="button" onClick={() => { void relancerEchecs(); }} className={`${enveloppe} bg-red-600`}>
-                <AlertTriangle className="w-3.5 h-3.5" />
-                {file.echecs} saisie{file.echecs > 1 ? 's' : ''} refusee{file.echecs > 1 ? 's' : ''} — reessayer
+            <button type="button" onClick={() => { void relancerEchecs(); }} className={`${pastille} ${etats.echecs.classe}`} title={etats.echecs.titre} aria-label={etats.echecs.titre}>
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span>{file.echecs}</span>
             </button>
         );
     }
 
     if (horsLigne) {
         return (
-            <div className={`${enveloppe} bg-amber-500`}>
-                <WifiOff className="w-3.5 h-3.5" />
-                Hors ligne — donnees de la derniere connexion
-                {file.enAttente > 0 && <span className="px-1.5 py-0.5 rounded-full bg-white/25">{file.enAttente} a envoyer</span>}
+            <div className={`${pastille} ${etats.horsLigne.classe}`} title={etats.horsLigne.titre} aria-label={etats.horsLigne.titre} aria-live="polite">
+                <WifiOff className="w-3.5 h-3.5 shrink-0" />
+                {file.enAttente > 0 && <span>{file.enAttente}</span>}
             </div>
         );
     }
 
     if (file.enAttente > 0) {
         return (
-            <div className={`${enveloppe} bg-sky-600`}>
-                <UploadCloud className={`w-3.5 h-3.5 ${file.envoiEnCours ? 'animate-pulse' : ''}`} />
-                Envoi des saisies hors ligne — {file.enAttente} restante{file.enAttente > 1 ? 's' : ''}
+            <div className={`${pastille} ${etats.envoi.classe}`} title={etats.envoi.titre} aria-label={etats.envoi.titre} aria-live="polite">
+                <UploadCloud className={`w-3.5 h-3.5 shrink-0 ${file.envoiEnCours ? 'animate-pulse' : ''}`} />
+                <span>{file.enAttente}</span>
             </div>
         );
     }
@@ -82,13 +133,15 @@ const BandeauHorsLigne: React.FC = () => {
         // encore l'etat d'avant l'envoi. Le serveur fait desormais foi, et
         // recharger est le seul moyen sur de le voir, quel que soit l'ecran.
         return (
-            <button type="button" onClick={() => window.location.reload()} className={`${enveloppe} bg-emerald-600`}>
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                {envoye} saisie{envoye > 1 ? 's' : ''} envoyee{envoye > 1 ? 's' : ''} — actualiser
+            <button type="button" onClick={() => window.location.reload()} className={`${pastille} ${etats.envoye.classe}`} title={etats.envoye.titre} aria-label={etats.envoye.titre}>
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                <span>{envoye}</span>
             </button>
         );
     }
 
+    // Rien a signaler : on ne prend pas de place. Les voisins ne bougent pas
+    // pour autant — la pastille apparait a leur gauche, en bout de rangee.
     return null;
 };
 

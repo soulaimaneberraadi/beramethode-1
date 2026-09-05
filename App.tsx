@@ -6,7 +6,6 @@ import { ecrireModelesAuMieux } from './lib/stockageLocal';
 import { deshydraterModeles, nettoyerPhotosOrphelines, rehydraterModeles } from './lib/photosLocales';
 import './src/context/ThemeContext';
 import GlobalLoader from './components/GlobalLoader';
-import BandeauHorsLigne from './components/shared/BandeauHorsLigne';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { createTicketFromReport } from './src/lib/support';
 import AnnouncementBar from './components/AnnouncementBar';
@@ -2445,8 +2444,6 @@ export default function App() {
                     </div>
                 )}
 
-                {/* Une copie hors ligne ne doit jamais passer pour l'etat du jour. */}
-                <BandeauHorsLigne />
             </div>
         </DataOwnerProvider>
     );
