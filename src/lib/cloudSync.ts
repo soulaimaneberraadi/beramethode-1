@@ -126,6 +126,25 @@ const LAST_SYNC_USER_KEY = 'beramethode_last_sync_user';
 const LAST_PULLED_AT_KEY = 'beramethode_last_pulled_at';
 
 /**
+ * Le jeton de la session, lu directement dans le stockage.
+ *
+ * `supabase.auth.getSession()` rend une promesse — inutilisable dans
+ * `beforeunload`/`pagehide`, ou la page meurt avant qu'elle n'aboutisse. Le
+ * client range pourtant la session sous une cle connue : on la lit telle
+ * quelle, en une instruction.
+ */
+const jetonDeSession = (): string | null => {
+  try {
+    const brut = localStorage.getItem('beramethode_supabase_session');
+    if (!brut) return null;
+    const session = JSON.parse(brut);
+    return typeof session?.access_token === 'string' ? session.access_token : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Purge toutes les données métier locales (clés synchronisées + export SQLite).
  * Sans cette purge, un nouvel utilisateur sur le même navigateur voit les
  * données du compte précédent — et son premier push les enverrait dans SON
@@ -1056,17 +1075,29 @@ export const startCloudSync = (userId: string) => {
     if (instantaneVide(snapshot)) return;
     const corps = JSON.stringify({ user_id: userId, data: snapshot, updated_at: new Date().toISOString() });
     if (corps.length > KEEPALIVE_MAX_OCTETS) { viderLaFileDAttente(); return; }
+    // SANS le jeton, cet envoi est REFUSE — et il l'etait en silence.
+    //
+    // La table n'accepte d'ecriture que du proprietaire de la ligne
+    // (`auth.uid() = user_id`). Une requete qui ne porte que la cle publique
+    // n'est le proprietaire de rien : le serveur la rejette. Personne ne le
+    // voyait — ni `catch`, ni lecture du code de reponse — et l'envoi de
+    // derniere chance, celui qui devait sauver le travail au moment de fermer,
+    // ne sauvait rien depuis toujours. C'est exactement le « je ferme, je
+    // rouvre sur l'autre telephone, et mon travail n'y est pas ».
+    const jeton = jetonDeSession();
+    if (!jeton) { viderLaFileDAttente(); return; }
     try {
       fetch(`${SUPABASE_URL}/rest/v1/user_data?on_conflict=user_id`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${jeton}`,
           Prefer: 'resolution=merge-duplicates',
         },
         body: corps,
         keepalive: true,
-      });
+      }).catch(() => { /* la page se ferme : plus personne pour lire l'erreur */ });
     } catch {}
   };
   window.addEventListener('beforeunload', beforeUnloadHandler);

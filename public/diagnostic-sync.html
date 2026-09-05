@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BERAMETHODE — Diagnostic de synchronisation</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 16px; background: #0b1220; color: #e5e7eb; line-height: 1.5; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.sous { margin: 0 0 16px; color: #9ca3af; font-size: 13px; }
+  .bloc { background: #111a2e; border: 1px solid #1f2b45; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+  .bloc h2 { font-size: 13px; margin: 0 0 8px; color: #93c5fd; text-transform: uppercase; letter-spacing: .04em; }
+  .ligne { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 3px 0; border-bottom: 1px solid #1a2540; }
+  .ligne:last-child { border-bottom: 0; }
+  .ligne span:first-child { color: #9ca3af; flex-shrink: 0; }
+  .ligne span:last-child { text-align: right; word-break: break-all; font-weight: 600; }
+  .ok { color: #34d399; } .ko { color: #f87171; } .attention { color: #fbbf24; }
+  button { width: 100%; padding: 12px; border: 0; border-radius: 10px; background: #2563eb; color: #fff; font-size: 15px; font-weight: 700; margin-top: 4px; }
+  button.secondaire { background: #374151; margin-top: 8px; }
+  pre { background: #060c18; border-radius: 8px; padding: 10px; font-size: 11px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 8px 0 0; max-height: 40vh; }
+  textarea { width: 100%; box-sizing: border-box; height: 90px; background: #060c18; color: #e5e7eb; border: 1px solid #1f2b45; border-radius: 8px; font-size: 11px; padding: 8px; }
+</style>
+</head>
+<body>
+<h1>Diagnostic de synchronisation</h1>
+<p class="sous">À ouvrir sur <strong>chacun</strong> des deux téléphones, avec du réseau. La page interroge le serveur et affiche sa réponse telle quelle. Elle ne modifie rien.</p>
+
+<div id="sortie"></div>
+<button id="relancer">Relancer le diagnostic</button>
+<button id="copier" class="secondaire">Copier le rapport</button>
+<div class="bloc" style="margin-top:12px"><h2>Rapport à partager</h2><textarea id="rapport" readonly></textarea></div>
+
+<script>
+const URL_SUPABASE = 'https://utrojjhscyatppgcszrt.supabase.co';
+const CLE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk';
+const CLE_SESSION = 'beramethode_supabase_session';
+const CLE_DERNIER_PULL = 'beramethode_last_pulled_at';
+const CLE_DERNIER_COMPTE = 'beramethode_last_sync_user';
+
+const sortie = document.getElementById('sortie');
+const lignes = [];
+
+const bloc = (titre) => {
+  const d = document.createElement('div');
+  d.className = 'bloc';
+  d.innerHTML = `<h2>${titre}</h2>`;
+  sortie.appendChild(d);
+  lignes.push(`\n== ${titre} ==`);
+  return d;
+};
+const ligne = (b, nom, valeur, etat) => {
+  const d = document.createElement('div');
+  d.className = 'ligne';
+  d.innerHTML = `<span>${nom}</span><span class="${etat || ''}">${valeur}</span>`;
+  b.appendChild(d);
+  lignes.push(`${nom} : ${valeur}`);
+};
+const brut = (b, texte) => {
+  const p = document.createElement('pre');
+  p.textContent = texte;
+  b.appendChild(p);
+  lignes.push(texte);
+};
+
+const lireSession = () => {
+  try {
+    const s = JSON.parse(localStorage.getItem(CLE_SESSION) || 'null');
+    return s && s.access_token ? s : null;
+  } catch { return null; }
+};
+
+const tailleLisible = (o) => {
+  const n = JSON.stringify(o).length;
+  return n > 1048576 ? (n / 1048576).toFixed(2) + ' Mo' : (n / 1024).toFixed(1) + ' Ko';
+};
+
+async function diagnostiquer() {
+  sortie.innerHTML = '';
+  lignes.length = 0;
+  lignes.push('BERAMETHODE — diagnostic de synchronisation');
+  lignes.push(new Date().toISOString());
+
+  // ── 1. L'appareil ────────────────────────────────────────────────────────
+  const bAppareil = bloc('Cet appareil');
+  ligne(bAppareil, 'Navigateur', navigator.userAgent.slice(0, 70));
+  ligne(bAppareil, 'En ligne', navigator.onLine ? 'oui' : 'NON', navigator.onLine ? 'ok' : 'ko');
+  ligne(bAppareil, 'Compte mémorisé', localStorage.getItem(CLE_DERNIER_COMPTE) || '(aucun)');
+  ligne(bAppareil, 'Dernier pull local', localStorage.getItem(CLE_DERNIER_PULL) || '(jamais)');
+
+  // ── 2. La session ────────────────────────────────────────────────────────
+  // C'est ICI que se joue le partage entre deux telephones : deux appareils ne
+  // voient les memes donnees QUE s'ils portent le meme identifiant de compte.
+  // Une adresse identique ne suffit pas a le prouver — seul l'identifiant le dit.
+  const bSession = bloc('Session Supabase');
+  const session = lireSession();
+  if (!session) {
+    ligne(bSession, 'Session', 'ABSENTE — pas connecté sur cet appareil', 'ko');
+    brut(bSession, "Sans session, la synchronisation ne peut pas fonctionner : les regles du serveur n'autorisent la lecture qu'au proprietaire, et un appareil non connecte n'est proprietaire de rien. Connectez-vous dans l'application, puis relancez.");
+    finir();
+    return;
+  }
+  const u = session.user || {};
+  ligne(bSession, 'Adresse', u.email || '(inconnue)');
+  ligne(bSession, 'IDENTIFIANT DU COMPTE', u.id || '(inconnu)', 'attention');
+  const expire = session.expires_at ? new Date(session.expires_at * 1000) : null;
+  const perimee = expire && expire < new Date();
+  ligne(bSession, 'Jeton expire le', expire ? expire.toLocaleString() : '(inconnu)', perimee ? 'ko' : 'ok');
+  if (perimee) brut(bSession, 'Le jeton est perime. Rouvrez l\'application pour le renouveler, puis relancez ce diagnostic.');
+
+  // ── 3. Ce que le SERVEUR repond ──────────────────────────────────────────
+  const bServeur = bloc('Réponse du serveur');
+  let reponse, corps;
+  try {
+    reponse = await fetch(`${URL_SUPABASE}/rest/v1/user_data?select=updated_at,data&user_id=eq.${encodeURIComponent(u.id)}`, {
+      headers: { apikey: CLE_ANON, Authorization: `Bearer ${session.access_token}` },
+    });
+    corps = await reponse.text();
+  } catch (e) {
+    ligne(bServeur, 'Appel', 'ÉCHEC RÉSEAU', 'ko');
+    brut(bServeur, String(e));
+    finir();
+    return;
+  }
+  ligne(bServeur, 'Code HTTP', reponse.status, reponse.ok ? 'ok' : 'ko');
+  if (!reponse.ok) {
+    brut(bServeur, corps.slice(0, 800));
+    finir();
+    return;
+  }
+
+  let rangees = [];
+  try { rangees = JSON.parse(corps); } catch { /* corps illisible */ }
+  ligne(bServeur, 'Lignes trouvées', rangees.length, rangees.length === 1 ? 'ok' : 'ko');
+  if (rangees.length === 0) {
+    brut(bServeur, "Le serveur ne connait AUCUNE donnee pour ce compte. Rien n'a donc jamais ete envoye depuis aucun appareil — ou l'envoi a ete refuse. Ce n'est pas un probleme de reception sur ce telephone.");
+    finir();
+    return;
+  }
+
+  const dist = rangees[0];
+  const donnees = dist.data || {};
+  ligne(bServeur, 'Dernière écriture', dist.updated_at || '(inconnue)');
+  ligne(bServeur, 'Taille du contenu', tailleLisible(donnees));
+
+  // ── 4. Le contenu, cote serveur et cote appareil ─────────────────────────
+  const bContenu = bloc('Contenu : serveur vs cet appareil');
+  const compte = (v) => Array.isArray(v) ? v.length : (v && typeof v === 'object' ? Object.keys(v).length : 0);
+  const local = (base) => {
+    const email = localStorage.getItem(CLE_DERNIER_COMPTE);
+    for (const cle of [email ? `${base}__${email}` : null, base]) {
+      if (!cle) continue;
+      try { const v = localStorage.getItem(cle); if (v) return JSON.parse(v); } catch { /* suivant */ }
+    }
+    return null;
+  };
+  for (const [nom, cle] of [['Modèles', 'beramethode_library'], ['Planning', 'beramethode_planning'], ['Suivis', 'beramethode_suivis']]) {
+    const cs = compte(donnees[cle]);
+    const cl = compte(local(cle));
+    ligne(bContenu, nom, `serveur ${cs} · ici ${cl}`, cs === cl ? 'ok' : 'attention');
+  }
+  const dPull = localStorage.getItem(CLE_DERNIER_PULL);
+  if (dist.updated_at && dPull && dist.updated_at !== dPull) {
+    brut(bContenu, "Le serveur porte une version que cet appareil n'a pas encore reprise. Ouvrez l'application, quittez-la puis rouvrez-la : la reprise se declenche au retour. Si l'ecart persiste, notez-le dans le rapport.");
+  }
+
+  finir();
+}
+
+function finir() {
+  document.getElementById('rapport').value = lignes.join('\n');
+}
+
+document.getElementById('relancer').addEventListener('click', diagnostiquer);
+document.getElementById('copier').addEventListener('click', async () => {
+  const t = document.getElementById('rapport');
+  t.select();
+  try { await navigator.clipboard.writeText(t.value); } catch { document.execCommand('copy'); }
+});
+diagnostiquer();
+</script>
+</body>
+</html>
