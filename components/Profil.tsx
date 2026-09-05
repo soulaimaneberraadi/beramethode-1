@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import DiagnosticSync from './DiagnosticSync';
 import { Mail, Shield, ChevronRight, Lock, Check, Briefcase, Phone, Eye, Pencil, KeyRound } from 'lucide-react';
 import { useAuth } from '../src/context/AuthContext';
 import { usePermissions } from '../src/context/PermissionsContext';
@@ -30,6 +31,7 @@ const ACCENT = '#2149C1';
  * - Carte Abonnement/Workspace : placeholder BETA (intégration BERA MASTER différée).
  */
 export default function Profil() {
+  const [diagnosticOuvert, setDiagnosticOuvert] = React.useState(false);
   const { user } = useAuth();
   const { lang } = useLang();
   const { isSuper, roleId } = usePermissions();
@@ -97,6 +99,31 @@ export default function Profil() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* SYNCHRONISATION — le diagnostic, ICI et pas dans une page a part.
+            Sur iPhone, l'application ajoutee a l'ecran d'accueil ne partage pas
+            son stockage avec Safari : une page ouverte dans le navigateur ne
+            voit pas la session de l'application et conclut « pas connecte »,
+            sur un telephone pourtant connecte. Lance depuis l'application, le
+            diagnostic lit forcement le bon coffre. */}
+        <div className="bg-white dark:bg-dk-surface rounded-lg border border-slate-200 dark:border-dk-border p-5">
+          <h2 className="text-[13px] font-semibold text-slate-900 dark:text-dk-text mb-1">{tx(lang, { fr: 'Synchronisation entre appareils', ar: 'المزامنة بين الأجهزة', en: 'Sync between devices', es: 'Sincronización entre dispositivos', pt: 'Sincronização entre aparelhos', tr: 'Cihazlar arasi esitleme' })}</h2>
+          <p className="text-[12px] text-slate-500 dark:text-dk-muted mb-3">{tx(lang, {
+            fr: "Vos données n'arrivent pas sur l'autre téléphone ? Lancez le diagnostic sur les deux : il interroge le serveur et montre lequel des deux est en cause.",
+            ar: 'بياناتك لا تصل إلى الهاتف الآخر؟ شغّل التشخيص على الاثنين: يسأل الخادم ويُظهر أين الخلل.',
+            en: "Data not reaching the other phone? Run the diagnostic on both: it queries the server and shows which side is at fault.",
+            es: '¿Los datos no llegan al otro teléfono? Ejecute el diagnóstico en ambos: consulta el servidor y muestra dónde está el fallo.',
+            pt: 'Os dados não chegam ao outro telemóvel? Execute o diagnóstico nos dois: interroga o servidor e mostra onde está a falha.',
+            tr: 'Veriler diger telefona ulasmiyor mu? Tanilamayi ikisinde de calistirin: sunucuya sorar ve hangisinin sorunlu oldugunu gosterir.',
+          })}</p>
+          <button
+            type="button"
+            onClick={() => setDiagnosticOuvert(true)}
+            className="h-9 px-4 rounded-lg bg-slate-900 dark:bg-dk-elevated text-white text-[12px] font-bold"
+          >
+            {tx(lang, { fr: 'Lancer le diagnostic', ar: 'شغّل التشخيص', en: 'Run the diagnostic', es: 'Ejecutar el diagnóstico', pt: 'Executar o diagnóstico', tr: 'Tanilamayi calistir' })}
+          </button>
         </div>
 
         {/* Mes informations — profil personnel (persiste au-delà de la société) */}
@@ -264,6 +291,8 @@ export default function Profil() {
         </div>
 
       </div>
+
+      {diagnosticOuvert && <DiagnosticSync onClose={() => setDiagnosticOuvert(false)} />}
     </div>
   );
 }
