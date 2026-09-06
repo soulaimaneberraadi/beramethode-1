@@ -1,8 +1,8 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { HRWorker, ModelData, Operation } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
-import { chercherOperations, indexerOperations, type ResultatRecherche } from '../../lib/rechercheOperations';
+import { chercherOperations, indexerOperations, type OperationConnue, type ResultatRecherche } from '../../lib/rechercheOperations';
 import { Plus, Search, Loader2, Check } from 'lucide-react';
 
 /**
@@ -26,6 +26,7 @@ const L = {
     annuler: { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'Iptal' },
     nouveau: { fr: 'Nouveau libelle — il sera garde pour les prochaines fois', ar: 'وصف جديد — غادي يتحفظ للمرات الجاية', en: 'New label — it will be kept for next time', es: 'Nuevo texto — se guardara para la proxima vez', pt: 'Novo texto — sera guardado para a proxima vez', tr: 'Yeni tanim — bir dahaki sefere saklanacak' },
     fois: { fr: 'fois', ar: 'مرة', en: 'times', es: 'veces', pt: 'vezes', tr: 'kez' },
+    catalogue: { fr: 'temps valide au catalogue', ar: 'زمن مُصادَق فالكتالوگ', en: 'time validated in the catalogue', es: 'tiempo validado en el catalogo', pt: 'tempo validado no catalogo', tr: 'katalogda dogrulanmis sure' },
     sansTemps: { fr: 'sans temps connu', ar: 'بلا زمن معروف', en: 'no known time', es: 'sin tiempo conocido', pt: 'sem tempo conhecido', tr: 'bilinen sure yok' },
 };
 
@@ -51,8 +52,40 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
     const [listeVisible, setListeVisible] = useState(false);
     const champRef = useRef<HTMLInputElement | null>(null);
 
-    // L'index se reconstruit quand la bibliotheque change, pas a chaque frappe.
-    const index = useMemo(() => indexerOperations(models), [models]);
+    /* Curations du catalogue des temps : ce sont les temps DECIDES par le
+       methodiste (corriges, valides, epingles). Ils rejoignent la recherche au
+       meme titre que les gammes, et leur temps prime sur la mediane observee.
+       Le catalogue indisponible n'empeche rien : on cherche alors dans les
+       seules gammes. */
+    const [curations, setCurations] = useState<OperationConnue[]>([]);
+    useEffect(() => {
+        let annule = false;
+        (async () => {
+            try {
+                const res = await fetch('/api/catalog/entries', { credentials: 'include' });
+                if (!res.ok) return;
+                const rows = await res.json();
+                if (annule || !Array.isArray(rows)) return;
+                setCurations(rows
+                    .filter((r: any) => r?.description)
+                    .map((r: any) => ({
+                        description: String(r.description),
+                        machineName: r.machine ? String(r.machine) : undefined,
+                        // `avg_time` est en MINUTES cote catalogue, comme la gamme.
+                        tempsMin: Number(r.avg_time) > 0 ? Number(r.avg_time) : undefined,
+                        section: r.section ? String(r.section) : undefined,
+                        occurrences: 1,
+                        confirme: Boolean(r.confirmed) || Boolean(r.pinned) || Number(r.avg_time) > 0,
+                    })));
+            } catch {
+                /* hors-ligne : la recherche reste servie par les gammes */
+            }
+        })();
+        return () => { annule = true; };
+    }, []);
+
+    // L'index se reconstruit quand la bibliotheque ou le catalogue change, pas a chaque frappe.
+    const index = useMemo(() => indexerOperations(models, curations), [models, curations]);
     const propositions: ResultatRecherche[] = useMemo(
         () => chercherOperations(index, description),
         [index, description],
@@ -161,6 +194,11 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
                                     {p.tempsMin ? `${(p.tempsMin * 60).toFixed(1)} s` : tx(lang, L.sansTemps)}
                                     {` · ${p.occurrences} ${tx(lang, L.fois)}`}
                                 </span>
+                                {p.confirme && (
+                                    <span className="mt-0.5 inline-block text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                        {tx(lang, L.catalogue)}
+                                    </span>
+                                )}
                             </button>
                         ))}
                     </div>

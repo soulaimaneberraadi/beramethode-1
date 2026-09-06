@@ -24,6 +24,11 @@ export type OperationConnue = {
     section?: string;
     /** Nombre de gammes ou l'operation apparait — sert a classer. */
     occurrences: number;
+    /**
+     * Temps valide ou corrige a la main dans le catalogue des temps.
+     * Il prime sur la mediane des gammes : c'est un temps decide, pas observe.
+     */
+    confirme?: boolean;
 };
 
 export type ResultatRecherche = OperationConnue & { score: number };
@@ -55,7 +60,7 @@ function mediane(valeurs: number[]): number | undefined {
  * operation ne font qu'une entree.
  */
 export function indexerOperations(models: ModelData[], extra: OperationConnue[] = []): OperationConnue[] {
-    type Acc = { libelles: Map<string, number>; machines: Map<string, number>; machineIds: Map<string, number>; temps: number[]; sections: Map<string, number>; occurrences: number };
+    type Acc = { libelles: Map<string, number>; machines: Map<string, number>; machineIds: Map<string, number>; temps: number[]; sections: Map<string, number>; occurrences: number; tempsImpose?: number; confirme?: boolean };
     const par = new Map<string, Acc>();
 
     const compter = (map: Map<string, number>, cle?: string) => {
@@ -68,10 +73,15 @@ export function indexerOperations(models: ModelData[], extra: OperationConnue[] 
         return best;
     };
 
-    const ajouter = (description: string, machineName?: string, machineId?: string, temps?: number, section?: string) => {
+    const ajouter = (description: string, machineName?: string, machineId?: string, temps?: number, section?: string, confirme?: boolean) => {
         const cle = normaliser(description);
         if (!cle) return;
-        const acc = par.get(cle) || { libelles: new Map(), machines: new Map(), machineIds: new Map(), temps: [], sections: new Map(), occurrences: 0 };
+        const acc: Acc = par.get(cle) || { libelles: new Map(), machines: new Map(), machineIds: new Map(), temps: [], sections: new Map(), occurrences: 0 };
+        if (confirme) {
+            acc.confirme = true;
+            // Temps decide au catalogue : il remplace la mediane observee.
+            if (Number.isFinite(temps) && (temps as number) > 0) acc.tempsImpose = temps as number;
+        }
         compter(acc.libelles, description.trim());
         compter(acc.machines, machineName);
         compter(acc.machineIds, machineId);
@@ -87,7 +97,7 @@ export function indexerOperations(models: ModelData[], extra: OperationConnue[] 
         }
     }
     for (const e of extra) {
-        ajouter(e.description, e.machineName, e.machineId, e.tempsMin, e.section);
+        ajouter(e.description, e.machineName, e.machineId, e.tempsMin, e.section, e.confirme);
     }
 
     const sortie: OperationConnue[] = [];
@@ -96,9 +106,10 @@ export function indexerOperations(models: ModelData[], extra: OperationConnue[] 
             description: plusFrequent(acc.libelles) || '',
             machineName: plusFrequent(acc.machines),
             machineId: plusFrequent(acc.machineIds),
-            tempsMin: mediane(acc.temps),
+            tempsMin: acc.tempsImpose ?? mediane(acc.temps),
             section: plusFrequent(acc.sections),
             occurrences: acc.occurrences,
+            confirme: acc.confirme,
         });
     });
     return sortie.sort((a, b) => b.occurrences - a.occurrences);
@@ -162,6 +173,8 @@ export function chercherOperations(index: OperationConnue[], saisie: string, lim
         if (cible.startsWith(normaliser(saisie))) score += 6;
         // A egalite, l'operation la plus utilisee dans l'atelier gagne.
         score += Math.min(entree.occurrences, 5);
+        // Un temps valide au catalogue vaut mieux qu'un temps seulement observe.
+        if (entree.confirme) score += 3;
         // Un libelle court et exact vaut mieux qu'un long qui contient le mot.
         score -= Math.min(motsCible.length, 6) * 0.2;
 
