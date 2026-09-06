@@ -371,18 +371,14 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                 // Priorité au relevé chrono réel ; sinon TS de la gamme (op.time, = colonne TS du Chrono)
                 const cds = chronoForOp(m.chronoData, op.id, postesParOperation);
                 const realTimes = cds.map(measuredTimeMin).filter((x): x is number => x != null && x > 0);
-                let timeMin: number;
-                let measured: boolean;
-                if (realTimes.length) {
-                    timeMin = realTimes.reduce((a, b) => a + b, 0) / realTimes.length;
-                    measured = true;
-                    dejaMesure.add(`${m.id}|${op.id}`);
-                } else if ((op.time || 0) > 0) {
-                    timeMin = op.time;
-                    measured = false;
-                } else {
-                    continue; // aucune donnée de temps
-                }
+                /* La colonne CHRONO de la gamme n'est PAS une mesure : c'est un
+                   temps calcule (cadence machine, longueur) ou force a la main.
+                   Le catalogue ne retient que ce qui a ete chronometre pour de
+                   vrai — poste + ouvrier. Sans releve, l'operation n'y figure pas. */
+                if (!realTimes.length) continue;
+                const timeMin = realTimes.reduce((a, b) => a + b, 0) / realTimes.length;
+                const measured = true;
+                dejaMesure.add(`${m.id}|${op.id}`);
 
                 const machine = (op.machineName || op.machineClass || op.machineId || 'Machine').toString();
                 modelSet.add(m.id);

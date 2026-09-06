@@ -4,7 +4,6 @@ import { deriveHourGrid } from './shared/hours';
 import { pauseOverlapMinutes, horairesDuJour } from '../../lib/horaires';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
-import { useIsMobile } from '../planning/shared/useIsMobile';
 import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown } from 'lucide-react';
 import AjoutPosteRapide from './AjoutPosteRapide';
 
@@ -31,7 +30,6 @@ const L = {
     noGamme: { fr: "Ce modele n'a pas encore de gamme operatoire : il n'y a donc aucun poste a relever. Ingenierie › Gamme operatoire.", ar: 'هذا الموديل ما عندوش گام عملياتي بعد: ما كاين حتى منصب باش نسجّلو. Ingénierie › Gamme opératoire.', en: 'This model has no operation sheet yet, so there is no poste to record. Engineering › Gamme.', es: 'Este modelo aun no tiene gama operativa: no hay ningun puesto que registrar. Ingenieria › Gama.', pt: 'Este modelo ainda nao tem gama operatoria: nao ha nenhum posto a registar. Engenharia › Gama.', tr: 'Bu modelin henuz operasyon listesi yok, bu yuzden kaydedilecek istasyon da yok. Muhendislik › Gamme.' },
     ouvrirGamme: { fr: 'Remplir la gamme de ce modele', ar: 'عمّر الگام ديال هاد الموديل', en: 'Fill this model’s gamme', es: 'Completar la gama de este modelo', pt: 'Preencher a gama deste modelo', tr: 'Bu modelin gamme’ini doldur' },
     poste: { fr: 'Poste', ar: 'المحطة', en: 'Poste', es: 'Puesto', pt: 'Posto', tr: 'İstasyon' },
-    machine: { fr: 'Machine', ar: 'الآلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' },
     worker: { fr: 'Ouvrier', ar: 'العامل', en: 'Worker', es: 'Operario', pt: 'Operário', tr: 'İşçi' },
     chooseWorker: { fr: 'Choisir un ouvrier…', ar: 'اختر عاملاً…', en: 'Choose a worker…', es: 'Elegir un operario…', pt: 'Escolher um operário…', tr: 'İşçi seçin…' },
     qty: { fr: 'Qté produite', ar: 'الكمية المنتجة', en: 'Produced qty', es: 'Cant. producida', pt: 'Qtd. produzida', tr: 'Üretilen miktar' },
@@ -53,13 +51,11 @@ const L = {
     scoreEstime: { fr: 'Score estime depuis la quantite (pas de chronometrage)', ar: 'نتيجة مُقدَّرة من الكمية (بلا كرونومتراج)', en: 'Score estimated from quantity (no timing)', es: 'Puntuacion estimada por la cantidad (sin cronometraje)', pt: 'Pontuacao estimada pela quantidade (sem cronometragem)', tr: 'Miktardan tahmin edilen puan (olcum yok)' },
     postesTenus: { fr: 'postes tenus', ar: 'مناصب مشغولة', en: 'stations held', es: 'puestos cubiertos', pt: 'postos ocupados', tr: 'tutulan istasyon' },
     modeleActif: { fr: 'Modèle actif', ar: 'الموديل النشط', en: 'Active model', es: 'Modelo activo', pt: 'Modelo ativo', tr: 'Aktif model' },
-    grilleJour: { fr: 'Grille du jour — poste par heure', ar: 'شبكة اليوم — محطة لكل ساعة', en: 'Day grid — poste by hour', es: 'Cuadrícula del día — puesto por hora', pt: 'Grelha do dia — posto por hora', tr: 'Gün ızgarası — saat başına istasyon' },
-    grilleJourHint: { fr: "Chaque case est ce que le poste a sorti dans ce créneau. Les créneaux sont ceux de CE jour.", ar: 'كل خانة هي اللي خرّج ديك المنصب فديك الفترة. الفترات هي ديال هاد النهار بالضبط.', en: 'Each cell is what the poste produced in that slot. The slots are those of THIS day.', es: 'Cada casilla es lo que el puesto produjo en ese tramo. Los tramos son los de ESTE día.', pt: 'Cada célula é o que o posto produziu nesse intervalo. Os intervalos são os deste dia.', tr: 'Her hücre, istasyonun o dilimde ürettiğidir. Dilimler BU güne aittir.' },
     cadence: { fr: 'Cadence', ar: 'الوتيرة', en: 'Rate', es: 'Cadencia', pt: 'Cadência', tr: 'Tempo' },
     cadenceMesuree: { fr: 'Cadence mesurée au chronomètre', ar: 'وتيرة مقيسة بالكرونومتر', en: 'Rate measured with the stopwatch', es: 'Cadencia medida con cronómetro', pt: 'Cadência medida com cronómetro', tr: 'Kronometreyle ölçülen tempo' },
     cadenceGamme: { fr: 'Cadence prévue par la gamme (pas encore chronométrée)', ar: 'الوتيرة المتوقّعة من الگام (مازال بلا كرونومتراج)', en: 'Rate expected from the gamme (not timed yet)', es: 'Cadencia prevista por la gama (aún sin cronometrar)', pt: 'Cadência prevista pela gama (ainda sem cronometragem)', tr: 'Gamme’ın öngördüğü tempo (henüz ölçülmedi)' },
-    total: { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' },
-    saisieRapide: { fr: 'Relevé rapide — créneau en cours', ar: 'تسجيل سريع — الفترة الجارية', en: 'Quick entry — current slot', es: 'Registro rápido — franja actual', pt: 'Registo rápido — faixa atual', tr: 'Hızlı kayıt — geçerli dilim' },
+    creneauxJour: { fr: 'Creneaux du jour — ce que le poste a sorti', ar: 'فترات اليوم — اللي خرّج المنصب', en: 'Day slots — what the poste produced', es: 'Franjas del dia — lo que el puesto produjo', pt: 'Faixas do dia — o que o posto produziu', tr: 'Gunun dilimleri — istasyonun urettigi' },
+    ajoutCreneau: { fr: 'Ajouter au creneau en cours', ar: 'زيد للفترة الجارية', en: 'Add to the current slot', es: 'Anadir a la franja actual', pt: 'Adicionar a faixa atual', tr: 'Gecerli dilime ekle' },
     primeJour: { fr: 'Jour', ar: 'اليوم', en: 'Day', es: 'Día', pt: 'Dia', tr: 'Gün' },
     primeSemaine: { fr: 'Semaine', ar: 'الأسبوع', en: 'Week', es: 'Semana', pt: 'Semana', tr: 'Hafta' },
     prime: { fr: 'Prime', ar: 'العلاوة', en: 'Bonus', es: 'Prima', pt: 'Prémio', tr: 'Prim' },
@@ -86,10 +82,6 @@ function todayStr(): string {
 
 export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste }: Props) {
     const { lang } = useLang();
-    /* Le releve se fait au pied de la chaine, telephone en main : sur petit
-       ecran chaque poste devient une carte, un tableau de sept colonnes n'y
-       tient pas. */
-    const isMobile = useIsMobile();
     const date = globalDate || todayStr();
 
     const [posteSuivis, setPosteSuivis] = useState<PosteSuiviData[]>([]);
@@ -618,121 +610,19 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                             />
                         </div>
                     )}
-                    {/* ─── Grille du jour : postes en lignes, creneaux du jour en colonnes ─── */}
-                    <div className="mb-4 rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface overflow-hidden">
-                        <div className="px-3 sm:px-4 py-2.5 border-b border-slate-100 dark:border-dk-border/50 bg-slate-50 dark:bg-dk-elevated/40">
-                            <p className="text-[11px] font-black text-slate-700 dark:text-dk-text">{tx(lang, L.grilleJour)}</p>
-                            <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang, L.grilleJourHint)}</p>
-                        </div>
-                        <div className="overflow-x-auto scrollbar-thin">
-                            <table className="w-full text-[12px] border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50 dark:bg-dk-elevated/60 text-slate-500 dark:text-dk-muted text-[10px] uppercase tracking-wider font-black">
-                                        <th className="text-left px-3 py-2.5 sticky left-0 bg-slate-50 dark:bg-dk-elevated/60 z-10 min-w-[150px]">{tx(lang, L.poste)}</th>
-                                        <th className="text-left px-3 py-2.5 min-w-[150px]">{tx(lang, L.worker)}</th>
-                                        <th className="text-center px-2 py-2.5 w-20">{tx(lang, L.cadence)}</th>
-                                        {hourGrid.blocks.map(b => (
-                                            <th key={b.key} className="text-center px-1 py-2.5 w-[70px] border-l border-slate-100 dark:border-dk-border/40" title={`${b.label} — ${b.duration} min`}>
-                                                {b.start}
-                                                {b.duration < 60 && <span className="block text-[8px] normal-case tracking-normal text-indigo-500 dark:text-dk-accent-text">{b.duration} min</span>}
-                                            </th>
-                                        ))}
-                                        <th className="text-center px-2 py-2.5 w-16 border-l border-slate-200 dark:border-dk-border/60">{tx(lang, L.total)}</th>
-                                        <th className="text-center px-2 py-2.5 w-16">{tx(lang, L.score)}</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-dk-border/40">
-                                    {postes.map(poste => {
-                                        const cad = cadencePoste(poste);
-                                        const rowsToday = suivisByPoste.get(poste.id) || [];
-                                        const totalJour = rowsToday.reduce((s, r) => s + (r.pieces_sorties || 0), 0);
-                                        const scores = rowsToday.map(scoreReleve).filter((x): x is number => x !== null);
-                                        const scoreJour = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
-                                        const workerId = ouvrierDuPoste(poste.id);
-                                        return (
-                                            <tr key={poste.id} className="hover:bg-slate-50/60 dark:hover:bg-dk-elevated/30">
-                                                <td className="px-3 py-2 sticky left-0 bg-white dark:bg-dk-surface z-10">
-                                                    <p className="font-black text-slate-800 dark:text-dk-text truncate">{poste.description || poste.id}</p>
-                                                    {poste.machineName && <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold truncate">{poste.machineName}</p>}
-                                                </td>
-                                                <td className="px-3 py-2">
-                                                    <select
-                                                        value={workerId}
-                                                        onChange={(e) => void changerOuvrierPoste(poste, e.target.value)}
-                                                        className="w-full min-h-[34px] text-[11px] font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg px-2 outline-none"
-                                                    >
-                                                        <option value="">{tx(lang, L.chooseWorker)}</option>
-                                                        {workersSorted.map(w => (
-                                                            <option key={w.id} value={String(w.id)}>{w.full_name}</option>
-                                                        ))}
-                                                    </select>
-                                                </td>
-                                                <td className="px-2 py-2 text-center">
-                                                    {cad.valeur === null ? (
-                                                        <span className="text-slate-300 dark:text-dk-muted font-bold">—</span>
-                                                    ) : (
-                                                        <span
-                                                            className={`inline-block px-2 py-1 rounded-lg text-[11px] font-black tabular-nums ${cad.mesuree ? 'bg-indigo-50 text-indigo-700 dark:bg-dk-accent/20 dark:text-dk-accent-text' : 'bg-slate-100 text-slate-500 dark:bg-dk-bg dark:text-dk-muted'}`}
-                                                            title={tx(lang, cad.mesuree ? L.cadenceMesuree : L.cadenceGamme)}
-                                                        >
-                                                            {cad.mesuree ? '' : '~'}{cad.valeur} p/h
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                {hourGrid.blocks.map(b => {
-                                                    const cellule = celluleDe(poste.id, b.key);
-                                                    const val = cellule?.pieces_sorties;
-                                                    /* Un creneau qui n'est pas encore fini ne se saisit pas :
-                                                       on ne releve pas une heure qui n'a pas eu lieu. */
-                                                    const futur = new Date(date).setHours(0, b.endMin, 0, 0) > Date.now();
-                                                    const enCours = cellSavingId === idCellule(poste.id, b.key);
-                                                    return (
-                                                        <td key={b.key} className="p-1 border-l border-slate-100 dark:border-dk-border/40">
-                                                            <input
-                                                                type="text"
-                                                                inputMode="numeric"
-                                                                disabled={futur}
-                                                                value={val === undefined || val === null || val === 0 ? '' : val}
-                                                                onChange={(e) => {
-                                                                    const s = e.target.value.trim();
-                                                                    void saveCellule(poste, b.key, s === '' ? null : (parseInt(s, 10) || 0));
-                                                                }}
-                                                                placeholder="—"
-                                                                className={`w-full h-9 text-center text-[12px] font-black tabular-nums rounded-lg border outline-none transition-all ${
-                                                                    futur
-                                                                        ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
-                                                                        : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
-                                                                } ${enCours ? 'opacity-60' : ''}`}
-                                                            />
-                                                        </td>
-                                                    );
-                                                })}
-                                                <td className="px-2 py-2 text-center font-black tabular-nums text-slate-800 dark:text-dk-text border-l border-slate-200 dark:border-dk-border/60">
-                                                    {totalJour || '—'}
-                                                </td>
-                                                <td className="px-2 py-2 text-center">
-                                                    {scoreJour === null ? (
-                                                        <span className="text-slate-300 dark:text-dk-muted font-bold">—</span>
-                                                    ) : (
-                                                        <span className={`inline-block rounded-md px-2 py-1 text-[11px] font-black tabular-nums ${classeScore(scoreJour)}`}>{scoreJour}%</span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang, L.saisieRapide)}</p>
-
-                    {isMobile ? (
-                    <div className="space-y-2.5">
-                        {postes.map(poste => {
+                    {/* ─── UNE carte par poste ─────────────────────────
+                        La page montrait DEUX fois les memes postes : une grille des
+                        creneaux, puis un tableau de saisie. Deux endroits pour un
+                        seul geste, et rien de tenable sur un telephone. Tout tient
+                        maintenant dans une carte par poste — comme au chronometrage :
+                        l'ouvrier, les creneaux du jour, la saisie du creneau en cours.
+                        Chaque champ n'accepte que des chiffres, et se corrige. */}
+                    <div className="space-y-2.5 sm:space-y-3">
+                        {postes.map((poste, rang) => {
                             const d = getDraft(poste.id);
+                            const cad = cadencePoste(poste);
                             const rowsToday = suivisByPoste.get(poste.id) || [];
-                            const totalQtyToday = rowsToday.reduce((sum, r) => sum + (r.pieces_sorties || 0), 0);
+                            const totalJour = rowsToday.reduce((somme, r) => somme + (r.pieces_sorties || 0), 0);
                             const scoresJour = rowsToday.map(scoreReleve).filter((x): x is number => x !== null);
                             const scoreMesure = rowsToday.some(scoreChronometre);
                             const scorePoste = scoresJour.length > 0
@@ -740,12 +630,26 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                 : null;
                             const isSaving = savingId === poste.id;
                             const isSaved = savedId === poste.id;
+                            const ouvrier = ouvrierDuPoste(poste.id);
                             return (
-                                <div key={poste.id} className="rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface p-3 space-y-2.5">
+                                <div key={poste.id} className="rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface p-3 sm:p-4">
+                                    {/* En-tete : le poste, sa machine, sa cadence, son score du jour */}
                                     <div className="flex items-start justify-between gap-2">
-                                        <div className="min-w-0">
-                                            <p className="font-black text-[13px] text-slate-800 dark:text-dk-text">{poste.description || poste.id}</p>
-                                            {poste.machineName && <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">{poste.machineName}</p>}
+                                        <div className="flex items-start gap-2 min-w-0">
+                                            <span className="shrink-0 mt-0.5 px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-dk-bg text-[10px] font-black tabular-nums text-slate-500 dark:text-dk-muted">#{rang + 1}</span>
+                                            <div className="min-w-0">
+                                                <p className="font-black text-[13px] text-slate-800 dark:text-dk-text truncate">{poste.description || poste.id}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted truncate">
+                                                    {poste.machineName ? `${poste.machineName} · ` : ''}
+                                                    {cad.valeur === null
+                                                        ? '—'
+                                                        : (
+                                                            <span title={tx(lang, cad.mesuree ? L.cadenceMesuree : L.cadenceGamme)}>
+                                                                {cad.mesuree ? '' : '~'}{cad.valeur} p/h
+                                                            </span>
+                                                        )}
+                                                </p>
+                                            </div>
                                         </div>
                                         {scorePoste !== null && (
                                             <span
@@ -757,190 +661,139 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                         )}
                                     </div>
 
-                                    <div className="relative">
+                                    {/* L'ouvrier vaut pour la journee : le changer reetiquette les
+                                        releves du jour, il n'y a donc qu'un seul selecteur. */}
+                                    <div className="relative mt-2.5">
                                         <select
-                                            value={d.workerId}
-                                            onChange={(e) => setDraft(poste.id, { workerId: e.target.value })}
+                                            value={ouvrier}
+                                            onChange={(e) => void changerOuvrierPoste(poste, e.target.value)}
                                             className="w-full min-h-[44px] appearance-none text-[13px] font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl pl-3 pr-8 outline-none"
                                         >
                                             <option value="">{tx(lang, L.chooseWorker)}</option>
                                             {workersSorted.map(w => (
-                                                <option key={w.id} value={w.id}>{w.full_name}{w.chaine_id === selectedChaineId ? '' : ` (${w.chaine_id || '-'})`}</option>
+                                                <option key={w.id} value={String(w.id)}>{w.full_name}{w.chaine_id === selectedChaineId ? '' : ` (${w.chaine_id || '-'})`}</option>
                                             ))}
                                         </select>
                                         <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <label className="block">
-                                            <span className="block mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang, L.qty)}</span>
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                placeholder="0"
-                                                value={d.qty}
-                                                onChange={(e) => setDraft(poste.id, { qty: e.target.value === '' ? '' : Number(e.target.value) })}
-                                                className="w-full min-h-[44px] text-[14px] font-black text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 outline-none"
-                                            />
-                                        </label>
-                                        <label className="block">
-                                            <span className="block mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang, L.defects)}</span>
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                placeholder="0"
-                                                value={d.defauts}
-                                                onChange={(e) => setDraft(poste.id, { defauts: e.target.value === '' ? '' : Number(e.target.value) })}
-                                                className="w-full min-h-[44px] text-[14px] font-bold text-slate-600 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 outline-none"
-                                            />
-                                        </label>
+                                    {/* Les creneaux du jour, corrigeables un par un. Ils defilent
+                                        horizontalement sur telephone plutot que de deborder. */}
+                                    <p className="mt-3 mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
+                                        {tx(lang, L.creneauxJour)}
+                                    </p>
+                                    <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-0.5 px-0.5">
+                                        {hourGrid.blocks.map(b => {
+                                            const cellule = celluleDe(poste.id, b.key);
+                                            const val = cellule?.pieces_sorties;
+                                            /* Un creneau qui n'est pas encore fini ne se saisit pas :
+                                               on ne releve pas une heure qui n'a pas eu lieu. */
+                                            const futur = new Date(date).setHours(0, b.endMin, 0, 0) > Date.now();
+                                            const courant = b.key === nowBlock.key;
+                                            const enregistre = cellSavingId === idCellule(poste.id, b.key);
+                                            return (
+                                                <label key={b.key} className="shrink-0 w-[58px]">
+                                                    <span className={`block text-center text-[9px] font-black tabular-nums ${courant ? 'text-indigo-600 dark:text-dk-accent-text' : 'text-slate-400 dark:text-dk-muted'}`}>
+                                                        {b.start}
+                                                        {b.duration < 60 && <span className="block text-[8px] font-bold text-indigo-500 dark:text-dk-accent-text">{b.duration}′</span>}
+                                                    </span>
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        pattern="[0-9]*"
+                                                        disabled={futur}
+                                                        value={val === undefined || val === null || val === 0 ? '' : String(val)}
+                                                        onChange={(e) => {
+                                                            const chiffres = e.target.value.replace(/[^0-9]/g, '');
+                                                            void saveCellule(poste, b.key, chiffres === '' ? null : parseInt(chiffres, 10));
+                                                        }}
+                                                        placeholder="—"
+                                                        className={`mt-0.5 w-full h-11 text-center text-[13px] font-black tabular-nums rounded-xl border outline-none transition-all ${
+                                                            futur
+                                                                ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
+                                                                : courant
+                                                                    ? 'bg-white dark:bg-dk-surface border-indigo-300 dark:border-dk-accent text-slate-800 dark:text-dk-text focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
+                                                                    : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
+                                                        } ${enregistre ? 'opacity-60' : ''}`}
+                                                    />
+                                                </label>
+                                            );
+                                        })}
                                     </div>
 
-                                    <MiniChrono
-                                        open={chronoOpenFor === poste.id}
-                                        onToggle={() => setChronoOpenFor(cur => (cur === poste.id ? null : poste.id))}
-                                        onFinish={(ms) => setDraft(poste.id, { tempsMs: ms })}
-                                        lang={lang}
-                                        tempsMs={d.tempsMs}
-                                    />
+                                    {/* Saisie du creneau EN COURS : elle s'ajoute au creneau
+                                        (« encore 15 pieces »), la ou les cases ci-dessus posent
+                                        une valeur exacte. */}
+                                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-dk-border/40">
+                                        <p className="mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
+                                            {tx(lang, L.ajoutCreneau)} · <span className="text-slate-600 dark:text-dk-text-soft">{nowBlock.label}</span>
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <label className="block">
+                                                <span className="block mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang, L.qty)}</span>
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]*"
+                                                    placeholder="—"
+                                                    value={d.qty === '' ? '' : String(d.qty)}
+                                                    onChange={(e) => {
+                                                        const chiffres = e.target.value.replace(/[^0-9]/g, '');
+                                                        setDraft(poste.id, { qty: chiffres === '' ? '' : parseInt(chiffres, 10) });
+                                                    }}
+                                                    className="w-full min-h-[44px] text-[15px] font-black tabular-nums text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 outline-none focus:border-indigo-600"
+                                                />
+                                            </label>
+                                            <label className="block">
+                                                <span className="block mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang, L.defects)}</span>
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]*"
+                                                    placeholder="—"
+                                                    value={d.defauts === '' ? '' : String(d.defauts)}
+                                                    onChange={(e) => {
+                                                        const chiffres = e.target.value.replace(/[^0-9]/g, '');
+                                                        setDraft(poste.id, { defauts: chiffres === '' ? '' : parseInt(chiffres, 10) });
+                                                    }}
+                                                    className="w-full min-h-[44px] text-[15px] font-bold tabular-nums text-slate-600 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 outline-none focus:border-indigo-600"
+                                                />
+                                            </label>
+                                        </div>
 
-                                    <div className="flex items-center justify-between gap-2 pt-0.5">
-                                        <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">
-                                            {totalQtyToday} pcs · {rowsToday.length} {tx(lang, L.entriesToday)}
-                                        </span>
-                                        <button
-                                            type="button"
-                                            disabled={d.qty === '' || isSaving}
-                                            onClick={() => saveRow(poste)}
-                                            className={`min-h-[44px] px-4 flex items-center justify-center gap-1.5 rounded-xl text-[12px] font-black transition-colors ${
-                                                d.qty === '' ? 'bg-slate-100 dark:bg-dk-elevated/60 text-slate-300 dark:text-dk-muted cursor-not-allowed' :
-                                                isSaved ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                                            }`}
-                                        >
-                                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : isSaved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                                            {isSaved ? tx(lang, L.saved) : tx(lang, L.saveRow)}
-                                        </button>
+                                        <div className="mt-2">
+                                            <MiniChrono
+                                                open={chronoOpenFor === poste.id}
+                                                onToggle={() => setChronoOpenFor(cur => (cur === poste.id ? null : poste.id))}
+                                                onFinish={(ms) => setDraft(poste.id, { tempsMs: ms })}
+                                                lang={lang}
+                                                tempsMs={d.tempsMs}
+                                            />
+                                        </div>
+
+                                        <div className="mt-2.5 flex items-center justify-between gap-2">
+                                            <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">
+                                                {tx(lang, L.today)} : <span className="text-slate-700 dark:text-dk-text">{totalJour}</span> pcs · {rowsToday.length} {tx(lang, L.entriesToday)}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                disabled={d.qty === '' || isSaving}
+                                                onClick={() => saveRow(poste)}
+                                                className={`min-h-[44px] px-4 flex items-center justify-center gap-1.5 rounded-xl text-[12px] font-black transition-colors ${
+                                                    d.qty === '' ? 'bg-slate-100 dark:bg-dk-elevated/60 text-slate-300 dark:text-dk-muted cursor-not-allowed' :
+                                                    isSaved ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                                }`}
+                                            >
+                                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : isSaved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+                                                {isSaved ? tx(lang, L.saved) : tx(lang, L.saveRow)}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
-                ) : (
-                    <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface">
-                        <table className="w-full min-w-[760px] text-[12px]">
-                            <thead>
-                                <tr className="bg-slate-50 dark:bg-dk-elevated/60 text-slate-500 dark:text-dk-muted text-[10px] uppercase tracking-wider font-black">
-                                    <th className="text-left px-3 py-2.5">{tx(lang, L.poste)}</th>
-                                    <th className="text-left px-3 py-2.5">{tx(lang, L.worker)}</th>
-                                    <th className="text-left px-3 py-2.5 w-28">{tx(lang, L.qty)}</th>
-                                    <th className="text-left px-3 py-2.5 w-24">{tx(lang, L.defects)}</th>
-                                    <th className="text-left px-3 py-2.5 w-40">{tx(lang, L.chrono)}</th>
-                                    <th className="text-left px-3 py-2.5 w-20">{tx(lang, L.score)}</th>
-                                    <th className="text-left px-3 py-2.5 w-32">{tx(lang, L.today)}</th>
-                                    <th className="w-24" />
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-dk-border/40">
-                                {postes.map(poste => {
-                                    const d = getDraft(poste.id);
-                                    const rowsToday = suivisByPoste.get(poste.id) || [];
-                                    const totalQtyToday = rowsToday.reduce((s, r) => s + (r.pieces_sorties || 0), 0);
-                                    const scoresJour = rowsToday.map(scoreReleve).filter((x): x is number => x !== null);
-                                    const scoreMesure = rowsToday.some(scoreChronometre);
-                                    const scorePoste = scoresJour.length > 0
-                                        ? Math.round(scoresJour.reduce((a, b) => a + b, 0) / scoresJour.length)
-                                        : null;
-                                    const isSaving = savingId === poste.id;
-                                    const isSaved = savedId === poste.id;
-                                    return (
-                                        <React.Fragment key={poste.id}>
-                                            <tr className="hover:bg-slate-50/60 dark:hover:bg-dk-elevated/30">
-                                                <td className="px-3 py-2.5 align-top">
-                                                    <p className="font-black text-slate-800 dark:text-dk-text">{poste.description || poste.id}</p>
-                                                    {poste.machineName && <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">{poste.machineName}</p>}
-                                                </td>
-                                                <td className="px-3 py-2.5 align-top">
-                                                    <div className="relative">
-                                                        <select
-                                                            value={d.workerId}
-                                                            onChange={(e) => setDraft(poste.id, { workerId: e.target.value })}
-                                                            className="w-full min-h-[40px] appearance-none text-[12px] font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg pl-2.5 pr-7 outline-none"
-                                                        >
-                                                            <option value="">{tx(lang, L.chooseWorker)}</option>
-                                                            {workersSorted.map(w => (
-                                                                <option key={w.id} value={w.id}>{w.full_name}{w.chaine_id === selectedChaineId ? '' : ` (${w.chaine_id || '-'})`}</option>
-                                                            ))}
-                                                        </select>
-                                                        <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                                    </div>
-                                                </td>
-                                                <td className="px-3 py-2.5 align-top">
-                                                    <input
-                                                        type="number"
-                                                        min={0}
-                                                        placeholder="0"
-                                                        value={d.qty}
-                                                        onChange={(e) => setDraft(poste.id, { qty: e.target.value === '' ? '' : Number(e.target.value) })}
-                                                        className="w-20 min-h-[40px] text-[12px] font-black text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg px-2 outline-none"
-                                                    />
-                                                </td>
-                                                <td className="px-3 py-2.5 align-top">
-                                                    <input
-                                                        type="number"
-                                                        min={0}
-                                                        placeholder="0"
-                                                        value={d.defauts}
-                                                        onChange={(e) => setDraft(poste.id, { defauts: e.target.value === '' ? '' : Number(e.target.value) })}
-                                                        className="w-16 min-h-[40px] text-[12px] font-bold text-slate-600 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg px-2 outline-none"
-                                                    />
-                                                </td>
-                                                <td className="px-3 py-2.5 align-top">
-                                                    <MiniChrono
-                                                        open={chronoOpenFor === poste.id}
-                                                        onToggle={() => setChronoOpenFor(cur => (cur === poste.id ? null : poste.id))}
-                                                        onFinish={(ms) => setDraft(poste.id, { tempsMs: ms })}
-                                                        lang={lang}
-                                                        tempsMs={d.tempsMs}
-                                                    />
-                                                </td>
-                                                <td className="px-3 py-2.5 align-top">
-                                                    {scorePoste === null ? (
-                                                        <span className="text-slate-300 dark:text-dk-muted font-bold">—</span>
-                                                    ) : (
-                                                        <span
-                                                            className={`inline-block rounded-md px-2 py-1 text-[11px] font-black tabular-nums ${classeScore(scorePoste)}`}
-                                                            title={scoreMesure ? undefined : tx(lang, L.scoreEstime)}
-                                                        >
-                                                            {scoreMesure ? '' : '~'}{scorePoste}%
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="px-3 py-2.5 align-top">
-                                                    <p className="font-black text-slate-800 dark:text-dk-text">{totalQtyToday}</p>
-                                                    <p className="text-[10px] text-slate-400 dark:text-dk-muted font-bold">{rowsToday.length} {tx(lang, L.entriesToday)}</p>
-                                                </td>
-                                                <td className="px-3 py-2.5 align-top">
-                                                    <button
-                                                        type="button"
-                                                        disabled={d.qty === '' || isSaving}
-                                                        onClick={() => saveRow(poste)}
-                                                        className={`w-full min-h-[40px] flex items-center justify-center gap-1.5 rounded-lg text-[11px] font-black transition-colors ${
-                                                            d.qty === '' ? 'bg-slate-100 dark:bg-dk-elevated/60 text-slate-300 dark:text-dk-muted cursor-not-allowed' :
-                                                            isSaved ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                                                        }`}
-                                                    >
-                                                        {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isSaved ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
-                                                        {isSaved ? tx(lang, L.saved) : tx(lang, L.saveRow)}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                    )}
+
                   </>
                 )}
 

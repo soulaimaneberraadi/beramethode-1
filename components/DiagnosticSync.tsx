@@ -2,7 +2,7 @@ import React from 'react';
 import { RefreshCw, Copy, X, CheckCircle2, AlertTriangle, UploadCloud } from 'lucide-react';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../src/lib/supabaseClient';
 import { getCurrentEmail } from '../lib/storageKeys';
-import { pushSnapshotToCloud } from '../src/lib/cloudSync';
+import { pushSnapshotToCloud, SYNC_KEYS } from '../src/lib/cloudSync';
 
 /**
  * Le diagnostic de synchronisation, DANS l'application.
@@ -22,6 +22,40 @@ import { pushSnapshotToCloud } from '../src/lib/cloudSync';
  * ne partageront jamais rien. Seul l'identifiant le dit.
  */
 
+/**
+ * Le nom que porte chaque cle a l'ecran.
+ *
+ * Le panneau n'en comparait que trois — modeles, planning, suivis — sur les
+ * vingt-deux qui suivent le compte. Un manque dans les machines, la
+ * sous-traitance ou les reglages passait donc inapercu, et le diagnostic
+ * concluait « tout va bien » sur un huitieme du sujet. Une cle sans nom connu
+ * s'affiche telle quelle : mieux vaut un intitule technique qu'une absence.
+ */
+const LIBELLES: Record<string, string> = {
+    beramethode_library: 'Modèles',
+    beramethode_planning: 'Planning',
+    beramethode_suivis: 'Suivis',
+    beramethode_settings: 'Réglages',
+    beramethode_company: 'Entreprise',
+    beramethode_autosave_v1: 'Brouillon en cours',
+    beramethode_chrono_sessions_v1: 'Chronométrages',
+    beramethode_machine_instances: 'Machines (parc)',
+    beramethode_machines_v1: 'Machines (catalogue)',
+    beramethode_machines_fleet_history_v1: 'Machines (historique)',
+    beramethode_manual_links: 'Liaisons manuelles',
+    beramethode_demandesAppro: 'Demandes appro.',
+    beramethode_tombstones: 'Suppressions',
+    bera_nav_config: 'Navigation',
+    BERA_CUSTOM_ROLES: 'Rôles',
+    BERA_CUSTOM_PARTITIONS: 'Partitions',
+    BERA_SALLES: 'Salles',
+    beramethode_subcontract_orders: 'Sous-traitance (ordres)',
+    beramethode_subcontract_groups: 'Sous-traitance (groupes)',
+    beramethode_subcontract_profiles: 'Sous-traitants',
+    beramethode_tiki_settings: 'Tiki',
+    beramethode_canal_frais: 'Frais par canal',
+};
+
 type Etat = 'attente' | 'encours' | 'fini';
 
 const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -31,10 +65,12 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [copie, setCopie] = React.useState(false);
     const [envoi, setEnvoi] = React.useState<'attente' | 'encours' | 'ok' | 'ko'>('attente');
     const [uid, setUid] = React.useState('');
+    const [detail, setDetail] = React.useState('');
 
     const lancer = React.useCallback(async () => {
         setEtat('encours');
         setNote('');
+        setDetail('');
         const out: { nom: string; valeur: string; ton?: 'ok' | 'ko' | 'attention' }[] = [];
         const compter = (v: unknown) => Array.isArray(v) ? v.length : (v && typeof v === 'object' ? Object.keys(v).length : 0);
         const lireLocal = (base: string) => {
@@ -100,10 +136,31 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         const distant = rangees[0];
         const donnees = distant.data || {};
         out.push({ nom: 'Dernière écriture', valeur: distant.updated_at ? new Date(distant.updated_at).toLocaleString() : '(inconnue)' });
-        for (const [nom, cle] of [['Modèles', 'beramethode_library'], ['Planning', 'beramethode_planning'], ['Suivis', 'beramethode_suivis']] as const) {
+        // Les VINGT-DEUX cles, pas trois. On n'affiche en clair que celles qui
+        // different : vingt-deux lignes identiques noieraient le seul ecart qui
+        // compte. Le nombre de cles accordees tient sur une ligne, et le rapport
+        // a copier les porte toutes — c'est lui qu'on relit ensuite a froid.
+        const ecarts: string[] = [];
+        const detailLignes: string[] = [];
+        let accordees = 0;
+        for (const cle of SYNC_KEYS) {
             const cs = compter((donnees as any)[cle]);
             const cl = compter(lireLocal(cle));
-            out.push({ nom, valeur: `serveur ${cs} · ici ${cl}`, ton: cs === cl ? 'ok' : 'attention' });
+            const nom = LIBELLES[cle] || cle;
+            detailLignes.push(`${cs === cl ? '=' : '!'} ${nom} : serveur ${cs} · ici ${cl}`);
+            if (cs === cl) { accordees += 1; continue; }
+            ecarts.push(nom);
+            out.push({ nom, valeur: `serveur ${cs} · ici ${cl}`, ton: 'attention' });
+        }
+        out.push({
+            nom: 'Clés accordées',
+            valeur: `${accordees} / ${SYNC_KEYS.length}`,
+            ton: accordees === SYNC_KEYS.length ? 'ok' : 'attention',
+        });
+        setDetail(detailLignes.join('
+'));
+        if (ecarts.length) {
+            setNote(`Pas encore accordé : ${ecarts.join(', ')}. Un écart juste après une saisie est normal — l'envoi est groupé. S'il dure, utilisez « Envoyer mes données maintenant ».`);
         }
         const pull = localStorage.getItem('beramethode_last_pulled_at');
         out.push({ nom: 'Dernière reprise ici', valeur: pull ? new Date(pull).toLocaleString() : '(jamais)', ton: pull ? undefined : 'attention' });
@@ -146,8 +203,10 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
     const rapport = React.useMemo(
         () => ['BERAMETHODE — diagnostic de synchronisation', new Date().toISOString(), '',
-            ...lignes.map(l => `${l.nom} : ${l.valeur}`), note ? `\n${note}` : ''].join('\n'),
-        [lignes, note],
+            ...lignes.map(l => `${l.nom} : ${l.valeur}`), detail ? `
+— Les ${SYNC_KEYS.length} cles —
+${detail}` : '', note ? `\n${note}` : ''].join('\n'),
+        [lignes, note, detail],
     );
 
     const copier = async () => {
@@ -221,7 +280,7 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     </div>
 
                     <textarea readOnly value={rapport} aria-label="Rapport"
-                        className="mt-3 w-full h-24 text-[10px] font-mono p-2 rounded-lg bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-muted" />
+                        className="mt-3 w-full h-40 text-[10px] font-mono p-2 rounded-lg bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-muted" />
                 </div>
             </div>
         </div>

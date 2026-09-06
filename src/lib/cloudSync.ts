@@ -105,7 +105,9 @@ const sansSupprimes = (lsKey: string, items: any[]): any[] => {
   }
 };
 
-const SYNC_KEYS = [
+/** Tout ce qui suit le compte d'un appareil a l'autre. Expose : le diagnostic
+ *  compare ces memes cles, et il n'en manquerait aucune. */
+export const SYNC_KEYS = [
   'beramethode_autosave_v1',
   'beramethode_chrono_sessions_v1',
   'beramethode_library',
