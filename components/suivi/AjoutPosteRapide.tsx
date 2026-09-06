@@ -45,7 +45,10 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
     const [ouvert, setOuvert] = useState(false);
     const [description, setDescription] = useState('');
     const [machine, setMachine] = useState('');
-    const [tempsSec, setTempsSec] = useState<number | ''>('');
+    /* Temps herite d'une suggestion (gamme ou catalogue), jamais tape a la
+       main : au pied de la chaine on n'estime pas un temps standard — le
+       chrono du releve le mesure, et le catalogue le corrige. */
+    const [tempsSecHerite, setTempsSecHerite] = useState<number | null>(null);
     const [workerId, setWorkerId] = useState('');
     const [enCours, setEnCours] = useState(false);
     const [fait, setFait] = useState(false);
@@ -100,13 +103,13 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
     const choisir = (p: ResultatRecherche) => {
         setDescription(p.description);
         if (p.machineName) setMachine(p.machineName);
-        if (p.tempsMin) setTempsSec(Number((p.tempsMin * 60).toFixed(1)));
+        setTempsSecHerite(p.tempsMin ? Number((p.tempsMin * 60).toFixed(1)) : null);
         setListeVisible(false);
         champRef.current?.blur();
     };
 
     const reinitialiser = () => {
-        setDescription(''); setMachine(''); setTempsSec(''); setWorkerId('');
+        setDescription(''); setMachine(''); setTempsSecHerite(null); setWorkerId('');
         setListeVisible(false);
     };
 
@@ -119,7 +122,7 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
            au pied de la chaine on parle en secondes. La conversion se fait ici,
            une seule fois — une seconde prise pour une minute fausserait le
            rendement et la prime d'un facteur 60. */
-        const tempsMin = tempsSec === '' ? 0 : Number((Number(tempsSec) / 60).toFixed(4));
+        const tempsMin = tempsSecHerite === null ? 0 : Number((tempsSecHerite / 60).toFixed(4));
         const op: Operation = {
             id: `OP-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
             order: ordre,
@@ -156,89 +159,64 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
     }
 
     return (
-        <div className="w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface p-3 sm:p-4">
-            <p className="text-[11px] font-black text-slate-700 dark:text-dk-text mb-0.5">{tx(lang, L.ajouter)}</p>
-            <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-3">{tx(lang, L.descriptionHint)}</p>
-
-            <div className="relative">
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted mb-1">
-                    {tx(lang, L.description)}
-                </label>
-                <div className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-3">
-                    <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <input
-                        ref={champRef}
-                        value={description}
-                        onChange={e => { setDescription(e.target.value); setListeVisible(true); }}
-                        onFocus={() => setListeVisible(true)}
-                        /* Le clic sur une proposition doit passer avant la fermeture :
-                           on laisse le mousedown de la liste s'executer. */
-                        onBlur={() => setTimeout(() => setListeVisible(false), 150)}
-                        className="flex-1 bg-transparent py-2.5 text-[13px] font-bold text-slate-800 dark:text-dk-text outline-none"
-                        placeholder={tx(lang, L.description)}
-                    />
-                </div>
-
-                {listeVisible && propositions.length > 0 && (
-                    <div className="absolute z-30 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg">
-                        {propositions.map(p => (
-                            <button
-                                key={p.description}
-                                type="button"
-                                onMouseDown={e => { e.preventDefault(); choisir(p); }}
-                                className="w-full text-left px-3 py-2 hover:bg-slate-50 dark:hover:bg-dk-elevated/50 border-b border-slate-100 dark:border-dk-border/40 last:border-0"
-                            >
-                                <span className="block text-[12px] font-black text-slate-800 dark:text-dk-text">{p.description}</span>
-                                <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted">
-                                    {p.machineName ? `${p.machineName} · ` : ''}
-                                    {p.tempsMin ? `${(p.tempsMin * 60).toFixed(1)} s` : tx(lang, L.sansTemps)}
-                                    {` · ${p.occurrences} ${tx(lang, L.fois)}`}
-                                </span>
-                                {p.confirme && (
-                                    <span className="mt-0.5 inline-block text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                                        {tx(lang, L.catalogue)}
-                                    </span>
-                                )}
-                            </button>
-                        ))}
+        <div className="rounded-xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface p-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+                {/* Le libelle d'abord : c'est lui qui ramene la machine et le temps
+                    deja connus de l'atelier. Le reste n'est qu'un complement. */}
+                <div className="relative flex-1 min-w-[180px]">
+                    <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-2">
+                        <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <input
+                            ref={champRef}
+                            value={description}
+                            onChange={e => { setDescription(e.target.value); setTempsSecHerite(null); setListeVisible(true); }}
+                            onFocus={() => setListeVisible(true)}
+                            onKeyDown={e => { if (e.key === 'Enter') void valider(); if (e.key === 'Escape') { reinitialiser(); setOuvert(false); } }}
+                            /* Le clic sur une proposition doit passer avant la fermeture :
+                               on laisse le mousedown de la liste s'executer. */
+                            onBlur={() => setTimeout(() => setListeVisible(false), 150)}
+                            className="flex-1 min-w-0 bg-transparent h-9 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none"
+                            placeholder={tx(lang, L.description)}
+                        />
+                        {tempsSecHerite !== null && (
+                            <span className="shrink-0 text-[9px] font-black tabular-nums text-emerald-600 dark:text-emerald-400">{tempsSecHerite}s</span>
+                        )}
                     </div>
-                )}
-            </div>
 
-            {description.trim() !== '' && !dejaConnue && (
-                <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">{tx(lang, L.nouveau)}</p>
-            )}
+                    {listeVisible && propositions.length > 0 && (
+                        <div className="absolute z-30 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg">
+                            {propositions.map(p => (
+                                <button
+                                    key={p.description}
+                                    type="button"
+                                    onMouseDown={e => { e.preventDefault(); choisir(p); }}
+                                    className="w-full text-left px-2.5 py-1.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/50 border-b border-slate-100 dark:border-dk-border/40 last:border-0"
+                                >
+                                    <span className="block text-[12px] font-black text-slate-800 dark:text-dk-text truncate">{p.description}</span>
+                                    <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted truncate">
+                                        {p.machineName ? `${p.machineName} · ` : ''}
+                                        {p.tempsMin ? `${(p.tempsMin * 60).toFixed(1)} s` : tx(lang, L.sansTemps)}
+                                        {` · ${p.occurrences} ${tx(lang, L.fois)}`}
+                                        {p.confirme ? ` · ${tx(lang, L.catalogue)}` : ''}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
 
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted mb-1">{tx(lang, L.machine)}</label>
-                    <input
-                        value={machine}
-                        onChange={e => setMachine(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-3 py-2.5 text-[13px] font-bold text-slate-800 dark:text-dk-text outline-none"
-                        placeholder="—"
-                    />
-                </div>
-                <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted mb-1">{tx(lang, L.temps)}</label>
-                    {/* Champ vide plutot que 0 : un 0 prerempli produit des « 040 ». */}
-                    <input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step="0.1"
-                        value={tempsSec}
-                        onChange={e => setTempsSec(e.target.value === '' ? '' : Number(e.target.value))}
-                        className="w-full rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-3 py-2.5 text-[13px] font-bold text-slate-800 dark:text-dk-text outline-none"
-                        placeholder="—"
-                    />
-                </div>
-                <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted mb-1">{tx(lang, L.worker)}</label>
+                <input
+                    value={machine}
+                    onChange={e => setMachine(e.target.value)}
+                    className="w-[110px] h-9 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-2 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none"
+                    placeholder={tx(lang, L.machine)}
+                />
+
+                <div className="relative w-[130px]">
                     <select
                         value={workerId}
                         onChange={e => setWorkerId(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg px-3 py-2.5 text-[13px] font-bold text-slate-800 dark:text-dk-text outline-none"
+                        className="w-full h-9 appearance-none rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg pl-2 pr-6 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none"
                     >
                         <option value="">{tx(lang, L.chooseWorker)}</option>
                         {workers.map(w => (
@@ -246,26 +224,28 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
                         ))}
                     </select>
                 </div>
-            </div>
 
-            <div className="mt-3 flex items-center gap-2">
                 <button
                     type="button"
                     onClick={valider}
                     disabled={!description.trim() || enCours}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-[12px] font-black shadow-sm hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[40px]"
+                    className="h-9 px-3 rounded-lg bg-indigo-600 text-white text-[11px] font-black flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                    {enCours ? <Loader2 className="w-4 h-4 animate-spin" /> : fait ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                    {enCours ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : fait ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
                     {tx(lang, L.valider)}
                 </button>
                 <button
                     type="button"
                     onClick={() => { reinitialiser(); setOuvert(false); }}
-                    className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft text-[12px] font-black min-h-[40px]"
+                    className="h-9 px-2 text-[11px] font-black text-slate-400"
                 >
-                    {tx(lang, L.annuler)}
+                    ×
                 </button>
             </div>
+
+            {description.trim() !== '' && !dejaConnue && (
+                <p className="mt-1 text-[9px] font-bold text-amber-600 dark:text-amber-400">{tx(lang, L.nouveau)}</p>
+            )}
         </div>
     );
 }

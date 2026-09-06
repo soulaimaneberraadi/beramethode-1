@@ -5,7 +5,7 @@ import { pauseOverlapMinutes, horairesDuJour } from '../../lib/horaires';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { useIsMobile } from '../planning/shared/useIsMobile';
-import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown, MoreVertical, Trash2 } from 'lucide-react';
+import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown, MoreVertical, Trash2, Image as ImageIcon } from 'lucide-react';
 import AjoutPosteRapide from './AjoutPosteRapide';
 import FicheOuvrier from './FicheOuvrier';
 import { signalerMesureTemps } from '../../lib/mesuresTemps';
@@ -64,13 +64,17 @@ const L = {
     reposConfirmer: { fr: 'On a produit ce jour — ouvrir le releve', ar: 'خدمنا هاد النهار — حلّ التسجيل', en: 'We produced this day — open the entry', es: 'Se produjo este dia — abrir el registro', pt: 'Houve producao neste dia — abrir o registo', tr: 'Bu gun uretim yapildi — kaydi ac' },
     reposForce: { fr: 'Jour de repos ouvert manuellement : l’horaire du reglage reste inchange.', ar: 'نهار ريبو محلول يدوياً: التوقيت فالإعدادات ما تبدّلش.', en: 'Rest day opened manually: the configured schedule is unchanged.', es: 'Dia de descanso abierto manualmente: el horario configurado no cambia.', pt: 'Dia de descanso aberto manualmente: o horario configurado nao muda.', tr: 'Dinlenme gunu elle acildi: ayarlanan mesai degismedi.' },
     voirOuvrier: { fr: 'Ouvrir la fiche de l’ouvrier', ar: 'افتح بطاقة العامل', en: 'Open the worker sheet', es: 'Abrir la ficha del operario', pt: 'Abrir a ficha do operario', tr: 'Isci kartini ac' },
-    tendanceTitre: { fr: 'Dernier creneau compare au precedent', ar: 'آخر فترة مقارنة باللي قبلها', en: 'Last slot compared with the previous one', es: 'Ultima franja comparada con la anterior', pt: 'Ultima faixa comparada com a anterior', tr: 'Son dilimin bir oncekiyle karsilastirmasi' },
+    tendanceTitre: { fr: 'Ecart avec le poste precedent de la chaine', ar: 'الفرق مع المنصب اللي قبلو فالشين', en: 'Gap with the previous poste on the line', es: 'Diferencia con el puesto anterior de la linea', pt: 'Diferenca com o posto anterior da linha', tr: 'Hattaki onceki istasyonla fark' },
     pauseTag: { fr: 'pause', ar: 'استراحة', en: 'break', es: 'pausa', pt: 'pausa', tr: 'mola' },
     piecesJour: { fr: 'pcs aujourd’hui', ar: 'قطعة اليوم', en: 'pcs today', es: 'pzs hoy', pt: 'pcs hoje', tr: 'bugun adet' },
     releves: { fr: 'Releves du jour', ar: 'تسجيلات اليوم', en: 'Day entries', es: 'Registros del dia', pt: 'Registos do dia', tr: 'Gun kayitlari' },
     relevesHint: { fr: 'Une ligne par poste. Chaque case est ce que le poste a sorti dans ce creneau — elle se corrige.', ar: 'سطر لكل منصب. كل خانة هي اللي خرّج المنصب فديك الفترة — وكتّصحّح.', en: 'One row per poste. Each cell is what the poste produced in that slot — it can be corrected.', es: 'Una fila por puesto. Cada casilla es lo que el puesto produjo en ese tramo — se puede corregir.', pt: 'Uma linha por posto. Cada celula e o que o posto produziu nessa faixa — pode ser corrigida.', tr: 'Istasyon basina bir satir. Her hucre, istasyonun o dilimde urettigidir — duzeltilebilir.' },
     tsPrevu: { fr: 'TS (s)', ar: 'TS (ث)', en: 'TS (s)', es: 'TS (s)', pt: 'TS (s)', tr: 'TS (sn)' },
     tsPrevuTitre: { fr: 'Temps standard par piece, de la gamme', ar: 'الزمن المعياري للقطعة، من الگام', en: 'Standard time per piece, from the gamme', es: 'Tiempo estandar por pieza, de la gama', pt: 'Tempo padrao por peca, da gama', tr: 'Gamme’dan parca basi standart sure' },
+    sortieChaine: { fr: 'Sortie chaine', ar: 'خروج الشين', en: 'Line output', es: 'Salida de linea', pt: 'Saida da linha', tr: 'Hat cikisi' },
+    sortieChaineTitre: { fr: 'Ce que sort le dernier poste : additionner tous les postes compterait la meme piece a chaque operation.', ar: 'اللي كيخرّج آخر منصب: جمع كل المناصب كيحسب نفس القطعة فكل عملية.', en: 'What the last poste outputs: summing every poste would count the same piece at each operation.', es: 'Lo que saca el ultimo puesto: sumar todos los puestos contaria la misma pieza en cada operacion.', pt: 'O que o ultimo posto produz: somar todos os postos contaria a mesma peca em cada operacao.', tr: 'Son istasyonun cikardigi: tum istasyonlari toplamak ayni parcayi her operasyonda sayardi.' },
+    goulot: { fr: 'Goulot', ar: 'عنق الزجاجة', en: 'Bottleneck', es: 'Cuello de botella', pt: 'Estrangulamento', tr: 'Dar bogaz' },
+    goulotTitre: { fr: 'Le poste qui produit le moins : c’est lui qui plafonne la chaine.', ar: 'المنصب اللي كينتج أقل: هو اللي كيحدّ الشين.', en: 'The poste producing the least: it caps the whole line.', es: 'El puesto que menos produce: es el que limita la linea.', pt: 'O posto que menos produz: e ele que limita a linha.', tr: 'En az ureten istasyon: hatti o sinirlar.' },
     totalGeneral: { fr: 'Total general', ar: 'المجموع العام', en: 'Grand total', es: 'Total general', pt: 'Total geral', tr: 'Genel toplam' },
     defCourt: { fr: 'Def.', ar: 'عيوب', en: 'Def.', es: 'Def.', pt: 'Def.', tr: 'Hata' },
     defTitre: { fr: 'Defauts du creneau en cours', ar: 'عيوب الفترة الجارية', en: 'Defects of the current slot', es: 'Defectos de la franja actual', pt: 'Defeitos da faixa atual', tr: 'Gecerli dilimin hatalari' },
@@ -208,10 +212,26 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         return start <= date && end >= date;
     }), [planningEvents, selectedChaineId, date]);
 
+    /* Dernier OF sur lequel on a releve : c'est celui qu'on rouvre. Sans cette
+       memoire, revenir sur la page reprenait le premier OF de la liste — et on
+       saisissait la production d'un modele sous un autre. */
+    const CLE_DERNIER_OF = 'bera_suivi_postes_dernier_of';
     const [selectedPlanningId, setSelectedPlanningId] = useState<string>('');
+    const [modeleOuvert, setModeleOuvert] = useState(false);
+
+    const choisirPlanning = (id: string) => {
+        setSelectedPlanningId(id);
+        setModeleOuvert(false);
+        try { localStorage.setItem(CLE_DERNIER_OF, id); } catch { /* navigation privee */ }
+    };
+
     useEffect(() => {
         if (planningsChaine.length === 0) { setSelectedPlanningId(''); return; }
-        if (!planningsChaine.some(p => p.id === selectedPlanningId)) setSelectedPlanningId(planningsChaine[0].id);
+        if (planningsChaine.some(p => p.id === selectedPlanningId)) return;
+        let dernier = '';
+        try { dernier = localStorage.getItem(CLE_DERNIER_OF) || ''; } catch { /* ignore */ }
+        const repris = planningsChaine.find(p => p.id === dernier);
+        setSelectedPlanningId((repris || planningsChaine[0]).id);
     }, [planningsChaine, selectedPlanningId]);
 
     const activePlanning = useMemo(
@@ -303,25 +323,53 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
     };
 
     /**
-     * Tendance du poste : le dernier creneau rempli compare au precedent.
+     * Ecart d'un poste avec le poste qui le PRECEDE dans la gamme.
      *
-     * C'est la lecture du carnet — « 150 pieces, +25 % » — et la seule qui se
-     * fasse d'un coup d'oeil au pied de la chaine : le poste accelere ou ralentit.
-     * Sans DEUX creneaux remplis il n'y a rien a comparer, et on n'affiche rien
-     * plutot qu'un pourcentage invente.
+     * Comparer un poste a sa propre heure d'avant ne dit rien d'utile : une
+     * heure creuse suit une heure pleine sans que rien n'aille mal. Sur une
+     * chaine, la question est ailleurs — ce poste suit-il celui qui l'alimente ?
+     * En dessous, il accumule un encours ; au-dessus, il a rattrape du retard.
+     *
+     * Le premier poste n'a personne devant lui : pas d'ecart, et on n'invente
+     * rien. Deux postes sans production non plus.
      */
-    const tendancePoste = (poste: Operation): { sens: 'hausse' | 'baisse'; pct: number } | null => {
-        const remplis = hourGrid.blocks
-            .map(b => celluleDe(poste.id, b.key)?.pieces_sorties || 0)
-            .filter(v => v > 0);
-        if (remplis.length < 2) return null;
-        const dernier = remplis[remplis.length - 1];
-        const avant = remplis[remplis.length - 2];
-        if (avant <= 0) return null;
-        const pct = Math.round(((dernier - avant) / avant) * 100);
+    const ecartPostePrecedent = (poste: Operation): { sens: 'hausse' | 'baisse'; pct: number } | null => {
+        const rang = postes.findIndex(p => p.id === poste.id);
+        if (rang <= 0) return null;
+        const precedent = postes[rang - 1];
+        const mien = bilanPosteBrut(poste.id);
+        const amont = bilanPosteBrut(precedent.id);
+        if (amont <= 0 || mien <= 0) return null;
+        const pct = Math.round(((mien - amont) / amont) * 100);
         if (pct === 0) return null;
         return { sens: pct > 0 ? 'hausse' : 'baisse', pct: Math.abs(pct) };
     };
+
+    /* Ce qui SORT de la chaine : le dernier poste de la gamme. Additionner tous
+       les postes comptait la meme piece a chaque operation qu'elle traverse —
+       cinq postes, cinq pieces pour une seule. */
+    const sortieChaineJour = (): number => {
+        const dernier = postes[postes.length - 1];
+        return dernier ? bilanPosteBrut(dernier.id) : 0;
+    };
+    const sortieChaineCreneau = (hourKey: string): number => {
+        const dernier = postes[postes.length - 1];
+        return dernier ? (celluleDe(dernier.id, hourKey)?.pieces_sorties || 0) : 0;
+    };
+
+    /* Le goulot : le poste qui produit le moins parmi ceux qui ont produit.
+       C'est lui qui plafonne la chaine — le reste ne sortira jamais plus vite. */
+    const goulotDuJour = (): { poste: Operation; pieces: number } | null => {
+        const candidats = postes
+            .map(p => ({ poste: p, pieces: bilanPosteBrut(p.id) }))
+            .filter(x => x.pieces > 0);
+        if (candidats.length < 2) return null;
+        return candidats.reduce((min, x) => (x.pieces < min.pieces ? x : min), candidats[0]);
+    };
+
+    /** Pieces sorties du poste aujourd'hui — la base de l'ecart ci-dessus. */
+    const bilanPosteBrut = (posteId: string): number =>
+        (suivisByPoste.get(posteId) || []).reduce((somme, r) => somme + (r.pieces_sorties || 0), 0);
 
     /** Ce qu'il faut savoir d'un poste pour la journee, sous les deux mises en page. */
     const bilanPoste = (poste: Operation) => {
@@ -609,30 +657,77 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
             {/* Modele actif : on CHOISIT l'OF de la chaine, comme sur la grille horaire.
                 Sans ce choix, deux OF sur la meme chaine et le second etait invisible. */}
             {planningsChaine.length > 0 && (
-                <div className="shrink-0 px-3 sm:px-6 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar border-b border-slate-100 dark:border-dk-border/40 bg-white dark:bg-dk-surface">
+                <div className="shrink-0 px-3 sm:px-6 py-2 flex items-center gap-2 border-b border-slate-100 dark:border-dk-border/40 bg-white dark:bg-dk-surface">
                     <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">
                         {tx(lang, L.modeleActif)}
                     </span>
-                    {planningsChaine.map(p => {
-                        const m = models.find(x => x.id === p.modelId);
-                        const ref = m?.meta_data?.reference || p.modelName || p.id.slice(0, 8);
-                        const actif = activePlanning?.id === p.id;
-                        return (
-                            <button
-                                key={p.id}
-                                type="button"
-                                onClick={() => setSelectedPlanningId(p.id)}
-                                className={`shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all min-h-[36px] ${
-                                    actif
-                                        ? 'bg-indigo-600 text-white shadow-sm'
-                                        : 'bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border border-slate-200 dark:border-dk-border'
-                                }`}
-                            >
-                                {ref}
-                                {p.qteTotal ? <span className={`ml-1.5 font-bold ${actif ? 'text-indigo-100' : 'text-slate-400 dark:text-dk-muted'}`}>{p.qteTotal} pcs</span> : null}
-                            </button>
-                        );
-                    })}
+
+                    {/* Meme repere qu'a la Grille horaire : la photo du modele, sa
+                        reference, son nom. On reconnait un modele a sa photo bien
+                        avant de lire sa reference. */}
+                    <div className="relative min-w-0">
+                        <button
+                            type="button"
+                            onClick={() => setModeleOuvert(o => !o)}
+                            className="flex items-center gap-2 max-w-[280px] rounded-xl bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-100 dark:border-dk-border px-2 py-1.5"
+                        >
+                            {activeModel?.image ? (
+                                <img src={activeModel.image} alt="" className="w-7 h-7 rounded-lg object-cover border border-indigo-100 dark:border-dk-border shrink-0" />
+                            ) : (
+                                <span className="w-7 h-7 rounded-lg border border-indigo-100 dark:border-dk-border bg-white dark:bg-dk-surface flex items-center justify-center shrink-0 text-indigo-300 dark:text-dk-muted">
+                                    <ImageIcon className="w-3.5 h-3.5" />
+                                </span>
+                            )}
+                            <span className="min-w-0 text-left">
+                                <span className="block text-[12px] font-black text-indigo-900 dark:text-dk-accent-text truncate">
+                                    {activeModel?.meta_data?.reference || activePlanning?.modelName || activeModel?.meta_data?.nom_modele || '—'}
+                                </span>
+                                <span className="block text-[9px] font-bold text-indigo-500/80 dark:text-dk-muted truncate">
+                                    {activeModel?.meta_data?.nom_modele || ''}
+                                    {activePlanning?.qteTotal ? ` · ${activePlanning.qteTotal} pcs` : ''}
+                                </span>
+                            </span>
+                            <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-indigo-400 dark:text-dk-muted transition-transform ${modeleOuvert ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {modeleOuvert && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setModeleOuvert(false)} />
+                                <div className="absolute top-full left-0 mt-2 z-50 w-72 max-h-80 overflow-y-auto rounded-2xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-xl p-1.5">
+                                    {planningsChaine.map(p => {
+                                        const m = models.find(x => x.id === p.modelId);
+                                        const ref = m?.meta_data?.reference || p.modelName || p.id.slice(0, 8);
+                                        const actif = activePlanning?.id === p.id;
+                                        return (
+                                            <button
+                                                key={p.id}
+                                                type="button"
+                                                onClick={() => choisirPlanning(p.id)}
+                                                className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl text-left transition-colors ${
+                                                    actif ? 'bg-indigo-50 dark:bg-dk-accent/20 ring-1 ring-indigo-200 dark:ring-dk-border' : 'hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
+                                                }`}
+                                            >
+                                                {m?.image ? (
+                                                    <img src={m.image} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 dark:border-dk-border/60 shrink-0" />
+                                                ) : (
+                                                    <span className="w-9 h-9 rounded-lg border border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg flex items-center justify-center shrink-0 text-slate-300 dark:text-dk-muted">
+                                                        <ImageIcon className="w-4 h-4" />
+                                                    </span>
+                                                )}
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block text-[12px] font-black text-slate-800 dark:text-dk-text truncate">{ref}</span>
+                                                    <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted truncate">
+                                                        {m?.meta_data?.nom_modele || ''}
+                                                        {p.qteTotal ? ` · ${p.qteTotal} pcs` : ''}
+                                                    </span>
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -792,12 +887,20 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                         const cellule = celluleDe(poste.id, bloc.key);
                                         const val = cellule?.pieces_sorties;
                                         const enregistre = cellSavingId === idCellule(poste.id, bloc.key);
-                                        const t = tendancePoste(poste);
+                                        const t = ecartPostePrecedent(poste);
                                         const nom = nomOuvrier(poste.id);
                                         const { total } = bilanPoste(poste);
                                         return (
                                             <div key={poste.id} className="rounded-xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface px-2.5 py-2">
                                                 <div className="flex items-center gap-2">
+                                                    <MenuPoste
+                                                        poste={poste}
+                                                        lang={lang}
+                                                        ouvert={menuPosteId === poste.id}
+                                                        onToggle={() => setMenuPosteId(cur => (cur === poste.id ? null : poste.id))}
+                                                        onChangerOuvrier={() => { setChangementOuvrier(poste.id); setMenuPosteId(null); }}
+                                                        onSupprimer={onRemovePoste ? () => void supprimerPoste(poste) : undefined}
+                                                    />
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex items-center gap-1.5 min-w-0">
                                                             <p className="font-black text-[13px] text-slate-800 dark:text-dk-text truncate">{poste.description || poste.id}</p>
@@ -825,26 +928,29 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                         )}
                                                     </div>
 
-                                                    {/* La case du creneau : le seul geste de cet ecran. */}
-                                                    <input
-                                                        type="text"
-                                                        inputMode="numeric"
-                                                        pattern="[0-9]*"
-                                                        disabled={futur}
-                                                        value={val === undefined || val === null || val === 0 ? '' : String(val)}
-                                                        onChange={(e) => {
-                                                            const chiffres = e.target.value.replace(/[^0-9]/g, '');
-                                                            void saveCellule(poste, bloc.key, chiffres === '' ? null : parseInt(chiffres, 10));
-                                                        }}
-                                                        placeholder="—"
-                                                        aria-label={tx(lang, L.productionHeure)}
-                                                        className={`shrink-0 w-[72px] h-12 text-center text-[17px] font-black tabular-nums rounded-xl border outline-none transition-all ${
-                                                            futur
-                                                                ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
-                                                                : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
-                                                        } ${enregistre ? 'opacity-60' : ''}`}
-                                                    />
+                                                    <span className="shrink-0 text-[10px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">{total} pcs</span>
                                                 </div>
+
+                                                {/* La case du creneau : le seul geste de cet ecran, donc
+                                                    la pleine largeur et le doigt qui tombe dessus. */}
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]*"
+                                                    disabled={futur}
+                                                    value={val === undefined || val === null || val === 0 ? '' : String(val)}
+                                                    onChange={(e) => {
+                                                        const chiffres = e.target.value.replace(/[^0-9]/g, '');
+                                                        void saveCellule(poste, bloc.key, chiffres === '' ? null : parseInt(chiffres, 10));
+                                                    }}
+                                                    placeholder="—"
+                                                    aria-label={tx(lang, L.productionHeure)}
+                                                    className={`mt-1.5 w-full h-12 text-center text-[18px] font-black tabular-nums rounded-xl border outline-none transition-all ${
+                                                        futur
+                                                            ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
+                                                            : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
+                                                    } ${enregistre ? 'opacity-60' : ''}`}
+                                                />
 
                                                 {/* Le reste tient sur une ligne discrete : on le lit si on
                                                     le cherche, il ne gene pas le geste de saisie. */}
@@ -869,17 +975,8 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                             <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                                                         </div>
                                                     ) : (
-                                                        <MenuPoste
-                                                            poste={poste}
-                                                            lang={lang}
-                                                            ouvert={menuPosteId === poste.id}
-                                                            onToggle={() => setMenuPosteId(cur => (cur === poste.id ? null : poste.id))}
-                                                            onChangerOuvrier={() => { setChangementOuvrier(poste.id); setMenuPosteId(null); }}
-                                                            onSupprimer={onRemovePoste ? () => void supprimerPoste(poste) : undefined}
-                                                        />
+                                                        <span className="flex-1" />
                                                     )}
-                                                    <span className="flex-1" />
-                                                    <span className="shrink-0 text-[10px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">{total} pcs</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => setChronoOpenFor(cur => (cur === poste.id ? null : poste.id))}
@@ -912,13 +1009,26 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
 
                                     {/* Le total du creneau affiche, puis celui de la journee. */}
                                     <div className="rounded-xl border border-slate-200 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-elevated/40 px-2.5 py-2 flex items-center justify-between">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">{tx(lang, L.totalGeneral)}</span>
-                                        <span className="text-right">
+                                        <span className="min-w-0">
+                                            <span className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted" title={tx(lang, L.sortieChaineTitre)}>
+                                                {tx(lang, L.sortieChaine)}
+                                            </span>
+                                            {(() => {
+                                                const g = goulotDuJour();
+                                                if (!g) return null;
+                                                return (
+                                                    <span className="block text-[9px] font-bold text-amber-600 dark:text-amber-400 truncate" title={tx(lang, L.goulotTitre)}>
+                                                        {tx(lang, L.goulot)} : {g.poste.description || g.poste.id} ({g.pieces})
+                                                    </span>
+                                                );
+                                            })()}
+                                        </span>
+                                        <span className="text-right shrink-0">
                                             <span className="block text-[14px] font-black tabular-nums text-emerald-700 dark:text-emerald-300">
-                                                {postes.reduce((acc, poste) => acc + (celluleDe(poste.id, bloc.key)?.pieces_sorties || 0), 0) || '—'}
+                                                {sortieChaineCreneau(bloc.key) || '—'}
                                             </span>
                                             <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">
-                                                {postes.reduce((acc, poste) => acc + bilanPoste(poste).total, 0)} {tx(lang, L.piecesJour)}
+                                                {sortieChaineJour()} {tx(lang, L.piecesJour)}
                                             </span>
                                         </span>
                                     </div>
@@ -1128,7 +1238,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                     <td className="px-2 py-2 text-center bg-emerald-50/40 dark:bg-emerald-900/5 font-black tabular-nums text-slate-800 dark:text-dk-text">
                                                         {totalJour || '—'}
                                                         {(() => {
-                                                            const t = tendancePoste(poste);
+                                                            const t = ecartPostePrecedent(poste);
                                                             if (!t) return null;
                                                             return (
                                                                 <span
@@ -1180,24 +1290,30 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                 <tfoot>
                                     <tr className="bg-slate-50 dark:bg-dk-elevated/60 border-t-2 border-slate-200 dark:border-dk-border">
                                         <td />
-                                        <td className="px-3 py-2.5 sticky left-0 bg-slate-50 dark:bg-dk-elevated/60 z-10 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">
-                                            {tx(lang, L.totalGeneral)}
+                                        <td className="px-3 py-2.5 sticky left-0 bg-slate-50 dark:bg-dk-elevated/60 z-10 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted" title={tx(lang, L.sortieChaineTitre)}>
+                                            {tx(lang, L.sortieChaine)}
+                                            {(() => {
+                                                const g = goulotDuJour();
+                                                if (!g) return null;
+                                                return (
+                                                    <span className="block normal-case tracking-normal text-[9px] font-bold text-amber-600 dark:text-amber-400 truncate" title={tx(lang, L.goulotTitre)}>
+                                                        {tx(lang, L.goulot)} : {g.poste.description || g.poste.id} ({g.pieces})
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
                                         <td />
                                         <td />
-                                        {hourGrid.blocks.map(b => {
-                                            const somme = postes.reduce((acc, poste) => acc + (celluleDe(poste.id, b.key)?.pieces_sorties || 0), 0);
-                                            return (
-                                                <td key={b.key} className="px-1 py-2.5 text-center font-black tabular-nums text-slate-700 dark:text-dk-text border-l border-slate-100 dark:border-dk-border/40">
-                                                    {somme || '—'}
-                                                </td>
-                                            );
-                                        })}
+                                        {hourGrid.blocks.map(b => (
+                                            <td key={b.key} className="px-1 py-2.5 text-center font-black tabular-nums text-slate-700 dark:text-dk-text border-l border-slate-100 dark:border-dk-border/40">
+                                                {sortieChaineCreneau(b.key) || '—'}
+                                            </td>
+                                        ))}
                                         <td className="px-2 py-2.5 text-center font-bold tabular-nums text-slate-500 dark:text-dk-muted border-l border-slate-200 dark:border-dk-border/60">
                                             {postes.reduce((acc, poste) => acc + (celluleDe(poste.id, nowBlock.key)?.pieces_defaut || 0), 0) || '—'}
                                         </td>
-                                        <td className="px-2 py-2.5 text-center font-black tabular-nums text-emerald-700 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-900/10">
-                                            {postes.reduce((acc, poste) => acc + (suivisByPoste.get(poste.id) || []).reduce((s2, r) => s2 + (r.pieces_sorties || 0), 0), 0) || '—'}
+                                        <td className="px-2 py-2.5 text-center font-black tabular-nums text-emerald-700 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-900/10" title={tx(lang, L.sortieChaineTitre)}>
+                                            {sortieChaineJour() || '—'}
                                         </td>
                                         <td className="px-2 py-2.5 text-center bg-slate-800 dark:bg-dk-elevated">
                                             {(() => {
