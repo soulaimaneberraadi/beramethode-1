@@ -6,6 +6,7 @@ import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 import type { ModelData, AppSettings, ChronoData, Operation, PosteSuiviData, HRWorker } from '../types';
 import { useRouteParam } from '../lib/router';
+import { EVT_MESURE_TEMPS } from '../lib/mesuresTemps';
 import {
     Search, X, Layers, Boxes, Cpu, Gauge, TrendingUp,
     Database, Sparkles, ArrowUpDown, ShieldCheck, CircleAlert, Shirt, User, Ruler,
@@ -247,30 +248,45 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
        les temps restaient marques « TS gamme (estime) » alors qu'ils avaient
        bel et bien ete mesures. On les lit ici au meme titre que le reste. */
     const [seancesChrono, setSeancesChrono] = useState<SeanceChrono[]>([]);
-    useEffect(() => {
-        let annule = false;
-        (async () => {
-            try {
-                const [rs, rw, rc] = await Promise.all([
-                    fetch('/api/poste-suivi', { credentials: 'include' }),
-                    fetch('/api/hr/workers?active=1', { credentials: 'include' }),
-                    fetch('/api/chrono/sessions', { credentials: 'include' }),
-                ]);
-                const ds = rs.ok ? await rs.json() : [];
-                const dw = rw.ok ? await rw.json() : [];
-                const dc = rc.ok ? await rc.json() : [];
-                if (!annule) {
-                    setRelevesPostes(Array.isArray(ds) ? ds : []);
-                    setOuvriers(Array.isArray(dw) ? dw : []);
-                    setSeancesChrono(Array.isArray(dc) ? dc : []);
-                }
-            } catch (e) {
-                // Le catalogue reste utilisable sans ces relevés : on n'affiche pas d'erreur bloquante.
-                console.error('CatalogueTemps: relevés postes indisponibles', e);
-            }
-        })();
-        return () => { annule = true; };
+    /* Le catalogue se rafraichit tout seul : une mesure prise au pied de la
+       chaine doit y apparaitre sans qu'on ressorte de la page pour y revenir.
+       Trois declencheurs, du plus immediat au plus paresseux : l'evenement
+       emis par l'ecran qui vient d'enregistrer, le retour sur l'onglet, et
+       un rappel periodique quand l'onglet reste ouvert et visible. */
+    const rafraichirMesures = useCallback(async () => {
+        try {
+            const [rs, rw, rc] = await Promise.all([
+                fetch('/api/poste-suivi', { credentials: 'include' }),
+                fetch('/api/hr/workers?active=1', { credentials: 'include' }),
+                fetch('/api/chrono/sessions', { credentials: 'include' }),
+            ]);
+            const ds = rs.ok ? await rs.json() : [];
+            const dw = rw.ok ? await rw.json() : [];
+            const dc = rc.ok ? await rc.json() : [];
+            setRelevesPostes(Array.isArray(ds) ? ds : []);
+            setOuvriers(Array.isArray(dw) ? dw : []);
+            setSeancesChrono(Array.isArray(dc) ? dc : []);
+        } catch (e) {
+            // Le catalogue reste utilisable sans ces relevés : on n'affiche pas d'erreur bloquante.
+            console.error('CatalogueTemps: relevés postes indisponibles', e);
+        }
     }, []);
+
+    useEffect(() => {
+        rafraichirMesures();
+        const surMesure = () => rafraichirMesures();
+        const surVisibilite = () => { if (!document.hidden) rafraichirMesures(); };
+        window.addEventListener(EVT_MESURE_TEMPS, surMesure);
+        window.addEventListener('focus', surMesure);
+        document.addEventListener('visibilitychange', surVisibilite);
+        const rappel = window.setInterval(() => { if (!document.hidden) rafraichirMesures(); }, 45000);
+        return () => {
+            window.removeEventListener(EVT_MESURE_TEMPS, surMesure);
+            window.removeEventListener('focus', surMesure);
+            document.removeEventListener('visibilitychange', surVisibilite);
+            window.clearInterval(rappel);
+        };
+    }, [rafraichirMesures]);
 
     const [query, setQuery] = useState('');
     const [machineFilter, setMachineFilter] = useState<string | null>(null);

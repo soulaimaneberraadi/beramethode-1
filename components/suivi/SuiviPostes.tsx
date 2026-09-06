@@ -6,6 +6,7 @@ import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown } from 'lucide-react';
 import AjoutPosteRapide from './AjoutPosteRapide';
+import { signalerMesureTemps } from '../../lib/mesuresTemps';
 
 interface Props {
     models: ModelData[];
@@ -231,6 +232,8 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                     return [...others, payload];
                 });
                 setSavedId(poste.id);
+                // Le Catalogue de Temps attend ce signal pour se rafraichir.
+                signalerMesureTemps();
                 setTimeout(() => setSavedId(cur => (cur === poste.id ? null : cur)), 1800);
                 // On garde l'ouvrier choisi (saisie repetee dans l'heure), on vide qte/defauts/chrono.
                 setDraft(poste.id, { qty: '', defauts: '', tempsMs: null });

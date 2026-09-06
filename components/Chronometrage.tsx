@@ -11,6 +11,7 @@ import WorkerPicker, { type WorkersStatus } from './shared/WorkerPicker';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
+import { signalerMesureTemps } from '../lib/mesuresTemps';
 
 interface ChronometrageProps {
     operations: Operation[];
@@ -1297,6 +1298,8 @@ export default function Chronometrage({
             if (res.ok) {
                 const saved = await res.json();
                 setSessions(prev => [...prev, { ...session, ...saved }]);
+                // Une seance enregistree alimente le Catalogue de Temps : previens-le.
+                signalerMesureTemps();
             }
         } catch { /* fallback to local only */ }
         setShowCreateDialog(false);
@@ -1307,6 +1310,7 @@ export default function Chronometrage({
             await fetch(`/api/chrono/sessions/${id}`, { method: 'DELETE', credentials: 'include' });
         } catch { /* continue even if API fails */ }
         setSessions(prev => prev.filter(s => s.id !== id));
+        signalerMesureTemps();
         if (selectedSession?.id === id) setSelectedSession(null);
     }, [selectedSession]);
 
