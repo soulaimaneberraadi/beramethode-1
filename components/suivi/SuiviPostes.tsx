@@ -16,6 +16,8 @@ interface Props {
     setSelectedChaineId: (id: string) => void;
     globalDate?: string;
     setGlobalDate?: (d: string) => void;
+    /** Ouvre l'atelier des methodes sur l'etape Gamme du modele donne. */
+    onOpenGamme?: (modelId: string) => void;
 }
 
 const L = {
@@ -24,6 +26,7 @@ const L = {
     noModel: { fr: 'Aucun modèle planifié sur cette chaîne pour cette date', ar: 'لا يوجد نموذج مخطط لهذه السلسلة في هذا التاريخ', en: 'No model planned on this line for this date', es: 'Ningún modelo planificado en esta línea para esta fecha', pt: 'Nenhum modelo planeado nesta linha para esta data', tr: 'Bu tarihte bu hatta planlanmış model yok' },
     noModelIntrouvable: { fr: "L'OF selectionne pointe vers un modele introuvable (il a ete supprime ou renomme). Ouvrez le Planning et rattachez l'OF a un modele.", ar: 'الـ OF المحدَّد يشير إلى موديل غير موجود (حُذف أو غُيّر). افتح Planning وأعد ربط الـ OF بموديل.', en: 'The selected OF points to a missing model (deleted or renamed). Open Planning and re-attach the OF to a model.', es: 'La OF seleccionada apunta a un modelo inexistente (eliminado o renombrado). Abra Planning y vuelva a vincular la OF.', pt: 'A OF selecionada aponta para um modelo inexistente (eliminado ou renomeado). Abra o Planning e volte a associar a OF.', tr: 'Secili OF eksik bir modele isaret ediyor (silinmis veya yeniden adlandirilmis). Planning ekranindan OF u bir modele yeniden baglayin.' },
     noGamme: { fr: "Ce modele n'a pas encore de gamme operatoire : il n'y a donc aucun poste a relever. Ingenierie › Gamme operatoire.", ar: 'هذا الموديل ما عندوش گام عملياتي بعد: ما كاين حتى منصب باش نسجّلو. Ingénierie › Gamme opératoire.', en: 'This model has no operation sheet yet, so there is no poste to record. Engineering › Gamme.', es: 'Este modelo aun no tiene gama operativa: no hay ningun puesto que registrar. Ingenieria › Gama.', pt: 'Este modelo ainda nao tem gama operatoria: nao ha nenhum posto a registar. Engenharia › Gama.', tr: 'Bu modelin henuz operasyon listesi yok, bu yuzden kaydedilecek istasyon da yok. Muhendislik › Gamme.' },
+    ouvrirGamme: { fr: 'Remplir la gamme de ce modele', ar: 'عمّر الگام ديال هاد الموديل', en: 'Fill this model’s gamme', es: 'Completar la gama de este modelo', pt: 'Preencher a gama deste modelo', tr: 'Bu modelin gamme’ini doldur' },
     poste: { fr: 'Poste', ar: 'المحطة', en: 'Poste', es: 'Puesto', pt: 'Posto', tr: 'İstasyon' },
     machine: { fr: 'Machine', ar: 'الآلة', en: 'Machine', es: 'Máquina', pt: 'Máquina', tr: 'Makine' },
     worker: { fr: 'Ouvrier', ar: 'العامل', en: 'Worker', es: 'Operario', pt: 'Operário', tr: 'İşçi' },
@@ -78,7 +81,7 @@ function todayStr(): string {
     return new Date().toISOString().split('T')[0];
 }
 
-export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate }: Props) {
+export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme }: Props) {
     const { lang } = useLang();
     /* Le releve se fait au pied de la chaine, telephone en main : sur petit
        ecran chaque poste devient une carte, un tableau de sept colonnes n'y
@@ -562,8 +565,21 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                        disparu, ou un modele sans gamme. On dit laquelle, et ou aller
                        la corriger — sinon la page semble cassee alors que l'OF est
                        bien la, affiche juste au-dessus. */
-                    <div className="flex items-center justify-center py-16 text-slate-400 dark:text-dk-muted text-sm font-bold text-center px-6 max-w-2xl mx-auto">
-                        {tx(lang, !activePlanning ? L.noModel : (!activeModel ? L.noModelIntrouvable : L.noGamme))}
+                    <div className="flex flex-col items-center justify-center py-16 gap-4 px-6 max-w-2xl mx-auto">
+                        <p className="text-slate-400 dark:text-dk-muted text-sm font-bold text-center">
+                            {tx(lang, !activePlanning ? L.noModel : (!activeModel ? L.noModelIntrouvable : L.noGamme))}
+                        </p>
+                        {/* La gamme se remplit dans l'atelier des methodes : on y va d'ici,
+                            sur le modele concerne, plutot que de le faire rechercher. */}
+                        {activeModel && postes.length === 0 && onOpenGamme && (
+                            <button
+                                type="button"
+                                onClick={() => onOpenGamme(activeModel.id)}
+                                className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-[12px] font-black shadow-sm hover:bg-indigo-700 transition-colors min-h-[40px]"
+                            >
+                                {tx(lang, L.ouvrirGamme)}
+                            </button>
+                        )}
                     </div>
                 ) : (
                   <>

@@ -36,6 +36,8 @@ interface Props {
     setSelectedChaineId?: (chaineId: string) => void;
     globalDate?: string;
     setGlobalDate?: (date: string) => void;
+    /** Ouvre l'atelier des methodes sur l'etape Gamme du modele donne. */
+    onOpenGamme?: (modelId: string) => void;
 }
 
 const SUIVI_LABELS = {
@@ -132,6 +134,7 @@ export default function SuiviProduction({
     setSelectedChaineId: propSetSelectedChaineId,
     globalDate,
     setGlobalDate,
+    onOpenGamme,
 }: Props) {
     // 1. Core States
     const { lang } = useLang();
@@ -1575,6 +1578,7 @@ export default function SuiviProduction({
                     setSelectedChaineId={setSelectedChaineId}
                     globalDate={globalDate}
                     setGlobalDate={setGlobalDate}
+                    onOpenGamme={onOpenGamme}
                 />
             ) : (
             <>

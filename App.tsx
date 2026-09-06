@@ -2176,6 +2176,16 @@ export default function App() {
                                 setSelectedChaineId={setGlobalChaineId}
                                 globalDate={globalDate}
                                 setGlobalDate={setGlobalDate}
+                                onOpenGamme={(modelId) => {
+                                    const m = models.find(x => x.id === modelId);
+                                    if (!m) return;
+                                    setWorkflowInitialStep('gamme');
+                                    // Contexte 'planning' : on vient d'un OF planifie, comme les
+                                    // autres ouvertures depuis le suivi.
+                                    loadModel(m, 'planning');
+                                    setCurrentView('ingenierie');
+                                    navigate('ingenierie');
+                                }}
                             />
                         </div>
                     )}
