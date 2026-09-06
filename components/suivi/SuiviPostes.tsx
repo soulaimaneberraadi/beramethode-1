@@ -5,7 +5,7 @@ import { pauseOverlapMinutes, horairesDuJour } from '../../lib/horaires';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { useIsMobile } from '../planning/shared/useIsMobile';
-import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown } from 'lucide-react';
+import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown, MoreVertical, Trash2 } from 'lucide-react';
 import AjoutPosteRapide from './AjoutPosteRapide';
 import FicheOuvrier from './FicheOuvrier';
 import { signalerMesureTemps } from '../../lib/mesuresTemps';
@@ -23,6 +23,8 @@ interface Props {
     onOpenGamme?: (modelId: string) => void;
     /** Ajoute une operation a la gamme du modele et la persiste. */
     onAddPoste?: (modelId: string, op: Operation) => Promise<void>;
+    /** Retire une operation de la gamme du modele. Les releves deja faits restent. */
+    onRemovePoste?: (modelId: string, posteId: string) => Promise<void>;
 }
 
 const L = {
@@ -57,8 +59,10 @@ const L = {
     creneauPrecedent: { fr: 'Creneau precedent', ar: 'الفترة السابقة', en: 'Previous slot', es: 'Franja anterior', pt: 'Faixa anterior', tr: 'Onceki dilim' },
     creneauSuivant: { fr: 'Creneau suivant', ar: 'الفترة الموالية', en: 'Next slot', es: 'Franja siguiente', pt: 'Faixa seguinte', tr: 'Sonraki dilim' },
     sansOuvrier: { fr: 'Sans ouvrier', ar: 'بلا عامل', en: 'No worker', es: 'Sin operario', pt: 'Sem operario', tr: 'Isci yok' },
-    repos: { fr: 'Jour de repos — aucun creneau de production', ar: 'نهار ريبو — ما كاين حتى فترة إنتاج', en: 'Rest day — no production slot', es: 'Dia de descanso — sin franja de produccion', pt: 'Dia de descanso — sem faixa de producao', tr: 'Dinlenme gunu — uretim dilimi yok' },
-    reposHint: { fr: 'L’horaire de ce jour est ferme (Admin › Horaires). Changez la date en haut pour relever un autre jour.', ar: 'توقيت هاد النهار مسدود (Admin › Horaires). بدّل التاريخ لفوق باش تسجّل نهار آخر.', en: 'This day is closed in the schedule (Admin › Hours). Change the date above to record another day.', es: 'Este dia esta cerrado en el horario (Admin › Horarios). Cambie la fecha arriba para registrar otro dia.', pt: 'Este dia esta fechado no horario (Admin › Horarios). Mude a data acima para registar outro dia.', tr: 'Bu gun mesaide kapali (Admin › Saatler). Baska bir gun icin yukaridan tarihi degistirin.' },
+    repos: { fr: 'Aucun suivi — jour de repos', ar: 'ما كاين حتى سويفي — نهار ريبو', en: 'No tracking — rest day', es: 'Sin seguimiento — dia de descanso', pt: 'Sem acompanhamento — dia de descanso', tr: 'Takip yok — dinlenme gunu' },
+    reposHint: { fr: 'Ce jour est ferme dans l’horaire (Admin › Horaires). Rien n’est enregistre tant que vous n’avez pas confirme qu’on a produit.', ar: 'هاد النهار مسدود فالتوقيت (Admin › Horaires). ما كيتسجّل والو حتى تأكّد بلي خدمتو فيه.', en: 'This day is closed in the schedule (Admin › Hours). Nothing is recorded until you confirm production happened.', es: 'Este dia esta cerrado en el horario (Admin › Horarios). No se registra nada hasta que confirme que se produjo.', pt: 'Este dia esta fechado no horario (Admin › Horarios). Nada e registado ate confirmar que houve producao.', tr: 'Bu gun mesaide kapali (Admin › Saatler). Uretim yapildigini onaylayana kadar hicbir sey kaydedilmez.' },
+    reposConfirmer: { fr: 'On a produit ce jour — ouvrir le releve', ar: 'خدمنا هاد النهار — حلّ التسجيل', en: 'We produced this day — open the entry', es: 'Se produjo este dia — abrir el registro', pt: 'Houve producao neste dia — abrir o registo', tr: 'Bu gun uretim yapildi — kaydi ac' },
+    reposForce: { fr: 'Jour de repos ouvert manuellement : l’horaire du reglage reste inchange.', ar: 'نهار ريبو محلول يدوياً: التوقيت فالإعدادات ما تبدّلش.', en: 'Rest day opened manually: the configured schedule is unchanged.', es: 'Dia de descanso abierto manualmente: el horario configurado no cambia.', pt: 'Dia de descanso aberto manualmente: o horario configurado nao muda.', tr: 'Dinlenme gunu elle acildi: ayarlanan mesai degismedi.' },
     voirOuvrier: { fr: 'Ouvrir la fiche de l’ouvrier', ar: 'افتح بطاقة العامل', en: 'Open the worker sheet', es: 'Abrir la ficha del operario', pt: 'Abrir a ficha do operario', tr: 'Isci kartini ac' },
     tendanceTitre: { fr: 'Dernier creneau compare au precedent', ar: 'آخر فترة مقارنة باللي قبلها', en: 'Last slot compared with the previous one', es: 'Ultima franja comparada con la anterior', pt: 'Ultima faixa comparada com a anterior', tr: 'Son dilimin bir oncekiyle karsilastirmasi' },
     pauseTag: { fr: 'pause', ar: 'استراحة', en: 'break', es: 'pausa', pt: 'pausa', tr: 'mola' },
@@ -70,6 +74,20 @@ const L = {
     totalGeneral: { fr: 'Total general', ar: 'المجموع العام', en: 'Grand total', es: 'Total general', pt: 'Total geral', tr: 'Genel toplam' },
     defCourt: { fr: 'Def.', ar: 'عيوب', en: 'Def.', es: 'Def.', pt: 'Def.', tr: 'Hata' },
     defTitre: { fr: 'Defauts du creneau en cours', ar: 'عيوب الفترة الجارية', en: 'Defects of the current slot', es: 'Defectos de la franja actual', pt: 'Defeitos da faixa atual', tr: 'Gecerli dilimin hatalari' },
+    menuPoste: { fr: 'Actions du poste', ar: 'إجراءات المنصب', en: 'Poste actions', es: 'Acciones del puesto', pt: 'Acoes do posto', tr: 'Istasyon islemleri' },
+    changerOuvrier: { fr: 'Changer l’ouvrier', ar: 'بدّل العامل', en: 'Change the worker', es: 'Cambiar el operario', pt: 'Mudar o operario', tr: 'Isciyi degistir' },
+    supprimerPoste: { fr: 'Supprimer le poste', ar: 'مسح المنصب', en: 'Delete the poste', es: 'Eliminar el puesto', pt: 'Eliminar o posto', tr: 'Istasyonu sil' },
+    supprimerConfirme: { fr: 'Retirer ce poste de la gamme ? Les releves deja saisis sont conserves, mais le poste disparait de cette liste.', ar: 'تمسح هاد المنصب من الگام؟ التسجيلات اللي دايرين كيبقاو، ولكن المنصب غادي يختافى من هاد اللائحة.', en: 'Remove this poste from the gamme? Entries already recorded are kept, but the poste disappears from this list.', es: '¿Quitar este puesto de la gama? Los registros ya introducidos se conservan, pero el puesto desaparece de esta lista.', pt: 'Remover este posto da gama? Os registos ja feitos sao mantidos, mas o posto desaparece desta lista.', tr: 'Bu istasyon gammeden kaldirilsin mi? Girilen kayitlar korunur, ancak istasyon bu listeden kaybolur.' },
+    aucunOuvrier: { fr: 'Aucun ouvrier enregistre — Gestion RH', ar: 'ما كاين حتى عامل مسجّل — Gestion RH', en: 'No worker registered — HR', es: 'Ningun operario registrado — RRHH', pt: 'Nenhum operario registado — RH', tr: 'Kayitli isci yok — IK' },
+    chronoTour: { fr: 'Tour', ar: 'دورة', en: 'Lap', es: 'Vuelta', pt: 'Volta', tr: 'Tur' },
+    chronoTTour: { fr: 'T. tour', ar: 'زمن الدورة', en: 'Lap time', es: 'T. vuelta', pt: 'T. volta', tr: 'Tur suresi' },
+    chronoTTotal: { fr: 'T. total', ar: 'الزمن الكلي', en: 'Total time', es: 'T. total', pt: 'T. total', tr: 'Toplam sure' },
+    chronoEffacer: { fr: 'Effacer', ar: 'مسح', en: 'Clear', es: 'Borrar', pt: 'Limpar', tr: 'Temizle' },
+    chronoAnnuler: { fr: 'Annuler', ar: 'تراجع', en: 'Undo', es: 'Deshacer', pt: 'Anular', tr: 'Geri al' },
+    chronoArret: { fr: 'Arret', ar: 'وقف', en: 'Stop', es: 'Parar', pt: 'Parar', tr: 'Dur' },
+    chronoDebut: { fr: 'Debut', ar: 'ابدأ', en: 'Start', es: 'Iniciar', pt: 'Iniciar', tr: 'Basla' },
+    chronoMoyenne: { fr: 'Moyenne / piece', ar: 'المعدّل / قطعة', en: 'Average / piece', es: 'Media / pieza', pt: 'Media / peca', tr: 'Ortalama / parca' },
+    chronoAide: { fr: 'Un tour = un cycle du poste. La moyenne des tours devient le temps par piece mesure.', ar: 'دورة = سيكل ديال المنصب. معدّل الدورات كيولّي هو الزمن المقيس للقطعة.', en: 'One lap = one cycle of the poste. The lap average becomes the measured time per piece.', es: 'Una vuelta = un ciclo del puesto. La media de vueltas es el tiempo medido por pieza.', pt: 'Uma volta = um ciclo do posto. A media das voltas torna-se o tempo medido por peca.', tr: 'Bir tur = istasyonun bir dongusu. Tur ortalamasi olculen parca suresi olur.' },
     chronoTitre: { fr: 'Chronometrer ce poste', ar: 'قيس زمن هاد المنصب', en: 'Time this poste', es: 'Cronometrar este puesto', pt: 'Cronometrar este posto', tr: 'Bu istasyonu olc' },
     chronoSansPieces: { fr: 'Notez d’abord des pieces dans le creneau en cours : le temps mesure s’y rattache.', ar: 'سجّل الأول القطع فالفترة الجارية: الزمن المقيس كيتربط بيها.', en: 'Record pieces in the current slot first: the measured time attaches to it.', es: 'Registre primero piezas en la franja actual: el tiempo medido se asocia a ella.', pt: 'Registe primeiro pecas na faixa atual: o tempo medido associa-se a ela.', tr: 'Once gecerli dilime parca girin: olculen sure ona baglanir.' },
     primeJour: { fr: 'Jour', ar: 'اليوم', en: 'Day', es: 'Día', pt: 'Dia', tr: 'Gün' },
@@ -96,7 +114,7 @@ function todayStr(): string {
     return new Date().toISOString().split('T')[0];
 }
 
-export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste }: Props) {
+export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste }: Props) {
     const { lang } = useLang();
     /* Le releve se fait au pied de la chaine, telephone en main : un tableau
        de douze colonnes n'y tient pas. Sur petit ecran, les creneaux se lisent
@@ -112,6 +130,11 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
        tient au pied de la chaine. Deplacable d'une fleche pour rattraper l'heure
        d'avant sans changer de page. `null` = suivre l'heure qui tourne. */
     const [creneauVise, setCreneauVise] = useState<string | null>(null);
+
+    /** Poste dont le menu « ⋮ » est ouvert. */
+    const [menuPosteId, setMenuPosteId] = useState<string | null>(null);
+    /** Poste dont on est en train de changer l'ouvrier (le selecteur s'affiche). */
+    const [changementOuvrier, setChangementOuvrier] = useState<string | null>(null);
 
     /** Ouvrier dont la fiche est ouverte (son historique complet). */
     const [ficheOuvrierId, setFicheOuvrierId] = useState<string | null>(null);
@@ -144,7 +167,33 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
     /* Les creneaux sont ceux du jour saisi : sinon un vendredi personnalise
        proposerait les heures des autres jours, et l'objectif du creneau (donc le
        score de l'ouvrier) serait calcule sur une duree qui n'existe pas. */
-    const hourGrid = useMemo(() => deriveHourGrid(settings, date ? new Date(date) : undefined), [settings, date]);
+    /* Jours de repos que l'utilisateur a confirmes comme travailles (rattrapage,
+       samedi exceptionnel). Garde par navigateur : c'est une decision d'affichage,
+       pas une donnee de production — celle-ci vit dans les releves eux-memes. */
+    const [joursForces, setJoursForces] = useState<string[]>(() => {
+        try { return JSON.parse(localStorage.getItem('bera_suivi_postes_jours_forces') || '[]'); } catch { return []; }
+    });
+    const forcerJour = (jour: string) => {
+        setJoursForces(prev => {
+            if (prev.includes(jour)) return prev;
+            const suite = [...prev, jour];
+            try { localStorage.setItem('bera_suivi_postes_jours_forces', JSON.stringify(suite)); } catch { /* navigation privee */ }
+            return suite;
+        });
+    };
+
+    /* Un jour ferme qui porte DEJA des releves est ouvert de lui-meme : la
+       donnee prouve qu'on y a produit, la redemander serait absurde. */
+    const jourDejaReleve = useMemo(
+        () => posteSuivis.some(r => r.date === date && (r.pieces_sorties || 0) > 0),
+        [posteSuivis, date],
+    );
+    const jourForce = joursForces.includes(date) || jourDejaReleve;
+
+    const hourGrid = useMemo(
+        () => deriveHourGrid(settings, date ? new Date(date) : undefined, { ignorerFermeture: jourForce }),
+        [settings, date, jourForce],
+    );
     const nowBlock = useMemo(() => currentHourBlock(hourGrid.hours, hourGrid.keys), [hourGrid]);
 
     /* TOUS les OF de la chaine qui couvrent la date, et on en choisit un — comme
@@ -234,6 +283,16 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         if (!activeModel || !onAddPoste) return;
         await onAddPoste(activeModel.id, op);
         if (workerId) setDraft(op.id, { workerId });
+    };
+
+    /* Retirer un poste NE detruit aucun releve : les lignes de poste_suivi
+       gardent leur trace, seule la gamme perd la ligne. On le dit avant, sinon
+       l'utilisateur croit effacer sa journee. */
+    const supprimerPoste = async (poste: Operation) => {
+        if (!activeModel || !onRemovePoste) return;
+        if (!window.confirm(tx(lang, L.supprimerConfirme))) return;
+        setMenuPosteId(null);
+        await onRemovePoste(activeModel.id, poste.id);
     };
 
     /** Nom de l'ouvrier qui tient le poste aujourd'hui, vide s'il n'y en a pas. */
@@ -337,16 +396,17 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
     const saveCellule = (poste: Operation, hourKey: string, valeur: number | null) =>
         ecrireCellule(poste, hourKey, { pieces_sorties: valeur ?? 0, pieces_entrees: valeur ?? 0 });
 
-    /* Le chrono mesure des millisecondes pour un lot de pieces ; la gamme et le
-       score comptent en MINUTES par piece. La conversion se fait ici, une seule
-       fois : une seconde prise pour une minute fausserait le score d'un facteur 60.
-       Sans pieces notees dans le creneau, la mesure n'a pas de diviseur — on ne
-       l'invente pas. */
-    const appliquerChrono = async (poste: Operation, ms: number) => {
-        const cellule = celluleDe(poste.id, nowBlock.key);
-        const pieces = cellule?.pieces_sorties || 0;
-        if (pieces <= 0) return;
-        const tpp = Number(((ms / 60000) / pieces).toFixed(4));
+    /* Le chrono mesure UN CYCLE du poste (la moyenne de ses tours) : c'est deja
+       un temps par piece. Il ne se divise donc par rien — auparavant on le
+       partageait par les pieces du creneau, ce qui donnait un temps d'autant
+       plus court qu'on avait produit, et un score qui montait tout seul.
+
+       La gamme et le score comptent en MINUTES ; le chrono en millisecondes. La
+       conversion se fait ici, une seule fois : une seconde prise pour une minute
+       fausserait le score d'un facteur 60. */
+    const appliquerChrono = async (poste: Operation, msParPiece: number) => {
+        if (msParPiece <= 0) return;
+        const tpp = Number((msParPiece / 60000).toFixed(4));
         await ecrireCellule(poste, nowBlock.key, { temps_reel_par_piece: tpp });
     };
 
@@ -577,7 +637,9 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
             )}
 
             {/* Creneau horaire courant (auto), rappel pour l'utilisateur */}
-            <div className="shrink-0 px-3 sm:px-6 py-2 flex items-center gap-2 text-[11px] font-bold text-slate-500 dark:text-dk-muted bg-[#fafbfe] dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border/40">
+            {/* Le creneau est deja en tete de la liste sur telephone : ce rappel
+                n'y ferait que pousser la saisie vers le bas. */}
+            <div className={`shrink-0 px-3 sm:px-6 py-2 items-center gap-2 text-[11px] font-bold text-slate-500 dark:text-dk-muted bg-[#fafbfe] dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border/40 ${isMobile ? 'hidden' : 'flex'}`}>
                 <Clock className="w-3.5 h-3.5" />
                 {tx(lang, L.hourNow)} : <span className="text-slate-800 dark:text-dk-text">{nowBlock.label}</span>
             </div>
@@ -587,16 +649,36 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                     acceptait de la production sous un horaire qui n'existe pas.
                     On dit ce qu'il en est ; la date reste changeable en haut. */}
                 {hourGrid.closed && !loading && (
-                    <div className="mb-3 rounded-2xl border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/20 px-4 py-3">
-                        <p className="text-[12px] font-black text-amber-800 dark:text-amber-300">{tx(lang, L.repos)}</p>
-                        <p className="text-[10px] font-bold text-amber-700/80 dark:text-amber-400/80">{tx(lang, L.reposHint)}</p>
+                    <div className={`mb-3 rounded-2xl border px-4 py-3 ${
+                        jourForce
+                            ? 'border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/20'
+                            : 'border-rose-200 dark:border-rose-900/40 bg-rose-50 dark:bg-rose-900/20'
+                    }`}>
+                        {jourForce ? (
+                            <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400">{tx(lang, L.reposForce)}</p>
+                        ) : (
+                            <>
+                                <p className="text-[12px] font-black text-rose-700 dark:text-rose-300">{tx(lang, L.repos)}</p>
+                                <p className="text-[10px] font-bold text-rose-600/80 dark:text-rose-400/80">{tx(lang, L.reposHint)}</p>
+                                {/* Ouvrir la saisie reste une decision explicite : sur un jour
+                                    ferme, une case pre-ouverte finirait par recevoir des chiffres
+                                    qu'aucun horaire ne justifie. */}
+                                <button
+                                    type="button"
+                                    onClick={() => forcerJour(date)}
+                                    className="mt-2 px-3 py-2 rounded-xl bg-rose-600 text-white text-[11px] font-black hover:bg-rose-700 transition-colors min-h-[36px]"
+                                >
+                                    {tx(lang, L.reposConfirmer)}
+                                </button>
+                            </>
+                        )}
                     </div>
                 )}
                 {loading ? (
                     <div className="flex items-center justify-center py-16 text-slate-400 dark:text-dk-muted gap-2 text-sm font-bold">
                         <Loader2 className="w-4 h-4 animate-spin" /> {tx(lang, L.loading)}
                     </div>
-                ) : hourGrid.closed ? (
+                ) : hourGrid.closed && !jourForce ? (
                     /* Rien d'autre a montrer : sans creneau il n'y a pas de releve
                        possible, et afficher une grille de secours reviendrait a
                        proposer une saisie sous des heures qui n'existent pas. */
@@ -639,7 +721,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                     {/* Un poste peut manquer a une gamme par ailleurs complete : on
                         l'ajoute d'ici, sans quitter le releve en cours. */}
                     {activeModel && onAddPoste && (
-                        <div className="mb-3">
+                        <div className="mb-2 sm:mb-3">
                             <AjoutPosteRapide
                                 models={models}
                                 activeModel={activeModel}
@@ -666,7 +748,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                        son nom, l'ouvrier qui le tient, sa tendance, et la case a
                        remplir. Les autres creneaux restent atteignables par les
                        fleches, pour rattraper l'heure d'avant. */
-                    <div className="space-y-2.5">
+                    <div className="space-y-1.5">
                         {(() => {
                             const blocs = hourGrid.blocks;
                             const idxCourant = Math.max(0, blocs.findIndex(b => b.key === (creneauVise || nowBlock.key)));
@@ -677,31 +759,30 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                 <>
                                     {/* Le creneau, en grand : c'est la premiere chose que
                                         demande celui qui note — quelle heure j'ecris ? */}
-                                    <div className="rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface px-3 py-2.5 flex items-center justify-between gap-2">
+                                    <div className="sticky top-0 z-20 rounded-xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface px-1.5 py-1.5 flex items-center justify-between gap-1">
                                         <button
                                             type="button"
                                             disabled={idxCourant === 0}
                                             onClick={() => setCreneauVise(blocs[idxCourant - 1]?.key || null)}
                                             aria-label={tx(lang, L.creneauPrecedent)}
-                                            className="shrink-0 w-9 h-9 rounded-xl border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-500 dark:text-dk-muted disabled:opacity-30"
+                                            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 dark:text-dk-muted disabled:opacity-30"
                                         >
                                             ‹
                                         </button>
-                                        <div className="min-w-0 text-center">
-                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">{tx(lang, L.creneauEnCours)}</p>
-                                            <p className="text-[17px] font-black tabular-nums text-slate-800 dark:text-dk-text">{bloc.label}</p>
+                                        <p className="min-w-0 text-center text-[14px] font-black tabular-nums text-slate-800 dark:text-dk-text truncate">
+                                            {bloc.label}
                                             {bloc.duration < 60 ? (
-                                                <p className="text-[9px] font-bold text-indigo-500 dark:text-dk-accent-text">{bloc.duration} min</p>
+                                                <span className="ml-1.5 text-[9px] font-bold text-indigo-500 dark:text-dk-accent-text">{bloc.duration} min</span>
                                             ) : bloc.pauseMin > 0 ? (
-                                                <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted">+{bloc.pauseMin} min {tx(lang, L.pauseTag)}</p>
+                                                <span className="ml-1.5 text-[9px] font-bold text-slate-400 dark:text-dk-muted">+{bloc.pauseMin} {tx(lang, L.pauseTag)}</span>
                                             ) : null}
-                                        </div>
+                                        </p>
                                         <button
                                             type="button"
                                             disabled={idxCourant >= blocs.length - 1}
                                             onClick={() => setCreneauVise(blocs[idxCourant + 1]?.key || null)}
                                             aria-label={tx(lang, L.creneauSuivant)}
-                                            className="shrink-0 w-9 h-9 rounded-xl border border-slate-200 dark:border-dk-border flex items-center justify-center text-slate-500 dark:text-dk-muted disabled:opacity-30"
+                                            className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 dark:text-dk-muted disabled:opacity-30"
                                         >
                                             ›
                                         </button>
@@ -715,8 +796,8 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                         const nom = nomOuvrier(poste.id);
                                         const { total } = bilanPoste(poste);
                                         return (
-                                            <div key={poste.id} className="rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface px-3 py-2.5">
-                                                <div className="flex items-center gap-3">
+                                            <div key={poste.id} className="rounded-xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface px-2.5 py-2">
+                                                <div className="flex items-center gap-2">
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex items-center gap-1.5 min-w-0">
                                                             <p className="font-black text-[13px] text-slate-800 dark:text-dk-text truncate">{poste.description || poste.id}</p>
@@ -757,7 +838,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                         }}
                                                         placeholder="—"
                                                         aria-label={tx(lang, L.productionHeure)}
-                                                        className={`shrink-0 w-24 h-14 text-center text-[20px] font-black tabular-nums rounded-2xl border outline-none transition-all ${
+                                                        className={`shrink-0 w-[72px] h-12 text-center text-[17px] font-black tabular-nums rounded-xl border outline-none transition-all ${
                                                             futur
                                                                 ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
                                                                 : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
@@ -767,29 +848,44 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
 
                                                 {/* Le reste tient sur une ligne discrete : on le lit si on
                                                     le cherche, il ne gene pas le geste de saisie. */}
-                                                <div className="mt-1.5 flex items-center justify-between gap-2">
-                                                    <div className="relative flex-1 min-w-0">
-                                                        <select
-                                                            value={ouvrierDuPoste(poste.id)}
-                                                            onChange={(e) => void changerOuvrierPoste(poste, e.target.value)}
-                                                            className="w-full min-h-[36px] appearance-none text-[11px] font-bold text-slate-600 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl pl-2.5 pr-7 outline-none"
-                                                        >
-                                                            <option value="">{tx(lang, L.chooseWorker)}</option>
-                                                            {workersSorted.map(w => (
-                                                                <option key={w.id} value={String(w.id)}>{w.full_name}{w.chaine_id === selectedChaineId ? '' : ` (${w.chaine_id || '-'})`}</option>
-                                                            ))}
-                                                        </select>
-                                                        <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                                    </div>
-                                                    <span className="shrink-0 text-[10px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">
-                                                        {total} {tx(lang, L.piecesJour)}
-                                                    </span>
+                                                <div className="mt-1.5 flex items-center gap-1.5">
+                                                    {/* Le selecteur ne s'ouvre qu'a la demande : l'ouvrier se
+                                                        choisit une fois le matin, pas a chaque releve — il
+                                                        occupait une ligne entiere pour rien. */}
+                                                    {changementOuvrier === poste.id ? (
+                                                        <div className="relative flex-1 min-w-0">
+                                                            <select
+                                                                autoFocus
+                                                                value={ouvrierDuPoste(poste.id)}
+                                                                onChange={(e) => { void changerOuvrierPoste(poste, e.target.value); setChangementOuvrier(null); }}
+                                                                onBlur={() => setChangementOuvrier(null)}
+                                                                className="w-full h-8 appearance-none text-[11px] font-bold text-slate-600 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg pl-2 pr-6 outline-none"
+                                                            >
+                                                                <option value="">{tx(lang, workersSorted.length === 0 ? L.aucunOuvrier : L.chooseWorker)}</option>
+                                                                {workersSorted.map(w => (
+                                                                    <option key={w.id} value={String(w.id)}>{w.full_name}{w.chaine_id === selectedChaineId ? '' : ` (${w.chaine_id || '-'})`}</option>
+                                                                ))}
+                                                            </select>
+                                                            <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                                        </div>
+                                                    ) : (
+                                                        <MenuPoste
+                                                            poste={poste}
+                                                            lang={lang}
+                                                            ouvert={menuPosteId === poste.id}
+                                                            onToggle={() => setMenuPosteId(cur => (cur === poste.id ? null : poste.id))}
+                                                            onChangerOuvrier={() => { setChangementOuvrier(poste.id); setMenuPosteId(null); }}
+                                                            onSupprimer={onRemovePoste ? () => void supprimerPoste(poste) : undefined}
+                                                        />
+                                                    )}
+                                                    <span className="flex-1" />
+                                                    <span className="shrink-0 text-[10px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">{total} pcs</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => setChronoOpenFor(cur => (cur === poste.id ? null : poste.id))}
                                                         title={tx(lang, L.chronoTitre)}
                                                         aria-label={tx(lang, L.chronoTitre)}
-                                                        className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center border transition-colors ${
+                                                        className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border transition-colors ${
                                                             chronoOpenFor === poste.id
                                                                 ? 'bg-indigo-600 border-indigo-600 text-white'
                                                                 : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted'
@@ -808,11 +904,6 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                             lang={lang}
                                                             tempsMs={getDraft(poste.id).tempsMs}
                                                         />
-                                                        {(celluleDe(poste.id, nowBlock.key)?.pieces_sorties || 0) === 0 && (
-                                                            <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                                                                {tx(lang, L.chronoSansPieces)}
-                                                            </p>
-                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -820,10 +911,10 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                     })}
 
                                     {/* Le total du creneau affiche, puis celui de la journee. */}
-                                    <div className="rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-elevated/40 px-3 py-2.5 flex items-center justify-between">
+                                    <div className="rounded-xl border border-slate-200 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-elevated/40 px-2.5 py-2 flex items-center justify-between">
                                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">{tx(lang, L.totalGeneral)}</span>
                                         <span className="text-right">
-                                            <span className="block text-[15px] font-black tabular-nums text-emerald-700 dark:text-emerald-300">
+                                            <span className="block text-[14px] font-black tabular-nums text-emerald-700 dark:text-emerald-300">
                                                 {postes.reduce((acc, poste) => acc + (celluleDe(poste.id, bloc.key)?.pieces_sorties || 0), 0) || '—'}
                                             </span>
                                             <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">
@@ -922,23 +1013,43 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                             >
                                                                 <Clock className="w-3.5 h-3.5" />
                                                             </button>
+                                                            <MenuPoste
+                                                                poste={poste}
+                                                                lang={lang}
+                                                                ouvert={menuPosteId === poste.id}
+                                                                onToggle={() => setMenuPosteId(cur => (cur === poste.id ? null : poste.id))}
+                                                                onChangerOuvrier={() => { setChangementOuvrier(poste.id); setMenuPosteId(null); }}
+                                                                onSupprimer={onRemovePoste ? () => void supprimerPoste(poste) : undefined}
+                                                            />
                                                         </div>
                                                     </td>
 
                                                     <td className="px-3 py-2">
-                                                        <div className="relative">
-                                                            <select
-                                                                value={ouvrierDuPoste(poste.id)}
-                                                                onChange={(e) => void changerOuvrierPoste(poste, e.target.value)}
-                                                                className="w-full min-h-[36px] appearance-none text-[11px] font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg pl-2.5 pr-7 outline-none"
+                                                        {changementOuvrier === poste.id ? (
+                                                            <div className="relative">
+                                                                <select
+                                                                    autoFocus
+                                                                    value={ouvrierDuPoste(poste.id)}
+                                                                    onChange={(e) => { void changerOuvrierPoste(poste, e.target.value); setChangementOuvrier(null); }}
+                                                                    onBlur={() => setChangementOuvrier(null)}
+                                                                    className="w-full min-h-[36px] appearance-none text-[11px] font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg pl-2.5 pr-7 outline-none"
+                                                                >
+                                                                    <option value="">{tx(lang, workersSorted.length === 0 ? L.aucunOuvrier : L.chooseWorker)}</option>
+                                                                    {workersSorted.map(w => (
+                                                                        <option key={w.id} value={String(w.id)}>{w.full_name}{w.chaine_id === selectedChaineId ? '' : ` (${w.chaine_id || '-'})`}</option>
+                                                                    ))}
+                                                                </select>
+                                                                <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setChangementOuvrier(poste.id)}
+                                                                className="w-full text-left min-h-[36px] px-2.5 rounded-lg border border-dashed border-slate-200 dark:border-dk-border text-[11px] font-bold text-slate-400 dark:text-dk-muted hover:border-indigo-400 hover:text-indigo-600"
                                                             >
-                                                                <option value="">{tx(lang, L.chooseWorker)}</option>
-                                                                {workersSorted.map(w => (
-                                                                    <option key={w.id} value={String(w.id)}>{w.full_name}{w.chaine_id === selectedChaineId ? '' : ` (${w.chaine_id || '-'})`}</option>
-                                                                ))}
-                                                            </select>
-                                                            <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                                        </div>
+                                                                {nomOuvrier(poste.id) || tx(lang, workersSorted.length === 0 ? L.aucunOuvrier : L.chooseWorker)}
+                                                            </button>
+                                                        )}
                                                         {/* Le nom mene a tout ce que cet ouvrier a tenu : la
                                                             page savait qui produit quoi sans jamais le rendre
                                                             par personne. */}
@@ -1057,11 +1168,6 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                 lang={lang}
                                                                 tempsMs={d.tempsMs}
                                                             />
-                                                            {(celluleCourante?.pieces_sorties || 0) === 0 && (
-                                                                <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                                                                    {tx(lang, L.chronoSansPieces)}
-                                                                </p>
-                                                            )}
                                                         </td>
                                                     </tr>
                                                 )}
@@ -1200,61 +1306,224 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
 
 // Chronometre minimal : demarrer/arreter, le temps ecoule (ms) remonte au parent
 // qui le divise par la quantite saisie pour obtenir le temps reel par piece.
-function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean; onToggle: () => void; onFinish: (ms: number) => void; lang: string; tempsMs: number | null }) {
+/**
+ * Menu « ⋮ » d'un poste : ce qui ne se fait qu'une fois par jour ne doit pas
+ * occuper la ligne en permanence — changer l'ouvrier, retirer le poste.
+ */
+function MenuPoste({ poste, lang, ouvert, onToggle, onChangerOuvrier, onSupprimer }: {
+    poste: Operation; lang: string; ouvert: boolean; onToggle: () => void;
+    onChangerOuvrier: () => void; onSupprimer?: () => void;
+}) {
+    return (
+        <div className="relative shrink-0">
+            <button
+                type="button"
+                onClick={onToggle}
+                title={tx(lang, L.menuPoste)}
+                aria-label={tx(lang, L.menuPoste)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-400 dark:text-dk-muted hover:text-slate-700"
+            >
+                <MoreVertical className="w-3.5 h-3.5" />
+            </button>
+            {ouvert && (
+                <>
+                    {/* Un voile ferme le menu au premier clic ailleurs : sans lui, il
+                        reste ouvert sous le doigt pendant qu'on saisit. */}
+                    <div className="fixed inset-0 z-30" onClick={onToggle} />
+                    <div className="absolute right-0 z-40 mt-1 w-52 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg overflow-hidden">
+                        <button
+                            type="button"
+                            onClick={onChangerOuvrier}
+                            className="w-full text-left px-3 py-2.5 text-[12px] font-bold text-slate-700 dark:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated/50 flex items-center gap-2"
+                        >
+                            <User className="w-3.5 h-3.5" /> {tx(lang, L.changerOuvrier)}
+                        </button>
+                        {onSupprimer && (
+                            <button
+                                type="button"
+                                onClick={onSupprimer}
+                                className="w-full text-left px-3 py-2.5 text-[12px] font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 border-t border-slate-100 dark:border-dk-border/50 flex items-center gap-2"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" /> {tx(lang, L.supprimerPoste)}
+                            </button>
+                        )}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
+function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean; onToggle: () => void; onFinish: (msParPiece: number) => void; lang: string; tempsMs: number | null }) {
+    /* Meme geste qu'au Chronometrage : on lance, on marque un tour a chaque
+       cycle, on arrete. La moyenne des tours est le temps du poste — un seul
+       cycle mesure a la main se trompe trop souvent pour valoir une note. */
     const [running, setRunning] = useState(false);
     const [elapsed, setElapsed] = useState(0);
+    const [tours, setTours] = useState<number[]>([]);
     const startRef = useRef(0);
+    const dernierTourRef = useRef(0);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
 
-    const start = () => {
+    const demarrer = () => {
         startRef.current = Date.now() - elapsed;
-        intervalRef.current = setInterval(() => setElapsed(Date.now() - startRef.current), 100);
+        intervalRef.current = setInterval(() => setElapsed(Date.now() - startRef.current), 50);
         setRunning(true);
     };
-    const stop = () => {
+
+    const marquerTour = () => {
+        const t = elapsed - dernierTourRef.current;
+        if (t <= 0) return;
+        dernierTourRef.current = elapsed;
+        setTours(prev => [...prev, t]);
+    };
+
+    const annulerDernier = () => {
+        setTours(prev => {
+            if (prev.length === 0) return prev;
+            const suite = prev.slice(0, -1);
+            dernierTourRef.current = suite.reduce((a, b) => a + b, 0);
+            return suite;
+        });
+    };
+
+    const arreter = () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         setRunning(false);
-        onFinish(elapsed);
+        /* Un tour en cours au moment de l'arret compte : sinon le dernier cycle,
+           celui qu'on vient justement de mesurer, serait perdu. */
+        const enCours = elapsed - dernierTourRef.current;
+        const tous = enCours > 0 ? [...tours, enCours] : tours;
+        if (tous.length === 0) return;
+        dernierTourRef.current = elapsed;
+        setTours(tous);
+        onFinish(Math.round(tous.reduce((a, b) => a + b, 0) / tous.length));
     };
-    const reset = () => {
+
+    const effacer = () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         setRunning(false);
         setElapsed(0);
+        setTours([]);
+        dernierTourRef.current = 0;
         onFinish(0);
     };
 
+    /** Secondes et centiemes : « 03.64 », la lecture du Chronometrage. */
     const fmt = (ms: number) => {
-        const totalSec = Math.floor(ms / 1000);
-        const mn = Math.floor(totalSec / 60).toString().padStart(2, '0');
-        const sc = (totalSec % 60).toString().padStart(2, '0');
-        return `${mn}:${sc}`;
+        const sec = Math.floor(ms / 1000);
+        const cent = Math.floor((ms % 1000) / 10);
+        return `${sec.toString().padStart(2, '0')}.${cent.toString().padStart(2, '0')}`;
     };
+
+    const moyenne = tours.length > 0 ? tours.reduce((a, b) => a + b, 0) / tours.length : 0;
+    const cumul = (idx: number) => tours.slice(0, idx + 1).reduce((a, b) => a + b, 0);
 
     if (!open) {
         return (
             <button
                 type="button"
                 onClick={onToggle}
-                className="min-h-[40px] px-2.5 flex items-center gap-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border"
+                className="min-h-[36px] px-2.5 flex items-center gap-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border"
             >
                 <Clock className="w-3.5 h-3.5" />
-                {tempsMs ? fmt(tempsMs) : tx(lang, L.chrono)}
+                {tempsMs ? `${fmt(tempsMs)} s` : tx(lang, L.chrono)}
             </button>
         );
     }
 
     return (
-        <div className="flex items-center gap-1.5">
-            <span className="tabular-nums font-black text-slate-800 dark:text-dk-text text-[12px] w-12">{fmt(elapsed)}</span>
-            {!running ? (
-                <button type="button" onClick={start} className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg bg-emerald-500 text-white"><Play className="w-3.5 h-3.5" /></button>
-            ) : (
-                <button type="button" onClick={stop} className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg bg-rose-500 text-white"><Square className="w-3.5 h-3.5" /></button>
+        <div className="rounded-xl border border-slate-200 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-elevated/40 p-3">
+            <div className="flex items-baseline justify-between gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
+                    {tx(lang, L.chronoTour)} {tours.length + (running ? 1 : 0)}
+                </span>
+                {tours.length > 0 && (
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">
+                        {tx(lang, L.chronoMoyenne)} : <span className="text-slate-700 dark:text-dk-text font-black">{fmt(moyenne)} s</span>
+                    </span>
+                )}
+            </div>
+
+            <div className="flex items-baseline gap-2">
+                <span className="text-[30px] leading-none font-black tabular-nums text-slate-800 dark:text-dk-text">{fmt(elapsed)}</span>
+                <span className="text-[13px] font-bold tabular-nums text-slate-400 dark:text-dk-muted">
+                    {running ? fmt(elapsed - dernierTourRef.current) : ''}
+                </span>
+            </div>
+
+            {tours.length > 0 && (
+                <div className="mt-2 rounded-lg bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border/50 overflow-hidden">
+                    <table className="w-full text-[11px]">
+                        <thead>
+                            <tr className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted border-b border-slate-100 dark:border-dk-border/50">
+                                <th className="text-left px-2 py-1">{tx(lang, L.chronoTour)}</th>
+                                <th className="text-center px-2 py-1">{tx(lang, L.chronoTTour)}</th>
+                                <th className="text-right px-2 py-1">{tx(lang, L.chronoTTotal)}</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50 dark:divide-dk-border/30">
+                            {tours.map((t, idx) => (
+                                <tr key={idx}>
+                                    <td className="px-2 py-1 font-black tabular-nums text-slate-700 dark:text-dk-text">{String(idx + 1).padStart(2, '0')}</td>
+                                    <td className="px-2 py-1 text-center font-bold tabular-nums text-slate-700 dark:text-dk-text">{fmt(t)}</td>
+                                    <td className="px-2 py-1 text-right font-bold tabular-nums text-slate-400 dark:text-dk-muted">{fmt(cumul(idx))}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                    <button
+                        type="button"
+                        onClick={effacer}
+                        className="w-full py-1.5 text-[11px] font-black text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20 border-t border-rose-100 dark:border-rose-900/30"
+                    >
+                        × {tx(lang, L.chronoEffacer)}
+                    </button>
+                </div>
             )}
-            <button type="button" onClick={reset} className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg bg-slate-100 dark:bg-dk-elevated/60 text-slate-500 dark:text-dk-muted"><Pause className="w-3.5 h-3.5" /></button>
-            <button type="button" onClick={onToggle} className="text-[10px] font-bold text-slate-400 underline">×</button>
+
+            <div className="mt-2 flex items-center gap-1.5">
+                {!running ? (
+                    <button
+                        type="button"
+                        onClick={demarrer}
+                        className="flex-1 min-h-[38px] rounded-xl bg-emerald-500 text-white text-[12px] font-black flex items-center justify-center gap-1.5"
+                    >
+                        <Play className="w-3.5 h-3.5" /> {tx(lang, L.chronoDebut)}
+                    </button>
+                ) : (
+                    <>
+                        <button
+                            type="button"
+                            onClick={marquerTour}
+                            className="flex-1 min-h-[38px] rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text text-[12px] font-black"
+                        >
+                            {tx(lang, L.chronoTour)}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={annulerDernier}
+                            disabled={tours.length === 0}
+                            className="min-h-[38px] px-3 rounded-xl text-[11px] font-bold text-slate-500 dark:text-dk-muted disabled:opacity-30"
+                        >
+                            {tx(lang, L.chronoAnnuler)}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={arreter}
+                            className="min-h-[38px] px-4 rounded-xl bg-rose-500 text-white text-[12px] font-black flex items-center justify-center gap-1.5"
+                        >
+                            <Square className="w-3.5 h-3.5" /> {tx(lang, L.chronoArret)}
+                        </button>
+                    </>
+                )}
+                <button type="button" onClick={onToggle} className="min-h-[38px] px-2 text-[11px] font-bold text-slate-400">×</button>
+            </div>
+
+            <p className="mt-1.5 text-[9px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang, L.chronoAide)}</p>
         </div>
     );
 }
+

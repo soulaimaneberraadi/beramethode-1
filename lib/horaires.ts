@@ -199,9 +199,17 @@ export function plagesTravailleesDuJour(settings: AppSettings, dateOrDay?: Date 
  *   16:45/17:00 (15 min)
  *   -> 10 créneaux, 555 min = 9 h 15 de production nette.
  */
-export function creneauxDuJour(settings: AppSettings, dateOrDay?: Date | number): CreneauJour[] {
+export function creneauxDuJour(
+  settings: AppSettings,
+  dateOrDay?: Date | number,
+  options?: { ignorerFermeture?: boolean },
+): CreneauJour[] {
   const h = horairesDuJour(settings, dateOrDay);
-  if (h.closed) return [];
+  /* Un jour fermé ne produit aucun créneau — c'est la règle. `ignorerFermeture`
+     n'existe que pour le cas où quelqu'un CONFIRME qu'on a produit un jour de
+     repos (rattrapage, samedi exceptionnel) : on lui rend alors la grille que
+     ce jour aurait eue, ses horaires et ses pauses, sans toucher au réglage. */
+  if (h.closed && !options?.ignorerFermeture) return [];
   const dayStart = toMin(h.start) || 480;
   const dayEnd = toMin(h.end) || 1080;
   if (dayEnd <= dayStart) return [];

@@ -43,8 +43,12 @@ const FALLBACK: CreneauJour[] = ['08:00', '09:00', '10:00', '11:00', '14:00', '1
  * simplement retranchée du créneau : `duration` donne les minutes réellement
  * produites, `pauseMin` ce que la pause y a pris.
  */
-export function deriveHourGrid(settings: AppSettings, dateOrDay?: Date | number): { hours: string[]; keys: string[]; blocks: HourBlock[]; closed: boolean; fallback: boolean } {
-    const creneaux = creneauxDuJour(settings, dateOrDay);
+export function deriveHourGrid(
+    settings: AppSettings,
+    dateOrDay?: Date | number,
+    options?: { ignorerFermeture?: boolean },
+): { hours: string[]; keys: string[]; blocks: HourBlock[]; closed: boolean; fallback: boolean } {
+    const creneaux = creneauxDuJour(settings, dateOrDay, options);
     /* Un jour de repos ne produit AUCUN creneau. Sans le dire, l'appelant
        retombait sur la grille de secours et affichait 08:00 → 17:00 un dimanche :
        un horaire qui n'existe pas, sous lequel on pouvait saisir de la

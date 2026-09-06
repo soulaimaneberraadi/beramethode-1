@@ -40,6 +40,8 @@ interface Props {
     onOpenGamme?: (modelId: string) => void;
     /** Ajoute une operation a la gamme du modele et la persiste. */
     onAddPoste?: (modelId: string, op: import('../types').Operation) => Promise<void>;
+    /** Retire une operation de la gamme du modele. */
+    onRemovePoste?: (modelId: string, posteId: string) => Promise<void>;
 }
 
 const SUIVI_LABELS = {
@@ -138,6 +140,7 @@ export default function SuiviProduction({
     setGlobalDate,
     onOpenGamme,
     onAddPoste,
+    onRemovePoste,
 }: Props) {
     // 1. Core States
     const { lang } = useLang();
@@ -1583,6 +1586,7 @@ export default function SuiviProduction({
                     setGlobalDate={setGlobalDate}
                     onOpenGamme={onOpenGamme}
                     onAddPoste={onAddPoste}
+                    onRemovePoste={onRemovePoste}
                 />
             ) : (
             <>

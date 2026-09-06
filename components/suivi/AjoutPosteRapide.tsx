@@ -148,9 +148,9 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
             <button
                 type="button"
                 onClick={() => { setOuvert(true); setTimeout(() => champRef.current?.focus(), 30); }}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-[12px] font-black shadow-sm hover:bg-indigo-700 transition-colors min-h-[40px]"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft text-[11px] font-black hover:border-indigo-400 hover:text-indigo-600 transition-colors"
             >
-                <Plus className="w-4 h-4" /> {tx(lang, L.ajouter)}
+                <Plus className="w-3.5 h-3.5" /> {tx(lang, L.ajouter)}
             </button>
         );
     }
