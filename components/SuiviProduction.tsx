@@ -39,7 +39,7 @@ interface Props {
     /** Ouvre l'atelier des methodes sur l'etape Gamme du modele donne. */
     onOpenGamme?: (modelId: string) => void;
     /** Ajoute une operation a la gamme du modele et la persiste. */
-    onAddPoste?: (modelId: string, op: import('../types').Operation) => Promise<void>;
+    onAddPoste?: (modelId: string, ops: import('../types').Operation | import('../types').Operation[]) => Promise<void>;
     /** Retire une operation de la gamme du modele. */
     onRemovePoste?: (modelId: string, posteId: string) => Promise<void>;
 }
@@ -353,7 +353,13 @@ export default function SuiviProduction({
        60 min : la pause du jour n'etait ni appliquee ni retranchee, et une
        coupure de 30 min faisait disparaitre une heure entiere de saisie. */
     const blocksForDate = React.useCallback((dateStr?: string): GridBlock[] => {
-        const grille: GridBlock[] = deriveHourGrid(settings, dateStr ? new Date(dateStr) : undefined).blocks;
+        const derivee = deriveHourGrid(settings, dateStr ? new Date(dateStr) : undefined);
+        /* Jour ferme : aucun creneau. Sans cela la grille de secours (08:00 →
+           17:00) lui donnait des cases ouvertes, et on pouvait saisir de la
+           production un dimanche — sous des heures que l'horaire ne produit pas.
+           Les saisies deja faites restent, rattachees plus bas comme orphelines :
+           on ne fait pas disparaitre des pieces reellement produites. */
+        const grille: GridBlock[] = derivee.closed ? [] : derivee.blocks;
         if (!dateStr) return grille;
 
         /* Creneaux HORS grille : une production a deja ete saisie sous une cle

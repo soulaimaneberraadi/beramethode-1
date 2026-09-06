@@ -22,7 +22,7 @@ interface Props {
     /** Ouvre l'atelier des methodes sur l'etape Gamme du modele donne. */
     onOpenGamme?: (modelId: string) => void;
     /** Ajoute une operation a la gamme du modele et la persiste. */
-    onAddPoste?: (modelId: string, op: Operation) => Promise<void>;
+    onAddPoste?: (modelId: string, ops: Operation | Operation[]) => Promise<void>;
     /** Retire une operation de la gamme du modele. Les releves deja faits restent. */
     onRemovePoste?: (modelId: string, posteId: string) => Promise<void>;
 }
@@ -78,6 +78,7 @@ const L = {
     totalGeneral: { fr: 'Total general', ar: 'المجموع العام', en: 'Grand total', es: 'Total general', pt: 'Total geral', tr: 'Genel toplam' },
     defCourt: { fr: 'Def.', ar: 'عيوب', en: 'Def.', es: 'Def.', pt: 'Def.', tr: 'Hata' },
     defTitre: { fr: 'Defauts du creneau en cours', ar: 'عيوب الفترة الجارية', en: 'Defects of the current slot', es: 'Defectos de la franja actual', pt: 'Defeitos da faixa atual', tr: 'Gecerli dilimin hatalari' },
+    reprendreGamme: { fr: 'Reprendre la gamme', ar: 'جيب مناصب الگام', en: 'Take the gamme postes', es: 'Traer los puestos de la gama', pt: 'Trazer os postos da gama', tr: 'Gamme istasyonlarini al' },
     aucunPoste: { fr: 'Aucun poste sur ce releve. Ajoutez ceux que vous suivez : eux seuls apparaitront ici.', ar: 'ما كاين حتى منصب فهاد التسجيل. زيد اللي كتتبّع: غير هوما اللي غادي يبانو هنا.', en: 'No poste on this entry sheet. Add the ones you track: only those will appear here.', es: 'Ningun puesto en este registro. Anada los que sigue: solo esos apareceran aqui.', pt: 'Nenhum posto neste registo. Adicione os que acompanha: so esses aparecerao aqui.', tr: 'Bu kayitta istasyon yok. Takip ettiklerinizi ekleyin: yalnizca onlar gorunur.' },
     nomOuvrier: { fr: 'Nom de l’ouvrier…', ar: 'سميّة العامل…', en: 'Worker name…', es: 'Nombre del operario…', pt: 'Nome do operario…', tr: 'Isci adi…' },
     menuPoste: { fr: 'Actions du poste', ar: 'إجراءات المنصب', en: 'Poste actions', es: 'Acciones del puesto', pt: 'Acoes do posto', tr: 'Istasyon islemleri' },
@@ -258,7 +259,24 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
        qu'on ne releve pas au pied de la chaine. Tant que `suiviPostes` n'existe
        pas, on reprend une fois ce qui avait ete pose dans la gamme depuis cette
        page — sans quoi les postes deja crees disparaitraient. */
-    const postes: Operation[] = activeModel?.suiviPostes ?? activeModel?.gamme_operatoire ?? [];
+    const postes: Operation[] = useMemo(() => {
+        if (!activeModel) return [];
+        if (activeModel.suiviPostes) return activeModel.suiviPostes;
+        /* Repli, le temps qu'un premier ajout fixe la liste : uniquement les
+           operations de la gamme QUI ONT DEJA ETE RELEVEES. Prendre la gamme
+           entiere remplirait l'ecran d'operations qu'on ne suit pas au pied de
+           la chaine ; n'en prendre aucune ferait disparaitre les postes deja
+           crees ici. Ce qui a servi reste, le reste se reprend a la demande. */
+        const relevees = new Set(posteSuivis.filter(r => r.modelId === activeModel.id).map(r => r.posteId));
+        return (activeModel.gamme_operatoire || []).filter(op => relevees.has(op.id));
+    }, [activeModel, posteSuivis]);
+
+    /** Operations de la gamme qu'on pourrait encore reprendre dans ce releve. */
+    const gammeNonReprise: Operation[] = useMemo(() => {
+        if (!activeModel) return [];
+        const presents = new Set(postes.map(p => p.id));
+        return (activeModel.gamme_operatoire || []).filter(op => !presents.has(op.id));
+    }, [activeModel, postes]);
 
     // Ouvriers proposes : ceux de la chaine en priorite, puis les autres, tries par nom.
     const workersSorted = useMemo(() => {
@@ -323,6 +341,14 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         if (!activeModel || !onAddPoste) return;
         await onAddPoste(activeModel.id, op);
         if (workerId) setDraft(op.id, { workerId });
+    };
+
+    /* Reprise explicite : on verse dans le releve les operations de la gamme qui
+       n'y sont pas encore. Une par une, dans l'ordre, pour que chacune garde son
+       identifiant — c'est lui qui relie les releves deja faits. */
+    const reprendreGamme = async () => {
+        if (!activeModel || !onAddPoste) return;
+        await onAddPoste(activeModel.id, gammeNonReprise);
     };
 
     /* Retirer un poste NE detruit aucun releve : les lignes de poste_suivi
@@ -837,13 +863,25 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                     {/* Un poste peut manquer a une gamme par ailleurs complete : on
                         l'ajoute d'ici, sans quitter le releve en cours. */}
                     {activeModel && onAddPoste && (
-                        <div className="mb-2 sm:mb-3">
+                        <div className="mb-2 sm:mb-3 flex flex-wrap items-center gap-1.5">
                             <AjoutPosteRapide
                                 models={models}
                                 activeModel={activeModel}
                                 workers={workersSorted}
                                 onAjouter={ajouterPoste}
                             />
+                            {/* La gamme ne se deverse plus toute seule ici : elle sert au
+                                prix de revient et contient des operations qu'on ne releve
+                                pas. Mais quand on VEUT les suivre, un clic suffit. */}
+                            {gammeNonReprise.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => { void reprendreGamme(); }}
+                                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft text-[11px] font-black hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+                                >
+                                    {tx(lang, L.reprendreGamme)} ({gammeNonReprise.length})
+                                </button>
+                            )}
                         </div>
                     )}
                     {/* ─── LE TABLEAU DU JOUR ────────────────────────────

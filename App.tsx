@@ -2179,7 +2179,9 @@ export default function App() {
                                 setSelectedChaineId={setGlobalChaineId}
                                 globalDate={globalDate}
                                 setGlobalDate={setGlobalDate}
-                                onAddPoste={async (modelId, op) => {
+                                onAddPoste={async (modelId, ops) => {
+                                    const aAjouter = Array.isArray(ops) ? ops : [ops];
+                                    if (aAjouter.length === 0) return;
                                     /*  Un poste ajoute au pied de la chaine est une ligne de
                                         gamme comme une autre : meme source, donc le catalogue
                                         des temps, l'equilibrage et le score des ouvriers le
@@ -2203,11 +2205,19 @@ export default function App() {
                                        un cout. Premiere fois : on reprend les postes deja poses dans
                                        la gamme depuis cette page, pour ne rien perdre. */
                                     const actuels = base.suiviPostes ?? [...(base.gamme_operatoire || [])];
-                                    const existe = actuels.some(o => (o.description || '').trim().toLowerCase() === op.description.trim().toLowerCase());
-                                    if (existe) return;
+                                    /* Meme identifiant = deja repris ; meme libelle = doublon.
+                                       Le premier cas arrive en reprenant la gamme, le second en
+                                       retapant un poste a la main. */
+                                    const suite = [...actuels];
+                                    for (const op of aAjouter) {
+                                        const existe = suite.some(o => o.id === op.id
+                                            || (o.description || '').trim().toLowerCase() === (op.description || '').trim().toLowerCase());
+                                        if (!existe) suite.push(op);
+                                    }
+                                    if (suite.length === actuels.length) return;
                                     const updated: ModelData = {
                                         ...base,
-                                        suiviPostes: [...actuels, op],
+                                        suiviPostes: suite,
                                         updatedAt: new Date().toISOString(),
                                     };
                                     if (!IS_STATIC) {
