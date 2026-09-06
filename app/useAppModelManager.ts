@@ -179,9 +179,25 @@ export function useAppModelManager({
         }
     }, [activeLayout, articleName, assignments, currentModelId, ficheData, ficheImages, globalStats.tempsArticle, layoutMemory, manualLinks, models, numWorkers, operations, postes, setCurrentModelId, setCurrentView, setLayoutMemory, setModels, setPlanningEvents, setNavigationContext, showToast, user, efficiency, chronoData, chronoCustomStations, chronoLayoutSide]);
 
+    /**
+     * Ne retenir comme detour que l'une des trois provenances reelles.
+     *
+     * `onCreateNewProject={createNewProject}` branche la fonction DIRECTEMENT
+     * sur un `onClick` : React lui passe alors l'evenement de souris en premier
+     * argument. Ce n'etait pas `undefined`, donc c'etait retenu comme detour —
+     * et l'en-tete, ne reconnaissant ni « coupe » ni « sous-traitance »,
+     * retombait sur son libelle par defaut. D'ou un bouton « Retour Planning »
+     * apparu au simple fait de cliquer sur « Nouveau Modele », sans que
+     * personne ne soit jamais passe par le Planning.
+     *
+     * Filtrer ici protege tous les appelants a la fois, presents et a venir.
+     */
+    const detour = (v: unknown): 'coupe' | 'planning' | 'sousTraitance' | null =>
+        v === 'coupe' || v === 'planning' || v === 'sousTraitance' ? v : null;
+
     const loadModel = useCallback((model: ModelData, fromContext?: 'coupe' | 'planning' | 'sousTraitance' | null) => {
         setCurrentModelId(model.id);
-        setNavigationContext(fromContext !== undefined ? fromContext : null);
+        setNavigationContext(detour(fromContext));
         setArticleName(model.meta_data.nom_modele);
         setOperations(model.gamme_operatoire || []);
         setNumWorkers(model.meta_data.effectif || 1);

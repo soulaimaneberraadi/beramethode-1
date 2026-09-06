@@ -1564,7 +1564,10 @@ export default function App() {
     const createNewProject = useCallback((fromContext?: 'coupe' | 'planning' | 'sousTraitance' | null) => {
         setSkipAutosaveRestore(true);
         rawCreateNewProject();
-        setNavigationContext(fromContext !== undefined ? fromContext : null);
+        // Meme garde que dans `loadModel` : branche sur un `onClick`, cette
+        // fonction recoit l'evenement de souris a la place d'une provenance.
+        const connu = fromContext === 'coupe' || fromContext === 'planning' || fromContext === 'sousTraitance';
+        setNavigationContext(connu ? (fromContext as 'coupe' | 'planning' | 'sousTraitance') : null);
         setTimeout(() => setSkipAutosaveRestore(false), 3000);
     }, [rawCreateNewProject, setNavigationContext]);
 

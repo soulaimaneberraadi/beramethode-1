@@ -233,7 +233,8 @@ export default function AppHeader({
                         carte qu'on lisait. Un bouton de retour n'a pas a cacher
                         la page qu'il propose de quitter — il tient sa place ici,
                         pres du logo, la ou on cherche un retour. */}
-                    {navigationContext && (currentView === 'library' || currentView === 'ingenierie') && (() => {
+                    {(navigationContext === 'coupe' || navigationContext === 'planning' || navigationContext === 'sousTraitance')
+                        && (currentView === 'library' || currentView === 'ingenierie') && (() => {
                         const nom = navigationContext === 'coupe'
                             ? tx(lang, {fr:'La Coupe',ar:'القص',en:'Cutting',es:'Corte',pt:'Corte',tr:'Kesim'})
                             : navigationContext === 'sousTraitance'
