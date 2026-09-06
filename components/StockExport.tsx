@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { saveSuivis } from '../lib/suiviSync';
 import { ModelData, SuiviData, PlanningEvent, AppSettings } from '../types';
 import { getWorkMinutesPerDay } from '../utils/planning';
 import { computeChainEfficiency } from '../utils/efficiency';
@@ -191,12 +192,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
         // Save to server database
         try {
-            await fetch('/api/suivi', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ suivis: newSuivis })
-            });
+            await saveSuivis(newSuivis);
         } catch (e) {
             console.error("Failed to save finition suivi to database", e);
         }
@@ -235,12 +231,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
         setSuivis(newSuivis);
 
         try {
-            await fetch('/api/suivi', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ suivis: newSuivis })
-            });
+            await saveSuivis(newSuivis);
         } catch (e) {
             console.error(tx(lang, {fr:'Échec de l\'enregistrement des défauts dans la base de données',ar:'فشل حفظ العيوب في قاعدة البيانات',en:'Failed to save défauts to database',es:'Error al guardar défauts en la base de datos',pt:'Falha ao salvar défauts no banco de dados',tr:'Defauts veritabanına kaydedilemedi'}), e);
         }
@@ -290,10 +281,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
         setSuivis(newSuivis);
         try {
-            await fetch('/api/suivi', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-                body: JSON.stringify({ suivis: newSuivis })
-            });
+            await saveSuivis(newSuivis);
         } catch (e) {
             console.error("Failed to save hourly suivi to database", e);
         }
@@ -367,12 +355,7 @@ export default function StockExport({ models, suivis, planningEvents = [], setMo
 
         // Save to server database
         try {
-            await fetch('/api/suivi', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ suivis: newSuivis })
-            });
+            await saveSuivis(newSuivis);
         } catch (e) {
             console.error("Failed to save emballage suivi to database", e);
         }

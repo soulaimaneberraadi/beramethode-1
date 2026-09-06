@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { saveSuivis } from '../lib/suiviSync';
 import type { AppSettings, ModelData, PlanningEvent, SuiviData, MaterialReceipt, InventoryMovement, MouvementStock, PlanningStatus } from '../types';
 import { deriveHourGrid, type HourBlock } from './suivi/shared/hours';
 import { horairesDuJour, dayNumberFromDate } from '../lib/horaires';
@@ -603,12 +604,7 @@ export default function SuiviProduction({
     const handleSave = async (updatedSuivis = suivis) => {
         setSaveStatus('saving');
         try {
-            const res = await fetch('/api/suivi', {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ suivis: updatedSuivis }),
-            });
+            const res = await saveSuivis(updatedSuivis);
             if (res.ok) {
                 setSaveStatus('saved');
                 setTimeout(() => setSaveStatus('idle'), 2000);

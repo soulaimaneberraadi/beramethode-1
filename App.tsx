@@ -12,6 +12,7 @@ import AnnouncementBar from './components/AnnouncementBar';
 import LicenseBanner from './components/LicenseBanner';
 import SyncToast from './components/SyncToast';
 import { runBootSequence } from './lib/bootSequence';
+import { saveSuivis } from './lib/suiviSync';
 import {
     LogOut,
     Save,
@@ -645,9 +646,7 @@ export default function App() {
         }
         // Tant que le GET initial n'a pas répondu, on ne POST pas (état encore à []).
         if (!suivisHydratedRef.current) return;
-        const timer = setTimeout(() => {
-            fetch('/api/suivi', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ suivis }) }).catch(() => { });
-        }, 1200);
+        const timer = setTimeout(() => { saveSuivis(suivis); }, 1200);
         return () => clearTimeout(timer);
     }, [suivis, user]);
 
@@ -1734,12 +1733,7 @@ export default function App() {
             if (action === 'yes') {
                 if (user) {
                     try {
-                        await fetch('/api/suivi', {
-                            method: 'POST',
-                            credentials: 'include',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ suivis }),
-                        });
+                        await saveSuivis(suivis);
                     } catch {
                         /* ignore */
                     }

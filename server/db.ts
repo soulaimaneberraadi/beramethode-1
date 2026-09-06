@@ -325,8 +325,7 @@ CREATE TABLE IF NOT EXISTS suivi_data (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (planningId) REFERENCES planning_events(id) ON DELETE CASCADE,
-  UNIQUE(planningId, date)
+  FOREIGN KEY (planningId) REFERENCES planning_events(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS demandes_appro (
@@ -596,6 +595,41 @@ for (const [col, type] of suiviExtraCols) {
   try {
     db.prepare(`ALTER TABLE suivi_data ADD COLUMN ${col} ${type}`).run();
   } catch (e) { /* column exists — ignore */ }
+}
+
+/*
+ * Migration : lever la contrainte UNIQUE(planningId, date) de suivi_data.
+ *
+ * Elle n'autorisait QU'UNE seule ligne par OF et par jour : un second relevé
+ * du meme OF le meme jour (deuxieme shift, autre chaine, autre section)
+ * ecrasait silencieusement le premier. Cote application la cle reelle d'un
+ * releve est son `id` — c'est donc lui, et lui seul, qui doit etre unique.
+ *
+ * SQLite ne sait pas retirer une contrainte de table : on reconstruit.
+ * La liste des colonnes est lue au runtime car des ALTER TABLE en ont ajoute.
+ */
+try {
+  const suiviSql = (db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='suivi_data'`
+  ).get() as { sql?: string } | undefined)?.sql || '';
+  if (/UNIQUE\s*\(\s*planningId\s*,\s*date\s*\)/i.test(suiviSql)) {
+    const cols = (db.prepare(`PRAGMA table_info(suivi_data)`).all() as any[]).map(c => c.name as string);
+    const colList = cols.map(c => `"${c}"`).join(', ');
+    const newSql = suiviSql
+      .replace(/,\s*UNIQUE\s*\(\s*planningId\s*,\s*date\s*\)/i, '')
+      .replace(/CREATE TABLE (IF NOT EXISTS )?suivi_data/i, 'CREATE TABLE suivi_data_new');
+    db.exec('PRAGMA foreign_keys = OFF');
+    db.transaction(() => {
+      db.exec(newSql);
+      db.exec(`INSERT INTO suivi_data_new (${colList}) SELECT ${colList} FROM suivi_data`);
+      db.exec('DROP TABLE suivi_data');
+      db.exec('ALTER TABLE suivi_data_new RENAME TO suivi_data');
+    })();
+    db.exec('PRAGMA foreign_keys = ON');
+    console.log('[db] suivi_data : contrainte UNIQUE(planningId, date) retiree');
+  }
+} catch (e) {
+  console.error('[db] migration suivi_data (UNIQUE planningId,date) echouee', e);
 }
 
 // Create Magasin: Déchets Table
