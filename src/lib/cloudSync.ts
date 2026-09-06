@@ -41,6 +41,39 @@ const CLE_VERS_TYPE: Record<string, string> = {
  * quelqu'un a pu le reprendre en main, et écraser ce travail serait pire que
  * de laisser revenir une ligne.
  */
+/**
+ * Quand un element a-t-il ete modifie ? `null` si on ne peut pas le savoir.
+ *
+ * Les horodatages arrivent sous plusieurs plumes : `updatedAt` ou `updated_at`,
+ * en ISO fabrique ici (`...Z`) ou rendu par le serveur (`...+00:00`), parfois en
+ * millisecondes. Les comparer comme du TEXTE — ce que faisait la fusion — donne
+ * un vainqueur decide par l'orthographe et non par l'heure.
+ */
+const instantDe = (x: any): number | null => {
+  const brut = x && typeof x === 'object' ? (x.updatedAt ?? x.updated_at ?? x.modifiedAt) : null;
+  if (brut == null) return null;
+  const t = typeof brut === 'number' ? brut : new Date(brut).getTime();
+  return Number.isFinite(t) ? t : null;
+};
+
+/**
+ * Des deux versions d'un meme element, laquelle garder ?
+ *
+ * Le cloud l'emportait TOUJOURS. Or un pull precede chaque envoi : une
+ * modification faite ici et pas encore partie se faisait donc effacer par la
+ * version d'avant, puis c'est cette version d'avant qu'on renvoyait. Le travail
+ * disparaissait sans un mot — « ca se synchronise, mais ce n'est pas le
+ * dernier ». On ne prefere desormais le local que lorsqu'on peut PROUVER qu'il
+ * est plus recent ; a defaut d'heure lisible, le cloud garde la main, et le
+ * comportement ne change pas.
+ */
+const gagnant = (local: any, cloud: any): any => {
+  const tl = instantDe(local);
+  const tc = instantDe(cloud);
+  if (tl != null && tc != null) return tl > tc ? local : cloud;
+  return cloud;
+};
+
 const sansSupprimes = (lsKey: string, items: any[]): any[] => {
   const type = CLE_VERS_TYPE[lsKey];
   if (!type) return items;
@@ -617,7 +650,11 @@ const applySnapshotToLocal = async (snapshot: Record<string, unknown> | null): P
                     if (!cm) return cm;
                     const lm = localModels.find((m: any) => m.id === cm.id);
                     if (!lm) return cm;
-                    const localNewer = String(lm.updatedAt || '') > String(cm.updatedAt || '');
+                    // Comparer des instants, jamais leur orthographe : deux
+                    // appareils n'ecrivent pas forcement la date de la meme facon.
+                    const tl = instantDe(lm);
+                    const tc = instantDe(cm);
+                    const localNewer = tl != null && tc != null && tl > tc;
                     const winner = localNewer ? lm : cm;
                     const other = localNewer ? cm : lm;
                     // Si le gagnant n'a pas d'image mais l'autre oui (image pas encore
@@ -709,7 +746,12 @@ const applySnapshotToLocal = async (snapshot: Record<string, unknown> | null): P
             if (haveIds) {
               const byId = new Map<any, any>();
               for (const it of localArr) byId.set(idOf(it), it);      // base = local
-              for (const it of cloudVal) byId.set(idOf(it), it);      // cloud gagne les conflits
+              for (const it of cloudVal) {
+                const id = idOf(it);
+                const ici = byId.get(id);
+                // Le cloud ne l'emporte plus d'office : voir `gagnant`.
+                byId.set(id, ici === undefined ? it : gagnant(ici, it));
+              }
               // L'union garde tout des deux côtés — y compris ce que
               // l'utilisateur avait supprimé, tant que la copie du cloud n'a
               // pas été purgée. Les pierres tombales sont la seule chose qui
