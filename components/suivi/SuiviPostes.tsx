@@ -4,6 +4,7 @@ import { deriveHourGrid } from './shared/hours';
 import { pauseOverlapMinutes, horairesDuJour } from '../../lib/horaires';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
+import { useIsMobile } from '../planning/shared/useIsMobile';
 import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown } from 'lucide-react';
 import AjoutPosteRapide from './AjoutPosteRapide';
 import { signalerMesureTemps } from '../../lib/mesuresTemps';
@@ -50,6 +51,9 @@ const L = {
     cadence: { fr: 'Cadence', ar: 'الوتيرة', en: 'Rate', es: 'Cadencia', pt: 'Cadência', tr: 'Tempo' },
     cadenceMesuree: { fr: 'Cadence mesurée au chronomètre', ar: 'وتيرة مقيسة بالكرونومتر', en: 'Rate measured with the stopwatch', es: 'Cadencia medida con cronómetro', pt: 'Cadência medida com cronómetro', tr: 'Kronometreyle ölçülen tempo' },
     cadenceGamme: { fr: 'Cadence prévue par la gamme (pas encore chronométrée)', ar: 'الوتيرة المتوقّعة من الگام (مازال بلا كرونومتراج)', en: 'Rate expected from the gamme (not timed yet)', es: 'Cadencia prevista por la gama (aún sin cronometrar)', pt: 'Cadência prevista pela gama (ainda sem cronometragem)', tr: 'Gamme’ın öngördüğü tempo (henüz ölçülmedi)' },
+    tendanceTitre: { fr: 'Dernier creneau compare au precedent', ar: 'آخر فترة مقارنة باللي قبلها', en: 'Last slot compared with the previous one', es: 'Ultima franja comparada con la anterior', pt: 'Ultima faixa comparada com a anterior', tr: 'Son dilimin bir oncekiyle karsilastirmasi' },
+    pauseTag: { fr: 'pause', ar: 'استراحة', en: 'break', es: 'pausa', pt: 'pausa', tr: 'mola' },
+    piecesJour: { fr: 'pcs aujourd’hui', ar: 'قطعة اليوم', en: 'pcs today', es: 'pzs hoy', pt: 'pcs hoje', tr: 'bugun adet' },
     releves: { fr: 'Releves du jour', ar: 'تسجيلات اليوم', en: 'Day entries', es: 'Registros del dia', pt: 'Registos do dia', tr: 'Gun kayitlari' },
     relevesHint: { fr: 'Une ligne par poste. Chaque case est ce que le poste a sorti dans ce creneau — elle se corrige.', ar: 'سطر لكل منصب. كل خانة هي اللي خرّج المنصب فديك الفترة — وكتّصحّح.', en: 'One row per poste. Each cell is what the poste produced in that slot — it can be corrected.', es: 'Una fila por puesto. Cada casilla es lo que el puesto produjo en ese tramo — se puede corregir.', pt: 'Uma linha por posto. Cada celula e o que o posto produziu nessa faixa — pode ser corrigida.', tr: 'Istasyon basina bir satir. Her hucre, istasyonun o dilimde urettigidir — duzeltilebilir.' },
     tsPrevu: { fr: 'TS (s)', ar: 'TS (ث)', en: 'TS (s)', es: 'TS (s)', pt: 'TS (s)', tr: 'TS (sn)' },
@@ -85,6 +89,10 @@ function todayStr(): string {
 
 export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste }: Props) {
     const { lang } = useLang();
+    /* Le releve se fait au pied de la chaine, telephone en main : un tableau
+       de douze colonnes n'y tient pas. Sur petit ecran, les creneaux se lisent
+       donc en liste sous chaque poste — la forme du Suivi. */
+    const isMobile = useIsMobile();
     const date = globalDate || todayStr();
 
     const [posteSuivis, setPosteSuivis] = useState<PosteSuiviData[]>([]);
@@ -210,6 +218,43 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         if (!activeModel || !onAddPoste) return;
         await onAddPoste(activeModel.id, op);
         if (workerId) setDraft(op.id, { workerId });
+    };
+
+    /** Nom de l'ouvrier qui tient le poste aujourd'hui, vide s'il n'y en a pas. */
+    const nomOuvrier = (posteId: string): string => {
+        const id = ouvrierDuPoste(posteId);
+        if (!id) return '';
+        return workers.find(w => String(w.id) === String(id))?.full_name || '';
+    };
+
+    /**
+     * Tendance du poste : le dernier creneau rempli compare au precedent.
+     *
+     * C'est la lecture du carnet — « 150 pieces, +25 % » — et la seule qui se
+     * fasse d'un coup d'oeil au pied de la chaine : le poste accelere ou ralentit.
+     * Sans DEUX creneaux remplis il n'y a rien a comparer, et on n'affiche rien
+     * plutot qu'un pourcentage invente.
+     */
+    const tendancePoste = (poste: Operation): { sens: 'hausse' | 'baisse'; pct: number } | null => {
+        const remplis = hourGrid.blocks
+            .map(b => celluleDe(poste.id, b.key)?.pieces_sorties || 0)
+            .filter(v => v > 0);
+        if (remplis.length < 2) return null;
+        const dernier = remplis[remplis.length - 1];
+        const avant = remplis[remplis.length - 2];
+        if (avant <= 0) return null;
+        const pct = Math.round(((dernier - avant) / avant) * 100);
+        if (pct === 0) return null;
+        return { sens: pct > 0 ? 'hausse' : 'baisse', pct: Math.abs(pct) };
+    };
+
+    /** Ce qu'il faut savoir d'un poste pour la journee, sous les deux mises en page. */
+    const bilanPoste = (poste: Operation) => {
+        const rows = suivisByPoste.get(poste.id) || [];
+        const total = rows.reduce((somme, r) => somme + (r.pieces_sorties || 0), 0);
+        const scores = rows.map(scoreReleve).filter((x): x is number => x !== null);
+        const score = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+        return { rows, total, score, mesure: rows.some(scoreChronometre) };
     };
 
     const [cellSavingId, setCellSavingId] = useState<string | null>(null);
@@ -583,6 +628,177 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                         Sur telephone le tableau defile lateralement, la colonne
                         du poste restant collee a gauche — sans elle, on ne sait
                         plus quelle ligne on remplit. */}
+                    {isMobile ? (
+                    /* ─── TELEPHONE : la journee en liste ──────────────────
+                       Un bloc par poste, l'ouvrier sous son nom, puis les
+                       creneaux les uns sous les autres. C'est la forme du Suivi
+                       et celle du carnet : on descend la liste et on ecrit. */
+                    <div className="space-y-2.5">
+                        {postes.map((poste, rang) => {
+                            const { rows, total, score, mesure } = bilanPoste(poste);
+                            const celluleCourante = celluleDe(poste.id, nowBlock.key);
+                            const chronoOuvert = chronoOpenFor === poste.id;
+                            const cad = cadencePoste(poste);
+                            return (
+                                <div key={poste.id} className="rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface overflow-hidden">
+                                    <div className="px-3 py-2.5 bg-slate-50 dark:bg-dk-elevated/40 border-b border-slate-100 dark:border-dk-border/50">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex items-start gap-2 min-w-0">
+                                                <span className="shrink-0 mt-0.5 px-1.5 py-0.5 rounded bg-white dark:bg-dk-bg text-[10px] font-black tabular-nums text-slate-400 dark:text-dk-muted">{rang + 1}</span>
+                                                <div className="min-w-0">
+                                                    <p className="font-black text-[13px] text-slate-800 dark:text-dk-text truncate">{poste.description || poste.id}</p>
+                                                    <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted truncate">
+                                                        {poste.machineName ? `${poste.machineName} · ` : ''}
+                                                        {poste.time > 0 ? `TS ${(poste.time * 60).toFixed(1)}s` : ''}
+                                                        {cad.valeur !== null ? ` · ${cad.mesuree ? '' : '~'}${cad.valeur} p/h` : ''}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="shrink-0 text-right">
+                                                <p className="text-[14px] font-black tabular-nums text-slate-800 dark:text-dk-text">{total || '—'}</p>
+                                                <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang, L.piecesJour)}</p>
+                                                {(() => {
+                                                    const t = tendancePoste(poste);
+                                                    if (!t) return null;
+                                                    return (
+                                                        <p
+                                                            className={`text-[10px] font-black tabular-nums ${t.sens === 'hausse' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}
+                                                            title={tx(lang, L.tendanceTitre)}
+                                                        >
+                                                            {t.sens === 'hausse' ? '↑' : '↓'} {t.pct}%
+                                                        </p>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-2 flex items-center gap-2">
+                                            <div className="relative flex-1 min-w-0">
+                                                <select
+                                                    value={ouvrierDuPoste(poste.id)}
+                                                    onChange={(e) => void changerOuvrierPoste(poste, e.target.value)}
+                                                    className="w-full min-h-[40px] appearance-none text-[12px] font-bold text-slate-700 dark:text-dk-text bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl pl-3 pr-8 outline-none"
+                                                >
+                                                    <option value="">{tx(lang, L.chooseWorker)}</option>
+                                                    {workersSorted.map(w => (
+                                                        <option key={w.id} value={String(w.id)}>{w.full_name}{w.chaine_id === selectedChaineId ? '' : ` (${w.chaine_id || '-'})`}</option>
+                                                    ))}
+                                                </select>
+                                                <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                            </div>
+                                            {score !== null && (
+                                                <span
+                                                    className={`shrink-0 rounded-md px-2 py-1.5 text-[11px] font-black tabular-nums ${classeScore(score)}`}
+                                                    title={mesure ? undefined : tx(lang, L.scoreEstime)}
+                                                >
+                                                    {mesure ? '' : '~'}{score}%
+                                                </span>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => setChronoOpenFor(cur => (cur === poste.id ? null : poste.id))}
+                                                title={tx(lang, L.chronoTitre)}
+                                                aria-label={tx(lang, L.chronoTitre)}
+                                                className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border transition-colors ${
+                                                    chronoOuvert
+                                                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                                                        : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted'
+                                                }`}
+                                            >
+                                                <Clock className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-3 space-y-1.5">
+                                        {hourGrid.blocks.map(b => {
+                                            const cellule = celluleDe(poste.id, b.key);
+                                            const val = cellule?.pieces_sorties;
+                                            const futur = new Date(date).setHours(0, b.endMin, 0, 0) > Date.now();
+                                            const courant = b.key === nowBlock.key;
+                                            const enregistre = cellSavingId === idCellule(poste.id, b.key);
+                                            return (
+                                                <div key={b.key} className="flex items-center gap-2">
+                                                    <span className={`w-[92px] shrink-0 text-[11px] font-bold tabular-nums ${courant ? 'text-indigo-600 dark:text-dk-accent-text' : 'text-slate-500 dark:text-dk-muted'}`}>
+                                                        {b.label}
+                                                        {b.duration < 60 ? (
+                                                            <span className="block text-[9px] font-bold text-indigo-500 dark:text-dk-accent-text">{b.duration} min</span>
+                                                        ) : b.pauseMin > 0 ? (
+                                                            <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted">+{b.pauseMin} min {tx(lang, L.pauseTag)}</span>
+                                                        ) : null}
+                                                    </span>
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        pattern="[0-9]*"
+                                                        disabled={futur}
+                                                        value={val === undefined || val === null || val === 0 ? '' : String(val)}
+                                                        onChange={(e) => {
+                                                            const chiffres = e.target.value.replace(/[^0-9]/g, '');
+                                                            void saveCellule(poste, b.key, chiffres === '' ? null : parseInt(chiffres, 10));
+                                                        }}
+                                                        placeholder="—"
+                                                        className={`flex-1 min-w-0 h-11 text-center text-[14px] font-black tabular-nums rounded-xl border outline-none transition-all ${
+                                                            futur
+                                                                ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
+                                                                : courant
+                                                                    ? 'bg-white dark:bg-dk-surface border-indigo-300 dark:border-dk-accent text-slate-800 dark:text-dk-text focus:border-indigo-600'
+                                                                    : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-600'
+                                                        } ${enregistre ? 'opacity-60' : ''}`}
+                                                    />
+                                                </div>
+                                            );
+                                        })}
+
+                                        <div className="flex items-center gap-2 pt-1">
+                                            <span className="w-[92px] shrink-0 text-[11px] font-bold text-slate-500 dark:text-dk-muted" title={tx(lang, L.defTitre)}>
+                                                {tx(lang, L.defCourt)}
+                                                <span className="block text-[9px] font-bold text-slate-400 dark:text-dk-muted">{nowBlock.label}</span>
+                                            </span>
+                                            <input
+                                                type="text"
+                                                inputMode="numeric"
+                                                pattern="[0-9]*"
+                                                value={(celluleCourante?.pieces_defaut || 0) === 0 ? '' : String(celluleCourante?.pieces_defaut)}
+                                                onChange={(e) => {
+                                                    const chiffres = e.target.value.replace(/[^0-9]/g, '');
+                                                    void ecrireCellule(poste, nowBlock.key, { pieces_defaut: chiffres === '' ? 0 : parseInt(chiffres, 10) });
+                                                }}
+                                                placeholder="—"
+                                                className="flex-1 min-w-0 h-11 text-center text-[14px] font-bold tabular-nums rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft outline-none focus:border-indigo-600"
+                                            />
+                                        </div>
+
+                                        {chronoOuvert && (
+                                            <div className="pt-2">
+                                                <MiniChrono
+                                                    open
+                                                    onToggle={() => setChronoOpenFor(null)}
+                                                    onFinish={(ms) => { setDraft(poste.id, { tempsMs: ms }); void appliquerChrono(poste, ms); }}
+                                                    lang={lang}
+                                                    tempsMs={getDraft(poste.id).tempsMs}
+                                                />
+                                                {(celluleCourante?.pieces_sorties || 0) === 0 && (
+                                                    <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                                        {tx(lang, L.chronoSansPieces)}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {/* Le total de la chaine ferme la liste, comme le pied du tableau. */}
+                        <div className="rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-elevated/40 px-3 py-2.5 flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">{tx(lang, L.totalGeneral)}</span>
+                            <span className="text-[15px] font-black tabular-nums text-emerald-700 dark:text-emerald-300">
+                                {postes.reduce((acc, poste) => acc + bilanPoste(poste).total, 0) || '—'}
+                            </span>
+                        </div>
+                    </div>
+                    ) : (
                     <div className="rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface overflow-hidden">
                         <div className="px-3 sm:px-4 py-2.5 border-b border-slate-100 dark:border-dk-border/50 bg-slate-50 dark:bg-dk-elevated/40">
                             <p className="text-[12px] font-black text-slate-700 dark:text-dk-text">{tx(lang, L.releves)}</p>
@@ -601,11 +817,18 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                         {hourGrid.blocks.map(b => (
                                             <th
                                                 key={b.key}
-                                                className={`text-center px-1 py-2.5 w-[64px] border-l border-slate-100 dark:border-dk-border/40 ${b.key === nowBlock.key ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text' : ''}`}
+                                                className={`text-center px-1 py-2.5 w-[86px] border-l border-slate-100 dark:border-dk-border/40 ${b.key === nowBlock.key ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text' : ''}`}
                                                 title={`${b.label} — ${b.duration} min`}
                                             >
-                                                {b.start}
-                                                {b.duration < 60 && <span className="block text-[8px] normal-case tracking-normal text-indigo-500 dark:text-dk-accent-text">{b.duration} min</span>}
+                                                {/* La plage entiere, comme au Suivi : « 06:30/07:30 » dit
+                                                    ce que « 06:30 » laissait deviner, surtout quand une
+                                                    pause raccourcit le creneau. */}
+                                                {b.label}
+                                                {b.duration < 60 ? (
+                                                    <span className="block text-[8px] normal-case tracking-normal text-indigo-500 dark:text-dk-accent-text">{b.duration} min</span>
+                                                ) : b.pauseMin > 0 ? (
+                                                    <span className="block text-[8px] normal-case tracking-normal text-slate-400 dark:text-dk-muted">+{b.pauseMin} min {tx(lang, L.pauseTag)}</span>
+                                                ) : null}
                                             </th>
                                         ))}
                                         <th className="px-2 py-2.5 text-center w-16 border-l border-slate-200 dark:border-dk-border/60" title={tx(lang, L.defTitre)}>{tx(lang, L.defCourt)}</th>
@@ -637,6 +860,13 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                         <div className="flex items-center gap-2">
                                                             <div className="min-w-0">
                                                                 <p className="font-black text-slate-800 dark:text-dk-text truncate">{poste.description || poste.id}</p>
+                                                                {/* L'ouvrier qui tient le poste, sous son nom : quand le
+                                                                    tableau defile, la colonne collee a gauche est la
+                                                                    seule visible — elle doit dire QUI produit ces
+                                                                    chiffres, pas seulement OU. */}
+                                                                {nomOuvrier(poste.id) && (
+                                                                    <p className="text-[10px] font-bold text-indigo-600 dark:text-dk-accent-text truncate">{nomOuvrier(poste.id)}</p>
+                                                                )}
                                                                 {poste.machineName && (
                                                                     <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-dk-bg text-[9px] font-black text-slate-500 dark:text-dk-muted truncate max-w-[140px]">
                                                                         {poste.machineName}
@@ -741,6 +971,18 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
 
                                                     <td className="px-2 py-2 text-center bg-emerald-50/40 dark:bg-emerald-900/5 font-black tabular-nums text-slate-800 dark:text-dk-text">
                                                         {totalJour || '—'}
+                                                        {(() => {
+                                                            const t = tendancePoste(poste);
+                                                            if (!t) return null;
+                                                            return (
+                                                                <span
+                                                                    className={`block text-[9px] font-black ${t.sens === 'hausse' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}
+                                                                    title={tx(lang, L.tendanceTitre)}
+                                                                >
+                                                                    {t.sens === 'hausse' ? '↑' : '↓'} {t.pct}%
+                                                                </span>
+                                                            );
+                                                        })()}
                                                     </td>
 
                                                     <td className="px-2 py-2 text-center">
@@ -820,6 +1062,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                             </table>
                         </div>
                     </div>
+                    )}
 
                   </>
                 )}
