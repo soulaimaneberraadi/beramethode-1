@@ -657,7 +657,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
             {/* Modele actif : on CHOISIT l'OF de la chaine, comme sur la grille horaire.
                 Sans ce choix, deux OF sur la meme chaine et le second etait invisible. */}
             {planningsChaine.length > 0 && (
-                <div className="shrink-0 px-3 sm:px-6 py-2 flex items-center gap-2 border-b border-slate-100 dark:border-dk-border/40 bg-white dark:bg-dk-surface">
+                <div className="shrink-0 px-2 sm:px-6 py-1.5 flex items-center gap-2 border-b border-slate-100 dark:border-dk-border/40 bg-white dark:bg-dk-surface">
                     <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">
                         {tx(lang, L.modeleActif)}
                     </span>
@@ -739,7 +739,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                 {tx(lang, L.hourNow)} : <span className="text-slate-800 dark:text-dk-text">{nowBlock.label}</span>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6">
+            <div className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-6">
                 {/* Jour de repos : la grille de secours affichait 08:00 → 17:00 et
                     acceptait de la production sous un horaire qui n'existe pas.
                     On dit ce qu'il en est ; la date reste changeable en haut. */}
@@ -854,7 +854,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                 <>
                                     {/* Le creneau, en grand : c'est la premiere chose que
                                         demande celui qui note — quelle heure j'ecris ? */}
-                                    <div className="sticky top-0 z-20 rounded-xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface px-1.5 py-1.5 flex items-center justify-between gap-1">
+                                    <div className="rounded-xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface px-1.5 py-1.5 flex items-center justify-between gap-1">
                                         <button
                                             type="button"
                                             disabled={idxCourant === 0}
@@ -1446,7 +1446,7 @@ function MenuPoste({ poste, lang, ouvert, onToggle, onChangerOuvrier, onSupprime
                     {/* Un voile ferme le menu au premier clic ailleurs : sans lui, il
                         reste ouvert sous le doigt pendant qu'on saisit. */}
                     <div className="fixed inset-0 z-30" onClick={onToggle} />
-                    <div className="absolute right-0 z-40 mt-1 w-52 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg overflow-hidden">
+                    <div className="absolute left-0 sm:left-auto sm:right-0 z-40 mt-1 w-52 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg overflow-hidden">
                         <button
                             type="button"
                             onClick={onChangerOuvrier}

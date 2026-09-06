@@ -1557,18 +1557,18 @@ export default function SuiviProduction({
         <div className="flex flex-col h-full bg-[#fafbfe] dark:bg-dk-bg overflow-hidden font-sans antialiased text-slate-800 dark:text-dk-text">
 
             {/* Sous-onglets : grille horaire (existante) vs suivi par poste/ouvrier */}
-            <div className="shrink-0 flex items-center gap-1 px-3 pt-2 sm:px-6 sm:pt-3 bg-[#fafbfe] dark:bg-dk-bg">
+            <div className="shrink-0 flex items-center gap-1 px-2 pt-1.5 sm:px-6 sm:pt-3 bg-[#fafbfe] dark:bg-dk-bg">
                 <button
                     type="button"
                     onClick={() => setSubView('grille')}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-black transition-colors min-h-[40px] sm:min-h-0 ${subView === 'grille' ? 'bg-slate-900 dark:bg-dk-accent text-white' : 'bg-slate-100 dark:bg-dk-elevated/80 text-slate-500 dark:text-dk-muted hover:text-slate-800'}`}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-black transition-colors min-h-[32px] sm:min-h-0 ${subView === 'grille' ? 'bg-slate-900 dark:bg-dk-accent text-white' : 'bg-slate-100 dark:bg-dk-elevated/80 text-slate-500 dark:text-dk-muted hover:text-slate-800'}`}
                 >
                     {tx(lang, { fr: 'Grille horaire', ar: 'الجدول بالساعة', en: 'Hourly grid', es: 'Tabla horaria', pt: 'Grelha horária', tr: 'Saatlik tablo' })}
                 </button>
                 <button
                     type="button"
                     onClick={() => setSubView('postes')}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-black transition-colors min-h-[40px] sm:min-h-0 ${subView === 'postes' ? 'bg-slate-900 dark:bg-dk-accent text-white' : 'bg-slate-100 dark:bg-dk-elevated/80 text-slate-500 dark:text-dk-muted hover:text-slate-800'}`}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-black transition-colors min-h-[32px] sm:min-h-0 ${subView === 'postes' ? 'bg-slate-900 dark:bg-dk-accent text-white' : 'bg-slate-100 dark:bg-dk-elevated/80 text-slate-500 dark:text-dk-muted hover:text-slate-800'}`}
                 >
                     {tx(lang, { fr: 'Suivi par poste / ouvrier', ar: 'التتبع حسب المحطة/العامل', en: 'Poste / worker tracking', es: 'Seguimiento por puesto/operario', pt: 'Acompanhamento por posto/operário', tr: 'İstasyon/işçi takibi' })}
                 </button>
@@ -1591,13 +1591,16 @@ export default function SuiviProduction({
             ) : (
             <>
             {/* Top SaaS Header Bar */}
-            <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border/60 px-3 py-2.5 sm:px-6 sm:py-4 flex flex-wrap items-center justify-between gap-2 sm:gap-4 shrink-0 shadow-sm dark:shadow-dk-sm z-20">
+            {/* En-tete : sur telephone il ne reste que l'essentiel — l'icone, le
+                titre, puis les filtres. Le sous-titre et le badge expliquent une
+                page qu'on connait deja quand on la relit dix fois par jour. */}
+            <div className="bg-white dark:bg-dk-surface border-b border-slate-200 dark:border-dk-border/60 px-2 py-1.5 sm:px-6 sm:py-4 flex flex-wrap items-center justify-between gap-1.5 sm:gap-4 shrink-0 shadow-sm dark:shadow-dk-sm z-20">
                 <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 flex items-center justify-center text-white shadow-sm dark:shadow-dk-sm shrink-0">
+                    <div className="hidden sm:flex w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-indigo-600 dark:bg-dk-accent dark:bg-indigo-700 items-center justify-center text-white shadow-sm dark:shadow-dk-sm shrink-0">
                         <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <div>
-                        <h1 className="text-[15px] sm:text-lg font-black tracking-tight flex items-center gap-2">
+                        <h1 className="text-[13px] sm:text-lg font-black tracking-tight flex items-center gap-2">
                             {l.title} <span className="hidden sm:inline text-xs bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 text-indigo-700 dark:text-dk-accent-text dark:text-indigo-300 dark:text-indigo-200 px-2 py-0.5 rounded-lg font-bold">{tx(lang, { fr: 'Grille Directe', ar: 'الجدول المباشر', en: 'Live Grid', es: 'Tabla directa', pt: 'Grelha direta', tr: 'Canlı tablo' })}</span>
                         </h1>
                         <p className="hidden sm:block text-xs text-slate-400 dark:text-dk-muted font-medium">{l.subtitle}</p>
