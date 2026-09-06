@@ -33,30 +33,32 @@ const L = {
     poste: { fr: 'Poste', ar: 'المحطة', en: 'Poste', es: 'Puesto', pt: 'Posto', tr: 'İstasyon' },
     worker: { fr: 'Ouvrier', ar: 'العامل', en: 'Worker', es: 'Operario', pt: 'Operário', tr: 'İşçi' },
     chooseWorker: { fr: 'Choisir un ouvrier…', ar: 'اختر عاملاً…', en: 'Choose a worker…', es: 'Elegir un operario…', pt: 'Escolher um operário…', tr: 'İşçi seçin…' },
-    qty: { fr: 'Qté produite', ar: 'الكمية المنتجة', en: 'Produced qty', es: 'Cant. producida', pt: 'Qtd. produzida', tr: 'Üretilen miktar' },
-    defects: { fr: 'Défauts', ar: 'العيوب', en: 'Defects', es: 'Defectos', pt: 'Defeitos', tr: 'Hatalar' },
     hourNow: { fr: 'Créneau', ar: 'الفترة', en: 'Slot', es: 'Franja', pt: 'Faixa', tr: 'Zaman dilimi' },
-    saveRow: { fr: 'Enregistrer', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Guardar', tr: 'Kaydet' },
-    saved: { fr: 'Enregistré', ar: 'تم الحفظ', en: 'Saved', es: 'Guardado', pt: 'Guardado', tr: 'Kaydedildi' },
     chrono: { fr: 'Chronométrer', ar: 'حساب الزمن', en: 'Time it', es: 'Cronometrar', pt: 'Cronometrar', tr: 'Kronometre' },
     start: { fr: 'Démarrer', ar: 'ابدأ', en: 'Start', es: 'Iniciar', pt: 'Iniciar', tr: 'Başlat' },
     stop: { fr: 'Arrêter', ar: 'إيقاف', en: 'Stop', es: 'Detener', pt: 'Parar', tr: 'Durdur' },
     reset: { fr: 'Réinitialiser', ar: 'إعادة تعيين', en: 'Reset', es: 'Reiniciar', pt: 'Repor', tr: 'Sıfırla' },
     timePerPiece: { fr: 'Temps / pièce', ar: 'الزمن / قطعة', en: 'Time / piece', es: 'Tiempo / pieza', pt: 'Tempo / peça', tr: 'Parça başı süre' },
-    today: { fr: "Total aujourd'hui", ar: 'إجمالي اليوم', en: "Today's total", en2: '', es: 'Total de hoy', pt: 'Total de hoje', tr: 'Bugünkü toplam' },
     loading: { fr: 'Chargement…', ar: 'جار التحميل…', en: 'Loading…', es: 'Cargando…', pt: 'A carregar…', tr: 'Yükleniyor…' },
-    entriesToday: { fr: 'relevés aujourd\'hui', ar: 'تسجيلات اليوم', en: 'entries today', es: 'registros hoy', pt: 'registos hoje', tr: 'bugünkü kayıtlar' },
     score: { fr: 'Score', ar: 'النتيجة', en: 'Score', es: 'Puntuación', pt: 'Pontuação', tr: 'Puan' },
     progression: { fr: 'Progression des ouvriers', ar: 'تقدّم العمّال', en: 'Worker progression', es: 'Progresión de operarios', pt: 'Progressão dos operários', tr: 'İşçi gelişimi' },
     progressionVide: { fr: "Pas encore de relevé chronométré : le score apparaît dès qu'un temps est mesuré.", ar: 'لا يوجد تسجيل مُوقَّت بعد: النتيجة تظهر بمجرّد قياس زمن.', en: 'No timed entry yet: the score appears as soon as a time is measured.', es: 'Aún no hay registro cronometrado: la puntuación aparece en cuanto se mide un tiempo.', pt: 'Ainda sem registo cronometrado: a pontuação aparece assim que um tempo for medido.', tr: 'Henüz süre ölçümü yok: bir süre ölçülür ölçülmez puan görünür.' },
     scoreEstime: { fr: 'Score estime depuis la quantite (pas de chronometrage)', ar: 'نتيجة مُقدَّرة من الكمية (بلا كرونومتراج)', en: 'Score estimated from quantity (no timing)', es: 'Puntuacion estimada por la cantidad (sin cronometraje)', pt: 'Pontuacao estimada pela quantidade (sem cronometragem)', tr: 'Miktardan tahmin edilen puan (olcum yok)' },
     postesTenus: { fr: 'postes tenus', ar: 'مناصب مشغولة', en: 'stations held', es: 'puestos cubiertos', pt: 'postos ocupados', tr: 'tutulan istasyon' },
     modeleActif: { fr: 'Modèle actif', ar: 'الموديل النشط', en: 'Active model', es: 'Modelo activo', pt: 'Modelo ativo', tr: 'Aktif model' },
+    total: { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' },
     cadence: { fr: 'Cadence', ar: 'الوتيرة', en: 'Rate', es: 'Cadencia', pt: 'Cadência', tr: 'Tempo' },
     cadenceMesuree: { fr: 'Cadence mesurée au chronomètre', ar: 'وتيرة مقيسة بالكرونومتر', en: 'Rate measured with the stopwatch', es: 'Cadencia medida con cronómetro', pt: 'Cadência medida com cronómetro', tr: 'Kronometreyle ölçülen tempo' },
     cadenceGamme: { fr: 'Cadence prévue par la gamme (pas encore chronométrée)', ar: 'الوتيرة المتوقّعة من الگام (مازال بلا كرونومتراج)', en: 'Rate expected from the gamme (not timed yet)', es: 'Cadencia prevista por la gama (aún sin cronometrar)', pt: 'Cadência prevista pela gama (ainda sem cronometragem)', tr: 'Gamme’ın öngördüğü tempo (henüz ölçülmedi)' },
-    creneauxJour: { fr: 'Creneaux du jour — ce que le poste a sorti', ar: 'فترات اليوم — اللي خرّج المنصب', en: 'Day slots — what the poste produced', es: 'Franjas del dia — lo que el puesto produjo', pt: 'Faixas do dia — o que o posto produziu', tr: 'Gunun dilimleri — istasyonun urettigi' },
-    ajoutCreneau: { fr: 'Ajouter au creneau en cours', ar: 'زيد للفترة الجارية', en: 'Add to the current slot', es: 'Anadir a la franja actual', pt: 'Adicionar a faixa atual', tr: 'Gecerli dilime ekle' },
+    releves: { fr: 'Releves du jour', ar: 'تسجيلات اليوم', en: 'Day entries', es: 'Registros del dia', pt: 'Registos do dia', tr: 'Gun kayitlari' },
+    relevesHint: { fr: 'Une ligne par poste. Chaque case est ce que le poste a sorti dans ce creneau — elle se corrige.', ar: 'سطر لكل منصب. كل خانة هي اللي خرّج المنصب فديك الفترة — وكتّصحّح.', en: 'One row per poste. Each cell is what the poste produced in that slot — it can be corrected.', es: 'Una fila por puesto. Cada casilla es lo que el puesto produjo en ese tramo — se puede corregir.', pt: 'Uma linha por posto. Cada celula e o que o posto produziu nessa faixa — pode ser corrigida.', tr: 'Istasyon basina bir satir. Her hucre, istasyonun o dilimde urettigidir — duzeltilebilir.' },
+    tsPrevu: { fr: 'TS (s)', ar: 'TS (ث)', en: 'TS (s)', es: 'TS (s)', pt: 'TS (s)', tr: 'TS (sn)' },
+    tsPrevuTitre: { fr: 'Temps standard par piece, de la gamme', ar: 'الزمن المعياري للقطعة، من الگام', en: 'Standard time per piece, from the gamme', es: 'Tiempo estandar por pieza, de la gama', pt: 'Tempo padrao por peca, da gama', tr: 'Gamme’dan parca basi standart sure' },
+    totalGeneral: { fr: 'Total general', ar: 'المجموع العام', en: 'Grand total', es: 'Total general', pt: 'Total geral', tr: 'Genel toplam' },
+    defCourt: { fr: 'Def.', ar: 'عيوب', en: 'Def.', es: 'Def.', pt: 'Def.', tr: 'Hata' },
+    defTitre: { fr: 'Defauts du creneau en cours', ar: 'عيوب الفترة الجارية', en: 'Defects of the current slot', es: 'Defectos de la franja actual', pt: 'Defeitos da faixa atual', tr: 'Gecerli dilimin hatalari' },
+    chronoTitre: { fr: 'Chronometrer ce poste', ar: 'قيس زمن هاد المنصب', en: 'Time this poste', es: 'Cronometrar este puesto', pt: 'Cronometrar este posto', tr: 'Bu istasyonu olc' },
+    chronoSansPieces: { fr: 'Notez d’abord des pieces dans le creneau en cours : le temps mesure s’y rattache.', ar: 'سجّل الأول القطع فالفترة الجارية: الزمن المقيس كيتربط بيها.', en: 'Record pieces in the current slot first: the measured time attaches to it.', es: 'Registre primero piezas en la franja actual: el tiempo medido se asocia a ella.', pt: 'Registe primeiro pecas na faixa atual: o tempo medido associa-se a ela.', tr: 'Once gecerli dilime parca girin: olculen sure ona baglanir.' },
     primeJour: { fr: 'Jour', ar: 'اليوم', en: 'Day', es: 'Día', pt: 'Dia', tr: 'Gün' },
     primeSemaine: { fr: 'Semaine', ar: 'الأسبوع', en: 'Week', es: 'Semana', pt: 'Semana', tr: 'Hafta' },
     prime: { fr: 'Prime', ar: 'العلاوة', en: 'Bonus', es: 'Prima', pt: 'Prémio', tr: 'Prim' },
@@ -88,8 +90,6 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
     const [posteSuivis, setPosteSuivis] = useState<PosteSuiviData[]>([]);
     const [workers, setWorkers] = useState<HRWorker[]>([]);
     const [loading, setLoading] = useState(true);
-    const [savingId, setSavingId] = useState<string | null>(null);
-    const [savedId, setSavedId] = useState<string | null>(null);
     const [chronoOpenFor, setChronoOpenFor] = useState<string | null>(null);
 
     // Chargement initial : releves poste_suivi + liste des ouvriers actifs (Gestion RH)
@@ -185,66 +185,6 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         setDraftByPoste(prev => ({ ...prev, [posteId]: { ...getDraft(posteId), ...patch } }));
     };
 
-    const saveRow = async (poste: Operation) => {
-        if (!activePlanning || !activeModel) return;
-        const d = getDraft(poste.id);
-        if (d.qty === '' || d.qty === undefined) return; // rien a enregistrer sans quantite
-        const rowId = `${activePlanning.id}-${poste.id}-${date}-${nowBlock.key}`;
-        const existing = posteSuivis.find(s => s.id === rowId);
-        /* Le chrono mesure des millisecondes, mais toute la gamme (poste.time,
-           SAM, temps prevu) est en MINUTES. On convertit ici, sinon le score
-           comparerait des secondes a des minutes et serait faux d'un facteur 60. */
-        const tempsParPiece = d.tempsMs && Number(d.qty) > 0
-            ? Number(((d.tempsMs / 60000) / Number(d.qty)).toFixed(4))
-            : undefined;
-        const payload: PosteSuiviData = {
-            id: rowId,
-            planningId: activePlanning.id,
-            modelId: activeModel.id,
-            posteId: poste.id,
-            workerId: d.workerId || undefined,
-            date,
-            heure_debut: nowBlock.key,
-            heure_fin: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`,
-            /* Plusieurs relevés peuvent tomber dans le meme creneau (l'ouvrier
-               annonce 20 pieces a 09h10 puis 15 a 09h40). Le creneau porte le
-               meme identifiant : on CUMULE au lieu d'ecraser, sinon la deuxieme
-               saisie effacerait la premiere. */
-            pieces_entrees: (existing?.pieces_entrees || 0) + (Number(d.qty) || 0),
-            pieces_sorties: (existing?.pieces_sorties || 0) + (Number(d.qty) || 0),
-            pieces_defaut: (existing?.pieces_defaut || 0) + (d.defauts === '' ? 0 : Number(d.defauts) || 0),
-            temps_reel_par_piece: tempsParPiece ?? existing?.temps_reel_par_piece,
-            temps_prevu_par_piece: poste.time,
-            notes: undefined,
-            problemes: existing?.problemes || [],
-        };
-        setSavingId(poste.id);
-        try {
-            const res = await fetch('/api/poste-suivi', {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ suivis: [payload] }),
-            });
-            if (res.ok) {
-                setPosteSuivis(prev => {
-                    const others = prev.filter(s => s.id !== rowId);
-                    return [...others, payload];
-                });
-                setSavedId(poste.id);
-                // Le Catalogue de Temps attend ce signal pour se rafraichir.
-                signalerMesureTemps();
-                setTimeout(() => setSavedId(cur => (cur === poste.id ? null : cur)), 1800);
-                // On garde l'ouvrier choisi (saisie repetee dans l'heure), on vide qte/defauts/chrono.
-                setDraft(poste.id, { qty: '', defauts: '', tempsMs: null });
-            }
-        } catch (e) {
-            console.error('SuiviPostes: save error', e);
-        } finally {
-            setSavingId(null);
-        }
-    };
-
     /* ─── Grille du jour : un poste par ligne, les creneaux du jour en colonnes ───
        Le releve rapide ci-dessous ne remplit que le creneau EN COURS : on ne
        pouvait donc pas rattraper une heure passee, ni relire la journee poste par
@@ -289,20 +229,24 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         }
     };
 
-    /* Une case de la grille porte une valeur ABSOLUE (ce que le poste a sorti dans
-       ce creneau), pas un cumul : c'est une correction, pas un ajout. Le releve
-       rapide, lui, cumule — il sert a annoncer au fil de l'heure. */
-    const saveCellule = async (poste: Operation, hourKey: string, valeur: number | null) => {
+    /* Une case de la grille porte une valeur ABSOLUE (ce que le poste a sorti
+       dans ce creneau), pas un cumul : c'est une correction.
+
+       `ecrireCellule` est le seul chemin d'ecriture d'un creneau — pieces,
+       defauts ou temps mesure passent par lui. Avoir deux chemins, c'etait deux
+       facons de rater le meme champ. */
+    const ecrireCellule = async (poste: Operation, hourKey: string, patch: Partial<PosteSuiviData>) => {
         if (!activePlanning || !activeModel) return;
         const rowId = idCellule(poste.id, hourKey);
         const existing = celluleDe(poste.id, hourKey);
         const workerId = ouvrierDuPoste(poste.id);
 
-        if (valeur === null || valeur === 0) {
-            /* Case videe : on n'ecrit pas une ligne a zero qui ferait croire a un
-               releve fait a zero piece. Si rien n'existait, il n'y a rien a faire. */
-            if (!existing) return;
-        }
+        const pieces = patch.pieces_sorties ?? existing?.pieces_sorties ?? 0;
+        const defauts = patch.pieces_defaut ?? existing?.pieces_defaut ?? 0;
+        const temps = patch.temps_reel_par_piece ?? existing?.temps_reel_par_piece;
+        /* Rien a garder : ni pieces, ni defauts, ni mesure. On n'ecrit pas une
+           ligne vide qui ferait croire a un releve fait a zero piece. */
+        if (!existing && pieces === 0 && defauts === 0 && !temps) return;
 
         const payload: PosteSuiviData = {
             ...(existing || {} as PosteSuiviData),
@@ -314,10 +258,10 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
             date,
             heure_debut: hourKey,
             heure_fin: existing?.heure_fin,
-            pieces_entrees: valeur ?? 0,
-            pieces_sorties: valeur ?? 0,
-            pieces_defaut: existing?.pieces_defaut || 0,
-            temps_reel_par_piece: existing?.temps_reel_par_piece,
+            pieces_entrees: pieces,
+            pieces_sorties: pieces,
+            pieces_defaut: defauts,
+            temps_reel_par_piece: temps,
             temps_prevu_par_piece: poste.time,
             notes: existing?.notes,
             problemes: existing?.problemes || [],
@@ -327,6 +271,22 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         setPosteSuivis(prev => [...prev.filter(s => s.id !== rowId), payload]);
         await persisterCellules([payload]);
         setCellSavingId(cur => (cur === rowId ? null : cur));
+    };
+
+    const saveCellule = (poste: Operation, hourKey: string, valeur: number | null) =>
+        ecrireCellule(poste, hourKey, { pieces_sorties: valeur ?? 0, pieces_entrees: valeur ?? 0 });
+
+    /* Le chrono mesure des millisecondes pour un lot de pieces ; la gamme et le
+       score comptent en MINUTES par piece. La conversion se fait ici, une seule
+       fois : une seconde prise pour une minute fausserait le score d'un facteur 60.
+       Sans pieces notees dans le creneau, la mesure n'a pas de diviseur — on ne
+       l'invente pas. */
+    const appliquerChrono = async (poste: Operation, ms: number) => {
+        const cellule = celluleDe(poste.id, nowBlock.key);
+        const pieces = cellule?.pieces_sorties || 0;
+        if (pieces <= 0) return;
+        const tpp = Number(((ms / 60000) / pieces).toFixed(4));
+        await ecrireCellule(poste, nowBlock.key, { temps_reel_par_piece: tpp });
     };
 
     /* Changer l'ouvrier d'un poste rejaillit sur TOUS ses releves du jour :
@@ -613,188 +573,252 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                             />
                         </div>
                     )}
-                    {/* ─── UNE carte par poste ─────────────────────────
-                        La page montrait DEUX fois les memes postes : une grille des
-                        creneaux, puis un tableau de saisie. Deux endroits pour un
-                        seul geste, et rien de tenable sur un telephone. Tout tient
-                        maintenant dans une carte par poste — comme au chronometrage :
-                        l'ouvrier, les creneaux du jour, la saisie du creneau en cours.
-                        Chaque champ n'accepte que des chiffres, et se corrige. */}
-                    <div className="space-y-2.5 sm:space-y-3">
-                        {postes.map((poste, rang) => {
-                            const d = getDraft(poste.id);
-                            const cad = cadencePoste(poste);
-                            const rowsToday = suivisByPoste.get(poste.id) || [];
-                            const totalJour = rowsToday.reduce((somme, r) => somme + (r.pieces_sorties || 0), 0);
-                            const scoresJour = rowsToday.map(scoreReleve).filter((x): x is number => x !== null);
-                            const scoreMesure = rowsToday.some(scoreChronometre);
-                            const scorePoste = scoresJour.length > 0
-                                ? Math.round(scoresJour.reduce((a, b) => a + b, 0) / scoresJour.length)
-                                : null;
-                            const isSaving = savingId === poste.id;
-                            const isSaved = savedId === poste.id;
-                            const ouvrier = ouvrierDuPoste(poste.id);
-                            return (
-                                <div key={poste.id} className="rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface p-3 sm:p-4">
-                                    {/* En-tete : le poste, sa machine, sa cadence, son score du jour */}
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div className="flex items-start gap-2 min-w-0">
-                                            <span className="shrink-0 mt-0.5 px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-dk-bg text-[10px] font-black tabular-nums text-slate-500 dark:text-dk-muted">#{rang + 1}</span>
-                                            <div className="min-w-0">
-                                                <p className="font-black text-[13px] text-slate-800 dark:text-dk-text truncate">{poste.description || poste.id}</p>
-                                                <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted truncate">
-                                                    {poste.machineName ? `${poste.machineName} · ` : ''}
-                                                    {cad.valeur === null
-                                                        ? '—'
-                                                        : (
-                                                            <span title={tx(lang, cad.mesuree ? L.cadenceMesuree : L.cadenceGamme)}>
-                                                                {cad.mesuree ? '' : '~'}{cad.valeur} p/h
+                    {/* ─── LE TABLEAU DU JOUR ────────────────────────────
+                        Meme langue visuelle que « Releves Terrain » au
+                        chronometrage : une ligne par poste, des colonnes
+                        chiffrees, une ligne de total en pied. Les cartes
+                        precedentes demandaient de derouler la page entiere pour
+                        lire deux chiffres ; ici la journee tient d'un regard.
+
+                        Sur telephone le tableau defile lateralement, la colonne
+                        du poste restant collee a gauche — sans elle, on ne sait
+                        plus quelle ligne on remplit. */}
+                    <div className="rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface overflow-hidden">
+                        <div className="px-3 sm:px-4 py-2.5 border-b border-slate-100 dark:border-dk-border/50 bg-slate-50 dark:bg-dk-elevated/40">
+                            <p className="text-[12px] font-black text-slate-700 dark:text-dk-text">{tx(lang, L.releves)}</p>
+                            <p className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang, L.relevesHint)}</p>
+                        </div>
+
+                        <div className="overflow-x-auto scrollbar-thin">
+                            <table className="w-full text-[12px] border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50 dark:bg-dk-elevated/60 text-slate-500 dark:text-dk-muted text-[10px] uppercase tracking-wider font-black">
+                                        <th className="w-8 px-2 py-2.5 text-center">#</th>
+                                        <th className="text-left px-3 py-2.5 sticky left-0 bg-slate-50 dark:bg-dk-elevated/60 z-10 min-w-[160px]">{tx(lang, L.poste)}</th>
+                                        <th className="text-left px-3 py-2.5 min-w-[150px]">{tx(lang, L.worker)}</th>
+                                        <th className="px-2 py-2.5 text-center w-16 bg-amber-50/70 dark:bg-amber-900/10 text-amber-700 dark:text-amber-300" title={tx(lang, L.tsPrevuTitre)}>{tx(lang, L.tsPrevu)}</th>
+                                        <th className="px-2 py-2.5 text-center w-20">{tx(lang, L.cadence)}</th>
+                                        {hourGrid.blocks.map(b => (
+                                            <th
+                                                key={b.key}
+                                                className={`text-center px-1 py-2.5 w-[64px] border-l border-slate-100 dark:border-dk-border/40 ${b.key === nowBlock.key ? 'bg-indigo-50 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text' : ''}`}
+                                                title={`${b.label} — ${b.duration} min`}
+                                            >
+                                                {b.start}
+                                                {b.duration < 60 && <span className="block text-[8px] normal-case tracking-normal text-indigo-500 dark:text-dk-accent-text">{b.duration} min</span>}
+                                            </th>
+                                        ))}
+                                        <th className="px-2 py-2.5 text-center w-16 border-l border-slate-200 dark:border-dk-border/60" title={tx(lang, L.defTitre)}>{tx(lang, L.defCourt)}</th>
+                                        <th className="px-2 py-2.5 text-center w-16 bg-emerald-50/70 dark:bg-emerald-900/10 text-emerald-700 dark:text-emerald-300">{tx(lang, L.total)}</th>
+                                        <th className="px-2 py-2.5 text-center w-16 bg-slate-800 text-white dark:bg-dk-elevated">{tx(lang, L.score)}</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody className="divide-y divide-slate-100 dark:divide-dk-border/40">
+                                    {postes.map((poste, rang) => {
+                                        const d = getDraft(poste.id);
+                                        const cad = cadencePoste(poste);
+                                        const rowsToday = suivisByPoste.get(poste.id) || [];
+                                        const totalJour = rowsToday.reduce((somme, r) => somme + (r.pieces_sorties || 0), 0);
+                                        const scoresJour = rowsToday.map(scoreReleve).filter((x): x is number => x !== null);
+                                        const scoreMesure = rowsToday.some(scoreChronometre);
+                                        const scorePoste = scoresJour.length > 0
+                                            ? Math.round(scoresJour.reduce((a, b) => a + b, 0) / scoresJour.length)
+                                            : null;
+                                        const celluleCourante = celluleDe(poste.id, nowBlock.key);
+                                        const defautsCourants = celluleCourante?.pieces_defaut ?? 0;
+                                        const chronoOuvert = chronoOpenFor === poste.id;
+                                        return (
+                                            <React.Fragment key={poste.id}>
+                                                <tr className="hover:bg-slate-50/60 dark:hover:bg-dk-elevated/30">
+                                                    <td className="px-2 py-2 text-center text-[10px] font-black tabular-nums text-slate-400 dark:text-dk-muted">{rang + 1}</td>
+
+                                                    <td className="px-3 py-2 sticky left-0 bg-white dark:bg-dk-surface z-10">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="min-w-0">
+                                                                <p className="font-black text-slate-800 dark:text-dk-text truncate">{poste.description || poste.id}</p>
+                                                                {poste.machineName && (
+                                                                    <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-dk-bg text-[9px] font-black text-slate-500 dark:text-dk-muted truncate max-w-[140px]">
+                                                                        {poste.machineName}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setChronoOpenFor(cur => (cur === poste.id ? null : poste.id))}
+                                                                title={tx(lang, L.chronoTitre)}
+                                                                aria-label={tx(lang, L.chronoTitre)}
+                                                                className={`ml-auto shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border transition-colors ${
+                                                                    chronoOuvert
+                                                                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                                                                        : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:border-indigo-400'
+                                                                }`}
+                                                            >
+                                                                <Clock className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="px-3 py-2">
+                                                        <div className="relative">
+                                                            <select
+                                                                value={ouvrierDuPoste(poste.id)}
+                                                                onChange={(e) => void changerOuvrierPoste(poste, e.target.value)}
+                                                                className="w-full min-h-[36px] appearance-none text-[11px] font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg pl-2.5 pr-7 outline-none"
+                                                            >
+                                                                <option value="">{tx(lang, L.chooseWorker)}</option>
+                                                                {workersSorted.map(w => (
+                                                                    <option key={w.id} value={String(w.id)}>{w.full_name}{w.chaine_id === selectedChaineId ? '' : ` (${w.chaine_id || '-'})`}</option>
+                                                                ))}
+                                                            </select>
+                                                            <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="px-2 py-2 text-center bg-amber-50/40 dark:bg-amber-900/5 font-black tabular-nums text-amber-700 dark:text-amber-300">
+                                                        {poste.time > 0 ? (poste.time * 60).toFixed(1) : '—'}
+                                                    </td>
+
+                                                    <td className="px-2 py-2 text-center">
+                                                        {cad.valeur === null ? (
+                                                            <span className="text-slate-300 dark:text-dk-muted font-bold">—</span>
+                                                        ) : (
+                                                            <span
+                                                                className={`inline-block px-2 py-1 rounded-lg text-[11px] font-black tabular-nums ${cad.mesuree ? 'bg-indigo-50 text-indigo-700 dark:bg-dk-accent/20 dark:text-dk-accent-text' : 'bg-slate-100 text-slate-500 dark:bg-dk-bg dark:text-dk-muted'}`}
+                                                                title={tx(lang, cad.mesuree ? L.cadenceMesuree : L.cadenceGamme)}
+                                                            >
+                                                                {cad.mesuree ? '' : '~'}{cad.valeur}
                                                             </span>
                                                         )}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        {scorePoste !== null && (
-                                            <span
-                                                className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-black tabular-nums ${classeScore(scorePoste)}`}
-                                                title={scoreMesure ? undefined : tx(lang, L.scoreEstime)}
-                                            >
-                                                {scoreMesure ? '' : '~'}{scorePoste}%
-                                            </span>
-                                        )}
-                                    </div>
+                                                    </td>
 
-                                    {/* L'ouvrier vaut pour la journee : le changer reetiquette les
-                                        releves du jour, il n'y a donc qu'un seul selecteur. */}
-                                    <div className="relative mt-2.5">
-                                        <select
-                                            value={ouvrier}
-                                            onChange={(e) => void changerOuvrierPoste(poste, e.target.value)}
-                                            className="w-full min-h-[44px] appearance-none text-[13px] font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl pl-3 pr-8 outline-none"
-                                        >
-                                            <option value="">{tx(lang, L.chooseWorker)}</option>
-                                            {workersSorted.map(w => (
-                                                <option key={w.id} value={String(w.id)}>{w.full_name}{w.chaine_id === selectedChaineId ? '' : ` (${w.chaine_id || '-'})`}</option>
-                                            ))}
-                                        </select>
-                                        <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                                    </div>
+                                                    {hourGrid.blocks.map(b => {
+                                                        const cellule = celluleDe(poste.id, b.key);
+                                                        const val = cellule?.pieces_sorties;
+                                                        /* Un creneau qui n'est pas encore fini ne se saisit pas :
+                                                           on ne releve pas une heure qui n'a pas eu lieu. */
+                                                        const futur = new Date(date).setHours(0, b.endMin, 0, 0) > Date.now();
+                                                        const courant = b.key === nowBlock.key;
+                                                        const enregistre = cellSavingId === idCellule(poste.id, b.key);
+                                                        return (
+                                                            <td key={b.key} className={`p-1 border-l border-slate-100 dark:border-dk-border/40 ${courant ? 'bg-indigo-50/40 dark:bg-dk-accent/10' : ''}`}>
+                                                                <input
+                                                                    type="text"
+                                                                    inputMode="numeric"
+                                                                    pattern="[0-9]*"
+                                                                    disabled={futur}
+                                                                    value={val === undefined || val === null || val === 0 ? '' : String(val)}
+                                                                    onChange={(e) => {
+                                                                        const chiffres = e.target.value.replace(/[^0-9]/g, '');
+                                                                        void saveCellule(poste, b.key, chiffres === '' ? null : parseInt(chiffres, 10));
+                                                                    }}
+                                                                    placeholder="—"
+                                                                    className={`w-full h-10 text-center text-[12px] font-black tabular-nums rounded-lg border outline-none transition-all ${
+                                                                        futur
+                                                                            ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
+                                                                            : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
+                                                                    } ${enregistre ? 'opacity-60' : ''}`}
+                                                                />
+                                                            </td>
+                                                        );
+                                                    })}
 
-                                    {/* Les creneaux du jour, corrigeables un par un. Ils defilent
-                                        horizontalement sur telephone plutot que de deborder. */}
-                                    <p className="mt-3 mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
-                                        {tx(lang, L.creneauxJour)}
-                                    </p>
-                                    <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 -mx-0.5 px-0.5">
+                                                    <td className="p-1 border-l border-slate-200 dark:border-dk-border/60">
+                                                        <input
+                                                            type="text"
+                                                            inputMode="numeric"
+                                                            pattern="[0-9]*"
+                                                            value={defautsCourants === 0 ? '' : String(defautsCourants)}
+                                                            onChange={(e) => {
+                                                                const chiffres = e.target.value.replace(/[^0-9]/g, '');
+                                                                void ecrireCellule(poste, nowBlock.key, { pieces_defaut: chiffres === '' ? 0 : parseInt(chiffres, 10) });
+                                                            }}
+                                                            placeholder="—"
+                                                            title={tx(lang, L.defTitre)}
+                                                            className="w-full h-10 text-center text-[12px] font-bold tabular-nums rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft outline-none focus:border-indigo-600"
+                                                        />
+                                                    </td>
+
+                                                    <td className="px-2 py-2 text-center bg-emerald-50/40 dark:bg-emerald-900/5 font-black tabular-nums text-slate-800 dark:text-dk-text">
+                                                        {totalJour || '—'}
+                                                    </td>
+
+                                                    <td className="px-2 py-2 text-center">
+                                                        {scorePoste === null ? (
+                                                            <span className="text-slate-300 dark:text-dk-muted font-bold">—</span>
+                                                        ) : (
+                                                            <span
+                                                                className={`inline-block rounded-md px-2 py-1 text-[11px] font-black tabular-nums ${classeScore(scorePoste)}`}
+                                                                title={scoreMesure ? undefined : tx(lang, L.scoreEstime)}
+                                                            >
+                                                                {scoreMesure ? '' : '~'}{scorePoste}%
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+
+                                                {/* Le chrono s'ouvre SOUS sa ligne : on garde le poste sous
+                                                    les yeux pendant la mesure. Le temps mesure se rattache au
+                                                    creneau en cours, divise par les pieces qui y sont notees. */}
+                                                {chronoOuvert && (
+                                                    <tr className="bg-slate-50/70 dark:bg-dk-elevated/30">
+                                                        <td colSpan={6 + hourGrid.blocks.length + 3} className="px-3 py-2.5">
+                                                            <MiniChrono
+                                                                open
+                                                                onToggle={() => setChronoOpenFor(null)}
+                                                                onFinish={(ms) => { setDraft(poste.id, { tempsMs: ms }); void appliquerChrono(poste, ms); }}
+                                                                lang={lang}
+                                                                tempsMs={d.tempsMs}
+                                                            />
+                                                            {(celluleCourante?.pieces_sorties || 0) === 0 && (
+                                                                <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                                                    {tx(lang, L.chronoSansPieces)}
+                                                                </p>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    })}
+                                </tbody>
+
+                                {/* TOTAL GENERAL : la journee de la chaine, creneau par creneau. */}
+                                <tfoot>
+                                    <tr className="bg-slate-50 dark:bg-dk-elevated/60 border-t-2 border-slate-200 dark:border-dk-border">
+                                        <td />
+                                        <td className="px-3 py-2.5 sticky left-0 bg-slate-50 dark:bg-dk-elevated/60 z-10 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">
+                                            {tx(lang, L.totalGeneral)}
+                                        </td>
+                                        <td />
+                                        <td />
+                                        <td />
                                         {hourGrid.blocks.map(b => {
-                                            const cellule = celluleDe(poste.id, b.key);
-                                            const val = cellule?.pieces_sorties;
-                                            /* Un creneau qui n'est pas encore fini ne se saisit pas :
-                                               on ne releve pas une heure qui n'a pas eu lieu. */
-                                            const futur = new Date(date).setHours(0, b.endMin, 0, 0) > Date.now();
-                                            const courant = b.key === nowBlock.key;
-                                            const enregistre = cellSavingId === idCellule(poste.id, b.key);
+                                            const somme = postes.reduce((acc, poste) => acc + (celluleDe(poste.id, b.key)?.pieces_sorties || 0), 0);
                                             return (
-                                                <label key={b.key} className="shrink-0 w-[58px]">
-                                                    <span className={`block text-center text-[9px] font-black tabular-nums ${courant ? 'text-indigo-600 dark:text-dk-accent-text' : 'text-slate-400 dark:text-dk-muted'}`}>
-                                                        {b.start}
-                                                        {b.duration < 60 && <span className="block text-[8px] font-bold text-indigo-500 dark:text-dk-accent-text">{b.duration}′</span>}
-                                                    </span>
-                                                    <input
-                                                        type="text"
-                                                        inputMode="numeric"
-                                                        pattern="[0-9]*"
-                                                        disabled={futur}
-                                                        value={val === undefined || val === null || val === 0 ? '' : String(val)}
-                                                        onChange={(e) => {
-                                                            const chiffres = e.target.value.replace(/[^0-9]/g, '');
-                                                            void saveCellule(poste, b.key, chiffres === '' ? null : parseInt(chiffres, 10));
-                                                        }}
-                                                        placeholder="—"
-                                                        className={`mt-0.5 w-full h-11 text-center text-[13px] font-black tabular-nums rounded-xl border outline-none transition-all ${
-                                                            futur
-                                                                ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
-                                                                : courant
-                                                                    ? 'bg-white dark:bg-dk-surface border-indigo-300 dark:border-dk-accent text-slate-800 dark:text-dk-text focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
-                                                                    : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-800 dark:text-dk-text focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600'
-                                                        } ${enregistre ? 'opacity-60' : ''}`}
-                                                    />
-                                                </label>
+                                                <td key={b.key} className="px-1 py-2.5 text-center font-black tabular-nums text-slate-700 dark:text-dk-text border-l border-slate-100 dark:border-dk-border/40">
+                                                    {somme || '—'}
+                                                </td>
                                             );
                                         })}
-                                    </div>
-
-                                    {/* Saisie du creneau EN COURS : elle s'ajoute au creneau
-                                        (« encore 15 pieces »), la ou les cases ci-dessus posent
-                                        une valeur exacte. */}
-                                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-dk-border/40">
-                                        <p className="mb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
-                                            {tx(lang, L.ajoutCreneau)} · <span className="text-slate-600 dark:text-dk-text-soft">{nowBlock.label}</span>
-                                        </p>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <label className="block">
-                                                <span className="block mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang, L.qty)}</span>
-                                                <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    pattern="[0-9]*"
-                                                    placeholder="—"
-                                                    value={d.qty === '' ? '' : String(d.qty)}
-                                                    onChange={(e) => {
-                                                        const chiffres = e.target.value.replace(/[^0-9]/g, '');
-                                                        setDraft(poste.id, { qty: chiffres === '' ? '' : parseInt(chiffres, 10) });
-                                                    }}
-                                                    className="w-full min-h-[44px] text-[15px] font-black tabular-nums text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 outline-none focus:border-indigo-600"
-                                                />
-                                            </label>
-                                            <label className="block">
-                                                <span className="block mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang, L.defects)}</span>
-                                                <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    pattern="[0-9]*"
-                                                    placeholder="—"
-                                                    value={d.defauts === '' ? '' : String(d.defauts)}
-                                                    onChange={(e) => {
-                                                        const chiffres = e.target.value.replace(/[^0-9]/g, '');
-                                                        setDraft(poste.id, { defauts: chiffres === '' ? '' : parseInt(chiffres, 10) });
-                                                    }}
-                                                    className="w-full min-h-[44px] text-[15px] font-bold tabular-nums text-slate-600 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-xl px-3 outline-none focus:border-indigo-600"
-                                                />
-                                            </label>
-                                        </div>
-
-                                        <div className="mt-2">
-                                            <MiniChrono
-                                                open={chronoOpenFor === poste.id}
-                                                onToggle={() => setChronoOpenFor(cur => (cur === poste.id ? null : poste.id))}
-                                                onFinish={(ms) => setDraft(poste.id, { tempsMs: ms })}
-                                                lang={lang}
-                                                tempsMs={d.tempsMs}
-                                            />
-                                        </div>
-
-                                        <div className="mt-2.5 flex items-center justify-between gap-2">
-                                            <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">
-                                                {tx(lang, L.today)} : <span className="text-slate-700 dark:text-dk-text">{totalJour}</span> pcs · {rowsToday.length} {tx(lang, L.entriesToday)}
-                                            </span>
-                                            <button
-                                                type="button"
-                                                disabled={d.qty === '' || isSaving}
-                                                onClick={() => saveRow(poste)}
-                                                className={`min-h-[44px] px-4 flex items-center justify-center gap-1.5 rounded-xl text-[12px] font-black transition-colors ${
-                                                    d.qty === '' ? 'bg-slate-100 dark:bg-dk-elevated/60 text-slate-300 dark:text-dk-muted cursor-not-allowed' :
-                                                    isSaved ? 'bg-emerald-500 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                                                }`}
-                                            >
-                                                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : isSaved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                                                {isSaved ? tx(lang, L.saved) : tx(lang, L.saveRow)}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                        <td className="px-2 py-2.5 text-center font-bold tabular-nums text-slate-500 dark:text-dk-muted border-l border-slate-200 dark:border-dk-border/60">
+                                            {postes.reduce((acc, poste) => acc + (celluleDe(poste.id, nowBlock.key)?.pieces_defaut || 0), 0) || '—'}
+                                        </td>
+                                        <td className="px-2 py-2.5 text-center font-black tabular-nums text-emerald-700 dark:text-emerald-300 bg-emerald-50/70 dark:bg-emerald-900/10">
+                                            {postes.reduce((acc, poste) => acc + (suivisByPoste.get(poste.id) || []).reduce((s2, r) => s2 + (r.pieces_sorties || 0), 0), 0) || '—'}
+                                        </td>
+                                        <td className="px-2 py-2.5 text-center bg-slate-800 dark:bg-dk-elevated">
+                                            {(() => {
+                                                const tous = postes.flatMap(poste => (suivisByPoste.get(poste.id) || []).map(scoreReleve)).filter((x): x is number => x !== null);
+                                                if (tous.length === 0) return <span className="text-slate-500 font-bold">—</span>;
+                                                const moyenne = Math.round(tous.reduce((a, b) => a + b, 0) / tous.length);
+                                                return <span className="text-white font-black tabular-nums text-[11px]">{moyenne}%</span>;
+                                            })()}
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
                     </div>
 
                   </>
