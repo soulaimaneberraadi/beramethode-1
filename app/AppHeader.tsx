@@ -67,7 +67,7 @@ interface AppHeaderProps {
     companyName?: string;
     /** Le detour en cours : on est venu du Planning (ou de La Coupe, ou de la
      *  Sous-traitance) ouvrir un modele, et il faut pouvoir y retourner. */
-    navigationContext?: 'coupe' | 'planning' | 'sousTraitance' | null;
+    navigationContext?: 'coupe' | 'planning' | 'sousTraitance' | 'suivi' | null;
 }
 
 export type ViewLabelFn = (lang: Lang) => string;
@@ -233,13 +233,15 @@ export default function AppHeader({
                         carte qu'on lisait. Un bouton de retour n'a pas a cacher
                         la page qu'il propose de quitter — il tient sa place ici,
                         pres du logo, la ou on cherche un retour. */}
-                    {(navigationContext === 'coupe' || navigationContext === 'planning' || navigationContext === 'sousTraitance')
+                    {(navigationContext === 'coupe' || navigationContext === 'planning' || navigationContext === 'sousTraitance' || navigationContext === 'suivi')
                         && (currentView === 'library' || currentView === 'ingenierie') && (() => {
                         const nom = navigationContext === 'coupe'
                             ? tx(lang, {fr:'La Coupe',ar:'القص',en:'Cutting',es:'Corte',pt:'Corte',tr:'Kesim'})
                             : navigationContext === 'sousTraitance'
                                 ? tx(lang, {fr:'Sous-traitance',ar:'المناولة',en:'Subcontracting',es:'Subcontratación',pt:'Subcontratação',tr:'Fason'})
-                                : tx(lang, {fr:'Planning',ar:'التخطيط',en:'Planning',es:'Planificación',pt:'Planeamento',tr:'Planlama'});
+                                : navigationContext === 'suivi'
+                                    ? tx(lang, {fr:'Suivi',ar:'المتابعة',en:'Tracking',es:'Seguimiento',pt:'Acompanhamento',tr:'Takip'})
+                                    : tx(lang, {fr:'Planning',ar:'التخطيط',en:'Planning',es:'Planificación',pt:'Planeamento',tr:'Planlama'});
                         const libelle = tx(lang, {
                             fr: `Retour ${nom}`, ar: `العودة إلى ${nom}`, en: `Back to ${nom}`,
                             es: `Volver a ${nom}`, pt: `Voltar a ${nom}`, tr: `${nom} sayfasina don`,
@@ -252,7 +254,7 @@ export default function AppHeader({
                                     // inattendue ; la navigation, elle, ne doit pas suivre une
                                     // valeur qui n'est pas une page — c'est ainsi qu'un bouton
                                     // mene a « page introuvable ».
-                                    const destinations = ['coupe', 'planning', 'sousTraitance'] as const;
+                                    const destinations = ['coupe', 'planning', 'sousTraitance', 'suivi'] as const;
                                     const cible = destinations.find(d => d === navigationContext) || 'planning';
                                     handleNavigation(cible as ViewType);
                                 }}

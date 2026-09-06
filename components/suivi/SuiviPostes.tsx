@@ -6,6 +6,7 @@ import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { useIsMobile } from '../planning/shared/useIsMobile';
 import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown } from 'lucide-react';
+import AjoutPosteRapide from './AjoutPosteRapide';
 
 interface Props {
     models: ModelData[];
@@ -18,6 +19,8 @@ interface Props {
     setGlobalDate?: (d: string) => void;
     /** Ouvre l'atelier des methodes sur l'etape Gamme du modele donne. */
     onOpenGamme?: (modelId: string) => void;
+    /** Ajoute une operation a la gamme du modele et la persiste. */
+    onAddPoste?: (modelId: string, op: Operation) => Promise<void>;
 }
 
 const L = {
@@ -81,7 +84,7 @@ function todayStr(): string {
     return new Date().toISOString().split('T')[0];
 }
 
-export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme }: Props) {
+export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste }: Props) {
     const { lang } = useLang();
     /* Le releve se fait au pied de la chaine, telephone en main : sur petit
        ecran chaque poste devient une carte, un tableau de sept colonnes n'y
@@ -263,6 +266,15 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         const rows = suivisByPoste.get(posteId) || [];
         const avecOuvrier = rows.find(r => r.workerId);
         return String(avecOuvrier?.workerId || getDraft(posteId).workerId || '');
+    };
+
+    /* Ajout d'un poste depuis cette page. L'operation part dans la gamme du
+       modele (source unique), et l'ouvrier choisi a la creation prend la main
+       tout de suite sur la saisie du poste — sinon il faudrait le re-choisir. */
+    const ajouterPoste = async (op: Operation, workerId: string) => {
+        if (!activeModel || !onAddPoste) return;
+        await onAddPoste(activeModel.id, op);
+        if (workerId) setDraft(op.id, { workerId });
     };
 
     const [cellSavingId, setCellSavingId] = useState<string | null>(null);
@@ -569,13 +581,24 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                         <p className="text-slate-400 dark:text-dk-muted text-sm font-bold text-center">
                             {tx(lang, !activePlanning ? L.noModel : (!activeModel ? L.noModelIntrouvable : L.noGamme))}
                         </p>
-                        {/* La gamme se remplit dans l'atelier des methodes : on y va d'ici,
-                            sur le modele concerne, plutot que de le faire rechercher. */}
+                        {/* Sans gamme, on n'envoie plus l'utilisateur la construire
+                            ailleurs : le poste se cree ICI, au pied de la chaine, en
+                            tapant son libelle. Il rejoint la gamme du modele — donc le
+                            catalogue des temps et le score des ouvriers. L'atelier des
+                            methodes reste offert pour le travail de fond. */}
+                        {activeModel && postes.length === 0 && onAddPoste && (
+                            <AjoutPosteRapide
+                                models={models}
+                                activeModel={activeModel}
+                                workers={workersSorted}
+                                onAjouter={ajouterPoste}
+                            />
+                        )}
                         {activeModel && postes.length === 0 && onOpenGamme && (
                             <button
                                 type="button"
                                 onClick={() => onOpenGamme(activeModel.id)}
-                                className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-[12px] font-black shadow-sm hover:bg-indigo-700 transition-colors min-h-[40px]"
+                                className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 underline underline-offset-4"
                             >
                                 {tx(lang, L.ouvrirGamme)}
                             </button>

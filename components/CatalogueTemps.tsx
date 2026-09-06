@@ -194,6 +194,14 @@ function sectionLabelFor(lang: import('../app/constants').Lang | string | null |
     return map[key] || key;
 }
 
+/** Seance de chronometrage archivee (`GET /api/chrono/sessions`). */
+type SeanceChrono = {
+    id: string;
+    modelId: string;
+    entries: Record<string, ChronoData>;
+    opNames?: Record<string, string>;
+};
+
 // ── Extraction du temps réel mesuré (minutes), indépendant de l'unité ──────────
 function measuredTimeMin(cd: ChronoData | undefined): number | null {
     if (!cd) return null;
@@ -221,19 +229,27 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
        et se regroupent par le même clustering. */
     const [relevesPostes, setRelevesPostes] = useState<PosteSuiviData[]>([]);
     const [ouvriers, setOuvriers] = useState<HRWorker[]>([]);
+    /* Seances de chronometrage enregistrees (`chrono_sessions`) : un chrono
+       archive en seance vit hors du modele, et le catalogue ne le voyait pas —
+       les temps restaient marques « TS gamme (estime) » alors qu'ils avaient
+       bel et bien ete mesures. On les lit ici au meme titre que le reste. */
+    const [seancesChrono, setSeancesChrono] = useState<SeanceChrono[]>([]);
     useEffect(() => {
         let annule = false;
         (async () => {
             try {
-                const [rs, rw] = await Promise.all([
+                const [rs, rw, rc] = await Promise.all([
                     fetch('/api/poste-suivi', { credentials: 'include' }),
                     fetch('/api/hr/workers?active=1', { credentials: 'include' }),
+                    fetch('/api/chrono/sessions', { credentials: 'include' }),
                 ]);
                 const ds = rs.ok ? await rs.json() : [];
                 const dw = rw.ok ? await rw.json() : [];
+                const dc = rc.ok ? await rc.json() : [];
                 if (!annule) {
                     setRelevesPostes(Array.isArray(ds) ? ds : []);
                     setOuvriers(Array.isArray(dw) ? dw : []);
+                    setSeancesChrono(Array.isArray(dc) ? dc : []);
                 }
             } catch (e) {
                 // Le catalogue reste utilisable sans ces relevés : on n'affiche pas d'erreur bloquante.
@@ -311,6 +327,9 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
     const { measures, modelCount } = useMemo(() => {
         const list: Measure[] = [];
         const modelSet = new Set<string>();
+        /* Le chronoData du modele est en general la copie de la derniere seance :
+           on ne veut pas compter deux fois la meme mesure. */
+        const dejaMesure = new Set<string>();
 
         for (const m of models) {
             const ops: Operation[] = m.gamme_operatoire || [];
@@ -339,6 +358,7 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
                 if (realTimes.length) {
                     timeMin = realTimes.reduce((a, b) => a + b, 0) / realTimes.length;
                     measured = true;
+                    dejaMesure.add(`${m.id}|${op.id}`);
                 } else if ((op.time || 0) > 0) {
                     timeMin = op.time;
                     measured = false;
@@ -392,8 +412,50 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
             });
         }
 
+        /* Seances archivees : chaque entree porte un `tempMajore` MESURE au
+           chronometre. Le modele courant peut avoir ete reenregistre depuis
+           (chronoData vide) ; la seance, elle, garde la mesure. */
+        for (const se of seancesChrono) {
+            const m = models.find(x => x.id === se.modelId);
+            if (!m) continue;
+            const ops: Operation[] = m.gamme_operatoire || [];
+            const opOperator = new Map<string, string>();
+            (m.chronoCustomStations || []).forEach(st => {
+                if (st.linkedOperationId && st.operatorName && st.operatorName.trim()) {
+                    opOperator.set(st.linkedOperationId, st.operatorName.trim());
+                }
+            });
+            for (const [cle, cd] of Object.entries(se.entries || {})) {
+                const timeMin = measuredTimeMin(cd);
+                if (timeMin == null || timeMin <= 0) continue;
+                // La cle est `opId` ou `stId__opId`, comme dans `chronoData`.
+                const opId = cle.includes('__') ? cle.split('__').pop()! : cle;
+                if (dejaMesure.has(`${m.id}|${opId}`)) continue;
+                const op = ops.find(o => o.id === opId);
+                const description = (op?.description || se.opNames?.[opId] || '').trim();
+                if (!description) continue;
+                const machine = (op?.machineName || op?.machineClass || op?.machineId || 'Machine').toString();
+                modelSet.add(m.id);
+                list.push({
+                    modelId: m.id,
+                    modelName: m.meta_data?.nom_modele || m.filename || 'Modèle',
+                    reference: m.meta_data?.reference || m.ficheData?.designation || '',
+                    client: m.ficheData?.client || '—',
+                    category: m.ficheData?.category || m.meta_data?.category || '—',
+                    matiere: m.ficheData?.designation || '—',
+                    operationDesc: description,
+                    machine, machineKey: normMachine(machine),
+                    section: op?.section,
+                    operator: opOperator.get(opId),
+                    length: op?.length,
+                    timeMin,
+                    measured: true,
+                });
+            }
+        }
+
         return { measures: list, modelCount: modelSet.size };
-    }, [models, relevesPostes, ouvriers]);
+    }, [models, relevesPostes, ouvriers, seancesChrono]);
 
     // — Facettes en cascade : chaque liste ne montre que les valeurs compatibles
     //   avec les AUTRES filtres actifs (filtrage croisé / dépendant). —

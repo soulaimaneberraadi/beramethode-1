@@ -192,10 +192,10 @@ export function useAppModelManager({
      *
      * Filtrer ici protege tous les appelants a la fois, presents et a venir.
      */
-    const detour = (v: unknown): 'coupe' | 'planning' | 'sousTraitance' | null =>
-        v === 'coupe' || v === 'planning' || v === 'sousTraitance' ? v : null;
+    const detour = (v: unknown): 'coupe' | 'planning' | 'sousTraitance' | 'suivi' | null =>
+        v === 'coupe' || v === 'planning' || v === 'sousTraitance' || v === 'suivi' ? v : null;
 
-    const loadModel = useCallback((model: ModelData, fromContext?: 'coupe' | 'planning' | 'sousTraitance' | null) => {
+    const loadModel = useCallback((model: ModelData, fromContext?: 'coupe' | 'planning' | 'sousTraitance' | 'suivi' | null) => {
         setCurrentModelId(model.id);
         setNavigationContext(detour(fromContext));
         setArticleName(model.meta_data.nom_modele);

@@ -492,7 +492,7 @@ export default function App() {
         replaceRoute('suivi', globalChaineId);
     }, [globalChaineId, currentView]);
 
-    const [navigationContext, setNavigationContext] = useState<'coupe' | 'planning' | 'sousTraitance' | null>(null);
+    const [navigationContext, setNavigationContext] = useState<'coupe' | 'planning' | 'sousTraitance' | 'suivi' | null>(null);
     const [navConfirm, setNavConfirm] = useState<{ isOpen: boolean; type: 'save' | 'new' | 'effectifs' | null; targetView: typeof currentView | null; }>({ isOpen: false, type: null, targetView: null });
 
     const [planningEvents, setPlanningEvents] = useState<import('./types').PlanningEvent[]>([]);
@@ -2183,9 +2183,9 @@ export default function App() {
                                     const m = models.find(x => x.id === modelId);
                                     if (!m) return;
                                     setWorkflowInitialStep('gamme');
-                                    // Contexte 'planning' : on vient d'un OF planifie, comme les
-                                    // autres ouvertures depuis le suivi.
-                                    loadModel(m, 'planning');
+                                    // Detour depuis le suivi : le bouton de retour de l'en-tete
+                                    // doit ramener ICI, pas au Planning ou l'on n'est jamais passe.
+                                    loadModel(m, 'suivi');
                                     setCurrentView('ingenierie');
                                     navigate('ingenierie');
                                 }}
