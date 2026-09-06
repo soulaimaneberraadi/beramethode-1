@@ -4,6 +4,7 @@ import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { chercherOperations, indexerOperations, type OperationConnue, type ResultatRecherche } from '../../lib/rechercheOperations';
 import { Plus, Search, Loader2, Check } from 'lucide-react';
+import ChampOuvrier from './ChampOuvrier';
 
 /**
  * Ajout d'un poste depuis le pied de la chaine.
@@ -36,8 +37,8 @@ interface Props {
     /** Modele auquel le poste sera ajoute. */
     activeModel: ModelData;
     workers: HRWorker[];
-    /** Persiste l'operation dans la gamme du modele. Rejette en cas d'echec. */
-    onAjouter: (op: Operation, workerId: string) => Promise<void>;
+    /** Persiste l'operation dans le releve. Le second argument est le NOM saisi. */
+    onAjouter: (op: Operation, nomOuvrier: string) => Promise<void>;
 }
 
 export default function AjoutPosteRapide({ models, activeModel, workers, onAjouter }: Props) {
@@ -49,7 +50,9 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
        main : au pied de la chaine on n'estime pas un temps standard — le
        chrono du releve le mesure, et le catalogue le corrige. */
     const [tempsSecHerite, setTempsSecHerite] = useState<number | null>(null);
-    const [workerId, setWorkerId] = useState('');
+    /* Nom tape, pas identifiant : le fichier RH peut etre vide, et on connait
+       le prenom de la personne bien avant que son dossier n'existe. */
+    const [nomOuvrier, setNomOuvrier] = useState('');
     const [enCours, setEnCours] = useState(false);
     const [fait, setFait] = useState(false);
     const [listeVisible, setListeVisible] = useState(false);
@@ -109,7 +112,7 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
     };
 
     const reinitialiser = () => {
-        setDescription(''); setMachine(''); setTempsSecHerite(null); setWorkerId('');
+        setDescription(''); setMachine(''); setTempsSecHerite(null); setNomOuvrier('');
         setListeVisible(false);
     };
 
@@ -135,7 +138,7 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
         };
         setEnCours(true);
         try {
-            await onAjouter(op, workerId);
+            await onAjouter(op, nomOuvrier);
             setFait(true);
             setTimeout(() => setFait(false), 1800);
             reinitialiser();
@@ -212,17 +215,18 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
                     placeholder={tx(lang, L.machine)}
                 />
 
-                <div className="relative w-[130px]">
-                    <select
-                        value={workerId}
-                        onChange={e => setWorkerId(e.target.value)}
-                        className="w-full h-9 appearance-none rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg pl-2 pr-6 text-[12px] font-bold text-slate-800 dark:text-dk-text outline-none"
-                    >
-                        <option value="">{tx(lang, L.chooseWorker)}</option>
-                        {workers.map(w => (
-                            <option key={w.id} value={String(w.id)}>{w.full_name}</option>
-                        ))}
-                    </select>
+                <div className="w-[150px]">
+                    {/* Meme champ que dans le releve : on ecrit le nom, les fiches RH
+                        sont proposees. Un selecteur seul supposait ce fichier deja
+                        saisi — et n'offrait alors rien a choisir. */}
+                    <ChampOuvrier
+                        valeur={nomOuvrier}
+                        workers={workers}
+                        lang={lang}
+                        autoFocus={false}
+                        onValider={(nom) => setNomOuvrier(nom)}
+                        onAnnuler={() => { /* rien : le champ vit dans le formulaire */ }}
+                    />
                 </div>
 
                 <button

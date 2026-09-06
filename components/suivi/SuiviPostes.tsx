@@ -7,6 +7,7 @@ import { useLang } from '../../src/context/LanguageContext';
 import { useIsMobile } from '../planning/shared/useIsMobile';
 import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown, MoreVertical, Trash2, Image as ImageIcon } from 'lucide-react';
 import AjoutPosteRapide from './AjoutPosteRapide';
+import ChampOuvrier from './ChampOuvrier';
 import FicheOuvrier from './FicheOuvrier';
 import { signalerMesureTemps } from '../../lib/mesuresTemps';
 
@@ -80,7 +81,6 @@ const L = {
     defTitre: { fr: 'Defauts du creneau en cours', ar: 'عيوب الفترة الجارية', en: 'Defects of the current slot', es: 'Defectos de la franja actual', pt: 'Defeitos da faixa atual', tr: 'Gecerli dilimin hatalari' },
     reprendreGamme: { fr: 'Reprendre la gamme', ar: 'جيب مناصب الگام', en: 'Take the gamme postes', es: 'Traer los puestos de la gama', pt: 'Trazer os postos da gama', tr: 'Gamme istasyonlarini al' },
     aucunPoste: { fr: 'Aucun poste sur ce releve. Ajoutez ceux que vous suivez : eux seuls apparaitront ici.', ar: 'ما كاين حتى منصب فهاد التسجيل. زيد اللي كتتبّع: غير هوما اللي غادي يبانو هنا.', en: 'No poste on this entry sheet. Add the ones you track: only those will appear here.', es: 'Ningun puesto en este registro. Anada los que sigue: solo esos apareceran aqui.', pt: 'Nenhum posto neste registo. Adicione os que acompanha: so esses aparecerao aqui.', tr: 'Bu kayitta istasyon yok. Takip ettiklerinizi ekleyin: yalnizca onlar gorunur.' },
-    nomOuvrier: { fr: 'Nom de l’ouvrier…', ar: 'سميّة العامل…', en: 'Worker name…', es: 'Nombre del operario…', pt: 'Nome do operario…', tr: 'Isci adi…' },
     menuPoste: { fr: 'Actions du poste', ar: 'إجراءات المنصب', en: 'Poste actions', es: 'Acciones del puesto', pt: 'Acoes do posto', tr: 'Istasyon islemleri' },
     changerOuvrier: { fr: 'Changer l’ouvrier', ar: 'بدّل العامل', en: 'Change the worker', es: 'Cambiar el operario', pt: 'Mudar o operario', tr: 'Isciyi degistir' },
     supprimerPoste: { fr: 'Supprimer le poste', ar: 'مسح المنصب', en: 'Delete the poste', es: 'Eliminar el puesto', pt: 'Eliminar o posto', tr: 'Istasyonu sil' },
@@ -303,10 +303,10 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
     }, [posteSuivis, date, activePlanning]);
 
     // Etat de saisie courant par poste : ouvrier choisi, quantite, defauts, temps chrono.
-    const [draftByPoste, setDraftByPoste] = useState<Record<string, { workerId: string; qty: number | ''; defauts: number | ''; tempsMs: number | null }>>({});
+    const [draftByPoste, setDraftByPoste] = useState<Record<string, { workerId: string; workerName: string; qty: number | ''; defauts: number | ''; tempsMs: number | null }>>({});
 
-    const getDraft = (posteId: string) => draftByPoste[posteId] || { workerId: '', qty: '', defauts: '', tempsMs: null };
-    const setDraft = (posteId: string, patch: Partial<{ workerId: string; qty: number | ''; defauts: number | ''; tempsMs: number | null }>) => {
+    const getDraft = (posteId: string) => draftByPoste[posteId] || { workerId: '', workerName: '', qty: '', defauts: '', tempsMs: null };
+    const setDraft = (posteId: string, patch: Partial<{ workerId: string; workerName: string; qty: number | ''; defauts: number | ''; tempsMs: number | null }>) => {
         setDraftByPoste(prev => ({ ...prev, [posteId]: { ...getDraft(posteId), ...patch } }));
     };
 
@@ -331,16 +331,19 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
     /** Nom libre saisi pour ce poste, quand l'ouvrier n'a pas de fiche RH. */
     const nomLibreDuPoste = (posteId: string): string => {
         const rows = suivisByPoste.get(posteId) || [];
-        return rows.find(r => r.workerName)?.workerName || '';
+        return rows.find(r => r.workerName)?.workerName || getDraft(posteId).workerName || '';
     };
 
     /* Ajout d'un poste depuis cette page. L'operation part dans la gamme du
        modele (source unique), et l'ouvrier choisi a la creation prend la main
        tout de suite sur la saisie du poste — sinon il faudrait le re-choisir. */
-    const ajouterPoste = async (op: Operation, workerId: string) => {
+    const ajouterPoste = async (op: Operation, nomSaisi: string) => {
         if (!activeModel || !onAddPoste) return;
         await onAddPoste(activeModel.id, op);
-        if (workerId) setDraft(op.id, { workerId });
+        const saisi = nomSaisi.trim();
+        if (!saisi) return;
+        const fiche = workers.find(w => (w.full_name || '').trim().toLowerCase() === saisi.toLowerCase());
+        setDraft(op.id, { workerId: fiche ? String(fiche.id) : '', workerName: saisi });
     };
 
     /* Reprise explicite : on verse dans le releve les operations de la gamme qui
@@ -513,7 +516,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
            le nom tel quel — mieux vaut un prenom qu'un « Sans ouvrier ». */
         const fiche = workers.find(w => (w.full_name || '').trim().toLowerCase() === saisi.toLowerCase());
         const workerId = fiche ? String(fiche.id) : '';
-        setDraft(poste.id, { workerId });
+        setDraft(poste.id, { workerId, workerName: saisi });
         const rows = suivisByPoste.get(poste.id) || [];
         if (rows.length === 0) return;
         const majs = rows
@@ -1467,59 +1470,6 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
 
 // Chronometre minimal : demarrer/arreter, le temps ecoule (ms) remonte au parent
 // qui le divise par la quantite saisie pour obtenir le temps reel par piece.
-/**
- * Champ « ouvrier » : on ecrit le nom, les fiches RH sont proposees.
- *
- * Un simple selecteur supposait le fichier RH deja saisi. Ici le nom libre est
- * accepte tel quel, et s'il correspond exactement a une fiche, le releve est
- * rattache a cette personne — son historique se remplit sans rien resaisir.
- */
-function ChampOuvrier({ valeur, workers, lang, onValider, onAnnuler }: {
-    valeur: string; workers: HRWorker[]; lang: string;
-    onValider: (nom: string) => void; onAnnuler: () => void;
-}) {
-    const [saisie, setSaisie] = useState(valeur);
-    const propositions = useMemo(() => {
-        const q = saisie.trim().toLowerCase();
-        const base = q === '' ? workers : workers.filter(w => (w.full_name || '').toLowerCase().includes(q));
-        return base.slice(0, 6);
-    }, [saisie, workers]);
-
-    return (
-        <div className="relative">
-            <input
-                autoFocus
-                value={saisie}
-                onChange={e => setSaisie(e.target.value)}
-                onKeyDown={e => {
-                    if (e.key === 'Enter') onValider(saisie);
-                    if (e.key === 'Escape') onAnnuler();
-                }}
-                /* On valide en quittant le champ : au pied de la chaine, personne
-                   ne pense a appuyer sur Entree. Le clic sur une proposition passe
-                   avant, grace au delai. */
-                onBlur={() => setTimeout(() => onValider(saisie), 150)}
-                placeholder={tx(lang, L.nomOuvrier)}
-                className="w-full h-9 text-[12px] font-bold text-slate-700 dark:text-dk-text bg-slate-50 dark:bg-dk-elevated/60 border border-slate-200 dark:border-dk-border rounded-lg px-2.5 outline-none focus:border-indigo-600"
-            />
-            {propositions.length > 0 && (
-                <div className="absolute z-40 left-0 right-0 mt-1 max-h-44 overflow-y-auto rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-lg">
-                    {propositions.map(w => (
-                        <button
-                            key={w.id}
-                            type="button"
-                            onMouseDown={e => { e.preventDefault(); onValider(w.full_name || ''); }}
-                            className="w-full text-left px-2.5 py-1.5 text-[12px] font-bold text-slate-700 dark:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated/50 border-b border-slate-100 dark:border-dk-border/40 last:border-0 truncate"
-                        >
-                            {w.full_name}
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-}
-
 /**
  * Menu « ⋮ » d'un poste : ce qui ne se fait qu'une fois par jour ne doit pas
  * occuper la ligne en permanence — changer l'ouvrier, retirer le poste.
