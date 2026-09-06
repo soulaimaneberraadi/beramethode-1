@@ -157,8 +157,7 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             valeur: `${accordees} / ${SYNC_KEYS.length}`,
             ton: accordees === SYNC_KEYS.length ? 'ok' : 'attention',
         });
-        setDetail(detailLignes.join('
-'));
+        setDetail(detailLignes.join('\n'));
         if (ecarts.length) {
             setNote(`Pas encore accordé : ${ecarts.join(', ')}. Un écart juste après une saisie est normal — l'envoi est groupé. S'il dure, utilisez « Envoyer mes données maintenant ».`);
         }
@@ -203,9 +202,7 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
     const rapport = React.useMemo(
         () => ['BERAMETHODE — diagnostic de synchronisation', new Date().toISOString(), '',
-            ...lignes.map(l => `${l.nom} : ${l.valeur}`), detail ? `
-— Les ${SYNC_KEYS.length} cles —
-${detail}` : '', note ? `\n${note}` : ''].join('\n'),
+            ...lignes.map(l => `${l.nom} : ${l.valeur}`), detail ? `\n— Les ${SYNC_KEYS.length} clés —\n${detail}` : '', note ? `\n${note}` : ''].join('\n'),
         [lignes, note, detail],
     );
 
