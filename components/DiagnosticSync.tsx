@@ -1,7 +1,8 @@
 import React from 'react';
-import { RefreshCw, Copy, X, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Copy, X, CheckCircle2, AlertTriangle, UploadCloud } from 'lucide-react';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../src/lib/supabaseClient';
 import { getCurrentEmail } from '../lib/storageKeys';
+import { pushSnapshotToCloud } from '../src/lib/cloudSync';
 
 /**
  * Le diagnostic de synchronisation, DANS l'application.
@@ -28,6 +29,8 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [lignes, setLignes] = React.useState<{ nom: string; valeur: string; ton?: 'ok' | 'ko' | 'attention' }[]>([]);
     const [note, setNote] = React.useState<string>('');
     const [copie, setCopie] = React.useState(false);
+    const [envoi, setEnvoi] = React.useState<'attente' | 'encours' | 'ok' | 'ko'>('attente');
+    const [uid, setUid] = React.useState('');
 
     const lancer = React.useCallback(async () => {
         setEtat('encours');
@@ -55,6 +58,7 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             return;
         }
         const uid = session.user?.id || '';
+        setUid(uid);
         out.push({ nom: 'Adresse', valeur: session.user?.email || '(inconnue)' });
         out.push({ nom: 'IDENTIFIANT DU COMPTE', valeur: uid, ton: 'attention' });
 
@@ -119,6 +123,25 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         setEtat('fini');
     }, []);
 
+    /**
+     * Renvoyer, tout de suite, ce que cet appareil detient.
+     *
+     * Quand le compte est le meme et que les comptes different (« serveur 4 ·
+     * ici 5 »), la question n'est plus « qui parle a qui » mais « pourquoi
+     * l'envoi n'est pas parti ». L'envoi ordinaire est regroupe puis declenche
+     * par le depart de l'application ; s'il echoue, il le fait en silence. Ce
+     * bouton le provoque a la demande et en montre l'issue — et, en attendant
+     * qu'on sache pourquoi, il debloque la situation sur-le-champ.
+     */
+    const forcerEnvoi = React.useCallback(async () => {
+        if (!uid) return;
+        setEnvoi('encours');
+        let ok = false;
+        try { ok = await pushSnapshotToCloud(uid); } catch { ok = false; }
+        setEnvoi(ok ? 'ok' : 'ko');
+        await lancer();
+    }, [uid, lancer]);
+
     React.useEffect(() => { void lancer(); }, [lancer]);
 
     const rapport = React.useMemo(
@@ -168,6 +191,22 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                             <span>{note}</span>
                         </div>
+                    )}
+
+                    {etat === 'fini' && uid && (
+                        <button onClick={() => void forcerEnvoi()} disabled={envoi === 'encours'}
+                            className="w-full h-10 mt-4 rounded-lg bg-indigo-600 text-white text-[13px] font-bold inline-flex items-center justify-center gap-2 disabled:opacity-50">
+                            <UploadCloud className={`w-3.5 h-3.5 ${envoi === 'encours' ? 'animate-pulse' : ''}`} />
+                            {envoi === 'encours' ? 'Envoi en cours…'
+                                : envoi === 'ok' ? 'Envoyé — comptes remis à jour ci-dessus'
+                                    : envoi === 'ko' ? "L'envoi a échoué — réessayez" : 'Envoyer mes données maintenant'}
+                        </button>
+                    )}
+                    {envoi === 'ko' && (
+                        <p className="mt-2 text-[11px] text-red-600 dark:text-red-400">
+                            Le serveur a refusé l'envoi. Si « ici » reste supérieur à « serveur » après plusieurs
+                            essais, c'est l'envoi lui-même qui est en cause, pas le compte.
+                        </p>
                     )}
 
                     <div className="flex gap-2 mt-4">

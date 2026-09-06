@@ -160,7 +160,12 @@ export function useAppModelManager({
                     setModels(prev => currentModelId ? prev.map(m => m.id === currentModelId ? modelToSave : m) : [modelToSave, ...prev]);
                     setCurrentModelId(modelToSave.id);
                     if (!silent) showToast(tx(lang, {fr:"Modèle sauvegardé avec succès (Cloud) !",ar:"تم حفظ النموذج بنجاح (سحابة)!",en:"Model saved successfully (Cloud)!",es:"Modelo guardado con éxito (Nube)!",pt:"Modelo salvo com sucesso (Nuvem)!",tr:"Model başarıyla kaydedildi (Bulut)!"}));
-                    if (navigateNext) setCurrentView('library');
+                    // Enregistrer puis rejoindre la Bibliotheque termine le detour :
+                    // sans cet oubli, un « Retour Planning » survivait a la
+                    // sauvegarde et flottait au-dessus d'une Bibliotheque ouverte
+                    // de plein droit. Ce chemin court-circuite `handleNavigation`,
+                    // ou l'oubli se fait d'ordinaire.
+                    if (navigateNext) { setNavigationContext(null); setCurrentView('library'); }
                 })
                 .catch(err => {
                     console.error(err);
@@ -170,9 +175,9 @@ export function useAppModelManager({
             setModels(prev => currentModelId ? prev.map(m => m.id === currentModelId ? modelToSave : m) : [modelToSave, ...prev]);
             setCurrentModelId(modelToSave.id);
             if (!silent) showToast(tx(lang, {fr:"Modèle sauvegardé avec succès (Local) !",ar:"تم حفظ النموذج بنجاح (محلي)!",en:"Model saved successfully (Local)!",es:"Modelo guardado con éxito (Local)!",pt:"Modelo salvo com sucesso (Local)!",tr:"Model başarıyla kaydedildi (Yerel)!"}));
-            if (navigateNext) setCurrentView('library');
+            if (navigateNext) { setNavigationContext(null); setCurrentView('library'); }
         }
-    }, [activeLayout, articleName, assignments, currentModelId, ficheData, ficheImages, globalStats.tempsArticle, layoutMemory, manualLinks, models, numWorkers, operations, postes, setCurrentModelId, setCurrentView, setLayoutMemory, setModels, setPlanningEvents, showToast, user, efficiency, chronoData, chronoCustomStations, chronoLayoutSide]);
+    }, [activeLayout, articleName, assignments, currentModelId, ficheData, ficheImages, globalStats.tempsArticle, layoutMemory, manualLinks, models, numWorkers, operations, postes, setCurrentModelId, setCurrentView, setLayoutMemory, setModels, setPlanningEvents, setNavigationContext, showToast, user, efficiency, chronoData, chronoCustomStations, chronoLayoutSide]);
 
     const loadModel = useCallback((model: ModelData, fromContext?: 'coupe' | 'planning' | 'sousTraitance' | null) => {
         setCurrentModelId(model.id);
