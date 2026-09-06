@@ -2172,6 +2172,7 @@ export default function App() {
                                 planningEvents={planningEvents}
                                 setPlanningEvents={setPlanningEvents}
                                 settings={globalSettings}
+                                setSettings={setGlobalSettings}
                                 directModelId={directSuiviModelId}
                                 clearDirectModel={() => setDirectSuiviModelId(null)}
                                 machines={machines}

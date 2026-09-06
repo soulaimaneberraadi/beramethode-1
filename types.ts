@@ -394,6 +394,21 @@ export interface AppSettings {
     jour?: { seuil: number; montant: number };
     semaine?: { seuil: number; montant: number };
   };
+  /**
+   * Primes de rendement, modele d'atelier de confection : paliers de rendement,
+   * retenue qualite, assiduite, polyvalence. Voir `lib/primeEngine.ts` pour le
+   * calcul et `components/suivi/PrimesPage.tsx` pour le reglage.
+   *
+   * Champ optionnel, et sans montant chiffre AUCUNE prime n'est calculee : un
+   * montant que personne n'a fixe n'existe pas.
+   */
+  primeConfig?: {
+    periode: 'jour' | 'semaine' | 'mois';
+    paliers: { min: number; montant: number }[];
+    qualite?: { tauxMax: number; retenue: number };
+    assiduite?: { joursMin: number; montant: number };
+    polyvalence?: { montantParPoste: number; plafond: number; rendementMin: number };
+  };
   currency: string; // 'MAD' | 'EUR' | 'USD'
   chainsCount: number; // e.g 12
   chainNames?: Record<string, string>; // NEW: custom chain names matching "CHAINE 1" => "My Custom Chain"

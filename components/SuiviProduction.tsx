@@ -21,6 +21,7 @@ import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
 import SuiviPostes from './suivi/SuiviPostes';
+import PrimesPage from './suivi/PrimesPage';
 
 interface Props {
     models: ModelData[];
@@ -29,6 +30,8 @@ interface Props {
     planningEvents?: PlanningEvent[];
     setPlanningEvents?: React.Dispatch<React.SetStateAction<PlanningEvent[]>>;
     settings: AppSettings;
+    /** Reglage des primes : la page des primes ecrit dedans. */
+    setSettings?: React.Dispatch<React.SetStateAction<AppSettings>>;
     directModelId?: string | null;
     clearDirectModel?: () => void;
     machines?: any[];
@@ -133,7 +136,7 @@ function buildSuiviLabels(lang: string): SuiviLabels {
 
 export default function SuiviProduction({
     models, suivis = [], setSuivis, planningEvents = [], setPlanningEvents, settings,
-    directModelId, clearDirectModel, machines,
+    directModelId, clearDirectModel, machines, setSettings,
     selectedChaineId: propSelectedChaineId,
     setSelectedChaineId: propSetSelectedChaineId,
     globalDate,
@@ -146,7 +149,7 @@ export default function SuiviProduction({
     const { lang } = useLang();
     const isDark = useIsDark();
     const isMobile = useIsMobile();
-    const [subView, setSubView] = useState<'grille' | 'postes'>('grille');
+    const [subView, setSubView] = useState<'grille' | 'postes' | 'primes'>('grille');
     const [localSelectedChaineId, localSetSelectedChaineId] = useState<string>('CHAINE 1');
     const selectedChaineId = propSelectedChaineId !== undefined ? propSelectedChaineId : localSelectedChaineId;
     const setSelectedChaineId = propSetSelectedChaineId !== undefined ? propSetSelectedChaineId : localSetSelectedChaineId;
@@ -1578,9 +1581,25 @@ export default function SuiviProduction({
                 >
                     {tx(lang, { fr: 'Suivi par poste / ouvrier', ar: 'التتبع حسب المحطة/العامل', en: 'Poste / worker tracking', es: 'Seguimiento por puesto/operario', pt: 'Acompanhamento por posto/operário', tr: 'İstasyon/işçi takibi' })}
                 </button>
+                {/* Les primes se lisent la ou se font les releves : c'est le meme
+                    chiffre, vu du cote de l'ouvrier. */}
+                <button
+                    type="button"
+                    onClick={() => setSubView('primes')}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-black transition-colors min-h-[32px] sm:min-h-0 ${subView === 'primes' ? 'bg-slate-900 dark:bg-dk-accent text-white' : 'bg-slate-100 dark:bg-dk-elevated/80 text-slate-500 dark:text-dk-muted hover:text-slate-800'}`}
+                >
+                    {tx(lang, { fr: 'Primes', ar: 'العلاوات', en: 'Bonuses', es: 'Primas', pt: 'Prémios', tr: 'Primler' })}
+                </button>
             </div>
 
-            {subView === 'postes' ? (
+            {subView === 'primes' ? (
+                <PrimesPage
+                    settings={settings}
+                    setSettings={setSettings}
+                    models={models}
+                    globalDate={globalDate}
+                />
+            ) : subView === 'postes' ? (
                 <SuiviPostes
                     models={models}
                     planningEvents={planningEvents}
