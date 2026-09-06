@@ -2179,6 +2179,45 @@ export default function App() {
                                 setSelectedChaineId={setGlobalChaineId}
                                 globalDate={globalDate}
                                 setGlobalDate={setGlobalDate}
+                                onAddPoste={async (modelId, op) => {
+                                    /*  Un poste ajoute au pied de la chaine est une ligne de
+                                        gamme comme une autre : meme source, donc le catalogue
+                                        des temps, l'equilibrage et le score des ouvriers le
+                                        voient sans traitement particulier.
+
+                                        `POST /api/models` remplace le modele ENTIER : on relit
+                                        la version fraiche juste avant d'ecrire, sinon on
+                                        ecraserait ce que l'ingenierie a modifie entre-temps. */
+                                    const local = models.find(x => x.id === modelId);
+                                    if (!local) return;
+                                    let base = local;
+                                    if (!IS_STATIC) {
+                                        const fresh = await fetch('/api/models', { credentials: 'include' });
+                                        if (!fresh.ok) throw new Error('lecture des modeles impossible');
+                                        const list = await fresh.json();
+                                        const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
+                                        if (found) base = found;
+                                    }
+                                    const gamme = [...(base.gamme_operatoire || [])];
+                                    // Un libelle deja present ne se dedouble pas : le poste existe.
+                                    const existe = gamme.some(o => (o.description || '').trim().toLowerCase() === op.description.trim().toLowerCase());
+                                    if (existe) return;
+                                    const updated: ModelData = {
+                                        ...base,
+                                        gamme_operatoire: [...gamme, op],
+                                        updatedAt: new Date().toISOString(),
+                                    };
+                                    if (!IS_STATIC) {
+                                        const res = await fetch('/api/models', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            credentials: 'include',
+                                            body: JSON.stringify(updated),
+                                        });
+                                        if (!res.ok) throw new Error('enregistrement du modele refuse');
+                                    }
+                                    setModels(prev => prev.map(x => (x.id === updated.id ? updated : x)));
+                                }}
                                 onOpenGamme={(modelId) => {
                                     const m = models.find(x => x.id === modelId);
                                     if (!m) return;

@@ -606,6 +606,18 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                     </div>
                 ) : (
                   <>
+                    {/* Un poste peut manquer a une gamme par ailleurs complete : on
+                        l'ajoute d'ici, sans quitter le releve en cours. */}
+                    {activeModel && onAddPoste && (
+                        <div className="mb-3">
+                            <AjoutPosteRapide
+                                models={models}
+                                activeModel={activeModel}
+                                workers={workersSorted}
+                                onAjouter={ajouterPoste}
+                            />
+                        </div>
+                    )}
                     {/* ─── Grille du jour : postes en lignes, creneaux du jour en colonnes ─── */}
                     <div className="mb-4 rounded-2xl border border-slate-200 dark:border-dk-border/60 bg-white dark:bg-dk-surface overflow-hidden">
                         <div className="px-3 sm:px-4 py-2.5 border-b border-slate-100 dark:border-dk-border/50 bg-slate-50 dark:bg-dk-elevated/40">

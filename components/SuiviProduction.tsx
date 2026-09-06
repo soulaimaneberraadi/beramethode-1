@@ -38,6 +38,8 @@ interface Props {
     setGlobalDate?: (date: string) => void;
     /** Ouvre l'atelier des methodes sur l'etape Gamme du modele donne. */
     onOpenGamme?: (modelId: string) => void;
+    /** Ajoute une operation a la gamme du modele et la persiste. */
+    onAddPoste?: (modelId: string, op: import('../types').Operation) => Promise<void>;
 }
 
 const SUIVI_LABELS = {
@@ -135,6 +137,7 @@ export default function SuiviProduction({
     globalDate,
     setGlobalDate,
     onOpenGamme,
+    onAddPoste,
 }: Props) {
     // 1. Core States
     const { lang } = useLang();
@@ -1579,6 +1582,7 @@ export default function SuiviProduction({
                     globalDate={globalDate}
                     setGlobalDate={setGlobalDate}
                     onOpenGamme={onOpenGamme}
+                    onAddPoste={onAddPoste}
                 />
             ) : (
             <>
