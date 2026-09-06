@@ -2370,6 +2370,13 @@ export default function App() {
                                 <CatalogueTemps
                                     models={models}
                                     settings={globalSettings}
+                                    /* Chrono en cours d'edition : il vit dans l'etat de
+                                       l'application tant que le modele n'est pas enregistre.
+                                       Sans cela, une mesure prise a l'instant n'atteignait le
+                                       catalogue qu'apres un « Enregistrer ». */
+                                    liveModelId={currentModelId}
+                                    liveChronoData={chronoData}
+                                    liveStations={chronoCustomStations}
                                     onOpenWorker={(name) => { setHrInitialWorker({ name, ts: Date.now() }); handleNavigation('gestionRh'); }}
                                 />
                             </Suspense>

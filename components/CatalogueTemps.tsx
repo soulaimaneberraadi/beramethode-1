@@ -4,7 +4,7 @@ import { useIsMobile } from './planning/shared/useIsMobile';
 import SheetModal from './shared/SheetModal';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
-import type { ModelData, AppSettings, ChronoData, Operation, PosteSuiviData, HRWorker } from '../types';
+import type { ModelData, AppSettings, ChronoData, Operation, PosteSuiviData, HRWorker, CustomStation } from '../types';
 import { useRouteParam } from '../lib/router';
 import { EVT_MESURE_TEMPS } from '../lib/mesuresTemps';
 import {
@@ -20,6 +20,12 @@ interface CatalogueTempsProps {
     settings?: AppSettings;
     /** Ouvre le profil d'un opérateur dans Gestion RH. */
     onOpenWorker?: (name: string) => void;
+    /* Chrono du modele OUVERT, tel qu'il est en cours de saisie. Le modele
+       enregistre ne le porte qu'apres un « Enregistrer » : sans ces trois
+       props, une mesure prise a l'instant restait invisible ici. */
+    liveModelId?: string | null;
+    liveChronoData?: Record<string, ChronoData>;
+    liveStations?: CustomStation[];
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -234,7 +240,7 @@ function chronoForOp(
     return out;
 }
 
-export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsProps) {
+export default function CatalogueTemps({ models, onOpenWorker, liveModelId, liveChronoData, liveStations }: CatalogueTempsProps) {
     const { lang } = useLang();
     /* Relevés de `Suivi par poste` : chaque fois qu'un poste est chronométré au
        pied de la chaîne, on obtient un temps par pièce MESURÉ, avec l'ouvrier qui
@@ -363,6 +369,15 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
         for (const m of models) {
             const ops: Operation[] = m.gamme_operatoire || [];
             if (!ops.length) continue;
+            /* Pour le modele ouvert, la saisie en cours prime sur la copie
+               enregistree : elle est plus recente, par construction. */
+            const estOuvert = !!liveModelId && m.id === liveModelId;
+            const chronoDuModele = estOuvert && liveChronoData && Object.keys(liveChronoData).length
+                ? liveChronoData
+                : m.chronoData;
+            const stationsDuModele = estOuvert && liveStations && liveStations.length
+                ? liveStations
+                : (m.chronoCustomStations || []);
             const modelName = m.meta_data?.nom_modele || m.filename || 'Modèle';
             const reference = m.meta_data?.reference || m.ficheData?.designation || '';
             const category = m.ficheData?.category || m.meta_data?.category || '—';
@@ -372,7 +387,7 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
             // opId → opérateur (depuis stations chrono), et opId → ids de postes
             const opOperator = new Map<string, string>();
             const postesParOperation = new Map<string, Set<string>>();
-            (m.chronoCustomStations || []).forEach(st => {
+            stationsDuModele.forEach(st => {
                 if (!st.linkedOperationId) return;
                 if (st.operatorName && st.operatorName.trim()) {
                     opOperator.set(st.linkedOperationId, st.operatorName.trim());
@@ -385,7 +400,7 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
             for (const op of ops) {
                 if (!op.description) continue;
                 // Priorité au relevé chrono réel ; sinon TS de la gamme (op.time, = colonne TS du Chrono)
-                const cds = chronoForOp(m.chronoData, op.id, postesParOperation);
+                const cds = chronoForOp(chronoDuModele, op.id, postesParOperation);
                 const realTimes = cds.map(measuredTimeMin).filter((x): x is number => x != null && x > 0);
                 /* La colonne CHRONO de la gamme n'est PAS une mesure : c'est un
                    temps calcule (cadence machine, longueur) ou force a la main.
@@ -488,7 +503,7 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
         }
 
         return { measures: list, modelCount: modelSet.size };
-    }, [models, relevesPostes, ouvriers, seancesChrono]);
+    }, [models, relevesPostes, ouvriers, seancesChrono, liveModelId, liveChronoData, liveStations]);
 
     // — Facettes en cascade : chaque liste ne montre que les valeurs compatibles
     //   avec les AUTRES filtres actifs (filtrage croisé / dépendant). —
