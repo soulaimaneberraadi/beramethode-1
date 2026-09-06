@@ -126,6 +126,28 @@ const LAST_SYNC_USER_KEY = 'beramethode_last_sync_user';
 const LAST_PULLED_AT_KEY = 'beramethode_last_pulled_at';
 
 /**
+ * Deux horodatages designent-ils le MEME instant ?
+ *
+ * On ne peut pas les comparer comme du texte. Apres un envoi, cet appareil
+ * retient l'heure qu'il a lui-meme fabriquee (`...T16:06:48.123Z`) ; le serveur,
+ * lui, rend la meme colonne `timestamptz` sous une autre plume
+ * (`...T16:06:48.123+00:00`). Meme instant, deux ecritures — et la comparaison
+ * de chaines les declarait differents A TOUS LES COUPS.
+ *
+ * Le prix etait double, et invisible : avant CHAQUE envoi on retelechargeait le
+ * blob entier en croyant le cloud plus recent, et le pull conditionnel ne
+ * sautait jamais rien. Le garde-fou concu pour epargner la bande passante la
+ * dilapidait. On compare donc des instants, pas leur orthographe.
+ */
+const memeInstant = (a: string | null | undefined, b: string | null | undefined): boolean => {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const ta = new Date(a).getTime();
+  const tb = new Date(b).getTime();
+  return Number.isFinite(ta) && Number.isFinite(tb) && ta === tb;
+};
+
+/**
  * Le jeton de la session, lu directement dans le stockage.
  *
  * `supabase.auth.getSession()` rend une promesse — inutilisable dans
@@ -760,7 +782,7 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
       .maybeSingle();
     const remoteAt = (meta as { updated_at?: string } | null)?.updated_at || '';
     const localAt = (() => { try { return localStorage.getItem(LAST_PULLED_AT_KEY); } catch { return null; } })();
-    if (remoteAt && remoteAt !== localAt) {
+    if (remoteAt && !memeInstant(remoteAt, localAt)) {
       await pullSnapshotFromCloud(userId).catch(() => false);
     }
   } catch { /* cloud illisible : on tente l'envoi, c'est mieux que de perdre le travail local */ }
@@ -902,7 +924,7 @@ export const pullSnapshotFromCloud = async (
     if (metaErr || !meta) { window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end')); return false; }
     const remoteAt = (meta as { updated_at?: string }).updated_at || '';
     const localAt = (() => { try { return localStorage.getItem(LAST_PULLED_AT_KEY); } catch { return null; } })();
-    if (!options?.force && remoteAt && remoteAt === localAt) { window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end')); return true; }
+    if (!options?.force && remoteAt && memeInstant(remoteAt, localAt)) { window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-end')); return true; }
 
     const { data, error } = await supabase
       .from(TABLE)

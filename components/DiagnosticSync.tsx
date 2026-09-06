@@ -103,7 +103,16 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         }
         const pull = localStorage.getItem('beramethode_last_pulled_at');
         out.push({ nom: 'Dernière reprise ici', valeur: pull ? new Date(pull).toLocaleString() : '(jamais)', ton: pull ? undefined : 'attention' });
-        if (distant.updated_at && pull && distant.updated_at !== pull) {
+        // Comparer des instants, jamais leur orthographe : l'heure retenue apres
+        // un envoi vient de cet appareil (`...Z`), celle du serveur d'une colonne
+        // `timestamptz` (`...+00:00`). Le meme instant s'ecrit des deux facons, et
+        // ce panneau annoncait un retard imaginaire a chaque envoi.
+        const memeInstant = (a: string, b: string) => {
+            if (a === b) return true;
+            const ta = new Date(a).getTime(), tb = new Date(b).getTime();
+            return Number.isFinite(ta) && Number.isFinite(tb) && ta === tb;
+        };
+        if (distant.updated_at && pull && !memeInstant(distant.updated_at, pull)) {
             setNote("Le serveur porte une version que cet appareil n'a pas encore reprise. Quittez l'application puis rouvrez-la : la reprise se déclenche au retour.");
         }
         setLignes(out);

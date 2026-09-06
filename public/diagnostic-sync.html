@@ -160,7 +160,10 @@ async function diagnostiquer() {
     ligne(bContenu, nom, `serveur ${cs} · ici ${cl}`, cs === cl ? 'ok' : 'attention');
   }
   const dPull = localStorage.getItem(CLE_DERNIER_PULL);
-  if (dist.updated_at && dPull && dist.updated_at !== dPull) {
+  // Le meme instant s'ecrit `...Z` (fabrique ici) ou `...+00:00` (rendu par le
+  // serveur) : on compare des instants, pas leur orthographe.
+  const memeInstant = (a, b) => a === b || (Number.isFinite(new Date(a).getTime()) && new Date(a).getTime() === new Date(b).getTime());
+  if (dist.updated_at && dPull && !memeInstant(dist.updated_at, dPull)) {
     brut(bContenu, "Le serveur porte une version que cet appareil n'a pas encore reprise. Ouvrez l'application, quittez-la puis rouvrez-la : la reprise se declenche au retour. Si l'ecart persiste, notez-le dans le rapport.");
   }
 
