@@ -210,12 +210,25 @@ function measuredTimeMin(cd: ChronoData | undefined): number | null {
     return null; // pas de mesure réelle
 }
 
-// trouve les ChronoData d'une opération (clé = opId ou stId__opId)
-function chronoForOp(chronoData: Record<string, ChronoData> | undefined, opId: string): ChronoData[] {
+/**
+ * Retrouve les ChronoData d'une operation.
+ *
+ * Les cles de `chronoData` ont trois formes selon l'ecran qui a chronometre :
+ * `opId`, `stId__opId`, mais aussi — pour les postes gauche/droite du
+ * Chronometrage — le SEUL id du poste. Ce troisieme cas passait a travers :
+ * la mesure existait, le catalogue ne la trouvait pas et retombait sur le TS
+ * de la gamme. Le poste porte `linkedOperationId` : c'est par la qu'on relie.
+ */
+function chronoForOp(
+    chronoData: Record<string, ChronoData> | undefined,
+    opId: string,
+    postesParOperation?: Map<string, Set<string>>,
+): ChronoData[] {
     if (!chronoData) return [];
+    const postes = postesParOperation?.get(opId);
     const out: ChronoData[] = [];
     for (const k of Object.keys(chronoData)) {
-        if (k === opId || k.endsWith(`__${opId}`)) out.push(chronoData[k]);
+        if (k === opId || k.endsWith(`__${opId}`) || postes?.has(k)) out.push(chronoData[k]);
     }
     return out;
 }
@@ -340,18 +353,23 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
             const matiere = m.ficheData?.designation || '—';
             const client = m.ficheData?.client || '—';
 
-            // opId → opérateur (depuis stations chrono)
+            // opId → opérateur (depuis stations chrono), et opId → ids de postes
             const opOperator = new Map<string, string>();
+            const postesParOperation = new Map<string, Set<string>>();
             (m.chronoCustomStations || []).forEach(st => {
-                if (st.linkedOperationId && st.operatorName && st.operatorName.trim()) {
+                if (!st.linkedOperationId) return;
+                if (st.operatorName && st.operatorName.trim()) {
                     opOperator.set(st.linkedOperationId, st.operatorName.trim());
                 }
+                const set = postesParOperation.get(st.linkedOperationId) || new Set<string>();
+                set.add(st.id);
+                postesParOperation.set(st.linkedOperationId, set);
             });
 
             for (const op of ops) {
                 if (!op.description) continue;
                 // Priorité au relevé chrono réel ; sinon TS de la gamme (op.time, = colonne TS du Chrono)
-                const cds = chronoForOp(m.chronoData, op.id);
+                const cds = chronoForOp(m.chronoData, op.id, postesParOperation);
                 const realTimes = cds.map(measuredTimeMin).filter((x): x is number => x != null && x > 0);
                 let timeMin: number;
                 let measured: boolean;
@@ -428,8 +446,11 @@ export default function CatalogueTemps({ models, onOpenWorker }: CatalogueTempsP
             for (const [cle, cd] of Object.entries(se.entries || {})) {
                 const timeMin = measuredTimeMin(cd);
                 if (timeMin == null || timeMin <= 0) continue;
-                // La cle est `opId` ou `stId__opId`, comme dans `chronoData`.
-                const opId = cle.includes('__') ? cle.split('__').pop()! : cle;
+                // La cle est `opId`, `stId__opId`, ou l'id seul d'un poste.
+                const brut = cle.includes('__') ? cle.split('__').pop()! : cle;
+                const opId = ops.some(o => o.id === brut)
+                    ? brut
+                    : ((m.chronoCustomStations || []).find(st => st.id === brut)?.linkedOperationId || brut);
                 if (dejaMesure.has(`${m.id}|${opId}`)) continue;
                 const op = ops.find(o => o.id === opId);
                 const description = (op?.description || se.opNames?.[opId] || '').trim();
