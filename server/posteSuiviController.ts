@@ -16,6 +16,8 @@ export const getPosteSuivi = (req: Request, res: Response) => {
         
         const suivis = (rows as any[]).map(r => ({
             ...r,
+            // Le client parle `workerName`, la table `worker_name`.
+            workerName: r.worker_name || undefined,
             problemes: r.problemes ? JSON.parse(r.problemes) : []
         }));
         res.json(suivis);
@@ -38,16 +40,16 @@ export const savePosteSuivi = (req: Request, res: Response) => {
         const transaction = db.transaction(() => {
             const stmt = db.prepare(`
                 INSERT INTO poste_suivi 
-                (id, owner_id, planningId, modelId, posteId, workerId, date, heure_debut, heure_fin, pieces_entrees, pieces_sorties, pieces_defaut, temps_reel_par_piece, temps_prevu_par_piece, notes, problemes, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                (id, owner_id, planningId, modelId, posteId, workerId, worker_name, date, heure_debut, heure_fin, pieces_entrees, pieces_sorties, pieces_defaut, temps_reel_par_piece, temps_prevu_par_piece, notes, problemes, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(planningId, posteId, date, heure_debut) DO UPDATE SET
-                workerId=excluded.workerId, heure_debut=excluded.heure_debut, heure_fin=excluded.heure_fin, pieces_entrees=excluded.pieces_entrees, pieces_sorties=excluded.pieces_sorties, pieces_defaut=excluded.pieces_defaut, temps_reel_par_piece=excluded.temps_reel_par_piece, temps_prevu_par_piece=excluded.temps_prevu_par_piece, notes=excluded.notes, problemes=excluded.problemes, updated_at=CURRENT_TIMESTAMP
+                workerId=excluded.workerId, worker_name=excluded.worker_name, heure_debut=excluded.heure_debut, heure_fin=excluded.heure_fin, pieces_entrees=excluded.pieces_entrees, pieces_sorties=excluded.pieces_sorties, pieces_defaut=excluded.pieces_defaut, temps_reel_par_piece=excluded.temps_reel_par_piece, temps_prevu_par_piece=excluded.temps_prevu_par_piece, notes=excluded.notes, problemes=excluded.problemes, updated_at=CURRENT_TIMESTAMP
             `);
 
             for (const s of suivis) {
                 if (!s.id || !s.planningId || !s.posteId || !s.date || !s.modelId) continue;
                 stmt.run(
-                    s.id, companyId, s.planningId, s.modelId, s.posteId, s.workerId || null, s.date, s.heure_debut || null, s.heure_fin || null, s.pieces_entrees || 0, s.pieces_sorties || 0, s.pieces_defaut || 0, s.temps_reel_par_piece || null, s.temps_prevu_par_piece || null, s.notes || null, JSON.stringify(s.problemes || [])
+                    s.id, companyId, s.planningId, s.modelId, s.posteId, s.workerId || null, s.workerName || null, s.date, s.heure_debut || null, s.heure_fin || null, s.pieces_entrees || 0, s.pieces_sorties || 0, s.pieces_defaut || 0, s.temps_reel_par_piece || null, s.temps_prevu_par_piece || null, s.notes || null, JSON.stringify(s.problemes || [])
                 );
             }
         });

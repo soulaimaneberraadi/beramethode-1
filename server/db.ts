@@ -381,6 +381,11 @@ CREATE TABLE IF NOT EXISTS poste_suivi (
 );
 `);
 
+/* Nom d'ouvrier libre : `workerId` ne peut porter qu'une fiche RH existante.
+   Sans ce champ, un atelier dont le fichier RH n'est pas encore saisi ne pouvait
+   attribuer aucun releve a personne. */
+try { db.prepare('ALTER TABLE poste_suivi ADD COLUMN worker_name TEXT').run(); } catch (e) { /* colonne deja la */ }
+
 // Migration : l'ancienne contrainte UNIQUE(planningId, posteId, date) limitait
 // poste_suivi a une seule ligne par poste par jour, ce qui empechait d'accumuler
 // un releve par creneau horaire (necessaire pour le suivi par poste/ouvrier et

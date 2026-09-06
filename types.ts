@@ -569,6 +569,15 @@ export interface ModelData {
     hala?: 'EN_COURS' | 'TERMINE' | 'EN_ATTENTE' | 'BLOQUE';
   };
   gamme_operatoire: Operation[];
+  /**
+   * Postes créés au pied de la chaîne, dans « Suivi par poste ».
+   *
+   * Volontairement SÉPARÉS de `gamme_operatoire` : la gamme chiffre le prix de
+   * revient (temps × prix minute). Y verser des postes relevés à l'atelier
+   * changerait un coût sans que personne ne l'ait décidé. Ici, on ne suit que
+   * la production.
+   */
+  suiviPostes?: Operation[];
   // Added for Implantation persistence
   implantation?: {
     postes: Poste[];
@@ -933,6 +942,8 @@ export type PosteSuiviData = {
   modelId: string;
   posteId: string;
   workerId?: string;
+  /** Nom saisi au clavier quand l'ouvrier n'a pas (ou pas encore) de fiche RH. */
+  workerName?: string;
   date: string;
   heure_debut?: string;
   heure_fin?: string;

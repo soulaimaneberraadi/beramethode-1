@@ -2198,13 +2198,16 @@ export default function App() {
                                         const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
                                         if (found) base = found;
                                     }
-                                    const gamme = [...(base.gamme_operatoire || [])];
-                                    // Un libelle deja present ne se dedouble pas : le poste existe.
-                                    const existe = gamme.some(o => (o.description || '').trim().toLowerCase() === op.description.trim().toLowerCase());
+                                    /* Les postes du releve vivent a part : la gamme sert au prix
+                                       de revient, et un poste ajoute a l'atelier n'a pas a deplacer
+                                       un cout. Premiere fois : on reprend les postes deja poses dans
+                                       la gamme depuis cette page, pour ne rien perdre. */
+                                    const actuels = base.suiviPostes ?? [...(base.gamme_operatoire || [])];
+                                    const existe = actuels.some(o => (o.description || '').trim().toLowerCase() === op.description.trim().toLowerCase());
                                     if (existe) return;
                                     const updated: ModelData = {
                                         ...base,
-                                        gamme_operatoire: [...gamme, op],
+                                        suiviPostes: [...actuels, op],
                                         updatedAt: new Date().toISOString(),
                                     };
                                     if (!IS_STATIC) {
@@ -2233,9 +2236,10 @@ export default function App() {
                                         const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
                                         if (found) base = found;
                                     }
-                                    const gamme = (base.gamme_operatoire || []).filter(o => o.id !== posteId);
-                                    if (gamme.length === (base.gamme_operatoire || []).length) return;
-                                    const updated: ModelData = { ...base, gamme_operatoire: gamme, updatedAt: new Date().toISOString() };
+                                    const actuels = base.suiviPostes ?? [...(base.gamme_operatoire || [])];
+                                    const restants = actuels.filter(o => o.id !== posteId);
+                                    if (restants.length === actuels.length) return;
+                                    const updated: ModelData = { ...base, suiviPostes: restants, updatedAt: new Date().toISOString() };
                                     if (!IS_STATIC) {
                                         const res = await fetch('/api/models', {
                                             method: 'POST',

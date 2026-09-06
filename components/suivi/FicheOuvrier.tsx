@@ -65,12 +65,19 @@ export default function FicheOuvrier({
     const { lang } = useLang();
 
     /** Tous les releves de cet ouvrier, du plus recent au plus ancien. */
-    const releves = useMemo(
-        () => posteSuivis
-            .filter(r => String(r.workerId || '') === String(workerId))
-            .sort((a, b) => (b.date || '').localeCompare(a.date || '')),
-        [posteSuivis, workerId],
-    );
+    /* Deux facons d'identifier un ouvrier : sa fiche RH, ou — quand le fichier RH
+       ne le connait pas encore — le nom tape au pied de la chaine. La fiche doit
+       s'ouvrir dans les deux cas, sinon les releves d'un ouvrier sans dossier
+       n'auraient nulle part ou se lire. */
+    const releves = useMemo(() => {
+        const parNom = workerId.startsWith('nom:');
+        const cible = parNom ? workerId.slice(4).trim().toLowerCase() : String(workerId);
+        return posteSuivis
+            .filter(r => parNom
+                ? (r.workerName || '').trim().toLowerCase() === cible
+                : String(r.workerId || '') === cible)
+            .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    }, [posteSuivis, workerId]);
 
     /** Bornes de la semaine du jour affiche : lundi → dimanche. */
     const semaine = useMemo(() => {
@@ -86,7 +93,12 @@ export default function FicheOuvrier({
     }, [date]);
 
     const libellePoste = (modelId: string, posteId: string): string => {
-        const op = models.find(m => m.id === modelId)?.gamme_operatoire?.find(o => o.id === posteId);
+        /* Les postes du releve vivent desormais a part de la gamme : on cherche
+           dans les deux, sinon un poste cree au pied de la chaine s'afficherait
+           ici sous son identifiant technique. */
+        const m = models.find(x => x.id === modelId);
+        const op = (m?.suiviPostes || []).find(o => o.id === posteId)
+            || (m?.gamme_operatoire || []).find(o => o.id === posteId);
         return op?.description || posteId;
     };
     const nomModele = (modelId: string): string => {

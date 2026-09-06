@@ -2091,6 +2091,14 @@ export default function SuiviProduction({
                                             {/* Day Name */}
                                             <td className={`py-4 px-4 font-black text-xs text-slate-800 dark:text-dk-text sticky left-[112px] z-10 border-r border-slate-100 dark:border-dk-border/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${selectedChartDate === day.dateStr ? 'bg-[#f4f6fe] dark:bg-dk-elevated' : 'bg-white dark:bg-dk-surface'}`}>
                                                 {day.label}
+                                                {/* Jour ferme : la grille lui donnait les heures de la semaine
+                                                    comme aux autres. Un dimanche ressemblait a un jour ouvre —
+                                                    on le nomme, la production deja saisie restant visible. */}
+                                                {horairesDuJour(settings, new Date(day.dateStr)).closed && (
+                                                    <span className="block mt-0.5 text-[9px] font-black uppercase tracking-wider text-rose-500 dark:text-rose-400">
+                                                        {tx(lang, { fr: 'Repos', ar: 'ريبو', en: 'Rest', es: 'Descanso', pt: 'Descanso', tr: 'Tatil' })}
+                                                    </span>
+                                                )}
                                             </td>
 
                                             {/* Shift hour cells */}
