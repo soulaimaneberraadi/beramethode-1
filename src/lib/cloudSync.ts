@@ -804,6 +804,29 @@ const applySnapshotToLocal = async (snapshot: Record<string, unknown> | null): P
 // ─── Push ─────────────────────────────────────────────────────────────────────
 
 /** @returns true si le snapshot est bien arrivé au cloud (ou s'il n'y avait rien à pousser). */
+/** Le serveur a-t-il refuse faute d'un jeton valide (401 / JWT expire) ? */
+const estJetonPerime = (e: unknown): boolean => {
+  const err = e as { code?: string; status?: number; message?: string } | null;
+  if (!err) return false;
+  if (err.status === 401 || err.code === '401' || err.code === 'PGRST301') return true;
+  const m = (err.message || '').toLowerCase();
+  return m.includes('jwt') || m.includes('expired') || m.includes('unauthorized');
+};
+
+/**
+ * Dire qu'un envoi a ete refuse — au lieu de l'ecrire dans une console que
+ * personne n'ouvre. L'interface ecoute cet evenement ; a defaut d'auditeur, la
+ * trace reste, mais elle n'est plus la seule.
+ */
+const signalerEnvoiRefuse = (e: unknown) => {
+  try {
+    const err = e as { message?: string } | null;
+    window.dispatchEvent(new CustomEvent('beramethode:cloud-push-refuse', {
+      detail: { message: err?.message || 'refus du serveur' },
+    }));
+  } catch { /* hors navigateur */ }
+};
+
 export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
   if (!isCloudSyncUserId(userId) || isApplyingRemote) return false;
 
@@ -914,12 +937,28 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
 
   try {
     const nowIso = new Date().toISOString();
-    const { error } = await supabase.from(TABLE).upsert(
+    const envoyer = () => supabase.from(TABLE).upsert(
       { user_id: userId, data: snapshot, updated_at: nowIso },
       { onConflict: 'user_id' },
     );
+    let { error } = await envoyer();
+
+    /* Un 401 sur l'envoi, alors que les lectures passent : le jeton a expire
+     * entre-temps. Le client sait le renouveler, mais l'envoi, lui, partait
+     * avec l'ancien et repartait de zero au coup suivant — en retelechargeant
+     * le blob a chaque tentative. On a mesure des refus a repetition sur
+     * `on_conflict=user_id` pendant que les `select` repondaient 200 : le
+     * travail restait sur l'appareil, et rien ne le disait.
+     *
+     * On renouvelle donc la session et on reessaie UNE fois. Si le refus
+     * persiste, il ne sera plus silencieux. */
+    if (error && estJetonPerime(error)) {
+      try { await supabase.auth.refreshSession(); } catch { /* renouvellement impossible */ }
+      ({ error } = await envoyer());
+    }
     if (error) {
       console.warn('Cloud push failed:', error);
+      signalerEnvoiRefuse(error);
       return false;
     }
     // UPSERT confirmé : mémorise la signature pour sauter les prochains push

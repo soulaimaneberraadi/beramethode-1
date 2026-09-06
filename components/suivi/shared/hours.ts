@@ -1,5 +1,5 @@
 import type { AppSettings } from '../../../types';
-import { creneauxDuJour, type CreneauJour } from '../../../lib/horaires';
+import { creneauxDuJour, horairesDuJour, type CreneauJour } from '../../../lib/horaires';
 
 export interface HourBlock {
     /** Clé de stockage du créneau : "h0800". */
@@ -43,8 +43,14 @@ const FALLBACK: CreneauJour[] = ['08:00', '09:00', '10:00', '11:00', '14:00', '1
  * simplement retranchée du créneau : `duration` donne les minutes réellement
  * produites, `pauseMin` ce que la pause y a pris.
  */
-export function deriveHourGrid(settings: AppSettings, dateOrDay?: Date | number): { hours: string[]; keys: string[]; blocks: HourBlock[] } {
+export function deriveHourGrid(settings: AppSettings, dateOrDay?: Date | number): { hours: string[]; keys: string[]; blocks: HourBlock[]; closed: boolean; fallback: boolean } {
     const creneaux = creneauxDuJour(settings, dateOrDay);
+    /* Un jour de repos ne produit AUCUN creneau. Sans le dire, l'appelant
+       retombait sur la grille de secours et affichait 08:00 → 17:00 un dimanche :
+       un horaire qui n'existe pas, sous lequel on pouvait saisir de la
+       production. On rend donc l'information, a charge pour la page de la
+       montrer. */
+    const closed = horairesDuJour(settings, dateOrDay).closed === true;
     const source = creneaux.length > 0 ? creneaux : FALLBACK;
 
     const blocks: HourBlock[] = source.map(c => ({
@@ -62,6 +68,9 @@ export function deriveHourGrid(settings: AppSettings, dateOrDay?: Date | number)
         hours: blocks.map(b => b.start),
         keys: blocks.map(b => b.key),
         blocks,
+        closed,
+        // Grille de secours : ni horaire configure, ni jour ferme.
+        fallback: creneaux.length === 0 && !closed,
     };
 }
 

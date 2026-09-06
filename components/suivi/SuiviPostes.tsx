@@ -7,6 +7,7 @@ import { useLang } from '../../src/context/LanguageContext';
 import { useIsMobile } from '../planning/shared/useIsMobile';
 import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown } from 'lucide-react';
 import AjoutPosteRapide from './AjoutPosteRapide';
+import FicheOuvrier from './FicheOuvrier';
 import { signalerMesureTemps } from '../../lib/mesuresTemps';
 
 interface Props {
@@ -51,6 +52,9 @@ const L = {
     cadence: { fr: 'Cadence', ar: 'الوتيرة', en: 'Rate', es: 'Cadencia', pt: 'Cadência', tr: 'Tempo' },
     cadenceMesuree: { fr: 'Cadence mesurée au chronomètre', ar: 'وتيرة مقيسة بالكرونومتر', en: 'Rate measured with the stopwatch', es: 'Cadencia medida con cronómetro', pt: 'Cadência medida com cronómetro', tr: 'Kronometreyle ölçülen tempo' },
     cadenceGamme: { fr: 'Cadence prévue par la gamme (pas encore chronométrée)', ar: 'الوتيرة المتوقّعة من الگام (مازال بلا كرونومتراج)', en: 'Rate expected from the gamme (not timed yet)', es: 'Cadencia prevista por la gama (aún sin cronometrar)', pt: 'Cadência prevista pela gama (ainda sem cronometragem)', tr: 'Gamme’ın öngördüğü tempo (henüz ölçülmedi)' },
+    repos: { fr: 'Jour de repos — aucun creneau de production', ar: 'نهار ريبو — ما كاين حتى فترة إنتاج', en: 'Rest day — no production slot', es: 'Dia de descanso — sin franja de produccion', pt: 'Dia de descanso — sem faixa de producao', tr: 'Dinlenme gunu — uretim dilimi yok' },
+    reposHint: { fr: 'L’horaire de ce jour est ferme (Admin › Horaires). Changez la date en haut pour relever un autre jour.', ar: 'توقيت هاد النهار مسدود (Admin › Horaires). بدّل التاريخ لفوق باش تسجّل نهار آخر.', en: 'This day is closed in the schedule (Admin › Hours). Change the date above to record another day.', es: 'Este dia esta cerrado en el horario (Admin › Horarios). Cambie la fecha arriba para registrar otro dia.', pt: 'Este dia esta fechado no horario (Admin › Horarios). Mude a data acima para registar outro dia.', tr: 'Bu gun mesaide kapali (Admin › Saatler). Baska bir gun icin yukaridan tarihi degistirin.' },
+    voirOuvrier: { fr: 'Ouvrir la fiche de l’ouvrier', ar: 'افتح بطاقة العامل', en: 'Open the worker sheet', es: 'Abrir la ficha del operario', pt: 'Abrir a ficha do operario', tr: 'Isci kartini ac' },
     tendanceTitre: { fr: 'Dernier creneau compare au precedent', ar: 'آخر فترة مقارنة باللي قبلها', en: 'Last slot compared with the previous one', es: 'Ultima franja comparada con la anterior', pt: 'Ultima faixa comparada com a anterior', tr: 'Son dilimin bir oncekiyle karsilastirmasi' },
     pauseTag: { fr: 'pause', ar: 'استراحة', en: 'break', es: 'pausa', pt: 'pausa', tr: 'mola' },
     piecesJour: { fr: 'pcs aujourd’hui', ar: 'قطعة اليوم', en: 'pcs today', es: 'pzs hoy', pt: 'pcs hoje', tr: 'bugun adet' },
@@ -99,6 +103,8 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
     const [workers, setWorkers] = useState<HRWorker[]>([]);
     const [loading, setLoading] = useState(true);
     const [chronoOpenFor, setChronoOpenFor] = useState<string | null>(null);
+    /** Ouvrier dont la fiche est ouverte (son historique complet). */
+    const [ficheOuvrierId, setFicheOuvrierId] = useState<string | null>(null);
 
     // Chargement initial : releves poste_suivi + liste des ouvriers actifs (Gestion RH)
     useEffect(() => {
@@ -567,6 +573,15 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6">
+                {/* Jour de repos : la grille de secours affichait 08:00 → 17:00 et
+                    acceptait de la production sous un horaire qui n'existe pas.
+                    On dit ce qu'il en est ; la date reste changeable en haut. */}
+                {hourGrid.closed && !loading && (
+                    <div className="mb-3 rounded-2xl border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/20 px-4 py-3">
+                        <p className="text-[12px] font-black text-amber-800 dark:text-amber-300">{tx(lang, L.repos)}</p>
+                        <p className="text-[10px] font-bold text-amber-700/80 dark:text-amber-400/80">{tx(lang, L.reposHint)}</p>
+                    </div>
+                )}
                 {loading ? (
                     <div className="flex items-center justify-center py-16 text-slate-400 dark:text-dk-muted gap-2 text-sm font-bold">
                         <Loader2 className="w-4 h-4 animate-spin" /> {tx(lang, L.loading)}
@@ -686,6 +701,17 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                 </select>
                                                 <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                                             </div>
+                                            {ouvrierDuPoste(poste.id) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFicheOuvrierId(ouvrierDuPoste(poste.id))}
+                                                    title={tx(lang, L.voirOuvrier)}
+                                                    aria-label={tx(lang, L.voirOuvrier)}
+                                                    className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-indigo-600 dark:text-dk-accent-text"
+                                                >
+                                                    <User className="w-4 h-4" />
+                                                </button>
+                                            )}
                                             {score !== null && (
                                                 <span
                                                     className={`shrink-0 rounded-md px-2 py-1.5 text-[11px] font-black tabular-nums ${classeScore(score)}`}
@@ -812,7 +838,6 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                         <th className="w-8 px-2 py-2.5 text-center">#</th>
                                         <th className="text-left px-3 py-2.5 sticky left-0 bg-slate-50 dark:bg-dk-elevated/60 z-10 min-w-[160px]">{tx(lang, L.poste)}</th>
                                         <th className="text-left px-3 py-2.5 min-w-[150px]">{tx(lang, L.worker)}</th>
-                                        <th className="px-2 py-2.5 text-center w-16 bg-amber-50/70 dark:bg-amber-900/10 text-amber-700 dark:text-amber-300" title={tx(lang, L.tsPrevuTitre)}>{tx(lang, L.tsPrevu)}</th>
                                         <th className="px-2 py-2.5 text-center w-20">{tx(lang, L.cadence)}</th>
                                         {hourGrid.blocks.map(b => (
                                             <th
@@ -903,10 +928,19 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                             </select>
                                                             <ChevronDown className="w-3.5 h-3.5 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                                                         </div>
-                                                    </td>
-
-                                                    <td className="px-2 py-2 text-center bg-amber-50/40 dark:bg-amber-900/5 font-black tabular-nums text-amber-700 dark:text-amber-300">
-                                                        {poste.time > 0 ? (poste.time * 60).toFixed(1) : '—'}
+                                                        {/* Le nom mene a tout ce que cet ouvrier a tenu : la
+                                                            page savait qui produit quoi sans jamais le rendre
+                                                            par personne. */}
+                                                        {ouvrierDuPoste(poste.id) && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setFicheOuvrierId(ouvrierDuPoste(poste.id))}
+                                                                title={tx(lang, L.voirOuvrier)}
+                                                                className="mt-1 flex items-center gap-1 text-[10px] font-black text-indigo-600 dark:text-dk-accent-text hover:underline"
+                                                            >
+                                                                <User className="w-3 h-3" /> {nomOuvrier(poste.id)}
+                                                            </button>
+                                                        )}
                                                     </td>
 
                                                     <td className="px-2 py-2 text-center">
@@ -1004,7 +1038,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                     creneau en cours, divise par les pieces qui y sont notees. */}
                                                 {chronoOuvert && (
                                                     <tr className="bg-slate-50/70 dark:bg-dk-elevated/30">
-                                                        <td colSpan={6 + hourGrid.blocks.length + 3} className="px-3 py-2.5">
+                                                        <td colSpan={5 + hourGrid.blocks.length + 3} className="px-3 py-2.5">
                                                             <MiniChrono
                                                                 open
                                                                 onToggle={() => setChronoOpenFor(null)}
@@ -1032,7 +1066,6 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                         <td className="px-3 py-2.5 sticky left-0 bg-slate-50 dark:bg-dk-elevated/60 z-10 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-dk-muted">
                                             {tx(lang, L.totalGeneral)}
                                         </td>
-                                        <td />
                                         <td />
                                         <td />
                                         {hourGrid.blocks.map(b => {
@@ -1133,6 +1166,23 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                     </div>
                 )}
             </div>
+
+            {/* Fiche ouvrier : sa semaine sur le modele ouvert, puis tous les
+                postes qu'il a tenus, tous modeles et toutes chaines. */}
+            {ficheOuvrierId && (
+                <FicheOuvrier
+                    workerId={ficheOuvrierId}
+                    workerName={workers.find(w => String(w.id) === String(ficheOuvrierId))?.full_name || ''}
+                    posteSuivis={posteSuivis}
+                    models={models}
+                    planningEvents={planningEvents}
+                    activeModelId={activeModel?.id}
+                    date={date}
+                    scoreReleve={scoreReleve}
+                    classeScore={classeScore}
+                    onClose={() => setFicheOuvrierId(null)}
+                />
+            )}
         </div>
     );
 }
