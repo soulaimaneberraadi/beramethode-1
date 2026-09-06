@@ -1,5 +1,68 @@
 # Agent Handover Context
 
+---
+
+## Session du 4 au 6 septembre 2026 — hors ligne, synchronisation, diagnostic
+
+**Tout est déployé** sur `master` (`d02ebcd`) et en ligne sur
+`https://beramethode-1.vercel.app`. Détail technique complet : `MODE_HORS_LIGNE.md`.
+
+### Ce qui a été fait
+
+| Sujet | Résultat |
+|---|---|
+| **Saisies hors ligne** | Les écritures `/api/` qui ne peuvent pas partir sont gardées dans IndexedDB (`src/lib/filaHorsLigne.ts`) et repartent seules, **dans l'ordre**, au retour du réseau |
+| **Pas de doublon au rattrapage** | `server/idempotence.ts` : chaque renvoi porte une clé ; le serveur rend la réponse d'origine au lieu de créer une 2ᵉ facture |
+| **Écran noir hors ligne** | Cause mesurée : **11 fichiers JS sur 57** étaient gardés. La construction écrit maintenant la liste complète (`dist/assets/sw-precache.json`) et le worker la précharge |
+| **`lazyWithRetry`** | Ne recharge plus la page quand il n'y a pas de réseau — c'était la page noire |
+| **Flux SSE** | Ne sont plus mis en cache (un flux ne se termine jamais : le `cache.put` ne pouvait pas aboutir) |
+| **Vercel** | La liste de préchargement est sous `/assets/`, sinon la réécriture de `vercel.json` la renvoie en HTML et le correctif est muet |
+| **Bandeau hors ligne** | Devenu une pastille du header : il barrait le contenu |
+| **« Retour Planning »** | Sorti du contenu vers le header, flèche de retour, libellé traduit (il était en français en dur) |
+| **Envoi de dernière chance** | Il ne portait **pas** le jeton du compte : la table n'accepte que le propriétaire, le serveur le rejetait **en silence** depuis toujours |
+| **Diagnostic de synchro** | Dans l'application : **Profil → « Lancer le diagnostic »** (`components/DiagnosticSync.tsx`) |
+| **Histoire locale** | 50 commits n'existant que dans un conteneur ont été sauvés sur la branche `sauvegarde/master-local-2026-09-03` |
+
+### Ce qui reste à faire
+
+1. **Le problème des deux téléphones n'est PAS diagnostiqué.** Il faut lancer le
+   diagnostic **dans l'application** sur *chacun* des deux téléphones et comparer
+   l'**identifiant du compte** : s'il diffère, les deux téléphones sont sur deux
+   comptes distincts et rien ne passera jamais entre eux. Une adresse e-mail
+   identique ne prouve rien.
+2. **Autoriser le serveur MCP Supabase** (`/mcp` dans une session interactive).
+   Sans lui, aucun agent ne peut lire `user_data` ni `support_tickets`.
+3. **Chaîne support → correctif (proposée, non commencée).** Les trois quarts
+   existent déjà : `crashRelay.ts`, `support_tickets`, `creerTicketAutomatique`.
+   Manque le réveil d'une session. Étape 1 retenue : regrouper les tickets par
+   signature d'erreur, puis ouvrir une **Pull Request** — jamais un déploiement
+   direct. Le texte d'un ticket est écrit par un utilisateur externe : un agent
+   qui le lirait comme une instruction tout en pouvant pousser en production
+   serait une porte d'entrée vers toutes les usines clientes.
+
+### Pour reprendre en local — À LIRE AVANT DE TIRER
+
+Le `master` de cette machine peut porter l'**autre histoire** (celle sauvegardée
+sur `sauvegarde/master-local-2026-09-03`), sans aucun ancêtre commun avec
+`origin/master` : un `git pull` échouera ou fera un désordre.
+
+```bash
+git fetch origin
+git stash                      # s'il reste du travail non commité
+git checkout master
+git reset --hard origin/master # l'ancienne histoire est sauvegardée sur GitHub
+npm install
+npm run dev      # Vite  : 5173
+npm run dev:app  # Express : 7000
+```
+
+**Fins de ligne.** Cette machine écrit en CRLF, le dépôt est en LF : le prochain
+commit fera apparaître des fichiers entiers comme réécrits. Un `.gitattributes`
+avec `* text=auto eol=lf` réglerait la question une fois pour toutes — non fait,
+car cela retouche tous les fichiers et méritait votre accord.
+
+---
+
 This file serves as a context handover between AI coding agents (Antigravity and Claude Code) in this repository.
 
 ## 1. Latest Discussion Summary
