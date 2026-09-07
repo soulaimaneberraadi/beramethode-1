@@ -3,6 +3,7 @@ import type { AppSettings, ModelData, PlanningEvent, PosteSuiviData, HRWorker, O
 import { deriveHourGrid } from './shared/hours';
 import { pauseOverlapMinutes, horairesDuJour } from '../../lib/horaires';
 import { tx } from '../../lib/i18n';
+import { configPrimeEffective, palierAtteint } from '../../lib/primeEngine';
 import { useLang } from '../../src/context/LanguageContext';
 import { useIsMobile } from '../planning/shared/useIsMobile';
 import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown, MoreVertical, Trash2, Image as ImageIcon, Timer } from 'lucide-react';
@@ -711,7 +712,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
             return posteId;
         };
 
-        const regles = settings?.primeRules;
+        const config = configPrimeEffective(settings);
         return Array.from(parOuvrier.entries())
             .map(([id, a]) => {
                 const scoreJour = a.jour.n > 0 ? Math.round(a.jour.somme / a.jour.n) : null;
@@ -721,13 +722,14 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                    on n'invente pas un montant que personne n'a fixe. */
                 let prime = 0;
                 const detailPrime: string[] = [];
-                if (regles?.jour && scoreJour !== null && scoreJour >= regles.jour.seuil) {
-                    prime += regles.jour.montant;
-                    detailPrime.push(`${tx(lang, L.primeJour)} ${scoreJour}% ≥ ${regles.jour.seuil}%`);
-                }
-                if (regles?.semaine && scoreSemaine !== null && scoreSemaine >= regles.semaine.seuil) {
-                    prime += regles.semaine.montant;
-                    detailPrime.push(`${tx(lang, L.primeSemaine)} ${scoreSemaine}% ≥ ${regles.semaine.seuil}%`);
+                /* Le palier de la periode reglee, et lui seul : deux montants
+                   cumules ici alors que la page Primes n'en verse qu'un, c'est
+                   une promesse que la paie ne tiendra pas. */
+                const scorePeriode = config?.periode === 'jour' ? scoreJour : scoreSemaine;
+                const palier = palierAtteint(config?.paliers || [], scorePeriode);
+                if (palier) {
+                    prime = palier.montant;
+                    detailPrime.push(`${tx(lang, config?.periode === 'jour' ? L.primeJour : L.primeSemaine)} ${scorePeriode}% ≥ ${palier.min}%`);
                 }
                 return {
                     id,
@@ -749,7 +751,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                 };
             })
             .sort((a, b) => (b.moyenne ?? -1) - (a.moyenne ?? -1));
-    }, [posteSuivis, workers, models, date, settings?.primeRules, lang]);
+    }, [posteSuivis, workers, models, date, settings, lang]);
 
     return (
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
@@ -1511,7 +1513,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                         </div>
                         {/* Sans regle decidee, aucune prime ne s'affiche : on le dit
                             plutot que de laisser croire qu'il n'y a jamais de prime. */}
-                        {!settings?.primeRules?.jour && !settings?.primeRules?.semaine && (
+                        {!(configPrimeEffective(settings)?.paliers || []).some(p => p.montant > 0) && (
                             <p className="mb-2 text-[10px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang, L.primeAucuneRegle)}</p>
                         )}
                         {progression.length === 0 ? (

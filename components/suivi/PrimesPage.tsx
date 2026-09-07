@@ -5,6 +5,7 @@ import { useLang } from '../../src/context/LanguageContext';
 import { deriveHourGrid } from './shared/hours';
 import {
     calculerPrimes, CONFIG_PRIME_SUGGEREE, type BulletinPrime, type ConfigPrime,
+    configPrimeEffective,
 } from '../../lib/primeEngine';
 import { Award, Settings2, Loader2, Trophy, Save, Check } from 'lucide-react';
 
@@ -89,6 +90,11 @@ export default function PrimesPage({ settings, setSettings, models, globalDate, 
     const date = globalDate || new Date().toISOString().split('T')[0];
     const devise = settings?.currency || '';
 
+    /* Une seule evaluation par rendu : appelee dans une liste de dependances,
+       la fonction rendrait un objet neuf a chaque fois et la page tournerait
+       en boucle. */
+    const configEffective = useMemo(() => configPrimeEffective(settings), [settings?.primeConfig, settings?.primeRules]);
+
     const [releves, setReleves] = useState<PosteSuiviData[]>([]);
     const [workers, setWorkers] = useState<HRWorker[]>([]);
     const [chargement, setChargement] = useState(true);
@@ -122,10 +128,10 @@ export default function PrimesPage({ settings, setSettings, models, globalDate, 
     /* Brouillon des règles : on ne touche aux réglages qu'au clic sur
        « Enregistrer ». Une prime qui change pendant qu'on la règle serait une
        promesse faite par accident. */
-    const [brouillon, setBrouillon] = useState<ConfigPrime | undefined>(settings?.primeConfig);
-    useEffect(() => { setBrouillon(settings?.primeConfig); }, [settings?.primeConfig]);
+    const [brouillon, setBrouillon] = useState<ConfigPrime | undefined>(configEffective);
+    useEffect(() => { setBrouillon(configEffective); }, [configEffective]);
 
-    const periode = brouillon?.periode || settings?.primeConfig?.periode || 'semaine';
+    const periode = brouillon?.periode || configEffective?.periode || 'semaine';
 
     /* Durée productive d'un créneau : la grille du jour, pauses déduites. Sans
        elle, un créneau coupé par un rabouz passerait pour une heure pleine et le
@@ -143,17 +149,17 @@ export default function PrimesPage({ settings, setSettings, models, globalDate, 
     }, [workers]);
 
     const { bulletins, debut, fin } = useMemo(
-        () => calculerPrimes(releves, settings?.primeConfig, date, nomDe, dureeDe),
-        [releves, settings?.primeConfig, date, nomDe, dureeDe],
+        () => calculerPrimes(releves, configEffective, date, nomDe, dureeDe),
+        [releves, configEffective, date, nomDe, dureeDe],
     );
 
     const podium = useMemo(() => bulletins.filter(b => b.rendement !== null).slice(0, 3), [bulletins]);
     const totalVerse = useMemo(() => bulletins.reduce((s, b) => s + b.total, 0), [bulletins]);
     const nbPrimes = useMemo(() => bulletins.filter(b => b.total > 0).length, [bulletins]);
-    const aucuneRegle = !settings?.primeConfig || (settings.primeConfig.paliers || []).every(p => !p.montant);
+    const aucuneRegle = (configEffective?.paliers || []).every(p => !p.montant);
 
     const changerPeriode = (p: ConfigPrime['periode']) => {
-        const base = settings?.primeConfig || CONFIG_PRIME_SUGGEREE;
+        const base = configEffective || CONFIG_PRIME_SUGGEREE;
         setSettings?.(prev => ({ ...prev, primeConfig: { ...base, periode: p } }));
     };
 

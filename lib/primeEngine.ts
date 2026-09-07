@@ -270,3 +270,31 @@ export const CONFIG_PRIME_SUGGEREE: ConfigPrime = {
     assiduite: { joursMin: 5, montant: 0 },
     polyvalence: { montantParPoste: 0, plafond: 4, rendementMin: 80 },
 };
+
+/**
+ * La configuration qui fait foi, ancienne saisie comprise.
+ *
+ * Deux reglages de primes ont coexiste : `primeRules` (deux seuils, regles
+ * depuis l'admin) et `primeConfig` (paliers, qualite, assiduite, polyvalence,
+ * regle depuis la page Primes). Chaque ecran lisait le sien : une prime reglee
+ * d'un cote restait invisible de l'autre — et personne ne pouvait dire quel
+ * montant serait reellement verse.
+ *
+ * `primeConfig` fait desormais foi partout. Les anciens seuils ne sont pas
+ * jetes pour autant : faute de `primeConfig`, ils sont lus comme un palier
+ * unique, pour que personne ne cesse d'etre paye a cause d'un changement de
+ * format.
+ */
+export function configPrimeEffective(reglages: {
+    primeConfig?: ConfigPrime;
+    primeRules?: { jour?: { seuil: number; montant: number }; semaine?: { seuil: number; montant: number } };
+} | null | undefined): ConfigPrime | undefined {
+    const config = reglages?.primeConfig;
+    if (config && (config.paliers || []).some(p => p.montant > 0)) return config;
+    const legacy = reglages?.primeRules;
+    const source = legacy?.semaine?.montant ? { ...legacy.semaine, periode: 'semaine' as const }
+        : legacy?.jour?.montant ? { ...legacy.jour, periode: 'jour' as const }
+        : null;
+    if (!source) return config;
+    return { periode: source.periode, paliers: [{ min: source.seuil, montant: source.montant }] };
+}

@@ -1167,7 +1167,9 @@ export default function GestionRH({
   // L onglet vit dans l URL : #/gestion-rh/<onglet>
   const [tab, setTab] = useRouteSegment<Tab>({
     view: 'gestionRh', depth: 0,
-    allowed: ['annuaire', 'pointage', 'statistiques', 'production', 'avances', 'sage', 'invitations', 'transport'],
+    // « primes » manquait ici : l'onglet ecrivait bien son adresse, mais la
+    // route la refusait et retombait sur l'annuaire. Le bouton semblait mort.
+    allowed: ['annuaire', 'pointage', 'statistiques', 'production', 'avances', 'primes', 'sage', 'invitations', 'transport'],
     fallback: 'annuaire',
   });
   const [workers, setWorkers] = useState<HRWorker[]>([]);

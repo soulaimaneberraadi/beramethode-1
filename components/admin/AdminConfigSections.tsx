@@ -1,3 +1,4 @@
+import { configPrimeEffective } from '../../lib/primeEngine';
 import React, { useState, useEffect } from 'react';
 import { Coins, Plus, Trash2, Save, Loader2, Users, Shield, Building, CheckCircle } from 'lucide-react';
 import { AppSettings, Machine } from '../../types';
@@ -138,7 +139,7 @@ export function CompanyParamsSection({ settings, setSettings, lang }) {
                         {/* Primes de rendement (Suivi par poste). Le seuil et le montant se
                             décident dans l'entreprise : tant qu'ils ne sont pas réglés ici,
                             aucune prime n'est calculée ni affichée nulle part. */}
-                        <PrimesRendement draft={draft} setDraft={setDraft} lang={lang} />
+                        <PrimesRendement draft={draft} lang={lang} />
             </div>
             <SaveBar lang={lang} isDirty={isDirty} isSaving={isSaving} showToast={showToast} onSave={handleSave} />
         </div>
@@ -152,91 +153,51 @@ export function CompanyParamsSection({ settings, setSettings, lang }) {
  * celui de la semaine. Une règle décochée n'existe pas — aucune prime n'est
  * alors calculée, plutôt qu'un montant par défaut que personne n'a décidé.
  */
-function PrimesRendement({ draft, setDraft, lang }) {
-    const regles = draft.primeRules || {};
+function PrimesRendement({ draft, lang }) {
+    const config = configPrimeEffective(draft);
+    const paliers = [...(config?.paliers || [])].filter(p => p.montant > 0).sort((a, b) => a.min - b.min);
     const devise = draft.currency || '';
-
-    const majRegle = (cle, patch) => {
-        setDraft(prev => {
-            const courantes = { ...(prev.primeRules || {}) };
-            if (patch === null) delete courantes[cle];
-            else courantes[cle] = { seuil: 80, montant: 0, ...(courantes[cle] || {}), ...patch };
-            return { ...prev, primeRules: courantes };
-        });
+    const periodes = {
+        jour: { fr: 'par jour', ar: '\u0643\u0644 \u064a\u0648\u0645', en: 'per day', es: 'por d\u00eda', pt: 'por dia', tr: 'g\u00fcnl\u00fck' },
+        semaine: { fr: 'par semaine', ar: '\u0643\u0644 \u0623\u0633\u0628\u0648\u0639', en: 'per week', es: 'por semana', pt: 'por semana', tr: 'haftal\u0131k' },
+        mois: { fr: 'par mois', ar: '\u0643\u0644 \u0634\u0647\u0631', en: 'per month', es: 'por mes', pt: 'por m\u00eas', tr: 'ayl\u0131k' },
     };
-
-    const lignes = [
-        { cle: 'jour', titre: tx(lang, { fr: 'Prime journalière', ar: 'علاوة يومية', en: 'Daily bonus', es: 'Prima diaria', pt: 'Prémio diário', tr: 'Günlük prim' }) },
-        { cle: 'semaine', titre: tx(lang, { fr: 'Prime hebdomadaire', ar: 'علاوة أسبوعية', en: 'Weekly bonus', es: 'Prima semanal', pt: 'Prémio semanal', tr: 'Haftalık prim' }) },
-    ];
 
     return (
         <div className="pt-2">
             <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted mb-1">
-                {tx(lang, { fr: 'Primes de rendement', ar: 'علاوات المردودية', en: 'Performance bonuses', es: 'Primas de rendimiento', pt: 'Prémios de rendimento', tr: 'Verim primleri' })}
+                {tx(lang, { fr: 'Primes de rendement', ar: '\u0639\u0644\u0627\u0648\u0627\u062a \u0627\u0644\u0645\u0631\u062f\u0648\u062f\u064a\u0629', en: 'Performance bonuses', es: 'Primas de rendimiento', pt: 'Pr\u00e9mios de rendimento', tr: 'Verim primleri' })}
             </label>
             <p className="mb-3 text-[11px] font-bold text-slate-400 dark:text-dk-muted">
                 {tx(lang, {
-                    fr: "L'ouvrier touche la prime quand son score moyen sur la période atteint le seuil.",
-                    ar: 'العامل كياخد العلاوة ملي النتيجة المتوسطة ديالو فالمدّة توصل للعتبة.',
-                    en: 'The worker earns the bonus when their average score over the period reaches the threshold.',
-                    es: 'El operario recibe la prima cuando su puntuación media del periodo alcanza el umbral.',
-                    pt: 'O operário recebe o prémio quando a sua pontuação média no período atinge o limiar.',
-                    tr: 'İşçi, dönemdeki ortalama puanı eşiğe ulaştığında primi alır.',
+                    fr: 'Les primes se r\u00e8glent dans Suivi \u203a Primes, o\u00f9 le bulletin de chaque ouvrier est calcul\u00e9. Un seul r\u00e9glage, pour qu\u2019un montant affich\u00e9 soit celui qui sera vers\u00e9.',
+                    ar: '\u0627\u0644\u0639\u0644\u0627\u0648\u0627\u062a \u062a\u064f\u0636\u0628\u0637 \u0641\u064a Suivi \u203a Primes\u060c \u062d\u064a\u062b \u064a\u064f\u062d\u0633\u0628 \u0643\u0634\u0641 \u0643\u0644 \u0639\u0627\u0645\u0644. \u0636\u0628\u0637 \u0648\u0627\u062d\u062f\u060c \u062d\u062a\u0651\u0649 \u064a\u0643\u0648\u0646 \u0627\u0644\u0645\u0628\u0644\u063a \u0627\u0644\u0645\u0639\u0631\u0648\u0636 \u0647\u0648 \u0627\u0644\u0645\u0628\u0644\u063a \u0627\u0644\u0645\u062f\u0641\u0648\u0639.',
+                    en: 'Bonuses are set in Suivi \u203a Primes, where each worker\u2019s payslip is computed. One setting, so a displayed amount is the amount paid.',
+                    es: 'Las primas se configuran en Suivi \u203a Primes, donde se calcula la n\u00f3mina de cada operario. Un solo ajuste, para que el importe mostrado sea el pagado.',
+                    pt: 'Os pr\u00e9mios definem-se em Suivi \u203a Primes, onde o recibo de cada oper\u00e1rio \u00e9 calculado. Um s\u00f3 ajuste, para que o valor mostrado seja o pago.',
+                    tr: 'Primler, her i\u015f\u00e7inin bordrosunun hesapland\u0131\u011f\u0131 Suivi \u203a Primes b\u00f6l\u00fcm\u00fcnde ayarlan\u0131r. Tek ayar, g\u00f6r\u00fclen tutar \u00f6denen tutar olsun diye.',
                 })}
             </p>
-            <div className="space-y-2">
-                {lignes.map(({ cle, titre }) => {
-                    const active = !!regles[cle];
-                    return (
-                        <div key={cle} className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg p-3">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={active}
-                                    onChange={(e) => majRegle(cle, e.target.checked ? {} : null)}
-                                    className="w-4 h-4 accent-indigo-600"
-                                />
-                                <span className="text-sm font-bold text-slate-700 dark:text-dk-text-soft">{titre}</span>
-                            </label>
-                            {active && (
-                                <div className="mt-3 grid grid-cols-2 gap-3">
-                                    <label className="block">
-                                        <span className="block mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
-                                            {tx(lang, { fr: 'Seuil (%)', ar: 'العتبة (%)', en: 'Threshold (%)', es: 'Umbral (%)', pt: 'Limiar (%)', tr: 'Eşik (%)' })}
-                                        </span>
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            value={regles[cle].seuil ?? ''}
-                                            onChange={(e) => majRegle(cle, { seuil: e.target.value === '' ? 0 : Number(e.target.value) })}
-                                            className="w-full min-h-[44px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 outline-none focus:border-indigo-500 font-black text-slate-800 dark:text-dk-text text-center"
-                                        />
-                                    </label>
-                                    <label className="block">
-                                        <span className="block mb-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
-                                            {tx(lang, { fr: 'Montant', ar: 'المبلغ', en: 'Amount', es: 'Importe', pt: 'Montante', tr: 'Tutar' })} {devise}
-                                        </span>
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            step="0.01"
-                                            value={regles[cle].montant ?? ''}
-                                            onChange={(e) => majRegle(cle, { montant: e.target.value === '' ? 0 : Number(e.target.value) })}
-                                            className="w-full min-h-[44px] bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg px-3 outline-none focus:border-indigo-500 font-black text-slate-800 dark:text-dk-text text-center"
-                                        />
-                                    </label>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
+            <div className="rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg p-3">
+                {paliers.length === 0 ? (
+                    <p className="text-[11px] font-bold text-slate-400 dark:text-dk-muted">
+                        {tx(lang, { fr: 'Aucune prime d\u00e9cid\u00e9e \u2014 personne n\u2019en touche.', ar: '\u0644\u0627 \u062a\u0648\u062c\u062f \u0639\u0644\u0627\u0648\u0629 \u0645\u0642\u0631\u0651\u0631\u0629 \u2014 \u0644\u0627 \u0623\u062d\u062f \u064a\u062a\u0642\u0627\u0636\u0627\u0647\u0627.', en: 'No bonus decided \u2014 nobody receives one.', es: 'Ninguna prima decidida \u2014 nadie la recibe.', pt: 'Nenhum pr\u00e9mio decidido \u2014 ningu\u00e9m o recebe.', tr: 'Karara ba\u011flanm\u0131\u015f prim yok \u2014 kimse alm\u0131yor.' })}
+                    </p>
+                ) : (
+                    <ul className="space-y-1">
+                        {paliers.map((pal, i) => (
+                            <li key={i} className="flex items-center justify-between text-[12px] font-bold text-slate-600 dark:text-dk-text-soft">
+                                <span>{'\u2265 '}{pal.min}%</span>
+                                <span className="text-slate-800 dark:text-dk-text">{pal.montant} {devise} <span className="text-slate-400 dark:text-dk-muted font-medium">{tx(lang, periodes[config?.periode || 'semaine'])}</span></span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </div>
         </div>
     );
 }
 
-// Structure & encadrement (organigramme, chaines, machines/chaine)
 export function StructureSection({ settings, setSettings, lang, machines }) {
     const t = pickT(TRANSLATIONS, lang);
     const { draft, setDraft, isDirty, isSaving, showToast, handleSave } = useSettingsDraft(settings, setSettings);
