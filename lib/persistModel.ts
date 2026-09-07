@@ -52,28 +52,30 @@ export async function creerModeleSurServeur(model: ModelData, user?: unknown): P
 }
 
 /**
- * Applique un patch à un modèle EXISTANT.
+ * Écrit le statut de flux et/ou le nom d'un modèle EXISTANT.
  *
- * `POST /api/models` remplace le modèle ENTIER : envoyer la copie portée par
- * l'état React écraserait ce que l'ingénierie (ou un autre poste) a modifié
- * entre-temps. On relit donc la version à jour juste avant d'écrire et on n'y
- * applique que ce patch — même précaution que `writeModelSoustraitance`
- * (`components/SousTraitance.tsx`) et les écritures magasin d'`App.tsx`.
+ * Passe par `PATCH /api/models/:id/champs`, qui ne réécrit QUE ces champs, dans
+ * une seule transaction SQLite. L'alternative — relire la fiche entière, la
+ * patcher, la renvoyer par `POST /api/models` — laissait une fenêtre entre la
+ * lecture et l'écriture : la sauvegarde différée de l'atelier d'ingénierie (2 s)
+ * qui tombait dedans était intégralement effacée.
  */
 export async function patcherModeleSurServeur(
     modelId: string,
-    patch: (base: ModelData) => ModelData,
+    champs: { workflowStatus?: string; nomModele?: string },
     user?: unknown,
 ): Promise<boolean> {
     if (!modelId) return false;
     if (!actif(user)) return true;
     try {
-        const fresh = await fetch('/api/models', { credentials: 'include' });
-        if (!fresh.ok) return false;
-        const liste = await fresh.json();
-        const base = Array.isArray(liste) ? liste.find((m: ModelData) => m.id === modelId) : undefined;
-        if (!base) return false;                    // supprimé entre-temps : ne pas le ressusciter
-        return await envoyer({ ...patch(base), updatedAt: new Date().toISOString() } as ModelData);
+        const res = await fetch(`/api/models/${encodeURIComponent(modelId)}/champs`, {
+            credentials: 'include',
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(champs),
+        });
+        if (!res.ok) console.error('[persistModel] patch refusé', res.status);
+        return res.ok;
     } catch (e) {
         console.error('[persistModel] patch refusé', e);
         return false;

@@ -6,6 +6,7 @@ import type { MagasinStock } from './usePlanningStock';
 import type { PlanningChain } from './usePlanningChains';
 import { evQty, evStartYmd } from '../shared/eventAccessors';
 import { getClientColor } from '../shared/clientColors';
+import { addTombstone } from '../../../src/lib/apiShim';
 
 interface Args {
     planningEvents: PlanningEvent[];
@@ -411,13 +412,22 @@ export function usePlanningEvents({
         setPlanningEventsWithRolling(prev => [...prev, cloned]);
     }, [planningEvents, setPlanningEventsWithRolling]);
 
+    /* Suppression EXPLICITE de l'utilisateur → pierre tombale, sinon la fusion
+       de synchro (une UNION : elle ne retire jamais rien d'elle-même) réinstalle
+       l'OF depuis la copie du cloud au prochain pull, et l'OF supprimé revient.
+       Seul ce marqueur distingue « jamais reçu » de « volontairement effacé ».
+       Même mécanique que la suppression d'un modèle (`useAppModelManager`). */
     const deleteEvent = useCallback((id: string) => {
         setPlanningEventsWithRolling(prev => prev.filter(e => e.id !== id));
+        try { addTombstone('planning', id); } catch { /* non bloquant */ }
     }, [setPlanningEventsWithRolling]);
 
     const clearAllEvents = useCallback(() => {
+        for (const e of planningEvents) {
+            try { addTombstone('planning', e.id); } catch { /* non bloquant */ }
+        }
         setPlanningEventsWithRolling([]);
-    }, [setPlanningEventsWithRolling]);
+    }, [planningEvents, setPlanningEventsWithRolling]);
 
     const setStatus = useCallback((id: string, status: PlanningEvent['status']) => {
         setPlanningEventsWithRolling(prev => prev.map(e => e.id === id ? { ...e, status } : e));

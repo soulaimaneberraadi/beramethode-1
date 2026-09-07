@@ -335,16 +335,13 @@ export function useAppModelManager({
         setModels(prev => prev.map(m => m.id === id ? { ...m, meta_data: { ...m.meta_data, nom_modele: newName } } : m));
         // Patch sur la version FRAÎCHE du serveur : renvoyer la copie de l'état
         // React écraserait le travail d'ingénierie fait entre-temps.
-        void patcherModeleSurServeur(id, base => ({
-            ...base,
-            meta_data: { ...base.meta_data, nom_modele: newName },
-        }), user);
+        void patcherModeleSurServeur(id, { nomModele: newName }, user);
     }, [setModels, user]);
 
     const handleTransferToCoupe = useCallback((model: ModelData) => {
         if (!window.confirm(`Transférer "${model.meta_data.nom_modele}" vers La Coupe ?`)) return;
         setModels(prev => prev.map(m => m.id === model.id ? { ...m, workflowStatus: 'COUPE' } : m));
-        void patcherModeleSurServeur(model.id, base => ({ ...base, workflowStatus: 'COUPE' }), user);
+        void patcherModeleSurServeur(model.id, { workflowStatus: 'COUPE' }, user);
         setCurrentView('coupe');
     }, [setCurrentView, setModels, user]);
 

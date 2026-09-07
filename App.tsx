@@ -1503,7 +1503,7 @@ export default function App() {
         const handleExportModel = (e: any) => {
             const { modelId } = e.detail;
             setModels(prev => prev.map(m => m.id === modelId ? { ...m, workflowStatus: 'EXPORT' } : m));
-            void patcherModeleSurServeur(modelId, base => ({ ...base, workflowStatus: 'EXPORT' } as any), userRef.current);
+            void patcherModeleSurServeur(modelId, { workflowStatus: 'EXPORT' }, userRef.current);
             setPlanningEvents(prev => prev.map(evt => evt.modelId === modelId ? { ...evt, status: 'DONE' } : evt));
         };
         window.addEventListener('export-model', handleExportModel);
@@ -2621,7 +2621,7 @@ export default function App() {
                                 setModels(prev => prev.map(x => x.id === m.id ? { ...x, workflowStatus: 'PLANNING' } : x));
                                 // Le statut doit survivre à la relecture serveur (focus fenêtre) :
                                 // sinon le modèle repartait en arrière et l'OF semblait « perdu ».
-                                void patcherModeleSurServeur(m.id, base => ({ ...base, workflowStatus: 'PLANNING' } as any), user);
+                                void patcherModeleSurServeur(m.id, { workflowStatus: 'PLANNING' }, user);
                                 setGlobalChaineId(chaineId);
                                 setEnvoiPlanning(null);
                                 if (enSuivi) {

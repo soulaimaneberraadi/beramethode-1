@@ -22,6 +22,7 @@ import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
 import SuiviPostes from './suivi/SuiviPostes';
 import PrimesPage from './suivi/PrimesPage';
+import { addTombstone } from '../src/lib/apiShim';
 
 interface Props {
     models: ModelData[];
@@ -2966,6 +2967,10 @@ export default function SuiviProduction({
                         }
                         if (supprimerSaisies) {
                             const majSuivis = suivis.filter(s => !(s.planningId === editingStatusEvent.id && s.chaineId === selectedChaineId));
+                            // Sans pierre tombale, la fusion de synchro (une union)
+                            // réinstalle ces saisies depuis le cloud au prochain pull.
+                            suivis.filter(s => s.planningId === editingStatusEvent.id && s.chaineId === selectedChaineId)
+                                .forEach(s => { try { addTombstone('suivi', s.id); } catch { /* non bloquant */ } });
                             setSuivis(majSuivis);
                             handleSave(majSuivis);
                         }

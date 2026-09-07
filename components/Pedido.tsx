@@ -28,6 +28,7 @@ import { fmt } from '../app/constants';
 import { getMaterialAvailability } from './planning/hooks/usePlanningValidation';
 import { tx, pickT } from '../lib/i18n';
 import type { Lang } from '../app/constants';
+import { addTombstone } from '../src/lib/apiShim';
 
 const LAUNCH_HOUR_OPTS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 const LAUNCH_MINUTE_OPTS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
@@ -322,6 +323,9 @@ export default function Pedido({
         if (window.confirm(confirmMsg)) {
             if (setPlanningEvents) {
                 setPlanningEvents(prev => prev.filter(e => e.id !== eventId));
+                // Sans pierre tombale, la fusion de synchro (une union) réinstalle
+                // le lot depuis le cloud au prochain pull.
+                try { addTombstone('planning', eventId); } catch { /* non bloquant */ }
             }
             setEditingEventId(null);
             setEditDraft(null);
