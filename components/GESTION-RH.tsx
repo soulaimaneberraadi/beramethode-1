@@ -900,6 +900,15 @@ function StatistiquesTab({ workers, pointages, suivis, planningEvents, selectedD
                                       <span>{w.poste}</span>
                                     </>
                                   )}
+                                  {/* Le numero ecrit, pas seulement un bouton d'appel :
+                                      au telephone on le dicte, on le recopie, on le
+                                      cherche des yeux. */}
+                                  {w.phone && (
+                                    <>
+                                      <span>•</span>
+                                      <a href={`tel:${w.phone}`} style={{ color: isDark ? '#818cf8' : '#2149C1', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap' }}>{w.phone}</a>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                             </div>

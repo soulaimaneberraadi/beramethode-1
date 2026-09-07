@@ -34,6 +34,7 @@ interface Props {
 const L = {
     title: { fr: 'Suivi par poste / ouvrier', ar: 'التتبع حسب المحطة والعامل', en: 'Poste / worker tracking', es: 'Seguimiento por puesto/operario', pt: 'Acompanhamento por posto/operário', tr: 'İstasyon/işçi takibi' },
     subtitle: { fr: "Un releve par poste, par ouvrier, range automatiquement dans l'heure en cours", ar: 'تسجيل لكل محطة ولكل عامل، يُصنَّف تلقائياً في الساعة الجارية', en: 'One entry per poste, per worker, auto-filed to the current hour', es: 'Un registro por puesto y operario, clasificado automáticamente en la hora actual', pt: 'Um registo por posto e operário, arquivado automaticamente na hora atual', tr: 'İstasyon ve işçi başına bir kayıt, otomatik olarak geçerli saate yazılır' },
+    ofsAilleurs: { fr: 'Cette chaine porte ces OF a d\u2019autres dates :', ar: '\u0647\u0630\u0627 \u0627\u0644\u062e\u0637 \u0639\u0644\u064a\u0647 \u0647\u0630\u0647 \u0627\u0644\u0623\u0648\u0627\u0645\u0631 \u0641\u064a \u062a\u0648\u0627\u0631\u064a\u062e \u0623\u062e\u0631\u0649:', en: 'This line carries these orders on other dates:', es: 'Esta l\u00ednea lleva estas OF en otras fechas:', pt: 'Esta linha tem estas OF noutras datas:', tr: 'Bu hat, ba\u015fka tarihlerde bu i\u015f emirlerini ta\u015f\u0131yor:' },
     noModel: { fr: 'Aucun modèle planifié sur cette chaîne pour cette date', ar: 'لا يوجد نموذج مخطط لهذه السلسلة في هذا التاريخ', en: 'No model planned on this line for this date', es: 'Ningún modelo planificado en esta línea para esta fecha', pt: 'Nenhum modelo planeado nesta linha para esta data', tr: 'Bu tarihte bu hatta planlanmış model yok' },
     noModelIntrouvable: { fr: "L'OF selectionne pointe vers un modele introuvable (il a ete supprime ou renomme). Ouvrez le Planning et rattachez l'OF a un modele.", ar: 'الـ OF المحدَّد يشير إلى موديل غير موجود (حُذف أو غُيّر). افتح Planning وأعد ربط الـ OF بموديل.', en: 'The selected OF points to a missing model (deleted or renamed). Open Planning and re-attach the OF to a model.', es: 'La OF seleccionada apunta a un modelo inexistente (eliminado o renombrado). Abra Planning y vuelva a vincular la OF.', pt: 'A OF selecionada aponta para um modelo inexistente (eliminado ou renomeado). Abra o Planning e volte a associar a OF.', tr: 'Secili OF eksik bir modele isaret ediyor (silinmis veya yeniden adlandirilmis). Planning ekranindan OF u bir modele yeniden baglayin.' },
     noGamme: { fr: "Ce modele n'a pas encore de gamme operatoire : il n'y a donc aucun poste a relever. Ingenierie › Gamme operatoire.", ar: 'هذا الموديل ما عندوش گام عملياتي بعد: ما كاين حتى منصب باش نسجّلو. Ingénierie › Gamme opératoire.', en: 'This model has no operation sheet yet, so there is no poste to record. Engineering › Gamme.', es: 'Este modelo aun no tiene gama operativa: no hay ningun puesto que registrar. Ingenieria › Gama.', pt: 'Este modelo ainda nao tem gama operatoria: nao ha nenhum posto a registar. Engenharia › Gama.', tr: 'Bu modelin henuz operasyon listesi yok, bu yuzden kaydedilecek istasyon da yok. Muhendislik › Gamme.' },
@@ -236,6 +237,18 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         const end = (p.estimatedEndDate || p.dateExport || p.dateFin || start).split('T')[0];
         return start <= date && end >= date;
     }), [planningEvents, selectedChaineId, date]);
+
+    /* Aucun OF ce jour-la ne veut pas dire aucun OF. Sans cette liste, la page
+       s'arretait sur « aucun modele planifie » et ne disait pas OU les trouver :
+       il fallait deviner la bonne date en la changeant a l'aveugle. */
+    const jourDeLOF = (p: PlanningEvent) => (p.startDate || p.dateLancement || '').split('T')[0];
+    const ofsAutresDates = useMemo(() => {
+        const ancre = Date.parse(date);
+        return planningEvents
+            .filter(p => p.chaineId === selectedChaineId && p.status !== 'DONE' && jourDeLOF(p))
+            .sort((a, b) => Math.abs(Date.parse(jourDeLOF(a)) - ancre) - Math.abs(Date.parse(jourDeLOF(b)) - ancre))
+            .slice(0, 4);
+    }, [planningEvents, selectedChaineId, date]);
 
     /* Dernier OF sur lequel on a releve : c'est celui qu'on rouvre. Sans cette
        memoire, revenir sur la page reprenait le premier OF de la liste — et on
@@ -922,6 +935,28 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                             tapant son libelle. Il rejoint la gamme du modele — donc le
                             catalogue des temps et le score des ouvriers. L'atelier des
                             methodes reste offert pour le travail de fond. */}
+                        {!activePlanning && ofsAutresDates.length > 0 && (
+                            <div className="w-full">
+                                <p className="text-[11px] font-bold text-slate-400 dark:text-dk-muted mb-2 text-center">{tx(lang, L.ofsAilleurs)}</p>
+                                <div className="flex flex-wrap justify-center gap-1.5">
+                                    {ofsAutresDates.map(p => {
+                                        const m = models.find(x => x.id === p.modelId);
+                                        const ref = m?.meta_data?.reference || p.modelName || p.id.slice(0, 8);
+                                        return (
+                                            <button
+                                                key={p.id}
+                                                type="button"
+                                                onClick={() => setGlobalDate?.(jourDeLOF(p))}
+                                                className="px-3 py-2 min-h-[36px] rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[11px] font-black text-slate-700 dark:text-dk-text hover:border-indigo-400 transition-colors"
+                                            >
+                                                {ref} <span className="font-bold text-slate-400 dark:text-dk-muted">{jourDeLOF(p)}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
                         {activeModel && postes.length === 0 && onAddPoste && (
                             <AjoutPosteRapide
                                 models={models}
