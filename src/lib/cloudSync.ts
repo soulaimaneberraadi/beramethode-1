@@ -74,6 +74,41 @@ const gagnant = (local: any, cloud: any): any => {
   return cloud;
 };
 
+/**
+ * Qu'est-ce qui fait qu'un element est LE MEME des deux cotes ?
+ *
+ * La fusion ne s'appliquait qu'aux listes dont TOUS les elements, ici comme
+ * dans le cloud, portaient un `id`. Un SEUL element sans `id` — une ligne de
+ * suivi ancienne, un enregistrement fabrique avant que le champ n'existe —
+ * suffisait a la desactiver POUR TOUTE LA CLE : la liste du cloud remplacait
+ * alors la locale, et les heures saisies sur cet appareil depuis le dernier
+ * envoi disparaissaient d'un coup. C'etait la porte par laquelle le suivi
+ * partait entier.
+ *
+ * On rend donc une identite pour CHAQUE element, dans cet ordre :
+ *  1. son `id` ;
+ *  2. a defaut, les champs qui font son unicite metier (une ligne de suivi,
+ *     c'est une chaine + un jour + un OF) ;
+ *  3. a defaut, son contenu : deux copies identiques se dedoublonnent, et deux
+ *     versions differentes sont TOUTES DEUX gardees — jamais perdues.
+ */
+const cleElement = (lsKey: string, x: any): string => {
+  if (!x || typeof x !== 'object') return `val:${JSON.stringify(x)}`;
+  if (x.id != null && x.id !== '') return `id:${String(x.id)}`;
+
+  const naturelle: string[] | null =
+    lsKey === 'beramethode_suivis'
+      ? [x.chaineId, x.date, x.planningId ?? x.modelId]
+      : lsKey === 'beramethode_planning'
+        ? [x.chaineId, x.modelId, x.startDate ?? x.dateLancement]
+        : null;
+  if (naturelle && naturelle.every(p => p != null && p !== '')) {
+    return `nat:${naturelle.join('|')}`;
+  }
+
+  try { return `sig:${JSON.stringify(x)}`; } catch { return `sig:${String(x)}`; }
+};
+
 const sansSupprimes = (lsKey: string, items: any[]): any[] => {
   const type = CLE_VERS_TYPE[lsKey];
   if (!type) return items;
@@ -742,27 +777,21 @@ const applySnapshotToLocal = async (snapshot: Record<string, unknown> | null): P
           try {
             const localRaw2 = lsGet(k);
             const localArr = localRaw2 ? JSON.parse(localRaw2) : null;
-            const idOf = (x: any) => (x && typeof x === 'object' ? x.id : undefined);
             const bothArrays = Array.isArray(cloudVal) && Array.isArray(localArr);
-            const haveIds = bothArrays && [...cloudVal, ...localArr].every((x: any) => idOf(x) != null);
-            if (haveIds) {
-              const byId = new Map<any, any>();
-              for (const it of localArr) byId.set(idOf(it), it);      // base = local
+            if (bothArrays) {
+              const parCle = new Map<string, any>();
+              for (const it of localArr) parCle.set(cleElement(k, it), it);   // base = local
               for (const it of cloudVal) {
-                const id = idOf(it);
-                const ici = byId.get(id);
+                const cle = cleElement(k, it);
+                const ici = parCle.get(cle);
                 // Le cloud ne l'emporte plus d'office : voir `gagnant`.
-                byId.set(id, ici === undefined ? it : gagnant(ici, it));
+                parCle.set(cle, ici === undefined ? it : gagnant(ici, it));
               }
               // L'union garde tout des deux côtés — y compris ce que
               // l'utilisateur avait supprimé, tant que la copie du cloud n'a
               // pas été purgée. Les pierres tombales sont la seule chose qui
               // distingue « jamais reçu » de « volontairement supprimé ».
-              fusionGenerique = sansSupprimes(k, [...byId.values()]);
-            }
-            // Listes sans id : au moins, ne pas écraser du non-vide par du vide.
-            if (!fusionGenerique && Array.isArray(cloudVal) && cloudVal.length === 0 && Array.isArray(localArr) && localArr.length > 0) {
-              continue; // garde le local
+              fusionGenerique = sansSupprimes(k, [...parCle.values()]);
             }
           } catch { /* si illisible, on applique le cloud tel quel */ }
           // Hors du `try` : un refus d'écriture (stockage plein) ne doit pas
@@ -921,6 +950,21 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
           const ids = new Set(rendus.map((m: any) => m && String(m.id)));
           const extra = cloudV.filter((m: any) => m && !ids.has(String(m.id)));
           (snapshot as any)[k] = extra.length ? [...rendus, ...extra] : rendus;
+        } else if (Array.isArray(localV) && Array.isArray(cloudV)) {
+          /* L'UPSERT remplace la ligne entiere : envoyer une liste plus COURTE
+             que celle du cloud effacait, pour tout le monde, ce que cet appareil
+             n'avait pas (encore) recu. On ne le voyait que quand la liste locale
+             etait entierement vide ; une liste seulement amputee passait. Le
+             cloud etant deja relu ici, l'union ne coute rien de plus. Les
+             suppressions volontaires restent opposables : `sansSupprimes`. */
+          const parCle = new Map<string, any>();
+          for (const it of cloudV) parCle.set(cleElement(k, it), it);   // base = cloud
+          for (const it of localV) {
+            const cle = cleElement(k, it);
+            const laBas = parCle.get(cle);
+            parCle.set(cle, laBas === undefined ? it : gagnant(it, laBas));
+          }
+          (snapshot as any)[k] = sansSupprimes(k, [...parCle.values()]);
         } else if (isEmptyVal(localV) && !isEmptyVal(cloudV)) {
           (snapshot as any)[k] = cloudV; // préserve le cloud non vide
         }
