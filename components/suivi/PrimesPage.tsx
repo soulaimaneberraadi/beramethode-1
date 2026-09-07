@@ -74,6 +74,8 @@ interface Props {
     models: ModelData[];
     /** Jour de référence : il donne la période (jour / semaine / mois). */
     globalDate?: string;
+    /** Même filtre de date que le relevé : les deux pages parlent du même jour. */
+    setGlobalDate?: (d: string) => void;
 }
 
 const classeRendement = (r: number | null) =>
@@ -82,7 +84,7 @@ const classeRendement = (r: number | null) =>
             : r >= 80 ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
                 : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300';
 
-export default function PrimesPage({ settings, setSettings, models, globalDate }: Props) {
+export default function PrimesPage({ settings, setSettings, models, globalDate, setGlobalDate }: Props) {
     const { lang } = useLang();
     const date = globalDate || new Date().toISOString().split('T')[0];
     const devise = settings?.currency || '';
@@ -203,6 +205,14 @@ export default function PrimesPage({ settings, setSettings, models, globalDate }
                 </div>
 
                 <div className="flex items-center gap-1.5">
+                    {/* Le meme filtre de date que le releve : une prime se lit toujours
+                        pour une periode precise, et celle-ci part du jour choisi. */}
+                    <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => setGlobalDate && setGlobalDate(e.target.value)}
+                        className="h-8 text-[12px] font-bold text-slate-700 dark:text-dk-text bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-xl px-2 outline-none"
+                    />
                     <div className="bg-slate-100 dark:bg-dk-elevated/80 p-0.5 rounded-xl border border-slate-200 dark:border-dk-border/50 flex gap-0.5">
                         {(['jour', 'semaine', 'mois'] as const).map(p => (
                             <button

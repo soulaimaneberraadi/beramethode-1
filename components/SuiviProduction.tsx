@@ -45,6 +45,8 @@ interface Props {
     onAddPoste?: (modelId: string, ops: import('../types').Operation | import('../types').Operation[]) => Promise<void>;
     /** Retire une operation de la gamme du modele. */
     onRemovePoste?: (modelId: string, posteId: string) => Promise<void>;
+    /** Fixe le temps standard d'un poste du releve (minutes par piece). */
+    onSetPosteTemps?: (modelId: string, posteId: string, tempsMin: number) => Promise<void>;
 }
 
 const SUIVI_LABELS = {
@@ -144,6 +146,7 @@ export default function SuiviProduction({
     onOpenGamme,
     onAddPoste,
     onRemovePoste,
+    onSetPosteTemps,
 }: Props) {
     // 1. Core States
     const { lang } = useLang();
@@ -1598,6 +1601,7 @@ export default function SuiviProduction({
                     setSettings={setSettings}
                     models={models}
                     globalDate={globalDate}
+                    setGlobalDate={setGlobalDate}
                 />
             ) : subView === 'postes' ? (
                 <SuiviPostes
@@ -1612,6 +1616,7 @@ export default function SuiviProduction({
                     onOpenGamme={onOpenGamme}
                     onAddPoste={onAddPoste}
                     onRemovePoste={onRemovePoste}
+                    onSetPosteTemps={onSetPosteTemps}
                 />
             ) : (
             <>

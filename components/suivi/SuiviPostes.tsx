@@ -5,7 +5,7 @@ import { pauseOverlapMinutes, horairesDuJour } from '../../lib/horaires';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { useIsMobile } from '../planning/shared/useIsMobile';
-import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown, MoreVertical, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown, MoreVertical, Trash2, Image as ImageIcon, Timer } from 'lucide-react';
 import AjoutPosteRapide from './AjoutPosteRapide';
 import ChampOuvrier from './ChampOuvrier';
 import FicheOuvrier from './FicheOuvrier';
@@ -26,6 +26,8 @@ interface Props {
     onAddPoste?: (modelId: string, ops: Operation | Operation[]) => Promise<void>;
     /** Retire une operation de la gamme du modele. Les releves deja faits restent. */
     onRemovePoste?: (modelId: string, posteId: string) => Promise<void>;
+    /** Fixe le temps standard d'un poste du releve, en MINUTES par piece. */
+    onSetPosteTemps?: (modelId: string, posteId: string, tempsMin: number) => Promise<void>;
 }
 
 const L = {
@@ -81,6 +83,11 @@ const L = {
     defTitre: { fr: 'Defauts du creneau en cours', ar: 'عيوب الفترة الجارية', en: 'Defects of the current slot', es: 'Defectos de la franja actual', pt: 'Defeitos da faixa atual', tr: 'Gecerli dilimin hatalari' },
     reprendreGamme: { fr: 'Reprendre la gamme', ar: 'جيب مناصب الگام', en: 'Take the gamme postes', es: 'Traer los puestos de la gama', pt: 'Trazer os postos da gama', tr: 'Gamme istasyonlarini al' },
     aucunPoste: { fr: 'Aucun poste sur ce releve. Ajoutez ceux que vous suivez : eux seuls apparaitront ici.', ar: 'ما كاين حتى منصب فهاد التسجيل. زيد اللي كتتبّع: غير هوما اللي غادي يبانو هنا.', en: 'No poste on this entry sheet. Add the ones you track: only those will appear here.', es: 'Ningun puesto en este registro. Anada los que sigue: solo esos apareceran aqui.', pt: 'Nenhum posto neste registo. Adicione os que acompanha: so esses aparecerao aqui.', tr: 'Bu kayitta istasyon yok. Takip ettiklerinizi ekleyin: yalnizca onlar gorunur.' },
+    definirTS: { fr: 'Definir le temps standard', ar: 'حدّد الزمن المعياري', en: 'Set the standard time', es: 'Definir el tiempo estandar', pt: 'Definir o tempo padrao', tr: 'Standart sureyi belirle' },
+    tsAide: { fr: 'Secondes par piece. Sans lui, ni rendement ni prime : il n’y a pas de reference a comparer.', ar: 'ثواني للقطعة. بلاه، لا مردودية لا علاوة: ما كاين مرجع للمقارنة.', en: 'Seconds per piece. Without it, no efficiency and no bonus: there is no reference to compare with.', es: 'Segundos por pieza. Sin el, ni rendimiento ni prima: no hay referencia con la que comparar.', pt: 'Segundos por peca. Sem ele, nem rendimento nem premio: nao ha referencia para comparar.', tr: 'Parca basi saniye. Onsuz ne verim ne prim: karsilastirilacak referans yoktur.' },
+    adopterMesure: { fr: 'Adopter le temps mesure', ar: 'اعتمد الزمن المقيس', en: 'Adopt the measured time', es: 'Adoptar el tiempo medido', pt: 'Adotar o tempo medido', tr: 'Olculen sureyi benimse' },
+    sansTS: { fr: 'Sans TS', ar: 'بلا زمن معياري', en: 'No standard time', es: 'Sin TE', pt: 'Sem TP', tr: 'Standart sure yok' },
+    sansTSTitre: { fr: 'Ce poste n’a pas de temps standard : son rendement et sa prime ne peuvent pas se calculer. Menu ⋮ › Definir le temps standard.', ar: 'هاد المنصب ما عندو زمن معياري: المردودية والعلاوة ما كيتحسبوش. القائمة ⋮ › حدّد الزمن المعياري.', en: 'This poste has no standard time: its efficiency and bonus cannot be computed. Menu ⋮ › Set the standard time.', es: 'Este puesto no tiene tiempo estandar: su rendimiento y prima no se pueden calcular. Menu ⋮ › Definir el tiempo estandar.', pt: 'Este posto nao tem tempo padrao: o rendimento e o premio nao podem ser calculados. Menu ⋮ › Definir o tempo padrao.', tr: 'Bu istasyonun standart suresi yok: verim ve prim hesaplanamaz. Menu ⋮ › Standart sureyi belirle.' },
     menuPoste: { fr: 'Actions du poste', ar: 'إجراءات المنصب', en: 'Poste actions', es: 'Acciones del puesto', pt: 'Acoes do posto', tr: 'Istasyon islemleri' },
     changerOuvrier: { fr: 'Changer l’ouvrier', ar: 'بدّل العامل', en: 'Change the worker', es: 'Cambiar el operario', pt: 'Mudar o operario', tr: 'Isciyi degistir' },
     supprimerPoste: { fr: 'Supprimer le poste', ar: 'مسح المنصب', en: 'Delete the poste', es: 'Eliminar el puesto', pt: 'Eliminar o posto', tr: 'Istasyonu sil' },
@@ -93,6 +100,13 @@ const L = {
     chronoTMaj: { fr: 'T. majore', ar: 'الزمن المجوّر', en: 'Allowed time', es: 'T. mayorado', pt: 'T. majorado', tr: 'Payli sure' },
     chronoPH: { fr: 'P / H', ar: 'قطعة / ساعة', en: 'P / H', es: 'P / H', pt: 'P / H', tr: 'P / S' },
     chronoPHTitre: { fr: '3600 / temps majore par piece : ce que le poste sort en une heure a ce rythme.', ar: '3600 / الزمن المجوّر للقطعة: شنو كيخرّج المنصب فساعة بهاد الوتيرة.', en: '3600 / allowed time per piece: what the poste outputs in an hour at this pace.', es: '3600 / tiempo mayorado por pieza: lo que el puesto saca en una hora a este ritmo.', pt: '3600 / tempo majorado por peca: o que o posto produz numa hora a este ritmo.', tr: '3600 / parca basi payli sure: istasyonun bu tempoda saatte urettigi.' },
+    objectif: { fr: 'Objectif', ar: 'الهدف', en: 'Target', es: 'Objetivo', pt: 'Objetivo', tr: 'Hedef' },
+    objectifTitre: { fr: 'Ce que le poste doit sortir : 3600 / temps standard majore, ramene a la duree du creneau.', ar: 'اللي خاص المنصب يخرّج: 3600 / الزمن المعياري المجوّر، منسوب لمدّة الفترة.', en: 'What the poste must output: 3600 / allowed standard time, scaled to the slot duration.', es: 'Lo que el puesto debe sacar: 3600 / tiempo estandar mayorado, ajustado a la duracion del tramo.', pt: 'O que o posto deve produzir: 3600 / tempo padrao majorado, ajustado a duracao da faixa.', tr: 'Istasyonun uretmesi gereken: 3600 / payli standart sure, dilim suresine oranlanir.' },
+    objectifCreneau: { fr: 'Objectif du creneau', ar: 'هدف الفترة', en: 'Slot target', es: 'Objetivo del tramo', pt: 'Objetivo da faixa', tr: 'Dilim hedefi' },
+    chronoGarder: { fr: 'Enregistrer ce chrono', ar: 'حفظ هاد الكرونو', en: 'Save this timing', es: 'Guardar este cronometraje', pt: 'Guardar esta cronometragem', tr: 'Bu olcumu kaydet' },
+    chronoRefaire: { fr: 'Refaire', ar: 'عاود', en: 'Redo', es: 'Repetir', pt: 'Repetir', tr: 'Yeniden' },
+    chronoGarde: { fr: 'Chrono enregistre — temps standard et cadence a jour', ar: 'الكرونو تسجّل — الزمن المعياري والوتيرة تحدّثو', en: 'Timing saved — standard time and rate updated', es: 'Cronometraje guardado — tiempo estandar y cadencia actualizados', pt: 'Cronometragem guardada — tempo padrao e cadencia atualizados', tr: 'Olcum kaydedildi — standart sure ve tempo guncel' },
+    chronoQuestion: { fr: 'Garder cette mesure comme temps du poste ?', ar: 'نحفظو هاد القياس كزمن المنصب؟', en: 'Keep this measure as the poste time?', es: 'Guardar esta medida como tiempo del puesto?', pt: 'Guardar esta medida como tempo do posto?', tr: 'Bu olcumu istasyon suresi olarak sakla?' },
     chronoTour: { fr: 'Tour', ar: 'دورة', en: 'Lap', es: 'Vuelta', pt: 'Volta', tr: 'Tur' },
     chronoTTour: { fr: 'T. tour', ar: 'زمن الدورة', en: 'Lap time', es: 'T. vuelta', pt: 'T. volta', tr: 'Tur suresi' },
     chronoTTotal: { fr: 'T. total', ar: 'الزمن الكلي', en: 'Total time', es: 'T. total', pt: 'T. total', tr: 'Toplam sure' },
@@ -128,7 +142,7 @@ function todayStr(): string {
     return new Date().toISOString().split('T')[0];
 }
 
-export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste }: Props) {
+export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste, onSetPosteTemps }: Props) {
     const { lang } = useLang();
     /* Le releve se fait au pied de la chaine, telephone en main : un tableau
        de douze colonnes n'y tient pas. Sur petit ecran, les creneaux se lisent
@@ -363,6 +377,28 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         await onRemovePoste(activeModel.id, poste.id);
     };
 
+    /* Objectif d'un poste : ce qu'il DOIT sortir, deduit du temps standard.
+           pieces / heure  = 3600 / TS (secondes, majoration comprise)
+           objectif creneau = pieces/heure x duree du creneau / 60
+       Le TS porte deja l'aisance, donc l'objectif est tenable une journee
+       entiere — c'est la difference entre une cadence de pointe et une cadence
+       de production. Sans TS, aucun objectif : on n'en invente pas. */
+    const objectifPoste = (poste: Operation): { parHeure: number; parCreneau: number } | null => {
+        if (!(poste.time > 0)) return null;
+        const tsSec = poste.time * 60;
+        const parHeure = Math.round(3600 / tsSec);
+        const bloc = hourGrid.blocks.find(b => b.key === nowBlock.key);
+        const minutes = bloc ? Math.max(5, bloc.duration) : 60;
+        return { parHeure, parCreneau: Math.round((parHeure * minutes) / 60) };
+    };
+
+    /** Temps mesure au chrono sur ce poste (secondes/piece), s'il en existe un. */
+    const mesureChronoSec = (posteId: string): number | null => {
+        const rows = suivisByPoste.get(posteId) || [];
+        const mesure = rows.find(r => r.temps_reel_par_piece && r.temps_reel_par_piece > 0)?.temps_reel_par_piece;
+        return mesure ? Number((mesure * 60).toFixed(1)) : null;
+    };
+
     /** Nom de l'ouvrier qui tient le poste aujourd'hui, vide s'il n'y en a pas. */
     const nomOuvrier = (posteId: string): string => {
         const id = ouvrierDuPoste(posteId);
@@ -493,6 +529,27 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
     const saveCellule = (poste: Operation, hourKey: string, valeur: number | null) =>
         ecrireCellule(poste, hourKey, { pieces_sorties: valeur ?? 0, pieces_entrees: valeur ?? 0 });
 
+    /* Fixer le temps standard d'un poste.
+       On en profite pour combler les releves deja faits qui n'en portaient
+       aucun : sans cela, la production d'avant resterait sans rendement pour
+       toujours. Un standard DEJA inscrit n'est jamais remplace — on comble un
+       vide, on ne reecrit pas une reference. */
+    const fixerTempsPoste = async (poste: Operation, tempsSec: number) => {
+        if (!activeModel || !onSetPosteTemps) return;
+        const tempsMin = tempsSec > 0 ? Number((tempsSec / 60).toFixed(4)) : 0;
+        setMenuPosteId(null);
+        await onSetPosteTemps(activeModel.id, poste.id, tempsMin);
+        if (tempsMin <= 0) return;
+        const aCombler = posteSuivis.filter(r =>
+            r.posteId === poste.id
+            && r.modelId === activeModel.id
+            && !(r.temps_prevu_par_piece && r.temps_prevu_par_piece > 0));
+        if (aCombler.length === 0) return;
+        const majs = aCombler.map(r => ({ ...r, temps_prevu_par_piece: tempsMin }));
+        setPosteSuivis(prev => prev.map(x => majs.find(m => m.id === x.id) || x));
+        await persisterCellules(majs);
+    };
+
     /* Le chrono mesure UN CYCLE du poste (la moyenne de ses tours) : c'est deja
        un temps par piece. Il ne se divise donc par rien — auparavant on le
        partageait par les pieces du creneau, ce qui donnait un temps d'autant
@@ -501,10 +558,22 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
        La gamme et le score comptent en MINUTES ; le chrono en millisecondes. La
        conversion se fait ici, une seule fois : une seconde prise pour une minute
        fausserait le score d'un facteur 60. */
-    const appliquerChrono = async (poste: Operation, msParPiece: number) => {
+    const appliquerChrono = async (poste: Operation, msParPiece: number, secMajorees?: number) => {
         if (msParPiece <= 0) return;
         const tpp = Number((msParPiece / 60000).toFixed(4));
         await ecrireCellule(poste, nowBlock.key, { temps_reel_par_piece: tpp });
+
+        /* Le temps MAJORE devient le temps standard du poste : c'est la
+           definition de la confection — le standard porte l'aisance (repos,
+           fatigue, aleas), la mesure brute non. De la sort la cadence :
+           3600 / temps majore = pieces par heure.
+
+           On ne remplace un standard deja fixe que si l'utilisateur le redemande
+           explicitement (menu ⋮), pour qu'une mesure ponctuelle ne redefinisse
+           pas seule la reference d'un poste. */
+        if (secMajorees && secMajorees > 0 && !(poste.time > 0)) {
+            await fixerTempsPoste(poste, secMajorees);
+        }
     };
 
     /* Changer l'ouvrier d'un poste rejaillit sur TOUS ses releves du jour :
@@ -962,6 +1031,8 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                         onToggle={() => setMenuPosteId(cur => (cur === poste.id ? null : poste.id))}
                                                         onChangerOuvrier={() => { setChangementOuvrier(poste.id); setMenuPosteId(null); }}
                                                         onSupprimer={onRemovePoste ? () => void supprimerPoste(poste) : undefined}
+                                                        onFixerTemps={onSetPosteTemps ? (sec) => void fixerTempsPoste(poste, sec) : undefined}
+                                                        mesureSec={mesureChronoSec(poste.id)}
                                                     />
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex items-center gap-1.5 min-w-0">
@@ -990,7 +1061,18 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                         )}
                                                     </div>
 
-                                                    <span className="shrink-0 text-[10px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">{total} pcs</span>
+                                                    <span className="shrink-0 text-right">
+                                                        <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted tabular-nums">{total} pcs</span>
+                                                        {(() => {
+                                                            const obj = objectifPoste(poste);
+                                                            if (!obj) return null;
+                                                            return (
+                                                                <span className="block text-[10px] font-black tabular-nums text-indigo-600 dark:text-dk-accent-text" title={tx(lang, L.objectifTitre)}>
+                                                                    {tx(lang, L.objectif)} {obj.parCreneau}
+                                                                </span>
+                                                            );
+                                                        })()}
+                                                    </span>
                                                 </div>
 
                                                 {/* La case du creneau : le seul geste de cet ecran, donc
@@ -1053,7 +1135,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                         <MiniChrono
                                                             open
                                                             onToggle={() => setChronoOpenFor(null)}
-                                                            onFinish={(ms) => { setDraft(poste.id, { tempsMs: ms }); void appliquerChrono(poste, ms); }}
+                                                            onFinish={(ms, secMaj) => { setDraft(poste.id, { tempsMs: ms }); void appliquerChrono(poste, ms, secMaj); }}
                                                             lang={lang}
                                                             tempsMs={getDraft(poste.id).tempsMs}
                                                         />
@@ -1107,6 +1189,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                         <th className="text-left px-3 py-2.5 sticky left-0 bg-slate-50 dark:bg-dk-elevated/60 z-10 min-w-[160px]">{tx(lang, L.poste)}</th>
                                         <th className="text-left px-3 py-2.5 min-w-[150px]">{tx(lang, L.worker)}</th>
                                         <th className="px-2 py-2.5 text-center w-20">{tx(lang, L.cadence)}</th>
+                                        <th className="px-2 py-2.5 text-center w-24 bg-indigo-50/70 dark:bg-dk-accent/10 text-indigo-700 dark:text-dk-accent-text" title={tx(lang, L.objectifTitre)}>{tx(lang, L.objectif)}</th>
                                         {hourGrid.blocks.map(b => (
                                             <th
                                                 key={b.key}
@@ -1165,6 +1248,17 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                         {poste.machineName}
                                                                     </span>
                                                                 )}
+                                                                {/* Un poste sans temps standard ne produit ni rendement
+                                                                    ni prime : on le dit ici, et le menu le corrige. */}
+                                                                {poste.time > 0 ? (
+                                                                    <span className="ml-1 inline-block mt-0.5 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-[9px] font-black text-amber-700 dark:text-amber-300 tabular-nums">
+                                                                        TS {(poste.time * 60).toFixed(1)}s
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="ml-1 inline-block mt-0.5 px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-900/20 text-[9px] font-black text-rose-700 dark:text-rose-300" title={tx(lang, L.sansTSTitre)}>
+                                                                        {tx(lang, L.sansTS)}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <button
                                                                 type="button"
@@ -1186,6 +1280,8 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                 onToggle={() => setMenuPosteId(cur => (cur === poste.id ? null : poste.id))}
                                                                 onChangerOuvrier={() => { setChangementOuvrier(poste.id); setMenuPosteId(null); }}
                                                                 onSupprimer={onRemovePoste ? () => void supprimerPoste(poste) : undefined}
+                                                                onFixerTemps={onSetPosteTemps ? (sec) => void fixerTempsPoste(poste, sec) : undefined}
+                                                                mesureSec={mesureChronoSec(poste.id)}
                                                             />
                                                         </div>
                                                     </td>
@@ -1234,6 +1330,21 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                 {cad.mesuree ? '' : '~'}{cad.valeur}
                                                             </span>
                                                         )}
+                                                    </td>
+
+                                                    {/* L'objectif, a cote de la cadence : l'un est ce qu'on
+                                                        attend, l'autre ce qu'on obtient. */}
+                                                    <td className="px-2 py-2 text-center bg-indigo-50/40 dark:bg-dk-accent/5">
+                                                        {(() => {
+                                                            const obj = objectifPoste(poste);
+                                                            if (!obj) return <span className="text-slate-300 dark:text-dk-muted font-bold">—</span>;
+                                                            return (
+                                                                <span className="block" title={tx(lang, L.objectifTitre)}>
+                                                                    <span className="block text-[12px] font-black tabular-nums text-indigo-700 dark:text-dk-accent-text">{obj.parCreneau}</span>
+                                                                    <span className="block text-[9px] font-bold tabular-nums text-indigo-500/80 dark:text-dk-muted">{obj.parHeure} p/h</span>
+                                                                </span>
+                                                            );
+                                                        })()}
                                                     </td>
 
                                                     {hourGrid.blocks.map(b => {
@@ -1318,11 +1429,11 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                     creneau en cours, divise par les pieces qui y sont notees. */}
                                                 {chronoOuvert && (
                                                     <tr className="bg-slate-50/70 dark:bg-dk-elevated/30">
-                                                        <td colSpan={5 + hourGrid.blocks.length + 3} className="px-3 py-2.5">
+                                                        <td colSpan={6 + hourGrid.blocks.length + 3} className="px-3 py-2.5">
                                                             <MiniChrono
                                                                 open
                                                                 onToggle={() => setChronoOpenFor(null)}
-                                                                onFinish={(ms) => { setDraft(poste.id, { tempsMs: ms }); void appliquerChrono(poste, ms); }}
+                                                                onFinish={(ms, secMaj) => { setDraft(poste.id, { tempsMs: ms }); void appliquerChrono(poste, ms, secMaj); }}
                                                                 lang={lang}
                                                                 tempsMs={d.tempsMs}
                                                             />
@@ -1352,6 +1463,16 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                         </td>
                                         <td />
                                         <td />
+                                        <td className="px-2 py-2.5 text-center bg-indigo-50/40 dark:bg-dk-accent/5 text-[10px] font-black tabular-nums text-indigo-700 dark:text-dk-accent-text">
+                                            {(() => {
+                                                /* Objectif de la chaine sur le creneau : celui du poste le
+                                                   plus lent, pas la somme — une chaine ne sort pas plus que
+                                                   son goulot, quelles que soient les cadences en amont. */
+                                                const objs = postes.map(objectifPoste).filter((o): o is { parHeure: number; parCreneau: number } => o !== null);
+                                                if (objs.length === 0) return '—';
+                                                return Math.min(...objs.map(o => o.parCreneau));
+                                            })()}
+                                        </td>
                                         {hourGrid.blocks.map(b => (
                                             <td key={b.key} className="px-1 py-2.5 text-center font-black tabular-nums text-slate-700 dark:text-dk-text border-l border-slate-100 dark:border-dk-border/40">
                                                 {sortieChaineCreneau(b.key) || '—'}
@@ -1474,11 +1595,16 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
  * Menu « ⋮ » d'un poste : ce qui ne se fait qu'une fois par jour ne doit pas
  * occuper la ligne en permanence — changer l'ouvrier, retirer le poste.
  */
-function MenuPoste({ poste, lang, ouvert, onToggle, onChangerOuvrier, onSupprimer }: {
+function MenuPoste({ poste, lang, ouvert, onToggle, onChangerOuvrier, onSupprimer, onFixerTemps, mesureSec }: {
     poste: Operation; lang: string; ouvert: boolean; onToggle: () => void;
     onChangerOuvrier: () => void; onSupprimer?: () => void;
+    /** Enregistre le temps standard, en SECONDES par piece. */
+    onFixerTemps?: (tempsSec: number) => void;
+    /** Temps deja mesure au chrono sur ce poste, en secondes — a adopter d'un clic. */
+    mesureSec?: number | null;
 }) {
     const [confirme, setConfirme] = useState(false);
+    const [tsSaisi, setTsSaisi] = useState<string>(poste.time > 0 ? String(Number((poste.time * 60).toFixed(1))) : '');
     // Le menu referme : la confirmation ne doit pas attendre, armee, sa reouverture.
     useEffect(() => { if (!ouvert) setConfirme(false); }, [ouvert]);
 
@@ -1506,6 +1632,49 @@ function MenuPoste({ poste, lang, ouvert, onToggle, onChangerOuvrier, onSupprime
                         >
                             <User className="w-3.5 h-3.5" /> {tx(lang, L.changerOuvrier)}
                         </button>
+
+                        {/* Le temps standard : c'est lui qui rend le rendement et la
+                            prime possibles. On le saisit en secondes — la langue de
+                            l'atelier — et la conversion en minutes se fait plus bas. */}
+                        {onFixerTemps && (
+                            <div className="px-3 py-2.5 border-t border-slate-100 dark:border-dk-border/50">
+                                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted flex items-center gap-1.5">
+                                    <Timer className="w-3.5 h-3.5" /> {tx(lang, L.definirTS)}
+                                </p>
+                                <p className="mt-0.5 text-[9px] font-bold text-slate-400 dark:text-dk-muted leading-snug">{tx(lang, L.tsAide)}</p>
+                                <div className="mt-1.5 flex items-center gap-1.5">
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={tsSaisi}
+                                        onChange={e => setTsSaisi(e.target.value.replace(/[^0-9.]/g, ''))}
+                                        onKeyDown={e => { if (e.key === 'Enter' && tsSaisi) onFixerTemps(Number(tsSaisi)); }}
+                                        placeholder="—"
+                                        className="w-20 h-8 text-center text-[12px] font-black tabular-nums rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text outline-none focus:border-indigo-600"
+                                    />
+                                    <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted">s</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => tsSaisi && onFixerTemps(Number(tsSaisi))}
+                                        disabled={!tsSaisi}
+                                        className="ml-auto h-8 px-3 rounded-lg bg-indigo-600 text-white text-[11px] font-black disabled:opacity-40"
+                                    >
+                                        OK
+                                    </button>
+                                </div>
+                                {/* Le chrono a deja mesure ce poste : autant s'en servir
+                                    plutot que de retaper un chiffre qu'on vient de lire. */}
+                                {mesureSec ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => onFixerTemps(mesureSec)}
+                                        className="mt-1.5 w-full h-8 rounded-lg border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50 dark:bg-emerald-900/20 text-[11px] font-black text-emerald-700 dark:text-emerald-300"
+                                    >
+                                        {tx(lang, L.adopterMesure)} · {mesureSec.toFixed(1)} s
+                                    </button>
+                                ) : null}
+                            </div>
+                        )}
                         {onSupprimer && (
                             /* Deux temps, dans le menu meme : `window.confirm` sort de
                                l'application et, sur telephone, s'affiche loin du doigt —
@@ -1548,7 +1717,7 @@ function MenuPoste({ poste, lang, ouvert, onToggle, onChangerOuvrier, onSupprime
     );
 }
 
-function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean; onToggle: () => void; onFinish: (msParPiece: number) => void; lang: string; tempsMs: number | null }) {
+function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean; onToggle: () => void; onFinish: (msParPiece: number, secMajorees: number) => void; lang: string; tempsMs: number | null }) {
     /* Meme geste qu'au Chronometrage : on lance, on marque un tour a chaque
        cycle, on arrete. La moyenne des tours est le temps du poste — un seul
        cycle mesure a la main se trompe trop souvent pour valoir une note. */
@@ -1560,6 +1729,9 @@ function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean
     const [piecesParTour, setPiecesParTour] = useState(1);
     /** 1.15 est l'aisance usuelle en confection, celle du Chronometrage. */
     const [majoration, setMajoration] = useState(1.15);
+    /** Mesure arretee, en attente de decision. */
+    const [aGarder, setAGarder] = useState(false);
+    const [garde, setGarde] = useState(false);
     const startRef = useRef(0);
     const dernierTourRef = useRef(0);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1588,21 +1760,35 @@ function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean
         });
     };
 
+    /* Arreter n'enregistre RIEN : on lit d'abord la moyenne, la cadence, les
+       tours — puis on decide de garder. Une mesure ratee (un tour de trop, une
+       piece coincee) ne doit pas redefinir le temps d'un poste par surprise. */
     const arreter = () => {
         if (intervalRef.current) clearInterval(intervalRef.current);
         setRunning(false);
-        /* Un tour en cours au moment de l'arret compte : sinon le dernier cycle,
-           celui qu'on vient justement de mesurer, serait perdu. */
+        // Un tour en cours au moment de l'arret compte : sinon le dernier cycle,
+        // celui qu'on vient justement de mesurer, serait perdu.
         const enCours = elapsed - dernierTourRef.current;
         const tous = enCours > 0 ? [...tours, enCours] : tours;
         if (tous.length === 0) return;
         dernierTourRef.current = elapsed;
         setTours(tous);
-        /* On transmet le temps par piece MESURE, sans majoration : le score
-           compare ce temps au temps prevu de la gamme, qui porte deja son propre
-           coefficient. Majorer ici le compterait deux fois. */
-        const cycleMoyen = tous.reduce((a, b) => a + b, 0) / tous.length;
-        onFinish(Math.round(piecesParTour > 0 ? cycleMoyen / piecesParTour : cycleMoyen));
+        setAGarder(true);
+    };
+
+    const garder = () => {
+        if (tours.length === 0) return;
+        /* Deux temps sortent d'ici :
+             — le temps par piece MESURE, pour la note du releve (le score
+               compare le standard au reel : majorer ici le compterait deux fois) ;
+             — le temps MAJORE, qui devient le standard du poste et donne la
+               cadence : 3600 / majore = pieces par heure. */
+        const cycleMoyen = tours.reduce((a, b) => a + b, 0) / tours.length;
+        const parPiece = piecesParTour > 0 ? cycleMoyen / piecesParTour : cycleMoyen;
+        onFinish(Math.round(parPiece), Number(((parPiece / 1000) * (majoration > 0 ? majoration : 1)).toFixed(2)));
+        setAGarder(false);
+        setGarde(true);
+        setTimeout(() => setGarde(false), 2200);
     };
 
     const effacer = () => {
@@ -1611,7 +1797,7 @@ function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean
         setElapsed(0);
         setTours([]);
         dernierTourRef.current = 0;
-        onFinish(0);
+        setAGarder(false);
     };
 
     /** Secondes et centiemes : « 03.64 », la lecture du Chronometrage. */
@@ -1651,7 +1837,7 @@ function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean
     }
 
     return (
-        <div className="rounded-xl border border-slate-200 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-elevated/40 p-3">
+        <div className="rounded-xl border border-slate-200 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-elevated/40 p-2">
             <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
                     {tx(lang, L.chronoTour)} {tours.length + (running ? 1 : 0)}
@@ -1664,16 +1850,18 @@ function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean
             </div>
 
             <div className="flex items-baseline gap-2">
-                <span className="text-[30px] leading-none font-black tabular-nums text-slate-800 dark:text-dk-text">{fmt(elapsed)}</span>
+                <span className="text-[22px] leading-none font-black tabular-nums text-slate-800 dark:text-dk-text">{fmt(elapsed)}</span>
                 <span className="text-[13px] font-bold tabular-nums text-slate-400 dark:text-dk-muted">
                     {running ? fmt(elapsed - dernierTourRef.current) : ''}
                 </span>
             </div>
 
-            {/* Les deux reglages du calcul, puis ce qu'il donne. */}
-            <div className="mt-2 flex flex-wrap items-end gap-2">
+            {/* Reglages et resultats sur UNE ligne : pieces par cycle, majoration,
+                temps majore, cadence. Quatre nombres n'ont pas besoin de quatre
+                blocs empiles. */}
+            <div className="mt-1.5 grid grid-cols-4 gap-1">
                 <label className="block">
-                    <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted" title={tx(lang, L.chronoPiecesTitre)}>{tx(lang, L.chronoPieces)}</span>
+                    <span className="block text-[8px] font-black uppercase tracking-wide text-slate-400 dark:text-dk-muted truncate" title={tx(lang, L.chronoPiecesTitre)}>{tx(lang, L.chronoPieces)}</span>
                     <input
                         type="text"
                         inputMode="numeric"
@@ -1683,11 +1871,11 @@ function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean
                             const chiffres = e.target.value.replace(/[^0-9]/g, '');
                             setPiecesParTour(chiffres === '' ? 1 : Math.max(1, parseInt(chiffres, 10)));
                         }}
-                        className="mt-0.5 w-16 h-8 text-center text-[12px] font-black tabular-nums rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text outline-none"
+                        className="w-full h-7 text-center text-[11px] font-black tabular-nums rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text outline-none"
                     />
                 </label>
                 <label className="block">
-                    <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted" title={tx(lang, L.chronoMajTitre)}>{tx(lang, L.chronoMaj)}</span>
+                    <span className="block text-[8px] font-black uppercase tracking-wide text-slate-400 dark:text-dk-muted truncate" title={tx(lang, L.chronoMajTitre)}>{tx(lang, L.chronoMaj)}</span>
                     <input
                         type="text"
                         inputMode="decimal"
@@ -1697,29 +1885,92 @@ function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean
                             const n = Number(propre);
                             setMajoration(Number.isFinite(n) && n > 0 ? n : 1);
                         }}
-                        className="mt-0.5 w-16 h-8 text-center text-[12px] font-black tabular-nums rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text outline-none"
+                        className="w-full h-7 text-center text-[11px] font-black tabular-nums rounded-md border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text outline-none"
                     />
                 </label>
-                {tours.length > 0 && (
+                <span className="block">
+                    <span className="block text-[8px] font-black uppercase tracking-wide text-slate-400 dark:text-dk-muted truncate">{tx(lang, L.chronoTMaj)}</span>
+                    <span className="mt-px h-7 flex items-center justify-center rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-[11px] font-black tabular-nums text-emerald-700 dark:text-emerald-300">
+                        {tours.length > 0 ? `${secMajorees.toFixed(2)}s` : '—'}
+                    </span>
+                </span>
+                <span className="block" title={tx(lang, L.chronoPHTitre)}>
+                    <span className="block text-[8px] font-black uppercase tracking-wide text-slate-400 dark:text-dk-muted truncate">{tx(lang, L.chronoPH)}</span>
+                    <span className="mt-px h-7 flex items-center justify-center rounded-md bg-slate-800 dark:bg-dk-elevated text-[11px] font-black tabular-nums text-white">
+                        {tours.length > 0 ? piecesParHeure : '—'}
+                    </span>
+                </span>
+            </div>
+
+            {aGarder && (
+                <div className="mt-1.5 flex items-center gap-1.5 rounded-lg border border-indigo-200 dark:border-dk-border bg-indigo-50 dark:bg-dk-accent/10 px-2 py-1.5">
+                    <span className="min-w-0 flex-1 text-[10px] font-bold tabular-nums text-indigo-800 dark:text-dk-accent-text truncate" title={tx(lang, L.chronoQuestion)}>
+                        {fmt(msParPiece)}s → {secMajorees.toFixed(2)}s · {piecesParHeure} P/H
+                    </span>
+                    <button
+                        type="button"
+                        onClick={garder}
+                        className="shrink-0 h-7 px-2.5 rounded-md bg-indigo-600 text-white text-[11px] font-black flex items-center gap-1"
+                    >
+                        <Save className="w-3 h-3" /> {tx(lang, L.chronoGarder)}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={effacer}
+                        className="shrink-0 h-7 px-2 rounded-md text-[10px] font-bold text-slate-500 dark:text-dk-muted"
+                    >
+                        {tx(lang, L.chronoRefaire)}
+                    </button>
+                </div>
+            )}
+
+            {garde && (
+                <p className="mt-2 flex items-center gap-1.5 text-[10px] font-black text-emerald-700 dark:text-emerald-300">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {tx(lang, L.chronoGarde)}
+                </p>
+            )}
+
+            <div className="mt-2 flex items-center gap-1.5">
+                {!running ? (
+                    <button
+                        type="button"
+                        onClick={demarrer}
+                        className="h-8 px-4 rounded-lg bg-emerald-500 text-white text-[11px] font-black flex items-center justify-center gap-1.5"
+                    >
+                        <Play className="w-3.5 h-3.5" /> {tx(lang, L.chronoDebut)}
+                    </button>
+                ) : (
                     <>
-                        <span className="block">
-                            <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang, L.chronoTMaj)}</span>
-                            <span className="block mt-0.5 h-8 px-2 flex items-center rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-[12px] font-black tabular-nums text-emerald-700 dark:text-emerald-300">
-                                {secMajorees.toFixed(2)} s
-                            </span>
-                        </span>
-                        <span className="block" title={tx(lang, L.chronoPHTitre)}>
-                            <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">{tx(lang, L.chronoPH)}</span>
-                            <span className="block mt-0.5 h-8 px-2 flex items-center rounded-lg bg-slate-800 dark:bg-dk-elevated text-[12px] font-black tabular-nums text-white">
-                                {piecesParHeure}
-                            </span>
-                        </span>
+                        <button
+                            type="button"
+                            onClick={marquerTour}
+                            className="h-8 px-5 rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text text-[11px] font-black"
+                        >
+                            {tx(lang, L.chronoTour)}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={annulerDernier}
+                            disabled={tours.length === 0}
+                            className="h-8 px-2 rounded-lg text-[10px] font-bold text-slate-500 dark:text-dk-muted disabled:opacity-30"
+                        >
+                            {tx(lang, L.chronoAnnuler)}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={arreter}
+                            className="h-8 px-3 rounded-lg bg-rose-500 text-white text-[11px] font-black flex items-center justify-center gap-1.5"
+                        >
+                            <Square className="w-3.5 h-3.5" /> {tx(lang, L.chronoArret)}
+                        </button>
                     </>
                 )}
+                <button type="button" onClick={onToggle} className="h-8 px-2 text-[11px] font-bold text-slate-400 ml-auto">×</button>
             </div>
 
             {tours.length > 0 && (
                 <div className="mt-2 rounded-lg bg-white dark:bg-dk-surface border border-slate-100 dark:border-dk-border/50 overflow-hidden">
+                    <div className="max-h-24 overflow-y-auto scrollbar-thin">
                     <table className="w-full text-[11px]">
                         <thead>
                             <tr className="text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted border-b border-slate-100 dark:border-dk-border/50">
@@ -1738,6 +1989,7 @@ function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean
                             ))}
                         </tbody>
                     </table>
+                    </div>
                     <button
                         type="button"
                         onClick={effacer}
@@ -1748,45 +2000,6 @@ function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean
                 </div>
             )}
 
-            <div className="mt-2 flex items-center gap-1.5">
-                {!running ? (
-                    <button
-                        type="button"
-                        onClick={demarrer}
-                        className="flex-1 min-h-[38px] rounded-xl bg-emerald-500 text-white text-[12px] font-black flex items-center justify-center gap-1.5"
-                    >
-                        <Play className="w-3.5 h-3.5" /> {tx(lang, L.chronoDebut)}
-                    </button>
-                ) : (
-                    <>
-                        <button
-                            type="button"
-                            onClick={marquerTour}
-                            className="flex-1 min-h-[38px] rounded-xl bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-slate-700 dark:text-dk-text text-[12px] font-black"
-                        >
-                            {tx(lang, L.chronoTour)}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={annulerDernier}
-                            disabled={tours.length === 0}
-                            className="min-h-[38px] px-3 rounded-xl text-[11px] font-bold text-slate-500 dark:text-dk-muted disabled:opacity-30"
-                        >
-                            {tx(lang, L.chronoAnnuler)}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={arreter}
-                            className="min-h-[38px] px-4 rounded-xl bg-rose-500 text-white text-[12px] font-black flex items-center justify-center gap-1.5"
-                        >
-                            <Square className="w-3.5 h-3.5" /> {tx(lang, L.chronoArret)}
-                        </button>
-                    </>
-                )}
-                <button type="button" onClick={onToggle} className="min-h-[38px] px-2 text-[11px] font-bold text-slate-400">×</button>
-            </div>
-
-            <p className="mt-1.5 text-[9px] font-bold text-slate-400 dark:text-dk-muted">{tx(lang, L.chronoAide)}</p>
         </div>
     );
 }

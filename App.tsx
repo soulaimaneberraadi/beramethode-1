@@ -2262,6 +2262,41 @@ export default function App() {
                                     }
                                     setModels(prev => prev.map(x => (x.id === updated.id ? updated : x)));
                                 }}
+                                onSetPosteTemps={async (modelId, posteId, tempsMin) => {
+                                    /* Le temps standard d'un poste du releve. Il vit dans
+                                       `suiviPostes`, jamais dans la gamme : la gamme chiffre le
+                                       prix de revient, et un temps decide a l'atelier n'a pas a
+                                       deplacer un cout tout seul. */
+                                    const local = models.find(x => x.id === modelId);
+                                    if (!local) return;
+                                    let base = local;
+                                    if (!IS_STATIC) {
+                                        const fresh = await fetch('/api/models', { credentials: 'include' });
+                                        if (!fresh.ok) throw new Error('lecture des modeles impossible');
+                                        const list = await fresh.json();
+                                        const found = Array.isArray(list) ? list.find((m: ModelData) => m.id === modelId) : undefined;
+                                        if (found) base = found;
+                                    }
+                                    const actuels = base.suiviPostes ?? [...(base.gamme_operatoire || [])];
+                                    let touche = false;
+                                    const suite = actuels.map(o => {
+                                        if (o.id !== posteId) return o;
+                                        touche = true;
+                                        return { ...o, time: tempsMin, manualTime: tempsMin || undefined };
+                                    });
+                                    if (!touche) return;
+                                    const updated: ModelData = { ...base, suiviPostes: suite, updatedAt: new Date().toISOString() };
+                                    if (!IS_STATIC) {
+                                        const res = await fetch('/api/models', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            credentials: 'include',
+                                            body: JSON.stringify(updated),
+                                        });
+                                        if (!res.ok) throw new Error('enregistrement du modele refuse');
+                                    }
+                                    setModels(prev => prev.map(x => (x.id === updated.id ? updated : x)));
+                                }}
                                 onOpenGamme={(modelId) => {
                                     const m = models.find(x => x.id === modelId);
                                     if (!m) return;
