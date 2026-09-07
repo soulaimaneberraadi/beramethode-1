@@ -10,6 +10,7 @@ import { AUTO_SAVE_KEY } from './constants';
 import { lsRemove } from '../lib/storageKeys';
 import { addTombstone } from '../src/lib/apiShim';
 import { tx } from '../lib/i18n';
+import { persistModelToServer } from '../lib/persistModel';
 import { useLang } from '../src/context/LanguageContext';
 
 interface UseAppModelManagerProps {
@@ -267,13 +268,18 @@ export function useAppModelManager({
         reader.onload = (e) => {
             try {
                 const json = JSON.parse(e.target?.result as string);
-                if (json && json.meta_data) setModels(prev => [json, ...prev]);
+                if (json && json.meta_data) {
+                    setModels(prev => [json, ...prev]);
+                    // Sans cette écriture, la relecture serveur au retour de focus
+                    // effaçait le modèle importé.
+                    void persistModelToServer(json, user);
+                }
             } catch (err) {
                 console.error("Import failed", err);
             }
         };
         reader.readAsText(file);
-    }, [setModels]);
+    }, [setModels, user]);
 
     const deleteModel = useCallback((id: string) => {
         const removeLocal = () => {
@@ -299,17 +305,24 @@ export function useAppModelManager({
         const copy = { ...model, id: Date.now().toString(), meta_data: { ...model.meta_data, nom_modele: model.meta_data.nom_modele + ' (Copie)' } };
         saveManualLinksByModel(copy.id, loadManualLinksByModel(model.id));
         setModels(prev => [copy, ...prev]);
-    }, [setModels]);
+        void persistModelToServer(copy, user);
+    }, [setModels, user]);
 
     const renameModel = useCallback((id: string, newName: string) => {
         setModels(prev => prev.map(m => m.id === id ? { ...m, meta_data: { ...m.meta_data, nom_modele: newName } } : m));
-    }, [setModels]);
+        const source = models.find(m => m.id === id);
+        if (source) {
+            void persistModelToServer({ ...source, meta_data: { ...source.meta_data, nom_modele: newName } }, user);
+        }
+    }, [models, setModels, user]);
 
     const handleTransferToCoupe = useCallback((model: ModelData) => {
         if (!window.confirm(`Transférer "${model.meta_data.nom_modele}" vers La Coupe ?`)) return;
+        const transfere = { ...model, workflowStatus: 'COUPE' as const };
         setModels(prev => prev.map(m => m.id === model.id ? { ...m, workflowStatus: 'COUPE' } : m));
+        void persistModelToServer(transfere, user);
         setCurrentView('coupe');
-    }, [setCurrentView, setModels]);
+    }, [setCurrentView, setModels, user]);
 
     const createNewProject = useCallback(() => {
         lsRemove(AUTO_SAVE_KEY);

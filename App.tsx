@@ -44,6 +44,7 @@ import { notifyServerSessionEstablished } from './lib/dataIdentity';
 import { Machine, MachineInstance, MachineFleetHistoryEntry, Operation, FicheData, Poste, SpeedFactor, ComplexityFactor, StandardTime, Guide, ModelData, AppSettings, ManualLink } from './types';
 import type { MachineExitPayload } from './components/MachineExitModal';
 import { sumPiecesFromSuiviForPlanning } from './utils/produced';
+import { persistModelToServer } from './lib/persistModel';
 import { rollPlanningEvents } from './utils/planning';
 import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
@@ -1267,9 +1268,17 @@ export default function App() {
             const next = prev.map(evt => {
                 const pieces = sumPiecesFromSuiviForPlanning(evt.id, suivis);
                 const current = evt.producedQuantity ?? evt.qteProduite ?? 0;
+                /* Quantité cible : même lecture que partout ailleurs (`evTotalQty`),
+                   `totalQuantity` d'abord puis le legacy `qteTotal`. En ne lisant que
+                   `qteTotal`, un OF créé sans quantité (brouillon Pedido, OF alimenté
+                   via `totalQuantity`) tombait sur `0 >= 0` → marqué « Terminé » dès la
+                   première ligne de suivi. Il disparaissait alors de la liste du Suivi
+                   (qui masque les OF DONE) et passait en gris au Planning : c'est le
+                   « les modèles disparaissent » signalé. */
+                const cible = Number(evt.totalQuantity ?? evt.qteTotal ?? 0);
 
                 let nextStatus = evt.status;
-                if (pieces >= evt.qteTotal) {
+                if (cible > 0 && pieces >= cible) {
                     nextStatus = 'DONE';
                 } else if (pieces > 0 && evt.status === 'READY') {
                     nextStatus = 'IN_PROGRESS';
@@ -1427,10 +1436,18 @@ export default function App() {
     }, [models, user]);
 
     // --- EXPORT EVENT LISTENER ---
+    // L'écouteur est monté une seule fois : il lit `models`/`user` via des refs
+    // pour rester à jour sans se réabonner à chaque rendu.
+    const modelsRef = useRef<ModelData[]>(models);
+    const userRef = useRef<any>(user);
+    useEffect(() => { modelsRef.current = models; }, [models]);
+    useEffect(() => { userRef.current = user; }, [user]);
     useEffect(() => {
         const handleExportModel = (e: any) => {
             const { modelId } = e.detail;
             setModels(prev => prev.map(m => m.id === modelId ? { ...m, workflowStatus: 'EXPORT' } : m));
+            const source = modelsRef.current.find(m => m.id === modelId);
+            if (source) void persistModelToServer({ ...source, workflowStatus: 'EXPORT' } as any, userRef.current);
             setPlanningEvents(prev => prev.map(evt => evt.modelId === modelId ? { ...evt, status: 'DONE' } : evt));
         };
         window.addEventListener('export-model', handleExportModel);
@@ -2523,6 +2540,9 @@ export default function App() {
                                 } as any;
                                 setPlanningEvents(prev => [...prev, nouvelOF]);
                                 setModels(prev => prev.map(x => x.id === m.id ? { ...x, workflowStatus: 'PLANNING' } : x));
+                                // Le statut doit survivre à la relecture serveur (focus fenêtre) :
+                                // sinon le modèle repartait en arrière et l'OF semblait « perdu ».
+                                void persistModelToServer({ ...m, workflowStatus: 'PLANNING' } as any, user);
                                 setGlobalChaineId(chaineId);
                                 setEnvoiPlanning(null);
                                 if (enSuivi) {
