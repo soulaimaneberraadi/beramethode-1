@@ -1189,13 +1189,28 @@ export default function GestionRH({
   const selectedDate = propSelectedDate !== undefined ? propSelectedDate : localSelectedDate;
   const setSelectedDate = propSetSelectedDate !== undefined ? propSetSelectedDate : localSetSelectedDate;
 
-  // Sync selected chain filter on load or change
+  /**
+   * Le filtre chaine suit celle choisie ailleurs dans l'application — mais
+   * seulement si quelqu'un y travaille.
+   *
+   * Sinon l'annuaire et le pointage se vidaient sans le dire. La liste
+   * deroulante ne propose que les chaines OU il y a des ouvriers : quand le
+   * filtre porte une chaine absente de cette liste, le navigateur, faute
+   * d'option correspondante, affiche la premiere — « Toutes les chaines ».
+   * L'ecran annoncait donc « aucun ouvrier ne correspond aux filtres » avec
+   * tous les filtres apparemment vides, alors que cent trois fiches etaient
+   * bien chargees et que l'onglet Statistiques les comptait.
+   */
+  const chaineAppliquee = useRef<string | null>(null);
   useEffect(() => {
-    if (selectedChaineId) {
-      setFilterChaine(selectedChaineId);
-      setPointageChaine(selectedChaineId);
-    }
-  }, [selectedChaineId]);
+    if (!selectedChaineId || chaineAppliquee.current === selectedChaineId) return;
+    // Sans les fiches, impossible de juger : on retentera au prochain rendu.
+    if (workers.length === 0) return;
+    chaineAppliquee.current = selectedChaineId;
+    if (!workers.some(w => String(w.chaine_id || '') === selectedChaineId)) return;
+    setFilterChaine(selectedChaineId);
+    setPointageChaine(selectedChaineId);
+  }, [selectedChaineId, workers]);
   const [selectedMois, setSelectedMois] = useState(monthStr());
   const [showTranches, setShowTranches] = useState(true);
   const [editWorker, setEditWorker] = useState<Partial<HRWorker> | null>(null);
@@ -1730,11 +1745,26 @@ export default function GestionRH({
 
   const filteredWorkers = workers.filter(w => {
     const q = search.toLowerCase();
-    const matchSearch = !search || w.full_name.toLowerCase().includes(q) || (w.matricule || '').toLowerCase().includes(q) || (w.cin || '').toLowerCase().includes(q);
+    // Le telephone compte comme identifiant : c'est souvent tout ce qu'on a
+    // sous la main pour retrouver quelqu'un.
+    const matchSearch = !search || w.full_name.toLowerCase().includes(q) || (w.matricule || '').toLowerCase().includes(q) || (w.cin || '').toLowerCase().includes(q) || (w.phone || '').replace(/\s/g, '').includes(q.replace(/\s/g, ''));
     const matchRole = !filterRole || w.role === filterRole;
     const matchChaine = !filterChaine || String(w.chaine_id || '') === filterChaine;
     return matchSearch && matchRole && matchChaine;
   });
+
+  /**
+   * Ce qui, en ce moment, retire des lignes de l'annuaire.
+   *
+   * Un ecran vide doit pouvoir dire pourquoi : « modifiez la recherche »
+   * n'aide personne quand le filtre en cause est une chaine que la liste
+   * deroulante ne montre meme pas.
+   */
+  const filtresActifs = [
+    search ? `« ${search} »` : null,
+    filterRole ? tx(lang, ROLE_LABELS[filterRole as HRWorkerRole]) : null,
+    filterChaine || null,
+  ].filter(Boolean).join(' · ');
 
   const pointageChaineOptions = useMemo(() => {
     const s = new Set<string>();
@@ -1962,6 +1992,11 @@ export default function GestionRH({
                   </select>
                   <select value={filterChaine} onChange={e => setFilterChaine(e.target.value)} style={{ ..._inputStyle, width: 160 }}>
                     <option value="">{tx(lang, { fr: 'Toutes les chaînes', ar: 'جميع الخطوط', en: 'All lines', es: 'Todas las líneas', pt: 'Todas as linhas', tr: 'Tüm hatlar' })}</option>
+                    {/* Une chaine filtree mais vide n'a pas d'option : sans cette ligne,
+                        le select afficherait « Toutes les chaines » en en cachant cent trois. */}
+                    {filterChaine && !pointageChaineOptions.includes(filterChaine) && (
+                      <option value={filterChaine}>{filterChaine}</option>
+                    )}
                     {pointageChaineOptions.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', flexWrap: 'wrap' }}>
@@ -2078,7 +2113,9 @@ export default function GestionRH({
                         </div>
                         <div style={{ fontSize: 12, marginTop: 4, maxWidth: 420, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
                           {workers.length > 0
-                            ? tx(lang, { fr: 'Modifiez la recherche ou le filtre « Tous les rôles ».', ar: 'غيّر معايير البحث أو فلتر "جميع الأدوار".', en: 'Change the search or the "All roles" filter.', es: 'Modifique la búsqueda o el filtro "Todos los roles".', pt: 'Modifique a pesquisa ou o filtro "Todos os cargos".', tr: 'Aramayı veya "Tüm roller" filtresini değiştirin.' })
+                            ? (filtresActifs
+                                ? `${tx(lang, { fr: 'Filtres actifs', ar: 'المرشّحات المفعّلة', en: 'Active filters', es: 'Filtros activos', pt: 'Filtros ativos', tr: 'Etkin filtreler' })} : ${filtresActifs}`
+                                : tx(lang, { fr: 'Aucun filtre actif : rechargez la page ou cliquez sur Actualiser.', ar: 'لا يوجد مرشّح مفعّل: أعد تحميل الصفحة أو انقر تحديث.', en: 'No active filter: reload the page or click Refresh.', es: 'Ningún filtro activo: recargue la página o pulse Actualizar.', pt: 'Nenhum filtro ativo: recarregue a página ou clique em Atualizar.', tr: 'Etkin filtre yok: sayfayı yeniden yükleyin veya Yenile’ye tıklayın.' }))
                             : tx(lang, { fr: 'Les fiches sont liées à l\'utilisateur connecté. Connectez-vous avec le compte qui a créé les données, ou cliquez sur « Ajouter Ouvrier ».', ar: 'الملفات مرتبطة بالمستخدم المتصل. سجّل الدخول بالحساب الذي أنشأ البيانات، أو انقر على "إضافة عامل".', en: 'Records are linked to the logged-in user. Log in with the account that created the data, or click "Add Worker".', es: 'Las fichas están vinculadas al usuario conectado. Inicie sesión con la cuenta que creó los datos, o haga clic en "Añadir Operario".', pt: 'Os registros estão vinculados ao usuário conectado. Faça login com a conta que criou os dados, ou clique em "Adicionar Operário".', tr: 'Kayıtlar, giriş yapmış kullanıcıya bağlıdır. Verileri oluşturan hesapla giriş yapın veya "İşçi Ekle"ye tıklayın.' })}
                         </div>
                       </div>
@@ -2152,7 +2189,9 @@ export default function GestionRH({
                         </div>
                         <div style={{ fontSize: 12, marginTop: 4, maxWidth: 420, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
                           {workers.length > 0
-                            ? tx(lang, { fr: 'Modifiez la recherche ou le filtre « Tous les rôles ».', ar: 'عدّل البحث أو الفلتر "جميع الأدوار".', en: 'Modify the search or the "All roles" filter.', es: 'Modifique la búsqueda o el filtro "Todos los roles".', pt: 'Modifique a pesquisa ou o filtro "Todos os cargos".', tr: 'Aramayı veya "Tüm Roller" filtresini değiştirin.' })
+                            ? (filtresActifs
+                                ? `${tx(lang, { fr: 'Filtres actifs', ar: 'المرشّحات المفعّلة', en: 'Active filters', es: 'Filtros activos', pt: 'Filtros ativos', tr: 'Etkin filtreler' })} : ${filtresActifs}`
+                                : tx(lang, { fr: 'Aucun filtre actif : rechargez la page ou cliquez sur Actualiser.', ar: 'لا يوجد مرشّح مفعّل: أعد تحميل الصفحة أو انقر تحديث.', en: 'No active filter: reload the page or click Refresh.', es: 'Ningún filtro activo: recargue la página o pulse Actualizar.', pt: 'Nenhum filtro ativo: recarregue a página ou clique em Atualizar.', tr: 'Etkin filtre yok: sayfayı yeniden yükleyin veya Yenile’ye tıklayın.' }))
                             : tx(lang, { fr: 'Les fiches sont liées à l\'utilisateur connecté. Connectez-vous avec le compte qui a créé les données, ou cliquez sur « Ajouter Ouvrier ».', ar: 'الملفات مرتبطة بالمستخدم الحالي. سجّل الدخول بالحساب الذي أنشأ البيانات، أو انقر على "إضافة عامل".', en: 'Records are linked to the logged-in user. Log in with the account that created the data, or click "Add Worker".', es: 'Los registros están vinculados al usuario conectado. Inicie sesión con la cuenta que creó los datos, o haga clic en "Agregar Operario".', pt: 'Os registros estão vinculados ao usuário conectado. Faça login com a conta que criou os dados ou clique em "Adicionar Operário".', tr: 'Kayıtlar, oturum açmış kullanıcıya bağlıdır. Verileri oluşturan hesapla oturum açın veya "İşçi Ekle"ye tıklayın.' })}
                         </div>
                       </div>
@@ -2232,6 +2271,9 @@ export default function GestionRH({
                       style={{ ..._inputStyle, width: 'min(148px, 42vw)', maxWidth: '100%', height: '30px', borderRadius: '6px', background: isDark ? '#14211C' : '#F8FAFC', fontSize: '11px' }}
                     >
                       <option value="">{tx(lang, { fr: 'Toutes les chaînes', ar: 'جميع الخطوط', en: 'All lines', es: 'Todas las líneas', pt: 'Todas as linhas', tr: 'Tüm hatlar' })}</option>
+                      {pointageChaine && !pointageChaineOptions.includes(pointageChaine) && (
+                        <option value={pointageChaine}>{pointageChaine}</option>
+                      )}
                       {pointageChaineOptions.map(c => (
                         <option key={c} value={c}>{c}</option>
                       ))}
