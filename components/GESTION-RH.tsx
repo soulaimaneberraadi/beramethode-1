@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo, Fragment } from 'react';
+import PrimesPage from './suivi/PrimesPage';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, Clock, BarChart2, DollarSign, FileText,
@@ -207,7 +208,7 @@ function Field({ label, value, onChange, type = 'text', placeholder, required, d
 }
 
 // ─── TYPES ────────────────────────────────────────────────
-type Tab = 'annuaire' | 'pointage' | 'statistiques' | 'production' | 'avances' | 'sage' | 'invitations' | 'transport';
+type Tab = 'annuaire' | 'pointage' | 'statistiques' | 'production' | 'avances' | 'primes' | 'sage' | 'invitations' | 'transport';
 
 // Post categories shown in the stats tab
 const POST_CATEGORIES = [
@@ -1721,6 +1722,7 @@ export default function GestionRH({
     { id: 'statistiques',  label: tx(lang, { fr: 'Statistiques', ar: 'إحصائيات', en: 'Statistics', es: 'Estadísticas', pt: 'Estatísticas', tr: 'İstatistikler' }),   icon: <PieChart size={15} /> },
     { id: 'production',    label: tx(lang, { fr: 'Production', ar: 'الإنتاج', en: 'Production', es: 'Producción', pt: 'Produção', tr: 'Üretim' }),     icon: <BarChart2 size={15} /> },
     { id: 'avances',       label: tx(lang, { fr: 'Avances', ar: 'السلف', en: 'Advances', es: 'Anticipos', pt: 'Adiantamentos', tr: 'Avanslar' }),        icon: <DollarSign size={15} /> },
+    { id: 'primes',        label: tx(lang, { fr: 'Primes', ar: 'العلاوات', en: 'Bonuses', es: 'Primas', pt: 'Prémios', tr: 'Primler' }),          icon: <Award size={15} /> },
     { id: 'transport',     label: tx(lang, { fr: 'Transport', ar: 'النقل', en: 'Transport', es: 'Transporte', pt: 'Transporte', tr: 'Ulaşım' }),      icon: <Truck size={15} /> },
     { id: 'sage',          label: tx(lang, { fr: 'Sage Paie', ar: 'Sage للرواتب', en: 'Sage Payroll', es: 'Sage Nómina', pt: 'Sage Folha', tr: 'Sage Maaş' }),      icon: <FileText size={15} /> },
     { id: 'invitations',   label: tx(lang, { fr: 'Invitations', ar: 'دعوات', en: 'Invitations', es: 'Invitaciones', pt: 'Convites', tr: 'Davetiyeler' }),    icon: <Mail size={15} /> },
@@ -3183,6 +3185,21 @@ export default function GestionRH({
             )}
 
             {/* ═══ SAGE PAIE ═══ */}
+            {/* Primes de rendement : le calcul et le reglage vivent dans
+                `PrimesPage`, partage avec le suivi. La page se sert elle-meme en
+                releves — elle n'a besoin que des reglages et de la date. */}
+            {tab === 'primes' && (
+              <div style={{ margin: '-24px', height: 'calc(100vh - 220px)', display: 'flex' }}>
+                <PrimesPage
+                  settings={settings as AppSettings}
+                  setSettings={setSettings}
+                  models={[]}
+                  globalDate={selectedDate}
+                  setGlobalDate={setSelectedDate}
+                />
+              </div>
+            )}
+
             {tab === 'sage' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Générateur */}
