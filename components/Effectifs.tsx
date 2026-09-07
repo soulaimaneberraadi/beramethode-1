@@ -256,14 +256,21 @@ export default function Effectifs({
   const [analyticsFilterCategory, setAnalyticsFilterCategory] = useState<string>('Toutes');
   const [analyticsTimeframe, setAnalyticsTimeframe] = useState<'30' | '7'>('30');
   const [exportingPointage, setExportingPointage] = useState(false);
+  /* Un export rate ne partait qu'en console : l'utilisateur cliquait, rien ne
+     se telechargeait, et rien ne lui disait pourquoi. */
+  const [erreurExport, setErreurExport] = useState<string | null>(null);
 
   const handleExportPointage = useCallback(async () => {
     const mois = selectedDate.slice(0, 7); // YYYY-MM
     const chaineParam = selectedChain !== 'Toutes les chaines' ? `&chaine=${encodeURIComponent(selectedChain)}` : '';
     setExportingPointage(true);
+    setErreurExport(null);
     try {
       const res = await fetch(`/api/worker-pointage/export?mois=${mois}${chaineParam}`, { credentials: 'include' });
-      if (!res.ok) throw new Error(tx(lang,{fr:'Export échoué',ar:'فشل التصدير',en:'Export failed',es:'Exportación fallida',pt:'Exportação falhou',tr:'Dışa aktarma başarısız'}));
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null) as { message?: string } | null;
+        throw new Error(detail?.message || tx(lang,{fr:'Export échoué',ar:'فشل التصدير',en:'Export failed',es:'Exportación fallida',pt:'Exportação falhou',tr:'Dışa aktarma başarısız'}));
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -273,10 +280,11 @@ export default function Effectifs({
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);
+      setErreurExport(e instanceof Error ? e.message : String(e));
     } finally {
       setExportingPointage(false);
     }
-  }, [selectedDate, selectedChain]);
+  }, [selectedDate, selectedChain, lang]);
   
   // Custom roles state
   const [roles, setRoles] = useState<RoleDefinition[]>(() => {
@@ -1140,6 +1148,17 @@ export default function Effectifs({
               <span className="sm:hidden">{exportingPointage ? '…' : tx(lang,{fr:'Excel',ar:'Excel',en:'Excel',es:'Excel',pt:'Excel',tr:'Excel'})}</span>
                <span className="hidden sm:inline">{exportingPointage ? tx(lang,{fr:'Export…',ar:'تصدير…',en:'Export…',es:'Exportación…',pt:'Exportar…',tr:'Dışa aktar…'}) : tx(lang,{fr:'Export Mensuel',ar:'تصدير شهري',en:'Monthly Export',es:'Exportación Mensual',pt:'Exportação Mensal',tr:'Aylık Dışa Aktarım'})}</span>
             </button>
+
+            {erreurExport && (
+              <p
+                role="alert"
+                onClick={() => setErreurExport(null)}
+                title={tx(lang, { fr: 'Masquer', ar: 'إخفاء', en: 'Dismiss', es: 'Ocultar', pt: 'Ocultar', tr: 'Gizle' })}
+                className="w-full sm:w-auto cursor-pointer text-[10px] sm:text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 rounded-md sm:rounded-xl px-2 py-1 sm:px-3 sm:py-2"
+              >
+                {erreurExport}
+              </p>
+            )}
 
             <div className="relative w-full sm:w-auto sm:min-w-[11rem] sm:max-w-[min(100%,22rem)] min-w-0">
               <select

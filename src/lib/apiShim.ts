@@ -344,6 +344,12 @@ const handleGet = (pathname: string): any => {
     // complet sert a la synchro, pas a l'ecran.
     return restorableTombstones();
   }
+  /* Un export se fabrique sur le serveur (classeur Excel) : hors ligne, il n'y
+     a personne pour le faire. Repondre un tableau vide ferait croire a un mois
+     sans pointage — mieux vaut le dire. */
+  if (/\/export$/.test(pathname)) {
+    return { __status: 501, message: "Export indisponible hors ligne : ouvrez l'application sur le serveur de l'atelier." };
+  }
   // Generic
   const r = resolveTypeAndId(pathname);
   if (!r) return [];
@@ -385,6 +391,11 @@ export const installApiShim = () => {
 
     if (method === 'GET' || method === 'HEAD') {
       const resultat = handleGet(url.pathname);
+      // Un refus explicite garde son code : l'appelant doit pouvoir le lire.
+      if (resultat && typeof resultat === 'object' && '__status' in resultat) {
+        const { __status, ...corps } = resultat as { __status: number };
+        return reply(corps, __status);
+      }
       // Les modèles sortent du stockage avec des références ; l'appelant, lui,
       // attend des images. La Coupe et l'export lisent par ici.
       const r = resolveTypeAndId(url.pathname);

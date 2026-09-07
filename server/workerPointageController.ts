@@ -78,12 +78,12 @@ export const exportPointageMensuel = async (req: Request, res: Response) => {
 
         const rows = db.prepare(`
             SELECT
-              w.matricule, w.nom, w.prenom,
+              w.matricule, w.full_name,
               p.date, p.chaine, p.poste_assigned, p.status,
               p.heure_entree, p.heure_sortie,
               p.heures_travaillees, p.heures_supp_25, p.heures_supp_50, p.notes
             FROM worker_pointage p
-            LEFT JOIN workers w ON p.worker_id = w.id AND w.owner_id = p.owner_id
+            LEFT JOIN hr_workers w ON p.worker_id = w.id AND w.owner_id = p.owner_id
             WHERE ${clauses.join(' AND ')}
             ORDER BY w.matricule ASC, p.date ASC
         `).all(...params) as any[];
@@ -96,7 +96,20 @@ export const exportPointageMensuel = async (req: Request, res: Response) => {
             details: { date: string; status: string; heures: number | null }[];
         }>();
 
+        /* La fiche ne porte qu'un nom complet ; la feuille, elle, a deux
+           colonnes. Le premier mot est le prenom, comme le formulaire RH
+           l'annonce (« Prenom Nom ») — on ne devine rien de plus. */
+        const couperNom = (complet: string): { nom: string; prenom: string } => {
+            const mots = String(complet || '').trim().split(/\s+/).filter(Boolean);
+            if (mots.length === 0) return { nom: '', prenom: '' };
+            if (mots.length === 1) return { nom: mots[0], prenom: '' };
+            return { prenom: mots[0], nom: mots.slice(1).join(' ') };
+        };
+
         for (const r of rows) {
+            const { nom, prenom } = couperNom(r.full_name);
+            r.nom = nom;
+            r.prenom = prenom;
             const key = r.matricule || `${r.nom} ${r.prenom}`;
             if (!byWorker.has(key)) {
                 byWorker.set(key, {
