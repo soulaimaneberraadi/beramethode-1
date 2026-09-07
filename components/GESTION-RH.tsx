@@ -52,6 +52,16 @@ const ROLE_COLORS: Record<HRWorkerRole, string> = {
   OPERATOR: '#3B82F6', SUPERVISOR: '#8B5CF6', MECHANIC: '#F59E0B',
   ADMIN: '#EF4444', QC: '#10B981', IRON: '#EC4899', CUTTER: '#F97316', PACKER: '#6366F1'
 };
+/**
+ * Ou travaille cet ouvrier ?
+ *
+ * Tout le monde n'est pas sur une chaine : la coupe, la finition et l'emballage
+ * sont des sections de l'atelier, et leurs fiches n'ont donc pas de `chaine_id`.
+ * Les afficher comme « BUREAU » — ou comme un tiret — rangeait des dizaines de
+ * personnes parmi les sans-affectation alors que leur poste le disait.
+ */
+const affectation = (w: HRWorker): string => w.chaine_id || w.poste || '—';
+
 const STATUS_CONFIG: Record<HRPointageStatus, { label: TxMap; color: string; bg: string; darkBg: string }> = {
   PRESENT:  { label: { fr: 'Présent',  ar: 'حاضر', en: 'Present', es: 'Presente', pt: 'Presente', tr: 'Mevcut' },  color: '#059669', bg: '#ecfdf5', darkBg: '#1a3a2a' },
   RETARD:   { label: { fr: 'Retard',   ar: 'متأخر', en: 'Late', es: 'Tarde', pt: 'Atrasado', tr: 'Geç' },   color: '#d97706', bg: '#fffbeb', darkBg: '#3d2e1a' },
@@ -2034,7 +2044,7 @@ export default function GestionRH({
                                 <td style={{ padding: '10px 12px' }}>
                                   <span style={{ padding: '2px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700, background: ROLE_COLORS[roleK] + '18', color: ROLE_COLORS[roleK] }}>{tx(lang, ROLE_LABELS[roleK])}</span>
                                 </td>
-                                <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569' }}>{w.chaine_id || '—'}</td>
+                                <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569' }}>{affectation(w)}</td>
                                 <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569' }}>{w.equipe || '—'}</td>
                                 <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569' }}>{w.transport_ligne_quartier || w.transport_ligne_nom || '—'}</td>
                                 <td style={{ padding: '10px 12px', color: isDark ? '#94A3B8' : '#475569', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.poste || '—'}</td>
@@ -2094,7 +2104,7 @@ export default function GestionRH({
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12, marginBottom: 12 }}>
                           {[
-                            { label: 'Chaîne', val: w.chaine_id || '—' },
+                            { label: 'Chaîne', val: affectation(w) },
                             { label: 'Parda / Équipe', val: w.equipe || '—' },
                             { label: 'Poste', val: w.poste || '—' },
                             { label: 'Contrat', val: w.type_contrat || '—' },
@@ -2429,7 +2439,7 @@ export default function GestionRH({
                                         {w.full_name}
                                       </div>
                                       <div style={{ fontSize: '9px', color: isDark ? '#64748B' : '#94A3B8', fontWeight: 600, lineHeight: 1.2 }}>
-                                        {w.matricule} · <span style={{ color: isDark ? '#94A3B8' : '#64748B' }}>{w.chaine_id || 'BUREAU'}</span>{w.equipe ? ` · ${w.equipe}` : ''}{w.phone ? (
+                                        {w.matricule} · <span style={{ color: isDark ? '#94A3B8' : '#64748B' }}>{affectation(w)}</span>{w.equipe ? ` · ${w.equipe}` : ''}{w.phone ? (
                                           <>
                                             {' · '}
                                             <a href={`tel:${w.phone}`} style={{ color: isDark ? '#818cf8' : '#2149C1', fontWeight: 700, textDecoration: 'none' }}>
@@ -2648,7 +2658,7 @@ export default function GestionRH({
                                 <div style={{ fontWeight: 600, color: isDark ? '#EAF1ED' : '#0F172A' }}>{w.full_name}</div>
                                 <div style={{ fontSize: 11, color: isDark ? '#64748B' : '#94A3B8' }}>{w.matricule}</div>
                               </td>
-                              <td style={{ padding: '10px 14px', color: isDark ? '#94A3B8' : '#64748B' }}>{w.chaine_id || '—'}</td>
+                              <td style={{ padding: '10px 14px', color: isDark ? '#94A3B8' : '#64748B' }}>{affectation(w)}</td>
                               <td style={{ padding: '10px 14px', fontWeight: 700, color: isDark ? '#34D399' : '#10B981', textAlign: 'center' }}>{prod?.pieces_produites ?? '—'}</td>
                               <td style={{ padding: '10px 14px', fontWeight: 600, color: isDark ? '#F87171' : '#EF4444', textAlign: 'center' }}>{prod?.pieces_defaut ?? '—'}</td>
                               <td style={{ padding: '10px 14px', color: isDark ? '#FBBF24' : '#F59E0B', textAlign: 'center' }}>{prod?.pieces_retouchees ?? '—'}</td>
@@ -2804,7 +2814,7 @@ export default function GestionRH({
                                 onMouseEnter={e => e.currentTarget.style.backgroundColor = isDark ? '#14211C' : '#F8FAFC'}
                                 onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                                 <span style={{ fontWeight: 600 }}>{w.full_name}</span>
-                                <span style={{ fontSize: 11, color: isDark ? '#94A3B8' : '#64748B' }}>{w.equipe || tx(lang, { fr: 'Sans Équipe', ar: 'بدون فريق', en: 'No Team', es: 'Sin Equipo', pt: 'Sem Equipe', tr: 'Takım Yok' })} • {w.chaine_id || '—'}</span>
+                                <span style={{ fontSize: 11, color: isDark ? '#94A3B8' : '#64748B' }}>{w.equipe || tx(lang, { fr: 'Sans Équipe', ar: 'بدون فريق', en: 'No Team', es: 'Sin Equipo', pt: 'Sem Equipe', tr: 'Takım Yok' })} • {affectation(w)}</span>
                               </div>
                             ))}
                             {workers.filter(w => w.is_active && !recensementWorkers.includes(w.id) && w.full_name.toLowerCase().includes(recensementSearch.toLowerCase())).length === 0 && (
