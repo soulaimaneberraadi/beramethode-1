@@ -1731,7 +1731,6 @@ function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean
     const [majoration, setMajoration] = useState(1.15);
     /** Mesure arretee, en attente de decision. */
     const [aGarder, setAGarder] = useState(false);
-    const [garde, setGarde] = useState(false);
     const startRef = useRef(0);
     const dernierTourRef = useRef(0);
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1787,8 +1786,11 @@ function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean
         const parPiece = piecesParTour > 0 ? cycleMoyen / piecesParTour : cycleMoyen;
         onFinish(Math.round(parPiece), Number(((parPiece / 1000) * (majoration > 0 ? majoration : 1)).toFixed(2)));
         setAGarder(false);
-        setGarde(true);
-        setTimeout(() => setGarde(false), 2200);
+        /* Enregistrer, c'est avoir fini : le panneau se replie sur son petit
+           bouton, qui porte desormais le temps mesure. Le laisser ouvert
+           occupait l'ecran pour une mesure deja rangee — et la ligne du poste
+           montre le resultat (TS, objectif) juste au-dessus. */
+        onToggle();
     };
 
     const effacer = () => {
@@ -1922,12 +1924,6 @@ function MiniChrono({ open, onToggle, onFinish, lang, tempsMs }: { open: boolean
                         {tx(lang, L.chronoRefaire)}
                     </button>
                 </div>
-            )}
-
-            {garde && (
-                <p className="mt-2 flex items-center gap-1.5 text-[10px] font-black text-emerald-700 dark:text-emerald-300">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> {tx(lang, L.chronoGarde)}
-                </p>
             )}
 
             <div className="mt-2 flex items-center gap-1.5">
