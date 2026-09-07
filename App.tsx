@@ -45,6 +45,7 @@ import { Machine, MachineInstance, MachineFleetHistoryEntry, Operation, FicheDat
 import type { MachineExitPayload } from './components/MachineExitModal';
 import { sumPiecesFromSuiviForPlanning } from './utils/produced';
 import { persistModelToServer } from './lib/persistModel';
+import { fusionnerParId, relireSansPerdre } from './lib/fusionLocale';
 import { rollPlanningEvents } from './utils/planning';
 import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
@@ -567,10 +568,32 @@ export default function App() {
     }, [user]);
 
     useEffect(() => {
-        const loadFromLocal = () => {
-            try { const s = lsGetMig('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
-            try { const s = lsGetMig('beramethode_suivis'); setSuivis(s ? JSON.parse(s) : []); } catch { setSuivis([]); }
-            try { const s = lsGetMig('beramethode_demandesAppro'); setDemandesAppro(s ? JSON.parse(s) : []); } catch { setDemandesAppro([]); }
+        /**
+         * @param fusion true pour une RELECTURE (après une fusion cloud). L'ancienne
+         *   relecture remplaçait l'état : un OF ou une ligne de suivi créés à
+         *   l'instant, ou une clé lue vide, faisaient disparaître le travail de
+         *   l'écran. Une relecture n'enlève plus rien — seul le bouton « supprimer »
+         *   supprime.
+         */
+        const loadFromLocal = (fusion = false) => {
+            if (!fusion) {
+                try { const s = lsGetMig('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
+                try { const s = lsGetMig('beramethode_suivis'); setSuivis(s ? JSON.parse(s) : []); } catch { setSuivis([]); }
+                try { const s = lsGetMig('beramethode_demandesAppro'); setDemandesAppro(s ? JSON.parse(s) : []); } catch { setDemandesAppro([]); }
+                return;
+            }
+            try {
+                const s = lsGetMig('beramethode_planning');
+                setPlanningEvents(prev => relireSansPerdre(s, prev, 'planning') ?? prev);
+            } catch { /* relecture illisible : on garde l'état courant */ }
+            try {
+                const s = lsGetMig('beramethode_suivis');
+                setSuivis(prev => relireSansPerdre(s, prev, 'suivi') ?? prev);
+            } catch { /* idem */ }
+            try {
+                const s = lsGetMig('beramethode_demandesAppro');
+                setDemandesAppro(prev => relireSansPerdre(s, prev, 'demandes-appro') ?? prev);
+            } catch { /* idem */ }
         };
         if (user && !IS_STATIC) {
             // Nouveau compte / rechargement : on bloque l'auto-save tant que le GET
@@ -593,7 +616,7 @@ export default function App() {
             loadFromLocal();
         }
         if (IS_STATIC) {
-            const onCloudApplied = () => loadFromLocal();
+            const onCloudApplied = () => loadFromLocal(true);
             window.addEventListener('beramethode:cloud-sync-applied', onCloudApplied);
             return () => window.removeEventListener('beramethode:cloud-sync-applied', onCloudApplied);
         }
@@ -1321,28 +1344,48 @@ export default function App() {
         });
     }, [suivis, models, globalSettings, user]);
 
+    // Les écouteurs montés une seule fois (relecture après fusion cloud, export)
+    // lisent `models`/`user` via ces refs : ils restent à jour sans se réabonner
+    // à chaque rendu, et sans capturer une valeur périmée.
+    const modelsRef = useRef<ModelData[]>(models);
+    const userRef = useRef<any>(user);
+    useEffect(() => { modelsRef.current = models; }, [models]);
+    useEffect(() => { userRef.current = user; }, [user]);
+
     // Deux lectures peuvent se chevaucher (démarrage + fusion cloud qui arrive) :
     // seule la plus récente a le droit d'écrire dans l'état, sinon une lecture
     // lente écraserait le résultat d'une lecture plus fraîche.
     const lectureBibliothequeRef = useRef(0);
     useEffect(() => {
-        const loadFromLocal = () => {
+        /**
+         * @param fusion true pour une RELECTURE (après une fusion cloud) : on ne
+         *   remplace plus l'état, on l'unit à ce que porte le stockage. Sans cela,
+         *   un modèle encore seulement en mémoire — son écriture passe par
+         *   IndexedDB, donc de façon asynchrone — disparaissait de l'écran, et une
+         *   clé lue vide vidait toute la bibliothèque.
+         */
+        const loadFromLocal = (fusion = false) => {
             const savedLibrary = lsGetMig(LIBRARY_KEY);
-            if (!savedLibrary) { setModels([]); return; }
+            if (!savedLibrary) {
+                // Une relecture ne vide JAMAIS : seule l'hydratation initiale part de zéro.
+                if (!fusion) setModels([]);
+                return;
+            }
             const monTour = ++lectureBibliothequeRef.current;
             try {
                 const parsed = JSON.parse(savedLibrary);
                 if (!Array.isArray(parsed)) return;
+                if (fusion && parsed.length === 0 && modelsRef.current.length > 0) return;
+                const appliquer = (liste: ModelData[]) => {
+                    if (monTour !== lectureBibliothequeRef.current) return;
+                    setModels(fusion ? fusionnerParId(modelsRef.current, liste, 'models') : liste);
+                };
                 // Les photos sont dans IndexedDB ; la bibliothèque n'en garde
                 // qu'une référence. On les rend AVANT l'affichage — le reste de
                 // l'application ne voit donc aucune différence.
                 rehydraterModeles(parsed)
-                    .then(avecPhotos => {
-                        if (monTour === lectureBibliothequeRef.current) setModels(avecPhotos);
-                    })
-                    .catch(() => {
-                        if (monTour === lectureBibliothequeRef.current) setModels(parsed);
-                    });
+                    .then(avecPhotos => appliquer(avecPhotos))
+                    .catch(() => appliquer(parsed));
             } catch (e) {
                 console.error("Failed to load Library", e);
             }
@@ -1368,7 +1411,7 @@ export default function App() {
         // Static (Vercel) or guest: localStorage is the source of truth.
         loadFromLocal();
         if (IS_STATIC) {
-            const onCloudApplied = () => loadFromLocal();
+            const onCloudApplied = () => loadFromLocal(true);
             window.addEventListener('beramethode:cloud-sync-applied', onCloudApplied);
             return () => window.removeEventListener('beramethode:cloud-sync-applied', onCloudApplied);
         }
@@ -1436,12 +1479,6 @@ export default function App() {
     }, [models, user]);
 
     // --- EXPORT EVENT LISTENER ---
-    // L'écouteur est monté une seule fois : il lit `models`/`user` via des refs
-    // pour rester à jour sans se réabonner à chaque rendu.
-    const modelsRef = useRef<ModelData[]>(models);
-    const userRef = useRef<any>(user);
-    useEffect(() => { modelsRef.current = models; }, [models]);
-    useEffect(() => { userRef.current = user; }, [user]);
     useEffect(() => {
         const handleExportModel = (e: any) => {
             const { modelId } = e.detail;
