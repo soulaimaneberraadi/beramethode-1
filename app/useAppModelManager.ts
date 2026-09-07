@@ -11,6 +11,7 @@ import { lsRemove } from '../lib/storageKeys';
 import { addTombstone } from '../src/lib/apiShim';
 import { tx } from '../lib/i18n';
 import { creerModeleSurServeur, patcherModeleSurServeur } from '../lib/persistModel';
+import { idsSupprimes } from '../lib/fusionLocale';
 import { useLang } from '../src/context/LanguageContext';
 
 interface UseAppModelManagerProps {
@@ -270,12 +271,16 @@ export function useAppModelManager({
                 const json = JSON.parse(e.target?.result as string);
                 if (!json || !json.meta_data) return;
                 /* Un fichier importé n'a pas forcément d'`id`, et son `id` peut
-                   déjà être celui d'un modèle d'ici. Sans ces deux garde-fous :
-                   sans `id`, le serveur refuse (400) en silence et le modèle
-                   disparaît au retour de focus ; avec un `id` déjà pris, l'import
-                   REMPLACE le modèle existant. On importe donc toujours comme un
+                   déjà être pris ici — ou porter la marque d'une suppression.
+                   Sans ces garde-fous : sans `id`, le serveur refuse (400) en
+                   silence et le modèle disparaît au retour de focus ; avec un `id`
+                   déjà pris, l'import REMPLACE le modèle existant ; avec l'`id`
+                   d'un modèle supprimé, la pierre tombale le fait re-disparaître
+                   à la synchro suivante. Dans ces trois cas on importe comme un
                    NOUVEAU modèle. */
-                const dejaPris = (id: unknown) => models.some(m => String(m.id) === String(id));
+                const supprimes = idsSupprimes('models');
+                const dejaPris = (id: unknown) =>
+                    models.some(m => String(m.id) === String(id)) || supprimes.has(String(id));
                 const importe: ModelData = (!json.id || dejaPris(json.id))
                     ? { ...json, id: `imp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` }
                     : json;

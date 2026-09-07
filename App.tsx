@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense } from 'react';
 import { preloadAllChunks } from './lib/preloader';
 import { lazyWithRetry } from './lib/lazyWithRetry';
-import { lsGet, lsSet, lsGetMig } from './lib/storageKeys';
+import { lsGet, lsSet, lsGetMig, getCurrentEmail } from './lib/storageKeys';
 import { ecrireModelesAuMieux } from './lib/stockageLocal';
 import { deshydraterModeles, nettoyerPhotosOrphelines, rehydraterModeles } from './lib/photosLocales';
 import './src/context/ThemeContext';
@@ -567,6 +567,20 @@ export default function App() {
         };
     }, [user]);
 
+    /**
+     * À quel compte appartient l'état actuellement en mémoire ?
+     *
+     * Une relecture qui UNIT ne doit jamais unir les données d'un AUTRE compte :
+     * `clearLocalAppData` nettoie le stockage, pas l'état React. Si un pull
+     * arrive alors que le compte vient de changer, l'union recopierait les lignes
+     * du compte précédent dans les clés du nouveau — puis les pousserait dans SON
+     * cloud. On n'unit donc qu'à portée de compte identique ; sinon la relecture
+     * redevient un remplacement, exactement comme avant ce correctif.
+     */
+    const scopeEnMemoireRef = useRef<string>(getCurrentEmail() || '');
+    const memeScope = useCallback(() => (getCurrentEmail() || '') === scopeEnMemoireRef.current, []);
+    const marquerScope = useCallback(() => { scopeEnMemoireRef.current = getCurrentEmail() || ''; }, []);
+
     useEffect(() => {
         /**
          * @param fusion true pour une RELECTURE (après une fusion cloud). L'ancienne
@@ -576,7 +590,9 @@ export default function App() {
          *   supprime.
          */
         const loadFromLocal = (fusion = false) => {
-            if (!fusion) {
+            // Compte différent de celui qui a rempli l'état : on REMPLACE (cf. `memeScope`).
+            if (!fusion || !memeScope()) {
+                marquerScope();
                 try { const s = lsGetMig('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
                 try { const s = lsGetMig('beramethode_suivis'); setSuivis(s ? JSON.parse(s) : []); } catch { setSuivis([]); }
                 try { const s = lsGetMig('beramethode_demandesAppro'); setDemandesAppro(s ? JSON.parse(s) : []); } catch { setDemandesAppro([]); }
@@ -1352,6 +1368,7 @@ export default function App() {
     useEffect(() => { modelsRef.current = models; }, [models]);
     useEffect(() => { userRef.current = user; }, [user]);
 
+
     // Deux lectures peuvent se chevaucher (démarrage + fusion cloud qui arrive) :
     // seule la plus récente a le droit d'écrire dans l'état, sinon une lecture
     // lente écraserait le résultat d'une lecture plus fraîche.
@@ -1364,7 +1381,10 @@ export default function App() {
          *   IndexedDB, donc de façon asynchrone — disparaissait de l'écran, et une
          *   clé lue vide vidait toute la bibliothèque.
          */
-        const loadFromLocal = (fusion = false) => {
+        const loadFromLocal = (fusionDemandee = false) => {
+            // Compte différent de celui qui a rempli l'état : on REMPLACE (cf. `memeScope`).
+            const fusion = fusionDemandee && memeScope();
+            if (!fusion) marquerScope();
             const savedLibrary = lsGetMig(LIBRARY_KEY);
             if (!savedLibrary) {
                 // Une relecture ne vide JAMAIS : seule l'hydratation initiale part de zéro.
