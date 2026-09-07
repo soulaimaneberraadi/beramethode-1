@@ -255,6 +255,31 @@ export default function Effectifs({
   // Analytics Filters (chaîne = même filtre que l’en-tête `selectedChain`)
   const [analyticsFilterCategory, setAnalyticsFilterCategory] = useState<string>('Toutes');
   const [analyticsTimeframe, setAnalyticsTimeframe] = useState<'30' | '7'>('30');
+  /* L'effectif reellement inscrit au fichier RH, chaine par chaine.
+     Les cases de cette grille se saisissent a la main : sans ce repere, rien ne
+     signale qu'on compte trente-neuf personnes sur une chaine qui en emploie
+     vingt-six. Un chiffre a cote de l'autre, et l'ecart se voit. */
+  const [effectifRh, setEffectifRh] = useState<Record<string, number>>({});
+  useEffect(() => {
+    let annule = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/hr/workers', { credentials: 'include' });
+        if (!r.ok) return;
+        const liste = await r.json();
+        if (annule || !Array.isArray(liste)) return;
+        const parChaine: Record<string, number> = {};
+        for (const w of liste) {
+          if (w?.is_active === false || w?.is_active === 0) continue;
+          const chaine = String(w?.chaine_id || '').trim();
+          if (chaine) parChaine[chaine] = (parChaine[chaine] || 0) + 1;
+        }
+        setEffectifRh(parChaine);
+      } catch { /* un repere de confort : son absence ne casse rien */ }
+    })();
+    return () => { annule = true; };
+  }, []);
+
   const [exportingPointage, setExportingPointage] = useState(false);
   /* Un export rate ne partait qu'en console : l'utilisateur cliquait, rien ne
      se telechargeait, et rien ne lui disait pourquoi. */
@@ -1534,6 +1559,14 @@ export default function Effectifs({
                             <span className="text-xs font-medium text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 px-2 py-0.5 rounded-full">
                               {calculateTotalForCol(c.id, c.type, category)}
                             </span>
+                            {c.type === 'chain' && effectifRh[c.id] != null && (
+                              <span
+                                className="text-[10px] font-bold text-slate-400 dark:text-dk-muted leading-tight"
+                                title={tx(lang, { fr: 'Ouvriers affectes a cette chaine dans Gestion RH', ar: '\u0627\u0644\u0639\u0645\u0651\u0627\u0644 \u0627\u0644\u0645\u0639\u064a\u0651\u0646\u0648\u0646 \u0644\u0647\u0630\u0627 \u0627\u0644\u062e\u0637 \u0641\u064a \u0625\u062f\u0627\u0631\u0629 \u0627\u0644\u0645\u0648\u0627\u0631\u062f \u0627\u0644\u0628\u0634\u0631\u064a\u0629', en: 'Workers assigned to this line in HR', es: 'Operarios asignados a esta l\u00ednea en RRHH', pt: 'Oper\u00e1rios atribu\u00eddos a esta linha em RH', tr: '\u0130K\u2019da bu hatta atanm\u0131\u015f i\u015f\u00e7iler' })}
+                              >
+                                {tx(lang, { fr: 'RH', ar: '\u0627\u0644\u0645\u0648\u0627\u0631\u062f', en: 'HR', es: 'RRHH', pt: 'RH', tr: '\u0130K' })} : {effectifRh[c.id]}
+                              </span>
+                            )}
                           </div>
                         </th>
                       );
