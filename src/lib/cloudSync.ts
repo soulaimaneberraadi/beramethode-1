@@ -74,6 +74,55 @@ const gagnant = (local: any, cloud: any): any => {
   return cloud;
 };
 
+/**
+ * Qu'est-ce qui fait qu'un element est LE MEME des deux cotes ?
+ *
+ * La fusion ne s'appliquait qu'aux listes dont TOUS les elements, ici comme
+ * dans le cloud, portaient un `id`. Un SEUL element sans `id` — une ligne de
+ * suivi ancienne, un enregistrement fabrique avant que le champ n'existe —
+ * suffisait a la desactiver POUR TOUTE LA CLE : la liste du cloud remplacait
+ * alors la locale, et les heures saisies sur cet appareil depuis le dernier
+ * envoi disparaissaient d'un coup. C'etait la porte par laquelle le suivi
+ * partait entier.
+ *
+ * On rend donc une identite pour CHAQUE element, dans cet ordre :
+ *  1. son `id` ;
+ *  2. a defaut, les champs qui font son unicite metier (une ligne de suivi,
+ *     c'est une chaine + un jour + un OF) ;
+ *  3. a defaut, son contenu : deux copies identiques se dedoublonnent, et deux
+ *     versions differentes sont TOUTES DEUX gardees — jamais perdues.
+ */
+/**
+ * Les listes de PRODUCTION : celles dont une ligne perdue est du travail perdu,
+ * et pour lesquelles on accepte donc de reconstruire une identite plutot que de
+ * laisser le cloud remplacer la liste locale.
+ */
+const CLES_FUSION_ROBUSTE = new Set(['beramethode_suivis', 'beramethode_planning']);
+
+const cleElement = (lsKey: string, x: any): string => {
+  if (!x || typeof x !== 'object') return `val:${JSON.stringify(x)}`;
+  if (x.id != null && x.id !== '') return `id:${String(x.id)}`;
+
+  /* La cle naturelle se construit avec CE QUI EXISTE, pas seulement quand tout
+     est la. Exiger les trois champs renvoyait au repli `sig:` — et une ligne
+     modifiee ici n'ayant plus la meme signature que sa copie du cloud, les DEUX
+     etaient gardees. Deux lignes pour une meme heure, c'est la production
+     comptee en double (`sumPiecesFromSuiviForPlanning` additionne toutes les
+     lignes d'un OF) : l'OF atteignait sa cible trop tot, passait « Terminé » et
+     disparaissait. Exactement ce que ce correctif cherche a empecher. */
+  const naturelle: unknown[] | null =
+    lsKey === 'beramethode_suivis'
+      ? [x.chaineId, x.date, x.planningId ?? x.modelId]
+      : lsKey === 'beramethode_planning'
+        ? [x.chaineId, x.modelId, x.startDate ?? x.dateLancement]
+        : null;
+  if (naturelle && naturelle.some(p => p != null && p !== '')) {
+    return `nat:${naturelle.map(p => (p == null ? '' : String(p))).join('|')}`;
+  }
+
+  try { return `sig:${JSON.stringify(x)}`; } catch { return `sig:${String(x)}`; }
+};
+
 const sansSupprimes = (lsKey: string, items: any[]): any[] => {
   const type = CLE_VERS_TYPE[lsKey];
   if (!type) return items;
@@ -742,25 +791,30 @@ const applySnapshotToLocal = async (snapshot: Record<string, unknown> | null): P
           try {
             const localRaw2 = lsGet(k);
             const localArr = localRaw2 ? JSON.parse(localRaw2) : null;
-            const idOf = (x: any) => (x && typeof x === 'object' ? x.id : undefined);
             const bothArrays = Array.isArray(cloudVal) && Array.isArray(localArr);
-            const haveIds = bothArrays && [...cloudVal, ...localArr].every((x: any) => idOf(x) != null);
-            if (haveIds) {
-              const byId = new Map<any, any>();
-              for (const it of localArr) byId.set(idOf(it), it);      // base = local
+            const tousIds = bothArrays &&
+              [...cloudVal, ...localArr].every((x: any) => x && typeof x === 'object' && x.id != null);
+            /* Le repli sur l'identite reconstruite ne vaut QUE pour les listes de
+               production. Ailleurs (salles, roles, partitions — des listes de
+               textes sans `id`), le cloud faisait foi, et c'est ce qui permet a
+               une suppression de se propager : y appliquer l'union rendrait tout
+               effacement impossible. */
+            if (bothArrays && (tousIds || CLES_FUSION_ROBUSTE.has(k))) {
+              const parCle = new Map<string, any>();
+              for (const it of localArr) parCle.set(cleElement(k, it), it);   // base = local
               for (const it of cloudVal) {
-                const id = idOf(it);
-                const ici = byId.get(id);
+                const cle = cleElement(k, it);
+                const ici = parCle.get(cle);
                 // Le cloud ne l'emporte plus d'office : voir `gagnant`.
-                byId.set(id, ici === undefined ? it : gagnant(ici, it));
+                parCle.set(cle, ici === undefined ? it : gagnant(ici, it));
               }
               // L'union garde tout des deux côtés — y compris ce que
               // l'utilisateur avait supprimé, tant que la copie du cloud n'a
               // pas été purgée. Les pierres tombales sont la seule chose qui
               // distingue « jamais reçu » de « volontairement supprimé ».
-              fusionGenerique = sansSupprimes(k, [...byId.values()]);
+              fusionGenerique = sansSupprimes(k, [...parCle.values()]);
             }
-            // Listes sans id : au moins, ne pas écraser du non-vide par du vide.
+            // Listes sans id hors de ces clés : au moins, ne pas écraser du non-vide par du vide.
             if (!fusionGenerique && Array.isArray(cloudVal) && cloudVal.length === 0 && Array.isArray(localArr) && localArr.length > 0) {
               continue; // garde le local
             }
@@ -921,7 +975,16 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
           const ids = new Set(rendus.map((m: any) => m && String(m.id)));
           const extra = cloudV.filter((m: any) => m && !ids.has(String(m.id)));
           (snapshot as any)[k] = extra.length ? [...rendus, ...extra] : rendus;
-        } else if (isEmptyVal(localV) && !isEmptyVal(cloudV)) {
+        }
+        /* On ne fusionne PAS le cloud dans l'envoi au-dela de ce cas.
+           Ce serait rendre toute suppression impossible : hors des modeles,
+           AUCUN chemin de suppression ne pose de pierre tombale (`deleteEvent`
+           du planning, les machines, les salles...). Une union a l'envoi
+           reinstallerait donc l'element que l'utilisateur vient d'effacer, et le
+           prochain pull le lui rendrait. La protection contre une liste locale
+           amputee est deja assuree en amont : `pushSnapshotToCloud` commence par
+           un pull des que le cloud a bouge, et ce pull-la, lui, unit. */
+        else if (isEmptyVal(localV) && !isEmptyVal(cloudV)) {
           (snapshot as any)[k] = cloudV; // préserve le cloud non vide
         }
       }

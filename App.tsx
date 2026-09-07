@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef, Suspense } from 'react';
 import { preloadAllChunks } from './lib/preloader';
 import { lazyWithRetry } from './lib/lazyWithRetry';
-import { lsGet, lsSet, lsGetMig } from './lib/storageKeys';
+import { lsGet, lsSet, lsGetMig, getCurrentEmail } from './lib/storageKeys';
 import { ecrireModelesAuMieux } from './lib/stockageLocal';
 import { deshydraterModeles, nettoyerPhotosOrphelines, rehydraterModeles } from './lib/photosLocales';
 import './src/context/ThemeContext';
@@ -44,7 +44,9 @@ import { notifyServerSessionEstablished } from './lib/dataIdentity';
 import { Machine, MachineInstance, MachineFleetHistoryEntry, Operation, FicheData, Poste, SpeedFactor, ComplexityFactor, StandardTime, Guide, ModelData, AppSettings, ManualLink } from './types';
 import type { MachineExitPayload } from './components/MachineExitModal';
 import { sumPiecesFromSuiviForPlanning } from './utils/produced';
-import { rollPlanningEvents } from './utils/planning';
+import { patcherModeleSurServeur } from './lib/persistModel';
+import { fusionnerParId, relireSansPerdre } from './lib/fusionLocale';
+import { rollPlanningEvents, calculateEndDate } from './utils/planning';
 import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
 import { navigate, getCurrentRoute, parseHash, onRouteChange, replaceRoute, useRouteParam, createRouteUrl } from './lib/router';
@@ -565,11 +567,49 @@ export default function App() {
         };
     }, [user]);
 
+    /**
+     * À quel compte appartient l'état actuellement en mémoire ?
+     *
+     * Une relecture qui UNIT ne doit jamais unir les données d'un AUTRE compte :
+     * `clearLocalAppData` nettoie le stockage, pas l'état React. Si un pull
+     * arrive alors que le compte vient de changer, l'union recopierait les lignes
+     * du compte précédent dans les clés du nouveau — puis les pousserait dans SON
+     * cloud. On n'unit donc qu'à portée de compte identique ; sinon la relecture
+     * redevient un remplacement, exactement comme avant ce correctif.
+     */
+    const scopeEnMemoireRef = useRef<string>(getCurrentEmail() || '');
+    const memeScope = useCallback(() => (getCurrentEmail() || '') === scopeEnMemoireRef.current, []);
+    const marquerScope = useCallback(() => { scopeEnMemoireRef.current = getCurrentEmail() || ''; }, []);
+
     useEffect(() => {
-        const loadFromLocal = () => {
-            try { const s = lsGetMig('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
-            try { const s = lsGetMig('beramethode_suivis'); setSuivis(s ? JSON.parse(s) : []); } catch { setSuivis([]); }
-            try { const s = lsGetMig('beramethode_demandesAppro'); setDemandesAppro(s ? JSON.parse(s) : []); } catch { setDemandesAppro([]); }
+        /**
+         * @param fusion true pour une RELECTURE (après une fusion cloud). L'ancienne
+         *   relecture remplaçait l'état : un OF ou une ligne de suivi créés à
+         *   l'instant, ou une clé lue vide, faisaient disparaître le travail de
+         *   l'écran. Une relecture n'enlève plus rien — seul le bouton « supprimer »
+         *   supprime.
+         */
+        const loadFromLocal = (fusion = false) => {
+            // Compte différent de celui qui a rempli l'état : on REMPLACE (cf. `memeScope`).
+            if (!fusion || !memeScope()) {
+                marquerScope();
+                try { const s = lsGetMig('beramethode_planning'); setPlanningEvents(s ? JSON.parse(s) : []); } catch { setPlanningEvents([]); }
+                try { const s = lsGetMig('beramethode_suivis'); setSuivis(s ? JSON.parse(s) : []); } catch { setSuivis([]); }
+                try { const s = lsGetMig('beramethode_demandesAppro'); setDemandesAppro(s ? JSON.parse(s) : []); } catch { setDemandesAppro([]); }
+                return;
+            }
+            try {
+                const s = lsGetMig('beramethode_planning');
+                setPlanningEvents(prev => relireSansPerdre(s, prev, 'planning') ?? prev);
+            } catch { /* relecture illisible : on garde l'état courant */ }
+            try {
+                const s = lsGetMig('beramethode_suivis');
+                setSuivis(prev => relireSansPerdre(s, prev, 'suivi') ?? prev);
+            } catch { /* idem */ }
+            try {
+                const s = lsGetMig('beramethode_demandesAppro');
+                setDemandesAppro(prev => relireSansPerdre(s, prev, 'demandes-appro') ?? prev);
+            } catch { /* idem */ }
         };
         if (user && !IS_STATIC) {
             // Nouveau compte / rechargement : on bloque l'auto-save tant que le GET
@@ -592,7 +632,7 @@ export default function App() {
             loadFromLocal();
         }
         if (IS_STATIC) {
-            const onCloudApplied = () => loadFromLocal();
+            const onCloudApplied = () => loadFromLocal(true);
             window.addEventListener('beramethode:cloud-sync-applied', onCloudApplied);
             return () => window.removeEventListener('beramethode:cloud-sync-applied', onCloudApplied);
         }
@@ -1267,9 +1307,17 @@ export default function App() {
             const next = prev.map(evt => {
                 const pieces = sumPiecesFromSuiviForPlanning(evt.id, suivis);
                 const current = evt.producedQuantity ?? evt.qteProduite ?? 0;
+                /* Quantité cible : même lecture que partout ailleurs (`evTotalQty`),
+                   `totalQuantity` d'abord puis le legacy `qteTotal`. En ne lisant que
+                   `qteTotal`, un OF créé sans quantité (brouillon Pedido, OF alimenté
+                   via `totalQuantity`) tombait sur `0 >= 0` → marqué « Terminé » dès la
+                   première ligne de suivi. Il disparaissait alors de la liste du Suivi
+                   (qui masque les OF DONE) et passait en gris au Planning : c'est le
+                   « les modèles disparaissent » signalé. */
+                const cible = Number(evt.totalQuantity ?? evt.qteTotal ?? 0);
 
                 let nextStatus = evt.status;
-                if (pieces >= evt.qteTotal) {
+                if (cible > 0 && pieces >= cible) {
                     nextStatus = 'DONE';
                 } else if (pieces > 0 && evt.status === 'READY') {
                     nextStatus = 'IN_PROGRESS';
@@ -1312,28 +1360,52 @@ export default function App() {
         });
     }, [suivis, models, globalSettings, user]);
 
+    // Les écouteurs montés une seule fois (relecture après fusion cloud, export)
+    // lisent `models`/`user` via ces refs : ils restent à jour sans se réabonner
+    // à chaque rendu, et sans capturer une valeur périmée.
+    const modelsRef = useRef<ModelData[]>(models);
+    const userRef = useRef<any>(user);
+    useEffect(() => { modelsRef.current = models; }, [models]);
+    useEffect(() => { userRef.current = user; }, [user]);
+
+
     // Deux lectures peuvent se chevaucher (démarrage + fusion cloud qui arrive) :
     // seule la plus récente a le droit d'écrire dans l'état, sinon une lecture
     // lente écraserait le résultat d'une lecture plus fraîche.
     const lectureBibliothequeRef = useRef(0);
     useEffect(() => {
-        const loadFromLocal = () => {
+        /**
+         * @param fusion true pour une RELECTURE (après une fusion cloud) : on ne
+         *   remplace plus l'état, on l'unit à ce que porte le stockage. Sans cela,
+         *   un modèle encore seulement en mémoire — son écriture passe par
+         *   IndexedDB, donc de façon asynchrone — disparaissait de l'écran, et une
+         *   clé lue vide vidait toute la bibliothèque.
+         */
+        const loadFromLocal = (fusionDemandee = false) => {
+            // Compte différent de celui qui a rempli l'état : on REMPLACE (cf. `memeScope`).
+            const fusion = fusionDemandee && memeScope();
+            if (!fusion) marquerScope();
             const savedLibrary = lsGetMig(LIBRARY_KEY);
-            if (!savedLibrary) { setModels([]); return; }
+            if (!savedLibrary) {
+                // Une relecture ne vide JAMAIS : seule l'hydratation initiale part de zéro.
+                if (!fusion) setModels([]);
+                return;
+            }
             const monTour = ++lectureBibliothequeRef.current;
             try {
                 const parsed = JSON.parse(savedLibrary);
                 if (!Array.isArray(parsed)) return;
+                if (fusion && parsed.length === 0 && modelsRef.current.length > 0) return;
+                const appliquer = (liste: ModelData[]) => {
+                    if (monTour !== lectureBibliothequeRef.current) return;
+                    setModels(fusion ? fusionnerParId(modelsRef.current, liste, 'models') : liste);
+                };
                 // Les photos sont dans IndexedDB ; la bibliothèque n'en garde
                 // qu'une référence. On les rend AVANT l'affichage — le reste de
                 // l'application ne voit donc aucune différence.
                 rehydraterModeles(parsed)
-                    .then(avecPhotos => {
-                        if (monTour === lectureBibliothequeRef.current) setModels(avecPhotos);
-                    })
-                    .catch(() => {
-                        if (monTour === lectureBibliothequeRef.current) setModels(parsed);
-                    });
+                    .then(avecPhotos => appliquer(avecPhotos))
+                    .catch(() => appliquer(parsed));
             } catch (e) {
                 console.error("Failed to load Library", e);
             }
@@ -1359,7 +1431,7 @@ export default function App() {
         // Static (Vercel) or guest: localStorage is the source of truth.
         loadFromLocal();
         if (IS_STATIC) {
-            const onCloudApplied = () => loadFromLocal();
+            const onCloudApplied = () => loadFromLocal(true);
             window.addEventListener('beramethode:cloud-sync-applied', onCloudApplied);
             return () => window.removeEventListener('beramethode:cloud-sync-applied', onCloudApplied);
         }
@@ -1431,6 +1503,7 @@ export default function App() {
         const handleExportModel = (e: any) => {
             const { modelId } = e.detail;
             setModels(prev => prev.map(m => m.id === modelId ? { ...m, workflowStatus: 'EXPORT' } : m));
+            void patcherModeleSurServeur(modelId, { workflowStatus: 'EXPORT' }, userRef.current);
             setPlanningEvents(prev => prev.map(evt => evt.modelId === modelId ? { ...evt, status: 'DONE' } : evt));
         };
         window.addEventListener('export-model', handleExportModel);
@@ -2503,14 +2576,33 @@ export default function App() {
                             onClose={() => setEnvoiPlanning(null)}
                             onConfirm={({ chaineId, dateLancement, dds, quantite }) => {
                                 const enSuivi = envoiPlanning.mode === 'suivi';
+                                /* Date de fin CALCULÉE, comme pour un OF créé dans le Planning
+                                   (`usePlanningEvents.computeEndDate`). Elle valait auparavant la
+                                   DDS — et, DDS vide, le jour de lancement lui-même : l'OF ne
+                                   couvrait alors qu'UNE journée dans le Gantt, quelle que soit sa
+                                   quantité. Un modèle lancé depuis la Bibliothèque était donc
+                                   introuvable au Planning alors qu'il apparaissait bien au Suivi.
+                                   La DDS, elle, retrouve son rôle : une échéance client, pas une
+                                   fin de production. */
+                                const sam = Number(m.meta_data?.total_temps) || 15;
+                                const rendementModele = m.ficheData?.targetEfficiency ?? 85;
+                                const facteurPlanning = m.ficheData?.facteurPlanning ?? 60;
+                                const rendement = (rendementModele * facteurPlanning) / 10000;
+                                const bufferLancement = m.ficheData?.bufferLancement !== undefined
+                                    ? m.ficheData.bufferLancement
+                                    : (globalSettings.changeoverDurationMins ?? 120);
+                                const finCalculee = quantite > 0
+                                    ? calculateEndDate(dateLancement, quantite, sam, rendement, globalSettings, chaineId, bufferLancement)
+                                    : (dds || dateLancement);
                                 const nouvelOF: import('./types').PlanningEvent = {
                                     id: enSuivi ? `suivi_direct_${Date.now()}` : `plan_${m.id}_${Date.now()}`,
                                     modelId: m.id,
                                     chaineId,
                                     dateLancement,
                                     startDate: dateLancement,
-                                    dateExport: dds,
-                                    estimatedEndDate: dds,
+                                    dateExport: finCalculee,
+                                    estimatedEndDate: finCalculee,
+                                    strictDeadline_DDS: dds || undefined,
                                     qteTotal: quantite,
                                     totalQuantity: quantite,
                                     qteProduite: 0,
@@ -2519,10 +2611,17 @@ export default function App() {
                                     modelName: m.meta_data?.nom_modele || 'Sans Nom',
                                     clientName: m.ficheData?.client || '',
                                     color: '#6366f1',
+                                    sectionSplitEnabled: !!m.ficheData?.sectionSplitEnabled,
+                                    typeMarche: m.ficheData?.typeMarche ?? 'Local',
+                                    facteurPlanning,
+                                    bufferLancement,
                                     ...(enSuivi ? { source: 'LIBRARY_DIRECT' } : {}),
                                 } as any;
                                 setPlanningEvents(prev => [...prev, nouvelOF]);
                                 setModels(prev => prev.map(x => x.id === m.id ? { ...x, workflowStatus: 'PLANNING' } : x));
+                                // Le statut doit survivre à la relecture serveur (focus fenêtre) :
+                                // sinon le modèle repartait en arrière et l'OF semblait « perdu ».
+                                void patcherModeleSurServeur(m.id, { workflowStatus: 'PLANNING' }, user);
                                 setGlobalChaineId(chaineId);
                                 setEnvoiPlanning(null);
                                 if (enSuivi) {

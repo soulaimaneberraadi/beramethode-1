@@ -22,6 +22,7 @@ import { useLang } from '../src/context/LanguageContext';
 import { useIsDark } from '../src/context/ThemeContext';
 import SuiviPostes from './suivi/SuiviPostes';
 import PrimesPage from './suivi/PrimesPage';
+import { addTombstone } from '../src/lib/apiShim';
 
 interface Props {
     models: ModelData[];
@@ -565,8 +566,20 @@ export default function SuiviProduction({
             
             const startYmd = evStart.split('T')[0];
             const endYmd = evEnd.split('T')[0];
-            
-            return startYmd <= weekEndStr && endYmd >= weekStartStr;
+
+            if (startYmd <= weekEndStr && endYmd >= weekStartStr) return true;
+
+            /* OF en retard : sa fenêtre planifiée est déjà passée mais il reste des
+               pièces à produire. Sans ce rattrapage il disparaissait de la liste de
+               la semaine courante et la saisie devenait impossible — alors que la
+               chaîne, elle, continue de le produire. Limité à la semaine EN COURS
+               (et aux suivantes) pour ne pas polluer l'historique des semaines
+               passées, et aux OF qui ont une cible réelle encore non atteinte. */
+            const cible = Number(p.totalQuantity ?? p.qteTotal ?? 0);
+            const faites = Number(p.producedQuantity ?? p.qteProduite ?? 0);
+            if (cible <= 0 || faites >= cible) return false;
+            const aujourdHui = new Date().toLocaleDateString('en-CA');
+            return startYmd !== '' && endYmd < weekStartStr && weekEndStr >= aujourdHui;
         }).forEach(ev => {
             addEntry(ev.id, ev.modelId, ev.id, ev);
         });
@@ -2954,6 +2967,10 @@ export default function SuiviProduction({
                         }
                         if (supprimerSaisies) {
                             const majSuivis = suivis.filter(s => !(s.planningId === editingStatusEvent.id && s.chaineId === selectedChaineId));
+                            // Sans pierre tombale, la fusion de synchro (une union)
+                            // réinstalle ces saisies depuis le cloud au prochain pull.
+                            suivis.filter(s => s.planningId === editingStatusEvent.id && s.chaineId === selectedChaineId)
+                                .forEach(s => { try { addTombstone('suivi', s.id); } catch { /* non bloquant */ } });
                             setSuivis(majSuivis);
                             handleSave(majSuivis);
                         }

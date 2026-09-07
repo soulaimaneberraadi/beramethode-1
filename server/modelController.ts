@@ -96,6 +96,65 @@ export const saveModelVariantCodes = (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Écrit UNIQUEMENT le statut de flux et/ou le nom d'un modèle.
+ *
+ * `POST /api/models` remplace la fiche ENTIÈRE : pour changer un seul champ, il
+ * fallait la relire, la patcher, puis la renvoyer — et tout ce qu'un autre poste
+ * enregistrait entre la lecture et l'écriture était perdu. Ces deux champs-là
+ * (envoi au Planning, passage à la Coupe, export, renommage) sont écrits depuis
+ * des écrans qui ne touchent à rien d'autre : ils méritent un point d'entrée qui
+ * ne réécrit que ce qu'il annonce. Lecture et écriture sont ici dans la MÊME
+ * transaction SQLite : aucune fenêtre où glisser une sauvegarde concurrente.
+ *
+ * Même esprit que `saveModelVariantCodes` juste au-dessus.
+ */
+/** Doit rester aligné sur `WorkflowStatus` (`types.ts`). */
+const STATUTS_FLUX = new Set(['NEW', 'INGENIERIE', 'COUPE', 'METHODES', 'PLANNING', 'SUIVI', 'EXPORT']);
+
+export const saveModelFields = (req: Request, res: Response) => {
+  const ownerId = ownerOf(req);
+  const { id } = req.params;
+  const { workflowStatus, nomModele } = req.body ?? {};
+
+  if (workflowStatus === undefined && nomModele === undefined) {
+    return res.status(400).json({ message: 'workflowStatus or nomModele is required' });
+  }
+  if (workflowStatus !== undefined && !STATUTS_FLUX.has(String(workflowStatus))) {
+    return res.status(400).json({ message: 'Unknown workflowStatus' });
+  }
+  if (nomModele !== undefined && (typeof nomModele !== 'string' || !nomModele.trim())) {
+    return res.status(400).json({ message: 'nomModele must be a non-empty string' });
+  }
+
+  try {
+    const ecrire = db.transaction(() => {
+      const row = db
+        .prepare('SELECT data FROM models WHERE id = ? AND (owner_id = ? OR (owner_id IS NULL AND user_id = ?))')
+        .get(id, ownerId, ownerId) as { data: string } | undefined;
+      if (!row) return null;
+
+      const model = JSON.parse(row.data);
+      if (workflowStatus !== undefined) model.workflowStatus = workflowStatus;
+      if (nomModele !== undefined) {
+        model.meta_data = { ...(model.meta_data || {}), nom_modele: nomModele };
+      }
+      model.updatedAt = new Date().toISOString();
+
+      db.prepare('UPDATE models SET data = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(JSON.stringify(model), id);
+      return model;
+    });
+
+    const model = ecrire();
+    if (!model) return res.status(404).json({ message: 'Model not found' });
+    res.json({ model });
+  } catch (error) {
+    console.error('Save model fields error:', error);
+    res.status(500).json({ message: 'Error saving model fields' });
+  }
+};
+
 export const deleteModel = (req: Request, res: Response) => {
   const ownerId = ownerOf(req);
   const { id } = req.params;

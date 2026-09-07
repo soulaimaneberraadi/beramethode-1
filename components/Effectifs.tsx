@@ -11,6 +11,7 @@ import { SuiviData, PlanningEvent, AppSettings } from '../types';
 import DateTimePicker from './ui/DateTimePicker';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from '../lib/defaultCalendarSettings';
 import { useRouteSegment } from '../lib/router';
+import { addTombstone } from '../src/lib/apiShim';
 import {
   type EffectifsObservationAnchor,
   type EffectifsUserObservation,
@@ -782,7 +783,15 @@ export default function Effectifs({
           })
         );
         if (setSuivis) {
-          setSuivis(prev => prev.filter(s => !(s.date === selectedDate && s.chaineId === colId)));
+          setSuivis(prev => {
+            const aRetirer = prev.filter(s => s.date === selectedDate && s.chaineId === colId);
+            // Sans pierre tombale, la fusion de synchro (une union) réinstalle ces
+            // lignes depuis le cloud au prochain pull.
+            for (const s of aRetirer) {
+              try { addTombstone('suivi', s.id); } catch { /* non bloquant */ }
+            }
+            return prev.filter(s => !(s.date === selectedDate && s.chaineId === colId));
+          });
         }
       }
     );

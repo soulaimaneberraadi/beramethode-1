@@ -26,7 +26,7 @@ import {
   getCompanyInfo, updateCompanyInfo,
 } from './server/permissionsController';
 import { getMyProfile, updateMyProfile } from './server/profileController';
-import { getModels, saveModel, deleteModel, saveModelVariantCodes } from './server/modelController';
+import { getModels, saveModel, saveModelFields, deleteModel, saveModelVariantCodes } from './server/modelController';
 import {
   getMagasinProducts,
   saveMagasinProduct,
@@ -646,6 +646,9 @@ async function startServer() {
 
   app.get('/api/models', authenticateToken, requirePermission('page', 'ingenierie', 'view'), getModels);
   app.post('/api/models', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), saveModel);
+  // Écriture ciblée (statut de flux / nom) : ne réécrit pas la fiche entière,
+  // donc n'écrase pas une sauvegarde d'ingénierie concurrente.
+  app.patch('/api/models/:id/champs', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), saveModelFields);
   app.delete('/api/models/:id', authenticateToken, requirePermission('page', 'ingenierie', 'edit'), ownershipGuard('models', 'user_id'), deleteModel);
   // Geste de magasin (lecteur code-barres), pas de bureau d'études : permission
   // stock, pas ingénierie, sinon un vendeur ne peut pas enregistrer un code.
