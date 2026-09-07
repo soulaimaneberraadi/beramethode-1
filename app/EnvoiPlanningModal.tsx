@@ -64,7 +64,9 @@ export default function EnvoiPlanningModal({
                         onClick={() => onConfirm({
                             chaineId,
                             dateLancement: dateLancement || aujourdhui(),
-                            dds: dds || dateLancement || aujourdhui(),
+                            /* DDS vide = PAS d'échéance. Elle valait auparavant le jour de
+                               lancement, ce qui affichait l'OF « en retard » dès sa création. */
+                            dds,
                             quantite: quantite === '' ? 0 : Number(quantite),
                         })}
                         className="flex-1 min-h-[44px] rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-black"
@@ -108,12 +110,12 @@ export default function EnvoiPlanningModal({
                 {!dds && (
                     <p className="text-[11px] font-bold text-amber-600 dark:text-amber-300">
                         {tx(lang, {
-                            fr: "Sans DDS, le planning ne peut pas calculer le retard : elle sera posée au jour de lancement.",
-                            ar: 'بلا تاريخ تسليم، لا يستطيع التخطيط حساب التأخير: سيُوضَع يوم الانطلاق.',
-                            en: 'Without a due date the planning cannot compute delay: it will be set to the start day.',
-                            es: 'Sin fecha de entrega la planificación no puede calcular el retraso: se usará el día de lanzamiento.',
-                            pt: 'Sem data de entrega o planeamento não calcula o atraso: será o dia de lançamento.',
-                            tr: 'Teslim tarihi olmadan planlama gecikmeyi hesaplayamaz: başlangıç günü kullanılır.',
+                            fr: "Sans DDS, le planning ne peut pas calculer le retard. La fin de production, elle, reste calculée d'après la quantité.",
+                            ar: 'بلا تاريخ تسليم، لا يستطيع التخطيط حساب التأخير. أما نهاية الإنتاج فتُحسَب من الكمية.',
+                            en: 'Without a due date the planning cannot compute delay. The production end is still computed from the quantity.',
+                            es: 'Sin fecha de entrega la planificación no puede calcular el retraso. El fin de producción se calcula igualmente a partir de la cantidad.',
+                            pt: 'Sem data de entrega o planeamento não calcula o atraso. O fim de produção continua a ser calculado a partir da quantidade.',
+                            tr: 'Teslim tarihi olmadan planlama gecikmeyi hesaplayamaz. Üretim bitişi yine de miktardan hesaplanır.',
                         })}
                     </p>
                 )}

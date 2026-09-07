@@ -46,7 +46,7 @@ import type { MachineExitPayload } from './components/MachineExitModal';
 import { sumPiecesFromSuiviForPlanning } from './utils/produced';
 import { persistModelToServer } from './lib/persistModel';
 import { fusionnerParId, relireSansPerdre } from './lib/fusionLocale';
-import { rollPlanningEvents } from './utils/planning';
+import { rollPlanningEvents, calculateEndDate } from './utils/planning';
 import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
 import { navigate, getCurrentRoute, parseHash, onRouteChange, replaceRoute, useRouteParam, createRouteUrl } from './lib/router';
@@ -2557,14 +2557,33 @@ export default function App() {
                             onClose={() => setEnvoiPlanning(null)}
                             onConfirm={({ chaineId, dateLancement, dds, quantite }) => {
                                 const enSuivi = envoiPlanning.mode === 'suivi';
+                                /* Date de fin CALCULÉE, comme pour un OF créé dans le Planning
+                                   (`usePlanningEvents.computeEndDate`). Elle valait auparavant la
+                                   DDS — et, DDS vide, le jour de lancement lui-même : l'OF ne
+                                   couvrait alors qu'UNE journée dans le Gantt, quelle que soit sa
+                                   quantité. Un modèle lancé depuis la Bibliothèque était donc
+                                   introuvable au Planning alors qu'il apparaissait bien au Suivi.
+                                   La DDS, elle, retrouve son rôle : une échéance client, pas une
+                                   fin de production. */
+                                const sam = Number(m.meta_data?.total_temps) || 15;
+                                const rendementModele = m.ficheData?.targetEfficiency ?? 85;
+                                const facteurPlanning = m.ficheData?.facteurPlanning ?? 60;
+                                const rendement = (rendementModele * facteurPlanning) / 10000;
+                                const bufferLancement = m.ficheData?.bufferLancement !== undefined
+                                    ? m.ficheData.bufferLancement
+                                    : (globalSettings.changeoverDurationMins ?? 120);
+                                const finCalculee = quantite > 0
+                                    ? calculateEndDate(dateLancement, quantite, sam, rendement, globalSettings, chaineId, bufferLancement)
+                                    : (dds || dateLancement);
                                 const nouvelOF: import('./types').PlanningEvent = {
                                     id: enSuivi ? `suivi_direct_${Date.now()}` : `plan_${m.id}_${Date.now()}`,
                                     modelId: m.id,
                                     chaineId,
                                     dateLancement,
                                     startDate: dateLancement,
-                                    dateExport: dds,
-                                    estimatedEndDate: dds,
+                                    dateExport: finCalculee,
+                                    estimatedEndDate: finCalculee,
+                                    strictDeadline_DDS: dds || undefined,
                                     qteTotal: quantite,
                                     totalQuantity: quantite,
                                     qteProduite: 0,
@@ -2573,6 +2592,10 @@ export default function App() {
                                     modelName: m.meta_data?.nom_modele || 'Sans Nom',
                                     clientName: m.ficheData?.client || '',
                                     color: '#6366f1',
+                                    sectionSplitEnabled: !!m.ficheData?.sectionSplitEnabled,
+                                    typeMarche: m.ficheData?.typeMarche ?? 'Local',
+                                    facteurPlanning,
+                                    bufferLancement,
                                     ...(enSuivi ? { source: 'LIBRARY_DIRECT' } : {}),
                                 } as any;
                                 setPlanningEvents(prev => [...prev, nouvelOF]);
