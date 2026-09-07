@@ -52,21 +52,32 @@ export function idsSupprimes(type: string): Set<string> {
 }
 
 /**
- * Union par `id` : la version du STOCKAGE gagne en cas de conflit (elle sort de
- * la fusion cloud, qui a déjà tranché par horodatage), mais tout ce que seul
- * l'état en mémoire connaît est conservé.
+ * Identité d'un élément. Un élément SANS `id` est reconnu par son contenu :
+ * le rejeter — ce que faisait la première version — revenait à jeter très
+ * exactement les lignes anciennes que le reste de ce correctif s'emploie à
+ * garder.
+ */
+function identite(x: AvecId): string {
+    if (x && x.id != null && x.id !== '') return `id:${String(x.id)}`;
+    try { return `sig:${JSON.stringify(x)}`; } catch { return `sig:${String(x)}`; }
+}
+
+/**
+ * Union : la version du STOCKAGE gagne en cas de conflit (elle sort de la fusion
+ * cloud, qui a déjà tranché par horodatage), mais tout ce que seul l'état en
+ * mémoire connaît est conservé.
  */
 export function fusionnerParId<T extends AvecId>(enMemoire: T[], duStockage: T[], type?: string): T[] {
     if (!Array.isArray(duStockage)) return enMemoire;
     if (!Array.isArray(enMemoire) || enMemoire.length === 0) return duStockage;
 
-    const connus = new Set(duStockage.map(x => (x && x.id != null ? String(x.id) : null)).filter(Boolean));
+    const connus = new Set(duStockage.map(identite));
     const supprimes = type ? idsSupprimes(type) : null;
     const seulementEnMemoire = enMemoire.filter(x => {
-        if (!x || x.id == null) return false;   // sans id, impossible de dédoublonner
-        const id = String(x.id);
-        if (connus.has(id)) return false;
-        return !(supprimes && supprimes.has(id));
+        if (!x) return false;
+        if (connus.has(identite(x))) return false;
+        // Supprimé explicitement (ici ou sur un autre appareil) : ne pas le réinstaller.
+        return !(supprimes && x.id != null && supprimes.has(String(x.id)));
     });
 
     return seulementEnMemoire.length > 0 ? [...duStockage, ...seulementEnMemoire] : duStockage;

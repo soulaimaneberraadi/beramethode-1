@@ -61,6 +61,13 @@ export default function EnvoiPlanningModal({
                     </button>
                     <button
                         type="button"
+                        /* Un OF sans quantité n'a ni fin calculable ni cible : il
+                           naissait long d'UNE journée au Gantt et restait hors de
+                           tout suivi d'avancement. Le Planning refuse déjà d'en
+                           créer un (`usePlanningEvents.addEvent`) ; cet écran le
+                           refuse maintenant aussi, au lieu d'en fabriquer un
+                           inutilisable. */
+                        disabled={quantite === '' || Number(quantite) <= 0}
                         onClick={() => onConfirm({
                             chaineId,
                             dateLancement: dateLancement || aujourdhui(),
@@ -69,7 +76,7 @@ export default function EnvoiPlanningModal({
                             dds,
                             quantite: quantite === '' ? 0 : Number(quantite),
                         })}
-                        className="flex-1 min-h-[44px] rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[13px] font-black"
+                        className="flex-1 min-h-[44px] rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 dark:disabled:bg-dk-elevated disabled:text-slate-500 dark:disabled:text-dk-muted disabled:cursor-not-allowed text-white text-[13px] font-black"
                     >
                         {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
                     </button>
@@ -106,6 +113,19 @@ export default function EnvoiPlanningModal({
                         className={champ}
                     />
                 </label>
+
+                {(quantite === '' || Number(quantite) <= 0) && (
+                    <p className="text-[11px] font-bold text-rose-600 dark:text-rose-300">
+                        {tx(lang, {
+                            fr: 'Indiquez la quantité : sans elle, la fin de production ne peut pas être calculée.',
+                            ar: 'أدخل الكمية: بدونها لا يمكن حساب نهاية الإنتاج.',
+                            en: 'Enter the quantity: without it the production end cannot be computed.',
+                            es: 'Indique la cantidad: sin ella no se puede calcular el fin de producción.',
+                            pt: 'Indique a quantidade: sem ela não é possível calcular o fim de produção.',
+                            tr: 'Miktarı girin: onsuz üretim bitişi hesaplanamaz.',
+                        })}
+                    </p>
+                )}
 
                 {!dds && (
                     <p className="text-[11px] font-bold text-amber-600 dark:text-amber-300">

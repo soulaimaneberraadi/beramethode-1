@@ -10,7 +10,7 @@ import { AUTO_SAVE_KEY } from './constants';
 import { lsRemove } from '../lib/storageKeys';
 import { addTombstone } from '../src/lib/apiShim';
 import { tx } from '../lib/i18n';
-import { persistModelToServer } from '../lib/persistModel';
+import { creerModeleSurServeur, patcherModeleSurServeur } from '../lib/persistModel';
 import { useLang } from '../src/context/LanguageContext';
 
 interface UseAppModelManagerProps {
@@ -268,18 +268,36 @@ export function useAppModelManager({
         reader.onload = (e) => {
             try {
                 const json = JSON.parse(e.target?.result as string);
-                if (json && json.meta_data) {
-                    setModels(prev => [json, ...prev]);
-                    // Sans cette écriture, la relecture serveur au retour de focus
-                    // effaçait le modèle importé.
-                    void persistModelToServer(json, user);
-                }
+                if (!json || !json.meta_data) return;
+                /* Un fichier importé n'a pas forcément d'`id`, et son `id` peut
+                   déjà être celui d'un modèle d'ici. Sans ces deux garde-fous :
+                   sans `id`, le serveur refuse (400) en silence et le modèle
+                   disparaît au retour de focus ; avec un `id` déjà pris, l'import
+                   REMPLACE le modèle existant. On importe donc toujours comme un
+                   NOUVEAU modèle. */
+                const dejaPris = (id: unknown) => models.some(m => String(m.id) === String(id));
+                const importe: ModelData = (!json.id || dejaPris(json.id))
+                    ? { ...json, id: `imp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` }
+                    : json;
+                setModels(prev => [importe, ...prev]);
+                // Sans cette écriture, la relecture serveur au retour de focus
+                // effaçait le modèle importé.
+                void creerModeleSurServeur(importe, user).then(ok => {
+                    if (!ok) showToast(tx(lang, {
+                        fr: "Import non enregistré sur le serveur.",
+                        ar: 'لم يُحفظ الاستيراد على الخادم.',
+                        en: 'Import was not saved to the server.',
+                        es: 'La importación no se guardó en el servidor.',
+                        pt: 'A importação não foi gravada no servidor.',
+                        tr: 'İçe aktarma sunucuya kaydedilmedi.',
+                    }), 'error');
+                });
             } catch (err) {
                 console.error("Import failed", err);
             }
         };
         reader.readAsText(file);
-    }, [setModels, user]);
+    }, [lang, models, setModels, showToast, user]);
 
     const deleteModel = useCallback((id: string) => {
         const removeLocal = () => {
@@ -305,22 +323,23 @@ export function useAppModelManager({
         const copy = { ...model, id: Date.now().toString(), meta_data: { ...model.meta_data, nom_modele: model.meta_data.nom_modele + ' (Copie)' } };
         saveManualLinksByModel(copy.id, loadManualLinksByModel(model.id));
         setModels(prev => [copy, ...prev]);
-        void persistModelToServer(copy, user);
+        void creerModeleSurServeur(copy, user);
     }, [setModels, user]);
 
     const renameModel = useCallback((id: string, newName: string) => {
         setModels(prev => prev.map(m => m.id === id ? { ...m, meta_data: { ...m.meta_data, nom_modele: newName } } : m));
-        const source = models.find(m => m.id === id);
-        if (source) {
-            void persistModelToServer({ ...source, meta_data: { ...source.meta_data, nom_modele: newName } }, user);
-        }
-    }, [models, setModels, user]);
+        // Patch sur la version FRAÎCHE du serveur : renvoyer la copie de l'état
+        // React écraserait le travail d'ingénierie fait entre-temps.
+        void patcherModeleSurServeur(id, base => ({
+            ...base,
+            meta_data: { ...base.meta_data, nom_modele: newName },
+        }), user);
+    }, [setModels, user]);
 
     const handleTransferToCoupe = useCallback((model: ModelData) => {
         if (!window.confirm(`Transférer "${model.meta_data.nom_modele}" vers La Coupe ?`)) return;
-        const transfere = { ...model, workflowStatus: 'COUPE' as const };
         setModels(prev => prev.map(m => m.id === model.id ? { ...m, workflowStatus: 'COUPE' } : m));
-        void persistModelToServer(transfere, user);
+        void patcherModeleSurServeur(model.id, base => ({ ...base, workflowStatus: 'COUPE' }), user);
         setCurrentView('coupe');
     }, [setCurrentView, setModels, user]);
 

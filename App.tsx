@@ -44,7 +44,7 @@ import { notifyServerSessionEstablished } from './lib/dataIdentity';
 import { Machine, MachineInstance, MachineFleetHistoryEntry, Operation, FicheData, Poste, SpeedFactor, ComplexityFactor, StandardTime, Guide, ModelData, AppSettings, ManualLink } from './types';
 import type { MachineExitPayload } from './components/MachineExitModal';
 import { sumPiecesFromSuiviForPlanning } from './utils/produced';
-import { persistModelToServer } from './lib/persistModel';
+import { patcherModeleSurServeur } from './lib/persistModel';
 import { fusionnerParId, relireSansPerdre } from './lib/fusionLocale';
 import { rollPlanningEvents, calculateEndDate } from './utils/planning';
 import { computeChainEfficiency } from './utils/efficiency';
@@ -1483,8 +1483,7 @@ export default function App() {
         const handleExportModel = (e: any) => {
             const { modelId } = e.detail;
             setModels(prev => prev.map(m => m.id === modelId ? { ...m, workflowStatus: 'EXPORT' } : m));
-            const source = modelsRef.current.find(m => m.id === modelId);
-            if (source) void persistModelToServer({ ...source, workflowStatus: 'EXPORT' } as any, userRef.current);
+            void patcherModeleSurServeur(modelId, base => ({ ...base, workflowStatus: 'EXPORT' } as any), userRef.current);
             setPlanningEvents(prev => prev.map(evt => evt.modelId === modelId ? { ...evt, status: 'DONE' } : evt));
         };
         window.addEventListener('export-model', handleExportModel);
@@ -2602,7 +2601,7 @@ export default function App() {
                                 setModels(prev => prev.map(x => x.id === m.id ? { ...x, workflowStatus: 'PLANNING' } : x));
                                 // Le statut doit survivre à la relecture serveur (focus fenêtre) :
                                 // sinon le modèle repartait en arrière et l'OF semblait « perdu ».
-                                void persistModelToServer({ ...m, workflowStatus: 'PLANNING' } as any, user);
+                                void patcherModeleSurServeur(m.id, base => ({ ...base, workflowStatus: 'PLANNING' } as any), user);
                                 setGlobalChaineId(chaineId);
                                 setEnvoiPlanning(null);
                                 if (enSuivi) {
