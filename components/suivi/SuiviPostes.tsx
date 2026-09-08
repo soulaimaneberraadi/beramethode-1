@@ -98,6 +98,8 @@ const L = {
     changerOuvrier: { fr: 'Changer l’ouvrier', ar: 'بدّل العامل', en: 'Change the worker', es: 'Cambiar el operario', pt: 'Mudar o operario', tr: 'Isciyi degistir' },
     supprimerPoste: { fr: 'Supprimer le poste', ar: 'مسح المنصب', en: 'Delete the poste', es: 'Eliminar el puesto', pt: 'Eliminar o posto', tr: 'Istasyonu sil' },
     supprimerConfirme: { fr: 'Retirer ce poste de la gamme ? Les releves deja saisis sont conserves, mais le poste disparait de cette liste.', ar: 'تمسح هاد المنصب من الگام؟ التسجيلات اللي دايرين كيبقاو، ولكن المنصب غادي يختافى من هاد اللائحة.', en: 'Remove this poste from the gamme? Entries already recorded are kept, but the poste disappears from this list.', es: '¿Quitar este puesto de la gama? Los registros ya introducidos se conservan, pero el puesto desaparece de esta lista.', pt: 'Remover este posto da gama? Os registos ja feitos sao mantidos, mas o posto desaparece desta lista.', tr: 'Bu istasyon gammeden kaldirilsin mi? Girilen kayitlar korunur, ancak istasyon bu listeden kaybolur.' },
+    creationInterdite: { fr: 'Votre compte ne peut pas creer de fiche ouvrier — demandez a Gestion RH.', ar: 'حسابك ما يقدرش يخلق بطاقة عامل — طلب من Gestion RH.', en: 'Your account cannot create worker files — ask HR.', es: 'Su cuenta no puede crear fichas de operario — pida a RRHH.', pt: 'A sua conta nao pode criar fichas de operario — peca ao RH.', tr: 'Hesabiniz isci karti olusturamaz — IK ile gorusun.' },
+    creationRefusee: { fr: 'Creation refusee — verifiez le matricule et le CIN.', ar: 'الإنشاء مرفوض — تحقق من رقم التسجيل والبطاقة الوطنية.', en: 'Creation refused — check the staff number and ID.', es: 'Creacion rechazada — compruebe la matricula y el DNI.', pt: 'Criacao recusada — verifique a matricula e o BI.', tr: 'Olusturma reddedildi — sicil no ve kimligi kontrol edin.' },
     aucunOuvrier: { fr: 'Aucun ouvrier enregistre — Gestion RH', ar: 'ما كاين حتى عامل مسجّل — Gestion RH', en: 'No worker registered — HR', es: 'Ningun operario registrado — RRHH', pt: 'Nenhum operario registado — RH', tr: 'Kayitli isci yok — IK' },
     chronoPieces: { fr: 'Pieces / tour', ar: 'قطع / دورة', en: 'Pieces / lap', es: 'Piezas / vuelta', pt: 'Pecas / volta', tr: 'Parca / tur' },
     chronoPiecesTitre: { fr: 'Combien de pieces sortent d’un cycle chronometre. Deux pieces par cycle valent un temps par piece deux fois plus court.', ar: 'شحال من قطعة كتخرج من سيكل واحد. جوج قطع فالسيكل = الزمن للقطعة نص.', en: 'How many pieces come out of one timed cycle. Two pieces per cycle halves the time per piece.', es: 'Cuantas piezas salen de un ciclo cronometrado. Dos piezas por ciclo reducen a la mitad el tiempo por pieza.', pt: 'Quantas pecas saem de um ciclo cronometrado. Duas pecas por ciclo reduzem para metade o tempo por peca.', tr: 'Olculen bir dongude kac parca cikar. Dongu basina iki parca, parca suresini yariya indirir.' },
@@ -374,6 +376,56 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
     const nomLibreDuPoste = (posteId: string): string => {
         const rows = suivisByPoste.get(posteId) || [];
         return rows.find(r => r.workerName)?.workerName || getDraft(posteId).workerName || '';
+    };
+
+    /* Creation d'une fiche RH depuis le pied de la chaine. Le fichier du
+       personnel se remplit rarement d'avance : la personne est la, elle produit,
+       et l'envoyer saisir son dossier dans Gestion RH ferait perdre le releve en
+       cours. La fiche creee ici est une fiche RH ordinaire — elle porte donc son
+       matricule (obligatoire et unique, c'est lui qui identifie la personne dans
+       la paie) et son CIN si on l'a. */
+    const creerOuvrier = async (fiche: { full_name: string; matricule: string; cin?: string; chaine_id?: string }): Promise<HRWorker> => {
+        const res = await fetch('/api/hr/workers', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                full_name: fiche.full_name,
+                matricule: fiche.matricule,
+                // Champ UNIQUE : une chaine vide ferait doublon d'une fiche a l'autre.
+                cin: fiche.cin || undefined,
+                chaine_id: fiche.chaine_id || undefined,
+                role: 'OPERATOR',
+                is_active: true,
+            }),
+        });
+        const corps = await res.json().catch(() => ({} as any));
+        if (!res.ok) {
+            /* Un refus de DROITS ne renvoie pas de message (`{ ok, code }`) : sans
+               ce cas, on accusait le matricule d'un probleme qui n'a rien a voir,
+               et l'utilisateur corrigeait indefiniment une saisie correcte. */
+            if (res.status === 403 || corps?.code === 'PERMISSION_DENIED') {
+                throw new Error(tx(lang, L.creationInterdite));
+            }
+            // Sinon le serveur distingue matricule deja pris et CIN en double : son
+            // message est le seul a dire laquelle des deux contraintes a cede.
+            throw new Error(corps?.message || tx(lang, L.creationRefusee));
+        }
+        const creee: HRWorker = {
+            id: String(corps?.id || ''),
+            matricule: fiche.matricule,
+            full_name: fiche.full_name,
+            cin: fiche.cin,
+            role: 'OPERATOR',
+            chaine_id: fiche.chaine_id,
+            date_embauche: new Date().toISOString(),
+            type_contrat: 'CDI',
+            is_active: true,
+        } as HRWorker;
+        // La liste locale l'accueille tout de suite : la relecture RH n'a lieu
+        // qu'au montage de la page, et on choisit la personne dans la seconde.
+        setWorkers(prev => [...prev, creee]);
+        return creee;
     };
 
     /* Ajout d'un poste depuis cette page. L'operation part dans la gamme du
@@ -978,6 +1030,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                     activeModel={activeModel}
                                     workers={workersSorted}
                                     chaineCourante={selectedChaineId}
+                                    onCreerOuvrier={creerOuvrier}
                                     onAjouter={ajouterPoste}
                                 />
                                 {/* Un modele qui arrive de la Bibliotheque a deja sa gamme
@@ -1009,6 +1062,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                 activeModel={activeModel}
                                 workers={workersSorted}
                                 chaineCourante={selectedChaineId}
+                                onCreerOuvrier={creerOuvrier}
                                 onAjouter={ajouterPoste}
                             />
                             {/* La gamme ne se deverse plus toute seule ici : elle sert au
@@ -1178,6 +1232,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                 workers={workersSorted}
                                                                 lang={lang}
                                                                 chaineCourante={selectedChaineId}
+                                                                onCreerOuvrier={creerOuvrier}
                                                                 onValider={(nom) => { void changerOuvrierPoste(poste, nom); setChangementOuvrier(null); }}
                                                                 onAnnuler={() => setChangementOuvrier(null)}
                                                             />
@@ -1363,6 +1418,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                 workers={workersSorted}
                                                                 lang={lang}
                                                                 chaineCourante={selectedChaineId}
+                                                                onCreerOuvrier={creerOuvrier}
                                                                 onValider={(nom) => { void changerOuvrierPoste(poste, nom); setChangementOuvrier(null); }}
                                                                 onAnnuler={() => setChangementOuvrier(null)}
                                                             />

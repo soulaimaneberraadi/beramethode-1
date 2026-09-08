@@ -39,11 +39,13 @@ interface Props {
     workers: HRWorker[];
     /** Chaine du releve : chaque fiche proposee dit si elle en vient ou non. */
     chaineCourante?: string;
+    /** Cree la fiche d'un ouvrier absent du fichier RH, sans quitter le releve. */
+    onCreerOuvrier?: (fiche: { full_name: string; matricule: string; cin?: string; chaine_id?: string }) => Promise<HRWorker>;
     /** Persiste l'operation dans le releve. Le second argument est le NOM saisi. */
     onAjouter: (op: Operation, nomOuvrier: string) => Promise<void>;
 }
 
-export default function AjoutPosteRapide({ models, activeModel, workers, chaineCourante, onAjouter }: Props) {
+export default function AjoutPosteRapide({ models, activeModel, workers, chaineCourante, onCreerOuvrier, onAjouter }: Props) {
     const { lang } = useLang();
     const [ouvert, setOuvert] = useState(false);
     const [description, setDescription] = useState('');
@@ -230,6 +232,7 @@ export default function AjoutPosteRapide({ models, activeModel, workers, chaineC
                         workers={workers}
                         lang={lang}
                         chaineCourante={chaineCourante}
+                        onCreerOuvrier={onCreerOuvrier}
                         autoFocus={false}
                         onValider={(nom) => setNomOuvrier(nom)}
                         onAnnuler={() => { /* rien : le champ vit dans le formulaire */ }}
