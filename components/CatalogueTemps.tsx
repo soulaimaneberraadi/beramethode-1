@@ -554,8 +554,62 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
             }
         }
 
+        /* MODELE EN COURS, PAS ENCORE DANS LA BIBLIOTHEQUE.
+         *
+         * Tout ce qui precede part de `models` : les mesures en cours de saisie
+         * n'etaient donc utilisees que si le modele ouvert y figurait DEJA. Un
+         * modele qu'on vient de creer, ou qu'on chronometre sans l'avoir encore
+         * enregistre, n'y est pas — et ses relevés, pourtant transmis par
+         * `liveChronoData` / `liveStations`, n'avaient aucun moyen d'entrer.
+         * L'ecran affichait « Aucune mesure de chrono trouvée » pendant que le
+         * Chronometrage montrait les TR.
+         *
+         * On les recueille donc directement, sous le nom du poste, sans exiger
+         * qu'un modele enregistre les porte. */
+        const liveDansLaBibliotheque = !!liveModelId && models.some(m => m.id === liveModelId);
+        if (!liveDansLaBibliotheque && liveChronoData && Object.keys(liveChronoData).length) {
+            const stations = liveStations || [];
+            const nomDuModele = tx(lang, {
+                fr: 'Modèle en cours', ar: 'الموديل الجاري', en: 'Model in progress',
+                es: 'Modelo en curso', pt: 'Modelo em curso', tr: 'Devam eden model',
+            });
+            const parPoste = new Map<string, { desc: string; machine: string; operateur?: string; temps: number[] }>();
+            for (const [cle, cd] of Object.entries(liveChronoData)) {
+                const t = measuredTimeMin(cd);
+                if (t == null || t <= 0) continue;
+                // Cle `stId__opId` ou id seul : le poste est toujours en tete.
+                const stId = cle.includes('__') ? cle.split('__')[0] : cle;
+                const st = stations.find(x => x.id === stId);
+                const desc = (st?.name || st?.description || '').trim();
+                if (!desc) continue;   // sans libelle, l'entree serait illisible
+                const cour = parPoste.get(stId) || {
+                    desc,
+                    machine: (st?.machine || 'Machine').toString(),
+                    operateur: st?.operatorName?.trim() || undefined,
+                    temps: [],
+                };
+                cour.temps.push(t);
+                parPoste.set(stId, cour);
+            }
+            for (const [stId, e] of parPoste) {
+                modelSet.add(`live:${stId}`);
+                list.push({
+                    modelId: liveModelId || 'live',
+                    modelName: nomDuModele,
+                    reference: '', client: '—', category: '—', matiere: '—',
+                    operationDesc: e.desc,
+                    machine: e.machine, machineKey: normMachine(e.machine),
+                    section: undefined,
+                    operator: e.operateur,
+                    length: undefined,
+                    timeMin: e.temps.reduce((a, b) => a + b, 0) / e.temps.length,
+                    measured: true,
+                });
+            }
+        }
+
         return { measures: list, modelCount: modelSet.size };
-    }, [models, relevesPostes, ouvriers, seancesChrono, liveModelId, liveChronoData, liveStations]);
+    }, [models, relevesPostes, ouvriers, seancesChrono, liveModelId, liveChronoData, liveStations, lang]);
 
     // — Facettes en cascade : chaque liste ne montre que les valeurs compatibles
     //   avec les AUTRES filtres actifs (filtrage croisé / dépendant). —
