@@ -103,6 +103,18 @@ export const saveHRWorker = (req: Request, res: Response) => {
 
     try {
         const workerId = data.id || uuidv4();
+        /* `is_active` ABSENT d'une mise a jour ne veut pas dire « reactive-le ».
+           L'upsert ci-dessous ecrit `is_active = excluded.is_active`, et la valeur
+           par defaut valait 1 : toute sauvegarde partielle d'un ouvrier archive le
+           remettait donc actif en silence. L'effectif actif du tableau de bord
+           remontait tout seul, sans que personne n'ait reembauche qui que ce soit.
+           A la creation, l'absence du champ veut bien dire « actif ». */
+        const dejaEnBase = db
+            .prepare('SELECT is_active FROM hr_workers WHERE id = ? AND owner_id = ?')
+            .get(workerId, companyId) as { is_active: number } | undefined;
+        const actifAEcrire = data.is_active !== undefined
+            ? (data.is_active ? 1 : 0)
+            : (dejaEnBase ? dejaEnBase.is_active : 1);
         db.prepare(`
             INSERT INTO hr_workers (
                 id, matricule, full_name, cin, cnss, phone, date_naissance, adresse, photo,
@@ -127,7 +139,7 @@ export const saveHRWorker = (req: Request, res: Response) => {
             workerId, data.matricule, data.full_name, data.cin || null, data.cnss || null, data.phone || null,
             data.date_naissance || null, data.adresse || null, data.photo || null, data.sexe || 'M', data.role || 'OPERATOR',
             data.chaine_id || null, data.poste || null, data.specialite || null, data.equipe || null, data.transport_ligne_id || null, data.date_embauche || new Date().toISOString(), data.type_contrat || 'CDI',
-            data.date_fin_contrat || null, data.date_renouvellement || null, data.is_active !== undefined ? (data.is_active ? 1 : 0) : 1,
+            data.date_fin_contrat || null, data.date_renouvellement || null, actifAEcrire,
             data.contact_urgence_nom || null, data.contact_urgence_tel || null, data.contact_urgence_lien || null,
             data.salaire_base || 0, data.taux_horaire || 0, data.taux_piece || 0, data.prime_assiduite || 0, data.prime_transport || 0,
             data.mode_paiement || 'VIREMENT', companyId, userId, userId
