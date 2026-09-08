@@ -359,9 +359,16 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
     };
 
     // — 1) Collecte des mesures RÉELLES —
-    const { measures, modelCount } = useMemo(() => {
+    const { measures, modelCount, diagnostic } = useMemo(() => {
         const list: Measure[] = [];
         const modelSet = new Set<string>();
+        /* Pourquoi la liste est vide.
+         *
+         * « Aucune mesure de chrono trouvée » ne disait pas laquelle des trois
+         * conditions manquait, et il n'y avait aucun moyen de le savoir depuis
+         * l'ecran : on voyait vingt-quatre chronos d'un cote et rien de l'autre.
+         * On compte donc ce qu'on a VU et ce qu'on a ECARTE, pour le dire. */
+        const diag = { postesVus: 0, sansTemps: 0, sansLibelle: 0, chronosVus: 0 };
         /* Le chronoData du modele est en general la copie de la derniere seance :
            on ne veut pas compter deux fois la meme mesure. */
         const dejaMesure = new Set<string>();
@@ -448,8 +455,9 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
                     : undefined;
                 // Deja pris en compte par la gamme : ne pas compter deux fois.
                 if (opLiee) continue;
+                diag.postesVus += 1;
                 const description = (st.name || st.description || '').trim();
-                if (!description) continue;
+                if (!description) { diag.sansLibelle += 1; continue; }
 
                 /* Les cles de `chronoData` ont trois formes (cf. `chronoForOp`) :
                    l'id du poste seul, ou `posteId__operationId`. */
@@ -460,7 +468,7 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
                     const t = measuredTimeMin(cd);
                     if (t != null && t > 0) mesures.push(t);
                 }
-                if (!mesures.length) continue;
+                if (!mesures.length) { diag.sansTemps += 1; continue; }
 
                 const machine = (st.machine || 'Machine').toString();
                 modelSet.add(m.id);
@@ -574,14 +582,16 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
                 es: 'Modelo en curso', pt: 'Modelo em curso', tr: 'Devam eden model',
             });
             const parPoste = new Map<string, { desc: string; machine: string; operateur?: string; temps: number[] }>();
+            diag.postesVus += stations.length;
+            diag.chronosVus += Object.keys(liveChronoData).length;
             for (const [cle, cd] of Object.entries(liveChronoData)) {
                 const t = measuredTimeMin(cd);
-                if (t == null || t <= 0) continue;
+                if (t == null || t <= 0) { diag.sansTemps += 1; continue; }
                 // Cle `stId__opId` ou id seul : le poste est toujours en tete.
                 const stId = cle.includes('__') ? cle.split('__')[0] : cle;
                 const st = stations.find(x => x.id === stId);
                 const desc = (st?.name || st?.description || '').trim();
-                if (!desc) continue;   // sans libelle, l'entree serait illisible
+                if (!desc) { diag.sansLibelle += 1; continue; }   // illisible dans la liste
                 const cour = parPoste.get(stId) || {
                     desc,
                     machine: (st?.machine || 'Machine').toString(),
@@ -608,7 +618,7 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
             }
         }
 
-        return { measures: list, modelCount: modelSet.size };
+        return { measures: list, modelCount: modelSet.size, diagnostic: diag };
     }, [models, relevesPostes, ouvriers, seancesChrono, liveModelId, liveChronoData, liveStations, lang]);
 
     // — Facettes en cascade : chaque liste ne montre que les valeurs compatibles
@@ -880,7 +890,7 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
             <div className="flex-1 flex overflow-hidden">
                 <div className="flex-1 overflow-auto min-w-0 px-3 sm:px-6 py-4">
                     {visible.length === 0 ? (
-                        <EmptyState hasData={entries.length > 0} />
+                        <EmptyState hasData={entries.length > 0} diagnostic={diagnostic} />
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {visible.map(e => {
@@ -1335,7 +1345,10 @@ function KpiCard({ icon: Icon, label, value, suffix, accent }: { icon: any; labe
     );
 }
 
-function EmptyState({ hasData }: { hasData: boolean }) {
+/** Compte ce que la collecte a vu et ecarte, pour dire POURQUOI la liste est vide. */
+export type DiagnosticCatalogue = { postesVus: number; sansTemps: number; sansLibelle: number; chronosVus: number };
+
+function EmptyState({ hasData, diagnostic }: { hasData: boolean; diagnostic: DiagnosticCatalogue }) {
     const { lang } = useLang();
     return (
         <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center px-6">
@@ -1360,7 +1373,21 @@ function EmptyState({ hasData }: { hasData: boolean }) {
                 })}
             </h3>
             <p className="text-[12px] text-slate-500 dark:text-dk-muted dark:text-dk-text-muted mt-1 max-w-sm">
-                {hasData
+                {/* Dire LAQUELLE des conditions manque. Un poste chronometre doit
+                    porter un libelle ET un temps majore (`tempMajore`, calcule a
+                    partir des TR ou d'un TM saisi) : sans l'un des deux il ne peut
+                    pas entrer au catalogue, et le message generique laissait
+                    chercher au hasard. */}
+                {!hasData && diagnostic.postesVus > 0
+                    ? tx(lang, {
+                        fr: `${diagnostic.postesVus} poste(s) chronométré(s) vus, aucun retenu : ${diagnostic.sansTemps} sans temps mesuré (saisissez les TR, ou un TM), ${diagnostic.sansLibelle} sans libellé.`,
+                        ar: `${diagnostic.postesVus} منصب مُقاس ظاهر، ولا واحد اتقبل: ${diagnostic.sansTemps} بلا زمن مقيس (دخّل TR ولا TM)، ${diagnostic.sansLibelle} بلا اسم.`,
+                        en: `${diagnostic.postesVus} timed poste(s) seen, none kept: ${diagnostic.sansTemps} without a measured time (enter the TR, or a TM), ${diagnostic.sansLibelle} without a label.`,
+                        es: `${diagnostic.postesVus} puesto(s) cronometrado(s) vistos, ninguno retenido: ${diagnostic.sansTemps} sin tiempo medido (introduzca los TR o un TM), ${diagnostic.sansLibelle} sin etiqueta.`,
+                        pt: `${diagnostic.postesVus} posto(s) cronometrado(s) vistos, nenhum retido: ${diagnostic.sansTemps} sem tempo medido (introduza os TR ou um TM), ${diagnostic.sansLibelle} sem rótulo.`,
+                        tr: `${diagnostic.postesVus} olculen istasyon goruldu, hicbiri alinmadi: ${diagnostic.sansTemps} olculen suresi yok (TR veya TM girin), ${diagnostic.sansLibelle} etiketsiz.`,
+                    })
+                    : hasData
                     ? tx(lang, {
                         fr: 'Essayez un autre terme de recherche ou ajustez les filtres.',
                         ar: 'جرّب كلمة بحث أخرى أو عدّل الفلاتر.',
