@@ -1198,13 +1198,30 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                         const m = models.find(x => x.id === p.modelId);
                                         const ref = m?.meta_data?.reference || p.modelName || p.id.slice(0, 8);
                                         return (
+                                            /* La photo, comme partout ailleurs : on reconnait un
+                                               modele a son vetement bien avant de lire sa
+                                               reference — surtout quand trois references se
+                                               ressemblent (P-son-lirka-02, P-son-LIRKA-01-1). */
                                             <button
                                                 key={p.id}
                                                 type="button"
-                                                onClick={() => setGlobalDate?.(jourDeLOF(p))}
-                                                className="px-3 py-2 min-h-[36px] rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[11px] font-black text-slate-700 dark:text-dk-text hover:border-indigo-400 transition-colors"
+                                                onClick={() => { setGlobalDate?.(jourDeLOF(p)); choisirPlanning(p.id); }}
+                                                className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 min-h-[44px] rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:border-indigo-400 transition-colors"
                                             >
-                                                {ref} <span className="font-bold text-slate-400 dark:text-dk-muted">{jourDeLOF(p)}</span>
+                                                {m?.image ? (
+                                                    <img src={m.image} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 dark:border-dk-border/60 shrink-0" />
+                                                ) : (
+                                                    <span className="w-9 h-9 rounded-lg border border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg flex items-center justify-center shrink-0 text-slate-300 dark:text-dk-muted">
+                                                        <ImageIcon className="w-4 h-4" />
+                                                    </span>
+                                                )}
+                                                <span className="min-w-0 text-left">
+                                                    <span className="block text-[11px] font-black text-slate-700 dark:text-dk-text truncate">{ref}</span>
+                                                    <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted">
+                                                        {jourDeLOF(p)}
+                                                        {p.qteTotal ? ` · ${p.qteTotal} pcs` : ''}
+                                                    </span>
+                                                </span>
                                             </button>
                                         );
                                     })}
