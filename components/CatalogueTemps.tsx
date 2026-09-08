@@ -368,7 +368,12 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
 
         for (const m of models) {
             const ops: Operation[] = m.gamme_operatoire || [];
-            if (!ops.length) continue;
+            /* On ne sort plus faute de gamme : un modele peut n'avoir ete
+               chronometre que sur des postes libres (mode « Nouveau »), et ses
+               mesures comptent autant. La sortie se fait plus bas, quand il n'y a
+               ni operation ni poste a examiner. */
+            if (!ops.length && !(m.chronoCustomStations || []).length
+                && !(liveModelId === m.id && liveStations && liveStations.length)) continue;
             /* Pour le modele ouvert, la saisie en cours prime sur la copie
                enregistree : elle est plus recente, par construction. */
             const estOuvert = !!liveModelId && m.id === liveModelId;
@@ -421,6 +426,53 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
                     operator: opOperator.get(op.id),
                     length: op.length,
                     timeMin, measured,
+                });
+            }
+
+            /* POSTES CHRONOMETRES HORS GAMME.
+             *
+             * La boucle ci-dessus ne parcourt que `gamme_operatoire` : une mesure
+             * n'y entrait qu'a la condition d'etre rattachee a une operation de la
+             * gamme. Or le Chronometrage permet de creer des postes libres (mode
+             * « Nouveau »), qui portent leur propre libelle et n'ont pas de
+             * `linkedOperationId`. Leurs relevés — TR bien visibles a l'ecran —
+             * n'atteignaient donc JAMAIS le catalogue : vingt-quatre chronos d'un
+             * cote, « Aucune mesure de chrono trouvée » de l'autre.
+             *
+             * Un poste libre chronometre est une mesure comme une autre : c'est un
+             * temps reel, sur un poste nomme, tenu par un ouvrier. Son libelle
+             * vient de la station elle-meme. */
+            for (const st of stationsDuModele) {
+                const opLiee = st.linkedOperationId
+                    ? ops.find(o => o.id === st.linkedOperationId)
+                    : undefined;
+                // Deja pris en compte par la gamme : ne pas compter deux fois.
+                if (opLiee) continue;
+                const description = (st.name || st.description || '').trim();
+                if (!description) continue;
+
+                /* Les cles de `chronoData` ont trois formes (cf. `chronoForOp`) :
+                   l'id du poste seul, ou `posteId__operationId`. */
+                const mesures: number[] = [];
+                for (const [cle, cd] of Object.entries((chronoDuModele || {}) as Record<string, ChronoData>)) {
+                    const brut = cle.includes('__') ? cle.split('__')[0] : cle;
+                    if (brut !== st.id && cle !== st.id) continue;
+                    const t = measuredTimeMin(cd);
+                    if (t != null && t > 0) mesures.push(t);
+                }
+                if (!mesures.length) continue;
+
+                const machine = (st.machine || 'Machine').toString();
+                modelSet.add(m.id);
+                list.push({
+                    modelId: m.id, modelName, reference, client, category, matiere,
+                    operationDesc: description,
+                    machine, machineKey: normMachine(machine),
+                    section: undefined,
+                    operator: st.operatorName?.trim() || undefined,
+                    length: undefined,
+                    timeMin: mesures.reduce((a, b) => a + b, 0) / mesures.length,
+                    measured: true,
                 });
             }
         }
