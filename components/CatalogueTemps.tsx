@@ -368,7 +368,7 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
          * conditions manquait, et il n'y avait aucun moyen de le savoir depuis
          * l'ecran : on voyait vingt-quatre chronos d'un cote et rien de l'autre.
          * On compte donc ce qu'on a VU et ce qu'on a ECARTE, pour le dire. */
-        const diag = { postesVus: 0, sansTemps: 0, sansLibelle: 0, chronosVus: 0 };
+        const diag = { postesVus: 0, sansTemps: 0, sansLibelle: 0, chronosVus: 0, modelesVus: models.length };
         /* Le chronoData du modele est en general la copie de la derniere seance :
            on ne veut pas compter deux fois la meme mesure. */
         const dejaMesure = new Set<string>();
@@ -1346,7 +1346,7 @@ function KpiCard({ icon: Icon, label, value, suffix, accent }: { icon: any; labe
 }
 
 /** Compte ce que la collecte a vu et ecarte, pour dire POURQUOI la liste est vide. */
-export type DiagnosticCatalogue = { postesVus: number; sansTemps: number; sansLibelle: number; chronosVus: number };
+export type DiagnosticCatalogue = { postesVus: number; sansTemps: number; sansLibelle: number; chronosVus: number; modelesVus: number };
 
 function EmptyState({ hasData, diagnostic }: { hasData: boolean; diagnostic: DiagnosticCatalogue }) {
     const { lang } = useLang();
@@ -1378,11 +1378,11 @@ function EmptyState({ hasData, diagnostic }: { hasData: boolean; diagnostic: Dia
                     partir des TR ou d'un TM saisi) : sans l'un des deux il ne peut
                     pas entrer au catalogue, et le message generique laissait
                     chercher au hasard. */}
-                {!hasData && diagnostic.postesVus > 0
+                {!hasData
                     ? tx(lang, {
-                        fr: `${diagnostic.postesVus} poste(s) chronométré(s) vus, aucun retenu : ${diagnostic.sansTemps} sans temps mesuré (saisissez les TR, ou un TM), ${diagnostic.sansLibelle} sans libellé.`,
-                        ar: `${diagnostic.postesVus} منصب مُقاس ظاهر، ولا واحد اتقبل: ${diagnostic.sansTemps} بلا زمن مقيس (دخّل TR ولا TM)، ${diagnostic.sansLibelle} بلا اسم.`,
-                        en: `${diagnostic.postesVus} timed poste(s) seen, none kept: ${diagnostic.sansTemps} without a measured time (enter the TR, or a TM), ${diagnostic.sansLibelle} without a label.`,
+                        fr: `Diagnostic : ${diagnostic.modelesVus} modèle(s) lus, ${diagnostic.postesVus} poste(s) chronométré(s) vus, ${diagnostic.chronosVus} chrono(s). Écartés : ${diagnostic.sansTemps} sans temps mesuré (saisissez les TR, ou un TM), ${diagnostic.sansLibelle} sans libellé.`,
+                        ar: `تشخيص: ${diagnostic.modelesVus} موديل مقروء، ${diagnostic.postesVus} منصب مُقاس ظاهر، ${diagnostic.chronosVus} كرونو. المرفوض: ${diagnostic.sansTemps} بلا زمن مقيس (دخّل TR ولا TM)، ${diagnostic.sansLibelle} بلا اسم.`,
+                        en: `Diagnostic: ${diagnostic.modelesVus} model(s) read, ${diagnostic.postesVus} timed poste(s) seen, ${diagnostic.chronosVus} chrono(s). Discarded: ${diagnostic.sansTemps} without a measured time (enter the TR, or a TM), ${diagnostic.sansLibelle} without a label.`,
                         es: `${diagnostic.postesVus} puesto(s) cronometrado(s) vistos, ninguno retenido: ${diagnostic.sansTemps} sin tiempo medido (introduzca los TR o un TM), ${diagnostic.sansLibelle} sin etiqueta.`,
                         pt: `${diagnostic.postesVus} posto(s) cronometrado(s) vistos, nenhum retido: ${diagnostic.sansTemps} sem tempo medido (introduza os TR ou um TM), ${diagnostic.sansLibelle} sem rótulo.`,
                         tr: `${diagnostic.postesVus} olculen istasyon goruldu, hicbiri alinmadi: ${diagnostic.sansTemps} olculen suresi yok (TR veya TM girin), ${diagnostic.sansLibelle} etiketsiz.`,
