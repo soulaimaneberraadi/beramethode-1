@@ -6,7 +6,7 @@ import { tx } from '../../lib/i18n';
 import { configPrimeEffective, palierAtteint } from '../../lib/primeEngine';
 import { useLang } from '../../src/context/LanguageContext';
 import { useIsMobile } from '../planning/shared/useIsMobile';
-import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown, MoreVertical, Trash2, Image as ImageIcon, Timer } from 'lucide-react';
+import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown, MoreVertical, Trash2, Image as ImageIcon, Timer, TrendingUp, TrendingDown } from 'lucide-react';
 import AjoutPosteRapide from './AjoutPosteRapide';
 import ChampOuvrier from './ChampOuvrier';
 import FicheOuvrier from './FicheOuvrier';
@@ -98,6 +98,7 @@ const L = {
     changerOuvrier: { fr: 'Changer l’ouvrier', ar: 'بدّل العامل', en: 'Change the worker', es: 'Cambiar el operario', pt: 'Mudar o operario', tr: 'Isciyi degistir' },
     supprimerPoste: { fr: 'Supprimer le poste', ar: 'مسح المنصب', en: 'Delete the poste', es: 'Eliminar el puesto', pt: 'Eliminar o posto', tr: 'Istasyonu sil' },
     supprimerConfirme: { fr: 'Retirer ce poste de la gamme ? Les releves deja saisis sont conserves, mais le poste disparait de cette liste.', ar: 'تمسح هاد المنصب من الگام؟ التسجيلات اللي دايرين كيبقاو، ولكن المنصب غادي يختافى من هاد اللائحة.', en: 'Remove this poste from the gamme? Entries already recorded are kept, but the poste disappears from this list.', es: '¿Quitar este puesto de la gama? Los registros ya introducidos se conservan, pero el puesto desaparece de esta lista.', pt: 'Remover este posto da gama? Os registos ja feitos sao mantidos, mas o posto desaparece desta lista.', tr: 'Bu istasyon gammeden kaldirilsin mi? Girilen kayitlar korunur, ancak istasyon bu listeden kaybolur.' },
+    tendanceChaineTitre: { fr: 'Dernier creneau termine face a la moyenne des precedents', ar: 'آخر فترة سالات مقارنة بمعدّل اللي قبلها', en: 'Last completed slot against the average of the previous ones', es: 'Ultimo tramo terminado frente a la media de los anteriores', pt: 'Ultima faixa terminada face a media das anteriores', tr: 'Tamamlanan son dilim, oncekilerin ortalamasina karsi' },
     jourFutur: { fr: 'Jour a venir — rien a relever encore', ar: 'نهار جاي — مازال ما كاين ما يتسجّل', en: 'Future day — nothing to record yet', es: 'Dia futuro — todavia nada que registrar', pt: 'Dia futuro — ainda nada a registar', tr: 'Gelecek gun — henuz kaydedilecek bir sey yok' },
     jourFuturHint: { fr: 'On ne note que ce qui est deja sorti de la chaine : les cases s’ouvriront le jour venu. Cet OF a ete lance a cette date — passez a aujourd’hui pour saisir la production du jour.', ar: 'كنسجّلو غير اللي خرج من الشين: الخانات غادي يتحلّو ملي يجي النهار. هاد الأمر تلانصا فهاد التاريخ — دوز لليوم باش تسجّل إنتاج النهار.', en: 'Only what has already come off the line is recorded: the cells open when the day comes. This order was launched on that date — switch to today to enter today’s output.', es: 'Solo se anota lo que ya ha salido de la linea: las casillas se abriran ese dia. Esta OF se lanzo en esa fecha — pase a hoy para registrar la produccion.', pt: 'So se regista o que ja saiu da linha: as celulas abrem no proprio dia. Esta OF foi lancada nessa data — passe para hoje para registar a producao.', tr: 'Yalnizca hattan cikmis olan kaydedilir: hucreler o gun gelince acilir. Bu is emri o tarihte baslatildi — bugunun uretimini girmek icin bugune gecin.' },
     allerAujourdhui: { fr: 'Aller a aujourd’hui', ar: 'سير لليوم', en: 'Go to today', es: 'Ir a hoy', pt: 'Ir para hoje', tr: 'Bugune git' },
@@ -266,6 +267,17 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
             .sort((a, b) => Math.abs(Date.parse(jourDeLOF(a)) - ancre) - Math.abs(Date.parse(jourDeLOF(b)) - ancre))
             .slice(0, 4);
     }, [planningEvents, selectedChaineId, date]);
+
+    /* OF de la chaine qui ne couvrent PAS la date affichee. Le selecteur de
+       modele ne montrait que ceux du jour : un seul OF ce jour-la, et le menu
+       n'offrait qu'une entree — impossible de changer de modele sans deviner la
+       bonne date au calendrier. Les voici, avec leur jour ; les choisir y emmene. */
+    const ofsHorsDate = useMemo(() => {
+        const ici = new Set(planningsChaine.map(p => p.id));
+        return planningEvents
+            .filter(p => p.chaineId === selectedChaineId && p.status !== 'DONE' && !ici.has(p.id) && jourDeLOF(p))
+            .sort((a, b) => jourDeLOF(a).localeCompare(jourDeLOF(b)));
+    }, [planningEvents, selectedChaineId, planningsChaine]);
 
     /* Dernier OF sur lequel on a releve : c'est celui qu'on rouvre. Sans cette
        memoire, revenir sur la page reprenait le premier OF de la liste — et on
@@ -531,6 +543,35 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         const dernier = postes[postes.length - 1];
         return dernier ? (celluleDe(dernier.id, hourKey)?.pieces_sorties || 0) : 0;
     };
+
+    /* Le SENS DE MARCHE de la chaine, affiche en tete du modele : ce que sort le
+       dernier creneau termine, face a la MOYENNE des creneaux termines avant lui.
+
+       La moyenne, et non le seul creneau precedent : une heure creuse isolee
+       (panne, changement de coloris, pause decalee) ferait alors basculer la
+       fleche a chaque relevé, et une fleche qui change tout le temps ne dit plus
+       rien. La moyenne, elle, repond a la question posee — la journee monte-t-elle
+       ou descend-elle ?
+
+       On ne compte QUE les creneaux termines : un creneau en cours est incomplet
+       par nature, et le retenir ferait plonger la tendance au debut de chaque
+       heure, pour remonter a sa fin. */
+    const tendanceChaine = useMemo(() => {
+        const dernier = postes[postes.length - 1];
+        if (!dernier) return null;
+        const finis = hourGrid.blocks.filter(b => new Date(date).setHours(0, b.endMin, 0, 0) <= Date.now());
+        if (finis.length < 2) return null;
+        const valeurs = finis.map(b => celluleDe(dernier.id, b.key)?.pieces_sorties || 0);
+        const courant = valeurs[valeurs.length - 1];
+        const precedents = valeurs.slice(0, -1);
+        const moyenne = precedents.reduce((a, b) => a + b, 0) / precedents.length;
+        // Sans reference (rien produit avant), il n'y a pas de tendance : on
+        // n'invente pas une hausse a partir de zero.
+        if (moyenne <= 0) return null;
+        const pct = Math.round(((courant - moyenne) / moyenne) * 100);
+        if (pct === 0) return null;
+        return { hausse: pct > 0, pct: Math.abs(pct), courant, moyenne: Math.round(moyenne) };
+    }, [postes, posteSuivis, hourGrid.blocks, date]);
 
     /* Le goulot : le poste qui produit le moins parmi ceux qui ont produit.
        C'est lui qui plafonne la chaine — le reste ne sortira jamais plus vite. */
@@ -881,6 +922,23 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                         {tx(lang, L.modeleActif)}
                     </span>
 
+                    {/* Le sens de marche, EN TETE du modele : d'un coup d'oeil, la
+                        chaine monte ou descend. Le detail chiffre est dans l'infobulle,
+                        pour qui veut savoir contre quoi la comparaison se fait. */}
+                    {tendanceChaine && (
+                        <span
+                            title={`${tx(lang, L.tendanceChaineTitre)} : ${tendanceChaine.courant} / ${tendanceChaine.moyenne} pcs`}
+                            className={`shrink-0 flex items-center gap-0.5 px-1.5 py-1 rounded-lg text-[10px] font-black tabular-nums ${
+                                tendanceChaine.hausse
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                                    : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
+                            }`}
+                        >
+                            {tendanceChaine.hausse ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                            {tendanceChaine.pct}%
+                        </span>
+                    )}
+
                     {/* Meme repere qu'a la Grille horaire : la photo du modele, sa
                         reference, son nom. On reconnait un modele a sa photo bien
                         avant de lire sa reference. */}
@@ -943,6 +1001,44 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                             </button>
                                         );
                                     })}
+                                    {/* Les OF de la chaine qui tournent d'autres jours : les
+                                        choisir emmene a leur date, puisqu'un releve appartient
+                                        toujours a un jour. Sans eux, changer de modele imposait
+                                        de retrouver la date a l'aveugle. */}
+                                    {ofsHorsDate.length > 0 && (
+                                        <>
+                                            <p className="px-2 pt-2 pb-1 mt-1 border-t border-slate-100 dark:border-dk-border/40 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">
+                                                {tx(lang, L.ofsAilleurs)}
+                                            </p>
+                                            {ofsHorsDate.map(p => {
+                                                const m = models.find(x => x.id === p.modelId);
+                                                const ref = m?.meta_data?.reference || p.modelName || p.id.slice(0, 8);
+                                                return (
+                                                    <button
+                                                        key={p.id}
+                                                        type="button"
+                                                        onClick={() => { setGlobalDate?.(jourDeLOF(p)); choisirPlanning(p.id); setModeleOuvert(false); }}
+                                                        className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors"
+                                                    >
+                                                        {m?.image ? (
+                                                            <img src={m.image} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 dark:border-dk-border/60 shrink-0 opacity-80" />
+                                                        ) : (
+                                                            <span className="w-9 h-9 rounded-lg border border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg flex items-center justify-center shrink-0 text-slate-300 dark:text-dk-muted">
+                                                                <ImageIcon className="w-4 h-4" />
+                                                            </span>
+                                                        )}
+                                                        <span className="min-w-0 flex-1">
+                                                            <span className="block text-[12px] font-black text-slate-600 dark:text-dk-text-soft truncate">{ref}</span>
+                                                            <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted truncate">
+                                                                {jourDeLOF(p)}
+                                                                {p.qteTotal ? ` · ${p.qteTotal} pcs` : ''}
+                                                            </span>
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </>
+                                    )}
                                 </div>
                             </>
                         )}
