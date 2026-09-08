@@ -91,6 +91,10 @@ export function computeChainEfficiency(
     }
 
     const raw = totalPresenceMin > 0 ? totalProducedMin / totalPresenceMin : 0;
+    /* Sans releve, on ne DEVINE pas un rendement : `eff = 0` et `n = 0` disent
+       « rien de mesure ». Le repli appartient a l'appelant, qui seul sait ce qui
+       a du sens sur son ecran — et les trois s'en gardent deja (`|| 0.85` dans
+       App.tsx et StockExport, `eff > 0` dans usePlanningChains). */
     const eff = relevantSuivis.length > 0 ? Math.max(0.4, Math.min(1.2, raw)) : 0;
     return { eff, n: relevantSuivis.length };
 }
