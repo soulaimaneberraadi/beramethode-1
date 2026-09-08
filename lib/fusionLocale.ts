@@ -98,3 +98,53 @@ export function relireSansPerdre<T extends AvecId>(brut: string | null, enMemoir
         return null;
     }
 }
+
+/**
+ * Relecture SERVEUR de la bibliothèque, sans rien perdre.
+ *
+ * `GET /api/models` remplaçait l'état entier (`setModels(data)`), et cette
+ * lecture se rejoue à CHAQUE `focus` de la fenêtre — donc en permanence sur
+ * téléphone, où l'on quitte et revient sans cesse. Deux pertes en découlaient,
+ * toutes deux vécues comme « ça disparaît » :
+ *
+ *  • un modèle que seul cet appareil connaît encore (créé il y a deux secondes,
+ *    ou dont l'enregistrement est encore en vol) était effacé de l'écran ;
+ *  • une lecture PARTIE AVANT une écriture pouvait revenir APRÈS elle et
+ *    réinstaller la version d'avant : les postes qu'on venait d'ajouter au
+ *    relevé s'effaçaient tout seuls quelques secondes plus tard.
+ *
+ * On unit donc les deux listes au lieu de remplacer : à identifiant égal, la
+ * version la plus fraîche (`updatedAt`) gagne — c'est elle qui porte le
+ * travail le plus récent, d'où qu'il vienne. Ce que seule la mémoire connaît
+ * est conservé, sauf ce que l'utilisateur a explicitement supprimé.
+ */
+export function fusionnerModelesServeur<T extends AvecId & { updatedAt?: string }>(
+    enMemoire: T[],
+    duServeur: T[],
+): T[] {
+    if (!Array.isArray(duServeur)) return enMemoire;
+    if (!Array.isArray(enMemoire) || enMemoire.length === 0) return duServeur;
+
+    const supprimes = idsSupprimes('models');
+    const dateDe = (x: T): number => Date.parse(x?.updatedAt || '') || 0;
+
+    const restants = new Map<string, T>();
+    for (const m of enMemoire) if (m && m.id != null) restants.set(String(m.id), m);
+
+    const sortie: T[] = [];
+    for (const distant of duServeur) {
+        if (!distant) continue;
+        const cle = distant.id != null ? String(distant.id) : '';
+        if (cle && supprimes.has(cle)) continue;
+        const local = cle ? restants.get(cle) : undefined;
+        if (cle) restants.delete(cle);
+        // A egalite d'horodatage on garde le serveur : sans preuve qu'on est plus
+        // frais, la source partagee fait foi.
+        sortie.push(local && dateDe(local) > dateDe(distant) ? local : distant);
+    }
+    for (const seulEnMemoire of restants.values()) {
+        if (seulEnMemoire.id != null && supprimes.has(String(seulEnMemoire.id))) continue;
+        sortie.push(seulEnMemoire);
+    }
+    return sortie;
+}

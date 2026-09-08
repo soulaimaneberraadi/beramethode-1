@@ -45,7 +45,7 @@ import { Machine, MachineInstance, MachineFleetHistoryEntry, Operation, FicheDat
 import type { MachineExitPayload } from './components/MachineExitModal';
 import { sumPiecesFromSuiviForPlanning } from './utils/produced';
 import { patcherModeleSurServeur } from './lib/persistModel';
-import { fusionnerParId, relireSansPerdre } from './lib/fusionLocale';
+import { fusionnerParId, relireSansPerdre, fusionnerModelesServeur } from './lib/fusionLocale';
 import { rollPlanningEvents, calculateEndDate } from './utils/planning';
 import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
@@ -1415,10 +1415,27 @@ export default function App() {
             }
         };
         if (user && !IS_STATIC) {
+            /* La relecture serveur suit desormais les deux memes regles que la
+               relecture locale juste au-dessus, qui lui manquaient :
+
+               1. seule la lecture la PLUS RECENTE ecrit dans l'etat. Chaque
+                  `focus` en lance une, et sur telephone on quitte et on revient
+                  sans arret : deux lectures se chevauchaient, et la plus lente
+                  ecrasait le resultat de la plus fraiche.
+               2. on UNIT au lieu de remplacer. `setModels(data)` effacait tout
+                  ce que le serveur ne connaissait pas encore — et une lecture
+                  partie AVANT un enregistrement, revenue APRES lui, remettait la
+                  version d'avant : les postes ajoutes au releve disparaissaient
+                  quelques secondes plus tard, tout seuls. */
             const fetchModels = () => {
+                const monTour = ++lectureBibliothequeRef.current;
                 fetch('/api/models', { credentials: 'include' })
                     .then(res => { if (res.ok) return res.json(); throw new Error('Failed to fetch models'); })
-                    .then(data => setModels(data))
+                    .then(data => {
+                        if (monTour !== lectureBibliothequeRef.current) return;   // lecture depassee
+                        if (!Array.isArray(data)) return;
+                        setModels(prev => fusionnerModelesServeur(prev, data));
+                    })
                     .catch(err => console.error(err));
             };
 
@@ -2625,7 +2642,7 @@ export default function App() {
                                     ...(enSuivi ? { source: 'LIBRARY_DIRECT' } : {}),
                                 } as any;
                                 setPlanningEvents(prev => [...prev, nouvelOF]);
-                                setModels(prev => prev.map(x => x.id === m.id ? { ...x, workflowStatus: 'PLANNING' } : x));
+                                setModels(prev => prev.map(x => x.id === m.id ? { ...x, workflowStatus: 'PLANNING', updatedAt: new Date().toISOString() } : x));
                                 // Le statut doit survivre à la relecture serveur (focus fenêtre) :
                                 // sinon le modèle repartait en arrière et l'OF semblait « perdu ».
                                 void patcherModeleSurServeur(m.id, { workflowStatus: 'PLANNING' }, user);
