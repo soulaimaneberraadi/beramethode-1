@@ -83,6 +83,14 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         };
 
         out.push({ nom: 'Application', valeur: window.matchMedia('(display-mode: standalone)').matches ? 'installée (écran d\'accueil)' : 'navigateur' });
+        /* La version que fait tourner CET appareil. Un téléphone garde
+           volontiers en cache une version d'il y a plusieurs jours : sans cette
+           ligne, un rapport décrivait un défaut déjà corrigé, et on cherchait la
+           panne dans le code alors qu'elle était dans le déploiement. */
+        out.push({
+            nom: 'Version installée',
+            valeur: (() => { try { return new Date(__BERA_BUILD__).toLocaleString(); } catch { return '(inconnue)'; } })(),
+        });
         out.push({ nom: 'En ligne', valeur: navigator.onLine ? 'oui' : 'NON', ton: navigator.onLine ? 'ok' : 'ko' });
 
         const { data: { session } } = await supabase.auth.getSession();

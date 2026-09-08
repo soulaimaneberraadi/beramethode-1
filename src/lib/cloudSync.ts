@@ -1071,6 +1071,25 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
     }
   }
 
+  /* ── DERNIER MOT AVANT L'ENVOI : ce qui est supprimé ne remonte pas ────────
+   *
+   * L'instantané qu'on publie ne doit JAMAIS contenir un élément que cet
+   * appareil sait supprimé, par quelque chemin qu'il soit arrivé là — fusion
+   * anti-écrasement ci-dessus, liste locale non encore purgée, ou reliquat
+   * d'une version antérieure. Sans ce filtre, un seul chemin oublié suffisait
+   * à ressusciter l'élément dans le cloud, d'où il revenait à chaque pull :
+   * l'écart « serveur 7 · ici 6 » se réinstallait indéfiniment, sur tous les
+   * appareils du compte.
+   *
+   * Même règle qu'à la réception (`sansSupprimes` y est déjà appliqué) : un
+   * élément ré-édité APRÈS sa suppression est conservé — quelqu'un a pu le
+   * reprendre en main sur un autre poste. La symétrie est ce qui fait
+   * converger les deux côtés au lieu de les faire osciller. */
+  for (const k of Object.keys(CLE_VERS_TYPE)) {
+    const v = (snapshot as any)[k];
+    if (Array.isArray(v)) (snapshot as any)[k] = sansSupprimes(k, v);
+  }
+
   // Replace base64 images with Storage URLs (or compressed inline data-URLs)
   try {
     snapshot = await replaceImages(snapshot, userId) as Record<string, unknown>;

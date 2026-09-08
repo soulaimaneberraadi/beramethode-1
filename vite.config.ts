@@ -45,6 +45,13 @@ export default defineConfig(({ mode }) => {
   const shouldObfuscate = process.env.VITE_OBFUSCATE === 'true';
 
   return {
+    /* Date de fabrication du bundle, lisible depuis l'application.
+       Sans elle, impossible de savoir si le telephone tourne bien sur la
+       derniere version : un rapport de diagnostic decrivait un defaut deja
+       corrige, et on cherchait la panne dans le code au lieu du deploiement. */
+    define: {
+      __BERA_BUILD__: JSON.stringify(new Date().toISOString()),
+    },
     base: isElectronBuild ? './' : '/',
     // « npx vite » / « vite preview » : le port est ≠ 7000 pour laisser **npm run dev** (Express + API) sur 7000.
     // Le proxy envoie /api vers le backend — sans ça, /api renvoie index.html → erreur « HTML au lieu de JSON ».
