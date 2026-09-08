@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AppSettings, ModelData, PlanningEvent, PosteSuiviData, HRWorker, Operation } from '../../types';
+import type { AppSettings, ModelData, PlanningEvent, PosteSuiviData, HRWorker, Operation, SuiviData } from '../../types';
 import { deriveHourGrid } from './shared/hours';
 import { pauseOverlapMinutes, horairesDuJour } from '../../lib/horaires';
 import { tx } from '../../lib/i18n';
@@ -15,6 +15,8 @@ import { signalerMesureTemps } from '../../lib/mesuresTemps';
 interface Props {
     models: ModelData[];
     planningEvents: PlanningEvent[];
+    /** Releves de la grille horaire : ils prouvent qu'un OF tourne ce jour-la. */
+    suivis?: SuiviData[];
     settings: AppSettings;
     chainsList: string[];
     selectedChaineId: string;
@@ -166,7 +168,7 @@ function todayStr(): string {
     return new Date().toISOString().split('T')[0];
 }
 
-export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste, onSetPosteTemps, focusPlanningId, onFocusPlanningConsumed, onDeplacerOFAujourdhui, onSetPosteSection }: Props) {
+export default function SuiviPostes({ models, planningEvents, suivis = [], settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste, onSetPosteTemps, focusPlanningId, onFocusPlanningConsumed, onDeplacerOFAujourdhui, onSetPosteSection }: Props) {
     const { lang } = useLang();
     /* Le releve se fait au pied de la chaine, telephone en main : un tableau
        de douze colonnes n'y tient pas. Sur petit ecran, les creneaux se lisent
@@ -259,13 +261,36 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
        sur la grille horaire. Avant, le premier trouve gagnait en silence : deux OF
        sur la meme chaine et le second etait tout simplement introuvable ici. Un OF
        marque `Terminé` ne se propose plus : il n'a plus rien a relever. */
-    const planningsChaine = useMemo(() => planningEvents.filter(p => {
-        if (p.chaineId !== selectedChaineId) return false;
-        if (p.status === 'DONE') return false;
-        const start = (p.startDate || p.dateLancement || '').split('T')[0];
-        const end = (p.estimatedEndDate || p.dateExport || p.dateFin || start).split('T')[0];
-        return start <= date && end >= date;
-    }), [planningEvents, selectedChaineId, date]);
+    const planningsChaine = useMemo(() => {
+        /* Un OF qui PORTE DEJA des releves ce jour-la tourne ce jour-la : la donnee
+           le prouve, quoi que dise sa fenetre planifiee. C'est par cette voie que la
+           grille horaire le voyait, et c'est elle qui manquait ici — d'ou un modele
+           bien present sous « Grille horaire » et « aucun modele planifie » sous
+           « Suivi par poste », le meme jour et sur la meme chaine. */
+        const ofsDuJour = new Set<string>();
+        for (const r of posteSuivis) if (r.date === date && r.planningId) ofsDuJour.add(r.planningId);
+        for (const s of suivis) if (s.date === date && s.planningId) ofsDuJour.add(s.planningId);
+
+        const aujourdHui = todayStr();
+        return planningEvents.filter(p => {
+            if (p.chaineId !== selectedChaineId) return false;
+            if (p.status === 'DONE') return false;
+            if (ofsDuJour.has(p.id)) return true;
+
+            const start = (p.startDate || p.dateLancement || '').split('T')[0];
+            const end = (p.estimatedEndDate || p.dateExport || p.dateFin || start).split('T')[0];
+            if (start && start <= date && end >= date) return true;
+
+            /* OF en retard : sa fenetre est passee mais il reste des pieces a faire,
+               et la chaine, elle, continue de le produire. Meme regle que la grille
+               horaire — sans quoi le releve devenait impossible le jour ou l'on en a
+               justement besoin. Jamais dans le passe : on ne rouvre pas l'historique. */
+            const cible = Number(p.totalQuantity ?? p.qteTotal ?? 0);
+            const faites = Number(p.producedQuantity ?? p.qteProduite ?? 0);
+            if (cible <= 0 || faites >= cible) return false;
+            return !!start && end < date && date >= aujourdHui;
+        });
+    }, [planningEvents, selectedChaineId, date, posteSuivis, suivis]);
 
     /* Aucun OF ce jour-la ne veut pas dire aucun OF. Sans cette liste, la page
        s'arretait sur « aucun modele planifie » et ne disait pas OU les trouver :

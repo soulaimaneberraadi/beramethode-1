@@ -1656,6 +1656,7 @@ export default function SuiviProduction({
                 <SuiviPostes
                     models={models}
                     planningEvents={planningEvents}
+                    suivis={suivis}
                     settings={settings}
                     chainsList={chainsList}
                     selectedChaineId={selectedChaineId}
