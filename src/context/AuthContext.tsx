@@ -164,9 +164,54 @@ const isRateLimitMessage = (m: string): boolean => {
   return s.includes('rate limit') || s.includes('too many') || s.includes('429');
 };
 
+/**
+ * La session deja connue, lue SANS attendre — et sans reseau.
+ *
+ * POURQUOI : en mode statique, tout le travail vit deja sur l'appareil
+ * (localStorage). L'ecran de chargement n'attendait donc RIEN d'utile : ni les
+ * modeles, ni les suivis, ni les reglages — seulement la reponse de
+ * `getSession()`, alors que la session est justement rangee dans ce meme
+ * localStorage. On la lit donc tout de suite : l'application s'ouvre sur son
+ * contenu, et la verification continue derriere, sans rien retenir.
+ *
+ * Le jeton n'est PAS revalide ici, et c'est voulu : le seul risque est
+ * d'afficher un instant les donnees de CE compte a quelqu'un qui les a deja sur
+ * son appareil. `getSession()` corrige juste apres si la session est refusee.
+ *
+ * On s'abstient dans trois cas : jeton deja expire (il faut un renouvellement,
+ * donc le reseau), deconnexion volontaire en cours, et session illisible.
+ */
+const sessionDejaConnue = (): User | null => {
+  if (!IS_STATIC) return null;
+  try {
+    if (sessionStorage.getItem('bera_just_logged_out') === '1') return null;
+    const brut = localStorage.getItem('beramethode_supabase_session');
+    if (!brut) return null;
+    const s = JSON.parse(brut);
+    const expireA = typeof s?.expires_at === 'number' ? s.expires_at * 1000 : 0;
+    // Une marge d'une minute : un jeton qui expire dans les secondes qui
+    // viennent ne vaut pas mieux qu'un jeton expire.
+    if (!expireA || expireA - 60_000 <= Date.now()) return null;
+    return mapSupabaseUser(s.user ?? null);
+  } catch { return null; }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  /* Ouverture immediate sur la session deja connue. La cle d'isolation est
+     posee DANS l'initialiseur, donc avant le premier rendu : sans cela, les
+     ecrans liraient les cles scopees de l'ancien compte (fuite de donnees d'un
+     compte a l'autre sur le meme appareil). */
+  const [user, setUser] = useState<User | null>(() => {
+    const connu = sessionDejaConnue();
+    if (connu) {
+      try { ensureLocalDataOwner(String(connu.id)); memoriserScope(connu.email, String(connu.id)); } catch { /* ignore */ }
+    }
+    return connu;
+  });
+  /* Plus d'ecran de chargement quand on sait deja qui est la : il ne masquait
+     qu'une lecture de localStorage. Il reste pour le premier demarrage et pour
+     le mode serveur, ou la session doit vraiment etre demandee. */
+  const [loading, setLoading] = useState(() => user === null);
 
   useEffect(() => {
     if (!IS_STATIC) {
