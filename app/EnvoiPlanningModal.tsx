@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { CalendarPlus, LineChart } from 'lucide-react';
 import SheetModal from '../components/shared/SheetModal';
 import { tx } from '../lib/i18n';
@@ -20,12 +20,19 @@ interface Props {
     quantiteParDefaut: number;
     onClose: () => void;
     onConfirm: (v: { chaineId: string; dateLancement: string; dds: string; quantite: number }) => void;
+    /**
+     * Fin de production estimee pour la saisie en cours, ou null si elle n'est
+     * pas calculable. Rend visible AVANT de valider ce que le planning va
+     * deduire : une fin dans deux ans se voit tout de suite, au lieu d'etre
+     * decouverte des semaines plus tard dans le suivi.
+     */
+    estimerFin?: (v: { chaineId: string; dateLancement: string; quantite: number }) => { fin: string; jours: number } | null;
 }
 
 const aujourdhui = () => new Date().toISOString().split('T')[0];
 
 export default function EnvoiPlanningModal({
-    mode, modelName, chains, chaineParDefaut, quantiteParDefaut, onClose, onConfirm,
+    mode, modelName, chains, chaineParDefaut, quantiteParDefaut, onClose, onConfirm, estimerFin,
 }: Props) {
     const { lang } = useLang();
     const [chaineId, setChaineId] = useState(chains.includes(chaineParDefaut) ? chaineParDefaut : (chains[0] || 'CHAINE 1'));
@@ -34,6 +41,20 @@ export default function EnvoiPlanningModal({
     const [quantite, setQuantite] = useState<number | ''>(quantiteParDefaut > 0 ? quantiteParDefaut : '');
 
     const estPlanning = mode === 'planning';
+
+    /* La duree deduite de la quantite, du SAM du modele et de l'effectif de la
+       chaine. Une duree aberrante ne vient jamais de la date saisie — elle vient
+       de l'une de ces trois valeurs, et c'est la qu'il faut la corriger. Au-dela
+       d'un trimestre ouvre pour un seul OF, on le dit. */
+    const estimation = useMemo(() => {
+        if (!estimerFin || quantite === '' || Number(quantite) <= 0 || !dateLancement) return null;
+        try {
+            return estimerFin({ chaineId, dateLancement, quantite: Number(quantite) });
+        } catch {
+            return null;
+        }
+    }, [estimerFin, chaineId, dateLancement, quantite]);
+    const dureeSuspecte = !!estimation && estimation.jours > 65;
 
     const titre = estPlanning
         ? tx(lang, { fr: 'Envoyer vers le Planning', ar: 'إرسال إلى التخطيط', en: 'Send to Planning', es: 'Enviar a Planificación', pt: 'Enviar para o Planeamento', tr: "Planlamaya gönder" })
@@ -113,6 +134,31 @@ export default function EnvoiPlanningModal({
                         className={champ}
                     />
                 </label>
+
+                {/* Ce que le planning va en deduire, avant de valider. */}
+                {estimation && (
+                    <div className={`rounded-xl border px-3 py-2 ${dureeSuspecte
+                        ? 'border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/20'
+                        : 'border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-elevated/60'}`}>
+                        <p className={`text-[12px] font-black ${dureeSuspecte ? 'text-amber-800 dark:text-amber-300' : 'text-slate-700 dark:text-dk-text'}`}>
+                            {tx(lang, { fr: 'Fin estimée', ar: 'النهاية المقدّرة', en: 'Estimated end', es: 'Fin estimado', pt: 'Fim estimado', tr: 'Tahmini bitis' })}
+                            {' : '}{estimation.fin}
+                            <span className="font-bold"> ({estimation.jours} {tx(lang, { fr: 'jours ouvrés', ar: 'يوم عمل', en: 'working days', es: 'días hábiles', pt: 'dias úteis', tr: 'is gunu' })})</span>
+                        </p>
+                        {dureeSuspecte && (
+                            <p className="mt-0.5 text-[10px] font-bold text-amber-700/90 dark:text-amber-400/90 leading-snug">
+                                {tx(lang, {
+                                    fr: 'Durée inhabituelle pour un seul OF. Elle vient du temps de l’article (SAM) ou de l’effectif de la chaîne, pas de la date saisie — vérifiez-les avant de lancer.',
+                                    ar: 'مدة غير معتادة لأمر واحد. كتجي من زمن القطعة (SAM) أو من عدد عمّال الشين، ماشي من التاريخ — تأكد منهم قبل ما تلانصي.',
+                                    en: 'Unusual duration for a single order. It comes from the article time (SAM) or the line headcount, not from the date entered — check them before launching.',
+                                    es: 'Duración inusual para una sola OF. Viene del tiempo del artículo (SAM) o de la plantilla de la línea, no de la fecha — compruébelos antes de lanzar.',
+                                    pt: 'Duração invulgar para uma só OF. Vem do tempo do artigo (SAM) ou do efetivo da linha, não da data — verifique-os antes de lançar.',
+                                    tr: 'Tek bir is emri icin olagandisi sure. Girilen tarihten degil, urun suresinden (SAM) veya hat mevcudundan gelir — baslatmadan once kontrol edin.',
+                                })}
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {(quantite === '' || Number(quantite) <= 0) && (
                     <p className="text-[11px] font-bold text-rose-600 dark:text-rose-300">

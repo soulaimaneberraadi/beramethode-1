@@ -2632,6 +2632,25 @@ export default function App() {
                             chains={chains}
                             chaineParDefaut={globalChaineId}
                             quantiteParDefaut={Number(m.meta_data?.quantity) || 0}
+                            /* Meme calcul que celui applique a la confirmation : la
+                               fenetre montre exactement ce qui sera pose, jamais une
+                               approximation qui differerait du resultat. */
+                            estimerFin={({ chaineId, dateLancement, quantite }) => {
+                                if (!(quantite > 0) || !dateLancement) return null;
+                                const sam = Number(m.meta_data?.total_temps) || 15;
+                                const rendementModele = m.ficheData?.targetEfficiency ?? 85;
+                                const facteurPlanning = m.ficheData?.facteurPlanning ?? 60;
+                                const rendement = (rendementModele * facteurPlanning) / 10000;
+                                const bufferLancement = m.ficheData?.bufferLancement !== undefined
+                                    ? m.ficheData.bufferLancement
+                                    : (globalSettings.changeoverDurationMins ?? 120);
+                                const finIso = calculateEndDate(dateLancement, quantite, sam, rendement, globalSettings, chaineId, bufferLancement);
+                                const fin = finIso.split('T')[0];
+                                const jours = Math.max(1, Math.round(
+                                    (Date.parse(`${fin}T00:00:00`) - Date.parse(`${dateLancement}T00:00:00`)) / 86400000,
+                                ));
+                                return { fin, jours };
+                            }}
                             onClose={() => setEnvoiPlanning(null)}
                             onConfirm={({ chaineId, dateLancement, dds, quantite }) => {
                                 const enSuivi = envoiPlanning.mode === 'suivi';
