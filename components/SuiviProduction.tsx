@@ -49,6 +49,8 @@ interface Props {
     onSetPosteTemps?: (modelId: string, posteId: string, tempsMin: number) => Promise<void>;
     /** Ramene un OF a aujourd'hui en gardant sa duree (cf. SuiviPostes). */
     onDeplacerOFAujourdhui?: (planningId: string) => void;
+    /** Dit si un poste sort une piece finie ou une simple partie (col, coupe...). */
+    onSetPosteSection?: (modelId: string, posteId: string, section: 'PREPARATION' | 'MONTAGE') => Promise<void>;
 }
 
 const SUIVI_LABELS = {
@@ -149,6 +151,7 @@ export default function SuiviProduction({
     onAddPoste,
     onRemovePoste,
     onSetPosteTemps,
+    onSetPosteSection,
 }: Props) {
     // 1. Core States
     const { lang } = useLang();
@@ -1663,6 +1666,7 @@ export default function SuiviProduction({
                     focusPlanningId={ofDirectId}
                     onFocusPlanningConsumed={() => setOfDirectId(null)}
                     onDeplacerOFAujourdhui={setPlanningEvents ? deplacerOFAujourdhui : undefined}
+                    onSetPosteSection={onSetPosteSection}
                 />
             ) : (
             <>

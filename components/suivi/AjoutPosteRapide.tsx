@@ -28,6 +28,9 @@ const L = {
     nouveau: { fr: 'Nouveau libelle — il sera garde pour les prochaines fois', ar: 'وصف جديد — غادي يتحفظ للمرات الجاية', en: 'New label — it will be kept for next time', es: 'Nuevo texto — se guardara para la proxima vez', pt: 'Novo texto — sera guardado para a proxima vez', tr: 'Yeni tanim — bir dahaki sefere saklanacak' },
     fois: { fr: 'fois', ar: 'مرة', en: 'times', es: 'veces', pt: 'vezes', tr: 'kez' },
     catalogue: { fr: 'temps valide au catalogue', ar: 'زمن مُصادَق فالكتالوگ', en: 'time validated in the catalogue', es: 'tiempo validado en el catalogo', pt: 'tempo validado no catalogo', tr: 'katalogda dogrulanmis sure' },
+    partie: { fr: 'Partie', ar: 'جزء', en: 'Part', es: 'Parte', pt: 'Parte', tr: 'Parca' },
+    pieceFinie: { fr: 'Vetement', ar: 'حويج كامل', en: 'Garment', es: 'Prenda', pt: 'Peca', tr: 'Giysi' },
+    sortAide: { fr: 'Une partie (col, poche, coupe) ne fait pas avancer la commande : seul le vetement compte.', ar: 'الجزء (كول، جيب، كوب) ما كيقدّمش الكوموند: غير الحويج الكامل كيتحسب.', en: 'A part (collar, pocket, cut) does not advance the order: only the garment counts.', es: 'Una parte (cuello, bolsillo, corte) no hace avanzar el pedido: solo cuenta la prenda.', pt: 'Uma parte (gola, bolso, corte) nao faz avancar a encomenda: so a peca conta.', tr: 'Bir parca (yaka, cep, kesim) siparisi ilerletmez: yalnizca giysi sayilir.' },
     sansTemps: { fr: 'sans temps connu', ar: 'بلا زمن معروف', en: 'no known time', es: 'sin tiempo conocido', pt: 'sem tempo conhecido', tr: 'bilinen sure yok' },
 };
 
@@ -59,6 +62,10 @@ export default function AjoutPosteRapide({ models, activeModel, workers, chaineC
     const [nomOuvrier, setNomOuvrier] = useState('');
     const [enCours, setEnCours] = useState(false);
     const [fait, setFait] = useState(false);
+    /* Ce que sort le poste : un vetement, ou une partie (col, poche, coupe).
+       Pose des la creation, car c'est lui qui decide si le poste compte dans la
+       sortie de chaine — le corriger apres coup fausse les totaux entre-temps. */
+    const [sortPartie, setSortPartie] = useState(false);
     const [listeVisible, setListeVisible] = useState(false);
     const champRef = useRef<HTMLInputElement | null>(null);
 
@@ -117,6 +124,7 @@ export default function AjoutPosteRapide({ models, activeModel, workers, chaineC
 
     const reinitialiser = () => {
         setDescription(''); setMachine(''); setTempsSecHerite(null); setNomOuvrier('');
+        setSortPartie(false);
         setListeVisible(false);
     };
 
@@ -138,7 +146,7 @@ export default function AjoutPosteRapide({ models, activeModel, workers, chaineC
             machineName: machine.trim() || undefined,
             time: tempsMin,
             manualTime: tempsMin || undefined,
-            section: 'MONTAGE',
+            section: sortPartie ? 'PREPARATION' : 'MONTAGE',
         };
         setEnCours(true);
         try {
@@ -255,6 +263,22 @@ export default function AjoutPosteRapide({ models, activeModel, workers, chaineC
                 >
                     ×
                 </button>
+            </div>
+
+            {/* Vetement ou partie, au moment ou l'on cree le poste. */}
+            <div className="mt-1.5 flex items-center gap-1" title={tx(lang, L.sortAide)}>
+                {[false, true].map(partie => (
+                    <button
+                        key={String(partie)}
+                        type="button"
+                        onClick={() => setSortPartie(partie)}
+                        className={`h-8 px-2.5 rounded-lg text-[11px] font-black transition-colors ${sortPartie === partie
+                            ? 'bg-indigo-600 text-white'
+                            : 'border border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:border-indigo-400'}`}
+                    >
+                        {tx(lang, partie ? L.partie : L.pieceFinie)}
+                    </button>
+                ))}
             </div>
 
             {description.trim() !== '' && !dejaConnue && (

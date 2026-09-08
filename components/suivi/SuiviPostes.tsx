@@ -35,6 +35,8 @@ interface Props {
     onFocusPlanningConsumed?: () => void;
     /** Ramene l'OF a aujourd'hui en gardant sa duree, quand il a ete lance trop loin. */
     onDeplacerOFAujourdhui?: (planningId: string) => void;
+    /** Dit si un poste sort une piece finie ou une simple partie (col, coupe...). */
+    onSetPosteSection?: (modelId: string, posteId: string, section: 'PREPARATION' | 'MONTAGE') => Promise<void>;
 }
 
 const L = {
@@ -100,6 +102,11 @@ const L = {
     changerOuvrier: { fr: 'Changer l’ouvrier', ar: 'بدّل العامل', en: 'Change the worker', es: 'Cambiar el operario', pt: 'Mudar o operario', tr: 'Isciyi degistir' },
     supprimerPoste: { fr: 'Supprimer le poste', ar: 'مسح المنصب', en: 'Delete the poste', es: 'Eliminar el puesto', pt: 'Eliminar o posto', tr: 'Istasyonu sil' },
     supprimerConfirme: { fr: 'Retirer ce poste de la gamme ? Les releves deja saisis sont conserves, mais le poste disparait de cette liste.', ar: 'تمسح هاد المنصب من الگام؟ التسجيلات اللي دايرين كيبقاو، ولكن المنصب غادي يختافى من هاد اللائحة.', en: 'Remove this poste from the gamme? Entries already recorded are kept, but the poste disappears from this list.', es: '¿Quitar este puesto de la gama? Los registros ya introducidos se conservan, pero el puesto desaparece de esta lista.', pt: 'Remover este posto da gama? Os registos ja feitos sao mantidos, mas o posto desaparece desta lista.', tr: 'Bu istasyon gammeden kaldirilsin mi? Girilen kayitlar korunur, ancak istasyon bu listeden kaybolur.' },
+    partie: { fr: 'Partie', ar: 'جزء', en: 'Part', es: 'Parte', pt: 'Parte', tr: 'Parca' },
+    partieTitre: { fr: 'Ce poste sort une partie (col, poche, coupe), pas un vetement : son compte n’entre pas dans la sortie chaine et ne fait pas avancer la commande.', ar: 'هاد المنصب كيخرّج جزء (كول، جيب، كوب)، ماشي حويج كامل: ما كيدخلش فخروج الشين وما كيقدّمش الكوموند.', en: 'This poste outputs a part (collar, pocket, cut), not a garment: its count stays out of the line output and does not advance the order.', es: 'Este puesto saca una parte (cuello, bolsillo, corte), no una prenda: no entra en la salida de linea ni hace avanzar el pedido.', pt: 'Este posto produz uma parte (gola, bolso, corte), nao uma peca de roupa: nao entra na saida da linha nem faz avancar a encomenda.', tr: 'Bu istasyon bir parca (yaka, cep, kesim) uretir, giysi degil: hat cikisina girmez ve siparisi ilerletmez.' },
+    sortPieceFinieLabel: { fr: 'Ce que sort ce poste', ar: 'شنو كيخرّج هاد المنصب', en: 'What this poste outputs', es: 'Lo que saca este puesto', pt: 'O que este posto produz', tr: 'Bu istasyonun urettigi' },
+    pieceFinie: { fr: 'Vetement', ar: 'حويج كامل', en: 'Garment', es: 'Prenda', pt: 'Peca', tr: 'Giysi' },
+    sectionAide: { fr: 'Seul un vetement fait avancer la commande. Cent cols ne sont pas cent pieces.', ar: 'غير الحويج الكامل كيقدّم الكوموند. ميّة كول ماشي ميّة قطعة.', en: 'Only a garment advances the order. A hundred collars are not a hundred pieces.', es: 'Solo una prenda hace avanzar el pedido. Cien cuellos no son cien piezas.', pt: 'So uma peca faz avancar a encomenda. Cem golas nao sao cem pecas.', tr: 'Siparisi yalnizca giysi ilerletir. Yuz yaka, yuz parca degildir.' },
     tendanceChaineTitre: { fr: 'Dernier creneau termine face a la moyenne des precedents', ar: 'آخر فترة سالات مقارنة بمعدّل اللي قبلها', en: 'Last completed slot against the average of the previous ones', es: 'Ultimo tramo terminado frente a la media de los anteriores', pt: 'Ultima faixa terminada face a media das anteriores', tr: 'Tamamlanan son dilim, oncekilerin ortalamasina karsi' },
     jourFutur: { fr: 'Jour a venir — rien a relever encore', ar: 'نهار جاي — مازال ما كاين ما يتسجّل', en: 'Future day — nothing to record yet', es: 'Dia futuro — todavia nada que registrar', pt: 'Dia futuro — ainda nada a registar', tr: 'Gelecek gun — henuz kaydedilecek bir sey yok' },
     jourFuturHint: { fr: 'On ne note que ce qui est deja sorti de la chaine : les cases s’ouvriront le jour venu. Cet OF a ete lance a cette date — passez a aujourd’hui pour saisir la production du jour.', ar: 'كنسجّلو غير اللي خرج من الشين: الخانات غادي يتحلّو ملي يجي النهار. هاد الأمر تلانصا فهاد التاريخ — دوز لليوم باش تسجّل إنتاج النهار.', en: 'Only what has already come off the line is recorded: the cells open when the day comes. This order was launched on that date — switch to today to enter today’s output.', es: 'Solo se anota lo que ya ha salido de la linea: las casillas se abriran ese dia. Esta OF se lanzo en esa fecha — pase a hoy para registrar la produccion.', pt: 'So se regista o que ja saiu da linha: as celulas abrem no proprio dia. Esta OF foi lancada nessa data — passe para hoje para registar a producao.', tr: 'Yalnizca hattan cikmis olan kaydedilir: hucreler o gun gelince acilir. Bu is emri o tarihte baslatildi — bugunun uretimini girmek icin bugune gecin.' },
@@ -159,7 +166,7 @@ function todayStr(): string {
     return new Date().toISOString().split('T')[0];
 }
 
-export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste, onSetPosteTemps, focusPlanningId, onFocusPlanningConsumed, onDeplacerOFAujourdhui }: Props) {
+export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste, onSetPosteTemps, focusPlanningId, onFocusPlanningConsumed, onDeplacerOFAujourdhui, onSetPosteSection }: Props) {
     const { lang } = useLang();
     /* Le releve se fait au pied de la chaine, telephone en main : un tableau
        de douze colonnes n'y tient pas. Sur petit ecran, les creneaux se lisent
@@ -475,6 +482,13 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         await onAddPoste(activeModel.id, gammeNonReprise);
     };
 
+    /** Bascule un poste entre « vetement » et « partie ». */
+    const fixerSectionPoste = async (poste: Operation, section: 'PREPARATION' | 'MONTAGE') => {
+        if (!activeModel || !onSetPosteSection) return;
+        setMenuPosteId(null);
+        await onSetPosteSection(activeModel.id, poste.id, section);
+    };
+
     /* Retirer un poste NE detruit aucun releve : les lignes de poste_suivi
        gardent leur trace, seule la gamme perd la ligne. On le dit avant, sinon
        l'utilisateur croit effacer sa journee. */
@@ -536,15 +550,40 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         return { sens: pct > 0 ? 'hausse' : 'baisse', pct: Math.abs(pct) };
     };
 
-    /* Ce qui SORT de la chaine : le dernier poste de la gamme. Additionner tous
-       les postes comptait la meme piece a chaque operation qu'elle traverse —
-       cinq postes, cinq pieces pour une seule. */
+    /**
+     * Un poste sort-il un VETEMENT, ou seulement une PARTIE ?
+     *
+     * Tout poste ne produit pas la meme chose. « Coupe », « col », « poche »
+     * sortent des morceaux : cent cols ne sont pas cent pieces livrables, et les
+     * compter comme telles gonflerait la sortie de chaine et ferait croire la
+     * commande avancee alors qu'aucun vetement n'est fini. Seule la couture qui
+     * assemble le vetement fait avancer l'OF.
+     *
+     * La gamme porte deja cette distinction : PREPARATION prepare les morceaux,
+     * MONTAGE assemble le vetement. On s'en sert, et l'utilisateur peut corriger
+     * poste par poste — le libelle seul ne suffit pas a deviner.
+     */
+    const sortPieceFinie = (op: Operation): boolean => op.section !== 'PREPARATION';
+
+    /** Le dernier poste qui sort un vetement : c'est lui la sortie de chaine. */
+    const dernierPosteFini = (): Operation | undefined => {
+        for (let i = postes.length - 1; i >= 0; i--) {
+            if (sortPieceFinie(postes[i])) return postes[i];
+        }
+        return undefined;
+    };
+
+    /* Ce qui SORT de la chaine : le dernier poste QUI SORT UN VETEMENT.
+       Additionner tous les postes comptait la meme piece a chaque operation
+       qu'elle traverse — cinq postes, cinq pieces pour une seule ; prendre le
+       dernier poste tout court comptait des cols pour des vetements des que la
+       preparation fermait la liste. */
     const sortieChaineJour = (): number => {
-        const dernier = postes[postes.length - 1];
+        const dernier = dernierPosteFini();
         return dernier ? bilanPosteBrut(dernier.id) : 0;
     };
     const sortieChaineCreneau = (hourKey: string): number => {
-        const dernier = postes[postes.length - 1];
+        const dernier = dernierPosteFini();
         return dernier ? (celluleDe(dernier.id, hourKey)?.pieces_sorties || 0) : 0;
     };
 
@@ -561,7 +600,9 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
        par nature, et le retenir ferait plonger la tendance au debut de chaque
        heure, pour remonter a sa fin. */
     const tendanceChaine = useMemo(() => {
-        const dernier = postes[postes.length - 1];
+        // Meme sortie que « Sortie chaine » : une tendance calculee sur un poste
+        // de preparation parlerait de cols, pas de vetements.
+        const dernier = dernierPosteFini();
         if (!dernier) return null;
         const finis = hourGrid.blocks.filter(b => new Date(date).setHours(0, b.endMin, 0, 0) <= Date.now());
         if (finis.length < 2) return null;
@@ -1304,10 +1345,19 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                         onSupprimer={onRemovePoste ? () => void supprimerPoste(poste) : undefined}
                                                         onFixerTemps={onSetPosteTemps ? (sec) => void fixerTempsPoste(poste, sec) : undefined}
                                                         mesureSec={mesureChronoSec(poste.id)}
+                                                        onFixerSection={onSetPosteSection ? (sec) => void fixerSectionPoste(poste, sec) : undefined}
                                                     />
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex items-center gap-1.5 min-w-0">
                                                             <p className="font-black text-[13px] text-slate-800 dark:text-dk-text truncate">{poste.description || poste.id}</p>
+                                                            {!sortPieceFinie(poste) && (
+                                                                <span
+                                                                    title={tx(lang, L.partieTitre)}
+                                                                    className="shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                                                >
+                                                                    {tx(lang, L.partie)}
+                                                                </span>
+                                                            )}
                                                             {t && (
                                                                 <span
                                                                     className={`shrink-0 text-[10px] font-black tabular-nums ${t.sens === 'hausse' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}
@@ -1556,6 +1606,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                 onSupprimer={onRemovePoste ? () => void supprimerPoste(poste) : undefined}
                                                                 onFixerTemps={onSetPosteTemps ? (sec) => void fixerTempsPoste(poste, sec) : undefined}
                                                                 mesureSec={mesureChronoSec(poste.id)}
+                                                                onFixerSection={onSetPosteSection ? (sec) => void fixerSectionPoste(poste, sec) : undefined}
                                                             />
                                                         </div>
                                                     </td>
@@ -1872,13 +1923,15 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
  * Menu « ⋮ » d'un poste : ce qui ne se fait qu'une fois par jour ne doit pas
  * occuper la ligne en permanence — changer l'ouvrier, retirer le poste.
  */
-function MenuPoste({ poste, lang, ouvert, onToggle, onChangerOuvrier, onSupprimer, onFixerTemps, mesureSec }: {
+function MenuPoste({ poste, lang, ouvert, onToggle, onChangerOuvrier, onSupprimer, onFixerTemps, mesureSec, onFixerSection }: {
     poste: Operation; lang: string; ouvert: boolean; onToggle: () => void;
     onChangerOuvrier: () => void; onSupprimer?: () => void;
     /** Enregistre le temps standard, en SECONDES par piece. */
     onFixerTemps?: (tempsSec: number) => void;
     /** Temps deja mesure au chrono sur ce poste, en secondes — a adopter d'un clic. */
     mesureSec?: number | null;
+    /** Dit si ce poste sort un vetement ou une simple partie. */
+    onFixerSection?: (section: 'PREPARATION' | 'MONTAGE') => void;
 }) {
     const [confirme, setConfirme] = useState(false);
     const [tsSaisi, setTsSaisi] = useState<string>(poste.time > 0 ? String(Number((poste.time * 60).toFixed(1))) : '');
@@ -1909,6 +1962,37 @@ function MenuPoste({ poste, lang, ouvert, onToggle, onChangerOuvrier, onSupprime
                         >
                             <User className="w-3.5 h-3.5" /> {tx(lang, L.changerOuvrier)}
                         </button>
+
+                        {/* Vetement ou partie : c'est ce reglage qui decide si le poste
+                            compte dans la sortie de chaine. Le libelle seul ne permet pas
+                            de deviner — « assemblage cote » peut etre l'un ou l'autre. */}
+                        {onFixerSection && (
+                            <div className="px-3 py-2.5 border-t border-slate-100 dark:border-dk-border/50">
+                                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
+                                    {tx(lang, L.sortPieceFinieLabel)}
+                                </p>
+                                <p className="mt-0.5 text-[9px] font-bold text-slate-400 dark:text-dk-muted leading-snug">{tx(lang, L.sectionAide)}</p>
+                                <div className="mt-1.5 flex items-center gap-1">
+                                    {(['MONTAGE', 'PREPARATION'] as const).map(sec => {
+                                        const actif = sec === 'PREPARATION'
+                                            ? poste.section === 'PREPARATION'
+                                            : poste.section !== 'PREPARATION';
+                                        return (
+                                            <button
+                                                key={sec}
+                                                type="button"
+                                                onClick={() => onFixerSection(sec)}
+                                                className={`flex-1 h-8 rounded-lg text-[11px] font-black transition-colors ${actif
+                                                    ? 'bg-indigo-600 text-white'
+                                                    : 'border border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:border-indigo-400'}`}
+                                            >
+                                                {tx(lang, sec === 'PREPARATION' ? L.partie : L.pieceFinie)}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Le temps standard : c'est lui qui rend le rendement et la
                             prime possibles. On le saisit en secondes — la langue de
