@@ -292,6 +292,10 @@ export default function App() {
        et la DDS se choisissent dans une fenetre de l'application, plus dans une
        boite systeme qui acceptait n'importe quel texte. */
     const [envoiPlanning, setEnvoiPlanning] = useState<{ model: ModelData; mode: 'planning' | 'suivi' } | null>(null);
+    /* OF a mettre sous les yeux en arrivant au Planning : sans lui, le Gantt
+       s'ouvre sur le mois courant et l'OF cree pour une date lointaine reste
+       invisible — le transfert depuis la Bibliotheque semblait alors sans effet. */
+    const [planningFocusId, setPlanningFocusId] = useState<string | null>(null);
     const [globalChaineId, setGlobalChaineId] = useState<string>('CHAINE 2');
     const [globalDate, setGlobalDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
     const [hrInitialWorker, setHrInitialWorker] = useState<{ name: string; ts: number } | null>(null);
@@ -2124,6 +2128,7 @@ export default function App() {
                                 const deja = planningEvents.find(p => p.modelId === m.id);
                                 if (deja) {
                                     setGlobalChaineId(deja.chaineId || globalChaineId);
+                                    setPlanningFocusId(deja.id);
                                     setCurrentView('planning');
                                     navigate('planning');
                                     return;
@@ -2233,6 +2238,8 @@ export default function App() {
                             }}
                             settings={globalSettings}
                             machines={machines}
+                            focusEventId={planningFocusId}
+                            onFocusEventConsumed={() => setPlanningFocusId(null)}
                         />
                     )}
 
@@ -2630,6 +2637,7 @@ export default function App() {
                                     setCurrentView('suivi');
                                     navigate('suivi');
                                 } else {
+                                    setPlanningFocusId(nouvelOF.id);
                                     setCurrentView('planning');
                                     navigate('planning');
                                 }

@@ -229,10 +229,17 @@ export default function SuiviProduction({
     // Active translation dictionary
     const l = useMemo(() => buildSuiviLabels(lang), [lang]);
 
+    /* OF vise par une arrivee directe (Bibliotheque > Lancer Suivi). `directModelId`
+       est consomme des la premiere passe : sans cette memoire, l'onglet « par poste »
+       rouvrait l'OF garde en localStorage et le modele qu'on venait de lancer
+       n'apparaissait nulle part. */
+    const [ofDirectId, setOfDirectId] = useState<string | null>(null);
+
     // Redirection effect for direct model tracking
     useEffect(() => {
         if (directModelId) {
             const plan = planningEvents.find(p => p.modelId === directModelId);
+            setOfDirectId(plan ? plan.id : null);
             let targetChaineId = selectedChaineId;
             let targetDate: Date | null = null;
 
@@ -1612,6 +1619,8 @@ export default function SuiviProduction({
                     onAddPoste={onAddPoste}
                     onRemovePoste={onRemovePoste}
                     onSetPosteTemps={onSetPosteTemps}
+                    focusPlanningId={ofDirectId}
+                    onFocusPlanningConsumed={() => setOfDirectId(null)}
                 />
             ) : (
             <>

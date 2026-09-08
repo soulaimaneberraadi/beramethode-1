@@ -29,6 +29,10 @@ interface Props {
     onRemovePoste?: (modelId: string, posteId: string) => Promise<void>;
     /** Fixe le temps standard d'un poste du releve, en MINUTES par piece. */
     onSetPosteTemps?: (modelId: string, posteId: string, tempsMin: number) => Promise<void>;
+    /** OF a ouvrir en arrivant (Bibliotheque > Lancer Suivi), avant la memoire locale. */
+    focusPlanningId?: string | null;
+    /** Appele une fois l'OF ouvert, pour ne pas rejouer le focus a chaque rendu. */
+    onFocusPlanningConsumed?: () => void;
 }
 
 const L = {
@@ -144,7 +148,7 @@ function todayStr(): string {
     return new Date().toISOString().split('T')[0];
 }
 
-export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste, onSetPosteTemps }: Props) {
+export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste, onSetPosteTemps, focusPlanningId, onFocusPlanningConsumed }: Props) {
     const { lang } = useLang();
     /* Le releve se fait au pied de la chaine, telephone en main : un tableau
        de douze colonnes n'y tient pas. Sur petit ecran, les creneaux se lisent
@@ -263,8 +267,18 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         try { localStorage.setItem(CLE_DERNIER_OF, id); } catch { /* navigation privee */ }
     };
 
+    /* Une arrivee directe depuis la Bibliotheque impose SON OF : la memoire locale
+       du dernier releve, elle, ne vaut que pour un retour ordinaire sur la page. */
+    useEffect(() => {
+        if (!focusPlanningId) return;
+        if (!planningsChaine.some(p => p.id === focusPlanningId)) return;
+        choisirPlanning(focusPlanningId);
+        onFocusPlanningConsumed?.();
+    }, [focusPlanningId, planningsChaine]);
+
     useEffect(() => {
         if (planningsChaine.length === 0) { setSelectedPlanningId(''); return; }
+        if (focusPlanningId && planningsChaine.some(p => p.id === focusPlanningId)) return;
         if (planningsChaine.some(p => p.id === selectedPlanningId)) return;
         let dernier = '';
         try { dernier = localStorage.getItem(CLE_DERNIER_OF) || ''; } catch { /* ignore */ }
@@ -958,12 +972,28 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                         )}
 
                         {activeModel && postes.length === 0 && onAddPoste && (
-                            <AjoutPosteRapide
-                                models={models}
-                                activeModel={activeModel}
-                                workers={workersSorted}
-                                onAjouter={ajouterPoste}
-                            />
+                            <>
+                                <AjoutPosteRapide
+                                    models={models}
+                                    activeModel={activeModel}
+                                    workers={workersSorted}
+                                    onAjouter={ajouterPoste}
+                                />
+                                {/* Un modele qui arrive de la Bibliotheque a deja sa gamme
+                                    mais aucun releve : la liste des postes etait donc vide
+                                    ET sans issue, puisque « Reprendre la gamme » ne
+                                    s'affichait qu'une fois un premier poste cree a la main.
+                                    Le raccourci doit exister d'abord ici, la ou il manque. */}
+                                {gammeNonReprise.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { void reprendreGamme(); }}
+                                        className="px-4 py-2.5 min-h-[40px] rounded-xl border border-indigo-200 dark:border-dk-border bg-indigo-50 dark:bg-dk-elevated text-indigo-700 dark:text-dk-accent text-[12px] font-black hover:bg-indigo-100 dark:hover:bg-dk-accent/20 transition-colors"
+                                    >
+                                        {tx(lang, L.reprendreGamme)} ({gammeNonReprise.length})
+                                    </button>
+                                )}
+                            </>
                         )}
 
                     </div>

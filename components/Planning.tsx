@@ -59,12 +59,17 @@ interface PlanningProps {
     onOpenSuivi?: (planningEventId: string) => void;
     onOpenInIngenierie?: (modelId: string) => void;
     onOpenPedido?: (event: PlanningEvent) => void;
+    /** OF sur lequel se placer en arrivant (transfert depuis la Bibliotheque). */
+    focusEventId?: string | null;
+    /** Appele une fois l'OF affiche, pour que le focus ne se rejoue pas. */
+    onFocusEventConsumed?: () => void;
 }
 
 export default function Planning({
     models, planningEvents, suivis,
     setPlanningEvents, settings, machines,
     onOpenSuivi, onOpenInIngenierie, onOpenPedido,
+    focusEventId, onFocusEventConsumed,
 }: PlanningProps) {
 
     const { lang } = useLang();
@@ -154,6 +159,24 @@ export default function Planning({
             return {};
         }
     });
+    /* Arrivee depuis la Bibliotheque : le Gantt s'ouvrait toujours sur le mois
+       COURANT, alors que l'OF qu'on vient de creer peut etre lance des mois plus
+       tard. Le modele etait bien planifie, mais hors de l'ecran — donc « absent »
+       pour l'utilisateur. On se place sur son mois de lancement, on le
+       selectionne, et on leve un filtre de chaine qui le masquerait. */
+    useEffect(() => {
+        if (!focusEventId) return;
+        const ev = planningEvents.find(e => e.id === focusEventId);
+        if (!ev) return;
+        const jour = ev.startDate || ev.dateLancement;
+        const d = jour ? new Date(`${jour}T00:00:00`) : null;
+        if (d && !Number.isNaN(d.getTime())) setCurrentDate(d);
+        setSoloChainId(prev => (prev && prev !== ev.chaineId ? null : prev));
+        filtersApi.resetFilters();
+        setSelectedId(ev.id);
+        onFocusEventConsumed?.();
+    }, [focusEventId, planningEvents]);
+
     const saveNotes = (eventId: string, value: string) => {
         setNotesMap(prev => {
             const next = { ...prev, [eventId]: value };
