@@ -123,7 +123,13 @@ export default function App() {
 
     useEffect(() => {
         if (IS_STATIC) return; // setup uniquement en mode Express (EXE local)
-        fetch('/api/setup/status', { credentials: 'include' })
+        // Délai maximal : une requête suspendue (serveur muet) laissait
+        // `setupNeeded` à `null`, donc l'écran de chargement bloqué à 10 %
+        // pour toujours. On abandonne au bout de 10 s et on suppose le setup
+        // déjà fait, comme pour une erreur réseau.
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        fetch('/api/setup/status', { credentials: 'include', signal: controller.signal })
             .then((r) => r.json())
             .then((data: { initialized?: boolean }) => {
                 setSetupNeeded(data.initialized === false);
@@ -132,7 +138,12 @@ export default function App() {
                 // En cas d'erreur réseau on suppose que le setup est déjà fait
                 // pour ne pas bloquer l'accès indéfiniment.
                 setSetupNeeded(false);
-            });
+            })
+            .finally(() => clearTimeout(timer));
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -203,13 +214,33 @@ export default function App() {
     const [bootAttempt, setBootAttempt] = useState(0);
     const bootRunIdRef = useRef(0);
 
+    /* Dernier filet de sécurité. Les vérifications de session sont désormais
+       bornées dans le temps (AuthContext), mais si quoi que ce soit les
+       retenait encore, l'écran de démarrage n'offrait AUCUNE sortie : ni
+       message, ni bouton. Passé ce délai on affiche l'erreur avec
+       « Réessayer » et « Hors-ligne » plutôt qu'un écran figé. */
+    const [authStalled, setAuthStalled] = useState(false);
+    const [authBypassed, setAuthBypassed] = useState(false);
     useEffect(() => {
-        if (import.meta.env.VITE_STATIC_MODE === 'true') {
-            setAppLoading(prev => ({ ...prev, isActive: false, error: null }));
+        if (!authLoading) {
+            setAuthStalled(false);
             return;
         }
+        const timer = setTimeout(() => setAuthStalled(true), 20000);
+        return () => clearTimeout(timer);
+    }, [authLoading]);
+
+    useEffect(() => {
+        // La vérification de session passe AVANT le test du mode statique :
+        // sinon, en mode statique, l'écran affiché pendant `authLoading`
+        // restait sur l'état initial — « Initialisation des modules… » à 0 % —
+        // sans jamais bouger, ce qui donnait l'impression d'un blocage.
         if (authLoading) {
             setAppLoading({ isActive: true, progress: 5, text: 'BERAMETHODE', subText: tx(lang, {fr:'Vérification de la session...',ar:'التحقق من الجلسة...',en:'Checking session...',es:'Verificando sesión...',pt:'A verificar sessão...',tr:'Oturum kontrol ediliyor...'}), error: null });
+            return;
+        }
+        if (import.meta.env.VITE_STATIC_MODE === 'true') {
+            setAppLoading(prev => ({ ...prev, isActive: false, error: null }));
             return;
         }
         if (!user) {
@@ -1665,13 +1696,23 @@ export default function App() {
         setTimeout(() => setSkipAutosaveRestore(false), 3000);
     }, [rawCreateNewProject, setNavigationContext]);
 
-    if (authLoading) {
+    if (authLoading && !authBypassed) {
         return (
             <GlobalLoader
                 isActive
                 progress={appLoading.progress}
                 text={appLoading.text}
                 subText={appLoading.subText}
+                error={authStalled ? tx(lang, {
+                    fr: "Le serveur ne répond pas. Vérifiez la connexion, puis réessayez.",
+                    ar: 'الخادم لا يستجيب. تحقق من الاتصال ثم أعد المحاولة.',
+                    en: 'The server is not responding. Check your connection and try again.',
+                    es: 'El servidor no responde. Compruebe la conexión e inténtelo de nuevo.',
+                    pt: 'O servidor não responde. Verifique a ligação e tente novamente.',
+                    tr: 'Sunucu yanıt vermiyor. Bağlantınızı kontrol edip tekrar deneyin.',
+                }) : null}
+                onRetry={authStalled ? () => window.location.reload() : undefined}
+                onContinueOffline={authStalled ? () => setAuthBypassed(true) : undefined}
             />
         );
     }

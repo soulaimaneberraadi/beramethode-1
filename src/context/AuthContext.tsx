@@ -170,10 +170,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (!IS_STATIC) {
+      // Garde-fou identique au mode statique : si le serveur ne répond jamais
+      // (Wi-Fi coupé au milieu de la requête, serveur éteint, proxy qui garde
+      // la connexion ouverte), `fetch` reste en attente SANS ERREUR et
+      // `loading` ne redescend jamais : l'écran « Initialisation des
+      // modules… » reste figé à 0 %, sans bouton pour s'en sortir.
+      // On rend la main coûte que coûte : l'écran de connexion vaut mieux
+      // qu'un écran mort.
+      let legacySettled = false;
+      const finishLegacy = () => {
+        if (legacySettled) return;
+        legacySettled = true;
+        setLoading(false);
+      };
+      const legacyTimeout = setTimeout(finishLegacy, 12000);
+
       // Legacy backend auth
       const checkAuth = async () => {
         try {
-          let res = await fetch('/api/auth/me', { credentials: 'include' });
+          let res = await withTimeout(fetch('/api/auth/me', { credentials: 'include' }), 10000);
 
           // Auto-login LOCAL uniquement (confort dev). Piloté par .env.local, qui est
           // gitignoré et N'EST JAMAIS présent dans le build Vercel → la page de login
@@ -236,11 +251,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (error) {
           console.error('Auth check failed', error);
         } finally {
-          setLoading(false);
+          clearTimeout(legacyTimeout);
+          finishLegacy();
         }
       };
       checkAuth();
-      return;
+      return () => clearTimeout(legacyTimeout);
     }
 
     // Supabase auth (static mode)  never block loading on cloud sync
@@ -316,11 +332,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // envois, et il reste APRÈS le pull. Et les écrans savent se remplir
       // après coup — ils écoutent tous `beramethode:cloud-sync-applied`.
       setUser(u);
-      if (u && IS_STATIC) {
-        await pullSnapshotFromCloud(String(u.id)).catch(() => {});
-        startCloudSync(String(u.id));
-      }
+      // ⚠️ finishLoading AVANT le pull, et le garde-fou est déjà désarmé ici :
+      // si `pullSnapshotFromCloud` ne se résout JAMAIS (requête suspendue sur
+      // un réseau mobile qui décroche, Supabase injoignable sans erreur), plus
+      // rien ne débloquait l'écran — « Initialisation des modules… » restait
+      // figé à 0 %, indéfiniment. L'identité est connue dès maintenant, et les
+      // écrans se remplissent après coup en écoutant
+      // `beramethode:cloud-sync-applied` : rien n'oblige l'utilisateur à
+      // attendre l'instantané derrière un écran de chargement.
       finishLoading();
+      if (u && IS_STATIC) {
+        pullSnapshotFromCloud(String(u.id))
+          .catch(() => {})
+          .finally(() => startCloudSync(String(u.id)));
+      }
     }).catch(() => {
       clearTimeout(sessionTimeout);
       finishLoading();

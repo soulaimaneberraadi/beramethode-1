@@ -37,13 +37,47 @@ export interface BootResult {
   durationMs: number;
 }
 
+/**
+ * Délai maximal accordé à un appel du démarrage. Sans lui, une requête qui
+ * n'aboutit ni ne casse (réseau mobile qui décroche, serveur joignable mais
+ * muet) laisse la barre de chargement immobile POUR TOUJOURS : ni erreur, ni
+ * bouton « Réessayer ». Passé ce délai on échoue franchement, ce qui affiche
+ * l'écran d'erreur avec « Réessayer » et « Hors-ligne ».
+ */
+const BOOT_FETCH_TIMEOUT_MS = 15000;
+
 const fetchJSON = async (url: string, signal: AbortSignal) => {
-  const res = await fetch(url, { credentials: 'include', signal });
-  if (!res.ok) {
-    if (res.status === 401 && url.endsWith('/api/auth/me')) return null;
-    throw new Error(`${url} → HTTP ${res.status}`);
+  // On combine l'annulation du boot (démontage/relance) et le délai maximal :
+  // dans les deux cas, `fetch` doit réellement s'arrêter.
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  if (signal.aborted) controller.abort();
+  else signal.addEventListener('abort', onAbort, { once: true });
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, BOOT_FETCH_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(url, { credentials: 'include', signal: controller.signal });
+    if (!res.ok) {
+      if (res.status === 401 && url.endsWith('/api/auth/me')) return null;
+      throw new Error(`${url} → HTTP ${res.status}`);
+    }
+    return await res.json();
+  } catch (err) {
+    // Le délai a expiré : on renvoie une vraie erreur, et non un `AbortError`
+    // que l'appelant prendrait pour une annulation volontaire (il resterait
+    // alors silencieux, écran figé).
+    if (timedOut && !signal.aborted) {
+      throw new Error(`${url} → délai dépassé (${Math.round(BOOT_FETCH_TIMEOUT_MS / 1000)} s)`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener('abort', onAbort);
   }
-  return res.json();
 };
 
 /** Étie les promesses en ajoutant un contexte d’erreur lisible. */
