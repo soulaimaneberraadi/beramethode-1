@@ -869,8 +869,11 @@ const estJetonPerime = (e: unknown): boolean => {
 
 /**
  * Dire qu'un envoi a ete refuse — au lieu de l'ecrire dans une console que
- * personne n'ouvre. L'interface ecoute cet evenement ; a defaut d'auditeur, la
- * trace reste, mais elle n'est plus la seule.
+ * personne n'ouvre.
+ *
+ * Aucun ecran n'ecoute encore cet evenement : le refus reste donc invisible a
+ * l'utilisateur, et c'est pourquoi la relance automatique ci-dessous ne doit pas
+ * dependre de lui. L'evenement reste emis pour qui voudra l'afficher.
  */
 const signalerEnvoiRefuse = (e: unknown) => {
   try {
@@ -1133,6 +1136,42 @@ export const pullSnapshotFromCloud = async (
 
 // ─── Sync ───────────────────────────────────────────────────────────────────
 
+/* ── Relance apres un envoi refuse ───────────────────────────────────────────
+ *
+ * `pushSnapshotToCloud` rend `false` quand l'envoi n'est pas passe (reseau
+ * coupe, jeton refuse, cloud illisible alors que la copie locale est amputee).
+ * RIEN ne le rejouait : le seul declencheur d'un envoi est l'ecriture d'une cle
+ * synchronisee. Si l'echec tombait sur la derniere saisie de la journee, le
+ * travail restait sur l'appareil jusqu'a la prochaine saisie — des heures plus
+ * tard, ou jamais. C'est le « serveur 26 · ici 32 » qui dure.
+ *
+ * Trois tentatives espacees suffisent a traverser une coupure ordinaire sans
+ * marteler le serveur ; au-dela, c'est un probleme durable et l'ecran de
+ * diagnostic (avec « Envoyer mes donnees maintenant ») prend le relais. */
+const RELANCE_DELAIS_MS = [15_000, 60_000, 300_000];
+let relanceTimer: ReturnType<typeof setTimeout> | null = null;
+let relanceEssais = 0;
+
+const annulerRelance = () => {
+  if (relanceTimer) { clearTimeout(relanceTimer); relanceTimer = null; }
+  relanceEssais = 0;
+};
+
+/** Envoie, et REPROGRAMME l'envoi s'il a ete refuse. */
+const pousserEtRelancerSiEchec = async (userId: string): Promise<boolean> => {
+  const ok = await pushSnapshotToCloud(userId).catch(() => false);
+  if (ok) { annulerRelance(); return true; }
+  if (relanceEssais >= RELANCE_DELAIS_MS.length) return false;
+  const delai = RELANCE_DELAIS_MS[relanceEssais];
+  relanceEssais += 1;
+  if (relanceTimer) clearTimeout(relanceTimer);
+  relanceTimer = setTimeout(() => {
+    relanceTimer = null;
+    void pousserEtRelancerSiEchec(userId);
+  }, delai);
+  return false;
+};
+
 /** Retire les écouteurs de fin de session posés par `startCloudSync`. */
 const detacherEcouteurs = () => {
   if (beforeUnloadHandler) {
@@ -1144,6 +1183,8 @@ const detacherEcouteurs = () => {
     document.removeEventListener('visibilitychange', visibiliteHandler);
     visibiliteHandler = null;
   }
+  // Une relance visant l'ancienne session n'a plus lieu d'etre.
+  annulerRelance();
 };
 
 export const startCloudSync = (userId: string) => {
@@ -1167,7 +1208,7 @@ export const startCloudSync = (userId: string) => {
       // Le regroupement repousse l'envoi, mais jamais au-dela de
       // `PUSH_ATTENTE_MAX_MS` apres la premiere ecriture en attente.
       const delai = Math.max(0, Math.min(PUSH_DEBOUNCE_MS, attenteDepuis + PUSH_ATTENTE_MAX_MS - maintenant));
-      syncTimer = setTimeout(() => { attenteDepuis = 0; void pushSnapshotToCloud(userId); }, delai);
+      syncTimer = setTimeout(() => { attenteDepuis = 0; void pousserEtRelancerSiEchec(userId); }, delai);
     }
   };
 
@@ -1175,7 +1216,7 @@ export const startCloudSync = (userId: string) => {
   const viderLaFileDAttente = () => {
     if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
     attenteDepuis = 0;
-    void pushSnapshotToCloud(userId).catch(() => false);
+    void pousserEtRelancerSiEchec(userId);
   };
 
   /* Ce qui attend encore la fin du regroupement part AVANT le pull : sinon un
@@ -1211,7 +1252,7 @@ export const startCloudSync = (userId: string) => {
       // des autres appareils. L'ordre inverse envoyait l'etat local par-dessus
       // le leur, puis sautait le pull en se croyant a jour.
       await recupererApresAvoirEnvoye();
-      await pushSnapshotToCloud(userId).catch(() => false);
+      await pousserEtRelancerSiEchec(userId);
     })();
   };
   document.addEventListener('visibilitychange', visibiliteHandler);
