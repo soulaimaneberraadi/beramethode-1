@@ -549,6 +549,37 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             </div>
                         </div>
 
+                        {/* Enchainement automatique : c'est lui qui interdit deux
+                            modeles a la fois sur une meme chaine. Il vit a cote du
+                            mode de capacite parce qu'il repond de la meme chose —
+                            comment le planning deduit les dates. */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted tracking-wider">
+                                {tx(lang, { fr: 'Enchaînement des OF', ar: 'تسلسل الأوامر', en: 'Order sequencing', es: 'Encadenamiento de OF', pt: 'Encadeamento das OF', tr: 'Is emri siralamasi' })}
+                            </label>
+                            <label className="inline-flex items-start gap-2 text-sm text-slate-700 dark:text-dk-text-soft cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={draft.planningAutoSequence !== false}
+                                    onChange={e => setDraft(prev => ({ ...prev, planningAutoSequence: e.target.checked }))}
+                                    className="mt-0.5 rounded text-indigo-600 dark:text-dk-accent-text focus:ring-indigo-500"
+                                />
+                                <span>
+                                    {tx(lang, { fr: 'Enchaîner automatiquement', ar: 'تسلسل تلقائي', en: 'Sequence automatically', es: 'Encadenar automáticamente', pt: 'Encadear automaticamente', tr: 'Otomatik sirala' })}
+                                </span>
+                            </label>
+                            <p className="text-[11px] font-medium text-slate-400 dark:text-dk-muted leading-snug">
+                                {tx(lang, {
+                                    fr: 'Coché, chaque OF démarre après la fin du précédent : une chaîne ne porte qu’un modèle à la fois, et un OF posé à côté d’un autre est repoussé tout seul. Décoché, les dates posées sont respectées et deux modèles peuvent tourner en parallèle sur la même chaîne.',
+                                    ar: 'إلا كان مفعّل، كل أمر كيبدا من بعد ما يسالي اللي قبلو: الشين كتحمل غير موديل واحد فوقت واحد، والأمر اللي كتحطّو حدا آخر كيتزحزح بوحدو. إلا طفّيتيه، التواريخ اللي حطّيتي كيتحترمو وجوج موديلات يقدرو يخدمو بجوج فنفس الشين.',
+                                    en: 'Checked, each order starts after the previous one ends: a line carries a single model at a time, and an order placed next to another is pushed on its own. Unchecked, the dates you set are kept and two models can run in parallel on the same line.',
+                                    es: 'Marcado, cada OF empieza tras el fin de la anterior: una línea lleva un solo modelo a la vez. Desmarcado, se respetan las fechas puestas y dos modelos pueden ir en paralelo en la misma línea.',
+                                    pt: 'Marcado, cada OF começa após o fim da anterior: uma linha leva um só modelo de cada vez. Desmarcado, as datas definidas são respeitadas e dois modelos podem correr em paralelo na mesma linha.',
+                                    tr: 'Isaretliyken her is emri oncekinin bitisinden sonra baslar: bir hat ayni anda tek model tasir. Isaretsizken girilen tarihler korunur ve ayni hatta iki model paralel calisabilir.',
+                                })}
+                            </p>
+                        </div>
+
                         {/* Coût heures supp */}
                         <div className="space-y-2">
                             <label className="block text-xs font-bold uppercase text-slate-500 dark:text-dk-muted tracking-wider">

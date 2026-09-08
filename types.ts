@@ -440,6 +440,16 @@ export interface AppSettings {
 
   /** Mode de calcul de la capacité : STATIC = pcs/jour fixe, DYNAMIC = Opérateurs × Minutes × η / SAM */
   capacityMode?: 'STATIC' | 'DYNAMIC';
+  /**
+   * Enchainement automatique des OF d'une meme chaine (defaut : true).
+   *
+   * A true, `rollPlanningEvents` fait demarrer chaque OF apres la fin du
+   * precedent : une chaine ne porte alors qu'un seul modele a la fois, et un OF
+   * pose a cote d'un autre est repousse tout seul. A false, les dates posees
+   * sont respectees et deux modeles peuvent tourner en parallele sur la meme
+   * chaine (chaine scindee, petites series, recouvrement de changement de serie).
+   */
+  planningAutoSequence?: boolean;
   /** Nombre d'opérateurs par chaîne (ex: { "CHAINE 1": 30, "CHAINE 2": 25 }) */
   chainOperators?: Record<string, number>;
   /** Spécialités par chaîne (ex: { "CHAINE 1": ["JACKET", "COAT"] }) */

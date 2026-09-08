@@ -357,6 +357,8 @@ export function rollPlanningEvents(
   chainEfficiencies: Record<string, number>
 ): PlanningEvent[] {
   const modelsMap = new Map(models.map(m => [m.id, m]));
+  // Defaut a true : l'enchainement existant reste le comportement de reference.
+  const autoEnchainement = settings.planningAutoSequence !== false;
 
   // Group events by chain
   const chainEventsMap = new Map<string, PlanningEvent[]>();
@@ -393,8 +395,13 @@ export function rollPlanningEvents(
 
       let start = ev.startDate || ev.dateLancement || '';
 
-      // Shift subsequent events if they are not DONE and not locked
-      if (ev.status !== 'DONE' && nextAvailableDate && !ev.isLocked) {
+      /* Decalage automatique : chaque OF demarre apres la fin du precedent.
+         C'est ce qui interdit DEUX modeles a la fois sur une meme chaine — le
+         second est repousse sans rien demander, et l'utilisateur voit ses OF
+         « bouger tout seuls ». Le reglage permet de couper cet enchainement et
+         de garder les dates posees ; « Figer la date » (isLocked) reste le
+         moyen d'y soustraire un OF isole. */
+      if (autoEnchainement && ev.status !== 'DONE' && nextAvailableDate && !ev.isLocked) {
         if (nextAvailableDate > start) {
           start = nextAvailableDate;
         }
