@@ -184,7 +184,15 @@ export function addWorkingDaysFromLaunchIso(startIso: string, daysNeeded: number
   return d;
 }
 
-/** Fin estimée OF : SAM (min/pièce) × quantité / (Nombre d'ouvriers * Minutes/jour * Performance %) + jours ouvrés. */
+/**
+ * Capacite par defaut d'une chaine, en pieces/jour.
+ * Doit rester alignee sur le `fallback` de `getChainDailyCapacity`
+ * (`utils/capacity.ts`) : c'est la valeur que l'en-tete de chaine affiche quand
+ * rien n'est regle, et la barre du Gantt doit dire la meme chose qu'elle.
+ */
+const DEFAULT_CAPACITE_CHAINE_PAR_JOUR = 1000;
+
+/** Fin estimée OF : quantité / capacité journalière de la chaîne, en jours ouvrés. */
 export function calculateEndDate(
   startIso: string,
   quantity: number,
@@ -206,8 +214,30 @@ export function calculateEndDate(
   // 4. Temps de l'article is sam in minutes
   const samMins = Math.max(0.1, sam);
 
-  // 5. Capacité Journalière (pieces per day)
-  const capacity = (operators * workMins * performance) / samMins;
+  /* 5. Capacite journaliere (pieces/jour).
+   *
+   * Le mode de capacite (Admin) tranche, exactement comme `getEffectiveCapacity`
+   * le fait pour le reste du planning :
+   *
+   *   STATIC (defaut) — la capacite REGLEE pour la chaine. C'est le nombre que
+   *     l'en-tete de la chaine affiche (« 1000 pcs/j ») et celui sur lequel les
+   *     alertes de surcharge raisonnent deja.
+   *   DYNAMIC — la capacite deduite du SAM et de l'effectif.
+   *
+   * Cette fonction appliquait TOUJOURS la formule dynamique, quel que soit le
+   * mode. En STATIC — le defaut — le Gantt annoncait donc « 1000 pcs/j » en
+   * en-tete et dessinait la barre d'apres un tout autre calcul, nourri par un
+   * effectif et un SAM que personne n'avait regles : 1260 pieces sur une chaine
+   * a 1000 pieces/jour s'etalaient sur des mois au lieu de deux jours, et les
+   * OF suivants, enchaines par `rollPlanningEvents`, partaient avec eux.
+   */
+  const capaciteDynamique = (operators * workMins * performance) / samMins;
+  const capaciteReglee = chainId ? settings.chainCapacityPerDay?.[chainId] : undefined;
+  const capacity = settings.capacityMode === 'DYNAMIC'
+    ? capaciteDynamique
+    : (typeof capaciteReglee === 'number' && Number.isFinite(capaciteReglee) && capaciteReglee > 0
+        ? capaciteReglee
+        : DEFAULT_CAPACITE_CHAINE_PAR_JOUR);
 
   // 6. Durée in days (including setup time buffer)
   const setupDays = setupMins ? (setupMins / workMins) : 0;
