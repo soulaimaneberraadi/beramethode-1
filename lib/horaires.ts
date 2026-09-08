@@ -34,6 +34,22 @@ function toMin(t: string | undefined | null): number {
   return (Number.isFinite(h) ? h * 60 : 0) + (Number.isFinite(m) ? m : 0);
 }
 
+/**
+ * Minutes depuis minuit, avec un repli qui distingue « minuit » de « absent ».
+ *
+ * `toMin('00:00')` vaut 0, une valeur PARFAITEMENT valide — et `|| 480` la
+ * remplacait par 08:00. Une equipe de nuit demarrant a minuit voyait donc sa
+ * journee amputee, et la capacite comme le pointage se calculaient sur des
+ * heures qu'elle ne travaille pas. Seule une valeur absente ou illisible
+ * justifie le repli.
+ */
+function minutesOuDefaut(t: string | undefined | null, defaut: number): number {
+  if (typeof t !== 'string' || !t.trim()) return defaut;
+  const [h, m] = t.split(':').map(Number);
+  if (!Number.isFinite(h)) return defaut;
+  return h * 60 + (Number.isFinite(m) ? m : 0);
+}
+
 /** Minutes depuis minuit -> "HH:MM". */
 function minToHHMM(m: number): string {
   const hh = Math.floor(m / 60).toString().padStart(2, '0');
@@ -167,8 +183,8 @@ function pausesDuJourNormalisees(pauses: Pause[], dayStart: number, dayEnd: numb
 export function plagesTravailleesDuJour(settings: AppSettings, dateOrDay?: Date | number): Intervalle[] {
   const h = horairesDuJour(settings, dateOrDay);
   if (h.closed) return [];
-  const dayStart = toMin(h.start) || 480;
-  const dayEnd = toMin(h.end) || 1080;
+  const dayStart = minutesOuDefaut(h.start, 480);
+  const dayEnd = minutesOuDefaut(h.end, 1080);
   if (dayEnd <= dayStart) return []; // horaire incohérent (ou vide) : aucune plage
 
   const pauses = pausesDuJourNormalisees(h.pauses, dayStart, dayEnd);
@@ -210,8 +226,8 @@ export function creneauxDuJour(
      repos (rattrapage, samedi exceptionnel) : on lui rend alors la grille que
      ce jour aurait eue, ses horaires et ses pauses, sans toucher au réglage. */
   if (h.closed && !options?.ignorerFermeture) return [];
-  const dayStart = toMin(h.start) || 480;
-  const dayEnd = toMin(h.end) || 1080;
+  const dayStart = minutesOuDefaut(h.start, 480);
+  const dayEnd = minutesOuDefaut(h.end, 1080);
   if (dayEnd <= dayStart) return [];
 
   const pauses = pausesDuJourNormalisees(h.pauses, dayStart, dayEnd);

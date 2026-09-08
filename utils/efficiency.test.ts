@@ -48,8 +48,15 @@ const { eff, n } = computeChainEfficiency([s], [ev], [model], 'CHAINE 1', settin
 assert.equal(n, 1);
 assert.ok(eff >= 0.4 && eff <= 1.2);
 
+/* Sans aucun releve, la fonction ne DEVINE pas un rendement : elle rend 0, et
+   `n = 0` dit pourquoi. C'est a l'appelant de choisir sa valeur de repli, et
+   chacun le fait selon son ecran — 0.85 pour le planning (`App.tsx`,
+   `StockExport`), le taux d'activite regle de la chaine pour l'en-tete du Gantt
+   (`usePlanningChains`). Ce test attendait 0.85, une valeur que la fonction n'a
+   jamais rendue : il echouait depuis toujours, et un test rouge en permanence
+   masque les vraies regressions. */
 const empty = computeChainEfficiency([], [], [], 'CHAINE 2', settings);
 assert.equal(empty.n, 0);
-assert.ok(empty.eff === 0.85);
+assert.equal(empty.eff, 0);
 
 console.log('efficiency.test.ts OK');

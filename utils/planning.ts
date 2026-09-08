@@ -184,7 +184,55 @@ export function addWorkingDaysFromLaunchIso(startIso: string, daysNeeded: number
   return d;
 }
 
-/** Fin estimée OF : SAM (min/pièce) × quantité / (Nombre d'ouvriers * Minutes/jour * Performance %) + jours ouvrés. */
+/**
+ * Capacite par defaut d'une chaine, en pieces/jour.
+ * Doit rester alignee sur le `fallback` de `getChainDailyCapacity`
+ * (`utils/capacity.ts`) : c'est la valeur que l'en-tete de chaine affiche quand
+ * rien n'est regle, et la barre du Gantt doit dire la meme chose qu'elle.
+ */
+const DEFAULT_CAPACITE_CHAINE_PAR_JOUR = 1000;
+
+/**
+ * SAM de repli quand le modele n'en porte aucun, en MINUTES par piece.
+ *
+ * Inventer un temps est deja discutable — mais l'inventer DIFFEREMMENT selon
+ * l'ecran l'est davantage : le planning retenait 15 min et le suivi 12, si bien
+ * que le meme modele sans gamme chiffree n'avait pas la meme capacite, la meme
+ * duree ni le meme objectif d'un ecran a l'autre. Une seule valeur, donc.
+ */
+export const SAM_PAR_DEFAUT_MIN = 15;
+
+/**
+ * Capacite journaliere d'une chaine, en pieces/jour — DEFINITION UNIQUE.
+ *
+ * Cette formule existait recopiee a trois endroits (fin d'OF, barre du Gantt,
+ * fenetre de choix du modele), et AUCUNE des copies ne regardait
+ * `settings.capacityMode` : le planning annoncait la capacite reglee en en-tete
+ * de chaine et raisonnait, partout ailleurs, sur une capacite deduite d'un SAM
+ * et d'un effectif que personne n'avait regles. Une seule definition, donc, et
+ * tout le module dit desormais le meme nombre.
+ *
+ *   STATIC (defaut) — la capacite REGLEE pour la chaine (Admin), celle que
+ *     l'en-tete affiche et sur laquelle les alertes de surcharge raisonnent.
+ *   DYNAMIC — la capacite deduite : operateurs x minutes x performance / SAM.
+ */
+export function capaciteJournaliereChaine(
+  settings: AppSettings,
+  chainId: string | undefined,
+  samMinutes: number,
+  performance: number,
+): number {
+  const operators = chainId ? (settings.chainOperators?.[chainId] ?? 30) : 30;
+  const workMins = getWorkMinutesPerDay(settings);
+  const capaciteDynamique = (operators * workMins * Math.max(0.01, performance)) / Math.max(0.1, samMinutes);
+  if (settings.capacityMode === 'DYNAMIC') return capaciteDynamique;
+  const reglee = chainId ? settings.chainCapacityPerDay?.[chainId] : undefined;
+  return typeof reglee === 'number' && Number.isFinite(reglee) && reglee > 0
+    ? reglee
+    : DEFAULT_CAPACITE_CHAINE_PAR_JOUR;
+}
+
+/** Fin estimée OF : quantité / capacité journalière de la chaîne, en jours ouvrés. */
 export function calculateEndDate(
   startIso: string,
   quantity: number,
@@ -194,20 +242,8 @@ export function calculateEndDate(
   chainId?: string,
   setupMins?: number
 ): string {
-  // 1. Get Nombre d'ouvriers (from settings or fallback to 30)
-  const operators = chainId ? (settings.chainOperators?.[chainId] ?? 30) : 30;
-
-  // 2. Get Minutes de travail par jour (net of pauses)
   const workMins = getWorkMinutesPerDay(settings);
-
-  // 3. Performance % is efficiency
-  const performance = Math.max(0.01, efficiency);
-
-  // 4. Temps de l'article is sam in minutes
-  const samMins = Math.max(0.1, sam);
-
-  // 5. Capacité Journalière (pieces per day)
-  const capacity = (operators * workMins * performance) / samMins;
+  const capacity = capaciteJournaliereChaine(settings, chainId, sam, efficiency);
 
   // 6. Durée in days (including setup time buffer)
   const setupDays = setupMins ? (setupMins / workMins) : 0;
@@ -321,6 +357,8 @@ export function rollPlanningEvents(
   chainEfficiencies: Record<string, number>
 ): PlanningEvent[] {
   const modelsMap = new Map(models.map(m => [m.id, m]));
+  // Defaut a true : l'enchainement existant reste le comportement de reference.
+  const autoEnchainement = settings.planningAutoSequence !== false;
 
   // Group events by chain
   const chainEventsMap = new Map<string, PlanningEvent[]>();
@@ -357,8 +395,13 @@ export function rollPlanningEvents(
 
       let start = ev.startDate || ev.dateLancement || '';
 
-      // Shift subsequent events if they are not DONE and not locked
-      if (ev.status !== 'DONE' && nextAvailableDate && !ev.isLocked) {
+      /* Decalage automatique : chaque OF demarre apres la fin du precedent.
+         C'est ce qui interdit DEUX modeles a la fois sur une meme chaine — le
+         second est repousse sans rien demander, et l'utilisateur voit ses OF
+         « bouger tout seuls ». Le reglage permet de couper cet enchainement et
+         de garder les dates posees ; « Figer la date » (isLocked) reste le
+         moyen d'y soustraire un OF isole. */
+      if (autoEnchainement && ev.status !== 'DONE' && nextAvailableDate && !ev.isLocked) {
         if (nextAvailableDate > start) {
           start = nextAvailableDate;
         }

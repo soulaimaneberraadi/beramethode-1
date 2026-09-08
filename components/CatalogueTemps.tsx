@@ -359,16 +359,28 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
     };
 
     // — 1) Collecte des mesures RÉELLES —
-    const { measures, modelCount } = useMemo(() => {
+    const { measures, modelCount, diagnostic } = useMemo(() => {
         const list: Measure[] = [];
         const modelSet = new Set<string>();
+        /* Pourquoi la liste est vide.
+         *
+         * « Aucune mesure de chrono trouvée » ne disait pas laquelle des trois
+         * conditions manquait, et il n'y avait aucun moyen de le savoir depuis
+         * l'ecran : on voyait vingt-quatre chronos d'un cote et rien de l'autre.
+         * On compte donc ce qu'on a VU et ce qu'on a ECARTE, pour le dire. */
+        const diag = { postesVus: 0, sansTemps: 0, sansLibelle: 0, chronosVus: 0 };
         /* Le chronoData du modele est en general la copie de la derniere seance :
            on ne veut pas compter deux fois la meme mesure. */
         const dejaMesure = new Set<string>();
 
         for (const m of models) {
             const ops: Operation[] = m.gamme_operatoire || [];
-            if (!ops.length) continue;
+            /* On ne sort plus faute de gamme : un modele peut n'avoir ete
+               chronometre que sur des postes libres (mode « Nouveau »), et ses
+               mesures comptent autant. La sortie se fait plus bas, quand il n'y a
+               ni operation ni poste a examiner. */
+            if (!ops.length && !(m.chronoCustomStations || []).length
+                && !(liveModelId === m.id && liveStations && liveStations.length)) continue;
             /* Pour le modele ouvert, la saisie en cours prime sur la copie
                enregistree : elle est plus recente, par construction. */
             const estOuvert = !!liveModelId && m.id === liveModelId;
@@ -421,6 +433,54 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
                     operator: opOperator.get(op.id),
                     length: op.length,
                     timeMin, measured,
+                });
+            }
+
+            /* POSTES CHRONOMETRES HORS GAMME.
+             *
+             * La boucle ci-dessus ne parcourt que `gamme_operatoire` : une mesure
+             * n'y entrait qu'a la condition d'etre rattachee a une operation de la
+             * gamme. Or le Chronometrage permet de creer des postes libres (mode
+             * « Nouveau »), qui portent leur propre libelle et n'ont pas de
+             * `linkedOperationId`. Leurs relevés — TR bien visibles a l'ecran —
+             * n'atteignaient donc JAMAIS le catalogue : vingt-quatre chronos d'un
+             * cote, « Aucune mesure de chrono trouvée » de l'autre.
+             *
+             * Un poste libre chronometre est une mesure comme une autre : c'est un
+             * temps reel, sur un poste nomme, tenu par un ouvrier. Son libelle
+             * vient de la station elle-meme. */
+            for (const st of stationsDuModele) {
+                const opLiee = st.linkedOperationId
+                    ? ops.find(o => o.id === st.linkedOperationId)
+                    : undefined;
+                // Deja pris en compte par la gamme : ne pas compter deux fois.
+                if (opLiee) continue;
+                diag.postesVus += 1;
+                const description = (st.name || st.description || '').trim();
+                if (!description) { diag.sansLibelle += 1; continue; }
+
+                /* Les cles de `chronoData` ont trois formes (cf. `chronoForOp`) :
+                   l'id du poste seul, ou `posteId__operationId`. */
+                const mesures: number[] = [];
+                for (const [cle, cd] of Object.entries((chronoDuModele || {}) as Record<string, ChronoData>)) {
+                    const brut = cle.includes('__') ? cle.split('__')[0] : cle;
+                    if (brut !== st.id && cle !== st.id) continue;
+                    const t = measuredTimeMin(cd);
+                    if (t != null && t > 0) mesures.push(t);
+                }
+                if (!mesures.length) { diag.sansTemps += 1; continue; }
+
+                const machine = (st.machine || 'Machine').toString();
+                modelSet.add(m.id);
+                list.push({
+                    modelId: m.id, modelName, reference, client, category, matiere,
+                    operationDesc: description,
+                    machine, machineKey: normMachine(machine),
+                    section: undefined,
+                    operator: st.operatorName?.trim() || undefined,
+                    length: undefined,
+                    timeMin: mesures.reduce((a, b) => a + b, 0) / mesures.length,
+                    measured: true,
                 });
             }
         }
@@ -502,8 +562,64 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
             }
         }
 
-        return { measures: list, modelCount: modelSet.size };
-    }, [models, relevesPostes, ouvriers, seancesChrono, liveModelId, liveChronoData, liveStations]);
+        /* MODELE EN COURS, PAS ENCORE DANS LA BIBLIOTHEQUE.
+         *
+         * Tout ce qui precede part de `models` : les mesures en cours de saisie
+         * n'etaient donc utilisees que si le modele ouvert y figurait DEJA. Un
+         * modele qu'on vient de creer, ou qu'on chronometre sans l'avoir encore
+         * enregistre, n'y est pas — et ses relevés, pourtant transmis par
+         * `liveChronoData` / `liveStations`, n'avaient aucun moyen d'entrer.
+         * L'ecran affichait « Aucune mesure de chrono trouvée » pendant que le
+         * Chronometrage montrait les TR.
+         *
+         * On les recueille donc directement, sous le nom du poste, sans exiger
+         * qu'un modele enregistre les porte. */
+        const liveDansLaBibliotheque = !!liveModelId && models.some(m => m.id === liveModelId);
+        if (!liveDansLaBibliotheque && liveChronoData && Object.keys(liveChronoData).length) {
+            const stations = liveStations || [];
+            const nomDuModele = tx(lang, {
+                fr: 'Modèle en cours', ar: 'الموديل الجاري', en: 'Model in progress',
+                es: 'Modelo en curso', pt: 'Modelo em curso', tr: 'Devam eden model',
+            });
+            const parPoste = new Map<string, { desc: string; machine: string; operateur?: string; temps: number[] }>();
+            diag.postesVus += stations.length;
+            diag.chronosVus += Object.keys(liveChronoData).length;
+            for (const [cle, cd] of Object.entries(liveChronoData)) {
+                const t = measuredTimeMin(cd);
+                if (t == null || t <= 0) { diag.sansTemps += 1; continue; }
+                // Cle `stId__opId` ou id seul : le poste est toujours en tete.
+                const stId = cle.includes('__') ? cle.split('__')[0] : cle;
+                const st = stations.find(x => x.id === stId);
+                const desc = (st?.name || st?.description || '').trim();
+                if (!desc) { diag.sansLibelle += 1; continue; }   // illisible dans la liste
+                const cour = parPoste.get(stId) || {
+                    desc,
+                    machine: (st?.machine || 'Machine').toString(),
+                    operateur: st?.operatorName?.trim() || undefined,
+                    temps: [],
+                };
+                cour.temps.push(t);
+                parPoste.set(stId, cour);
+            }
+            for (const [stId, e] of parPoste) {
+                modelSet.add(`live:${stId}`);
+                list.push({
+                    modelId: liveModelId || 'live',
+                    modelName: nomDuModele,
+                    reference: '', client: '—', category: '—', matiere: '—',
+                    operationDesc: e.desc,
+                    machine: e.machine, machineKey: normMachine(e.machine),
+                    section: undefined,
+                    operator: e.operateur,
+                    length: undefined,
+                    timeMin: e.temps.reduce((a, b) => a + b, 0) / e.temps.length,
+                    measured: true,
+                });
+            }
+        }
+
+        return { measures: list, modelCount: modelSet.size, diagnostic: diag };
+    }, [models, relevesPostes, ouvriers, seancesChrono, liveModelId, liveChronoData, liveStations, lang]);
 
     // — Facettes en cascade : chaque liste ne montre que les valeurs compatibles
     //   avec les AUTRES filtres actifs (filtrage croisé / dépendant). —
@@ -774,7 +890,7 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
             <div className="flex-1 flex overflow-hidden">
                 <div className="flex-1 overflow-auto min-w-0 px-3 sm:px-6 py-4">
                     {visible.length === 0 ? (
-                        <EmptyState hasData={entries.length > 0} />
+                        <EmptyState hasData={entries.length > 0} diagnostic={diagnostic} />
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                             {visible.map(e => {
@@ -1229,7 +1345,10 @@ function KpiCard({ icon: Icon, label, value, suffix, accent }: { icon: any; labe
     );
 }
 
-function EmptyState({ hasData }: { hasData: boolean }) {
+/** Compte ce que la collecte a vu et ecarte, pour dire POURQUOI la liste est vide. */
+export type DiagnosticCatalogue = { postesVus: number; sansTemps: number; sansLibelle: number; chronosVus: number };
+
+function EmptyState({ hasData, diagnostic }: { hasData: boolean; diagnostic: DiagnosticCatalogue }) {
     const { lang } = useLang();
     return (
         <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center px-6">
@@ -1254,7 +1373,21 @@ function EmptyState({ hasData }: { hasData: boolean }) {
                 })}
             </h3>
             <p className="text-[12px] text-slate-500 dark:text-dk-muted dark:text-dk-text-muted mt-1 max-w-sm">
-                {hasData
+                {/* Dire LAQUELLE des conditions manque. Un poste chronometre doit
+                    porter un libelle ET un temps majore (`tempMajore`, calcule a
+                    partir des TR ou d'un TM saisi) : sans l'un des deux il ne peut
+                    pas entrer au catalogue, et le message generique laissait
+                    chercher au hasard. */}
+                {!hasData && diagnostic.postesVus > 0
+                    ? tx(lang, {
+                        fr: `${diagnostic.postesVus} poste(s) chronométré(s) vus, aucun retenu : ${diagnostic.sansTemps} sans temps mesuré (saisissez les TR, ou un TM), ${diagnostic.sansLibelle} sans libellé.`,
+                        ar: `${diagnostic.postesVus} منصب مُقاس ظاهر، ولا واحد اتقبل: ${diagnostic.sansTemps} بلا زمن مقيس (دخّل TR ولا TM)، ${diagnostic.sansLibelle} بلا اسم.`,
+                        en: `${diagnostic.postesVus} timed poste(s) seen, none kept: ${diagnostic.sansTemps} without a measured time (enter the TR, or a TM), ${diagnostic.sansLibelle} without a label.`,
+                        es: `${diagnostic.postesVus} puesto(s) cronometrado(s) vistos, ninguno retenido: ${diagnostic.sansTemps} sin tiempo medido (introduzca los TR o un TM), ${diagnostic.sansLibelle} sin etiqueta.`,
+                        pt: `${diagnostic.postesVus} posto(s) cronometrado(s) vistos, nenhum retido: ${diagnostic.sansTemps} sem tempo medido (introduza os TR ou um TM), ${diagnostic.sansLibelle} sem rótulo.`,
+                        tr: `${diagnostic.postesVus} olculen istasyon goruldu, hicbiri alinmadi: ${diagnostic.sansTemps} olculen suresi yok (TR veya TM girin), ${diagnostic.sansLibelle} etiketsiz.`,
+                    })
+                    : hasData
                     ? tx(lang, {
                         fr: 'Essayez un autre terme de recherche ou ajustez les filtres.',
                         ar: 'جرّب كلمة بحث أخرى أو عدّل الفلاتر.',

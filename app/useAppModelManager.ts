@@ -325,14 +325,17 @@ export function useAppModelManager({
     }, [currentModelId, setCurrentModelId, setModels, user]);
 
     const duplicateModel = useCallback((model: ModelData) => {
-        const copy = { ...model, id: Date.now().toString(), meta_data: { ...model.meta_data, nom_modele: model.meta_data.nom_modele + ' (Copie)' } };
+        const copy = { ...model, id: Date.now().toString(), meta_data: { ...model.meta_data, nom_modele: model.meta_data.nom_modele + ' (Copie)' }, updatedAt: new Date().toISOString() };
         saveManualLinksByModel(copy.id, loadManualLinksByModel(model.id));
         setModels(prev => [copy, ...prev]);
         void creerModeleSurServeur(copy, user);
     }, [setModels, user]);
 
     const renameModel = useCallback((id: string, newName: string) => {
-        setModels(prev => prev.map(m => m.id === id ? { ...m, meta_data: { ...m.meta_data, nom_modele: newName } } : m));
+        // `updatedAt` marque la fraicheur : c'est lui qui arbitre la relecture
+        // serveur. Sans ce coup d'horloge, une lecture partie avant le patch et
+        // revenue apres lui remettait l'ancien nom sous les yeux.
+        setModels(prev => prev.map(m => m.id === id ? { ...m, meta_data: { ...m.meta_data, nom_modele: newName }, updatedAt: new Date().toISOString() } : m));
         // Patch sur la version FRAÎCHE du serveur : renvoyer la copie de l'état
         // React écraserait le travail d'ingénierie fait entre-temps.
         void patcherModeleSurServeur(id, { nomModele: newName }, user);
@@ -340,7 +343,7 @@ export function useAppModelManager({
 
     const handleTransferToCoupe = useCallback((model: ModelData) => {
         if (!window.confirm(`Transférer "${model.meta_data.nom_modele}" vers La Coupe ?`)) return;
-        setModels(prev => prev.map(m => m.id === model.id ? { ...m, workflowStatus: 'COUPE' } : m));
+        setModels(prev => prev.map(m => m.id === model.id ? { ...m, workflowStatus: 'COUPE', updatedAt: new Date().toISOString() } : m));
         void patcherModeleSurServeur(model.id, { workflowStatus: 'COUPE' }, user);
         setCurrentView('coupe');
     }, [setCurrentView, setModels, user]);

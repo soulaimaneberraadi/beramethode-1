@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AppSettings, ModelData, PlanningEvent, PosteSuiviData, HRWorker, Operation } from '../../types';
+import type { AppSettings, ModelData, PlanningEvent, PosteSuiviData, HRWorker, Operation, SuiviData } from '../../types';
 import { deriveHourGrid } from './shared/hours';
 import { pauseOverlapMinutes, horairesDuJour } from '../../lib/horaires';
 import { tx } from '../../lib/i18n';
 import { configPrimeEffective, palierAtteint } from '../../lib/primeEngine';
 import { useLang } from '../../src/context/LanguageContext';
 import { useIsMobile } from '../planning/shared/useIsMobile';
-import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown, MoreVertical, Trash2, Image as ImageIcon, Timer } from 'lucide-react';
+import { Clock, User, Play, Pause, Square, Save, CheckCircle2, Loader2, ChevronDown, MoreVertical, Trash2, Image as ImageIcon, Timer, TrendingUp, TrendingDown } from 'lucide-react';
 import AjoutPosteRapide from './AjoutPosteRapide';
 import ChampOuvrier from './ChampOuvrier';
 import FicheOuvrier from './FicheOuvrier';
@@ -15,6 +15,8 @@ import { signalerMesureTemps } from '../../lib/mesuresTemps';
 interface Props {
     models: ModelData[];
     planningEvents: PlanningEvent[];
+    /** Releves de la grille horaire : ils prouvent qu'un OF tourne ce jour-la. */
+    suivis?: SuiviData[];
     settings: AppSettings;
     chainsList: string[];
     selectedChaineId: string;
@@ -29,6 +31,14 @@ interface Props {
     onRemovePoste?: (modelId: string, posteId: string) => Promise<void>;
     /** Fixe le temps standard d'un poste du releve, en MINUTES par piece. */
     onSetPosteTemps?: (modelId: string, posteId: string, tempsMin: number) => Promise<void>;
+    /** OF a ouvrir en arrivant (Bibliotheque > Lancer Suivi), avant la memoire locale. */
+    focusPlanningId?: string | null;
+    /** Appele une fois l'OF ouvert, pour ne pas rejouer le focus a chaque rendu. */
+    onFocusPlanningConsumed?: () => void;
+    /** Ramene l'OF a aujourd'hui en gardant sa duree, quand il a ete lance trop loin. */
+    onDeplacerOFAujourdhui?: (planningId: string) => void;
+    /** Dit si un poste sort une piece finie ou une simple partie (col, coupe...). */
+    onSetPosteSection?: (modelId: string, posteId: string, section: 'PREPARATION' | 'MONTAGE') => Promise<void>;
 }
 
 const L = {
@@ -94,6 +104,20 @@ const L = {
     changerOuvrier: { fr: 'Changer l’ouvrier', ar: 'بدّل العامل', en: 'Change the worker', es: 'Cambiar el operario', pt: 'Mudar o operario', tr: 'Isciyi degistir' },
     supprimerPoste: { fr: 'Supprimer le poste', ar: 'مسح المنصب', en: 'Delete the poste', es: 'Eliminar el puesto', pt: 'Eliminar o posto', tr: 'Istasyonu sil' },
     supprimerConfirme: { fr: 'Retirer ce poste de la gamme ? Les releves deja saisis sont conserves, mais le poste disparait de cette liste.', ar: 'تمسح هاد المنصب من الگام؟ التسجيلات اللي دايرين كيبقاو، ولكن المنصب غادي يختافى من هاد اللائحة.', en: 'Remove this poste from the gamme? Entries already recorded are kept, but the poste disappears from this list.', es: '¿Quitar este puesto de la gama? Los registros ya introducidos se conservan, pero el puesto desaparece de esta lista.', pt: 'Remover este posto da gama? Os registos ja feitos sao mantidos, mas o posto desaparece desta lista.', tr: 'Bu istasyon gammeden kaldirilsin mi? Girilen kayitlar korunur, ancak istasyon bu listeden kaybolur.' },
+    partie: { fr: 'Partie', ar: 'جزء', en: 'Part', es: 'Parte', pt: 'Parte', tr: 'Parca' },
+    partieTitre: { fr: 'Ce poste sort une partie (col, poche, coupe), pas un vetement : son compte n’entre pas dans la sortie chaine et ne fait pas avancer la commande.', ar: 'هاد المنصب كيخرّج جزء (كول، جيب، كوب)، ماشي حويج كامل: ما كيدخلش فخروج الشين وما كيقدّمش الكوموند.', en: 'This poste outputs a part (collar, pocket, cut), not a garment: its count stays out of the line output and does not advance the order.', es: 'Este puesto saca una parte (cuello, bolsillo, corte), no una prenda: no entra en la salida de linea ni hace avanzar el pedido.', pt: 'Este posto produz uma parte (gola, bolso, corte), nao uma peca de roupa: nao entra na saida da linha nem faz avancar a encomenda.', tr: 'Bu istasyon bir parca (yaka, cep, kesim) uretir, giysi degil: hat cikisina girmez ve siparisi ilerletmez.' },
+    sortPieceFinieLabel: { fr: 'Ce que sort ce poste', ar: 'شنو كيخرّج هاد المنصب', en: 'What this poste outputs', es: 'Lo que saca este puesto', pt: 'O que este posto produz', tr: 'Bu istasyonun urettigi' },
+    pieceFinie: { fr: 'Vetement', ar: 'حويج كامل', en: 'Garment', es: 'Prenda', pt: 'Peca', tr: 'Giysi' },
+    sectionAide: { fr: 'Seul un vetement fait avancer la commande. Cent cols ne sont pas cent pieces.', ar: 'غير الحويج الكامل كيقدّم الكوموند. ميّة كول ماشي ميّة قطعة.', en: 'Only a garment advances the order. A hundred collars are not a hundred pieces.', es: 'Solo una prenda hace avanzar el pedido. Cien cuellos no son cien piezas.', pt: 'So uma peca faz avancar a encomenda. Cem golas nao sao cem pecas.', tr: 'Siparisi yalnizca giysi ilerletir. Yuz yaka, yuz parca degildir.' },
+    tendanceChaineTitre: { fr: 'Dernier creneau termine face a la moyenne des precedents', ar: 'آخر فترة سالات مقارنة بمعدّل اللي قبلها', en: 'Last completed slot against the average of the previous ones', es: 'Ultimo tramo terminado frente a la media de los anteriores', pt: 'Ultima faixa terminada face a media das anteriores', tr: 'Tamamlanan son dilim, oncekilerin ortalamasina karsi' },
+    jourFutur: { fr: 'Jour a venir — rien a relever encore', ar: 'نهار جاي — مازال ما كاين ما يتسجّل', en: 'Future day — nothing to record yet', es: 'Dia futuro — todavia nada que registrar', pt: 'Dia futuro — ainda nada a registar', tr: 'Gelecek gun — henuz kaydedilecek bir sey yok' },
+    jourFuturHint: { fr: 'On ne note que ce qui est deja sorti de la chaine : les cases s’ouvriront le jour venu. Cet OF a ete lance a cette date — passez a aujourd’hui pour saisir la production du jour.', ar: 'كنسجّلو غير اللي خرج من الشين: الخانات غادي يتحلّو ملي يجي النهار. هاد الأمر تلانصا فهاد التاريخ — دوز لليوم باش تسجّل إنتاج النهار.', en: 'Only what has already come off the line is recorded: the cells open when the day comes. This order was launched on that date — switch to today to enter today’s output.', es: 'Solo se anota lo que ya ha salido de la linea: las casillas se abriran ese dia. Esta OF se lanzo en esa fecha — pase a hoy para registrar la produccion.', pt: 'So se regista o que ja saiu da linha: as celulas abrem no proprio dia. Esta OF foi lancada nessa data — passe para hoje para registar a producao.', tr: 'Yalnizca hattan cikmis olan kaydedilir: hucreler o gun gelince acilir. Bu is emri o tarihte baslatildi — bugunun uretimini girmek icin bugune gecin.' },
+    ramenerOF: { fr: 'Commencer cet OF aujourd’hui', ar: 'بدا هاد الأمر اليوم', en: 'Start this order today', es: 'Empezar esta OF hoy', pt: 'Comecar esta OF hoje', tr: 'Bu is emrini bugun baslat' },
+    ramenerOFConfirme: { fr: 'Decaler cet OF pour qu’il commence aujourd’hui ? Sa duree est conservee, la date de livraison (DDS) ne bouge pas.', ar: 'تزحزح هاد الأمر باش يبدا اليوم؟ المدة كتبقى كيف ما هي، وتاريخ التسليم (DDS) ما كيتبدلش.', en: 'Shift this order so it starts today? Its duration is kept, the due date (DDS) does not move.', es: '¿Desplazar esta OF para que empiece hoy? Se conserva su duracion, la fecha de entrega (DDS) no cambia.', pt: 'Deslocar esta OF para comecar hoje? A duracao e mantida, a data de entrega (DDS) nao muda.', tr: 'Bu is emri bugun baslayacak sekilde kaydirilsin mi? Suresi korunur, teslim tarihi (DDS) degismez.' },
+    allerAujourdhui: { fr: 'Aller a aujourd’hui', ar: 'سير لليوم', en: 'Go to today', es: 'Ir a hoy', pt: 'Ir para hoje', tr: 'Bugune git' },
+    creneauFutur: { fr: 'Creneau pas encore passe', ar: 'الفترة مازال ما دازت', en: 'Slot has not happened yet', es: 'Tramo aun no transcurrido', pt: 'Faixa ainda nao decorrida', tr: 'Dilim henuz gecmedi' },
+    creationInterdite: { fr: 'Votre compte ne peut pas creer de fiche ouvrier — demandez a Gestion RH.', ar: 'حسابك ما يقدرش يخلق بطاقة عامل — طلب من Gestion RH.', en: 'Your account cannot create worker files — ask HR.', es: 'Su cuenta no puede crear fichas de operario — pida a RRHH.', pt: 'A sua conta nao pode criar fichas de operario — peca ao RH.', tr: 'Hesabiniz isci karti olusturamaz — IK ile gorusun.' },
+    creationRefusee: { fr: 'Creation refusee — verifiez le matricule et le CIN.', ar: 'الإنشاء مرفوض — تحقق من رقم التسجيل والبطاقة الوطنية.', en: 'Creation refused — check the staff number and ID.', es: 'Creacion rechazada — compruebe la matricula y el DNI.', pt: 'Criacao recusada — verifique a matricula e o BI.', tr: 'Olusturma reddedildi — sicil no ve kimligi kontrol edin.' },
     aucunOuvrier: { fr: 'Aucun ouvrier enregistre — Gestion RH', ar: 'ما كاين حتى عامل مسجّل — Gestion RH', en: 'No worker registered — HR', es: 'Ningun operario registrado — RRHH', pt: 'Nenhum operario registado — RH', tr: 'Kayitli isci yok — IK' },
     chronoPieces: { fr: 'Pieces / tour', ar: 'قطع / دورة', en: 'Pieces / lap', es: 'Piezas / vuelta', pt: 'Pecas / volta', tr: 'Parca / tur' },
     chronoPiecesTitre: { fr: 'Combien de pieces sortent d’un cycle chronometre. Deux pieces par cycle valent un temps par piece deux fois plus court.', ar: 'شحال من قطعة كتخرج من سيكل واحد. جوج قطع فالسيكل = الزمن للقطعة نص.', en: 'How many pieces come out of one timed cycle. Two pieces per cycle halves the time per piece.', es: 'Cuantas piezas salen de un ciclo cronometrado. Dos piezas por ciclo reducen a la mitad el tiempo por pieza.', pt: 'Quantas pecas saem de um ciclo cronometrado. Duas pecas por ciclo reduzem para metade o tempo por peca.', tr: 'Olculen bir dongude kac parca cikar. Dongu basina iki parca, parca suresini yariya indirir.' },
@@ -144,7 +168,7 @@ function todayStr(): string {
     return new Date().toISOString().split('T')[0];
 }
 
-export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste, onSetPosteTemps }: Props) {
+export default function SuiviPostes({ models, planningEvents, suivis = [], settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste, onSetPosteTemps, focusPlanningId, onFocusPlanningConsumed, onDeplacerOFAujourdhui, onSetPosteSection }: Props) {
     const { lang } = useLang();
     /* Le releve se fait au pied de la chaine, telephone en main : un tableau
        de douze colonnes n'y tient pas. Sur petit ecran, les creneaux se lisent
@@ -219,6 +243,13 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         [posteSuivis, date],
     );
     const jourForce = joursForces.includes(date) || jourDejaReleve;
+    /* Date posterieure a aujourd'hui : aucune case n'acceptera de chiffre, car on
+       ne releve que ce qui est deja sorti de la chaine. Compare en jours, pas en
+       heures : aujourd'hui n'est jamais « a venir », meme a 6 h du matin. */
+    const jourAVenir = useMemo(() => {
+        if (!date) return false;
+        return date > todayStr();
+    }, [date]);
 
     const hourGrid = useMemo(
         () => deriveHourGrid(settings, date ? new Date(date) : undefined, { ignorerFermeture: jourForce }),
@@ -230,13 +261,36 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
        sur la grille horaire. Avant, le premier trouve gagnait en silence : deux OF
        sur la meme chaine et le second etait tout simplement introuvable ici. Un OF
        marque `Terminé` ne se propose plus : il n'a plus rien a relever. */
-    const planningsChaine = useMemo(() => planningEvents.filter(p => {
-        if (p.chaineId !== selectedChaineId) return false;
-        if (p.status === 'DONE') return false;
-        const start = (p.startDate || p.dateLancement || '').split('T')[0];
-        const end = (p.estimatedEndDate || p.dateExport || p.dateFin || start).split('T')[0];
-        return start <= date && end >= date;
-    }), [planningEvents, selectedChaineId, date]);
+    const planningsChaine = useMemo(() => {
+        /* Un OF qui PORTE DEJA des releves ce jour-la tourne ce jour-la : la donnee
+           le prouve, quoi que dise sa fenetre planifiee. C'est par cette voie que la
+           grille horaire le voyait, et c'est elle qui manquait ici — d'ou un modele
+           bien present sous « Grille horaire » et « aucun modele planifie » sous
+           « Suivi par poste », le meme jour et sur la meme chaine. */
+        const ofsDuJour = new Set<string>();
+        for (const r of posteSuivis) if (r.date === date && r.planningId) ofsDuJour.add(r.planningId);
+        for (const s of suivis) if (s.date === date && s.planningId) ofsDuJour.add(s.planningId);
+
+        const aujourdHui = todayStr();
+        return planningEvents.filter(p => {
+            if (p.chaineId !== selectedChaineId) return false;
+            if (p.status === 'DONE') return false;
+            if (ofsDuJour.has(p.id)) return true;
+
+            const start = (p.startDate || p.dateLancement || '').split('T')[0];
+            const end = (p.estimatedEndDate || p.dateExport || p.dateFin || start).split('T')[0];
+            if (start && start <= date && end >= date) return true;
+
+            /* OF en retard : sa fenetre est passee mais il reste des pieces a faire,
+               et la chaine, elle, continue de le produire. Meme regle que la grille
+               horaire — sans quoi le releve devenait impossible le jour ou l'on en a
+               justement besoin. Jamais dans le passe : on ne rouvre pas l'historique. */
+            const cible = Number(p.totalQuantity ?? p.qteTotal ?? 0);
+            const faites = Number(p.producedQuantity ?? p.qteProduite ?? 0);
+            if (cible <= 0 || faites >= cible) return false;
+            return !!start && end < date && date >= aujourdHui;
+        });
+    }, [planningEvents, selectedChaineId, date, posteSuivis, suivis]);
 
     /* Aucun OF ce jour-la ne veut pas dire aucun OF. Sans cette liste, la page
        s'arretait sur « aucun modele planifie » et ne disait pas OU les trouver :
@@ -249,6 +303,17 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
             .sort((a, b) => Math.abs(Date.parse(jourDeLOF(a)) - ancre) - Math.abs(Date.parse(jourDeLOF(b)) - ancre))
             .slice(0, 4);
     }, [planningEvents, selectedChaineId, date]);
+
+    /* OF de la chaine qui ne couvrent PAS la date affichee. Le selecteur de
+       modele ne montrait que ceux du jour : un seul OF ce jour-la, et le menu
+       n'offrait qu'une entree — impossible de changer de modele sans deviner la
+       bonne date au calendrier. Les voici, avec leur jour ; les choisir y emmene. */
+    const ofsHorsDate = useMemo(() => {
+        const ici = new Set(planningsChaine.map(p => p.id));
+        return planningEvents
+            .filter(p => p.chaineId === selectedChaineId && p.status !== 'DONE' && !ici.has(p.id) && jourDeLOF(p))
+            .sort((a, b) => jourDeLOF(a).localeCompare(jourDeLOF(b)));
+    }, [planningEvents, selectedChaineId, planningsChaine]);
 
     /* Dernier OF sur lequel on a releve : c'est celui qu'on rouvre. Sans cette
        memoire, revenir sur la page reprenait le premier OF de la liste — et on
@@ -263,8 +328,18 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         try { localStorage.setItem(CLE_DERNIER_OF, id); } catch { /* navigation privee */ }
     };
 
+    /* Une arrivee directe depuis la Bibliotheque impose SON OF : la memoire locale
+       du dernier releve, elle, ne vaut que pour un retour ordinaire sur la page. */
+    useEffect(() => {
+        if (!focusPlanningId) return;
+        if (!planningsChaine.some(p => p.id === focusPlanningId)) return;
+        choisirPlanning(focusPlanningId);
+        onFocusPlanningConsumed?.();
+    }, [focusPlanningId, planningsChaine]);
+
     useEffect(() => {
         if (planningsChaine.length === 0) { setSelectedPlanningId(''); return; }
+        if (focusPlanningId && planningsChaine.some(p => p.id === focusPlanningId)) return;
         if (planningsChaine.some(p => p.id === selectedPlanningId)) return;
         let dernier = '';
         try { dernier = localStorage.getItem(CLE_DERNIER_OF) || ''; } catch { /* ignore */ }
@@ -362,6 +437,56 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         return rows.find(r => r.workerName)?.workerName || getDraft(posteId).workerName || '';
     };
 
+    /* Creation d'une fiche RH depuis le pied de la chaine. Le fichier du
+       personnel se remplit rarement d'avance : la personne est la, elle produit,
+       et l'envoyer saisir son dossier dans Gestion RH ferait perdre le releve en
+       cours. La fiche creee ici est une fiche RH ordinaire — elle porte donc son
+       matricule (obligatoire et unique, c'est lui qui identifie la personne dans
+       la paie) et son CIN si on l'a. */
+    const creerOuvrier = async (fiche: { full_name: string; matricule: string; cin?: string; chaine_id?: string }): Promise<HRWorker> => {
+        const res = await fetch('/api/hr/workers', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                full_name: fiche.full_name,
+                matricule: fiche.matricule,
+                // Champ UNIQUE : une chaine vide ferait doublon d'une fiche a l'autre.
+                cin: fiche.cin || undefined,
+                chaine_id: fiche.chaine_id || undefined,
+                role: 'OPERATOR',
+                is_active: true,
+            }),
+        });
+        const corps = await res.json().catch(() => ({} as any));
+        if (!res.ok) {
+            /* Un refus de DROITS ne renvoie pas de message (`{ ok, code }`) : sans
+               ce cas, on accusait le matricule d'un probleme qui n'a rien a voir,
+               et l'utilisateur corrigeait indefiniment une saisie correcte. */
+            if (res.status === 403 || corps?.code === 'PERMISSION_DENIED') {
+                throw new Error(tx(lang, L.creationInterdite));
+            }
+            // Sinon le serveur distingue matricule deja pris et CIN en double : son
+            // message est le seul a dire laquelle des deux contraintes a cede.
+            throw new Error(corps?.message || tx(lang, L.creationRefusee));
+        }
+        const creee: HRWorker = {
+            id: String(corps?.id || ''),
+            matricule: fiche.matricule,
+            full_name: fiche.full_name,
+            cin: fiche.cin,
+            role: 'OPERATOR',
+            chaine_id: fiche.chaine_id,
+            date_embauche: new Date().toISOString(),
+            type_contrat: 'CDI',
+            is_active: true,
+        } as HRWorker;
+        // La liste locale l'accueille tout de suite : la relecture RH n'a lieu
+        // qu'au montage de la page, et on choisit la personne dans la seconde.
+        setWorkers(prev => [...prev, creee]);
+        return creee;
+    };
+
     /* Ajout d'un poste depuis cette page. L'operation part dans la gamme du
        modele (source unique), et l'ouvrier choisi a la creation prend la main
        tout de suite sur la saisie du poste — sinon il faudrait le re-choisir. */
@@ -380,6 +505,13 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
     const reprendreGamme = async () => {
         if (!activeModel || !onAddPoste) return;
         await onAddPoste(activeModel.id, gammeNonReprise);
+    };
+
+    /** Bascule un poste entre « vetement » et « partie ». */
+    const fixerSectionPoste = async (poste: Operation, section: 'PREPARATION' | 'MONTAGE') => {
+        if (!activeModel || !onSetPosteSection) return;
+        setMenuPosteId(null);
+        await onSetPosteSection(activeModel.id, poste.id, section);
     };
 
     /* Retirer un poste NE detruit aucun releve : les lignes de poste_suivi
@@ -443,17 +575,73 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         return { sens: pct > 0 ? 'hausse' : 'baisse', pct: Math.abs(pct) };
     };
 
-    /* Ce qui SORT de la chaine : le dernier poste de la gamme. Additionner tous
-       les postes comptait la meme piece a chaque operation qu'elle traverse —
-       cinq postes, cinq pieces pour une seule. */
+    /**
+     * Un poste sort-il un VETEMENT, ou seulement une PARTIE ?
+     *
+     * Tout poste ne produit pas la meme chose. « Coupe », « col », « poche »
+     * sortent des morceaux : cent cols ne sont pas cent pieces livrables, et les
+     * compter comme telles gonflerait la sortie de chaine et ferait croire la
+     * commande avancee alors qu'aucun vetement n'est fini. Seule la couture qui
+     * assemble le vetement fait avancer l'OF.
+     *
+     * La gamme porte deja cette distinction : PREPARATION prepare les morceaux,
+     * MONTAGE assemble le vetement. On s'en sert, et l'utilisateur peut corriger
+     * poste par poste — le libelle seul ne suffit pas a deviner.
+     */
+    const sortPieceFinie = (op: Operation): boolean => op.section !== 'PREPARATION';
+
+    /** Le dernier poste qui sort un vetement : c'est lui la sortie de chaine. */
+    const dernierPosteFini = (): Operation | undefined => {
+        for (let i = postes.length - 1; i >= 0; i--) {
+            if (sortPieceFinie(postes[i])) return postes[i];
+        }
+        return undefined;
+    };
+
+    /* Ce qui SORT de la chaine : le dernier poste QUI SORT UN VETEMENT.
+       Additionner tous les postes comptait la meme piece a chaque operation
+       qu'elle traverse — cinq postes, cinq pieces pour une seule ; prendre le
+       dernier poste tout court comptait des cols pour des vetements des que la
+       preparation fermait la liste. */
     const sortieChaineJour = (): number => {
-        const dernier = postes[postes.length - 1];
+        const dernier = dernierPosteFini();
         return dernier ? bilanPosteBrut(dernier.id) : 0;
     };
     const sortieChaineCreneau = (hourKey: string): number => {
-        const dernier = postes[postes.length - 1];
+        const dernier = dernierPosteFini();
         return dernier ? (celluleDe(dernier.id, hourKey)?.pieces_sorties || 0) : 0;
     };
+
+    /* Le SENS DE MARCHE de la chaine, affiche en tete du modele : ce que sort le
+       dernier creneau termine, face a la MOYENNE des creneaux termines avant lui.
+
+       La moyenne, et non le seul creneau precedent : une heure creuse isolee
+       (panne, changement de coloris, pause decalee) ferait alors basculer la
+       fleche a chaque relevé, et une fleche qui change tout le temps ne dit plus
+       rien. La moyenne, elle, repond a la question posee — la journee monte-t-elle
+       ou descend-elle ?
+
+       On ne compte QUE les creneaux termines : un creneau en cours est incomplet
+       par nature, et le retenir ferait plonger la tendance au debut de chaque
+       heure, pour remonter a sa fin. */
+    const tendanceChaine = useMemo(() => {
+        // Meme sortie que « Sortie chaine » : une tendance calculee sur un poste
+        // de preparation parlerait de cols, pas de vetements.
+        const dernier = dernierPosteFini();
+        if (!dernier) return null;
+        const finis = hourGrid.blocks.filter(b => new Date(date).setHours(0, b.endMin, 0, 0) <= Date.now());
+        if (finis.length < 2) return null;
+        const valeurs = finis.map(b => celluleDe(dernier.id, b.key)?.pieces_sorties || 0);
+        const courant = valeurs[valeurs.length - 1];
+        const precedents = valeurs.slice(0, -1);
+        const moyenne = precedents.reduce((a, b) => a + b, 0) / precedents.length;
+        // Sans reference (rien produit avant), il n'y a pas de tendance : on
+        // n'invente pas une hausse a partir de zero.
+        if (moyenne <= 0) return null;
+        const pct = Math.round(((courant - moyenne) / moyenne) * 100);
+        if (pct === 0) return null;
+        return { hausse: pct > 0, pct: Math.abs(pct), courant, moyenne: Math.round(moyenne) };
+    }, [postes, posteSuivis, hourGrid.blocks, date]);
 
     /* Le goulot : le poste qui produit le moins parmi ceux qui ont produit.
        C'est lui qui plafonne la chaine — le reste ne sortira jamais plus vite. */
@@ -804,6 +992,23 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                         {tx(lang, L.modeleActif)}
                     </span>
 
+                    {/* Le sens de marche, EN TETE du modele : d'un coup d'oeil, la
+                        chaine monte ou descend. Le detail chiffre est dans l'infobulle,
+                        pour qui veut savoir contre quoi la comparaison se fait. */}
+                    {tendanceChaine && (
+                        <span
+                            title={`${tx(lang, L.tendanceChaineTitre)} : ${tendanceChaine.courant} / ${tendanceChaine.moyenne} pcs`}
+                            className={`shrink-0 flex items-center gap-0.5 px-1.5 py-1 rounded-lg text-[10px] font-black tabular-nums ${
+                                tendanceChaine.hausse
+                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                                    : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
+                            }`}
+                        >
+                            {tendanceChaine.hausse ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                            {tendanceChaine.pct}%
+                        </span>
+                    )}
+
                     {/* Meme repere qu'a la Grille horaire : la photo du modele, sa
                         reference, son nom. On reconnait un modele a sa photo bien
                         avant de lire sa reference. */}
@@ -866,6 +1071,44 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                             </button>
                                         );
                                     })}
+                                    {/* Les OF de la chaine qui tournent d'autres jours : les
+                                        choisir emmene a leur date, puisqu'un releve appartient
+                                        toujours a un jour. Sans eux, changer de modele imposait
+                                        de retrouver la date a l'aveugle. */}
+                                    {ofsHorsDate.length > 0 && (
+                                        <>
+                                            <p className="px-2 pt-2 pb-1 mt-1 border-t border-slate-100 dark:border-dk-border/40 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-dk-muted">
+                                                {tx(lang, L.ofsAilleurs)}
+                                            </p>
+                                            {ofsHorsDate.map(p => {
+                                                const m = models.find(x => x.id === p.modelId);
+                                                const ref = m?.meta_data?.reference || p.modelName || p.id.slice(0, 8);
+                                                return (
+                                                    <button
+                                                        key={p.id}
+                                                        type="button"
+                                                        onClick={() => { setGlobalDate?.(jourDeLOF(p)); choisirPlanning(p.id); setModeleOuvert(false); }}
+                                                        className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-dk-elevated/60 transition-colors"
+                                                    >
+                                                        {m?.image ? (
+                                                            <img src={m.image} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 dark:border-dk-border/60 shrink-0 opacity-80" />
+                                                        ) : (
+                                                            <span className="w-9 h-9 rounded-lg border border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg flex items-center justify-center shrink-0 text-slate-300 dark:text-dk-muted">
+                                                                <ImageIcon className="w-4 h-4" />
+                                                            </span>
+                                                        )}
+                                                        <span className="min-w-0 flex-1">
+                                                            <span className="block text-[12px] font-black text-slate-600 dark:text-dk-text-soft truncate">{ref}</span>
+                                                            <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted truncate">
+                                                                {jourDeLOF(p)}
+                                                                {p.qteTotal ? ` · ${p.qteTotal} pcs` : ''}
+                                                            </span>
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </>
+                                    )}
                                 </div>
                             </>
                         )}
@@ -911,6 +1154,43 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                         )}
                     </div>
                 )}
+                {/* Date a venir : toutes les cases sont fermees, et rien ne le disait.
+                    On tapait dans un champ inerte sans comprendre — d'autant qu'un OF
+                    lance depuis la Bibliotheque amene ici sa date de lancement, souvent
+                    lointaine. On nomme la cause, et on offre la sortie. */}
+                {jourAVenir && !loading && !hourGrid.closed && (
+                    <div className="mb-3 rounded-2xl border border-sky-200 dark:border-sky-900/40 bg-sky-50 dark:bg-sky-900/20 px-4 py-3">
+                        <p className="text-[12px] font-black text-sky-800 dark:text-sky-300">{tx(lang, L.jourFutur)}</p>
+                        <p className="text-[10px] font-bold text-sky-700/80 dark:text-sky-400/80">{tx(lang, L.jourFuturHint)}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {/* Aller a aujourd'hui ne sert que si un OF y tourne deja.
+                                Quand celui qu'on regarde a ete lance trop loin — le cas
+                                qui amene ici — c'est LUI qu'il faut ramener, sinon on
+                                arrive sur un jour vide et le releve reste impossible. */}
+                            {onDeplacerOFAujourdhui && activePlanning && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!window.confirm(tx(lang, L.ramenerOFConfirme))) return;
+                                        onDeplacerOFAujourdhui(activePlanning.id);
+                                    }}
+                                    className="px-3 py-2 rounded-xl bg-sky-600 text-white text-[11px] font-black hover:bg-sky-700 transition-colors min-h-[36px]"
+                                >
+                                    {tx(lang, L.ramenerOF)}
+                                </button>
+                            )}
+                            {setGlobalDate && (
+                                <button
+                                    type="button"
+                                    onClick={() => setGlobalDate(todayStr())}
+                                    className="px-3 py-2 rounded-xl border border-sky-300 dark:border-sky-900/50 bg-white dark:bg-dk-surface text-sky-700 dark:text-sky-300 text-[11px] font-black hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors min-h-[36px]"
+                                >
+                                    {tx(lang, L.allerAujourdhui)}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
                 {loading ? (
                     <div className="flex items-center justify-center py-16 text-slate-400 dark:text-dk-muted gap-2 text-sm font-bold">
                         <Loader2 className="w-4 h-4 animate-spin" /> {tx(lang, L.loading)}
@@ -943,13 +1223,30 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                         const m = models.find(x => x.id === p.modelId);
                                         const ref = m?.meta_data?.reference || p.modelName || p.id.slice(0, 8);
                                         return (
+                                            /* La photo, comme partout ailleurs : on reconnait un
+                                               modele a son vetement bien avant de lire sa
+                                               reference — surtout quand trois references se
+                                               ressemblent (P-son-lirka-02, P-son-LIRKA-01-1). */
                                             <button
                                                 key={p.id}
                                                 type="button"
-                                                onClick={() => setGlobalDate?.(jourDeLOF(p))}
-                                                className="px-3 py-2 min-h-[36px] rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[11px] font-black text-slate-700 dark:text-dk-text hover:border-indigo-400 transition-colors"
+                                                onClick={() => { setGlobalDate?.(jourDeLOF(p)); choisirPlanning(p.id); }}
+                                                className="flex items-center gap-2 pl-1.5 pr-3 py-1.5 min-h-[44px] rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface hover:border-indigo-400 transition-colors"
                                             >
-                                                {ref} <span className="font-bold text-slate-400 dark:text-dk-muted">{jourDeLOF(p)}</span>
+                                                {m?.image ? (
+                                                    <img src={m.image} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 dark:border-dk-border/60 shrink-0" />
+                                                ) : (
+                                                    <span className="w-9 h-9 rounded-lg border border-slate-100 dark:border-dk-border/60 bg-slate-50 dark:bg-dk-bg flex items-center justify-center shrink-0 text-slate-300 dark:text-dk-muted">
+                                                        <ImageIcon className="w-4 h-4" />
+                                                    </span>
+                                                )}
+                                                <span className="min-w-0 text-left">
+                                                    <span className="block text-[11px] font-black text-slate-700 dark:text-dk-text truncate">{ref}</span>
+                                                    <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted">
+                                                        {jourDeLOF(p)}
+                                                        {p.qteTotal ? ` · ${p.qteTotal} pcs` : ''}
+                                                    </span>
+                                                </span>
                                             </button>
                                         );
                                     })}
@@ -958,12 +1255,30 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                         )}
 
                         {activeModel && postes.length === 0 && onAddPoste && (
-                            <AjoutPosteRapide
-                                models={models}
-                                activeModel={activeModel}
-                                workers={workersSorted}
-                                onAjouter={ajouterPoste}
-                            />
+                            <>
+                                <AjoutPosteRapide
+                                    models={models}
+                                    activeModel={activeModel}
+                                    workers={workersSorted}
+                                    chaineCourante={selectedChaineId}
+                                    onCreerOuvrier={creerOuvrier}
+                                    onAjouter={ajouterPoste}
+                                />
+                                {/* Un modele qui arrive de la Bibliotheque a deja sa gamme
+                                    mais aucun releve : la liste des postes etait donc vide
+                                    ET sans issue, puisque « Reprendre la gamme » ne
+                                    s'affichait qu'une fois un premier poste cree a la main.
+                                    Le raccourci doit exister d'abord ici, la ou il manque. */}
+                                {gammeNonReprise.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => { void reprendreGamme(); }}
+                                        className="px-4 py-2.5 min-h-[40px] rounded-xl border border-indigo-200 dark:border-dk-border bg-indigo-50 dark:bg-dk-elevated text-indigo-700 dark:text-dk-accent text-[12px] font-black hover:bg-indigo-100 dark:hover:bg-dk-accent/20 transition-colors"
+                                    >
+                                        {tx(lang, L.reprendreGamme)} ({gammeNonReprise.length})
+                                    </button>
+                                )}
+                            </>
                         )}
 
                     </div>
@@ -977,6 +1292,8 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                 models={models}
                                 activeModel={activeModel}
                                 workers={workersSorted}
+                                chaineCourante={selectedChaineId}
+                                onCreerOuvrier={creerOuvrier}
                                 onAjouter={ajouterPoste}
                             />
                             {/* La gamme ne se deverse plus toute seule ici : elle sert au
@@ -1070,10 +1387,19 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                         onSupprimer={onRemovePoste ? () => void supprimerPoste(poste) : undefined}
                                                         onFixerTemps={onSetPosteTemps ? (sec) => void fixerTempsPoste(poste, sec) : undefined}
                                                         mesureSec={mesureChronoSec(poste.id)}
+                                                        onFixerSection={onSetPosteSection ? (sec) => void fixerSectionPoste(poste, sec) : undefined}
                                                     />
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex items-center gap-1.5 min-w-0">
                                                             <p className="font-black text-[13px] text-slate-800 dark:text-dk-text truncate">{poste.description || poste.id}</p>
+                                                            {!sortPieceFinie(poste) && (
+                                                                <span
+                                                                    title={tx(lang, L.partieTitre)}
+                                                                    className="shrink-0 px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                                                >
+                                                                    {tx(lang, L.partie)}
+                                                                </span>
+                                                            )}
                                                             {t && (
                                                                 <span
                                                                     className={`shrink-0 text-[10px] font-black tabular-nums ${t.sens === 'hausse' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}
@@ -1125,7 +1451,8 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                         void saveCellule(poste, bloc.key, chiffres === '' ? null : parseInt(chiffres, 10));
                                                     }}
                                                     placeholder="—"
-                                                    aria-label={tx(lang, L.productionHeure)}
+                                                    title={futur ? tx(lang, L.creneauFutur) : undefined}
+                                                    aria-label={futur ? tx(lang, L.creneauFutur) : tx(lang, L.productionHeure)}
                                                     className={`mt-1.5 w-full h-12 text-center text-[18px] font-black tabular-nums rounded-xl border outline-none transition-all ${
                                                         futur
                                                             ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
@@ -1145,6 +1472,8 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                 valeur={nomOuvrier(poste.id)}
                                                                 workers={workersSorted}
                                                                 lang={lang}
+                                                                chaineCourante={selectedChaineId}
+                                                                onCreerOuvrier={creerOuvrier}
                                                                 onValider={(nom) => { void changerOuvrierPoste(poste, nom); setChangementOuvrier(null); }}
                                                                 onAnnuler={() => setChangementOuvrier(null)}
                                                             />
@@ -1319,6 +1648,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                 onSupprimer={onRemovePoste ? () => void supprimerPoste(poste) : undefined}
                                                                 onFixerTemps={onSetPosteTemps ? (sec) => void fixerTempsPoste(poste, sec) : undefined}
                                                                 mesureSec={mesureChronoSec(poste.id)}
+                                                                onFixerSection={onSetPosteSection ? (sec) => void fixerSectionPoste(poste, sec) : undefined}
                                                             />
                                                         </div>
                                                     </td>
@@ -1329,6 +1659,8 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                 valeur={nomOuvrier(poste.id)}
                                                                 workers={workersSorted}
                                                                 lang={lang}
+                                                                chaineCourante={selectedChaineId}
+                                                                onCreerOuvrier={creerOuvrier}
                                                                 onValider={(nom) => { void changerOuvrierPoste(poste, nom); setChangementOuvrier(null); }}
                                                                 onAnnuler={() => setChangementOuvrier(null)}
                                                             />
@@ -1405,6 +1737,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                         void saveCellule(poste, b.key, chiffres === '' ? null : parseInt(chiffres, 10));
                                                                     }}
                                                                     placeholder="—"
+                                                                    title={futur ? tx(lang, L.creneauFutur) : undefined}
                                                                     className={`w-full h-10 text-center text-[12px] font-black tabular-nums rounded-lg border outline-none transition-all ${
                                                                         futur
                                                                             ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
@@ -1632,13 +1965,15 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
  * Menu « ⋮ » d'un poste : ce qui ne se fait qu'une fois par jour ne doit pas
  * occuper la ligne en permanence — changer l'ouvrier, retirer le poste.
  */
-function MenuPoste({ poste, lang, ouvert, onToggle, onChangerOuvrier, onSupprimer, onFixerTemps, mesureSec }: {
+function MenuPoste({ poste, lang, ouvert, onToggle, onChangerOuvrier, onSupprimer, onFixerTemps, mesureSec, onFixerSection }: {
     poste: Operation; lang: string; ouvert: boolean; onToggle: () => void;
     onChangerOuvrier: () => void; onSupprimer?: () => void;
     /** Enregistre le temps standard, en SECONDES par piece. */
     onFixerTemps?: (tempsSec: number) => void;
     /** Temps deja mesure au chrono sur ce poste, en secondes — a adopter d'un clic. */
     mesureSec?: number | null;
+    /** Dit si ce poste sort un vetement ou une simple partie. */
+    onFixerSection?: (section: 'PREPARATION' | 'MONTAGE') => void;
 }) {
     const [confirme, setConfirme] = useState(false);
     const [tsSaisi, setTsSaisi] = useState<string>(poste.time > 0 ? String(Number((poste.time * 60).toFixed(1))) : '');
@@ -1669,6 +2004,37 @@ function MenuPoste({ poste, lang, ouvert, onToggle, onChangerOuvrier, onSupprime
                         >
                             <User className="w-3.5 h-3.5" /> {tx(lang, L.changerOuvrier)}
                         </button>
+
+                        {/* Vetement ou partie : c'est ce reglage qui decide si le poste
+                            compte dans la sortie de chaine. Le libelle seul ne permet pas
+                            de deviner — « assemblage cote » peut etre l'un ou l'autre. */}
+                        {onFixerSection && (
+                            <div className="px-3 py-2.5 border-t border-slate-100 dark:border-dk-border/50">
+                                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-dk-muted">
+                                    {tx(lang, L.sortPieceFinieLabel)}
+                                </p>
+                                <p className="mt-0.5 text-[9px] font-bold text-slate-400 dark:text-dk-muted leading-snug">{tx(lang, L.sectionAide)}</p>
+                                <div className="mt-1.5 flex items-center gap-1">
+                                    {(['MONTAGE', 'PREPARATION'] as const).map(sec => {
+                                        const actif = sec === 'PREPARATION'
+                                            ? poste.section === 'PREPARATION'
+                                            : poste.section !== 'PREPARATION';
+                                        return (
+                                            <button
+                                                key={sec}
+                                                type="button"
+                                                onClick={() => onFixerSection(sec)}
+                                                className={`flex-1 h-8 rounded-lg text-[11px] font-black transition-colors ${actif
+                                                    ? 'bg-indigo-600 text-white'
+                                                    : 'border border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted hover:border-indigo-400'}`}
+                                            >
+                                                {tx(lang, sec === 'PREPARATION' ? L.partie : L.pieceFinie)}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Le temps standard : c'est lui qui rend le rendement et la
                             prime possibles. On le saisit en secondes — la langue de

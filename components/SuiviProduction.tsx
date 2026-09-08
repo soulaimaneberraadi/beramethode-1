@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { SAM_PAR_DEFAUT_MIN } from '../utils/planning';
 import { saveSuivis } from '../lib/suiviSync';
 import type { AppSettings, ModelData, PlanningEvent, SuiviData, MaterialReceipt, InventoryMovement, MouvementStock, PlanningStatus } from '../types';
 import { deriveHourGrid, type HourBlock } from './suivi/shared/hours';
@@ -47,6 +48,10 @@ interface Props {
     onRemovePoste?: (modelId: string, posteId: string) => Promise<void>;
     /** Fixe le temps standard d'un poste du releve (minutes par piece). */
     onSetPosteTemps?: (modelId: string, posteId: string, tempsMin: number) => Promise<void>;
+    /** Ramene un OF a aujourd'hui en gardant sa duree (cf. SuiviPostes). */
+    onDeplacerOFAujourdhui?: (planningId: string) => void;
+    /** Dit si un poste sort une piece finie ou une simple partie (col, coupe...). */
+    onSetPosteSection?: (modelId: string, posteId: string, section: 'PREPARATION' | 'MONTAGE') => Promise<void>;
 }
 
 const SUIVI_LABELS = {
@@ -147,6 +152,7 @@ export default function SuiviProduction({
     onAddPoste,
     onRemovePoste,
     onSetPosteTemps,
+    onSetPosteSection,
 }: Props) {
     // 1. Core States
     const { lang } = useLang();
@@ -229,10 +235,56 @@ export default function SuiviProduction({
     // Active translation dictionary
     const l = useMemo(() => buildSuiviLabels(lang), [lang]);
 
+    /* OF vise par une arrivee directe (Bibliotheque > Lancer Suivi). `directModelId`
+       est consomme des la premiere passe : sans cette memoire, l'onglet « par poste »
+       rouvrait l'OF garde en localStorage et le modele qu'on venait de lancer
+       n'apparaissait nulle part. */
+    const [ofDirectId, setOfDirectId] = useState<string | null>(null);
+
+    /* Ramener un OF a aujourd'hui, depuis le releve.
+       Un OF lance pour une date lointaine rend la feuille inutilisable : aucune
+       case n'accepte de chiffre, puisqu'on ne releve pas une heure qui n'a pas eu
+       lieu. Corriger la date obligeait a rouvrir le Planning et a retrouver l'OF.
+       On DECALE ici l'OF entier — debut ET fin du meme nombre de jours — pour ne
+       pas ecraser une duree de production calculee sur la quantite. */
+    const deplacerOFAujourdhui = (planningId: string) => {
+        if (!setPlanningEvents) return;
+        const jour = (v?: string) => (v || '').split('T')[0];
+        const aujourdhui = new Date().toISOString().split('T')[0];
+        setPlanningEvents(prev => prev.map(p => {
+            if (p.id !== planningId) return p;
+            const debut = jour(p.startDate) || jour(p.dateLancement);
+            if (!debut) return p;
+            const decalageJours = Math.round(
+                (Date.parse(`${aujourdhui}T00:00:00`) - Date.parse(`${debut}T00:00:00`)) / 86400000,
+            );
+            if (!Number.isFinite(decalageJours) || decalageJours === 0) return p;
+            const glisser = (v?: string) => {
+                const d = jour(v);
+                if (!d) return v;
+                const t = Date.parse(`${d}T00:00:00`);
+                if (Number.isNaN(t)) return v;
+                return new Date(t + decalageJours * 86400000).toISOString().split('T')[0];
+            };
+            return {
+                ...p,
+                dateLancement: glisser(p.dateLancement) || aujourdhui,
+                startDate: aujourdhui,
+                estimatedEndDate: glisser(p.estimatedEndDate),
+                dateExport: glisser(p.dateExport),
+                /* La DDS est une echeance CLIENT : elle ne suit pas le decalage de
+                   production, sinon on repousserait la date promise en corrigeant
+                   une erreur de saisie. */
+            } as PlanningEvent;
+        }));
+        if (setGlobalDate) setGlobalDate(aujourdhui);
+    };
+
     // Redirection effect for direct model tracking
     useEffect(() => {
         if (directModelId) {
             const plan = planningEvents.find(p => p.modelId === directModelId);
+            setOfDirectId(plan ? plan.id : null);
             let targetChaineId = selectedChaineId;
             let targetDate: Date | null = null;
 
@@ -523,7 +575,9 @@ export default function SuiviProduction({
             const m = models.find(x => x.id === modelId);
             const name = ev?.modelName || m?.meta_data?.nom_modele || m?.filename || 'Modèle Inconnu';
             const ref = m?.meta_data?.reference || (modelId || '').substring(0, 8) || ofKey.substring(0, 8);
-            const sam = m?.meta_data?.total_temps || 12;
+            // Meme repli que le planning (`SAM_PAR_DEFAUT_MIN`) : 12 ici et 15 la-bas
+            // donnaient deux verites pour un modele sans gamme chiffree.
+            const sam = m?.meta_data?.total_temps || SAM_PAR_DEFAUT_MIN;
             const override = ofColorOverrides[ofKey] || ev?.color || null;
             const style = getOFColor(ofKey, override);
             const target = ev?.qteTotal || m?.meta_data?.quantity || 1500;
@@ -1602,6 +1656,7 @@ export default function SuiviProduction({
                 <SuiviPostes
                     models={models}
                     planningEvents={planningEvents}
+                    suivis={suivis}
                     settings={settings}
                     chainsList={chainsList}
                     selectedChaineId={selectedChaineId}
@@ -1612,6 +1667,10 @@ export default function SuiviProduction({
                     onAddPoste={onAddPoste}
                     onRemovePoste={onRemovePoste}
                     onSetPosteTemps={onSetPosteTemps}
+                    focusPlanningId={ofDirectId}
+                    onFocusPlanningConsumed={() => setOfDirectId(null)}
+                    onDeplacerOFAujourdhui={setPlanningEvents ? deplacerOFAujourdhui : undefined}
+                    onSetPosteSection={onSetPosteSection}
                 />
             ) : (
             <>

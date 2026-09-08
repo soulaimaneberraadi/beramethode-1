@@ -7,7 +7,7 @@ import { toWorkStatus } from '../../shared/statusConfig';
 import { delayOf } from '../../hooks/useDelayIndicator';
 import { fmtShort } from '../../shared/dateFmt';
 import { AlertCircle } from 'lucide-react';
-import { getWorkMinutesPerDay } from '../../../../utils/planning';
+import { getWorkMinutesPerDay, capaciteJournaliereChaine } from '../../../../utils/planning';
 import { tx } from '../../../../lib/i18n';
 import { useLang } from '../../../../src/context/LanguageContext';
 import { useIsDark } from '../../../../src/context/ThemeContext';
@@ -67,7 +67,12 @@ export default function EventBar({
     const performance = model ? (modelEff * safetyFactor) / 10000 : chainEff;
 
     const samMins = Math.max(0.1, model?.meta_data?.total_temps || 15);
-    const capacity = (operators * workMins * performance) / samMins;
+    /* Definition unique (`capaciteJournaliereChaine`) : cette copie ignorait
+       `capacityMode` et ombrait donc la part de reglage d'apres une capacite
+       differente de celle qui a fixe la longueur de la barre. */
+    const capacity = settings
+        ? capaciteJournaliereChaine(settings, event.chaineId, samMins, performance)
+        : (operators * workMins * performance) / samMins;
 
     const qty = evQty(event);
     const setupDays = bufferLancement / workMins;
