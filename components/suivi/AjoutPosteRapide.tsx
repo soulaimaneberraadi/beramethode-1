@@ -37,11 +37,13 @@ interface Props {
     /** Modele auquel le poste sera ajoute. */
     activeModel: ModelData;
     workers: HRWorker[];
+    /** Chaine du releve : chaque fiche proposee dit si elle en vient ou non. */
+    chaineCourante?: string;
     /** Persiste l'operation dans le releve. Le second argument est le NOM saisi. */
     onAjouter: (op: Operation, nomOuvrier: string) => Promise<void>;
 }
 
-export default function AjoutPosteRapide({ models, activeModel, workers, onAjouter }: Props) {
+export default function AjoutPosteRapide({ models, activeModel, workers, chaineCourante, onAjouter }: Props) {
     const { lang } = useLang();
     const [ouvert, setOuvert] = useState(false);
     const [description, setDescription] = useState('');
@@ -192,7 +194,11 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
                                 <button
                                     key={p.description}
                                     type="button"
-                                    onMouseDown={e => { e.preventDefault(); choisir(p); }}
+                                    /* `pointerdown` et non `mousedown` : ce dernier n'est
+                                       synthetise qu'apres le `touchend` sur telephone, donc
+                                       apres la perte de focus qui ferme la liste — le doigt
+                                       ne selectionnait alors rien. */
+                                    onPointerDown={e => { e.preventDefault(); choisir(p); }}
                                     className="w-full text-left px-2.5 py-1.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/50 border-b border-slate-100 dark:border-dk-border/40 last:border-0"
                                 >
                                     <span className="block text-[12px] font-black text-slate-800 dark:text-dk-text truncate">{p.description}</span>
@@ -223,6 +229,7 @@ export default function AjoutPosteRapide({ models, activeModel, workers, onAjout
                         valeur={nomOuvrier}
                         workers={workers}
                         lang={lang}
+                        chaineCourante={chaineCourante}
                         autoFocus={false}
                         onValider={(nom) => setNomOuvrier(nom)}
                         onAnnuler={() => { /* rien : le champ vit dans le formulaire */ }}

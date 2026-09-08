@@ -977,6 +977,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                     models={models}
                                     activeModel={activeModel}
                                     workers={workersSorted}
+                                    chaineCourante={selectedChaineId}
                                     onAjouter={ajouterPoste}
                                 />
                                 {/* Un modele qui arrive de la Bibliotheque a deja sa gamme
@@ -1007,6 +1008,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                 models={models}
                                 activeModel={activeModel}
                                 workers={workersSorted}
+                                chaineCourante={selectedChaineId}
                                 onAjouter={ajouterPoste}
                             />
                             {/* La gamme ne se deverse plus toute seule ici : elle sert au
@@ -1175,6 +1177,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                 valeur={nomOuvrier(poste.id)}
                                                                 workers={workersSorted}
                                                                 lang={lang}
+                                                                chaineCourante={selectedChaineId}
                                                                 onValider={(nom) => { void changerOuvrierPoste(poste, nom); setChangementOuvrier(null); }}
                                                                 onAnnuler={() => setChangementOuvrier(null)}
                                                             />
@@ -1359,6 +1362,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                 valeur={nomOuvrier(poste.id)}
                                                                 workers={workersSorted}
                                                                 lang={lang}
+                                                                chaineCourante={selectedChaineId}
                                                                 onValider={(nom) => { void changerOuvrierPoste(poste, nom); setChangementOuvrier(null); }}
                                                                 onAnnuler={() => setChangementOuvrier(null)}
                                                             />
