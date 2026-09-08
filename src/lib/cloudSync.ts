@@ -326,6 +326,7 @@ const ORIGINAL_SET_ITEM = Storage.prototype.setItem;
 let syncChannel: ReturnType<typeof supabase.channel> | null = null;
 let beforeUnloadHandler: (() => void) | null = null;
 let visibiliteHandler: (() => void) | null = null;
+let retourReseauHandler: (() => void) | null = null;
 /** Filet de securite quand le canal Realtime ne passe pas (voir POLL_PULL_MS). */
 let pollPullTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -365,6 +366,32 @@ const PUSH_ATTENTE_MAX_MS = 20000;
 
 /** Horodatage de la premiere ecriture non encore poussee (0 = rien en attente). */
 let attenteDepuis = 0;
+
+/* ── « Cet appareil a-t-il du travail que le cloud n'a pas ? » ───────────────
+ *
+ * Le seul declencheur d'envoi etait l'ecriture d'une cle synchronisee, via le
+ * regroupement de 5 s. Passe ce delai, plus RIEN ne reprenait la main : le
+ * rappel de secours (POLL_PULL_MS) ne fait que RECEVOIR, et il ne poussait que
+ * si un regroupement etait justement en cours. Un envoi refuse — reseau coupe,
+ * jeton expire, page gelee par le telephone — laissait donc le travail sur
+ * l'appareil INDEFINIMENT : le diagnostic affichait « serveur 7 · ici 6 » des
+ * heures durant, avec une derniere ecriture serveur figee a l'heure du dernier
+ * envoi reussi.
+ *
+ * Ce compteur dit, sans le moindre appel reseau, s'il reste quelque chose a
+ * envoyer. Il avance a chaque modification locale (ecriture d'une cle, et
+ * fusion d'un pull — qui laisse cet appareil en avance : elle unit les deux
+ * cotes et retire ce qui a ete supprime ici). Il n'est rattrape qu'apres un
+ * envoi CONFIRME. */
+let versionLocale = 0;
+let versionEnvoyee = -1;
+
+/** Une modification locale attend-elle encore de partir ? */
+const aDuTravailNonEnvoye = (): boolean => versionLocale !== versionEnvoyee;
+
+/** Marque comme parti l'etat local tel qu'il etait au debut de l'envoi. Ce qui
+ *  a ete ecrit PENDANT l'envoi garde son droit a un envoi suivant. */
+const marquerEnvoye = (version: number): void => { versionEnvoyee = version; };
 
 /** Plafond du corps d'un `fetch(..., { keepalive: true })` : 64 Kio dans la
  *  spécification. On garde une marge sous la borne — la longueur en caractères
@@ -449,10 +476,31 @@ const modifieeLocalement = (k: string): boolean => {
   return sigLocal(k) !== repere;
 };
 
-/** Aligne les reperes sur l'etat local courant (apres un envoi confirme, ou une fusion). */
+/** Aligne les reperes sur l'etat local courant. A n'utiliser QU'APRES un envoi
+ *  confirme : c'est le seul moment ou « ce que le cloud detient » et « ce qu'il
+ *  y a ici » sont vraiment la meme chose. */
 const majReperes = (cles: readonly string[]): void => {
   const r = lireReperes();
   for (const k of cles) r[k] = sigLocal(k);
+  ecrireReperes(r);
+};
+
+/**
+ * Aligne les reperes sur ce que le CLOUD vient de nous envoyer — apres un pull.
+ *
+ * Les aligner sur l'etat LOCAL a ce moment-la etait un contresens : la fusion
+ * d'un pull produit justement un etat local DIFFERENT de celui du cloud (elle
+ * unit les deux cotes, retire ce qui a ete supprime ici, et laisse intactes les
+ * cles portant une modification pas encore envoyee). Le repere annoncait donc
+ * « le cloud a deja tout ca » alors que non, et `modifieeLocalement` repondait
+ * NON pour les cles qui avaient precisement du travail en attente. Consequence
+ * directe : la protection des cles simples (reglages, fiche entreprise,
+ * navigation) tombait au pull SUIVANT, et le reglage tout juste enregistre ici
+ * se faisait ecraser par l'ancienne valeur du cloud, tout seul.
+ */
+const majReperesDepuisCloud = (snapshot: Record<string, unknown>): void => {
+  const r = lireReperes();
+  for (const k of SYNC_KEYS) if (k in snapshot) r[k] = sigValeur((snapshot as any)[k]);
   ecrireReperes(r);
 };
 
@@ -847,10 +895,18 @@ const applySnapshotToLocal = async (snapshot: Record<string, unknown> | null): P
         signalerStockagePlein('__bera_sqlite_export__', e);
       }
     }
-    majReperes(SYNC_KEYS);
+    majReperesDepuisCloud(snapshot);
   } finally {
     isApplyingRemote = false;
   }
+  /* La fusion vient de produire un etat qui n'est PAS celui du cloud : elle
+     unit les deux cotes (ce que cet appareil est seul a connaitre reste) et
+     retire ce qui a ete supprime ici. Cet etat doit repartir, sinon l'ecart est
+     definitif — le cloud garde a jamais le modele qu'on a supprime ici, et
+     n'apprend jamais la ligne de suivi saisie ici. Les ecritures ci-dessus ne
+     l'ont pas signale : elles se font sous `isApplyingRemote`, qui coupe
+     justement le declencheur d'envoi. */
+  versionLocale += 1;
   window.dispatchEvent(new CustomEvent('beramethode:cloud-sync-applied'));
   return toutApplique;
 };
@@ -911,6 +967,10 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
     }
   } catch { /* cloud illisible : on tente l'envoi, c'est mieux que de perdre le travail local */ }
 
+  /* Releve AVANT la collecte : une ecriture qui arrive pendant l'envoi doit
+     garder son droit a un envoi suivant, jamais etre comptee comme partie. */
+  const versionAuDepart = versionLocale;
+
   let snapshot: Record<string, unknown> = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
 
   // Les photos vivent dans IndexedDB ; la bibliothèque locale n'en garde qu'une
@@ -928,6 +988,7 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
   // Garde-fou: ne jamais écraser avec un snapshot vide
   if (instantaneVide(snapshot)) {
     console.warn('[cloudSync] push annulé: snapshot local vide');
+    marquerEnvoye(versionAuDepart); // rien a envoyer : ne pas reessayer en boucle
     return true; // rien d'important à pousser — une purge ne perdrait rien
   }
 
@@ -937,7 +998,7 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
   // des images (représente l'état métier local). lastSyncedSig n'est mis à jour
   // qu'après un UPSERT confirmé → un échec réseau laisse le prochain push réessayer.
   const sig = quickSig(JSON.stringify(snapshot));
-  if (sig === lastSyncedSig) return true;
+  if (sig === lastSyncedSig) { marquerEnvoye(versionAuDepart); return true; }
 
   // Fusion anti-destruction : si une clé est VIDE localement (risque d'écraser des
   // données non vides d'un autre appareil), on lit l'état cloud et on préserve ses
@@ -974,9 +1035,25 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
             const cm = parIdCloud.get(String(lm.id));
             return cm ? withPreservedPreview(lm, cm) : lm;
           });
-          // 2. Conserver les modèles que le cloud est seul à connaître.
+          /* 2. Conserver les modèles que le cloud est seul à connaître —
+                SAUF ceux que l'utilisateur a supprimés ici.
+
+             Sans ce filtre, une suppression de modèle ne pouvait JAMAIS
+             atteindre le cloud. Ce rattrapage se déclenche dès qu'UNE seule
+             clé synchronisée est vide ici (chronométrages, salles,
+             sous-traitance… : le cas de presque tous les comptes), et il
+             remettait alors dans l'envoi le modèle qu'on venait d'effacer.
+             Le pull suivant le renvoyait, la pierre tombale le retirait à
+             nouveau de l'affichage, et le diagnostic affichait pour toujours
+             « Modèles : serveur 7 · ici 6 » — un écart stable, que ni le
+             temps ni « Envoyer mes données maintenant » ne résorbaient.
+
+             Les pierres tombales sont exactement ce qui distingue « le cloud
+             a un modèle que je n'ai jamais reçu » (à garder) de « je l'ai
+             supprimé » (à ne pas ressusciter). */
           const ids = new Set(rendus.map((m: any) => m && String(m.id)));
-          const extra = cloudV.filter((m: any) => m && !ids.has(String(m.id)));
+          const inconnus = cloudV.filter((m: any) => m && !ids.has(String(m.id)));
+          const extra = sansSupprimes(k, inconnus);
           (snapshot as any)[k] = extra.length ? [...rendus, ...extra] : rendus;
         }
         /* On ne fusionne PAS le cloud dans l'envoi au-dela de ce cas.
@@ -1030,6 +1107,7 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
     // UPSERT confirmé : mémorise la signature pour sauter les prochains push
     // identiques (re-renders qui réécrivent la même valeur).
     lastSyncedSig = sig;
+    marquerEnvoye(versionAuDepart);
     // Le cloud detient desormais l'etat local : les reperes le disent, cle par cle.
     majReperes(SYNC_KEYS);
     // On vient d'écrire ce contenu : aligne `updated_at` local pour que le
@@ -1161,7 +1239,15 @@ const annulerRelance = () => {
 const pousserEtRelancerSiEchec = async (userId: string): Promise<boolean> => {
   const ok = await pushSnapshotToCloud(userId).catch(() => false);
   if (ok) { annulerRelance(); return true; }
-  if (relanceEssais >= RELANCE_DELAIS_MS.length) return false;
+  if (relanceEssais >= RELANCE_DELAIS_MS.length) {
+    /* L'echelle est epuisee pour CETTE rafale — on la rearme pour la suivante.
+       Sans ce retour a zero, le compteur restait a son plafond pour toute la
+       session : apres trois refus (un tunnel, un jeton expire), plus AUCUN
+       envoi de la journee n'obtenait de seconde chance. Le rappel de secours
+       ci-dessous, lui, continue de repasser toutes les minutes. */
+    relanceEssais = 0;
+    return false;
+  }
   const delai = RELANCE_DELAIS_MS[relanceEssais];
   relanceEssais += 1;
   if (relanceTimer) clearTimeout(relanceTimer);
@@ -1183,6 +1269,10 @@ const detacherEcouteurs = () => {
     document.removeEventListener('visibilitychange', visibiliteHandler);
     visibiliteHandler = null;
   }
+  if (retourReseauHandler) {
+    window.removeEventListener('online', retourReseauHandler);
+    retourReseauHandler = null;
+  }
   // Une relance visant l'ancienne session n'a plus lieu d'etre.
   annulerRelance();
 };
@@ -1202,6 +1292,7 @@ export const startCloudSync = (userId: string) => {
   Storage.prototype.setItem = function (key: string, value: string) {
     ORIGINAL_SET_ITEM.call(this, key, value);
     if (this === localStorage && isSyncKey(key, SYNC_KEYS) && !isApplyingRemote) {
+      versionLocale += 1;
       const maintenant = Date.now();
       if (!attenteDepuis) attenteDepuis = maintenant;
       if (syncTimer) clearTimeout(syncTimer);
@@ -1220,15 +1311,27 @@ export const startCloudSync = (userId: string) => {
   };
 
   /* Ce qui attend encore la fin du regroupement part AVANT le pull : sinon un
-     reglage tout juste enregistre se ferait doubler par la version du cloud. */
+     reglage tout juste enregistre se ferait doubler par la version du cloud.
+     Et ce qui reste APRES le pull repart : la fusion laisse cet appareil en
+     avance des qu'il detient quelque chose que le cloud ignore. */
   const recupererApresAvoirEnvoye = async () => {
-    if (syncTimer) {
-      clearTimeout(syncTimer);
-      syncTimer = null;
-      attenteDepuis = 0;
-      await pushSnapshotToCloud(userId).catch(() => false);
-    }
+    if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; attenteDepuis = 0; }
+
+    /* Ne dependait QUE d'un regroupement en cours. Un envoi refuse plus tot —
+       ou une fusion qui a laisse cet appareil en avance — n'etait donc jamais
+       rejoue : ce rappel ne faisait plus que RECEVOIR, et l'ecart durait des
+       heures (« serveur 7 · ici 6 », derniere ecriture serveur figee). On
+       s'appuie desormais sur ce que l'appareil sait de lui-meme, sans le
+       moindre appel reseau. */
+    if (aDuTravailNonEnvoye()) await pousserEtRelancerSiEchec(userId);
+
     await pullSnapshotFromCloud(userId).catch(() => false);
+
+    /* La fusion vient peut-etre d'ajouter ici le travail des autres appareils
+       SANS que le cloud connaisse le notre (union, et retrait de ce qui a ete
+       supprime ici). C'est le seul moment ou l'etat fusionne — celui qui met
+       tout le monde d'accord — peut partir. */
+    if (aDuTravailNonEnvoye()) await pousserEtRelancerSiEchec(userId);
   };
 
   // ── Le téléphone ne prévient pas qu'il s'en va ─────────────────────────────
@@ -1246,16 +1349,23 @@ export const startCloudSync = (userId: string) => {
     // appareils. Dans cet ordre : le rattrapage local ne doit pas être noyé par
     // la fusion du pull. Les deux appels savent ne rien faire s'il n'y a rien de
     // neuf (signature identique, `updated_at` identique) — aucun trafic inutile.
-    void (async () => {
-      // Dans CET ordre : la fusion du pull est une union (rien de local ne se
-      // perd), et l'envoi qui suit part d'un etat qui contient deja le travail
-      // des autres appareils. L'ordre inverse envoyait l'etat local par-dessus
-      // le leur, puis sautait le pull en se croyant a jour.
-      await recupererApresAvoirEnvoye();
-      await pousserEtRelancerSiEchec(userId);
-    })();
+    // Dans CET ordre : la fusion du pull est une union (rien de local ne se
+    // perd), et l'envoi qui suit part d'un etat qui contient deja le travail
+    // des autres appareils. L'ordre inverse envoyait l'etat local par-dessus
+    // le leur, puis sautait le pull en se croyant a jour.
+    // `recupererApresAvoirEnvoye` renvoie desormais lui-meme l'etat fusionne
+    // quand il reste quelque chose a envoyer : plus besoin d'un second envoi
+    // ici, qui repartait pour un aller-retour meme sans rien a dire.
+    void recupererApresAvoirEnvoye();
   };
   document.addEventListener('visibilitychange', visibiliteHandler);
+
+  /* Le reseau revient. C'est l'instant exact ou un envoi refuse peut enfin
+     passer, et rien ne l'ecoutait : sur un telephone d'atelier, une coupure
+     tombant sur la derniere saisie condamnait ce travail a attendre la
+     prochaine ecriture — des heures plus tard, ou jamais. */
+  retourReseauHandler = () => { void recupererApresAvoirEnvoye(); };
+  window.addEventListener('online', retourReseauHandler);
 
   // Fermeture réelle de l'onglet (poste fixe surtout). `keepalive` laisse la
   // requête survivre à la page, mais la spécification la plafonne à 64 Kio :
