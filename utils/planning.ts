@@ -192,6 +192,46 @@ export function addWorkingDaysFromLaunchIso(startIso: string, daysNeeded: number
  */
 const DEFAULT_CAPACITE_CHAINE_PAR_JOUR = 1000;
 
+/**
+ * SAM de repli quand le modele n'en porte aucun, en MINUTES par piece.
+ *
+ * Inventer un temps est deja discutable — mais l'inventer DIFFEREMMENT selon
+ * l'ecran l'est davantage : le planning retenait 15 min et le suivi 12, si bien
+ * que le meme modele sans gamme chiffree n'avait pas la meme capacite, la meme
+ * duree ni le meme objectif d'un ecran a l'autre. Une seule valeur, donc.
+ */
+export const SAM_PAR_DEFAUT_MIN = 15;
+
+/**
+ * Capacite journaliere d'une chaine, en pieces/jour — DEFINITION UNIQUE.
+ *
+ * Cette formule existait recopiee a trois endroits (fin d'OF, barre du Gantt,
+ * fenetre de choix du modele), et AUCUNE des copies ne regardait
+ * `settings.capacityMode` : le planning annoncait la capacite reglee en en-tete
+ * de chaine et raisonnait, partout ailleurs, sur une capacite deduite d'un SAM
+ * et d'un effectif que personne n'avait regles. Une seule definition, donc, et
+ * tout le module dit desormais le meme nombre.
+ *
+ *   STATIC (defaut) — la capacite REGLEE pour la chaine (Admin), celle que
+ *     l'en-tete affiche et sur laquelle les alertes de surcharge raisonnent.
+ *   DYNAMIC — la capacite deduite : operateurs x minutes x performance / SAM.
+ */
+export function capaciteJournaliereChaine(
+  settings: AppSettings,
+  chainId: string | undefined,
+  samMinutes: number,
+  performance: number,
+): number {
+  const operators = chainId ? (settings.chainOperators?.[chainId] ?? 30) : 30;
+  const workMins = getWorkMinutesPerDay(settings);
+  const capaciteDynamique = (operators * workMins * Math.max(0.01, performance)) / Math.max(0.1, samMinutes);
+  if (settings.capacityMode === 'DYNAMIC') return capaciteDynamique;
+  const reglee = chainId ? settings.chainCapacityPerDay?.[chainId] : undefined;
+  return typeof reglee === 'number' && Number.isFinite(reglee) && reglee > 0
+    ? reglee
+    : DEFAULT_CAPACITE_CHAINE_PAR_JOUR;
+}
+
 /** Fin estimée OF : quantité / capacité journalière de la chaîne, en jours ouvrés. */
 export function calculateEndDate(
   startIso: string,
@@ -202,42 +242,8 @@ export function calculateEndDate(
   chainId?: string,
   setupMins?: number
 ): string {
-  // 1. Get Nombre d'ouvriers (from settings or fallback to 30)
-  const operators = chainId ? (settings.chainOperators?.[chainId] ?? 30) : 30;
-
-  // 2. Get Minutes de travail par jour (net of pauses)
   const workMins = getWorkMinutesPerDay(settings);
-
-  // 3. Performance % is efficiency
-  const performance = Math.max(0.01, efficiency);
-
-  // 4. Temps de l'article is sam in minutes
-  const samMins = Math.max(0.1, sam);
-
-  /* 5. Capacite journaliere (pieces/jour).
-   *
-   * Le mode de capacite (Admin) tranche, exactement comme `getEffectiveCapacity`
-   * le fait pour le reste du planning :
-   *
-   *   STATIC (defaut) — la capacite REGLEE pour la chaine. C'est le nombre que
-   *     l'en-tete de la chaine affiche (« 1000 pcs/j ») et celui sur lequel les
-   *     alertes de surcharge raisonnent deja.
-   *   DYNAMIC — la capacite deduite du SAM et de l'effectif.
-   *
-   * Cette fonction appliquait TOUJOURS la formule dynamique, quel que soit le
-   * mode. En STATIC — le defaut — le Gantt annoncait donc « 1000 pcs/j » en
-   * en-tete et dessinait la barre d'apres un tout autre calcul, nourri par un
-   * effectif et un SAM que personne n'avait regles : 1260 pieces sur une chaine
-   * a 1000 pieces/jour s'etalaient sur des mois au lieu de deux jours, et les
-   * OF suivants, enchaines par `rollPlanningEvents`, partaient avec eux.
-   */
-  const capaciteDynamique = (operators * workMins * performance) / samMins;
-  const capaciteReglee = chainId ? settings.chainCapacityPerDay?.[chainId] : undefined;
-  const capacity = settings.capacityMode === 'DYNAMIC'
-    ? capaciteDynamique
-    : (typeof capaciteReglee === 'number' && Number.isFinite(capaciteReglee) && capaciteReglee > 0
-        ? capaciteReglee
-        : DEFAULT_CAPACITE_CHAINE_PAR_JOUR);
+  const capacity = capaciteJournaliereChaine(settings, chainId, sam, efficiency);
 
   // 6. Durée in days (including setup time buffer)
   const setupDays = setupMins ? (setupMins / workMins) : 0;

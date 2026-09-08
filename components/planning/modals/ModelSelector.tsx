@@ -4,7 +4,7 @@ import { getClientColor } from '../shared/clientColors';
 import { ChevronDown, Package, Zap, CheckCircle2, AlertCircle, AlertTriangle, Clock, Calendar, Search, X, ExternalLink } from 'lucide-react';
 import { tx } from '../../../lib/i18n';
 import { useLang } from '../../../src/context/LanguageContext';
-import { addWorkingDaysFromLaunchIso, planningLocalDateKey } from '../../../utils/planning';
+import { addWorkingDaysFromLaunchIso, planningLocalDateKey, capaciteJournaliereChaine } from '../../../utils/planning';
 import { minutesTravailleesDuJour } from '../../../lib/horaires';
 
 function getModelThumb(m: ModelData): string | null {
@@ -77,7 +77,12 @@ function computeMetrics(
     const pcsPerHour = sam > 0 ? Math.round(((operators * 60) / sam) * 100) / 100 : 0;
     const eff = Math.max(0, Math.min(1, chainEfficiency));
     const pcsPerHourEff = Math.round(pcsPerHour * eff * 100) / 100;
-    const pcsPerDay = sam > 0 ? Math.round((operators * workMins * eff) / sam) : 0;
+    /* Definition unique (`capaciteJournaliereChaine`) : cette copie ignorait
+       `capacityMode` et annoncait donc « X pcs/j » different de la capacite que
+       l'en-tete de la chaine affiche, sur le meme ecran. */
+    const pcsPerDay = sam > 0
+        ? Math.round(settings ? capaciteJournaliereChaine(settings, chainId, sam, eff) : (operators * workMins * eff) / sam)
+        : 0;
     const minTotal = workMins;
     const mins = Math.floor(samSec / 60);
     const secs = Math.floor(samSec % 60);

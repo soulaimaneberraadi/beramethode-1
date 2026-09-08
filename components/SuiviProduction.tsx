@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { SAM_PAR_DEFAUT_MIN } from '../utils/planning';
 import { saveSuivis } from '../lib/suiviSync';
 import type { AppSettings, ModelData, PlanningEvent, SuiviData, MaterialReceipt, InventoryMovement, MouvementStock, PlanningStatus } from '../types';
 import { deriveHourGrid, type HourBlock } from './suivi/shared/hours';
@@ -574,7 +575,9 @@ export default function SuiviProduction({
             const m = models.find(x => x.id === modelId);
             const name = ev?.modelName || m?.meta_data?.nom_modele || m?.filename || 'Modèle Inconnu';
             const ref = m?.meta_data?.reference || (modelId || '').substring(0, 8) || ofKey.substring(0, 8);
-            const sam = m?.meta_data?.total_temps || 12;
+            // Meme repli que le planning (`SAM_PAR_DEFAUT_MIN`) : 12 ici et 15 la-bas
+            // donnaient deux verites pour un modele sans gamme chiffree.
+            const sam = m?.meta_data?.total_temps || SAM_PAR_DEFAUT_MIN;
             const override = ofColorOverrides[ofKey] || ev?.color || null;
             const style = getOFColor(ofKey, override);
             const target = ev?.qteTotal || m?.meta_data?.quantity || 1500;
