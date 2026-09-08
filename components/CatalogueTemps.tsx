@@ -456,7 +456,12 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
                 // Deja pris en compte par la gamme : ne pas compter deux fois.
                 if (opLiee) continue;
                 diag.postesVus += 1;
-                const description = (st.name || st.description || '').trim();
+                /* `description` D'ABORD : `name` est l'etiquette du poste (« P5 »,
+                   « P12 »), pas ce qu'on y fait. Le catalogue se lit par le libelle
+                   de l'operation — « P5 » n'apprend rien et empeche le
+                   regroupement par similarite de rapprocher deux fois le meme
+                   travail. Le numero ne sert que faute de libelle. */
+                const description = (st.description || st.name || '').trim();
                 if (!description) { diag.sansLibelle += 1; continue; }
 
                 /* Les cles de `chronoData` ont trois formes (cf. `chronoForOp`) :
@@ -590,7 +595,7 @@ export default function CatalogueTemps({ models, onOpenWorker, liveModelId, live
                 // Cle `stId__opId` ou id seul : le poste est toujours en tete.
                 const stId = cle.includes('__') ? cle.split('__')[0] : cle;
                 const st = stations.find(x => x.id === stId);
-                const desc = (st?.name || st?.description || '').trim();
+                const desc = (st?.description || st?.name || '').trim();   // libelle avant numero
                 if (!desc) { diag.sansLibelle += 1; continue; }   // illisible dans la liste
                 const cour = parPoste.get(stId) || {
                     desc,
