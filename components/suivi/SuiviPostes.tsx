@@ -33,6 +33,8 @@ interface Props {
     focusPlanningId?: string | null;
     /** Appele une fois l'OF ouvert, pour ne pas rejouer le focus a chaque rendu. */
     onFocusPlanningConsumed?: () => void;
+    /** Ramene l'OF a aujourd'hui en gardant sa duree, quand il a ete lance trop loin. */
+    onDeplacerOFAujourdhui?: (planningId: string) => void;
 }
 
 const L = {
@@ -101,6 +103,8 @@ const L = {
     tendanceChaineTitre: { fr: 'Dernier creneau termine face a la moyenne des precedents', ar: 'آخر فترة سالات مقارنة بمعدّل اللي قبلها', en: 'Last completed slot against the average of the previous ones', es: 'Ultimo tramo terminado frente a la media de los anteriores', pt: 'Ultima faixa terminada face a media das anteriores', tr: 'Tamamlanan son dilim, oncekilerin ortalamasina karsi' },
     jourFutur: { fr: 'Jour a venir — rien a relever encore', ar: 'نهار جاي — مازال ما كاين ما يتسجّل', en: 'Future day — nothing to record yet', es: 'Dia futuro — todavia nada que registrar', pt: 'Dia futuro — ainda nada a registar', tr: 'Gelecek gun — henuz kaydedilecek bir sey yok' },
     jourFuturHint: { fr: 'On ne note que ce qui est deja sorti de la chaine : les cases s’ouvriront le jour venu. Cet OF a ete lance a cette date — passez a aujourd’hui pour saisir la production du jour.', ar: 'كنسجّلو غير اللي خرج من الشين: الخانات غادي يتحلّو ملي يجي النهار. هاد الأمر تلانصا فهاد التاريخ — دوز لليوم باش تسجّل إنتاج النهار.', en: 'Only what has already come off the line is recorded: the cells open when the day comes. This order was launched on that date — switch to today to enter today’s output.', es: 'Solo se anota lo que ya ha salido de la linea: las casillas se abriran ese dia. Esta OF se lanzo en esa fecha — pase a hoy para registrar la produccion.', pt: 'So se regista o que ja saiu da linha: as celulas abrem no proprio dia. Esta OF foi lancada nessa data — passe para hoje para registar a producao.', tr: 'Yalnizca hattan cikmis olan kaydedilir: hucreler o gun gelince acilir. Bu is emri o tarihte baslatildi — bugunun uretimini girmek icin bugune gecin.' },
+    ramenerOF: { fr: 'Commencer cet OF aujourd’hui', ar: 'بدا هاد الأمر اليوم', en: 'Start this order today', es: 'Empezar esta OF hoy', pt: 'Comecar esta OF hoje', tr: 'Bu is emrini bugun baslat' },
+    ramenerOFConfirme: { fr: 'Decaler cet OF pour qu’il commence aujourd’hui ? Sa duree est conservee, la date de livraison (DDS) ne bouge pas.', ar: 'تزحزح هاد الأمر باش يبدا اليوم؟ المدة كتبقى كيف ما هي، وتاريخ التسليم (DDS) ما كيتبدلش.', en: 'Shift this order so it starts today? Its duration is kept, the due date (DDS) does not move.', es: '¿Desplazar esta OF para que empiece hoy? Se conserva su duracion, la fecha de entrega (DDS) no cambia.', pt: 'Deslocar esta OF para comecar hoje? A duracao e mantida, a data de entrega (DDS) nao muda.', tr: 'Bu is emri bugun baslayacak sekilde kaydirilsin mi? Suresi korunur, teslim tarihi (DDS) degismez.' },
     allerAujourdhui: { fr: 'Aller a aujourd’hui', ar: 'سير لليوم', en: 'Go to today', es: 'Ir a hoy', pt: 'Ir para hoje', tr: 'Bugune git' },
     creneauFutur: { fr: 'Creneau pas encore passe', ar: 'الفترة مازال ما دازت', en: 'Slot has not happened yet', es: 'Tramo aun no transcurrido', pt: 'Faixa ainda nao decorrida', tr: 'Dilim henuz gecmedi' },
     creationInterdite: { fr: 'Votre compte ne peut pas creer de fiche ouvrier — demandez a Gestion RH.', ar: 'حسابك ما يقدرش يخلق بطاقة عامل — طلب من Gestion RH.', en: 'Your account cannot create worker files — ask HR.', es: 'Su cuenta no puede crear fichas de operario — pida a RRHH.', pt: 'A sua conta nao pode criar fichas de operario — peca ao RH.', tr: 'Hesabiniz isci karti olusturamaz — IK ile gorusun.' },
@@ -155,7 +159,7 @@ function todayStr(): string {
     return new Date().toISOString().split('T')[0];
 }
 
-export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste, onSetPosteTemps, focusPlanningId, onFocusPlanningConsumed }: Props) {
+export default function SuiviPostes({ models, planningEvents, settings, chainsList, selectedChaineId, setSelectedChaineId, globalDate, setGlobalDate, onOpenGamme, onAddPoste, onRemovePoste, onSetPosteTemps, focusPlanningId, onFocusPlanningConsumed, onDeplacerOFAujourdhui }: Props) {
     const { lang } = useLang();
     /* Le releve se fait au pied de la chaine, telephone en main : un tableau
        de douze colonnes n'y tient pas. Sur petit ecran, les creneaux se lisent
@@ -1092,15 +1096,33 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                     <div className="mb-3 rounded-2xl border border-sky-200 dark:border-sky-900/40 bg-sky-50 dark:bg-sky-900/20 px-4 py-3">
                         <p className="text-[12px] font-black text-sky-800 dark:text-sky-300">{tx(lang, L.jourFutur)}</p>
                         <p className="text-[10px] font-bold text-sky-700/80 dark:text-sky-400/80">{tx(lang, L.jourFuturHint)}</p>
-                        {setGlobalDate && (
-                            <button
-                                type="button"
-                                onClick={() => setGlobalDate(todayStr())}
-                                className="mt-2 px-3 py-2 rounded-xl bg-sky-600 text-white text-[11px] font-black hover:bg-sky-700 transition-colors min-h-[36px]"
-                            >
-                                {tx(lang, L.allerAujourdhui)}
-                            </button>
-                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {/* Aller a aujourd'hui ne sert que si un OF y tourne deja.
+                                Quand celui qu'on regarde a ete lance trop loin — le cas
+                                qui amene ici — c'est LUI qu'il faut ramener, sinon on
+                                arrive sur un jour vide et le releve reste impossible. */}
+                            {onDeplacerOFAujourdhui && activePlanning && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!window.confirm(tx(lang, L.ramenerOFConfirme))) return;
+                                        onDeplacerOFAujourdhui(activePlanning.id);
+                                    }}
+                                    className="px-3 py-2 rounded-xl bg-sky-600 text-white text-[11px] font-black hover:bg-sky-700 transition-colors min-h-[36px]"
+                                >
+                                    {tx(lang, L.ramenerOF)}
+                                </button>
+                            )}
+                            {setGlobalDate && (
+                                <button
+                                    type="button"
+                                    onClick={() => setGlobalDate(todayStr())}
+                                    className="px-3 py-2 rounded-xl border border-sky-300 dark:border-sky-900/50 bg-white dark:bg-dk-surface text-sky-700 dark:text-sky-300 text-[11px] font-black hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors min-h-[36px]"
+                                >
+                                    {tx(lang, L.allerAujourdhui)}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
                 {loading ? (

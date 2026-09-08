@@ -47,6 +47,8 @@ interface Props {
     onRemovePoste?: (modelId: string, posteId: string) => Promise<void>;
     /** Fixe le temps standard d'un poste du releve (minutes par piece). */
     onSetPosteTemps?: (modelId: string, posteId: string, tempsMin: number) => Promise<void>;
+    /** Ramene un OF a aujourd'hui en gardant sa duree (cf. SuiviPostes). */
+    onDeplacerOFAujourdhui?: (planningId: string) => void;
 }
 
 const SUIVI_LABELS = {
@@ -234,6 +236,45 @@ export default function SuiviProduction({
        rouvrait l'OF garde en localStorage et le modele qu'on venait de lancer
        n'apparaissait nulle part. */
     const [ofDirectId, setOfDirectId] = useState<string | null>(null);
+
+    /* Ramener un OF a aujourd'hui, depuis le releve.
+       Un OF lance pour une date lointaine rend la feuille inutilisable : aucune
+       case n'accepte de chiffre, puisqu'on ne releve pas une heure qui n'a pas eu
+       lieu. Corriger la date obligeait a rouvrir le Planning et a retrouver l'OF.
+       On DECALE ici l'OF entier — debut ET fin du meme nombre de jours — pour ne
+       pas ecraser une duree de production calculee sur la quantite. */
+    const deplacerOFAujourdhui = (planningId: string) => {
+        if (!setPlanningEvents) return;
+        const jour = (v?: string) => (v || '').split('T')[0];
+        const aujourdhui = new Date().toISOString().split('T')[0];
+        setPlanningEvents(prev => prev.map(p => {
+            if (p.id !== planningId) return p;
+            const debut = jour(p.startDate) || jour(p.dateLancement);
+            if (!debut) return p;
+            const decalageJours = Math.round(
+                (Date.parse(`${aujourdhui}T00:00:00`) - Date.parse(`${debut}T00:00:00`)) / 86400000,
+            );
+            if (!Number.isFinite(decalageJours) || decalageJours === 0) return p;
+            const glisser = (v?: string) => {
+                const d = jour(v);
+                if (!d) return v;
+                const t = Date.parse(`${d}T00:00:00`);
+                if (Number.isNaN(t)) return v;
+                return new Date(t + decalageJours * 86400000).toISOString().split('T')[0];
+            };
+            return {
+                ...p,
+                dateLancement: glisser(p.dateLancement) || aujourdhui,
+                startDate: aujourdhui,
+                estimatedEndDate: glisser(p.estimatedEndDate),
+                dateExport: glisser(p.dateExport),
+                /* La DDS est une echeance CLIENT : elle ne suit pas le decalage de
+                   production, sinon on repousserait la date promise en corrigeant
+                   une erreur de saisie. */
+            } as PlanningEvent;
+        }));
+        if (setGlobalDate) setGlobalDate(aujourdhui);
+    };
 
     // Redirection effect for direct model tracking
     useEffect(() => {
@@ -1621,6 +1662,7 @@ export default function SuiviProduction({
                     onSetPosteTemps={onSetPosteTemps}
                     focusPlanningId={ofDirectId}
                     onFocusPlanningConsumed={() => setOfDirectId(null)}
+                    onDeplacerOFAujourdhui={setPlanningEvents ? deplacerOFAujourdhui : undefined}
                 />
             ) : (
             <>
