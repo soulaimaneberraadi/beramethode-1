@@ -98,6 +98,10 @@ const L = {
     changerOuvrier: { fr: 'Changer l’ouvrier', ar: 'بدّل العامل', en: 'Change the worker', es: 'Cambiar el operario', pt: 'Mudar o operario', tr: 'Isciyi degistir' },
     supprimerPoste: { fr: 'Supprimer le poste', ar: 'مسح المنصب', en: 'Delete the poste', es: 'Eliminar el puesto', pt: 'Eliminar o posto', tr: 'Istasyonu sil' },
     supprimerConfirme: { fr: 'Retirer ce poste de la gamme ? Les releves deja saisis sont conserves, mais le poste disparait de cette liste.', ar: 'تمسح هاد المنصب من الگام؟ التسجيلات اللي دايرين كيبقاو، ولكن المنصب غادي يختافى من هاد اللائحة.', en: 'Remove this poste from the gamme? Entries already recorded are kept, but the poste disappears from this list.', es: '¿Quitar este puesto de la gama? Los registros ya introducidos se conservan, pero el puesto desaparece de esta lista.', pt: 'Remover este posto da gama? Os registos ja feitos sao mantidos, mas o posto desaparece desta lista.', tr: 'Bu istasyon gammeden kaldirilsin mi? Girilen kayitlar korunur, ancak istasyon bu listeden kaybolur.' },
+    jourFutur: { fr: 'Jour a venir — rien a relever encore', ar: 'نهار جاي — مازال ما كاين ما يتسجّل', en: 'Future day — nothing to record yet', es: 'Dia futuro — todavia nada que registrar', pt: 'Dia futuro — ainda nada a registar', tr: 'Gelecek gun — henuz kaydedilecek bir sey yok' },
+    jourFuturHint: { fr: 'On ne note que ce qui est deja sorti de la chaine : les cases s’ouvriront le jour venu. Cet OF a ete lance a cette date — passez a aujourd’hui pour saisir la production du jour.', ar: 'كنسجّلو غير اللي خرج من الشين: الخانات غادي يتحلّو ملي يجي النهار. هاد الأمر تلانصا فهاد التاريخ — دوز لليوم باش تسجّل إنتاج النهار.', en: 'Only what has already come off the line is recorded: the cells open when the day comes. This order was launched on that date — switch to today to enter today’s output.', es: 'Solo se anota lo que ya ha salido de la linea: las casillas se abriran ese dia. Esta OF se lanzo en esa fecha — pase a hoy para registrar la produccion.', pt: 'So se regista o que ja saiu da linha: as celulas abrem no proprio dia. Esta OF foi lancada nessa data — passe para hoje para registar a producao.', tr: 'Yalnizca hattan cikmis olan kaydedilir: hucreler o gun gelince acilir. Bu is emri o tarihte baslatildi — bugunun uretimini girmek icin bugune gecin.' },
+    allerAujourdhui: { fr: 'Aller a aujourd’hui', ar: 'سير لليوم', en: 'Go to today', es: 'Ir a hoy', pt: 'Ir para hoje', tr: 'Bugune git' },
+    creneauFutur: { fr: 'Creneau pas encore passe', ar: 'الفترة مازال ما دازت', en: 'Slot has not happened yet', es: 'Tramo aun no transcurrido', pt: 'Faixa ainda nao decorrida', tr: 'Dilim henuz gecmedi' },
     creationInterdite: { fr: 'Votre compte ne peut pas creer de fiche ouvrier — demandez a Gestion RH.', ar: 'حسابك ما يقدرش يخلق بطاقة عامل — طلب من Gestion RH.', en: 'Your account cannot create worker files — ask HR.', es: 'Su cuenta no puede crear fichas de operario — pida a RRHH.', pt: 'A sua conta nao pode criar fichas de operario — peca ao RH.', tr: 'Hesabiniz isci karti olusturamaz — IK ile gorusun.' },
     creationRefusee: { fr: 'Creation refusee — verifiez le matricule et le CIN.', ar: 'الإنشاء مرفوض — تحقق من رقم التسجيل والبطاقة الوطنية.', en: 'Creation refused — check the staff number and ID.', es: 'Creacion rechazada — compruebe la matricula y el DNI.', pt: 'Criacao recusada — verifique a matricula e o BI.', tr: 'Olusturma reddedildi — sicil no ve kimligi kontrol edin.' },
     aucunOuvrier: { fr: 'Aucun ouvrier enregistre — Gestion RH', ar: 'ما كاين حتى عامل مسجّل — Gestion RH', en: 'No worker registered — HR', es: 'Ningun operario registrado — RRHH', pt: 'Nenhum operario registado — RH', tr: 'Kayitli isci yok — IK' },
@@ -225,6 +229,13 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
         [posteSuivis, date],
     );
     const jourForce = joursForces.includes(date) || jourDejaReleve;
+    /* Date posterieure a aujourd'hui : aucune case n'acceptera de chiffre, car on
+       ne releve que ce qui est deja sorti de la chaine. Compare en jours, pas en
+       heures : aujourd'hui n'est jamais « a venir », meme a 6 h du matin. */
+    const jourAVenir = useMemo(() => {
+        if (!date) return false;
+        return date > todayStr();
+    }, [date]);
 
     const hourGrid = useMemo(
         () => deriveHourGrid(settings, date ? new Date(date) : undefined, { ignorerFermeture: jourForce }),
@@ -977,6 +988,25 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                         )}
                     </div>
                 )}
+                {/* Date a venir : toutes les cases sont fermees, et rien ne le disait.
+                    On tapait dans un champ inerte sans comprendre — d'autant qu'un OF
+                    lance depuis la Bibliotheque amene ici sa date de lancement, souvent
+                    lointaine. On nomme la cause, et on offre la sortie. */}
+                {jourAVenir && !loading && !hourGrid.closed && (
+                    <div className="mb-3 rounded-2xl border border-sky-200 dark:border-sky-900/40 bg-sky-50 dark:bg-sky-900/20 px-4 py-3">
+                        <p className="text-[12px] font-black text-sky-800 dark:text-sky-300">{tx(lang, L.jourFutur)}</p>
+                        <p className="text-[10px] font-bold text-sky-700/80 dark:text-sky-400/80">{tx(lang, L.jourFuturHint)}</p>
+                        {setGlobalDate && (
+                            <button
+                                type="button"
+                                onClick={() => setGlobalDate(todayStr())}
+                                className="mt-2 px-3 py-2 rounded-xl bg-sky-600 text-white text-[11px] font-black hover:bg-sky-700 transition-colors min-h-[36px]"
+                            >
+                                {tx(lang, L.allerAujourdhui)}
+                            </button>
+                        )}
+                    </div>
+                )}
                 {loading ? (
                     <div className="flex items-center justify-center py-16 text-slate-400 dark:text-dk-muted gap-2 text-sm font-bold">
                         <Loader2 className="w-4 h-4 animate-spin" /> {tx(lang, L.loading)}
@@ -1211,7 +1241,8 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                         void saveCellule(poste, bloc.key, chiffres === '' ? null : parseInt(chiffres, 10));
                                                     }}
                                                     placeholder="—"
-                                                    aria-label={tx(lang, L.productionHeure)}
+                                                    title={futur ? tx(lang, L.creneauFutur) : undefined}
+                                                    aria-label={futur ? tx(lang, L.creneauFutur) : tx(lang, L.productionHeure)}
                                                     className={`mt-1.5 w-full h-12 text-center text-[18px] font-black tabular-nums rounded-xl border outline-none transition-all ${
                                                         futur
                                                             ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
@@ -1495,6 +1526,7 @@ export default function SuiviPostes({ models, planningEvents, settings, chainsLi
                                                                         void saveCellule(poste, b.key, chiffres === '' ? null : parseInt(chiffres, 10));
                                                                     }}
                                                                     placeholder="—"
+                                                                    title={futur ? tx(lang, L.creneauFutur) : undefined}
                                                                     className={`w-full h-10 text-center text-[12px] font-black tabular-nums rounded-lg border outline-none transition-all ${
                                                                         futur
                                                                             ? 'bg-slate-50 dark:bg-dk-bg/50 border-slate-100 dark:border-dk-border/50 text-slate-300 dark:text-dk-muted'
