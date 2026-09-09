@@ -255,6 +255,34 @@ const resolveTypeAndId = (pathname: string): { type: string; id: string | null }
   return null;
 };
 
+/**
+ * Le suivi de production ne s'enregistre pas ligne par ligne.
+ *
+ * `saveSuivis` poste l'ETAT COMPLET — `{ suivis: [...], full: true }` — et le
+ * serveur SQLite le lit ainsi : il remplace la collection et supprime ce qui
+ * n'y figure plus. Le relais statique, lui, ne connaissait que l'upsert d'un
+ * element : il rangeait donc cette ENVELOPPE telle quelle dans la liste des
+ * suivis, avec un identifiant tire de l'horloge.
+ *
+ * Chaque enregistrement ajoutait ainsi un faux suivi contenant une copie de
+ * tous les autres. Trois consequences, et on les a toutes vues : la liste
+ * gonflait a chaque sauvegarde (« serveur 33 · ici 37 »), le stockage se
+ * remplissait de copies imbriquees les unes dans les autres, et l'ecriture
+ * finissait par etre refusee — c'est le « Erreur » rouge de l'ecran de suivi.
+ *
+ * Une enveloppe se reconnait a son tableau `suivis` : un vrai suivi n'en a
+ * jamais.
+ */
+const estEnveloppeSuivis = (x: any): boolean =>
+  !!x && typeof x === 'object' && Array.isArray((x as { suivis?: unknown }).suivis);
+
+/** Ecarte les fausses entrees rangees par les versions precedentes. */
+const purgerFauxSuivis = () => {
+  const arr = readArray('suivi');
+  if (!arr.some(estEnveloppeSuivis)) return;
+  writeArray('suivi', arr.filter(x => !estEnveloppeSuivis(x)));
+};
+
 // ─── GET routes ──────────────────────────────────────────────────────────────
 
 const filterAlive = (type: string, arr: any[]): any[] => {
@@ -368,6 +396,9 @@ export const installApiShim = () => {
 
   // Purge once on install
   try { purgeExpiredTombstones(); } catch {}
+  // Les faux suivis d'avant ce correctif occupent la place et faussent les
+  // comptes : on les ecarte au demarrage, une fois pour toutes.
+  try { purgerFauxSuivis(); } catch {}
   // And every 5 minutes thereafter
   setInterval(() => { try { purgeExpiredTombstones(); } catch {} }, 5 * 60 * 1000);
 
@@ -433,6 +464,14 @@ export const installApiShim = () => {
         const prev = readJson('beramethode_company') || {};
         writeJson('beramethode_company', { ...prev, ...(body || {}) });
         return reply(readCompany());
+      }
+
+      // Etat COMPLET du suivi : on remplace la collection, comme le ferait le
+      // serveur. Voir `estEnveloppeSuivis`.
+      if (method === 'POST' && /^\/api\/suivi\/?$/.test(url.pathname) && estEnveloppeSuivis(body)) {
+        const propres = (body.suivis as any[]).filter(x => !estEnveloppeSuivis(x));
+        writeArray('suivi', propres);
+        return reply({ message: 'Suivis saved successfully', saved: propres.length });
       }
 
       const r = resolveTypeAndId(url.pathname);
