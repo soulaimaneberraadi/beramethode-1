@@ -23,7 +23,7 @@ import AIOptimizationModal from './planning/modals/AIOptimizationModal';
 import BatchOrderModal, { type BatchOrderResult } from './planning/modals/BatchOrderModal';
 import PlanningAnimations from './planning/shared/PlanningAnimations';
 import FocusBanner from './planning/shared/FocusBanner';
-import { evClientName as evClientNameUtil, evModelName as evModelNameUtil, evQty } from './planning/shared/eventAccessors';
+import { evClientName as evClientNameUtil, evModelName as evModelNameUtil, evQty, evStartYmd } from './planning/shared/eventAccessors';
 import { useIsMobile } from './planning/shared/useIsMobile';
 import { Plus, Sparkles, Calendar as CalIcon, LayoutGrid, Rows, Printer as PrinterIcon, Filter as FilterIcon, Eye, X as XIcon, Flame, Minimize2, Maximize2, Zap, Check, AlertCircle, Layers } from 'lucide-react';
 
@@ -1471,6 +1471,33 @@ export default function Planning({
                     }}
                     onDuplicate={() => eventsApi.duplicateEvent(contextMenu.id)}
                     onMove={() => setMovingId(contextMenu.id)}
+                    quickMove={(() => {
+                        /* Deplacement d'un cran : le menu reste ouvert pour enchainer
+                           (+1, +1, +1) et l'OF bouge sous les yeux. Un jour se decale
+                           sans jamais faire defiler le planning. */
+                        const ev = planningEvents.find(e => e.id === contextMenu.id);
+                        if (!ev) return undefined;
+                        const depart = evStartYmd(ev);
+                        if (!depart) return undefined;
+                        const d = new Date(`${depart}T00:00:00`);
+                        if (Number.isNaN(d.getTime())) return undefined;
+                        return {
+                            dateLabel: d.toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: '2-digit' }),
+                            chains: chains.map(c => ({ id: c.id, name: c.name })),
+                            activeChainId: ev.chaineId || '',
+                            onShiftDays: (delta: number) => {
+                                const cible = new Date(`${depart}T00:00:00`);
+                                cible.setDate(cible.getDate() + delta);
+                                const y = cible.getFullYear();
+                                const m = String(cible.getMonth() + 1).padStart(2, '0');
+                                const j = String(cible.getDate()).padStart(2, '0');
+                                eventsApi.moveEvent(contextMenu.id, ev.chaineId || '', `${y}-${m}-${j}`);
+                            },
+                            onSetChain: (chainId: string) => {
+                                eventsApi.moveEvent(contextMenu.id, chainId, depart);
+                            },
+                        };
+                    })()}
                     onDelete={() => setDeleteConfirm(contextMenu.id)}
                     isPaused={planningEvents.find(e => e.id === contextMenu.id)?.status === 'BLOCKED_STOCK'}
                     onTogglePause={() => {

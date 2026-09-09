@@ -125,6 +125,64 @@ export default function EventBar({
         bufferLancement > 0 ? `${tx(lang, { fr: 'Préparation (Lancement):', ar: 'تحضير (انطلاق):', en: 'Setup (Launch):', es: 'Preparación (Lanzamiento):', pt: 'Preparação (Lançamento):', tr: 'Hazırlık (Başlatma):' })} ${bufferLancement} min` : '',
     ].filter(Boolean).join('\n');
 
+    /* Appui long = clic droit au doigt.
+       Le menu contextuel n'existait qu'au clic droit : sur telephone il n'y a
+       pas de clic droit, et l'evenement `contextmenu` synthetise par le
+       navigateur est inegal d'un appareil a l'autre. On ouvre donc le meme menu
+       apres 450 ms d'appui immobile. Tout deplacement du doigt de plus de 10 px
+       annule : l'utilisateur fait defiler le planning, il ne vise pas l'OF. */
+    const appuiRef = React.useRef<{ timer: number | null; x: number; y: number; declenche: boolean }>({
+        timer: null, x: 0, y: 0, declenche: false,
+    });
+
+    const annulerAppui = React.useCallback(() => {
+        if (appuiRef.current.timer !== null) {
+            window.clearTimeout(appuiRef.current.timer);
+            appuiRef.current.timer = null;
+        }
+    }, []);
+
+    React.useEffect(() => annulerAppui, [annulerAppui]);
+
+    const onTouchStart = (e: React.TouchEvent) => {
+        const t = e.touches[0];
+        if (!t) return;
+        appuiRef.current.x = t.clientX;
+        appuiRef.current.y = t.clientY;
+        appuiRef.current.declenche = false;
+        annulerAppui();
+        appuiRef.current.timer = window.setTimeout(() => {
+            appuiRef.current.declenche = true;
+            appuiRef.current.timer = null;
+            if (navigator.vibrate) { try { navigator.vibrate(12); } catch (_) {} }
+            /* On reutilise la meme signature que le clic droit : le parent ne lit
+               que clientX/clientY et preventDefault. */
+            onContextMenu({
+                preventDefault: () => {},
+                stopPropagation: () => {},
+                clientX: appuiRef.current.x,
+                clientY: appuiRef.current.y,
+            } as unknown as React.MouseEvent);
+        }, 450);
+    };
+
+    const onTouchMove = (e: React.TouchEvent) => {
+        const t = e.touches[0];
+        if (!t) return;
+        if (Math.abs(t.clientX - appuiRef.current.x) > 10 || Math.abs(t.clientY - appuiRef.current.y) > 10) {
+            annulerAppui();
+        }
+    };
+
+    const onTouchEnd = (e: React.TouchEvent) => {
+        annulerAppui();
+        // L'appui long a deja ouvert le menu : ne pas laisser le clic selectionner en plus.
+        if (appuiRef.current.declenche) {
+            e.preventDefault();
+            appuiRef.current.declenche = false;
+        }
+    };
+
     return (
         /* Un OF ne se deplace plus par simple glissement : au doigt, defiler le
            planning suffisait a decaler une production d'un jour ou de chaine sans
@@ -137,6 +195,10 @@ export default function EventBar({
             onClick={onClick}
             onDoubleClick={onDoubleClick}
             onContextMenu={onContextMenu}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+            onTouchCancel={annulerAppui}
             title={title}
             className={`planning-event-bar absolute top-1/2 -translate-y-1/2 transition-all duration-150 group overflow-hidden rounded-md ${
                 armed ? 'cursor-grab active:cursor-grabbing ring-2 ring-offset-1 ring-indigo-500 dark:ring-dk-accent animate-pulse z-30' : 'cursor-pointer'

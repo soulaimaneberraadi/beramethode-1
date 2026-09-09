@@ -7,7 +7,7 @@ import { horairesDuJour, dayNumberFromDate } from '../lib/horaires';
 
 /** Creneau de la grille, plus un marqueur pour les saisies hors horaire du jour. */
 type GridBlock = HourBlock & { orphan?: boolean };
-import { getOFColor, OF_COLOR_CHOICES, type OFStyle } from './suivi/shared/ofColors';
+import { getOFColor, hexToTints, OF_COLOR_CHOICES, type OFStyle } from './suivi/shared/ofColors';
 import { useIsMobile } from './planning/shared/useIsMobile';
 import { 
     Activity, Clock, ChevronLeft, ChevronRight, Plus, 
@@ -190,7 +190,16 @@ export default function SuiviProduction({
     // Édition toujours active + sauvegarde automatique (plus de bouton "Mode Modification").
     const [isOverrideMode] = useState<boolean>(true);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    /* OF selectionne, memorise par chaine. Rouvrir le suivi et devoir re-choisir
+       le modele a chaque fois etait la premiere friction de la page. */
     const [selectedActiveModelId, setSelectedActiveModelId] = useState<string>('');
+    const modelPrefsRef = React.useRef<Record<string, string>>({});
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem('beramethode_suivi_of_actif');
+            if (raw) modelPrefsRef.current = JSON.parse(raw) || {};
+        } catch (_) { modelPrefsRef.current = {}; }
+    }, []);
     const [activeCellModal, setActiveCellModal] = useState<{ dateStr: string; hourKey: string; hourLabel: string; } | null>(null);
 
     // Couleurs choisies manuellement par OF (key = planningId/OF). Priorité sur l'auto + event.color.
@@ -543,11 +552,16 @@ export default function SuiviProduction({
         return list;
     }, [settings?.chainsCount, selectedChaineId]);
 
-    // Set default chart date to Monday of the week
+    /* Jour par defaut : AUJOURD'HUI quand il tombe dans la semaine affichee.
+       On ne retombe sur le lundi que pour une semaine passee ou future, ou le
+       jour courant n'existe pas. Ouvrir le suivi sur lundi obligeait a cliquer
+       la bonne date a chaque fois. */
     useEffect(() => {
-        if (weekDays.length > 0 && (!selectedChartDate || !weekDays.some(d => d.dateStr === selectedChartDate))) {
-            setSelectedChartDate(weekDays[0].dateStr);
-        }
+        if (weekDays.length === 0) return;
+        if (selectedChartDate && weekDays.some(d => d.dateStr === selectedChartDate)) return;
+        const aujourdHui = new Date().toISOString().split('T')[0];
+        const defaut = weekDays.some(d => d.dateStr === aujourdHui) ? aujourdHui : weekDays[0].dateStr;
+        setSelectedChartDate(defaut);
     }, [weekDays, selectedChartDate]);
 
     // Clé OF stable pour un suivi : planningId si l'OF existe encore, sinon legacy `plan_<modelId>`.
@@ -568,6 +582,8 @@ export default function SuiviProduction({
             produced: number; remaining: number; restPerHour: string; style: OFStyle;
             planningId: string; modelId: string; ofTag?: string; image?: string | null; gamme: any[];
             producedThisWeek: number;
+            /* true = couleur choisie a la main ou heritee du Planning : intouchable. */
+            colorLocked: boolean;
         }>();
 
         const addEntry = (ofKey: string, modelId: string | undefined, planningId: string, ev?: PlanningEvent) => {
@@ -578,8 +594,11 @@ export default function SuiviProduction({
             // Meme repli que le planning (`SAM_PAR_DEFAUT_MIN`) : 12 ici et 15 la-bas
             // donnaient deux verites pour un modele sans gamme chiffree.
             const sam = m?.meta_data?.total_temps || SAM_PAR_DEFAUT_MIN;
-            const override = ofColorOverrides[ofKey] || ev?.color || null;
-            const style = getOFColor(ofKey, override);
+            /* Seul le choix MANUEL est intouchable. La couleur heritee du Planning
+               (`ev.color`) n'est qu'une preference : deux OF y arrivaient avec la
+               meme teinte et la grille cessait de les distinguer. */
+            const choixManuel = ofColorOverrides[ofKey] || null;
+            const style = getOFColor(ofKey, choixManuel || ev?.color || null);
             const target = ev?.qteTotal || m?.meta_data?.quantity || 1500;
             const image = m?.image || m?.images?.front || m?.meta_data?.photo_url || null;
             byOF.set(ofKey, {
@@ -593,6 +612,7 @@ export default function SuiviProduction({
                 remaining: target,
                 restPerHour: '0.00',
                 style,
+                colorLocked: Boolean(choixManuel),
                 planningId,
                 modelId: modelId || '',
                 ofTag: undefined,
@@ -647,6 +667,26 @@ export default function SuiviProduction({
 
         const list = Array.from(byOF.values());
 
+        /* Couleurs distinctes garanties.
+           `getOFColor` derive la couleur d'un hash : sur douze teintes, deux OF
+           actifs la meme semaine tombaient parfois sur la meme, et la grille
+           devenait illisible la ou elle sert justement a distinguer. On garde la
+           couleur explicite (choisie a la main ou venue du Planning), puis on
+           attribue aux autres leur couleur auto si elle est libre, sinon la
+           premiere teinte libre de la palette. */
+        const prises = new Set<string>();
+        list.forEach(am => { if (am.colorLocked) prises.add(am.style.base.toLowerCase()); });
+        list.forEach(am => {
+            if (am.colorLocked) return;
+            const auto = am.style.base.toLowerCase();
+            if (!prises.has(auto)) { prises.add(auto); return; }
+            const libre = OF_COLOR_CHOICES.find(c => !prises.has(c.toLowerCase()));
+            // Plus d'OF que de teintes : on laisse le doublon plutot que de tout griser.
+            if (!libre) return;
+            prises.add(libre.toLowerCase());
+            am.style = hexToTints(libre);
+        });
+
         // Tag OF court (ex: OF-1a2b) uniquement quand 2+ OF partagent la même référence,
         // pour les distinguer sans les confondre.
         const refCounts = new Map<string, number>();
@@ -676,16 +716,30 @@ export default function SuiviProduction({
         return list;
     }, [selectedChaineId, weekDays, suivis, planningEvents, models, ofColorOverrides, entryOFKey]);
 
-    // Keep selected active model synchronized
+    /* Selection de l'OF : on restaure celui memorise pour cette chaine s'il est
+       toujours actif, sinon le premier. On ne memorise QUE des OF encore presents,
+       pour ne pas ressusciter un OF termine a la semaine suivante. */
     useEffect(() => {
-        if (activeModels.length > 0) {
-            if (!selectedActiveModelId || !activeModels.some(m => m.id === selectedActiveModelId)) {
-                setSelectedActiveModelId(activeModels[0].id);
-            }
-        } else {
-            setSelectedActiveModelId('');
+        if (activeModels.length === 0) {
+            if (selectedActiveModelId) setSelectedActiveModelId('');
+            return;
         }
-    }, [activeModels, selectedActiveModelId]);
+        if (selectedActiveModelId && activeModels.some(m => m.id === selectedActiveModelId)) return;
+        const memorise = modelPrefsRef.current[selectedChaineId];
+        const cible = (memorise && activeModels.some(m => m.id === memorise)) ? memorise : activeModels[0].id;
+        setSelectedActiveModelId(cible);
+    }, [activeModels, selectedActiveModelId, selectedChaineId]);
+
+    // Persiste le choix courant (par chaine) des qu'il est valide.
+    useEffect(() => {
+        if (!selectedActiveModelId || !selectedChaineId) return;
+        if (!activeModels.some(m => m.id === selectedActiveModelId)) return;
+        if (modelPrefsRef.current[selectedChaineId] === selectedActiveModelId) return;
+        modelPrefsRef.current = { ...modelPrefsRef.current, [selectedChaineId]: selectedActiveModelId };
+        try {
+            localStorage.setItem('beramethode_suivi_of_actif', JSON.stringify(modelPrefsRef.current));
+        } catch (_) {}
+    }, [selectedActiveModelId, selectedChaineId, activeModels]);
 
     // Save/Sync database call
     const handleSave = async (updatedSuivis = suivis) => {
@@ -1139,7 +1193,17 @@ export default function SuiviProduction({
                     else if (dtCode === 'S') downtimeMinutes += 45;
                 }
             } else if (!h.orphan) {
-                if (dayEntries.length > 0) totalActiveMinutes += h.duration;
+                if (dayEntries.length === 0) return;
+                /* Creneau encore A VENIR sur la journee en cours : ce n'est pas un
+                   arret, il n'a simplement pas eu lieu. Le compter comme presence
+                   revenait a diviser la production d'une matinee par l'horaire
+                   complet du jour — 4 heures saisies mesurees sur 9 heures, soit
+                   48% affiche la ou le travail reel valait 107%. Une heure passee
+                   restee vide continue, elle, de compter : c'est un vrai arret. */
+                const finCreneau = new Date(`${dateStr}T00:00:00`);
+                finCreneau.setMinutes(h.endMin);
+                if (finCreneau.getTime() > Date.now()) return;
+                totalActiveMinutes += h.duration;
             }
         });
 
@@ -2348,6 +2412,28 @@ export default function SuiviProduction({
                                                                     </div>
                                                                 )}
                                                             </div>
+                                                            {/* Meme pastille de rendement que sur un creneau a un seul OF :
+                                                                le calcul additionne deja les minutes gagnees des deux modeles,
+                                                                seule cette branche d'affichage l'omettait — une heure a deux OF
+                                                                perdait donc son R sans raison. */}
+                                                            {(() => {
+                                                                const r = rendementCreneau(selectedChartDate, h);
+                                                                if (r === null) return null;
+                                                                return (
+                                                                    <span
+                                                                        className={`w-11 shrink-0 mt-1 text-center text-[11px] font-black tabular-nums rounded-lg py-1 ${
+                                                                            r >= 90
+                                                                                ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30'
+                                                                                : r >= 80
+                                                                                    ? 'text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-900/30'
+                                                                                    : 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/30'
+                                                                        }`}
+                                                                        title={tx(lang, { fr: 'Rendement de cette heure (tous OF)', ar: 'مردود هاد الساعة (جميع الأوامر)', en: 'Yield for this hour (all orders)', es: 'Rendimiento de esta hora (todos los OF)', pt: 'Rendimento desta hora (todas as OF)', tr: 'Bu saatin verimi (tüm işler)' })}
+                                                                    >
+                                                                        {r}%
+                                                                    </span>
+                                                                );
+                                                            })()}
                                                             <button
                                                                 type="button"
                                                                 onClick={() => !isCellLocked && ofId && handleOpenCellModal(selectedChartDate, h.key, h.label)}

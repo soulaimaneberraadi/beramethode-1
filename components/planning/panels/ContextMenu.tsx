@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Edit2, Split, Copy, Trash2, Eye, Pause, Play, Move } from 'lucide-react';
+import { Edit2, Split, Copy, Trash2, Eye, Pause, Play, Move, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useIsMobile } from '../shared/useIsMobile';
 import { tx } from '../../../lib/i18n';
 import { useLang } from '../../../src/context/LanguageContext';
@@ -18,10 +18,21 @@ interface Props {
     onMove?: () => void;
     isPaused?: boolean;
     onTogglePause?: () => void;
+    /* Deplacement RELATIF. Viser une case au doigt supposait que la source et la
+       destination tiennent sur le meme ecran : sur telephone le jour vise est
+       presque toujours hors champ. Ici on decale d'un cran a la fois, sans
+       defiler et sans viser. */
+    quickMove?: {
+        dateLabel: string;
+        chains: { id: string; name: string }[];
+        activeChainId: string;
+        onShiftDays: (delta: number) => void;
+        onSetChain: (chainId: string) => void;
+    };
 }
 
 export default function ContextMenu({
-    x, y, onClose, onView, onEdit, onSplit, onDuplicate, onDelete, onMove, isPaused, onTogglePause
+    x, y, onClose, onView, onEdit, onSplit, onDuplicate, onDelete, onMove, isPaused, onTogglePause, quickMove
 }: Props) {
     const ref = useRef<HTMLDivElement>(null);
     const isMobile = useIsMobile();
@@ -70,7 +81,7 @@ export default function ContextMenu({
     // Desktop : positionne au curseur en gardant le menu dans le viewport.
     // Mobile : feuille en bas (bottom sheet) pleine largeur.
     const MENU_W = 200;
-    const MENU_H = items.length * 40 + 8;
+    const MENU_H = items.length * 40 + 8 + (quickMove ? 96 : 0);
     const clampedLeft = typeof window !== 'undefined' ? Math.min(x, window.innerWidth - MENU_W - 8) : x;
     const clampedTop = typeof window !== 'undefined' ? Math.min(y, window.innerHeight - MENU_H - 8) : y;
 
@@ -85,6 +96,52 @@ export default function ContextMenu({
             style={isMobile ? undefined : { left: Math.max(8, clampedLeft), top: Math.max(8, clampedTop) }}
         >
             {isMobile && <div className="mx-auto mb-1 h-1 w-10 rounded-full bg-slate-300 dark:bg-dk-muted" />}
+
+            {quickMove && (
+                <div className={`border-b border-slate-100 dark:border-dk-border/60 ${isMobile ? 'px-4 pb-3 pt-1' : 'px-2 pb-2 pt-1'}`}>
+                    <div className={`flex items-center justify-between gap-2 ${isMobile ? 'mb-2' : 'mb-1.5'}`}>
+                        <button
+                            type="button"
+                            aria-label="-1 jour"
+                            onClick={() => quickMove.onShiftDays(-1)}
+                            className={`flex items-center justify-center rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 active:scale-95 transition ${isMobile ? 'h-10 w-12' : 'h-7 w-9'}`}
+                        >
+                            <ChevronLeft className={isMobile ? 'w-5 h-5' : 'w-4 h-4'} />
+                        </button>
+                        <span className={`flex-1 text-center font-black tabular-nums text-slate-800 dark:text-dk-text ${isMobile ? 'text-sm' : 'text-[11px]'}`}>
+                            {quickMove.dateLabel}
+                        </span>
+                        <button
+                            type="button"
+                            aria-label="+1 jour"
+                            onClick={() => quickMove.onShiftDays(1)}
+                            className={`flex items-center justify-center rounded-lg border border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 active:scale-95 transition ${isMobile ? 'h-10 w-12' : 'h-7 w-9'}`}
+                        >
+                            <ChevronRight className={isMobile ? 'w-5 h-5' : 'w-4 h-4'} />
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                        {quickMove.chains.map(c => {
+                            const actif = c.id === quickMove.activeChainId;
+                            return (
+                                <button
+                                    key={c.id}
+                                    type="button"
+                                    onClick={() => { if (!actif) quickMove.onSetChain(c.id); }}
+                                    className={`shrink-0 rounded-lg border font-bold transition active:scale-95 ${isMobile ? 'px-3 py-2 text-[12px]' : 'px-2 py-1 text-[10px]'} ${
+                                        actif
+                                            ? 'bg-indigo-600 text-white border-indigo-600'
+                                            : 'bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border hover:bg-slate-50 dark:hover:bg-dk-elevated/60'
+                                    }`}
+                                >
+                                    {c.name}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {items.map(({ id, label, Icon, danger }) => (
                 <button
                     key={id}
