@@ -533,8 +533,13 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
             const ofAvancement = effectiveLiveKPIs?.planning?.avancement ?? 0;
             return (
               <div style={{ animation: 'fadeInUp 0.5s ease-out both' }} className="bg-white dark:bg-dk-surface rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-dk-border">
-                {/* Production du jour */}
-                <div className="pb-4 sm:pb-0 sm:pr-5">
+                {/* Production du jour — mene au suivi, d'ou ce chiffre est tire.
+                    Des trois blocs de l'en-tete, il etait le seul inerte : le TRS
+                    ouvre le rendement, les OF ouvrent le planning, et la
+                    production du jour ne menait nulle part. Or c'est le chiffre
+                    qu'on interroge en premier, et sa reponse — le detail heure par
+                    heure, chaine par chaine — est dans le suivi de production. */}
+                <button type="button" onClick={() => onNavigateModule?.('suivi')} aria-label={tx(lang, { fr: 'Voir le suivi de production', ar: 'عرض متابعة الإنتاج', en: 'View production tracking', es: 'Ver seguimiento de producción', pt: 'Ver acompanhamento da produção', tr: 'Üretim takibini gör' })} className="w-full text-left pb-4 sm:pb-0 sm:pr-5 group hover:bg-slate-50/70 dark:hover:bg-dk-bg/40 sm:rounded-lg transition-colors">
                   <p className="text-[11px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wider">{tx(lang, { fr: 'Production du jour', ar: 'إنتاج اليوم', en: "Today's output", es: 'Producción del día', pt: 'Produção do dia', tr: 'Günün üretimi' })}</p>
                   <div className="flex items-baseline gap-2 mt-1.5 flex-wrap">
                     <span className="text-3xl sm:text-4xl font-black text-slate-800 dark:text-dk-text tracking-tight tabular-nums leading-none">{pj.toLocaleString()}</span>
@@ -556,7 +561,7 @@ export default function Dashboard({ models, suivis, planningEvents, settings, se
                       </span>
                     )}
                   </div>
-                </div>
+                </button>
                 {/* TRS ring */}
                 <button type="button" onClick={() => onNavigateModule?.('rendement')} aria-label={tx(lang, { fr: 'Voir le rendement', ar: 'عرض المردودية', en: 'View efficiency', es: 'Ver rendimiento', pt: 'Ver rendimento', tr: 'Verimliliği gör' })} title={tx(lang, { fr: 'TRS = Disponibilité × Performance × Qualité', ar: 'TRS = التوفّر × الأداء × الجودة', en: 'TRS = Availability × Performance × Quality', es: 'TRS = Disponibilidad × Rendimiento × Calidad', pt: 'TRS = Disponibilidade × Desempenho × Qualidade', tr: 'TRS = Kullanılabilirlik × Performans × Kalite' })} className="py-4 sm:py-0 sm:px-5 flex items-center justify-center gap-3 group hover:bg-slate-50/70 dark:hover:bg-dk-bg/40 sm:rounded-lg transition-colors">
                   <div className="relative w-[78px] h-[78px] shrink-0">
