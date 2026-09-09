@@ -10,6 +10,7 @@ import { LanguageProvider } from './src/context/LanguageContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ClickToComponent } from 'click-to-react-component';
 import { installApiShim } from './src/lib/apiShim';
+import { purgerFauxSuivis } from './lib/suiviSync';
 import { apiOrigine, installerRedirectionApi } from './src/lib/apiOrigin';
 import { installerEnteteAppareil } from './src/lib/deviceId';
 import { APP_VERSION } from './src/lib/dataVersion';
@@ -42,6 +43,12 @@ installerEnteteAppareil();
 // qui ne peut pas partir est garde sur l'appareil et renvoye — dans l'ordre —
 // des que le reseau revient, en repassant par les enveloppes posees avant elle.
 installerFileHorsLigne();
+
+// Les fausses entrees du suivi (voir `estEnveloppeSuivis`) sont ecartees des le
+// demarrage, et dans LES DEUX modes : le poste relie au serveur local ne les a
+// jamais fabriquees, mais il les recoit par la synchronisation cloud — et, s'il
+// ne les nettoie pas, il les rend au telephone qui vient de s'en debarrasser.
+purgerFauxSuivis();
 
 // En static mode (Vercel) SANS API distante, on intercepte les /api/* pour les
 // servir depuis le snapshot cloud localStorage. Aucun serveur backend requis.
