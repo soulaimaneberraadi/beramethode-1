@@ -36,7 +36,44 @@ const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_KEY as string) || 'eyJhbGciO
 
 export { SUPABASE_URL, SUPABASE_KEY as SUPABASE_ANON_KEY };
 
+/**
+ * Un appel d'authentification qui finit toujours par rendre la main.
+ *
+ * `getSession()` n'est pas une simple lecture du stockage : quand le jeton est
+ * perime, il declenche un renouvellement reseau et n'aboutit qu'une fois celui-ci
+ * termine. Or un reseau mobile peut retenir une requete sans jamais la fermer :
+ * ni reponse, ni erreur. Tout ce qui attend cette promesse gele alors pour
+ * toujours — l'ecran de chargement l'avait deja montre (voir le garde-fou des
+ * huit secondes dans `AuthContext`), et le panneau de diagnostic est reste bloque
+ * sur « Interrogation du serveur… » sans produire une seule ligne.
+ *
+ * Chaque appel a `/auth/v1/` est donc borne : passe ce delai il echoue, et un
+ * echec, lui, se rattrape et se reessaie. Les charges y sont minuscules (un
+ * jeton), aucune connexion lente honnete n'est sacrifiee.
+ *
+ * Le reste passe intact : un envoi REST porte jusqu'a deux megaoctets et un
+ * televersement de photo davantage encore — leur imposer une limite couperait
+ * des transferts parfaitement valides.
+ */
+const DELAI_AUTH_MS = 15000;
+
+const fetchBorneePourAuth: typeof fetch = (entree, init) => {
+  const url = typeof entree === 'string' ? entree : entree instanceof URL ? entree.href : entree.url;
+  if (!url.includes('/auth/v1/')) return fetch(entree, init);
+
+  const controleur = new AbortController();
+  // Un `signal` deja fourni par l'appelant reste maitre : on relaie son abandon.
+  if (init?.signal) {
+    if (init.signal.aborted) controleur.abort();
+    else init.signal.addEventListener('abort', () => controleur.abort(), { once: true });
+  }
+  const minuteur = setTimeout(() => controleur.abort(), DELAI_AUTH_MS);
+  return fetch(entree, { ...init, signal: controleur.signal }).finally(() => clearTimeout(minuteur));
+};
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  // Voir `fetchBorneePourAuth` : seuls les appels d'authentification sont bornes.
+  global: { fetch: fetchBorneePourAuth },
   auth: {
     persistSession: true,
     autoRefreshToken: true,

@@ -56,11 +56,33 @@ const LIBELLES: Record<string, string> = {
     beramethode_canal_frais: 'Frais par canal',
 };
 
+type Ligne = { nom: string; valeur: string; ton?: 'ok' | 'ko' | 'attention' };
+
 type Etat = 'attente' | 'encours' | 'fini';
+
+/**
+ * Une attente qui ne dure pas indefiniment.
+ *
+ * La lecture de la session et l'appel au serveur peuvent ne jamais rendre la
+ * main : un reseau mobile qui retient une requete sans la fermer ne produit ni
+ * reponse ni erreur. Le panneau restait alors sur « Interrogation du serveur… »
+ * et le rapport ne portait que son en-tete — c'est un rapport de deux lignes,
+ * sans un seul fait, qui nous est parvenu. Passe ce delai, l'attente devient
+ * une ligne visible plutot qu'un silence.
+ */
+const DELAI_MS = 15000;
+
+function avecDelai<T>(promesse: Promise<T>, quoi: string): Promise<T> {
+    let minuteur: ReturnType<typeof setTimeout> | undefined;
+    const limite = new Promise<never>((_, rejeter) => {
+        minuteur = setTimeout(() => rejeter(new Error(`${quoi} : aucune réponse après ${DELAI_MS / 1000} s`)), DELAI_MS);
+    });
+    return Promise.race([promesse, limite]).finally(() => clearTimeout(minuteur));
+}
 
 const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [etat, setEtat] = React.useState<Etat>('attente');
-    const [lignes, setLignes] = React.useState<{ nom: string; valeur: string; ton?: 'ok' | 'ko' | 'attention' }[]>([]);
+    const [lignes, setLignes] = React.useState<Ligne[]>([]);
     const [note, setNote] = React.useState<string>('');
     const [copie, setCopie] = React.useState(false);
     const [envoi, setEnvoi] = React.useState<'attente' | 'encours' | 'ok' | 'ko'>('attente');
@@ -71,7 +93,20 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         setEtat('encours');
         setNote('');
         setDetail('');
-        const out: { nom: string; valeur: string; ton?: 'ok' | 'ko' | 'attention' }[] = [];
+        setLignes([]);
+        setUid('');
+        const out: Ligne[] = [];
+        /**
+         * Publier chaque fait DES qu'il est connu.
+         *
+         * Les lignes n'etaient posees a l'ecran qu'aux points de sortie de la
+         * fonction. Tant que le serveur n'avait pas repondu — ou si la lecture
+         * de la session echouait, cas qui n'etait rattrape nulle part — le
+         * rapport ne portait que son en-tete : ni le mode d'affichage, ni
+         * l'etat du reseau, ni meme la presence d'une session. Un diagnostic
+         * qui ne dit rien ne se distingue pas d'un diagnostic non lance.
+         */
+        const publier = (ligne: Ligne) => { out.push(ligne); setLignes([...out]); };
         const compter = (v: unknown) => Array.isArray(v) ? v.length : (v && typeof v === 'object' ? Object.keys(v).length : 0);
         const lireLocal = (base: string) => {
             const email = getCurrentEmail();
@@ -82,101 +117,101 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             return null;
         };
 
-        out.push({ nom: 'Application', valeur: window.matchMedia('(display-mode: standalone)').matches ? 'installée (écran d\'accueil)' : 'navigateur' });
-        out.push({ nom: 'En ligne', valeur: navigator.onLine ? 'oui' : 'NON', ton: navigator.onLine ? 'ok' : 'ko' });
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-            out.push({ nom: 'Session', valeur: 'ABSENTE', ton: 'ko' });
-            setLignes(out);
-            setNote("Cet appareil n'est pas connecté : rien ne peut être ni envoyé ni reçu. Reconnectez-vous, puis relancez.");
-            setEtat('fini');
-            return;
-        }
-        const uid = session.user?.id || '';
-        setUid(uid);
-        out.push({ nom: 'Adresse', valeur: session.user?.email || '(inconnue)' });
-        out.push({ nom: 'IDENTIFIANT DU COMPTE', valeur: uid, ton: 'attention' });
-
-        // La reponse du serveur, telle qu'elle arrive.
-        let http = 0;
-        let corps = '';
         try {
-            const r = await fetch(
-                `${SUPABASE_URL}/rest/v1/user_data?select=updated_at,data&user_id=eq.${encodeURIComponent(uid)}`,
-                { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` } },
-            );
-            http = r.status;
-            corps = await r.text();
+            publier({ nom: 'Application', valeur: window.matchMedia('(display-mode: standalone)').matches ? 'installée (écran d\'accueil)' : 'navigateur' });
+            publier({ nom: 'En ligne', valeur: navigator.onLine ? 'oui' : 'NON', ton: navigator.onLine ? 'ok' : 'ko' });
+
+            const { data } = await avecDelai(supabase.auth.getSession(), 'Lecture de la session');
+            const session = data?.session;
+            if (!session?.access_token) {
+                publier({ nom: 'Session', valeur: 'ABSENTE', ton: 'ko' });
+                setNote("Cet appareil n'est pas connecté : rien ne peut être ni envoyé ni reçu. Reconnectez-vous, puis relancez.");
+                return;
+            }
+            const uid = session.user?.id || '';
+            setUid(uid);
+            publier({ nom: 'Adresse', valeur: session.user?.email || '(inconnue)' });
+            publier({ nom: 'IDENTIFIANT DU COMPTE', valeur: uid, ton: 'attention' });
+
+            // La reponse du serveur, telle qu'elle arrive.
+            let http = 0;
+            let corps = '';
+            try {
+                const r = await avecDelai(fetch(
+                    `${SUPABASE_URL}/rest/v1/user_data?select=updated_at,data&user_id=eq.${encodeURIComponent(uid)}`,
+                    { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` } },
+                ), 'Appel au serveur');
+                http = r.status;
+                corps = await r.text();
+            } catch (e) {
+                publier({ nom: 'Appel au serveur', valeur: 'ÉCHEC RÉSEAU', ton: 'ko' });
+                setNote(String((e as Error)?.message || e));
+                return;
+            }
+            publier({ nom: 'Code HTTP', valeur: String(http), ton: http === 200 ? 'ok' : 'ko' });
+            if (http !== 200) {
+                setNote(corps.slice(0, 600));
+                return;
+            }
+
+            let rangees: { updated_at?: string; data?: Record<string, unknown> }[] = [];
+            try { rangees = JSON.parse(corps); } catch { /* corps illisible */ }
+            publier({ nom: 'Lignes sur le serveur', valeur: String(rangees.length), ton: rangees.length === 1 ? 'ok' : 'ko' });
+            if (!rangees.length) {
+                setNote("Le serveur ne connaît aucune donnée pour ce compte : rien n'a jamais été reçu de nulle part. Le problème est à l'envoi, pas à la réception.");
+                return;
+            }
+
+            const distant = rangees[0];
+            const donnees = distant.data || {};
+            publier({ nom: 'Dernière écriture', valeur: distant.updated_at ? new Date(distant.updated_at).toLocaleString() : '(inconnue)' });
+            // Les VINGT-DEUX cles, pas trois. On n'affiche en clair que celles qui
+            // different : vingt-deux lignes identiques noieraient le seul ecart qui
+            // compte. Le nombre de cles accordees tient sur une ligne, et le rapport
+            // a copier les porte toutes — c'est lui qu'on relit ensuite a froid.
+            const ecarts: string[] = [];
+            const detailLignes: string[] = [];
+            let accordees = 0;
+            for (const cle of SYNC_KEYS) {
+                const cs = compter((donnees as any)[cle]);
+                const cl = compter(lireLocal(cle));
+                const nom = LIBELLES[cle] || cle;
+                detailLignes.push(`${cs === cl ? '=' : '!'} ${nom} : serveur ${cs} · ici ${cl}`);
+                if (cs === cl) { accordees += 1; continue; }
+                ecarts.push(nom);
+                publier({ nom, valeur: `serveur ${cs} · ici ${cl}`, ton: 'attention' });
+            }
+            publier({
+                nom: 'Clés accordées',
+                valeur: `${accordees} / ${SYNC_KEYS.length}`,
+                ton: accordees === SYNC_KEYS.length ? 'ok' : 'attention',
+            });
+            setDetail(detailLignes.join('\n'));
+            if (ecarts.length) {
+                setNote(`Pas encore accordé : ${ecarts.join(', ')}. Un écart juste après une saisie est normal — l'envoi est groupé. S'il dure, utilisez « Envoyer mes données maintenant ».`);
+            }
+            const pull = localStorage.getItem('beramethode_last_pulled_at');
+            publier({ nom: 'Dernière reprise ici', valeur: pull ? new Date(pull).toLocaleString() : '(jamais)', ton: pull ? undefined : 'attention' });
+            // Comparer des instants, jamais leur orthographe : l'heure retenue apres
+            // un envoi vient de cet appareil (`...Z`), celle du serveur d'une colonne
+            // `timestamptz` (`...+00:00`). Le meme instant s'ecrit des deux facons, et
+            // ce panneau annoncait un retard imaginaire a chaque envoi.
+            const memeInstant = (a: string, b: string) => {
+                if (a === b) return true;
+                const ta = new Date(a).getTime(), tb = new Date(b).getTime();
+                return Number.isFinite(ta) && Number.isFinite(tb) && ta === tb;
+            };
+            if (distant.updated_at && pull && !memeInstant(distant.updated_at, pull)) {
+                setNote("Le serveur porte une version que cet appareil n'a pas encore reprise. Quittez l'application puis rouvrez-la : la reprise se déclenche au retour.");
+            }
         } catch (e) {
-            out.push({ nom: 'Appel au serveur', valeur: 'ÉCHEC RÉSEAU', ton: 'ko' });
-            setLignes(out);
-            setNote(String(e));
+            // Une exception laissait le panneau sur « Interrogation du serveur… »
+            // pour toujours, et le rapport vide. Elle a maintenant sa ligne.
+            publier({ nom: 'Diagnostic interrompu', valeur: 'ERREUR', ton: 'ko' });
+            setNote(`Le diagnostic n'a pas pu aller à son terme : ${String((e as Error)?.message || e)}`);
+        } finally {
             setEtat('fini');
-            return;
         }
-        out.push({ nom: 'Code HTTP', valeur: String(http), ton: http === 200 ? 'ok' : 'ko' });
-        if (http !== 200) {
-            setLignes(out);
-            setNote(corps.slice(0, 600));
-            setEtat('fini');
-            return;
-        }
-
-        let rangees: { updated_at?: string; data?: Record<string, unknown> }[] = [];
-        try { rangees = JSON.parse(corps); } catch { /* corps illisible */ }
-        out.push({ nom: 'Lignes sur le serveur', valeur: String(rangees.length), ton: rangees.length === 1 ? 'ok' : 'ko' });
-        if (!rangees.length) {
-            setLignes(out);
-            setNote("Le serveur ne connaît aucune donnée pour ce compte : rien n'a jamais été reçu de nulle part. Le problème est à l'envoi, pas à la réception.");
-            setEtat('fini');
-            return;
-        }
-
-        const distant = rangees[0];
-        const donnees = distant.data || {};
-        out.push({ nom: 'Dernière écriture', valeur: distant.updated_at ? new Date(distant.updated_at).toLocaleString() : '(inconnue)' });
-        // Les VINGT-DEUX cles, pas trois. On n'affiche en clair que celles qui
-        // different : vingt-deux lignes identiques noieraient le seul ecart qui
-        // compte. Le nombre de cles accordees tient sur une ligne, et le rapport
-        // a copier les porte toutes — c'est lui qu'on relit ensuite a froid.
-        const ecarts: string[] = [];
-        const detailLignes: string[] = [];
-        let accordees = 0;
-        for (const cle of SYNC_KEYS) {
-            const cs = compter((donnees as any)[cle]);
-            const cl = compter(lireLocal(cle));
-            const nom = LIBELLES[cle] || cle;
-            detailLignes.push(`${cs === cl ? '=' : '!'} ${nom} : serveur ${cs} · ici ${cl}`);
-            if (cs === cl) { accordees += 1; continue; }
-            ecarts.push(nom);
-            out.push({ nom, valeur: `serveur ${cs} · ici ${cl}`, ton: 'attention' });
-        }
-        out.push({
-            nom: 'Clés accordées',
-            valeur: `${accordees} / ${SYNC_KEYS.length}`,
-            ton: accordees === SYNC_KEYS.length ? 'ok' : 'attention',
-        });
-        setDetail(detailLignes.join('\n'));
-        if (ecarts.length) {
-            setNote(`Pas encore accordé : ${ecarts.join(', ')}. Un écart juste après une saisie est normal — l'envoi est groupé. S'il dure, utilisez « Envoyer mes données maintenant ».`);
-        }
-        const pull = localStorage.getItem('beramethode_last_pulled_at');
-        out.push({ nom: 'Dernière reprise ici', valeur: pull ? new Date(pull).toLocaleString() : '(jamais)', ton: pull ? undefined : 'attention' });
-        // Comparer des instants, jamais leur orthographe : l'heure retenue apres
-        // un envoi vient de cet appareil (`...Z`), celle du serveur d'une colonne
-        // `timestamptz` (`...+00:00`). Le meme instant s'ecrit des deux facons, et
-        // ce panneau annoncait un retard imaginaire a chaque envoi.
-        const memeInstant = (a: string, b: string) => {
-            if (a === b) return true;
-            const ta = new Date(a).getTime(), tb = new Date(b).getTime();
-            return Number.isFinite(ta) && Number.isFinite(tb) && ta === tb;
-        };
-        if (distant.updated_at && pull && !memeInstant(distant.updated_at, pull)) {
-            setNote("Le serveur porte une version que cet appareil n'a pas encore reprise. Quittez l'application puis rouvrez-la : la reprise se déclenche au retour.");
-        }
-        setLignes(out);
-        setEtat('fini');
     }, []);
 
     /**
@@ -200,10 +235,20 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
     React.useEffect(() => { void lancer(); }, [lancer]);
 
+    /**
+     * Le rapport dit s'il est complet.
+     *
+     * Copie avant la fin, il ne portait que son en-tete et sa date — deux
+     * lignes qu'on relit ensuite sans pouvoir distinguer « le diagnostic n'a
+     * rien trouve » de « le diagnostic n'avait pas fini ». Il l'annonce donc
+     * lui-meme, et la ligne disparait une fois la lecture terminee.
+     */
     const rapport = React.useMemo(
-        () => ['BERAMETHODE — diagnostic de synchronisation', new Date().toISOString(), '',
+        () => ['BERAMETHODE — diagnostic de synchronisation', new Date().toISOString(),
+            etat === 'fini' ? '' : '⚠ RAPPORT INCOMPLET — le diagnostic n\'a pas fini ; relancez-le, puis recopiez.',
+            '',
             ...lignes.map(l => `${l.nom} : ${l.valeur}`), detail ? `\n— Les ${SYNC_KEYS.length} clés —\n${detail}` : '', note ? `\n${note}` : ''].join('\n'),
-        [lignes, note, detail],
+        [lignes, note, detail, etat],
     );
 
     const copier = async () => {
