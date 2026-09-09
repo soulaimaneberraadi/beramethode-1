@@ -1,7 +1,7 @@
 /**
  * Exporte les données SQLite locales vers Supabase pour soulaimaneberraadi@gmail.com.
  * Lit chaque table pertinente et la transforme en clés localStorage que cloudSync attend.
- * Usage: node scripts/export-to-supabase.mjs
+ * Usage: BERA_MDP='<mot de passe>' node scripts/export-to-supabase.mjs
  */
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'node:url';
@@ -11,8 +11,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.join(__dirname, '..', 'database.sqlite');
 const SUPABASE_URL = 'https://utrojjhscyatppgcszrt.supabase.co';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk';
-const EMAIL = 'soulaimaneberraadi@gmail.com';
-const PASSWORD = 'Admin123!';
+/* L'adresse et le mot de passe viennent de l'environnement, jamais du depot.
+   Ils y etaient ecrits en clair : versionnes, pousses, et lisibles par
+   quiconque obtient une copie du code. Un secret dans un fichier suivi par git
+   n'est plus un secret, et le retirer plus tard ne l'efface pas de l'historique
+   — seul un changement de mot de passe le fait. */
+const EMAIL = process.env.BERA_EMAIL || 'soulaimaneberraadi@gmail.com';
+const PASSWORD = process.env.BERA_MDP;
+
+if (!PASSWORD) {
+  console.error('❌ BERA_MDP manquant. Usage : BERA_MDP=… node scripts/export-to-supabase.mjs');
+  process.exit(1);
+}
 
 const db = new Database(DB_PATH, { readonly: true });
 

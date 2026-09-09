@@ -472,31 +472,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (errMsg.toLowerCase().includes('email not confirmed') || errMsg.toLowerCase().includes('not confirmed')) {
         return { ok: false, message: 'Votre e-mail n\'est pas encore confirmé. Vérifiez votre boîte mail et cliquez sur le lien de confirmation.' };
       }
-      // First use: auto-create admin account if it doesn't exist yet
-      if (email.trim().toLowerCase() === 'soulaimaneberraadi@gmail.com' && password === 'Admin123!' && errMsg.toLowerCase().includes('invalid')) {
-        const { data: signupData, error: signupError } = await supabase.auth.signUp({
-          email: 'soulaimaneberraadi@gmail.com',
-          password: 'Admin123!',
-          options: { 
-            data: { name: 'Soulaimane Berraadi', role: 'admin' },
-            emailRedirectTo: window.location.origin,
-          },
-        });
-        if (signupError || !signupData.user) {
-          if (signupError?.message?.toLowerCase().includes('already registered')) {
-            return { ok: false, message: 'E-mail ou mot de passe incorrect. Si vous avez créé ce compte avec Google, cliquez sur « Continuer avec Google ».' };
-          }
-          return { ok: false, message: signupError?.message || 'Échec inscription.' };
-        }
-        if (!signupData.session) {
-          return { ok: false, message: 'Compte créé. Vérifiez votre boîte mail (soulaimaneberraadi@gmail.com) et confirmez avant de vous connecter.' };
-        }
-        const u = mapSupabaseUser(signupData.user as never);
-        if (u) {
-          await pushSnapshotToCloud(String(u.id));
-        }
-        return { ok: true, user: u || undefined };
-      }
+      /* Ici se trouvait la creation automatique du compte administrateur au
+         premier usage : l'adresse ET LE MOT DE PASSE du proprietaire etaient
+         ecrits en clair, et cette comparaison partait dans le paquet servi au
+         navigateur. Sur un deploiement public, n'importe quel visiteur pouvait
+         les y lire et se connecter au compte — le brouillage du code n'y change
+         rien, une chaine de caracteres reste lisible telle quelle.
+
+         Le compte existe depuis longtemps : ce chemin ne servait plus qu'a
+         exposer le mot de passe. Un identifiant refuse est desormais refuse,
+         sans exception nommee. */
       return { ok: false, message: errMsg || 'E-mail ou mot de passe incorrect.' };
     }
     const u = mapSupabaseUser(data.user as never);
