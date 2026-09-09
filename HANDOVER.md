@@ -2,6 +2,44 @@
 
 ---
 
+## Session du 9 septembre 2026 — synchronisation, suivi, secret exposé
+
+**Tout est déployé** sur `master` (dernier merge `203b462`) et en ligne sur Vercel.
+Sept fusions, dans l'ordre : #11 → #17.
+
+### Le fil conducteur
+
+Un rapport de diagnostic de synchronisation arrivait **vide** — deux lignes,
+l'en-tête et la date. En tirant ce fil, on a trouvé trois défauts empilés.
+
+| Ce qu'on voyait | Ce que c'était | Correctif |
+|---|---|---|
+| Panneau figé sur « Interrogation du serveur… », rapport vide | Les lignes n'étaient publiées qu'aux points de sortie ; `getSession()` pouvait ne jamais rendre la main | #11 — publication immédiate, attentes bornées à 15 s, `/auth/v1/` borné par `AbortController` |
+| « Suivis : serveur 33 · ici 37 », plus aucun envoi depuis 15 h | Le refus du serveur n'allait nulle part (`console.warn` + événement que personne n'écoutait) | #12 — le dernier refus est conservé (message, code, statut) et affiché par le diagnostic |
+| **« Erreur »** rouge à chaque enregistrement du suivi | `saveSuivis` poste `{ suivis, full: true }` ; le relais statique rangeait cette **enveloppe** dans la liste des suivis. Chaque sauvegarde ajoutait un faux suivi contenant une copie de tous les autres → stockage saturé → écriture refusée (507) | #14 puis #15 — l'enveloppe est reconnue et remplace la collection ; les faux suivis sont écartés au démarrage, à l'entrée de chaque pull et à la sortie de chaque push, **dans les deux modes** |
+
+Deux ajouts en passant : la carte « Production du jour » du tableau de bord
+ouvre le suivi (#13), et `scripts/copier-compte-cloud.mjs` copie les données
+d'un compte vers un compte d'essai (#16).
+
+### Sécurité — action encore due
+
+`AuthContext` comparait l'adresse **et le mot de passe** de l'administrateur en
+clair, dans du code servi au navigateur : lisible par tout visiteur du site
+public. Le chemin est supprimé (#17), le script d'export lit désormais
+`BERA_MDP`.
+
+> **Le mot de passe doit être changé côté Supabase.** Le retirer du code ne
+> l'efface pas de l'historique de git.
+
+### Ce qui reste à observer
+
+Si un envoi vers Supabase est encore refusé après que la place a été rendue,
+le diagnostic affiche maintenant `DERNIER ENVOI REFUSÉ` et `Motif du refus` :
+c'est cette ligne qui dira la cause restante.
+
+---
+
 ## Session du 4 au 6 septembre 2026 — hors ligne, synchronisation, diagnostic
 
 **Tout est déployé** sur `master` (`d02ebcd`) et en ligne sur
