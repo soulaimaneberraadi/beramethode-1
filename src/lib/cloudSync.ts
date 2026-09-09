@@ -1,3 +1,4 @@
+import { estEnveloppeSuivis } from '../../lib/suiviSync';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabaseClient';
 import { SCHEMA_VERSION, migrateSnapshot } from './dataVersion';
 import { pkey, lsGet, lsSet, isSyncKey, getCurrentEmail } from '../../lib/storageKeys';
@@ -822,7 +823,15 @@ const applySnapshotToLocal = async (snapshot: Record<string, unknown> | null): P
           // Hors du `try` : un refus d'écriture (stockage plein) ne doit pas
           // faire retomber la fusion sur la valeur du cloud seule, qui effacerait
           // ce que cet appareil est seul à connaître.
-          const aEcrire = fusionGenerique ?? (snapshot as any)[k];
+          let aEcrire = fusionGenerique ?? (snapshot as any)[k];
+          /* Le cloud detient encore les fausses entrees du suivi rangees par
+             les versions precedentes (voir `estEnveloppeSuivis`). Sans ce
+             filtre, chaque reprise les rendrait a l'appareil qui vient de s'en
+             debarrasser, et le tour recommencerait indefiniment. On les ecarte
+             a l'entree : le prochain envoi nettoiera le cloud a son tour. */
+          if (k === 'beramethode_suivis' && Array.isArray(aEcrire)) {
+            aEcrire = aEcrire.filter(x => !estEnveloppeSuivis(x));
+          }
           // La bibliothèque passe TOUJOURS par l'écriture « au mieux », y compris
           // ici : un téléphone qui n'en a encore aucune copie ne rencontre pas la
           // branche de fusion plus haut, et c'est justement le cas où tout se
@@ -954,6 +963,13 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
   } catch { /* cloud illisible : on tente l'envoi, c'est mieux que de perdre le travail local */ }
 
   let snapshot: Record<string, unknown> = { ...collectLocalSnapshot(), __schema_version: SCHEMA_VERSION };
+
+  /* Ce qui ne doit jamais repartir : les fausses entrees du suivi. Le filtre du
+     pull les ecarte a l'entree, celui-ci les ecarte a la sortie — sans quoi un
+     appareil pas encore nettoye les rendrait a tous les autres. */
+  if (Array.isArray((snapshot as any).beramethode_suivis)) {
+    snapshot.beramethode_suivis = (snapshot as any).beramethode_suivis.filter((x: unknown) => !estEnveloppeSuivis(x));
+  }
 
   // Les photos vivent dans IndexedDB ; la bibliothèque locale n'en garde qu'une
   // référence. Le cloud, lui, doit recevoir les images EN CLAIR : un autre

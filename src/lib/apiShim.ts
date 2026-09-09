@@ -12,6 +12,7 @@
  */
 
 import { pkey } from '../../lib/storageKeys';
+import { estEnveloppeSuivis, purgerFauxSuivis } from '../../lib/suiviSync';
 import { deshydraterModeles, nettoyerPhotosOrphelines, rehydraterModeles } from '../../lib/photosLocales';
 import { calculerKpisLocaux } from '../../lib/kpisLocaux';
 
@@ -253,34 +254,6 @@ const resolveTypeAndId = (pathname: string): { type: string; id: string | null }
     }
   }
   return null;
-};
-
-/**
- * Le suivi de production ne s'enregistre pas ligne par ligne.
- *
- * `saveSuivis` poste l'ETAT COMPLET — `{ suivis: [...], full: true }` — et le
- * serveur SQLite le lit ainsi : il remplace la collection et supprime ce qui
- * n'y figure plus. Le relais statique, lui, ne connaissait que l'upsert d'un
- * element : il rangeait donc cette ENVELOPPE telle quelle dans la liste des
- * suivis, avec un identifiant tire de l'horloge.
- *
- * Chaque enregistrement ajoutait ainsi un faux suivi contenant une copie de
- * tous les autres. Trois consequences, et on les a toutes vues : la liste
- * gonflait a chaque sauvegarde (« serveur 33 · ici 37 »), le stockage se
- * remplissait de copies imbriquees les unes dans les autres, et l'ecriture
- * finissait par etre refusee — c'est le « Erreur » rouge de l'ecran de suivi.
- *
- * Une enveloppe se reconnait a son tableau `suivis` : un vrai suivi n'en a
- * jamais.
- */
-const estEnveloppeSuivis = (x: any): boolean =>
-  !!x && typeof x === 'object' && Array.isArray((x as { suivis?: unknown }).suivis);
-
-/** Ecarte les fausses entrees rangees par les versions precedentes. */
-const purgerFauxSuivis = () => {
-  const arr = readArray('suivi');
-  if (!arr.some(estEnveloppeSuivis)) return;
-  writeArray('suivi', arr.filter(x => !estEnveloppeSuivis(x)));
 };
 
 // ─── GET routes ──────────────────────────────────────────────────────────────
