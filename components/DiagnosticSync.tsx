@@ -2,7 +2,7 @@ import React from 'react';
 import { RefreshCw, Copy, X, CheckCircle2, AlertTriangle, UploadCloud } from 'lucide-react';
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../src/lib/supabaseClient';
 import { getCurrentEmail } from '../lib/storageKeys';
-import { pushSnapshotToCloud, SYNC_KEYS } from '../src/lib/cloudSync';
+import { pushSnapshotToCloud, SYNC_KEYS, dernierRefusEnvoi } from '../src/lib/cloudSync';
 
 /**
  * Le diagnostic de synchronisation, DANS l'application.
@@ -121,6 +121,23 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             publier({ nom: 'Application', valeur: window.matchMedia('(display-mode: standalone)').matches ? 'installée (écran d\'accueil)' : 'navigateur' });
             publier({ nom: 'En ligne', valeur: navigator.onLine ? 'oui' : 'NON', ton: navigator.onLine ? 'ok' : 'ko' });
 
+            /* Le refus du dernier envoi, s'il y en a eu un.
+             *
+             * C'est la reponse a la question que ce panneau ne savait pas poser :
+             * quand « ici » depasse « serveur » des heures durant, ce n'est pas
+             * le compte qui est en cause mais l'envoi, et son refus n'etait
+             * ecrit que dans une console que personne n'ouvre. Il est lu ici en
+             * premier, avant meme le reseau : il ne coute rien et il tranche. */
+            const refus = dernierRefusEnvoi();
+            if (refus) {
+                publier({ nom: 'DERNIER ENVOI REFUSÉ', valeur: new Date(refus.quand).toLocaleString(), ton: 'ko' });
+                publier({ nom: 'Motif du refus', valeur: refus.message, ton: 'ko' });
+                if (refus.statut || refus.code) {
+                    publier({ nom: 'Code du refus', valeur: [refus.statut, refus.code].filter(Boolean).join(' · '), ton: 'ko' });
+                }
+                if (refus.details) publier({ nom: 'Détail', valeur: refus.details, ton: 'ko' });
+            }
+
             const { data } = await avecDelai(supabase.auth.getSession(), 'Lecture de la session');
             const session = data?.session;
             if (!session?.access_token) {
@@ -188,7 +205,11 @@ const DiagnosticSync: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             });
             setDetail(detailLignes.join('\n'));
             if (ecarts.length) {
-                setNote(`Pas encore accordé : ${ecarts.join(', ')}. Un écart juste après une saisie est normal — l'envoi est groupé. S'il dure, utilisez « Envoyer mes données maintenant ».`);
+                // Un ecart double d'un refus n'a rien d'un retard de groupement :
+                // le serveur a dit non, et c'est son motif qu'il faut lire.
+                setNote(refus
+                    ? `Pas encore accordé : ${ecarts.join(', ')}. Ce n'est pas un retard d'envoi : le serveur a refusé le dernier envoi (${refus.message}). Tant que ce refus dure, rien ne partira de cet appareil.`
+                    : `Pas encore accordé : ${ecarts.join(', ')}. Un écart juste après une saisie est normal — l'envoi est groupé. S'il dure, utilisez « Envoyer mes données maintenant ».`);
             }
             const pull = localStorage.getItem('beramethode_last_pulled_at');
             publier({ nom: 'Dernière reprise ici', valeur: pull ? new Date(pull).toLocaleString() : '(jamais)', ton: pull ? undefined : 'attention' });

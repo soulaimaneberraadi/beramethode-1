@@ -868,16 +868,58 @@ const estJetonPerime = (e: unknown): boolean => {
 };
 
 /**
- * Dire qu'un envoi a ete refuse — au lieu de l'ecrire dans une console que
- * personne n'ouvre.
+ * Le dernier refus d'envoi, garde par ecrit.
  *
- * Aucun ecran n'ecoute encore cet evenement : le refus reste donc invisible a
- * l'utilisateur, et c'est pourquoi la relance automatique ci-dessous ne doit pas
- * dependre de lui. L'evenement reste emis pour qui voudra l'afficher.
+ * Un envoi refuse ne laissait qu'un `console.warn` et un evenement que personne
+ * n'ecoutait. Resultat : un appareil pouvait passer une journee entiere sans
+ * qu'aucun envoi ne passe — « derniere ecriture » vieille de vingt-trois heures,
+ * pendant que les lectures repondaient 200 — sans que rien, nulle part, ne dise
+ * POURQUOI le serveur refusait. Le diagnostic constatait l'ecart sans pouvoir le
+ * nommer, et c'est le nom qui tranche : jeton refuse, regle d'acces, base en
+ * lecture seule, charge trop lourde… autant de causes, autant de remedes.
+ *
+ * Le refus est donc conserve — en memoire ET dans le stockage, pour survivre a
+ * la fermeture de l'application — et efface des qu'un envoi passe. Un journal
+ * d'une seule ligne : le dernier refus est le seul qui compte.
+ */
+export type RefusEnvoi = { quand: string; message: string; code?: string; details?: string; statut?: number };
+
+const REFUS_KEY = 'beramethode_dernier_refus_envoi';
+let dernierRefus: RefusEnvoi | null = null;
+
+/** Le dernier refus connu, ou `null` si le dernier envoi est passe. */
+export const dernierRefusEnvoi = (): RefusEnvoi | null => {
+  if (dernierRefus) return dernierRefus;
+  try {
+    const brut = localStorage.getItem(REFUS_KEY);
+    return brut ? JSON.parse(brut) as RefusEnvoi : null;
+  } catch { return null; }
+};
+
+const noterRefus = (refus: Omit<RefusEnvoi, 'quand'>) => {
+  dernierRefus = { ...refus, quand: new Date().toISOString() };
+  try { localStorage.setItem(REFUS_KEY, JSON.stringify(dernierRefus)); } catch { /* place manquante : la memoire suffira */ }
+};
+
+const effacerRefus = () => {
+  dernierRefus = null;
+  try { localStorage.removeItem(REFUS_KEY); } catch { /* ignore */ }
+};
+
+/**
+ * Dire qu'un envoi a ete refuse — au lieu de l'ecrire dans une console que
+ * personne n'ouvre. L'evenement reste emis pour qui voudra l'afficher ; le
+ * refus, lui, est desormais conserve et relu par l'ecran de diagnostic.
  */
 const signalerEnvoiRefuse = (e: unknown) => {
+  const err = e as { message?: string; code?: string; details?: string; status?: number } | null;
+  noterRefus({
+    message: err?.message || 'refus du serveur',
+    code: err?.code,
+    details: err?.details,
+    statut: err?.status,
+  });
   try {
-    const err = e as { message?: string } | null;
     window.dispatchEvent(new CustomEvent('beramethode:cloud-push-refuse', {
       detail: { message: err?.message || 'refus du serveur' },
     }));
@@ -959,6 +1001,7 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
       // on renonce à l'envoi. Reporter vaut mieux qu'effacer des photos qu'on
       // n'a pas les moyens de rendre.
       console.warn('[cloudSync] push reporté: bibliothèque locale amputée et cloud illisible');
+      noterRefus({ message: "envoi reporté : la bibliothèque locale est amputée (stockage plein) et le cloud est illisible" });
       return false;
     }
     if (cloudData) {
@@ -1030,6 +1073,7 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
     // UPSERT confirmé : mémorise la signature pour sauter les prochains push
     // identiques (re-renders qui réécrivent la même valeur).
     lastSyncedSig = sig;
+    effacerRefus();
     // Le cloud detient desormais l'etat local : les reperes le disent, cle par cle.
     majReperes(SYNC_KEYS);
     // On vient d'écrire ce contenu : aligne `updated_at` local pour que le
@@ -1042,6 +1086,7 @@ export const pushSnapshotToCloud = async (userId: string): Promise<boolean> => {
     return true;
   } catch (err) {
     console.warn('Cloud push failed:', err);
+    noterRefus({ message: String((err as Error)?.message || err) });
     return false;
   }
 };
