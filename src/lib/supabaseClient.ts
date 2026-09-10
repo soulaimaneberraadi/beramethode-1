@@ -31,8 +31,12 @@ const stockageSession = {
   },
 };
 
-const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://utrojjhscyatppgcszrt.supabase.co';
-const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_KEY as string) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk';
+/* `?.` sur `env` lui-meme, pas seulement sur la variable : hors de Vite —
+   un script Node, une suite de tests qui fait tourner la vraie synchro —
+   `import.meta.env` n'existe pas du tout, et le module ne se chargeait meme
+   pas. Les valeurs de repli qui suivent existent justement pour ce cas. */
+const SUPABASE_URL = ((import.meta as any).env?.VITE_SUPABASE_URL as string) || 'https://utrojjhscyatppgcszrt.supabase.co';
+const SUPABASE_KEY = ((import.meta as any).env?.VITE_SUPABASE_KEY as string) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0cm9qamhzY3lhdHBwZ2NzenJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MjUwNDEsImV4cCI6MjA5NzIwMTA0MX0.Nu6MQJe6YTN-TH7kBLHqStaFSrvXpuGuzr6wp28XFlk';
 
 export { SUPABASE_URL, SUPABASE_KEY as SUPABASE_ANON_KEY };
 

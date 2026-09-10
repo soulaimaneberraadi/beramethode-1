@@ -20,7 +20,11 @@ const trouverTests = (dossier) => {
         if (IGNORES.has(entree)) continue;
         const chemin = join(dossier, entree);
         if (statSync(chemin).isDirectory()) out.push(...trouverTests(chemin));
-        else if (entree.endsWith('.test.ts')) out.push(chemin);
+        // `.test.mts` : une suite qui doit tourner en VRAI module ES — c'est ce
+        // qu'exigent les fichiers du navigateur (`import.meta`, imports
+        // dynamiques). Sans cette extension, tsx les compile en CommonJS et
+        // ils ne se chargent meme pas.
+        else if (entree.endsWith('.test.ts') || entree.endsWith('.test.mts')) out.push(chemin);
     }
     return out;
 };

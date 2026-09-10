@@ -523,7 +523,7 @@ const IMG_MAX_INLINE_B64 = 3_000_000;
 // data-URL compressée inline (fiable, s'affiche toujours). Activer uniquement
 // après création du bucket public + policies OK:
 // VITE_BERA_USE_STORAGE_BUCKET=true
-const USE_STORAGE_BUCKET = import.meta.env.VITE_BERA_USE_STORAGE_BUCKET === 'true';
+const USE_STORAGE_BUCKET = (import.meta as any).env?.VITE_BERA_USE_STORAGE_BUCKET === 'true';
 
 /**
  * Compress a base64 image using Canvas.
