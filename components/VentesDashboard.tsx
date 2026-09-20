@@ -763,8 +763,8 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                                             <BorneDate
                                                 titre={T.du}
                                                 value={serieComplete[0]?.jour || ''}
-                                                max={serieComplete[serieComplete.length - 1]?.jour || aujourdhui()}
-                                                onChange={v => { setDu(v); if (au && au < v) setAu(v); }}
+                                                max={aujourdhui()}
+                                                onChange={v => { setDu(v); if (au && au < v) setAu(aujourdhui() >= v ? aujourdhui() : v); }}
                                             />
                                             <span className="hidden sm:inline">{T.meilleurJour} : {(() => {
                                                 const best = [...data.serie].sort((a, b) => b.ca - a.ca)[0];
@@ -773,7 +773,6 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                                             <BorneDate
                                                 titre={T.au}
                                                 value={serieComplete[serieComplete.length - 1]?.jour || ''}
-                                                min={serieComplete[0]?.jour || undefined}
                                                 max={aujourdhui()}
                                                 onChange={v => { setAu(v); if (du && du > v) setDu(v); }}
                                             />

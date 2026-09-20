@@ -390,6 +390,10 @@ export const BorneDate: React.FC<{
         <input
             type="date" value={value} min={min} max={max} aria-label={titre}
             onChange={e => e.target.value && onChange(e.target.value)}
+            /* Un champ date transparent se contente du focus quand on clique :
+               sur un ordinateur, seule la petite icone ouvre le calendrier, et
+               elle est invisible ici. On l'ouvre donc nous-memes. */
+            onClick={e => { try { (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.(); } catch { /* navigateur sans showPicker : le champ reste saisissable */ } }}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
     </span>
