@@ -281,38 +281,119 @@ export const Courbes: React.FC<{
     const n = jours.length;
     const x = (i: number) => (n <= 1 ? 50 : (i / (n - 1)) * 100);
     const y = (v: number) => 100 - (v / max) * 92 - 4;
+    const SOL = y(0);
+    /** Le sommet, repere une fois pour toutes : c'est lui qu'on annote, et
+     *  l'annoter evite de chercher le chiffre dans une infobulle. En cumul le
+     *  sommet est toujours le dernier jour — l'annoter ne dirait rien, on
+     *  retombe alors sur l'echelle en haut a gauche. */
+    const sommet = (() => {
+        if (cumul) return null;
+        let best: { i: number; v: number; couleur: string } | null = null;
+        traces.forEach(t => t.valeurs.forEach((v, i) => {
+            if (v > 0 && (!best || v > best.v)) best = { i, v, couleur: t.couleur };
+        }));
+        return best as { i: number; v: number; couleur: string } | null;
+    })();
     return (
         <div className="relative">
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-28 sm:h-40 overflow-visible">
-                {[0, 25, 50, 75, 100].map(g => (
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-28 sm:h-40">
+                {[25, 50, 75, 100].map(g => (
                     <line key={g} x1="0" x2="100" y1={y((max * g) / 100)} y2={y((max * g) / 100)}
                         className="stroke-slate-100 dark:stroke-dk-border" strokeWidth="1" vectorEffect="non-scaling-stroke" />
                 ))}
+                {/* Le fil a plomb sous le sommet : il raccroche le pic a sa date
+                    sur l'axe du bas, que la courbe soit large ou etroite. */}
+                {sommet && (
+                    <line x1={x(sommet.i)} x2={x(sommet.i)} y1={y(sommet.v)} y2={SOL}
+                        stroke={sommet.couleur} strokeOpacity="0.25" strokeWidth="1" strokeDasharray="2 3"
+                        vectorEffect="non-scaling-stroke" />
+                )}
                 {traces.map(t => (
                     <g key={t.cle}>
+                        {/* L'aire sous la courbe : un pic isole au milieu d'une
+                            ligne plate ressemble a une aiguille, et une aiguille
+                            ne se lit pas. Remplie, la journee a vente devient une
+                            masse qu'on voit du coin de l'oeil. */}
+                        <polygon
+                            points={`${x(0)},${SOL} ${t.valeurs.map((v, i) => `${x(i)},${y(v)}`).join(' ')} ${x(n - 1)},${SOL}`}
+                            fill={t.couleur} fillOpacity="0.08" stroke="none"
+                        />
                         <polyline
                             points={t.valeurs.map((v, i) => `${x(i)},${y(v)}`).join(' ')}
                             fill="none" stroke={t.couleur} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"
                             vectorEffect="non-scaling-stroke"
                         />
-                        {/* Les jours a vente sont marques : sur 90 jours, une
-                            journee isolee se perd sinon dans la ligne plate. */}
-                        {t.valeurs.map((v, i) => (v > 0 ? (
-                            <circle key={i} cx={x(i)} cy={y(v)} r="2.5" fill={t.couleur} vectorEffect="non-scaling-stroke">
-                                <title>{`${jours[i]} · ${libelle(t.cle)} · ${nf(v)} ${devise}`}</title>
-                            </circle>
-                        ) : null))}
                     </g>
                 ))}
+                {/* Le zero, plus franc que les autres graduations : sans lui on
+                    ne sait pas ou la courbe se pose. */}
+                <line x1="0" x2="100" y1={SOL} y2={SOL}
+                    className="stroke-slate-200 dark:stroke-dk-border" strokeWidth="1" vectorEffect="non-scaling-stroke" />
             </svg>
-            {/* L'echelle : une courbe sans son maximum ne dit pas si le pic
-                vaut 800 ou 80 000. */}
-            <span className="absolute top-0 left-0 text-[9px] font-bold tabular-nums text-slate-300 dark:text-dk-muted pointer-events-none">
-                {nf(max)} {devise}
-            </span>
+            {/* Les jours a vente sont marques : sur 90 jours, une journee isolee
+                se perd sinon dans la ligne plate. Les points sont poses en HTML
+                et non dans le SVG — le viewBox est etire en largeur
+                (`preserveAspectRatio="none"`), ce qui ecraserait un <circle> en
+                soucoupe. Ici ils restent ronds a toute largeur d'ecran. */}
+            {traces.map(t => t.valeurs.map((v, i) => (v > 0 ? (
+                <span
+                    key={`${t.cle}-${i}`}
+                    title={`${jours[i]} · ${libelle(t.cle)} · ${nf(v)} ${devise}`}
+                    className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-white dark:ring-dk-surface transition-transform hover:scale-150 ${v === max ? 'w-2.5 h-2.5' : 'w-[7px] h-[7px]'}`}
+                    style={{ left: `${x(i)}%`, top: `${y(v)}%`, backgroundColor: t.couleur }}
+                />
+            ) : null)))}
+            {sommet ? (
+                /* Le chiffre du sommet, pose au-dessus du point : le maximum est
+                   la seule valeur qu'on lit a coup sur, autant ne pas la faire
+                   chercher. Le decalage est borne pour que l'etiquette ne sorte
+                   pas de la carte quand le pic tombe au premier ou au dernier
+                   jour. */
+                <span
+                    className="absolute -translate-y-[170%] whitespace-nowrap text-[9px] font-black tabular-nums text-slate-600 dark:text-dk-text-soft bg-white/90 dark:bg-dk-surface/90 px-1 rounded pointer-events-none"
+                    style={{
+                        left: `${Math.min(92, Math.max(8, x(sommet.i)))}%`,
+                        top: `${y(sommet.v)}%`,
+                        transform: 'translate(-50%, -170%)',
+                    }}
+                >
+                    {nf(sommet.v)} {devise}
+                </span>
+            ) : (
+                /* L'echelle : une courbe sans son maximum ne dit pas si le pic
+                   vaut 800 ou 80 000. Le fond evite que la graduation la traverse. */
+                <span className="absolute -top-1 left-0 text-[9px] font-bold tabular-nums text-slate-400 dark:text-dk-muted bg-white dark:bg-dk-surface pr-1.5 pointer-events-none">
+                    {nf(max)} {devise}
+                </span>
+            )}
         </div>
     );
 };
+/** Une borne de periode, posee sous la courbe.
+ *
+ *  Les deux dates qui encadrent le graphique ne sont pas qu'une legende : on
+ *  les touche pour deplacer la fenetre, sans remonter ouvrir les filtres. Le
+ *  champ natif est pose transparent par-dessus le texte — c'est le seul moyen
+ *  d'ouvrir le calendrier du telephone d'un seul doigt. */
+export const BorneDate: React.FC<{
+    value: string;
+    onChange: (v: string) => void;
+    min?: string;
+    max?: string;
+    titre: string;
+}> = ({ value, onChange, min, max, titre }) => (
+    <span
+        title={titre}
+        className="relative inline-flex items-center rounded px-1 -mx-1 border-b border-dashed border-slate-200 dark:border-dk-border hover:text-slate-700 dark:hover:text-dk-text hover:border-slate-400 dark:hover:border-dk-muted transition-colors cursor-pointer"
+    >
+        {value || '—'}
+        <input
+            type="date" value={value} min={min} max={max} aria-label={titre}
+            onChange={e => e.target.value && onChange(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        />
+    </span>
+);
 
 /** Un chiffre nomme, dans une grille : le titre au-dessus, la valeur en
  *  gras, et de quoi la nuancer en dessous. */

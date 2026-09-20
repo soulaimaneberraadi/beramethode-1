@@ -23,7 +23,7 @@ import AxeDetail, { AxeOuvert } from './ventes/AxeDetail';
 import ModelesDetail from './ventes/ModelesDetail';
 import {
     Carte, Vignette, PastilleCouleur, EtiquetteTaille, Tuile, Delta, Repartition as RepartitionUI,
-    TableauJours as TableauJoursUI, Courbes,
+    TableauJours as TableauJoursUI, Courbes, BorneDate,
 } from './ventes/ui';
 
 /** Sans serveur (deploiement statique), il n'y a ni sorties de stock ni
@@ -755,13 +755,28 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                                             })}
                                         </div>
 
+                                        {/* Les deux bornes sont les poignees de la
+                                            periode : on les deplace la ou on
+                                            regarde la courbe, au lieu de remonter
+                                            rouvrir les filtres. */}
                                         <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-400 dark:text-dk-muted tabular-nums">
-                                            <span>{serieComplete[0]?.jour}</span>
+                                            <BorneDate
+                                                titre={T.du}
+                                                value={serieComplete[0]?.jour || ''}
+                                                max={serieComplete[serieComplete.length - 1]?.jour || aujourdhui()}
+                                                onChange={v => { setDu(v); if (au && au < v) setAu(v); }}
+                                            />
                                             <span className="hidden sm:inline">{T.meilleurJour} : {(() => {
                                                 const best = [...data.serie].sort((a, b) => b.ca - a.ca)[0];
                                                 return best ? `${best.jour} · ${nf(best.ca)} ${currency}` : '—';
                                             })()}</span>
-                                            <span>{serieComplete[serieComplete.length - 1]?.jour}</span>
+                                            <BorneDate
+                                                titre={T.au}
+                                                value={serieComplete[serieComplete.length - 1]?.jour || ''}
+                                                min={serieComplete[0]?.jour || undefined}
+                                                max={aujourdhui()}
+                                                onChange={v => { setAu(v); if (du && du > v) setDu(v); }}
+                                            />
                                         </div>
                                     </>
                                 )}
