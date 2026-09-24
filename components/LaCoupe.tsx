@@ -626,7 +626,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         }));
     };
 
-    const [annotationPltOuverte, setAnnotationPltOuverte] = useState(false);
+    /** Ligne de matelas dont on numerote le trace (numero visible + fichier attache). */
+    const [pltANumeroter, setPltANumeroter] = useState<{ numero: string; fichier: MatelasFichier | null } | null>(null);
 
     // --- Génération automatique des matelas depuis la répartition ---
     const [autoMatelasOpen, setAutoMatelasOpen] = useState(false);
@@ -2102,15 +2103,6 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             <div className="flex items-center gap-1.5 shrink-0">
                                                 <button
                                                     type="button"
-                                                    onClick={() => setAnnotationPltOuverte(true)}
-                                                    className="h-8 px-3 rounded-lg text-[11px] font-bold bg-slate-900 dark:bg-dk-elevated text-white hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-sm"
-                                                    title={tx(lang, { fr: 'Ecrire le numero d\'ordre au milieu de chaque piece du trace', ar: 'كتابة رقم الأمر وسط كل قطعة في ملف القص', en: 'Write the order number inside every piece of the trace', es: 'Escribir el numero de orden dentro de cada pieza', pt: 'Escrever o numero da ordem dentro de cada peça', tr: 'Emir numarasını her parçanın içine yaz' })}
-                                                >
-                                                    <Barcode className="w-3.5 h-3.5" />
-                                                    {tx(lang, { fr: 'Numeroter PLT', ar: 'ترقيم PLT', en: 'Number PLT', es: 'Numerar PLT', pt: 'Numerar PLT', tr: 'PLT numarala' })}
-                                                </button>
-                                                <button
-                                                    type="button"
                                                     onClick={openAutoMatelasModal}
                                                     className="h-8 px-3 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm"
                                                     title={tx(lang, { fr: 'Générer automatiquement les lignes de matelas depuis la répartition', ar: 'توليد خطوط المفرشات تلقائياً من التوزيع', en: 'Auto-generate layer lines from the distribution', es: 'Generar líneas de capas automáticamente', pt: 'Gerar linhas automaticamente', tr: 'Katman satırlarını otomatik oluştur' })}
@@ -2207,6 +2199,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                                     className={`p-1 rounded transition-colors ${libraryOpenId === line.id ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600' : 'bg-slate-100 dark:bg-dk-elevated hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-slate-500 hover:text-indigo-600'}`}
                                                                                 >
                                                                                     <FolderOpen className="w-3 h-3" />
+                                                                                </button>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={e => { e.stopPropagation(); setPltANumeroter({ numero: String(lIdx + 1), fichier: line.fichier ?? null }); }}
+                                                                                    title={tx(lang, { fr: `Ecrire le n° ${lIdx + 1} au milieu de chaque piece de ce trace`, ar: `كتابة الرقم ${lIdx + 1} وسط كل قطعة في هذا الملف`, en: `Write no. ${lIdx + 1} inside every piece of this trace`, es: `Escribir el n° ${lIdx + 1} en cada pieza`, pt: `Escrever o n° ${lIdx + 1} em cada peça`, tr: `Bu çizimin her parçasına ${lIdx + 1} yaz` })}
+                                                                                    className="p-1 rounded transition-colors bg-slate-100 dark:bg-dk-elevated hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-slate-500 hover:text-emerald-600"
+                                                                                >
+                                                                                    <Barcode className="w-3 h-3" />
                                                                                 </button>
                                                                             </div>
                                                                             {libraryOpenId === line.id && (
@@ -2934,10 +2934,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 </SheetModal>
             )}
 
-            {annotationPltOuverte && (
+            {pltANumeroter && (
                 <AnnotationPlt
-                    numeroInitial={ordre.refModele || ''}
-                    onClose={() => setAnnotationPltOuverte(false)}
+                    numeroInitial={pltANumeroter.numero}
+                    fichierInitial={pltANumeroter.fichier ? { nom: pltANumeroter.fichier.nom, data: pltANumeroter.fichier.data } : null}
+                    onClose={() => setPltANumeroter(null)}
                 />
             )}
 

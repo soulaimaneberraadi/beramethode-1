@@ -10,7 +10,7 @@
  *   — le trace d'origine n'est jamais redessine (voir `injecterEtiquettes`) ;
  *   — le numero ne sort jamais de sa piece (voir `placerNumero`).
  */
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Upload, FileText, Download, AlertTriangle, Layers, X, Move } from 'lucide-react';
 import SheetModal from '../shared/SheetModal';
 import { tx } from '../../lib/i18n';
@@ -25,8 +25,25 @@ import {
 } from '../../lib/placementNumero';
 
 interface Props {
+    /** Numero a ecrire : celui du matelas, pas le nom du modele. */
     numeroInitial?: string;
+    /** Fichier deja attache a la ligne de matelas, charge sans re-selection. */
+    fichierInitial?: { nom: string; data: string } | null;
     onClose: () => void;
+}
+
+/** Les fichiers attaches sont stockes en dataURL base64 : on revient aux octets. */
+function octetsDepuisDataUrl(data: string): ArrayBuffer | null {
+    const virgule = data.indexOf(',');
+    if (virgule < 0 || !data.slice(0, virgule).includes(';base64')) return null;
+    try {
+        const binaire = atob(data.slice(virgule + 1));
+        const octets = new Uint8Array(binaire.length);
+        for (let i = 0; i < binaire.length; i++) octets[i] = binaire.charCodeAt(i);
+        return octets.buffer;
+    } catch {
+        return null;
+    }
 }
 
 /** Au-dela, le rendu SVG coute plus qu'il n'apporte : on allege le trait. */
@@ -39,7 +56,7 @@ const COULEUR_STATUT: Record<StatutPlacement, string> = {
     force: 'text-rose-600 dark:text-rose-400',
 };
 
-export default function AnnotationPlt({ numeroInitial = '', onClose }: Props) {
+export default function AnnotationPlt({ numeroInitial = '', fichierInitial = null, onClose }: Props) {
     const { lang } = useLang();
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -61,32 +78,43 @@ export default function AnnotationPlt({ numeroInitial = '', onClose }: Props) {
 
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en, es: fr, pt: fr, tr: en });
 
+    const adopter = useCallback((nom: string, buffer: ArrayBuffer) => {
+        try {
+            const texte = decoderOctets(buffer);
+            const lu = lireHpgl(texte);
+            if (lu.etiquettes.length === 0) {
+                setErreur(L(
+                    "Aucun texte dans ce trace : rien ou accrocher le numero.",
+                    'لا نصّ في هذا الملف، فلا موضع يُعلَّق عليه الرقم.',
+                    'No text in this trace: nothing to anchor the number to.',
+                ));
+            }
+            setNomFichier(nom);
+            setSource(texte);
+            setLecture(lu);
+            setExclus(new Set());
+            setAjustements({});
+            setSelection(null);
+        } catch {
+            setErreur(L('Fichier illisible.', 'تعذّرت قراءة الملف.', 'Unreadable file.'));
+        }
+    }, [lang]);
+
     const charger = useCallback((fichier: File) => {
         setErreur('');
         const reader = new FileReader();
-        reader.onload = () => {
-            try {
-                const texte = decoderOctets(reader.result as ArrayBuffer);
-                const lu = lireHpgl(texte);
-                if (lu.etiquettes.length === 0) {
-                    setErreur(L(
-                        "Aucun texte dans ce trace : rien ou accrocher le numero.",
-                        'لا نصّ في هذا الملف، فلا موضع يُعلَّق عليه الرقم.',
-                        'No text in this trace: nothing to anchor the number to.',
-                    ));
-                }
-                setNomFichier(fichier.name);
-                setSource(texte);
-                setLecture(lu);
-                setExclus(new Set());
-                setAjustements({});
-                setSelection(null);
-            } catch {
-                setErreur(L('Fichier illisible.', 'تعذّرت قراءة الملف.', 'Unreadable file.'));
-            }
-        };
+        reader.onload = () => adopter(fichier.name, reader.result as ArrayBuffer);
         reader.readAsArrayBuffer(fichier);
-    }, [lang]);
+    }, [adopter]);
+
+    /* Le trace est deja attache a la ligne de matelas : on l'ouvre directement,
+       sans redemander a l'operateur d'aller le rechercher sur le disque. */
+    useEffect(() => {
+        if (!fichierInitial) return;
+        const buffer = octetsDepuisDataUrl(fichierInitial.data);
+        if (buffer) adopter(fichierInitial.nom, buffer);
+        else setErreur(L('Fichier attache illisible.', 'الملف المرفق غير قابل للقراءة.', 'Attached file unreadable.'));
+    }, [fichierInitial, adopter]);
 
     const contours = useMemo(
         () => (lecture ? contoursDePieces(lecture.polylignes) : []),
