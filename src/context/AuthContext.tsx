@@ -42,6 +42,19 @@ const withTimeout = <T,>(promise: Promise<T>, ms: number): Promise<T> =>
     new Promise<T>((_, reject) => setTimeout(() => reject(new TimeoutError()), ms)),
   ]);
 
+/**
+ * Le nuage ne doit jamais retenir l'ouverture du programme.
+ *
+ * `catch` protege d'un echec, pas d'une promesse qui ne se resout JAMAIS.
+ * Quand le projet Supabase ne repond plus (522/504), c'est exactement ce qui
+ * arrive : l'attente ne rend jamais la main, `setLoading(false)` n'est plus
+ * atteint, et le programme reste fige sur « Verification de la session »
+ * alors que le serveur local, lui, repond tres bien.
+ *
+ * Le meme garde-fou existait deja en mode statique — il manquait ici.
+ */
+const DELAI_NUAGE_MS = 6000;
+
 const mapSupabaseUser = (su: { id: string; email?: string | null; user_metadata?: Record<string, unknown> } | null): User | null => {
   if (!su || !su.email) return null;
   const meta = su.user_metadata || {};
@@ -138,7 +151,8 @@ const scopeSynchrone = (userData: Pick<User, 'id' | 'cloudUserId' | 'email'>): s
 const cloudOwnerFor = async (userData: Pick<User, 'id' | 'cloudUserId' | 'email'>): Promise<string> => {
   const direct = scopeSynchrone(userData);
   if (direct) return direct;
-  const cloudId = await getSupabaseCloudUserId().catch(() => null);
+  // Meme raison qu'au-dessus : interroger le nuage ne doit pas pouvoir bloquer.
+  const cloudId = await withTimeout(getSupabaseCloudUserId(), DELAI_NUAGE_MS).catch(() => null);
   if (cloudId) { memoriserScope(userData.email, cloudId); return cloudId; }
   // Premier login sans aucune identité cloud connue : identifiant numérique.
   const local = String(userData.id);
@@ -150,7 +164,7 @@ const activateLocalDataOwner = async (userData: Pick<User, 'id' | 'cloudUserId' 
   const ownerId = await cloudOwnerFor(userData);
   ensureLocalDataOwner(ownerId);
   if (isCloudSyncUserId(ownerId)) {
-    await pullSnapshotFromCloud(ownerId).catch(() => {});
+    await withTimeout(pullSnapshotFromCloud(ownerId), DELAI_NUAGE_MS).catch(() => {});
     startCloudSync(ownerId);
   }
 };
