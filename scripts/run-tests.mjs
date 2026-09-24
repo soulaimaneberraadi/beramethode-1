@@ -34,13 +34,16 @@ if (!suites.length) {
 let echecs = 0;
 for (const suite of suites) {
     const nom = relative(RACINE, suite);
-    const r = spawnSync('npx', ['tsx', suite], { encoding: 'utf8' });
+    // `npx` est un .cmd sous Windows : spawnSync ne le trouve pas et rendait
+    // les 38 suites rouges d'un coup, quoi qu'elles contiennent. On lance donc
+    // node lui-meme, qui existe par definition puisqu'il execute ce script.
+    const r = spawnSync(process.execPath, ['--import', 'tsx', suite], { encoding: 'utf8' });
     if (r.status === 0) {
         console.log(`  OK     ${nom}`);
     } else {
         echecs += 1;
         console.log(`  ECHEC  ${nom}`);
-        const detail = (r.stderr || r.stdout || '').trim().split('\n').slice(0, 8);
+        const detail = (r.error?.message || r.stderr || r.stdout || '').trim().split('\n').slice(0, 8);
         for (const l of detail) console.log(`         ${l}`);
     }
 }

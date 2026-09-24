@@ -16,6 +16,7 @@ import { loadCompanyIdentity } from '../lib/companyIdentity';
 import { useLang } from '../src/context/LanguageContext';
 import ExcelInput from './ExcelInput';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
+import AnnotationPlt from './coupe/AnnotationPlt';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
 
@@ -624,6 +625,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             )
         }));
     };
+
+    const [annotationPltOuverte, setAnnotationPltOuverte] = useState(false);
 
     // --- Génération automatique des matelas depuis la répartition ---
     const [autoMatelasOpen, setAutoMatelasOpen] = useState(false);
@@ -2099,6 +2102,15 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             <div className="flex items-center gap-1.5 shrink-0">
                                                 <button
                                                     type="button"
+                                                    onClick={() => setAnnotationPltOuverte(true)}
+                                                    className="h-8 px-3 rounded-lg text-[11px] font-bold bg-slate-900 dark:bg-dk-elevated text-white hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-sm"
+                                                    title={tx(lang, { fr: 'Ecrire le numero d\'ordre au milieu de chaque piece du trace', ar: 'كتابة رقم الأمر وسط كل قطعة في ملف القص', en: 'Write the order number inside every piece of the trace', es: 'Escribir el numero de orden dentro de cada pieza', pt: 'Escrever o numero da ordem dentro de cada peça', tr: 'Emir numarasını her parçanın içine yaz' })}
+                                                >
+                                                    <Barcode className="w-3.5 h-3.5" />
+                                                    {tx(lang, { fr: 'Numeroter PLT', ar: 'ترقيم PLT', en: 'Number PLT', es: 'Numerar PLT', pt: 'Numerar PLT', tr: 'PLT numarala' })}
+                                                </button>
+                                                <button
+                                                    type="button"
                                                     onClick={openAutoMatelasModal}
                                                     className="h-8 px-3 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm"
                                                     title={tx(lang, { fr: 'Générer automatiquement les lignes de matelas depuis la répartition', ar: 'توليد خطوط المفرشات تلقائياً من التوزيع', en: 'Auto-generate layer lines from the distribution', es: 'Generar líneas de capas automáticamente', pt: 'Gerar linhas automaticamente', tr: 'Katman satırlarını otomatik oluştur' })}
@@ -2920,6 +2932,13 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             ))}
                         </div>
                 </SheetModal>
+            )}
+
+            {annotationPltOuverte && (
+                <AnnotationPlt
+                    numeroInitial={ordre.refModele || ''}
+                    onClose={() => setAnnotationPltOuverte(false)}
+                />
             )}
 
             {/* AUTO MATELAS */}
