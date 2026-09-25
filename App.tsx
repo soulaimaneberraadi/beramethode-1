@@ -1859,6 +1859,23 @@ export default function App() {
         }
     };
 
+    /**
+     * Envoi d'un modele au Planning, partage par la Bibliotheque et La Coupe.
+     * Un OF existe deja : on va dessus au lieu d'en creer un second. Sinon la
+     * fenetre cree l'OF pour de vrai (chaine, date, quantite).
+     */
+    const envoyerAuPlanning = (m: ModelData) => {
+        const deja = planningEvents.find(p => p.modelId === m.id);
+        if (deja) {
+            setGlobalChaineId(deja.chaineId || globalChaineId);
+            setPlanningFocusId(deja.id);
+            setCurrentView('planning');
+            navigate('planning');
+            return;
+        }
+        setEnvoiPlanning({ model: m, mode: 'planning' });
+    };
+
     return (
         <DataOwnerProvider user={user ? { ...user, id: Number(user.id) } : null} isGuest={isGuest}>
             <div className="flex flex-col h-screen bg-white dark:bg-dk-bg text-gray-800 dark:text-dk-text font-sans overflow-hidden transition-colors duration-300" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -2137,21 +2154,7 @@ export default function App() {
                             onRenameModel={renameModel}
                             onCreateNewProject={createNewProject}
                             onTransferToCoupe={handleTransferToCoupe}
-                            onTransferToPlanning={(m) => {
-                                /* « Transferer vers Planning » ne posait qu'un
-                                   workflowStatus que personne ne lit : le modele
-                                   n'apparaissait jamais sur le planning. On ouvre
-                                   maintenant la fenetre qui cree l'OF pour de vrai. */
-                                const deja = planningEvents.find(p => p.modelId === m.id);
-                                if (deja) {
-                                    setGlobalChaineId(deja.chaineId || globalChaineId);
-                                    setPlanningFocusId(deja.id);
-                                    setCurrentView('planning');
-                                    navigate('planning');
-                                    return;
-                                }
-                                setEnvoiPlanning({ model: m, mode: 'planning' });
-                            }}
+                            onTransferToPlanning={envoyerAuPlanning}
                             onStartSuivi={(m) => {
                                 /* Suivi direct depuis la Bibliotheque : si l'OF
                                    existe deja on va dessus, sinon on demande la
@@ -2181,6 +2184,7 @@ export default function App() {
                             setFicheData={setFicheData}
                             onNavigate={(v) => handleNavigation(v as any)}
                             onCreateNewProject={() => createNewProject('coupe')}
+                            onTransferToPlanning={envoyerAuPlanning}
                         />
                     )}
 

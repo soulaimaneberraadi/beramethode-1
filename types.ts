@@ -563,6 +563,8 @@ export interface OrdreCoupe {
   fichieresSaves?: MatelasFichier[]; // shared library of uploaded DXF/PLT files (reusable across lines)
   tissuRecu?: number;
   modeleFichier?: MatelasFichier; // reference file/photo of the model itself (not tied to a matelas line)
+  /** Corrections manuelles du suivi coupe, par `${couleur}__${taille}`. */
+  suiviManuel?: Record<string, { cut?: number; rem?: number }>;
 }
 
 // --- NEW TYPE FOR LIBRARY ---

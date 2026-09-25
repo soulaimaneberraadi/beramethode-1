@@ -39,9 +39,18 @@ interface LaCoupeProps {
     setFicheData?: React.Dispatch<React.SetStateAction<any>>;
     onNavigate?: (view: string) => void;
     onCreateNewProject?: () => void;
+    /** Ouvre la fenetre qui cree l'OF au Planning (partagee avec la Bibliotheque). */
+    onTransferToPlanning?: (model: ModelData) => void;
 }
 
 const MOBILE_BREAKPOINT = 768;
+
+/**
+ * Longueur perdue en bout de chaque pli (amorce/coupe de lisiere), en metres.
+ * Elle entre dans la consommation de chaque matelas : la changer ici la
+ * change partout — tableau, bilan, suivi matiere et ticket imprime.
+ */
+const AMORCE_PAR_PLI_M = 0.03;
 
 function useIsMobile(): boolean {
     const [isMobile, setIsMobile] = useState<boolean>(() => {
@@ -58,7 +67,7 @@ function useIsMobile(): boolean {
     return isMobile;
 }
 
-export default function LaCoupe({ models, setModels, onOpenInAtelier, currentModelId, setFicheData, onNavigate, onCreateNewProject }: LaCoupeProps) {
+export default function LaCoupe({ models, setModels, onOpenInAtelier, currentModelId, setFicheData, onNavigate, onCreateNewProject, onTransferToPlanning }: LaCoupeProps) {
     const isMobile = useIsMobile();
     const { lang } = useLang();
     /* Préférence d'agrandissement partagée : celui qui agrandit la liste des
@@ -147,7 +156,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             showToast(tx(lang, { fr: 'Erreur de sauvegarde Cloud', ar: 'خطأ في الحفظ السحابي', en: 'Cloud save error', es: 'Error de guardado en la nube', pt: 'Erro ao salvar na nuvem', tr: 'Bulut kaydetme hatası' }), "error");
             return false;
         }
-    }, [showToast]);
+    }, [showToast, lang]);
 
     const deleteModelFromServer = useCallback(async (modelId: string, successMessage?: string) => {
         try {
@@ -163,7 +172,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             showToast(tx(lang, { fr: 'Erreur de suppression Cloud', ar: 'خطأ في الحذف السحابي', en: 'Cloud delete error', es: 'Error de eliminación en la nube', pt: 'Erro ao excluir na nuvem', tr: 'Bulut silme hatası' }), "error");
             return false;
         }
-    }, [showToast]);
+    }, [showToast, lang]);
 
 
     useEffect(() => {
@@ -434,59 +443,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         }
     };
 
-    const handleSaveCoupe = async (publish: boolean = false, transferTo: string | null = null) => {
-        if (!selectedModel) return;
-
-        let finalStatus = ordre.status;
-        let finalWorkflow = selectedModel.workflowStatus;
-        let isPublished = selectedModel.isPublishedToLibrary;
-
-        if (publish) isPublished = true;
-        if (transferTo === 'METHODES') finalWorkflow = 'METHODES';
-        else if (transferTo === 'PLANNING') finalWorkflow = 'PLANNING';
-        else if (transferTo === 'SUIVI') finalWorkflow = 'SUIVI';
-
-        if (transferTo === 'PLANNING' && requiredMaterials.length > 0) {
-            try {
-                const magStr = localStorage.getItem('beramethode_magasin');
-                let magItems = magStr ? JSON.parse(magStr) : [];
-                requiredMaterials.forEach((mat: any) => {
-                    const existingIdx = magItems.findIndex((i: any) =>
-                        i.nom === mat.name || i.designation === mat.name
-                    );
-                    if (existingIdx >= 0) {
-                        magItems[existingIdx].stockActuel = Math.max(0,
-                            (magItems[existingIdx].stockActuel || 0) - mat.neededForProduction
-                        );
-                        if (!magItems[existingIdx].mouvements) magItems[existingIdx].mouvements = [];
-                        magItems[existingIdx].mouvements.push({
-                            id: `MVT-${Date.now()}`,
-                            date: new Date().toISOString(),
-                            type: 'sortie_production',
-                            quantite: -mat.neededForProduction,
-                            reference: `Coupe → Planning : ${ordre.refModele}`,
-                            responsable: tx(lang, { fr: 'La Coupe', ar: 'قسم القص', en: 'Cutting Dept.', es: 'Departamento de Corte', pt: 'Departamento de Corte', tr: 'Kesim Departmanı' })
-                        });
-                    }
-                });
-                localStorage.setItem('beramethode_magasin', JSON.stringify(magItems));
-            } catch (e) {
-                console.error("Failed to deduct Magasin stock", e);
-            }
-        }
+    const handleSaveCoupe = async (publish: boolean = false): Promise<ModelData | null> => {
+        if (!selectedModel) return null;
 
         const finalQte = matelasCalculations.totalPieces > 0 ? matelasCalculations.totalPieces : ordre.qteTotale;
-        const updatedOrdre = {
-            ...ordre,
-            status: finalStatus,
-            qteTotale: finalQte
-        };
-
         const updatedModel: ModelData = {
             ...selectedModel,
-            workflowStatus: finalWorkflow,
-            isPublishedToLibrary: isPublished,
-            ordreCoupe: updatedOrdre,
+            isPublishedToLibrary: publish ? true : selectedModel.isPublishedToLibrary,
+            ordreCoupe: { ...ordre, qteTotale: finalQte },
             meta_data: {
                 ...(selectedModel.meta_data || { nom_modele: '', date_creation: new Date().toISOString(), total_temps: 0, effectif: 1 }),
                 nom_modele: ordre.refModele || selectedModel.meta_data?.nom_modele || tx(lang, { fr: 'Sans Nom', ar: 'بدون اسم', en: 'Unnamed', es: 'Sin Nombre', pt: 'Sem Nome', tr: 'İsimsiz' }),
@@ -495,16 +459,28 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         };
 
         const success = await saveModelToServer(updatedModel);
-        if (success) {
-            setModels(prev => prev.map(m => m.id === selectedModel.id ? updatedModel : m));
-            setSelectedModel(updatedModel);
-            if (transferTo) {
-                setSelectedModel(null);
-                showToast(`${tx(lang, { fr: 'Transféré vers', ar: 'تم النقل إلى', en: 'Transferred to', es: 'Transferido a', pt: 'Transferido para', tr: 'Aktarıldı' })} ${transferTo}`, 'success');
-            } else {
-                showToast(tx(lang, { fr: 'Sauvegarde effectuée', ar: 'تم الحفظ بنجاح', en: 'Save successful', es: 'Guardado exitoso', pt: 'Salvo com sucesso', tr: 'Kaydetme başarılı' }), 'success');
-            }
-        }
+        if (!success) return null;
+        setModels(prev => prev.map(m => m.id === selectedModel.id ? updatedModel : m));
+        setSelectedModel(updatedModel);
+        showToast(tx(lang, { fr: 'Sauvegarde effectuée', ar: 'تم الحفظ بنجاح', en: 'Save successful', es: 'Guardado exitoso', pt: 'Salvo com sucesso', tr: 'Kaydetme başarılı' }), 'success');
+        return updatedModel;
+    };
+
+    /**
+     * Vers le Planning : on enregistre la coupe, puis on passe la main a la
+     * meme fenetre que la Bibliotheque, qui cree l'OF pour de vrai.
+     *
+     * Ce bouton posait autrefois `workflowStatus = 'PLANNING'` et rien d'autre :
+     * le modele quittait la liste de La Coupe sans jamais apparaitre au
+     * Planning. Il retirait aussi, en silence, tout le besoin matiere de
+     * l'ancien stock du navigateur — sans confirmation et a chaque clic, si
+     * bien que deux clics retiraient deux fois la matiere. La reservation se
+     * fait desormais au Planning, par les lots, comme pour tout autre OF.
+     */
+    const handleEnvoyerAuPlanning = async () => {
+        const enregistre = await handleSaveCoupe(false);
+        if (!enregistre) return;
+        onTransferToPlanning?.(enregistre);
     };
 
     const sizes = selectedModel?.ficheData?.sizes || selectedModel?.meta_data?.sizes || [];
@@ -545,7 +521,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             });
             totalPieces += (line.plis || 0) * lineRatioSum;
             // Une ligne sans pièces (ratios à 0) ne consomme pas de tissu.
-            if (lineRatioSum > 0) totalFabric += (line.plis || 0) * ((line.longTracee || 0) + 0.03);
+            if (lineRatioSum > 0) totalFabric += (line.plis || 0) * ((line.longTracee || 0) + AMORCE_PAR_PLI_M);
         });
 
         return { totalPieces, totalFabric, perSize };
@@ -882,7 +858,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         };
         const key = `${colorId}_${sizeIndex}`;
         const newQuantities = { ...currentFiche.gridQuantities, [key]: parseInt(value) || 0 };
-        const updatedFiche = { ...currentFiche, gridQuantities: newQuantities, quantity: matrixStats.grandTotal };
+        // `matrixStats.grandTotal` date du rendu precedent : il ne compte pas la
+        // case qu'on vient de taper, et la quantite du modele restait en retard
+        // d'une frappe. On recompte donc sur la grille qu'on s'apprete a ecrire.
+        const total = Object.values(newQuantities).reduce((s: number, v) => s + (Number(v) || 0), 0);
+        const updatedFiche = { ...currentFiche, gridQuantities: newQuantities, quantity: total };
         setModels(prev => prev.map(m => m.id === selectedModel.id ? { ...m, ficheData: updatedFiche } : m));
         setSelectedModel({ ...selectedModel, ficheData: updatedFiche });
         if (currentModelId === selectedModel.id && setFicheData) setFicheData(updatedFiche);
@@ -1096,16 +1076,6 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         }
     };
 
-    const handleGenerateBarcodes = () => {
-        showToast(tx(lang, { fr: 'Impression des étiquettes code-barres...', ar: 'طباعة ملصقات الباركود...', en: 'Printing barcode labels...', es: 'Imprimiendo etiquetas de código de barras...', pt: 'Imprimindo etiquetas de código de barras...', tr: 'Barkod etiketleri yazdırılıyor...' }), 'info');
-    };
-
-    const consoTheorique = matelasCalculations.totalFabric > 0
-        ? matelasCalculations.totalFabric
-        : ((ordre.longueurMatelas || 0) * (ordre.nbrFeuilles || 0) * (ordre.nbrMatelas || 0));
-    const consoReelle = (ordre.consommation || 0) * (matrixStats.grandTotal || ordre.qteTotale || 0);
-    const waste = consoTheorique > 0 ? ((consoTheorique - consoReelle) / consoTheorique * 100).toFixed(1) : 0;
-
     const [magasinItems, setMagasinItems] = useState<any[]>([]);
     useEffect(() => {
         try {
@@ -1178,7 +1148,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         let ratioSum = 0;
         sizes.forEach(s => { ratioSum += Number(line.ratios?.[s]) || 0; });
         const pieces = (line.plis || 0) * ratioSum;
-        const cons = ratioSum > 0 ? (line.plis || 0) * ((line.longTracee || 0) + 0.03) : 0;
+        const cons = ratioSum > 0 ? (line.plis || 0) * ((line.longTracee || 0) + AMORCE_PAR_PLI_M) : 0;
         const matPhoto = line.matiere ? matierePhoto(line.matiere) : null;
         // Le ticket suit le paquet coupé et peut sortir de l'atelier (sous-traitance,
         // client) : il porte le nom de l'entreprise, jamais celui du logiciel.
@@ -1268,7 +1238,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             let ratioSum = 0;
             sizes.forEach(s => { ratioSum += Number(line.ratios?.[s]) || 0; });
             if (ratioSum > 0) {
-                const cons = (line.plis || 0) * ((line.longTracee || 0) + 0.03);
+                const cons = (line.plis || 0) * ((line.longTracee || 0) + AMORCE_PAR_PLI_M);
                 map[line.matiere] = (map[line.matiere] || 0) + cons;
             }
         });
@@ -1276,8 +1246,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     }, [ordre.matelasLines, sizes]);
 
     // Modifications manuelles (overrides) des tableaux Suivi Coupe et Simulation Fournitures.
-    const [suiviEdits, setSuiviEdits] = useState<Record<string, { cut?: number; rem?: number }>>({});
+    /* Les corrections du suivi coupe vivent DANS l'ordre : elles sont
+       enregistrees avec lui et ne valent que pour ce modele. En etat local,
+       elles etaient perdues a la fermeture — et, indexees par couleur et
+       taille, elles se retrouvaient sur le modele suivant qui partageait
+       « Vert Emeraude / 42 », y affichant un avancement qui n'existait pas. */
+    const suiviEdits = ordre.suiviManuel || {};
+    const setSuiviEdits = (maj: (prev: Record<string, { cut?: number; rem?: number }>) => Record<string, { cut?: number; rem?: number }>) =>
+        setOrdre(prev => ({ ...prev, suiviManuel: maj(prev.suiviManuel || {}) }));
+
+    // La simulation reste un brouillon, mais un brouillon par modele.
     const [simEdits, setSimEdits] = useState<Record<string, { besoin?: number; cons?: number; stock?: number }>>({});
+    useEffect(() => { setSimEdits({}); }, [selectedModel?.id]);
 
     // Suivi coupe (par couleur × taille) : découpé / restant selon les lignes confirmées.
     const suiviCoupe = React.useMemo(() => {
@@ -1626,7 +1606,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 )}
                                 {ordre.status === 'VALIDE' && (
                                     <button
-                                        onClick={() => handleSaveCoupe(false, 'PLANNING')}
+                                        onClick={handleEnvoyerAuPlanning}
                                         className={`${isMobile ? 'w-11 h-11' : 'h-8 px-3'} inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-medium transition-colors`}
                                         title={tx(lang, { fr: 'Vers Planning', ar: 'إلى التخطيط', en: 'To Planning', es: 'A Planificación', pt: 'Para Planejamento', tr: 'Planlamaya Git' })}
                                     >
@@ -2151,7 +2131,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             let lineRatioSum = 0;
                                                             sizes.forEach(s => { lineRatioSum += Number(line.ratios?.[s]) || 0; });
                                                             const linePieces = (line.plis || 0) * lineRatioSum;
-                                                            const lineCons = lineRatioSum > 0 ? (line.plis || 0) * ((line.longTracee || 0) + 0.03) : 0;
+                                                            const lineCons = lineRatioSum > 0 ? (line.plis || 0) * ((line.longTracee || 0) + AMORCE_PAR_PLI_M) : 0;
 
                                                             return (
                                                                 <tr key={line.id} className={`hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors ${line.fait ? 'bg-emerald-50/40 dark:bg-emerald-900/10' : ''}`}>
@@ -2167,7 +2147,6 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                     </td>
                                                                     <td className="py-1 px-1.5 align-top">
                                                                         <div className="relative flex flex-col gap-1 items-center">
-                                                                            <input ref={fileInputRef} type="file" accept=".dxf,.plt,.dwg,.ai,.svg,.egr,.txt,.csv,.jpg,.jpeg,.png,.pdf" className="hidden" onChange={handleFichierChange} />
                                                                             {line.fichier ? (
                                                                                 <div className="flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-md px-1.5 py-1 w-full max-w-[150px]">
                                                                                     <FileText className="w-3 h-3 text-indigo-500 shrink-0" />
@@ -2933,6 +2912,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         </div>
                 </SheetModal>
             )}
+
+            {/* Un seul champ fichier pour toutes les lignes : `pendingLineIdRef` dit a
+                quelle ligne le fichier choisi revient. Rendu dans la boucle, il
+                existait en autant d'exemplaires que de matelas (185 sur un gros
+                ordre) et la ref ne pointait que sur le dernier. */}
+            <input ref={fileInputRef} type="file" accept=".dxf,.plt,.dwg,.ai,.svg,.egr,.txt,.csv,.jpg,.jpeg,.png,.pdf" className="hidden" onChange={handleFichierChange} />
 
             {pltANumeroter && (
                 <AnnotationPlt
