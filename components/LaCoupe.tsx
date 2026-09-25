@@ -3672,7 +3672,7 @@ function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any 
 
 function StatCard({ label, value, icon: Icon, color, delay }: {
     label: string;
-    value: number;
+    value: number | string;
     icon: any;
     color: string;
     delay?: number;
@@ -3713,8 +3713,30 @@ function EmptyDashboard({
         return db - da;
     }).slice(0, 6);
 
-    const totalQty = models.reduce((sum, m) => sum + (m.ordreCoupe?.qteTotale || m.meta_data?.quantity || 0), 0);
-    const drafts = models.filter(m => m.isPublishedToLibrary === false).length;
+    /**
+     * Ce qui compte a l'atelier, calcule sur les matelas eux-memes :
+     * ce qui reste a couper, ce qui l'est deja, et le tissu encore a etaler.
+     * Un ordre sans matelas saisi compte pour sa quantite entiere, a couper.
+     * Les ordres valides ou rejetes ne laissent rien a couper.
+     */
+    let aCouper = 0, coupees = 0, tissuRestant = 0;
+    for (const m of models) {
+        const st = m.ordreCoupe?.status || 'EN_PREPARATION';
+        const ouvert = st !== 'VALIDE' && st !== 'REJETE';
+        const lignes = (m.ordreCoupe?.matelasLines || []).filter(l => Object.values(l.ratios || {}).some(r => (Number(r) || 0) > 0));
+        if (lignes.length === 0) {
+            if (ouvert) aCouper += m.ordreCoupe?.qteTotale || m.meta_data?.quantity || 0;
+            continue;
+        }
+        for (const l of lignes) {
+            const pieces = (l.plis || 0) * Object.values(l.ratios || {}).reduce((s, r) => s + (Number(r) || 0), 0);
+            if (l.fait) coupees += pieces;
+            else if (ouvert) {
+                aCouper += pieces;
+                tissuRestant += (l.plis || 0) * ((l.longTracee || 0) + AMORCE_PAR_PLI_M);
+            }
+        }
+    }
 
     return (
         <div className="p-4 md:p-6 max-w-6xl 2xl:max-w-7xl mx-auto space-y-4">
@@ -3749,48 +3771,11 @@ function EmptyDashboard({
                 </div>
             </div>
 
-            {/* Quick stats — Total/Préparation/En Cours/Validés déjà affichés dans le header, pas de doublon ici */}
+            {/* Les comptes par statut sont deja dans l en-tete : ici, le travail qui reste */}
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                <StatCard label={tx(lang, { fr: 'Total Pièces', ar: 'إجمالي القطع', en: 'Total Pieces', es: 'Total Piezas', pt: 'Total Peças', tr: 'Toplam Adet' })} value={totalQty} icon={PackageSearch} color="bg-indigo-500" delay={200} />
-                <StatCard label={tx(lang, { fr: 'Brouillons', ar: 'مسودات', en: 'Drafts', es: 'Borradores', pt: 'Rascunhos', tr: 'Taslaklar' })} value={drafts} icon={FileText} color="bg-amber-500" delay={250} />
-                <StatCard label={tx(lang, { fr: 'Statuts', ar: 'الحالات', en: 'Statuses', es: 'Estados', pt: 'Status', tr: 'Durumlar' })} value={Object.keys(statusMap).length} icon={BarChart3} color="bg-purple-500" delay={300} />
-            </div>
-
-            {/* Quick guide */}
-            <div className="bg-gradient-to-r from-indigo-50 to-rose-50 dark:from-dk-surface dark:to-dk-bg rounded-lg border border-indigo-100 dark:border-dk-border p-3">
-                <div className="flex items-center gap-1.5 mb-2">
-                    <Zap className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
-                    <h3 className="text-[11px] font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Guide Rapide', ar: 'دليل سريع', en: 'Quick Guide', es: 'Guía Rápida', pt: 'Guia Rápido', tr: 'Hızlı Rehber' })}</h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <div className="flex items-start gap-2">
-                        <div className="w-5 h-5 rounded bg-indigo-100 dark:bg-dk-accent/20 flex items-center justify-center shrink-0 mt-0.5">
-                            <span className="text-[9px] font-bold text-indigo-600 dark:text-dk-accent-text">1</span>
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-semibold text-slate-700 dark:text-dk-text-soft leading-tight">{tx(lang, { fr: 'Créer un ordre', ar: 'إنشاء أمر', en: 'Create an order', es: 'Crear una orden', pt: 'Criar uma ordem', tr: 'Emir oluştur' })}</p>
-                            <p className="text-[9px] text-slate-500 dark:text-dk-muted leading-tight">{tx(lang, { fr: 'Définissez les paramètres de matelas', ar: 'حدد إعدادات المفرشة', en: 'Set layering parameters', es: 'Defina los parámetros de capas', pt: 'Defina os parâmetros de esteiramento', tr: 'Katman parametrelerini ayarlayın' })}</p>
-                        </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                        <div className="w-5 h-5 rounded bg-indigo-100 dark:bg-dk-accent/20 flex items-center justify-center shrink-0 mt-0.5">
-                            <span className="text-[9px] font-bold text-indigo-600 dark:text-dk-accent-text">2</span>
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-semibold text-slate-700 dark:text-dk-text-soft leading-tight">{tx(lang, { fr: 'Répartir tailles/couleurs', ar: 'توزيع المقاسات/الألوان', en: 'Distribute sizes/colors', es: 'Distribuir tallas/colores', pt: 'Distribuir tamanhos/cores', tr: 'Bedenleri/renkleri dağıt' })}</p>
-                            <p className="text-[9px] text-slate-500 dark:text-dk-muted leading-tight">{tx(lang, { fr: 'Remplissez la matrice de production', ar: 'املأ مصفوفة الإنتاج', en: 'Fill the production matrix', es: 'Complete la matriz de producción', pt: 'Preencha a matriz de produção', tr: 'Üretim matrisini doldurun' })}</p>
-                        </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                        <div className="w-5 h-5 rounded bg-indigo-100 dark:bg-dk-accent/20 flex items-center justify-center shrink-0 mt-0.5">
-                            <span className="text-[9px] font-bold text-indigo-600 dark:text-dk-accent-text">3</span>
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-semibold text-slate-700 dark:text-dk-text-soft leading-tight">{tx(lang, { fr: 'Publier & Valider', ar: 'نشر وتحقق', en: 'Publish & Validate', es: 'Publicar y Validar', pt: 'Publicar e Validar', tr: 'Yayınla ve Onayla' })}</p>
-                            <p className="text-[9px] text-slate-500 dark:text-dk-muted leading-tight">{tx(lang, { fr: 'Envoyez vers le Planning', ar: 'أرسل إلى التخطيط', en: 'Send to Planning', es: 'Enviar a Planificación', pt: 'Enviar para Planejamento', tr: 'Planlamaya gönder' })}</p>
-                        </div>
-                    </div>
-                </div>
+                <StatCard label={tx(lang, { fr: 'À couper', ar: 'للقص', en: 'To cut', es: 'Por cortar', pt: 'A cortar', tr: 'Kesilecek' })} value={aCouper} icon={Scissors} color="bg-rose-500" delay={200} />
+                <StatCard label={tx(lang, { fr: 'Coupées', ar: 'مقصوصة', en: 'Cut', es: 'Cortadas', pt: 'Cortadas', tr: 'Kesilen' })} value={coupees} icon={CheckCircle2} color="bg-emerald-500" delay={250} />
+                <StatCard label={tx(lang, { fr: 'Tissu à étaler', ar: 'ثوب للفرش', en: 'Fabric to spread', es: 'Tejido por extender', pt: 'Tecido a estender', tr: 'Serilecek kumaş' })} value={`${Math.round(tissuRestant).toLocaleString()} m`} icon={Layers} color="bg-indigo-500" delay={300} />
             </div>
 
             {/* Recent orders */}
