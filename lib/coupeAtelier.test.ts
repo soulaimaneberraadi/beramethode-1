@@ -76,6 +76,16 @@ const modele = (id: string, status: any, lignes: MatelasLine[], extra: Partial<M
     assert.equal(c.piecesCoupees, 40);
     presque(c.mParPiece!, (20 * 3.03) / 40);
     assert.equal(consoTissu(modele('x', 'EN_COURS', [])).recuM, null, 'recu non saisi : pas un zero');
+
+    // Mesure au rouleau : elle remplace le calcul pour ce matelas.
+    const mesure = modele('t2', 'EN_COURS', [
+        ligne({ plis: 20, longTracee: 3, ratios: { M: 2 }, fait: true, metresReels: 58 }),
+        ligne({ plis: 10, longTracee: 3, ratios: { M: 2 }, fait: true }),
+    ]);
+    presque(consoTissu(mesure).consommeM, 58 + 10 * 3.03, 'mesure prise telle quelle, calcul pour l autre');
+    // Vlieseline : jamais dans les pieces du vetement.
+    const vlies = modele('v', 'EN_COURS', [ligne({ plis: 10, longTracee: 1, ratios: { M: 1 }, fait: true, tissu: 'TIS-v' })]);
+    assert.equal(resumerOrdre(vlies).coupees, 0, 'une autre matiere ne compte pas comme vetement coupe');
 }
 
 // --- Groupes : seuls les matelas coupes ET attribues comptent ---

@@ -129,7 +129,8 @@ export const consoTissu = (m: ModelData): ConsoModele => {
     for (const l of lignes) {
         const mt = metresLigne(l);
         prevuM += mt;
-        if (l.fait) { consommeM += mt; piecesCoupees += piecesLigne(l); }
+        // Mesure au rouleau quand elle existe : c'est elle qui dit ce qui est parti.
+        if (l.fait) { consommeM += l.metresReels && l.metresReels > 0 ? l.metresReels : mt; piecesCoupees += piecesLigne(l); }
     }
     const recu = m.ordreCoupe?.tissus?.find(t => t.id === 'principal')?.recuM ?? m.ordreCoupe?.tissuRecu;
     const recuM = typeof recu === 'number' && recu > 0 ? recu : null;

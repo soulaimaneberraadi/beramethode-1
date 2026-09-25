@@ -7,7 +7,7 @@
  * A cote de chaque matelas, son trace numerote : le voir, le telecharger,
  * l'envoyer au traceur, ou le glisser a la souris dans Optitex.
  */
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, Download, Send, GripVertical, ChevronDown, AlertTriangle, CheckCircle2, Plus } from 'lucide-react';
 import type { MatelasFichier, MatelasLine, PlacementCoupe, TissuCoupe } from '../../types';
 import { tx } from '../../lib/i18n';
@@ -38,6 +38,18 @@ interface Props {
     renderEtat: (l: MatelasLine) => React.ReactNode;
     renderMatiere: (l: MatelasLine) => React.ReactNode;
     renderActions: (l: MatelasLine) => React.ReactNode;
+}
+
+function useEstTelephone() {
+    const q = '(max-width: 767px)';
+    const [v, setV] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches);
+    useEffect(() => {
+        const mq = window.matchMedia(q);
+        const f = () => setV(mq.matches);
+        mq.addEventListener('change', f);
+        return () => mq.removeEventListener('change', f);
+    }, []);
+    return v;
 }
 
 /** Petite liste de choix : pas de <select> du systeme, illisible au telephone. */
@@ -73,12 +85,33 @@ export default function TableMatelas({
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
     const [envoi, setEnvoi] = useState<string | null>(null);
+    const telephone = useEstTelephone();
+
+    /* Un numero en double ecrirait le meme numero sur deux paquets differents. */
+    const doublons = useMemo(() => {
+        const vus = new Map<string, number>();
+        lignes.forEach(l => { const n = (l.numero || '').trim(); if (n) vus.set(n, (vus.get(n) || 0) + 1); });
+        return new Set([...vus].filter(([, c]) => c > 1).map(([n]) => n));
+    }, [lignes]);
     const urls = useRef<string[]>([]);
 
     const placementDe = (l: MatelasLine) => placements.find(p => p.id === l.placementId);
     const piecesTaille = (l: MatelasLine, t: string) => (l.plis || 0) * (Number(l.ratios?.[t]) || 0);
     const piecesLigne = (l: MatelasLine) => tailles.reduce((s, t) => s + piecesTaille(l, t), 0);
-    const consoLigne = (l: MatelasLine) => (piecesLigne(l) > 0 ? (l.plis || 0) * ((l.longTracee || 0) + AMORCE_PAR_PLI_M) : 0);
+    const consoTheorique = (l: MatelasLine) => (piecesLigne(l) > 0 ? (l.plis || 0) * ((l.longTracee || 0) + AMORCE_PAR_PLI_M) : 0);
+    /** Mesure au rouleau si elle a ete notee, sinon le calcul. */
+    const consoLigne = (l: MatelasLine) => (l.metresReels && l.metresReels > 0 ? l.metresReels : consoTheorique(l));
+    const celluleConso = (l: MatelasLine) => {
+        const t = consoTheorique(l);
+        if (!(l.metresReels && l.metresReels > 0)) return <span>{t.toFixed(2)}</span>;
+        const e = l.metresReels - t;
+        return (
+            <span title={`${L('Mesure', 'مقيس', 'Measured')} ${l.metresReels.toFixed(2)} m · ${L('calcule', 'محسوب', 'computed')} ${t.toFixed(2)} m`}>
+                <b>{l.metresReels.toFixed(2)}</b>
+                <span className={`block text-[9px] font-bold ${Math.abs(e) < 0.01 ? 'text-emerald-600' : e > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{e > 0 ? '+' : ''}{e.toFixed(2)}</span>
+            </span>
+        );
+    };
 
     /* Totaux « comme Excel » et ecart a la commande, pour la matiere entiere et couleur par couleur. */
     const bilan = useMemo(() => {
@@ -204,6 +237,105 @@ export default function TableMatelas({
                 </div>
             )}
 
+            {doublons.size > 0 && (
+                <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-[12px] font-semibold text-rose-700 dark:text-rose-300">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    {L('Numeros en double :', 'أرقام مكرّرة:', 'Duplicate numbers:')} {[...doublons].join(', ')} — {L('deux paquets porteraient le meme numero.', 'حزمتان ستحملان نفس الرقم.', 'two bundles would carry the same number.')}
+                </div>
+            )}
+
+            {telephone ? (
+                <div className="space-y-2">
+                    {lignes.length === 0 && (
+                        <p className="py-6 text-center text-[12px] text-slate-400">{L('Aucun matelas.', 'لا توجد مفرشات.', 'No lay yet.')}</p>
+                    )}
+                    {lignes.map((l, i) => {
+                        const p = placementDe(l);
+                        const bloque = !!l.fait;
+                        const pret = !!p && !!p.fichier && !!l.numero;
+                        return (
+                            <div key={l.id} className={`rounded-xl border p-3 ${l.fait ? 'border-emerald-200 bg-emerald-50/50 dark:bg-emerald-900/10 dark:border-emerald-800' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface'}`}>
+                                <div className="flex items-start gap-3">
+                                    <div className="shrink-0 pt-1">{renderEtat(l)}</div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                value={l.numero ?? ''}
+                                                disabled={bloque}
+                                                onChange={e => onModifier(l.id, { numero: e.target.value.trim() })}
+                                                placeholder={String(i + 1)}
+                                                inputMode="numeric"
+                                                className={`w-16 h-10 text-center rounded-lg border text-[18px] font-bold outline-none focus:border-indigo-400 disabled:bg-transparent disabled:border-transparent ${doublons.has((l.numero || '').trim()) ? 'border-rose-400 bg-rose-50 text-rose-700' : 'border-slate-200 dark:border-dk-border'}`}
+                                            />
+                                            <div className="flex-1 min-w-0 grid grid-cols-2 gap-1.5">
+                                                {bloque ? (
+                                                    <span className="text-[12px] font-bold uppercase text-indigo-700 dark:text-indigo-300 truncate">{p?.nom || '—'}</span>
+                                                ) : (
+                                                    <Choix
+                                                        valeur={p ? <span className="font-bold uppercase text-indigo-700 dark:text-indigo-300">{p.nom}</span> : null}
+                                                        vide={L('Placement', 'التركيبة', 'Placement')}
+                                                        options={placements.map(x => ({ id: x.id, label: <span className="font-bold uppercase text-indigo-700 dark:text-indigo-300">{x.nom}</span> }))}
+                                                        onChoisir={id => { const x = placements.find(pp => pp.id === id); if (x) onModifier(l.id, { placementId: x.id, ratios: { ...x.ratios }, longTracee: x.longueurM || 0 }); }}
+                                                    />
+                                                )}
+                                                {bloque ? <span className="text-[12px] font-semibold truncate">{couleurCellule(l.couleur)}</span> : (
+                                                    <Choix valeur={couleurCellule(l.couleur)} vide={L('Couleur', 'اللون', 'Colour')} options={couleurs.map(c => ({ id: c, label: couleurCellule(c) }))} onChoisir={c => onModifier(l.id, { couleur: c })} />
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="mt-2 flex items-center gap-2">
+                                            <label className="flex items-center gap-1.5">
+                                                <span className="text-[10px] font-bold uppercase text-slate-400">{L('Plis', 'طيّات', 'Plies')}</span>
+                                                <input
+                                                    type="number"
+                                                    inputMode="numeric"
+                                                    min="0"
+                                                    value={l.plis || ''}
+                                                    disabled={bloque}
+                                                    onChange={e => onModifier(l.id, { plis: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
+                                                    className="w-20 h-10 text-center rounded-lg border border-slate-200 dark:border-dk-border text-[15px] font-bold outline-none focus:border-indigo-400 disabled:bg-transparent disabled:border-transparent"
+                                                />
+                                            </label>
+                                            <div className="flex-1 flex flex-wrap gap-1 justify-end">
+                                                {tailles.filter(t => piecesTaille(l, t) > 0).map(t => (
+                                                    <span key={t} className="px-1.5 h-6 inline-flex items-center rounded bg-emerald-50 dark:bg-emerald-900/25 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 uppercase">{t} {piecesTaille(l, t)}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 dark:text-dk-muted">
+                                            <span><b className="text-slate-800 dark:text-dk-text">{piecesLigne(l)}</b> pcs · {consoLigne(l).toFixed(2)} m</span>
+                                            <div className="flex items-center gap-0.5">
+                                                {pret && <button type="button" onClick={() => onApercu(l, p!)} className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50"><Eye className="w-4 h-4" /></button>}
+                                                {pret && <button type="button" onClick={() => telecharger(l)} className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"><Download className="w-4 h-4" /></button>}
+                                                {pret && deposer && <button type="button" disabled={envoi === l.id} onClick={() => envoyer(l)} className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40"><Send className="w-4 h-4" /></button>}
+                                                <button type="button" onClick={() => onInserer(l.id)} className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"><Plus className="w-4 h-4" /></button>
+                                                {renderActions(l)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {lignes.length > 0 && (
+                        <div className="rounded-xl border-2 border-slate-300 dark:border-dk-border p-3 text-[12px]">
+                            <p className="font-bold text-slate-700 dark:text-dk-text-soft">{L('Total', 'المجموع', 'Total')} · {lignes.length} {L('matelas', 'مفرشة', 'lays')} · {bilan.plis} {L('plis', 'طيّة', 'plies')} · {bilan.conso.toFixed(1)} m</p>
+                            <div className="mt-2 grid grid-cols-3 gap-1.5">
+                                {tailles.map(t => {
+                                    const v = bilan.total[t] - bilan.cmd[t];
+                                    return (
+                                        <div key={t} className="rounded-lg bg-slate-50 dark:bg-dk-bg px-2 py-1.5 text-center">
+                                            <p className="text-[10px] font-bold uppercase text-slate-400">{t}</p>
+                                            <p className="text-[13px] font-bold tabular-nums">{bilan.total[t]}<span className="text-slate-400 font-medium">/{bilan.cmd[t]}</span></p>
+                                            <p className={`text-[10px] font-bold ${ecartCls(v)}`}>{v === 0 ? '✓' : signe(v)}</p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            ) : (
             <div className="overflow-x-auto">
                 <table className="w-full text-[12px] border-collapse border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface min-w-[980px]">
                     <thead>
@@ -245,7 +377,8 @@ export default function TableMatelas({
                                             disabled={bloque}
                                             onChange={e => onModifier(l.id, { numero: e.target.value.trim() })}
                                             placeholder={String(i + 1)}
-                                            className="w-full h-8 text-center rounded border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[13px] font-bold text-slate-900 dark:text-dk-text outline-none focus:border-indigo-400 disabled:bg-transparent disabled:border-transparent"
+                                            title={doublons.has((l.numero || '').trim()) ? L('Numero en double : deux paquets porteraient le meme numero', 'رقم مكرّر: حزمتان ستحملان نفس الرقم', 'Duplicate number') : undefined}
+                                            className={`w-full h-8 text-center rounded border text-[13px] font-bold outline-none focus:border-indigo-400 disabled:bg-transparent disabled:border-transparent ${doublons.has((l.numero || '').trim()) ? 'border-rose-400 bg-rose-50 text-rose-700' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-900 dark:text-dk-text'}`}
                                         />
                                     </td>
                                     <td className="py-1 px-1">
@@ -293,7 +426,7 @@ export default function TableMatelas({
                                     })}
                                     <td className="py-1 px-1 text-center font-bold tabular-nums bg-slate-50 dark:bg-dk-bg/40">{pieces}</td>
                                     <td className="py-1 px-1 text-center tabular-nums text-slate-500 dark:text-dk-muted">{cumul}</td>
-                                    <td className="py-1 px-1 text-center tabular-nums">{consoLigne(l).toFixed(2)}</td>
+                                    <td className="py-1 px-1 text-center tabular-nums">{celluleConso(l)}</td>
                                     <td className="py-1 px-2">
                                         {pret ? (
                                             <div className="flex items-center gap-1 min-w-0">
@@ -357,6 +490,7 @@ export default function TableMatelas({
                     )}
                 </table>
             </div>
+            )}
         </div>
     );
 }

@@ -29,6 +29,7 @@ import {
 } from '../lib/ordreCoupe';
 import TablePlacements from './coupe/TablePlacements';
 import TableMatelas from './coupe/TableMatelas';
+import { grilleClavier } from './coupe/grilleClavier';
 import { useLienExcel, BarreExcel } from './coupe/LienExcel';
 import { useDossierTraceur, PuceTraceur } from './coupe/DossierTraceur';
 import type { DonneesExcelCoupe } from '../lib/coupeExcel';
@@ -405,9 +406,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const empreinteDe = (o: OrdreCoupe, fiche: any) => JSON.stringify({ o, g: fiche?.gridQuantities, c: fiche?.client, t: fiche?.category, s: fiche?.sizes, k: fiche?.colors },
         (k, v) => (k === 'qteTotale' ? undefined : typeof v === 'string' && v.length > 2000 ? v.length : v));
     const empreinteOuverte = useRef('');
+    /** Grille, client et type tels qu'a l'ouverture : « quitter sans enregistrer » les remet. */
+    const ficheOuverte = useRef<{ id: string; fiche: any } | null>(null);
 
     const openModel = (model: ModelData) => {
         setSelectedModel(model);
+        ficheOuverte.current = { id: model.id, fiche: model.ficheData };
         if (model.ordreCoupe) {
             // Un ordre d'avant les placements est regroupe a l'ouverture ; rien n'est perdu
             // et rien n'est enregistre tant qu'on ne sauvegarde pas.
@@ -507,6 +511,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         const success = await saveModelToServer(updatedModel);
         if (!success) return null;
         empreinteOuverte.current = empreinteDe(ordre, updatedModel.ficheData);
+        ficheOuverte.current = { id: updatedModel.id, fiche: updatedModel.ficheData };
         setModels(prev => prev.map(m => m.id === selectedModel.id ? updatedModel : m));
         setSelectedModel(updatedModel);
         showToast(tx(lang, { fr: 'Sauvegarde effectuée', ar: 'تم الحفظ بنجاح', en: 'Save successful', es: 'Guardado exitoso', pt: 'Salvo com sucesso', tr: 'Kaydetme başarılı' }), 'success');
@@ -673,6 +678,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const [pointageFin, setPointageFin] = useState('');
     const [plisCoupes, setPlisCoupes] = useState<number | ''>('');
     const [creerReste, setCreerReste] = useState(true);
+    const [metresMesures, setMetresMesures] = useState<number | ''>('');
     /** Le meme groupe enchaine souvent plusieurs matelas : on le propose d'office. */
     const [dernierGroupe, setDernierGroupe] = useState<string | undefined>(undefined);
 
@@ -685,6 +691,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         setPointageFin(heureLocale(new Date().toISOString()));
         setPlisCoupes(l?.plis || '');
         setCreerReste(true);
+        setMetresMesures(l?.metresReels || '');
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [toggleFaitConfirmId, demarrerId]);
 
@@ -705,7 +712,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const handleToggleMatelasFait = (
         id: string,
         pointage?: { groupe?: string; debut?: string | null; fin?: string | null },
-        coupe?: { plis: number; creerReste: boolean },
+        coupe?: { plis: number; creerReste: boolean; metres?: number },
     ) => {
         setOrdre(prev => {
             const lignes = [...(prev.matelasLines || [])];
@@ -723,6 +730,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             lignes[i] = {
                 ...line,
                 plis: reels,
+                metresReels: coupe?.metres && coupe.metres > 0 ? coupe.metres : undefined,
                 fait: true,
                 groupe: pointage?.groupe || line.groupe,
                 debut: pointage?.debut || line.debut,
@@ -738,6 +746,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     debut: undefined,
                     fin: undefined,
                     numero: String(numeroSuivant(lignes, tissuDe(line))),
+                    metresReels: undefined,
                 });
             }
             return { ...prev, matelasLines: lignes };
@@ -1377,6 +1386,40 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const typesConnus = useMemo(() =>
         [...new Set([...TYPES_VETEMENT, ...(models || []).map(m => m && typeDe(m)).filter(Boolean) as string[]])],
     [models]);
+
+    /**
+     * Commande collee depuis Excel : un bloc couleurs × tailles pose d'un coup a
+     * partir de la case choisie. Tout est ecrit en une fois — case par case,
+     * chaque ecriture effacerait la precedente.
+     */
+    const collerRepartition = (ligne: number, colonne: number, bloc: string[][]): boolean => {
+        if (!selectedModel) return false;
+        const fiche = buildFiche();
+        const quantites: Record<string, number> = { ...(fiche.gridQuantities || {}) };
+        let poses = 0;
+        bloc.forEach((rangee, i) => {
+            const c: any = (colors as any[])[ligne + i];
+            if (!c) return;
+            const cId = c.id || (typeof c === 'string' ? c : c.name);
+            rangee.forEach((brut, j) => {
+                const sIdx = colonne + j;
+                if (sIdx >= sizes.length) return;
+                const n = Number(String(brut).replace(/\s/g, '').replace(',', '.'));
+                if (!Number.isFinite(n) || String(brut).trim() === '') return;
+                quantites[`${cId}_${sIdx}`] = Math.max(0, Math.round(n));
+                poses++;
+            });
+        });
+        if (!poses) return false;
+        const total = Object.values(quantites).reduce((a: number, v) => a + (Number(v) || 0), 0);
+        const updatedFiche = { ...fiche, gridQuantities: quantites, quantity: total };
+        setModels(prev => prev.map(m => m.id === selectedModel.id ? { ...m, ficheData: updatedFiche } : m));
+        setSelectedModel({ ...selectedModel, ficheData: updatedFiche });
+        if (currentModelId === selectedModel.id && setFicheData) setFicheData(updatedFiche);
+        showToast(tx(lang, { fr: `${poses} quantites collees depuis Excel`, ar: `لُصقت ${poses} كمية من Excel`, en: `${poses} quantities pasted from Excel` }), 'success');
+        return true;
+    };
+    const celluleRepartition = grilleClavier('repartition', collerRepartition);
 
     const colorInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -2483,6 +2526,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             return (
                                                                 <td key={sIdx} className="p-0 border-l border-slate-100 dark:border-dk-border bg-white dark:bg-dk-surface hover:bg-emerald-50/50 dark:hover:bg-emerald-900/30 transition-colors">
                                                                     <input
+                                                                        {...celluleRepartition(cIdx, sIdx)}
                                                                         type="number" min="0"
                                                                         className="w-full text-center py-3 bg-transparent outline-none focus:bg-emerald-50 dark:focus:bg-emerald-900/30 focus:text-emerald-700 dark:focus:text-emerald-300 font-semibold text-[12px] placeholder:text-slate-200 transition-colors"
                                                                         placeholder="0"
@@ -3689,6 +3733,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                     placeholder={String(targetLine?.plis || 0)}
                                                     className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[14px] font-bold tabular-nums outline-none focus:border-indigo-400"
                                                 />
+                                                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted mt-3 mb-1">{tx(lang, { fr: 'Tissu utilise (m) — facultatif', ar: 'الثوب المستعمل (م) — اختياري', en: 'Fabric used (m) — optional' })}</span>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    step="0.01"
+                                                    inputMode="decimal"
+                                                    value={metresMesures}
+                                                    onChange={e => setMetresMesures(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                                                    placeholder={targetLine ? ((typeof plisCoupes === 'number' && plisCoupes > 0 ? plisCoupes : targetLine.plis || 0) * ((targetLine.longTracee || 0) + AMORCE_PAR_PLI_M)).toFixed(2) : ''}
+                                                    title={tx(lang, { fr: 'Mesure au rouleau : elle remplace le calcul et montre l\u2019ecart', ar: 'القياس من الرولو: يعوّض الحساب ويُظهر الفارق', en: 'Measured on the roll: replaces the computed value' })}
+                                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[14px] font-semibold tabular-nums outline-none focus:border-indigo-400"
+                                                />
                                                 {typeof plisCoupes === 'number' && plisCoupes > 0 && plisCoupes < (targetLine?.plis || 0) && (
                                                     <label className="mt-2 flex items-start gap-2 text-[12px] text-amber-800 dark:text-amber-300 cursor-pointer">
                                                         <input type="checkbox" checked={creerReste} onChange={e => setCreerReste(e.target.checked)} className="mt-0.5 w-4 h-4 accent-amber-600" />
@@ -3707,7 +3763,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                 // Le debut garde le jour ou l'etalage a commence ; la fin, c'est aujourd'hui.
                                                 debut: isoDepuisHeure(pointageDebut, targetLine?.debut ? new Date(targetLine.debut) : new Date()),
                                                 fin: isoDepuisHeure(pointageFin),
-                                            } : undefined, willBeFait && typeof plisCoupes === 'number' ? { plis: plisCoupes, creerReste } : undefined)}
+                                            } : undefined, willBeFait ? { plis: typeof plisCoupes === 'number' ? plisCoupes : 0, creerReste, metres: typeof metresMesures === 'number' ? metresMesures : undefined } : undefined)}
                                             className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
                                         >
                                             {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
@@ -3725,7 +3781,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     <p className="text-[12px] text-slate-500 dark:text-dk-muted mt-1">{tx(lang, { fr: 'Cet ordre a des modifications qui ne sont pas encore enregistrees.', ar: 'في هذا الأمر تعديلات لم تُحفظ بعد.', en: 'This order has changes that are not saved yet.' })}</p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-5">
                         <button type="button" onClick={() => setQuitterVers(null)} className="h-10 px-3 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">{tx(lang, { fr: 'Rester', ar: 'البقاء', en: 'Stay' })}</button>
-                        <button type="button" onClick={() => { const suite = quitterVers; setQuitterVers(null); empreinteOuverte.current = ''; suite(); }} className="h-10 px-3 rounded-lg text-[12px] font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200">{tx(lang, { fr: 'Quitter sans enregistrer', ar: 'خروج دون حفظ', en: 'Leave without saving' })}</button>
+                        <button type="button" onClick={() => {
+                            const suite = quitterVers;
+                            setQuitterVers(null);
+                            // La grille s'ecrit dans la liste des modeles au fil de la saisie : on la remet comme a l'ouverture.
+                            const f = ficheOuverte.current;
+                            if (f) {
+                                setModels(prev => prev.map(m => (m.id === f.id ? { ...m, ficheData: f.fiche } : m)));
+                                if (currentModelId === f.id && setFicheData) setFicheData(f.fiche);
+                            }
+                            empreinteOuverte.current = '';
+                            suite();
+                        }} className="h-10 px-3 rounded-lg text-[12px] font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200">{tx(lang, { fr: 'Quitter sans enregistrer', ar: 'خروج دون حفظ', en: 'Leave without saving' })}</button>
                         <button type="button" onClick={async () => { const suite = quitterVers; setQuitterVers(null); const ok = await handleSaveCoupe(false); if (ok) suite(); }} className="h-10 px-3 rounded-lg text-[12px] font-semibold bg-slate-900 text-white hover:bg-slate-800">{tx(lang, { fr: 'Enregistrer et continuer', ar: 'حفظ ثم متابعة', en: 'Save and continue' })}</button>
                     </div>
                 </SheetModal>

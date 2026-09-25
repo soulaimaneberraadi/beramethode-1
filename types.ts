@@ -564,6 +564,8 @@ export interface MatelasLine {
   tissu?: string;
   /** Numero d'ordre ecrit sur les pieces (« 77 ») ; absent = rang dans le tableau. */
   numero?: string;
+  /** Metres de tissu reellement partis dans ce matelas (mesure au rouleau), s'ils ont ete notes. */
+  metresReels?: number;
 }
 
 /** Une matiere a couper pour l'ordre : tissu principal, vlieseline, doublure, organza... */
