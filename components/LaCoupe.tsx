@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ModelData, OrdreCoupe, Faisceau, MatelasFichier, AppSettings, GroupeCoupe } from '../types';
+import { ModelData, OrdreCoupe, Faisceau, MatelasFichier, MatelasLine, AppSettings, GroupeCoupe } from '../types';
 import {
     Scissors, FileText, CheckCircle2, Clock, Search, Layers, ChevronRight,
     AlertCircle, Printer, PackageSearch, Plus, Trash2, Barcode,
@@ -22,6 +22,7 @@ import {
     isoDepuisHeure, heureLocale, type PageAccueil,
 } from './coupe/AccueilCoupe';
 import { AMORCE_PAR_PLI_M, presenceGroupes } from '../lib/coupeAtelier';
+import { planifierPlacements, decouperEnMatelas, nomPlacement, repartirPlis } from '../lib/planMatelas';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
 
@@ -571,13 +572,51 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         }));
     };
 
+    /**
+     * Meme melange de tailles et meme matiere = meme trace PLT, donc meme
+     * longueur et meme fichier (cahier : « M-XL -> fichier PLT -> consommation »).
+     */
+    const memeTrace = (a: MatelasLine, b: MatelasLine) => {
+        const pa = nomPlacement(a.ratios || {}, sizes);
+        return !!pa && pa === nomPlacement(b.ratios || {}, sizes)
+            && (a.matiere || '').trim().toLowerCase() === (b.matiere || '').trim().toLowerCase();
+    };
+
     const handleUpdateMatelasLine = (id: string, field: 'plis' | 'longTracee', value: number) => {
-        setOrdre(prev => ({
-            ...prev,
-            matelasLines: (prev.matelasLines || []).map(line => 
-                line.id === id ? { ...line, [field]: value } : line
-            )
-        }));
+        setOrdre(prev => {
+            const lignes = prev.matelasLines || [];
+            const cible = lignes.find(l => l.id === id);
+            const ancienne = cible?.longTracee || 0;
+            return {
+                ...prev,
+                matelasLines: lignes.map(line => {
+                    if (line.id === id) return { ...line, [field]: value };
+                    // La longueur suit sur les matelas du meme trace qui n'en avaient pas,
+                    // ou qui avaient la meme. Un matelas deja coupe garde la sienne.
+                    if (field === 'longTracee' && cible && !line.fait && memeTrace(cible, line)
+                        && ((line.longTracee || 0) === 0 || line.longTracee === ancienne)) {
+                        return { ...line, longTracee: value };
+                    }
+                    return line;
+                })
+            };
+        });
+    };
+
+    /**
+     * Pose un fichier sur un matelas et, par reference (sans les octets), sur
+     * les matelas du meme trace qui n'en ont pas. Copier les octets sur chaque
+     * ligne multiplierait le poids du modele enregistre.
+     */
+    const poserFichier = (lignes: MatelasLine[], lineId: string, fichier: MatelasFichier): MatelasLine[] => {
+        const cible = lignes.find(l => l.id === lineId);
+        const ancienId = cible?.fichier?.id;
+        const reference: MatelasFichier = { ...fichier, data: '' };
+        return lignes.map(l => {
+            if (l.id === lineId) return { ...l, fichier };
+            if (cible && !l.fait && memeTrace(cible, l) && (!l.fichier || (ancienId && l.fichier.id === ancienId))) return { ...l, fichier: reference };
+            return l;
+        });
     };
 
     const handleUpdateMatelasRatio = (lineId: string, sizeName: string, value: number) => {
@@ -689,13 +728,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
      *  Contraintes : plis ≤ maxPly, et Σ des ratios d'un matelas ≤ maxBundle.
      *  Chaque matelas ne porte qu'une seule couleur (les couleurs ne se mélangent pas).
      *  Le total généré doit retomber EXACTEMENT sur la répartition cible. */
-    const applyAutoMatelasGeneration = (maxPlyInput: number, maxBundleInput: number) => {
-        const maxPly = Math.max(1, Math.floor(maxPlyInput) || 1);
-        const maxBundle = Math.max(1, Math.floor(maxBundleInput) || 1);
-        const MAX_LINES = 400; // garde-fou : évite un plan ingérable / une boucle trop longue
-
-        const newLines: { id: string; couleur?: string; plis: number; longTracee: number; ratios: Record<string, number> }[] = [];
-
+    /** Ce qu'il faut couper, couleur par couleur (ou toutes couleurs confondues). */
+    const ciblesParCouleur = (): { couleur?: string; targets: Record<string, number> }[] => {
         const groups: { couleur?: string; targets: Record<string, number> }[] = [];
         if ((colors || []).length > 0) {
             colors.forEach((c: any) => {
@@ -710,10 +744,51 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             sizes.forEach((s, idx) => { targets[s] = matrixStats.colTotals[idx] || 0; });
             if (Object.values(targets).some(v => v > 0)) groups.push({ targets });
         }
+        return groups;
+    };
+
+    /**
+     * Apercu du plan dans la fenetre Auto, recalcule un instant apres la
+     * derniere frappe : plusieurs couleurs d'une grosse commande prennent
+     * quelques centaines de millisecondes, pas a chaque touche.
+     */
+    const [apercuAuto, setApercuAuto] = useState<{ couleur?: string; placements: { nom: string; plis: number; matelas: number[] }[] | null }[] | null>(null);
+    useEffect(() => {
+        if (!autoMatelasOpen) { setApercuAuto(null); return; }
+        const B = Number(autoMaxBundle) || 0, P = Number(autoMaxPly) || 0;
+        if (B < 1 || P < 1) { setApercuAuto(null); return; }
+        const t = setTimeout(() => {
+            setApercuAuto(ciblesParCouleur().map(g => {
+                const pl = planifierPlacements(sizes, g.targets, { maxPiecesParPli: B, maxPlisParMatelas: P });
+                return { couleur: g.couleur, placements: pl ? pl.map(x => ({ nom: nomPlacement(x.ratios, sizes), plis: x.plis, matelas: repartirPlis(x.plis, P) })) : null };
+            }));
+        }, 250);
+        return () => clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoMatelasOpen, autoMaxBundle, autoMaxPly]);
+
+    const applyAutoMatelasGeneration = (maxPlyInput: number, maxBundleInput: number) => {
+        const maxPly = Math.max(1, Math.floor(maxPlyInput) || 1);
+        const maxBundle = Math.max(1, Math.floor(maxBundleInput) || 1);
+        const MAX_LINES = 400; // garde-fou : évite un plan ingérable / une boucle trop longue
+
+        const newLines: { id: string; couleur?: string; plis: number; longTracee: number; ratios: Record<string, number> }[] = [];
+
+        const groups = ciblesParCouleur();
         if (groups.length === 0) return;
 
         for (let gi = 0; gi < groups.length; gi++) {
             const group = groups[gi];
+            // Le moins de traces PLT possible, plis repartis a parts egales (voir lib/planMatelas).
+            const plan = planifierPlacements(sizes, group.targets, { maxPiecesParPli: maxBundle, maxPlisParMatelas: maxPly });
+            if (plan) {
+                for (const m of decouperEnMatelas(plan, sizes, maxPly)) {
+                    newLines.push({ id: `MAT-${gi}-${group.couleur || 'AUTO'}-${newLines.length}`, couleur: group.couleur, plis: m.plis, longTracee: 0, ratios: m.ratios });
+                }
+                continue;
+            }
+
+            // Repli : l'ancien calcul, si la recherche n'a rien trouve.
             const remaining: Record<string, number> = {};
             sizes.forEach(s => { remaining[s] = Math.max(0, Math.floor(group.targets[s] || 0)); });
 
@@ -837,7 +912,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 }
                 return {
                     ...prev,
-                    matelasLines: (prev.matelasLines || []).map(l => l.id === lineId ? { ...l, fichier } : l),
+                    matelasLines: poserFichier(prev.matelasLines || [], lineId, fichier),
                     fichieresSaves: saved
                 };
             });
@@ -849,9 +924,17 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const handleAttachSavedFichier = (lineId: string, fichier: MatelasFichier) => {
         setOrdre(prev => ({
             ...prev,
-            matelasLines: (prev.matelasLines || []).map(l => l.id === lineId ? { ...l, fichier } : l)
+            matelasLines: poserFichier(prev.matelasLines || [], lineId, fichier)
         }));
         setLibraryOpenId(null);
+    };
+
+    /** Un fichier pose par reference retrouve ses octets dans la bibliotheque, ou sur la ligne qui les porte. */
+    const fichierComplet = (f: MatelasFichier | undefined): MatelasFichier | undefined => {
+        if (!f || f.data) return f;
+        return fichiersSaves.find(x => x.id === f.id && x.data)
+            || (ordre.matelasLines || []).map(l => l.fichier).find(x => x && x.id === f.id && x.data)
+            || f;
     };
 
     const handleRemoveFichier = (lineId: string) => {
@@ -2230,6 +2313,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             </th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-40">{tx(lang, { fr: 'Fichier (DXF/PLT)', ar: 'الملف (DXF/PLT)', en: 'File (DXF/PLT)', es: 'Archivo (DXF/PLT)', pt: 'Arquivo (DXF/PLT)', tr: 'Dosya (DXF/PLT)' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-12">{tx(lang, { fr: 'N°', ar: 'رقم', en: 'No.', es: 'N°', pt: 'N°', tr: 'No.' })}</th>
+                                                            <th className="py-2.5 px-3 font-bold text-center w-28" title={tx(lang, { fr: 'Mélange de tailles par pli : un placement = un tracé PLT', ar: 'تركيبة المقاسات في الطيّة: كل تركيبة = ملف PLT واحد', en: 'Size mix per ply: one placement = one PLT marker' })}>{tx(lang, { fr: 'Placement', ar: 'التركيبة', en: 'Placement' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-32">{tx(lang, { fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-40">{tx(lang, { fr: 'Matière', ar: 'المادة', en: 'Material', es: 'Material', pt: 'Material', tr: 'Malzeme' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Plis', ar: 'طيات', en: 'Plys', es: 'Pliegues', pt: 'Dobras', tr: 'Kat Sayısı' })}</th>
@@ -2238,6 +2322,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                 <th key={idx} className="py-2.5 px-2 font-bold text-center text-emerald-700 dark:text-emerald-300 min-w-[50px]">{s}</th>
                                                             ))}
                                                             <th className="py-2.5 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Total Pcs', ar: 'إجمالي القطع', en: 'Total Pcs', es: 'Total Pzs', pt: 'Total Peças', tr: 'Toplam Adet' })}</th>
+                                                            <th className="py-2.5 px-3 font-bold text-center w-24" title={tx(lang, { fr: 'Pièces cumulées jusqu’à ce matelas', ar: 'القطع المتراكمة حتى هذه المفرشة', en: 'Pieces cumulated up to this lay' })}>{tx(lang, { fr: 'Cumul', ar: 'المتراكم', en: 'Running' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-28">{tx(lang, { fr: 'Cons. (m)', ar: 'الاستهلاك (م)', en: 'Cons. (m)', es: 'Cons. (m)', pt: 'Cons. (m)', tr: 'Tük. (m)' })}</th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-24"></th>
                                                         </tr>
@@ -2247,6 +2332,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             let lineRatioSum = 0;
                                                             sizes.forEach(s => { lineRatioSum += Number(line.ratios?.[s]) || 0; });
                                                             const linePieces = (line.plis || 0) * lineRatioSum;
+                                                            // Comme la colonne de droite du cahier : 20, 40, 70, 100, 120.
+                                                            const cumul = (ordre.matelasLines || []).slice(0, lIdx + 1).reduce((acc, l) => acc + (l.plis || 0) * sizes.reduce((sr, sz) => sr + (Number(l.ratios?.[sz]) || 0), 0), 0);
+                                                            const placement = nomPlacement(line.ratios || {}, sizes);
+                                                            const memePlacement = placement ? (ordre.matelasLines || []).filter(l => nomPlacement(l.ratios || {}, sizes) === placement).length : 0;
                                                             const lineCons = lineRatioSum > 0 ? (line.plis || 0) * ((line.longTracee || 0) + AMORCE_PAR_PLI_M) : 0;
 
                                                             return (
@@ -2285,7 +2374,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                                     <FileText className="w-3 h-3 text-indigo-500 shrink-0" />
                                                                                     <span className="text-[9px] font-bold text-indigo-700 dark:text-indigo-300 truncate flex-1" title={line.fichier.nom}>{line.fichier.nom}</span>
                                                                                     <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 rounded px-1 shrink-0">{line.fichier.format}</span>
-                                                                                    <button type="button" onClick={() => line.fichier && downloadFichier(line.fichier)} className="text-slate-400 hover:text-indigo-600 shrink-0" title={tx(lang, { fr: 'Télécharger', ar: 'تحميل', en: 'Download', es: 'Descargar', pt: 'Baixar', tr: 'İndir' })}>
+                                                                                    <button type="button" onClick={() => { const f = fichierComplet(line.fichier); if (f) downloadFichier(f); }} className="text-slate-400 hover:text-indigo-600 shrink-0" title={tx(lang, { fr: 'Télécharger', ar: 'تحميل', en: 'Download', es: 'Descargar', pt: 'Baixar', tr: 'İndir' })}>
                                                                                         <Download className="w-3 h-3" />
                                                                                     </button>
                                                                                     <button type="button" onClick={() => setRemoveConfirmId(line.id)} className="text-slate-400 hover:text-rose-500 shrink-0" title={tx(lang, { fr: 'Détacher le fichier', ar: 'فصل الملف', en: 'Detach file', es: 'Desvincular', pt: 'Desvincular', tr: 'Ayır' })}>
@@ -2314,7 +2403,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                                 </button>
                                                                                 <button
                                                                                     type="button"
-                                                                                    onClick={e => { e.stopPropagation(); setPltANumeroter({ numero: String(lIdx + 1), fichier: line.fichier ?? null }); }}
+                                                                                    onClick={e => { e.stopPropagation(); setPltANumeroter({ numero: String(lIdx + 1), fichier: fichierComplet(line.fichier) ?? null }); }}
                                                                                     title={tx(lang, { fr: `Ecrire le n° ${lIdx + 1} au milieu de chaque piece de ce trace`, ar: `كتابة الرقم ${lIdx + 1} وسط كل قطعة في هذا الملف`, en: `Write no. ${lIdx + 1} inside every piece of this trace`, es: `Escribir el n° ${lIdx + 1} en cada pieza`, pt: `Escrever o n° ${lIdx + 1} em cada peça`, tr: `Bu çizimin her parçasına ${lIdx + 1} yaz` })}
                                                                                     className="p-1 rounded transition-colors bg-slate-100 dark:bg-dk-elevated hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-slate-500 hover:text-emerald-600"
                                                                                 >
@@ -2342,6 +2431,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                         </div>
                                                                     </td>
                                                                     <td className="py-2 px-3 text-center font-bold text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg/50">{lIdx + 1}</td>
+                                                                    <td className="py-2 px-2 text-center">
+                                                                        {placement ? (
+                                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold uppercase whitespace-nowrap" title={memePlacement > 1 ? tx(lang, { fr: `Même tracé que ${memePlacement - 1} autre(s) matelas`, ar: `نفس ملف ${memePlacement - 1} مفرشة أخرى`, en: `Same marker as ${memePlacement - 1} other lay(s)` }) : undefined}>
+                                                                                {placement}
+                                                                                {memePlacement > 1 && <span className="text-[9px] font-semibold text-indigo-400">×{memePlacement}</span>}
+                                                                            </span>
+                                                                        ) : <span className="text-slate-300">—</span>}
+                                                                    </td>
                                                                     <td className="py-1 px-2">
                                                                         <div className="w-full py-1.5 px-1.5 flex items-center gap-1.5">
                                                                             {line.couleur ? (
@@ -2429,6 +2526,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                         </td>
                                                                     ))}
                                                                     <td className="py-2 px-3 text-center font-bold text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-bg/20">{linePieces}</td>
+                                                                    <td className="py-2 px-3 text-center font-semibold tabular-nums text-slate-500 dark:text-dk-muted">{cumul}</td>
                                                                     <td className="py-2 px-3 text-center font-bold text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-bg/20">{lineCons.toFixed(2)}</td>
                                                                     <td className="py-1 px-2 text-center whitespace-nowrap">
                                                                         <button
@@ -3119,6 +3217,35 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 />
                             </div>
                         </div>
+                        {apercuAuto && apercuAuto.length > 0 && (() => {
+                            const traces = apercuAuto.reduce((n, g) => n + (g.placements?.length || 0), 0);
+                            const matelas = apercuAuto.reduce((n, g) => n + (g.placements || []).reduce((m, p) => m + p.matelas.length, 0), 0);
+                            return (
+                                <div className="mt-4 rounded-lg border border-slate-200 dark:border-dk-border overflow-hidden">
+                                    <div className="px-3 py-2 bg-slate-50 dark:bg-dk-bg flex items-center justify-between text-[11px]">
+                                        <span className="font-bold text-slate-700 dark:text-dk-text-soft">{tx(lang, { fr: 'Aperçu du plan', ar: 'معاينة الخطة', en: 'Plan preview' })}</span>
+                                        <span className="tabular-nums text-slate-500 dark:text-dk-muted">
+                                            <b className="text-indigo-600 dark:text-indigo-400">{traces}</b> {tx(lang, { fr: 'tracés PLT', ar: 'ملف PLT', en: 'PLT markers' })} · <b className="text-slate-700 dark:text-dk-text-soft">{matelas}</b> {tx(lang, { fr: 'matelas', ar: 'مفرشة', en: 'lays' })}
+                                        </span>
+                                    </div>
+                                    <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-dk-border">
+                                        {apercuAuto.map((g, gi) => (
+                                            <div key={gi} className="px-3 py-2">
+                                                {g.couleur && <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{g.couleur}</p>}
+                                                {g.placements === null ? (
+                                                    <p className="text-[11px] text-amber-600">{tx(lang, { fr: 'Plan complexe : l’ancien calcul sera utilisé.', ar: 'خطة معقّدة: ستُستعمل الطريقة القديمة.', en: 'Complex plan: the previous method will be used.' })}</p>
+                                                ) : g.placements.map((p, pi) => (
+                                                    <div key={pi} className="flex items-center justify-between gap-2 text-[12px] py-0.5">
+                                                        <span className="font-bold uppercase text-indigo-700 dark:text-indigo-300">{p.nom}</span>
+                                                        <span className="tabular-nums text-slate-500 dark:text-dk-muted text-right">{p.plis} {tx(lang, { fr: 'plis', ar: 'طيّة', en: 'plies' })} → {p.matelas.length > 1 ? p.matelas.join(' + ') : `1 ${tx(lang, { fr: 'matelas', ar: 'مفرشة', en: 'lay' })}`}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })()}
                 </SheetModal>
             )}
 
