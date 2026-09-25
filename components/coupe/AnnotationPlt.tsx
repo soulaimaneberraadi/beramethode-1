@@ -11,7 +11,7 @@
  *   — le numero ne sort jamais de sa piece (voir `placerNumero`).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Upload, FileText, Download, AlertTriangle, Layers, X, Move } from 'lucide-react';
+import { Upload, FileText, Download, AlertTriangle, Layers, X, Move, Send } from 'lucide-react';
 import SheetModal from '../shared/SheetModal';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
@@ -45,6 +45,16 @@ function octetsDepuisDataUrl(data: string): ArrayBuffer | null {
         return null;
     }
 }
+
+/** Sans serveur (Vercel), personne ne peut ecrire dans le dossier du traceur. */
+const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
+
+const enBase64 = (octets: Uint8Array): string => {
+    let binaire = '';
+    const PAS = 0x8000;
+    for (let i = 0; i < octets.length; i += PAS) binaire += String.fromCharCode(...octets.subarray(i, i + PAS));
+    return btoa(binaire);
+};
 
 /** Au-dela, le rendu SVG coute plus qu'il n'apporte : on allege le trait. */
 const POINTS_MAX = 60000;
@@ -203,8 +213,9 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
         });
     };
 
-    const exporter = () => {
-        if (!lecture || !numero.trim() || poses.length === 0) return;
+    /** Le trace d'origine plus le bloc de numeros — la seule sortie possible. */
+    const construireSortie = (): Uint8Array<ArrayBuffer> | null => {
+        if (!lecture || !numero.trim() || poses.length === 0) return null;
         const sortie = injecterEtiquettes(
             source,
             poses.map(({ etiquette, placement }) => ({
@@ -218,16 +229,44 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                 plume: etiquette.plume,
             })),
         );
-        const base = nomFichier.replace(/\.plt$/i, '');
-        const blob = new Blob([encoderOctets(sortie)], { type: 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
+        return encoderOctets(sortie);
+    };
+
+    const nomSortie = () => `${nomFichier.replace(/\.(plt|hpgl|hgl|prn)$/i, '')}-N${numero.trim()}.plt`;
+
+    const exporter = () => {
+        const octets = construireSortie();
+        if (!octets) return;
+        const url = URL.createObjectURL(new Blob([octets], { type: 'application/octet-stream' }));
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${base}-N${numero.trim()}.plt`;
+        a.download = nomSortie();
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 5000);
+    };
+
+    const [envoi, setEnvoi] = useState<{ etat: 'envoi' | 'ok' | 'erreur'; message?: string } | null>(null);
+
+    /** Depot dans le dossier que surveille le logiciel du traceur (serveur local). */
+    const envoyerAuTraceur = async () => {
+        const octets = construireSortie();
+        if (!octets) return;
+        setEnvoi({ etat: 'envoi' });
+        try {
+            const res = await fetch('/api/traceur/deposer', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nom: nomSortie(), donnees: enBase64(octets) }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
+            setEnvoi({ etat: 'ok', message: data.chemin });
+        } catch (e: any) {
+            setEnvoi({ etat: 'erreur', message: e?.message || String(e) });
+        }
     };
 
     const pret = !!lecture && !!numero.trim() && poses.length > 0;
@@ -261,6 +300,18 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
             size="2xl"
             bodyClassName="flex-1 overflow-y-auto min-h-0 p-4 md:p-5"
             footer={(
+                <div className="w-full flex flex-col gap-2">
+                {envoi && (
+                    <p className={`text-[11px] font-semibold break-all ${
+                        envoi.etat === 'ok' ? 'text-emerald-700 dark:text-emerald-400'
+                        : envoi.etat === 'erreur' ? 'text-rose-700 dark:text-rose-400'
+                        : 'text-slate-500 dark:text-dk-muted'
+                    }`}>
+                        {envoi.etat === 'envoi' && L('Envoi au traceur...', 'جارٍ الإرسال إلى الـ traceur...', 'Sending to plotter...')}
+                        {envoi.etat === 'ok' && `${L('Depose pour le traceur :', 'وُضع للـ traceur في:', 'Queued for the plotter:')} ${envoi.message}`}
+                        {envoi.etat === 'erreur' && `${L('Envoi impossible :', 'تعذّر الإرسال:', 'Sending failed:')} ${envoi.message}`}
+                    </p>
+                )}
                 <div className="w-full grid grid-cols-2 gap-2 sm:flex sm:gap-3 sm:justify-end">
                     <button
                         type="button"
@@ -278,6 +329,18 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                         <Download className="w-4 h-4" strokeWidth={2} />
                         {L('Telecharger le trace numerote', 'تنزيل الملف المرقَّم', 'Download numbered trace')}
                     </button>
+                    {!IS_STATIC && (
+                        <button
+                            type="button"
+                            onClick={envoyerAuTraceur}
+                            disabled={!pret || envoi?.etat === 'envoi'}
+                            className="col-span-2 sm:col-auto h-9 px-4 rounded-lg text-[12px] font-semibold bg-slate-900 dark:bg-dk-elevated text-white hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-1.5"
+                        >
+                            <Send className="w-4 h-4" strokeWidth={2} />
+                            {L('Envoyer au traceur', 'إرسال إلى الـ traceur', 'Send to plotter')}
+                        </button>
+                    )}
+                </div>
                 </div>
             )}
         >

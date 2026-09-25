@@ -90,6 +90,7 @@ import { getGaranties, saveGarantie, changerStatutGarantie, deleteGarantie } fro
 import { getPrix, savePrix, deletePrix, resolvePrix, getPrixStats } from './server/prixController';
 import { getArticles, saveArticle, deleteArticle, getAchats, createAchat, deleteAchat, checkStockIntegrity, repairStockIntegrity } from './server/achatsController';
 import { sendZpl } from './server/printBridge';
+import { deposerTrace, lireDossierTraceur } from './server/traceurBridge';
 import {
   getStoreConfig, saveStoreConfig, deleteStoreConfig, testStoreConnection,
   getStoreMapping, generateStoreMapping, saveStoreMapping, publishStoreModel,
@@ -782,6 +783,11 @@ async function startServer() {
   // Pont vers une imprimante thermique reseau (ZPL/EPL, port 9100) : le
   // navigateur ne peut pas ouvrir de socket TCP, ce relais le fait a sa place.
   app.post('/api/print/zpl', authenticateToken, requirePermission('page', 'sousTraitance', 'edit'), sendZpl);
+  // Traces numerotes deposes dans le dossier que surveille le logiciel du
+  // traceur (TRACEUR_DOSSIER). Local uniquement : en mode statique il n'y a
+  // pas de serveur, et l'atelier telecharge le fichier a la place.
+  app.get('/api/traceur/dossier', authenticateToken, requirePermission('page', 'coupe', 'view'), lireDossierTraceur);
+  app.post('/api/traceur/deposer', authenticateToken, requirePermission('page', 'coupe', 'edit'), deposerTrace);
   // Afficheur client (pole display VFD/LED) : le total du panier y est pousse
   // automatiquement des que le navigateur le calcule. Fonctionne avec tout
   // afficheur USB/Serial qui comprend du texte ou ESC/POS.
