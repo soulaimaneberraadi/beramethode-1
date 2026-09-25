@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ModelData, OrdreCoupe, Faisceau, MatelasFichier, MatelasLine, AppSettings, GroupeCoupe } from '../types';
+import { ModelData, OrdreCoupe, Faisceau, MatelasFichier, MatelasLine, AppSettings, GroupeCoupe, PlacementCoupe, TissuCoupe } from '../types';
 import {
     Scissors, FileText, CheckCircle2, Clock, Search, Layers, ChevronRight,
     AlertCircle, Printer, PackageSearch, Plus, Trash2, Barcode,
@@ -23,6 +23,14 @@ import {
 } from './coupe/AccueilCoupe';
 import { AMORCE_PAR_PLI_M, presenceGroupes } from '../lib/coupeAtelier';
 import { planifierPlacements, decouperEnMatelas, nomPlacement, repartirPlis } from '../lib/planMatelas';
+import {
+    TISSU_PRINCIPAL, TISSUS_PROPOSES, tissuDe, estPrincipal, migrerOrdre, appliquerPlacement, matelasDuPlacement,
+    plisPourPlacements, renumeroter, numeroSuivant, nomFichierMatelas, type SensNumerotation,
+} from '../lib/ordreCoupe';
+import TablePlacements from './coupe/TablePlacements';
+import TableMatelas from './coupe/TableMatelas';
+import { useLienExcel, BarreExcel } from './coupe/LienExcel';
+import type { DonneesExcelCoupe } from '../lib/coupeExcel';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
 
@@ -391,13 +399,17 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const openModel = (model: ModelData) => {
         setSelectedModel(model);
         if (model.ordreCoupe) {
-            setOrdre({
+            // Un ordre d'avant les placements est regroupe a l'ouverture ; rien n'est perdu
+            // et rien n'est enregistre tant qu'on ne sauvegarde pas.
+            const taillesModele = model.ficheData?.sizes || model.meta_data?.sizes || [];
+            setOrdre(migrerOrdre({
                 ...model.ordreCoupe,
                 qteTotale: model.ordreCoupe.qteTotale || model.meta_data?.quantity || 0,
                 faisceaux: model.ordreCoupe.faisceaux || [],
                 matelasLines: model.ordreCoupe.matelasLines || [],
                 tissuRecu: model.ordreCoupe.tissuRecu || 0
-            });
+            }, taillesModele));
+            setTissuActif(TISSU_PRINCIPAL);
         } else {
             setOrdre({
                 refModele: model.meta_data?.nom_modele || tx(lang, { fr: 'Sans Nom', ar: 'بدون اسم', en: 'Unnamed', es: 'Sin Nombre', pt: 'Sem Nome', tr: 'İsimsiz' }),
@@ -484,6 +496,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         setModels(prev => prev.map(m => m.id === selectedModel.id ? updatedModel : m));
         setSelectedModel(updatedModel);
         showToast(tx(lang, { fr: 'Sauvegarde effectuée', ar: 'تم الحفظ بنجاح', en: 'Save successful', es: 'Guardado exitoso', pt: 'Salvo com sucesso', tr: 'Kaydetme başarılı' }), 'success');
+        // L'Excel relie suit chaque sauvegarde ; un fichier ouvert dans Excel est signale, pas perdu.
+        lienExcel.ecrire(donneesExcel(updatedModel)).then(r => {
+            if (r === 'verrouille') showToast(tx(lang, { fr: 'Excel ouvert : fermez le fichier, la prochaine sauvegarde le mettra a jour.', ar: 'ملف Excel مفتوح: أغلقه، والحفظ القادم سيحدّثه.', en: 'Excel file open: close it and save again.' }), 'error');
+        });
         return updatedModel;
     };
 
@@ -526,7 +542,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     }, [gridQuantities, sizes, colors]);
 
     const matelasCalculations = React.useMemo(() => {
-        const lines = ordre.matelasLines || [];
+        // La vlieseline ou la doublure se coupent en plus : elles ne font pas de vetements.
+        const lines = (ordre.matelasLines || []).filter(estPrincipal);
         let totalPieces = 0;
         let totalFabric = 0;
         const perSize: Record<string, number> = {};
@@ -549,18 +566,21 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     }, [ordre.matelasLines, sizes]);
 
     const handleAddMatelasLine = () => {
-        const newLine = {
-            id: `MAT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-            couleur: '',
-            plis: 0,
-            longTracee: 0,
-            ratios: {} as Record<string, number>
-        };
-        sizes.forEach(s => { newLine.ratios[s] = 0; });
-        setOrdre(prev => ({
-            ...prev,
-            matelasLines: [...(prev.matelasLines || []), newLine]
-        }));
+        const p = placementsTissu[0];
+        setOrdre(prev => {
+            const lignes = prev.matelasLines || [];
+            const newLine: MatelasLine = {
+                id: `MAT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                couleur: nomsCouleurs.length === 1 ? nomsCouleurs[0] : '',
+                plis: 0,
+                longTracee: p?.longueurM || 0,
+                ratios: p ? { ...p.ratios } : {},
+                placementId: p?.id,
+                tissu: tissuCourant.id === TISSU_PRINCIPAL ? undefined : tissuCourant.id,
+                numero: String(numeroSuivant(lignes, tissuCourant.id)),
+            };
+            return { ...prev, matelasLines: [...lignes, newLine] };
+        });
     };
 
     const handleUpdateMatelasCouleur = (id: string, value: string) => {
@@ -728,6 +748,203 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
      *  Contraintes : plis ≤ maxPly, et Σ des ratios d'un matelas ≤ maxBundle.
      *  Chaque matelas ne porte qu'une seule couleur (les couleurs ne se mélangent pas).
      *  Le total généré doit retomber EXACTEMENT sur la répartition cible. */
+    /* ---------------- Matieres, placements, matelas ---------------- */
+    const [tissuActif, setTissuActif] = useState<string>(TISSU_PRINCIPAL);
+    const [menuTissu, setMenuTissu] = useState(false);
+    const [numDepart, setNumDepart] = useState<number | ''>('');
+    const [sensNum, setSensNum] = useState<SensNumerotation>('grand');
+    const [confirmCalcul, setConfirmCalcul] = useState(false);
+    const [placementASupprimer, setPlacementASupprimer] = useState<PlacementCoupe | null>(null);
+    const [apercuMatelas, setApercuMatelas] = useState<{ placementId: string; numero: string; nom?: string } | null>(null);
+
+    const tissuParDefaut = (o: OrdreCoupe): TissuCoupe[] => (o.tissus?.length ? o.tissus : [{ id: TISSU_PRINCIPAL, nom: 'Tissu', recuM: o.tissuRecu || undefined }]);
+    const tissus = tissuParDefaut(ordre);
+    const tissuCourant = tissus.find(t => t.id === tissuActif) || tissus[0];
+    const placementsTissu = (ordre.placements || []).filter(p => p.tissu === tissuCourant.id);
+    const lignesTissu = (ordre.matelasLines || []).filter(l => tissuDe(l) === tissuCourant.id);
+    const nomsCouleurs: string[] = (colors as any[]).map((c: any) => c.name || (typeof c === 'string' ? c : c.id)).filter(Boolean);
+    const commandeCouleur = React.useCallback((couleur: string): Record<string, number> => {
+        const idx = (colors as any[]).findIndex((c: any) => (c.name || (typeof c === 'string' ? c : c.id)) === couleur);
+        if (idx < 0) return {};
+        const c: any = (colors as any[])[idx];
+        const cId = c.id || (typeof c === 'string' ? c : c.name);
+        const out: Record<string, number> = {};
+        sizes.forEach((s, sIdx) => { out[s] = Number(gridQuantities[`${cId}_${sIdx}`]) || 0; });
+        return out;
+    }, [colors, sizes, gridQuantities]);
+
+    const majTissu = (id: string, patch: Partial<TissuCoupe>) => setOrdre(prev => {
+        const liste = tissuParDefaut(prev).map(t => (t.id === id ? { ...t, ...patch } : t));
+        // Le metrage recu du tissu principal reste aussi la ou le bilan le lit.
+        const recu = id === TISSU_PRINCIPAL && 'recuM' in patch ? { tissuRecu: patch.recuM || 0 } : {};
+        return { ...prev, ...recu, tissus: liste };
+    });
+    const ajouterTissu = (nom: string) => {
+        const id = `TIS-${Date.now().toString(36)}`;
+        setOrdre(prev => ({ ...prev, tissus: [...tissuParDefaut(prev), { id, nom }] }));
+        setTissuActif(id);
+    };
+    const supprimerTissu = (id: string) => {
+        if ((ordre.matelasLines || []).some(l => tissuDe(l) === id && l.fait)) {
+            showToast(tx(lang, { fr: 'Des matelas de cette matiere sont deja coupes : on la garde.', ar: 'مفرشات من هذه المادة مقصوصة: نُبقيها.', en: 'Some lays of this material are cut: kept.' }), 'error');
+            return;
+        }
+        setOrdre(prev => ({
+            ...prev,
+            tissus: tissuParDefaut(prev).filter(t => t.id !== id),
+            placements: (prev.placements || []).filter(p => p.tissu !== id),
+            matelasLines: (prev.matelasLines || []).filter(l => tissuDe(l) !== id),
+        }));
+        setTissuActif(TISSU_PRINCIPAL);
+    };
+
+    const ajouterPlacement = () => setOrdre(prev => ({
+        ...prev,
+        placements: [...(prev.placements || []), { id: `PLC-${Date.now().toString(36)}`, tissu: tissuCourant.id, nom: '', ratios: {} }],
+    }));
+    /** Un placement change : ses matelas pas encore coupes suivent (tailles, longueur). */
+    const modifierPlacement = (id: string, patch: Partial<PlacementCoupe>) => setOrdre(prev => {
+        const placements = (prev.placements || []).map(p => (p.id === id ? { ...p, ...patch } : p));
+        const p = placements.find(x => x.id === id);
+        return { ...prev, placements, matelasLines: p ? appliquerPlacement(prev.matelasLines || [], p) : prev.matelasLines };
+    });
+    const supprimerPlacement = (p: PlacementCoupe) => {
+        setOrdre(prev => ({
+            ...prev,
+            placements: (prev.placements || []).filter(x => x.id !== p.id),
+            matelasLines: (prev.matelasLines || []).filter(l => l.placementId !== p.id || l.fait),
+        }));
+        setPlacementASupprimer(null);
+    };
+    /** Un matelas de plus juste sous un autre : meme placement, meme couleur, numero suivant. */
+    const insererLigneApres = (apresId: string) => setOrdre(prev => {
+        const lignes = [...(prev.matelasLines || [])];
+        const i = lignes.findIndex(l => l.id === apresId);
+        if (i < 0) return prev;
+        const modele = lignes[i];
+        const p = (prev.placements || []).find(x => x.id === modele.placementId);
+        lignes.splice(i + 1, 0, {
+            id: `MAT-${Date.now().toString(36)}-${Math.floor(Math.random() * 1000)}`,
+            couleur: modele.couleur,
+            matiere: modele.matiere,
+            plis: 0,
+            longTracee: p?.longueurM ?? modele.longTracee ?? 0,
+            ratios: { ...(p?.ratios || modele.ratios || {}) },
+            placementId: modele.placementId,
+            tissu: modele.tissu,
+            numero: String(numeroSuivant(lignes, tissuDe(modele))),
+        });
+        return { ...prev, matelasLines: lignes };
+    });
+
+    const modifierLigne = (id: string, patch: Partial<MatelasLine>) => setOrdre(prev => ({
+        ...prev,
+        matelasLines: (prev.matelasLines || []).map(l => (l.id === id ? { ...l, ...patch } : l)),
+    }));
+
+    const lienExcel = useLienExcel();
+    const [entreprise, setEntreprise] = useState<string>('');
+    useEffect(() => { loadCompanyIdentity().then(c => setEntreprise(c?.nom || '')).catch(() => {}); }, []);
+
+    /** L'ordre tel que l'Excel le montre : repartition, puis une feuille par matiere. */
+    const donneesExcel = (m: ModelData): DonneesExcelCoupe => {
+        const o = m.ordreCoupe || ordre;
+        const repartition = nomsCouleurs.length
+            ? nomsCouleurs.map(c => ({ couleur: c, quantites: commandeCouleur(c) }))
+            : [{ couleur: tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total' }), quantites: Object.fromEntries(sizes.map((s, i) => [s, matrixStats.colTotals[i] || 0])) }];
+        return {
+            entreprise,
+            modele: o.refModele || m.meta_data?.nom_modele || '',
+            reference: m.meta_data?.reference,
+            client: clientDe(m),
+            type: typeDe(m),
+            statut: STATUS_MAP[o.status as keyof typeof STATUS_MAP]?.label,
+            date: new Date().toLocaleDateString('fr-FR'),
+            tailles: sizes,
+            repartition,
+            tissus: tissuParDefaut(o).map(t => {
+                const pls = (o.placements || []).filter(p => p.tissu === t.id);
+                let cumul = 0;
+                return {
+                    nom: t.nom,
+                    recuM: t.recuM,
+                    placements: pls.map(p => ({ nom: p.nom, ratios: p.ratios, fichier: p.fichier?.nom, longueurM: p.longueurM, laizeCm: p.laizeCm, efficience: p.efficience, maxPlis: p.maxPlis })),
+                    matelas: (o.matelasLines || []).filter(l => tissuDe(l) === t.id).map(l => {
+                        const pieces = Object.fromEntries(sizes.map(s => [s, (l.plis || 0) * (Number(l.ratios?.[s]) || 0)]));
+                        const total = Object.values(pieces).reduce((a, b) => a + b, 0);
+                        cumul += total;
+                        const p = pls.find(x => x.id === l.placementId);
+                        return {
+                            numero: l.numero || '',
+                            placement: p?.nom || nomPlacement(l.ratios || {}, sizes),
+                            couleur: l.couleur || '',
+                            plis: l.plis || 0,
+                            pieces,
+                            total,
+                            cumul,
+                            consoM: total > 0 ? (l.plis || 0) * ((l.longTracee || 0) + AMORCE_PAR_PLI_M) : 0,
+                            fait: !!l.fait,
+                            groupe: groupesCoupe.find(g => g.id === l.groupe)?.nom,
+                            debut: heureLocale(l.debut) || undefined,
+                            fin: heureLocale(l.fin) || undefined,
+                            fichierSortie: p?.fichier && l.numero ? nomFichierMatelas(p, t.nom, l.numero) : undefined,
+                        };
+                    }),
+                };
+            }),
+        };
+    };
+
+    /** Ce qui reste a couper dans la matiere ouverte : commande moins les matelas deja coupes. */
+    const resteACouper = (couleur: string | undefined, cibles: Record<string, number>): Record<string, number> => {
+        const reste: Record<string, number> = {};
+        sizes.forEach(s => {
+            const coupe = (ordre.matelasLines || [])
+                .filter(l => tissuDe(l) === tissuCourant.id && l.fait && (couleur === undefined || l.couleur === couleur))
+                .reduce((acc, l) => acc + (l.plis || 0) * (Number(l.ratios?.[s]) || 0), 0);
+            reste[s] = Math.max(0, (Number(cibles[s]) || 0) - coupe);
+        });
+        return reste;
+    };
+
+    const departNumeros = (lignes: MatelasLine[]) => (typeof numDepart === 'number' ? numDepart : numeroSuivant(lignes.filter(l => l.fait), tissuCourant.id));
+
+    const renumeroterTissu = () => setOrdre(prev => {
+        const lignes = prev.matelasLines || [];
+        return { ...prev, matelasLines: renumeroter(lignes, tissuCourant.id, departNumeros(lignes), sensNum) };
+    });
+
+    /**
+     * Matelas depuis les placements de l'atelier : pour chaque couleur, les
+     * plis qui couvrent la commande (jamais au-dela), repartis sous le maximum
+     * de chaque placement, puis numerotes. Les matelas deja coupes restent.
+     */
+    const calculerMatelas = () => {
+        setConfirmCalcul(false);
+        const nouvelles: MatelasLine[] = [];
+        const manques: string[] = [];
+        for (const g of ciblesParCouleur()) {
+            const reste = resteACouper(g.couleur, g.targets);
+            const r = plisPourPlacements(placementsTissu, reste, sizes);
+            for (const p of placementsTissu) {
+                const plis = r.plis[p.id] || 0;
+                if (plis > 0) nouvelles.push(...matelasDuPlacement(p, g.couleur, plis, Number(autoMaxPly) || 100, 0));
+            }
+            if (!r.exact) manques.push(`${g.couleur || ''} ${sizes.filter(s => r.ecart[s] !== 0).map(s => `${s} ${r.ecart[s]}`).join(' ')}`.trim());
+        }
+        nouvelles.forEach(l => { if (l.tissu === TISSU_PRINCIPAL) l.tissu = undefined; });
+        setOrdre(prev => {
+            const gardees = (prev.matelasLines || []).filter(l => tissuDe(l) !== tissuCourant.id || l.fait);
+            const lignes = [...gardees, ...nouvelles];
+            return { ...prev, matelasLines: renumeroter(lignes, tissuCourant.id, departNumeros(lignes), sensNum) };
+        });
+        if (manques.length) {
+            showToast(`${tx(lang, { fr: 'Vos placements ne couvrent pas toute la commande :', ar: 'تركيباتك لا تغطّي الطلب كله:', en: 'Your placements do not cover the whole order:' })} ${manques.join(' · ')}`, 'error');
+        } else {
+            showToast(tx(lang, { fr: `${nouvelles.length} matelas crees, commande couverte exactement.`, ar: `أُنشئت ${nouvelles.length} مفرشة، والطلب مغطّى بالضبط.`, en: `${nouvelles.length} lays created, order covered exactly.` }), 'success');
+        }
+    };
+
     /** Ce qu'il faut couper, couleur par couleur (ou toutes couleurs confondues). */
     const ciblesParCouleur = (): { couleur?: string; targets: Record<string, number> }[] => {
         const groups: { couleur?: string; targets: Record<string, number> }[] = [];
@@ -759,7 +976,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         if (B < 1 || P < 1) { setApercuAuto(null); return; }
         const t = setTimeout(() => {
             setApercuAuto(ciblesParCouleur().map(g => {
-                const pl = planifierPlacements(sizes, g.targets, { maxPiecesParPli: B, maxPlisParMatelas: P });
+                const pl = planifierPlacements(sizes, resteACouper(g.couleur, g.targets), { maxPiecesParPli: B, maxPlisParMatelas: P });
                 return { couleur: g.couleur, placements: pl ? pl.map(x => ({ nom: nomPlacement(x.ratios, sizes), plis: x.plis, matelas: repartirPlis(x.plis, P) })) : null };
             }));
         }, 250);
@@ -772,9 +989,29 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         const maxBundle = Math.max(1, Math.floor(maxBundleInput) || 1);
         const MAX_LINES = 400; // garde-fou : évite un plan ingérable / une boucle trop longue
 
-        const newLines: { id: string; couleur?: string; plis: number; longTracee: number; ratios: Record<string, number> }[] = [];
+        const newLines: MatelasLine[] = [];
+        const tissuId = tissuCourant.id;
+        // Le meme melange de tailles est le meme trace, quelle que soit la couleur.
+        const nouveauxPlacements: PlacementCoupe[] = [];
+        const placementPour = (ratios: Record<string, number>): PlacementCoupe => {
+            const nom = nomPlacement(ratios, sizes);
+            const deja = [...placementsTissu, ...nouveauxPlacements].find(x => nomPlacement(x.ratios || {}, sizes) === nom);
+            if (deja) return deja;
+            const p: PlacementCoupe = { id: `PLC-${Date.now().toString(36)}-${nouveauxPlacements.length}`, tissu: tissuId, nom, ratios: { ...ratios }, maxPlis: maxPly };
+            nouveauxPlacements.push(p);
+            return p;
+        };
+        const poser = (couleur: string | undefined, ratios: Record<string, number>, plis: number) => {
+            const p = placementPour(ratios);
+            newLines.push({
+                id: `MAT-${Date.now().toString(36)}-${newLines.length}`,
+                couleur, plis, longTracee: p.longueurM || 0, ratios: { ...ratios },
+                placementId: p.id, tissu: tissuId === TISSU_PRINCIPAL ? undefined : tissuId,
+            });
+        };
 
-        const groups = ciblesParCouleur();
+        const groups = ciblesParCouleur().map(g => ({ ...g, targets: resteACouper(g.couleur, g.targets) }))
+            .filter(g => Object.values(g.targets).some(v => v > 0));
         if (groups.length === 0) return;
 
         for (let gi = 0; gi < groups.length; gi++) {
@@ -782,9 +1019,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             // Le moins de traces PLT possible, plis repartis a parts egales (voir lib/planMatelas).
             const plan = planifierPlacements(sizes, group.targets, { maxPiecesParPli: maxBundle, maxPlisParMatelas: maxPly });
             if (plan) {
-                for (const m of decouperEnMatelas(plan, sizes, maxPly)) {
-                    newLines.push({ id: `MAT-${gi}-${group.couleur || 'AUTO'}-${newLines.length}`, couleur: group.couleur, plis: m.plis, longTracee: 0, ratios: m.ratios });
-                }
+                for (const m of decouperEnMatelas(plan, sizes, maxPly)) poser(group.couleur, m.ratios, m.plis);
                 continue;
             }
 
@@ -829,13 +1064,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 const cleanRatios: Record<string, number> = {};
                 sizes.forEach(s => { if (ratios[s] > 0) cleanRatios[s] = ratios[s]; });
 
-                newLines.push({
-                    id: `MAT-${gi}-${group.couleur || 'AUTO'}-${newLines.length}`,
-                    couleur: group.couleur,
-                    plis,
-                    longTracee: 0,
-                    ratios: cleanRatios
-                });
+                poser(group.couleur, cleanRatios, plis);
 
                 sizes.forEach(s => { remaining[s] -= (ratios[s] || 0) * plis; });
             }
@@ -857,7 +1086,15 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             }
         }
 
-        setOrdre(prev => ({ ...prev, matelasLines: newLines }));
+        setOrdre(prev => {
+            const gardees = (prev.matelasLines || []).filter(l => tissuDe(l) !== tissuId || l.fait);
+            const lignes = [...gardees, ...newLines];
+            return {
+                ...prev,
+                placements: [...(prev.placements || []), ...nouveauxPlacements],
+                matelasLines: renumeroter(lignes, tissuId, departNumeros(lignes), sensNum),
+            };
+        });
         setAutoMatelasOpen(false);
         showToast(tx(lang, { fr: `${newLines.length} ligne(s) de matelas générée(s).`, ar: `تم توليد ${newLines.length} خط من المفرشات.`, en: `${newLines.length} layer line(s) generated.`, es: `${newLines.length} línea(s) de capas generadas.`, pt: `${newLines.length} linha(s) geradas.`, tr: `${newLines.length} katman satırı oluşturuldu.` }), 'success');
     };
@@ -1435,7 +1672,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 cutPer[s] = 0;
                 targetPer[s] = gridQuantities[`${cId}_${sIdx}`] || 0;
             });
-            (ordre.matelasLines || []).forEach(line => {
+            (ordre.matelasLines || []).filter(estPrincipal).forEach(line => {
                 if (!line.fait || line.couleur !== cName) return;
                 sizes.forEach(s => {
                     cutPer[s] += (Number(line.ratios?.[s]) || 0) * (line.plis || 0);
@@ -1443,8 +1680,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             });
             return { name: cName, cutPer, targetPer };
         });
-        const totalLines = (ordre.matelasLines || []).length;
-        const cutLines = (ordre.matelasLines || []).filter(l => l.fait).length;
+        const totalLines = (ordre.matelasLines || []).filter(estPrincipal).length;
+        const cutLines = (ordre.matelasLines || []).filter(l => estPrincipal(l) && l.fait).length;
         return { rows, totalLines, cutLines };
     }, [colors, sizes, gridQuantities, ordre.matelasLines]);
 
@@ -1962,11 +2199,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 </div>
 
                                 {/* Status + Params */}
-                                <div className="p-4 md:p-6">
-                                    <div className="flex items-center justify-between mb-5">
+                                <div className="px-4 md:px-6 py-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
                                         <div className="flex items-center gap-2">
                                             <Layers className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
-                                            <h3 className="text-[14px] font-semibold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Paramètres du Matelas', ar: 'إعدادات المفرشة', en: 'Layering Parameters', es: 'Parámetros de Capas', pt: 'Parâmetros do Esteiramento', tr: 'Katman Parametreleri' })}</h3>
+                                            <h3 className="text-[14px] font-semibold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Statut de l\u2019ordre', ar: 'حالة الأمر', en: 'Order status' })}</h3>
                                         </div>
                                     {/* Status segmented control */}
                                     <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-lg p-0.5 gap-0.5 overflow-x-auto">
@@ -1993,70 +2230,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-6">
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1.5 uppercase tracking-wide">
-                                                {tx(lang, { fr: 'Consommation Référence / Pièce', ar: 'استهلاك المرجع / القطعة', en: 'Reference Consumption / Piece', es: 'Consumo Referencia / Pieza', pt: 'Consumo Referência / Peça', tr: 'Referans Tüketimi / Parça' })}
-                                            </label>
-                                            <div className="relative">
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={ordre.consommation || ''}
-                                                    onChange={e => setOrdre(prev => ({ ...prev, consommation: Number(e.target.value) }))}
-                                                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg pl-3 pr-12 py-3 text-[13px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50/50 transition-all min-h-[44px]"
-                                                    placeholder="0.00"
-                                                />
-                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 dark:text-dk-muted bg-slate-200 px-1.5 py-0.5 rounded">Mètres</span>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1.5 uppercase tracking-wide">
-                                                {tx(lang, { fr: 'Tissu Reçu (Métrage Initial)', ar: 'النسيج المستلم (المترات الأولية)', en: 'Fabric Received (Initial Length)', es: 'Tejido Recibido (Metraje Inicial)', pt: 'Tecido Recebido (Metragem Inicial)', tr: 'Alınan Kumaş (Başlangıç Metrajı)' })}
-                                            </label>
-                                            <div className="relative">
-                                                <input
-                                                    type="number"
-                                                    value={ordre.tissuRecu || ''}
-                                                    onChange={e => setOrdre(prev => ({ ...prev, tissuRecu: Number(e.target.value) }))}
-                                                    className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg pl-3 pr-12 py-3 text-[13px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50/50 transition-all min-h-[44px]"
-                                                    placeholder="0"
-                                                />
-                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 dark:text-dk-muted bg-slate-200 px-1.5 py-0.5 rounded">Mètres</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                 </div>
-                            </div>
-
-                            {/* FICHIER DU MODÈLE */}
-                            <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 md:p-6">
-                                <label className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1.5 uppercase tracking-wide">
-                                    {tx(lang, { fr: 'Fichier du Modèle', ar: 'ملف الموديل', en: 'Model File', es: 'Archivo del Modelo', pt: 'Arquivo do Modelo', tr: 'Model Dosyası' })}
-                                </label>
-                                {ordre.modeleFichier ? (
-                                    <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg px-3 py-2.5">
-                                        <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
-                                        <span className="text-[12px] font-semibold text-indigo-700 dark:text-indigo-300 truncate flex-1" title={ordre.modeleFichier.nom}>{ordre.modeleFichier.nom}</span>
-                                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 rounded px-1.5 py-0.5 shrink-0">{ordre.modeleFichier.format}</span>
-                                        <button type="button" onClick={() => ordre.modeleFichier && downloadFichier(ordre.modeleFichier)} className="text-slate-400 hover:text-indigo-600 shrink-0" title={tx(lang, { fr: 'Télécharger', ar: 'تحميل', en: 'Download', es: 'Descargar', pt: 'Baixar', tr: 'İndir' })}>
-                                            <Download className="w-4 h-4" />
-                                        </button>
-                                        <button type="button" onClick={handleRemoveModeleFichier} className="text-slate-400 hover:text-rose-500 shrink-0" title={tx(lang, { fr: 'Détacher', ar: 'فصل', en: 'Detach', es: 'Desvincular', pt: 'Desvincular', tr: 'Ayır' })}>
-                                            <X className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => triggerFichierUpload(MODEL_FICHIER_TARGET)}
-                                        className="w-full flex items-center justify-center gap-2 bg-slate-50 dark:bg-dk-bg border border-dashed border-slate-300 dark:border-dk-border rounded-lg px-3 py-3 text-[12px] font-semibold text-slate-500 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-700 transition-colors"
-                                    >
-                                        <Upload className="w-4 h-4" />
-                                        {tx(lang, { fr: 'Uploader un fichier / une photo du modèle', ar: 'رفع ملف أو صورة للموديل', en: 'Upload a model file / photo', es: 'Subir archivo/foto del modelo', pt: 'Enviar arquivo/foto do modelo', tr: 'Model dosyası/fotoğrafı yükle' })}
-                                    </button>
-                                )}
+                                <BarreExcel lien={lienExcel} donnees={() => donneesExcel({ ...selectedModel, ordreCoupe: ordre })} />
                             </div>
 
                             {/* MATRIX CARD */}
@@ -2267,80 +2442,187 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 )}
                             </div>
 
-                            {/* LIGNES DE MATELAS CARD */}
-                            <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 md:p-6">
-                                        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                                            <h4 className="text-[12px] font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
-                                                <Scissors className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
-                                                {tx(lang, { fr: 'Lignes de Matelas (Coupe)', ar: 'خطوط المفرشات (القص)', en: 'Layer Lines (Cutting)', es: 'Líneas de Capas (Corte)', pt: 'Linhas de Esteiramento (Corte)', tr: 'Katman Hatları (Kesim)' })}
-                                                {(ordre.matelasLines || []).length > 0 && (
-                                                    <span className="ml-1.5 text-[10px] font-bold normal-case tracking-normal bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-full px-2 py-0.5">
-                                                        {(ordre.matelasLines || []).filter(l => l.fait).length}/{(ordre.matelasLines || []).length} {tx(lang, { fr: 'coupés', ar: 'مقصوصة', en: 'cut', es: 'cortadas', pt: 'cortadas', tr: 'kesildi' })}
-                                                    </span>
-                                                )}
-                                            </h4>
-                                            <div className="flex items-center gap-1.5 shrink-0">
-                                                <button
-                                                    type="button"
-                                                    onClick={openAutoMatelasModal}
-                                                    className="h-8 px-3 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm"
-                                                    title={tx(lang, { fr: 'Générer automatiquement les lignes de matelas depuis la répartition', ar: 'توليد خطوط المفرشات تلقائياً من التوزيع', en: 'Auto-generate layer lines from the distribution', es: 'Generar líneas de capas automáticamente', pt: 'Gerar linhas automaticamente', tr: 'Katman satırlarını otomatik oluştur' })}
-                                                >
-                                                    <Zap className="w-3.5 h-3.5" />
-                                                    Auto
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleAddMatelasLine}
-                                                    className="px-3 py-1.5 bg-indigo-600 dark:bg-dk-accent text-white hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-[11px] font-semibold rounded-md flex items-center gap-1 transition-colors"
-                                                >
-                                                    <Plus className="w-3 h-3" /> {tx(lang, { fr: 'Ajouter Matelas', ar: 'إضافة مفرشة', en: 'Add Layer', es: 'Agregar Capa', pt: 'Adicionar Esteira', tr: 'Katman Ekle' })}
-                                                </button>
-                                            </div>
+                            {/* MATELAS : une page par matiere, puis ses placements, puis ses matelas */}
+                            <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 md:p-6 space-y-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <h4 className="text-[12px] font-bold text-slate-700 dark:text-dk-text-soft uppercase tracking-wide flex items-center gap-1.5 flex-wrap">
+                                        <Scissors className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
+                                        {tx(lang, { fr: 'Lignes de Matelas (Coupe)', ar: 'خطوط المفرشات (القص)', en: 'Layer Lines (Cutting)', es: 'Líneas de Capas (Corte)', pt: 'Linhas de Esteiramento (Corte)', tr: 'Katman Hatları (Kesim)' })}
+                                        {lignesTissu.length > 0 && (
+                                            <span className="ml-1.5 text-[10px] font-bold normal-case tracking-normal bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted rounded-full px-2 py-0.5">
+                                                {lignesTissu.filter(l => l.fait).length}/{lignesTissu.length} {tx(lang, { fr: 'coupés', ar: 'مقصوصة', en: 'cut', es: 'cortadas', pt: 'cortadas', tr: 'kesildi' })}
+                                            </span>
+                                        )}
+                                    </h4>
+                                    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={openAutoMatelasModal}
+                                            className="h-8 px-3 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm"
+                                            title={tx(lang, { fr: 'Proposer les placements et les matelas les plus economes', ar: 'اقتراح أوفر التركيبات والمفرشات', en: 'Suggest the most economical placements and lays' })}
+                                        >
+                                            <Zap className="w-3.5 h-3.5" />
+                                            Auto
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => (lignesTissu.some(l => !l.fait) ? setConfirmCalcul(true) : calculerMatelas())}
+                                            disabled={placementsTissu.length === 0}
+                                            className="h-8 px-3 rounded-lg text-[11px] font-bold bg-slate-900 dark:bg-dk-elevated text-white hover:bg-slate-800 disabled:opacity-40 transition-colors flex items-center gap-1.5"
+                                            title={tx(lang, { fr: 'Creer les matelas depuis vos placements et la commande', ar: 'إنشاء المفرشات من تركيباتك والطلب', en: 'Create lays from your placements and the order' })}
+                                        >
+                                            <Layers className="w-3.5 h-3.5" />
+                                            {tx(lang, { fr: 'Calculer les matelas', ar: 'حساب المفرشات', en: 'Compute lays' })}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleAddMatelasLine}
+                                            className="h-8 px-3 bg-indigo-600 dark:bg-dk-accent text-white hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-[11px] font-semibold rounded-lg flex items-center gap-1 transition-colors"
+                                        >
+                                            <Plus className="w-3 h-3" /> {tx(lang, { fr: 'Ajouter Matelas', ar: 'إضافة مفرشة', en: 'Add Layer', es: 'Agregar Capa', pt: 'Adicionar Esteira', tr: 'Katman Ekle' })}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Une page par matiere : tissu, vlieseline, doublure, organza... */}
+                                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-dk-border">
+                                    {tissus.map(t => (
+                                        <button
+                                            key={t.id}
+                                            type="button"
+                                            onClick={() => setTissuActif(t.id)}
+                                            className={`h-9 px-3 -mb-px border-b-2 text-[12px] font-semibold whitespace-nowrap transition-colors ${t.id === tissuCourant.id ? 'border-indigo-600 text-indigo-700 dark:text-indigo-300' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                                        >
+                                            {t.nom}
+                                            <span className="ml-1.5 text-[10px] font-bold text-slate-400">{(ordre.matelasLines || []).filter(l => tissuDe(l) === t.id).length}</span>
+                                        </button>
+                                    ))}
+                                    <div className="relative">
+                                        <button type="button" onClick={() => setMenuTissu(m => !m)} className="h-9 px-2 inline-flex items-center gap-1 text-[12px] font-semibold text-slate-400 hover:text-indigo-600 whitespace-nowrap">
+                                            <Plus className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Matiere', ar: 'مادة', en: 'Material' })}
+                                        </button>
+                                        {menuTissu && (
+                                            <>
+                                                <div className="fixed inset-0 z-30" onClick={() => setMenuTissu(false)} />
+                                                <div className="absolute z-40 top-full left-0 mt-1 w-52 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg shadow-xl py-1">
+                                                    {TISSUS_PROPOSES.filter(n => !tissus.some(t => t.nom === n)).map(n => (
+                                                        <button key={n} type="button" onClick={() => { ajouterTissu(n); setMenuTissu(false); }} className="w-full h-9 px-3 text-left text-[12px] font-semibold text-slate-700 dark:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated">{n}</button>
+                                                    ))}
+                                                    <div className="px-2 pt-1 mt-1 border-t border-slate-100 dark:border-dk-border">
+                                                        <input
+                                                            placeholder={tx(lang, { fr: 'Autre matiere + Entree', ar: 'مادة أخرى ثم Enter', en: 'Other + Enter' })}
+                                                            onKeyDown={e => { const v = (e.target as HTMLInputElement).value.trim(); if (e.key === 'Enter' && v) { ajouterTissu(v); setMenuTissu(false); } }}
+                                                            className="w-full h-8 px-2 rounded border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[12px] outline-none focus:border-indigo-400"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* En-tete de la matiere : nom, metrage recu */}
+                                <div className="flex flex-wrap items-end gap-3">
+                                    <label className="block">
+                                        <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{tx(lang, { fr: 'Matiere', ar: 'المادة', en: 'Material' })}</span>
+                                        <input
+                                            value={tissuCourant.nom}
+                                            onChange={e => majTissu(tissuCourant.id, { nom: e.target.value })}
+                                            className="h-9 w-44 px-2.5 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[13px] font-semibold outline-none focus:border-indigo-400"
+                                        />
+                                    </label>
+                                    <label className="block">
+                                        <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{tx(lang, { fr: 'Recu (m)', ar: 'المستلم (م)', en: 'Received (m)' })}</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={tissuCourant.recuM || ''}
+                                            onChange={e => majTissu(tissuCourant.id, { recuM: Number(e.target.value) || undefined })}
+                                            placeholder="0"
+                                            className="h-9 w-28 px-2.5 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[13px] font-semibold outline-none focus:border-indigo-400"
+                                        />
+                                    </label>
+                                    {tissuCourant.id !== TISSU_PRINCIPAL && (
+                                        <button type="button" onClick={() => supprimerTissu(tissuCourant.id)} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-rose-600 hover:bg-rose-50">
+                                            <Trash2 className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Retirer cette matiere', ar: 'إزالة هذه المادة', en: 'Remove material' })}
+                                        </button>
+                                    )}
+                                    {tissuCourant.id === TISSU_PRINCIPAL && tissus.length > 1 && (
+                                        <span className="text-[10px] text-slate-400 max-w-xs">{tx(lang, { fr: 'Seules les pieces de cette page comptent dans la quantite coupee ; les autres matieres se coupent en plus.', ar: 'قطع هذه الصفحة وحدها تُحسب في الكمية المقصوصة؛ المواد الأخرى تُقصّ إضافةً.', en: 'Only this page counts toward cut quantity.' })}</span>
+                                    )}
+                                </div>
+
+                                {/* 1. Placements de la matiere */}
+                                <div>
+                                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted mb-1.5">{tx(lang, { fr: '1. Placements (traces PLT)', ar: '1. التركيبات (ملفات PLT)', en: '1. Placements (PLT markers)' })}</p>
+                                    <TablePlacements
+                                        placements={placementsTissu}
+                                        tailles={sizes}
+                                        nbMatelas={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id).length]))}
+                                        consoTotale={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id).reduce((acc, l) => acc + (l.plis || 0) * ((l.longTracee || 0) + AMORCE_PAR_PLI_M), 0)]))}
+                                        maxPlisDefaut={Number(autoMaxPly) || 100}
+                                        onAjouter={ajouterPlacement}
+                                        onModifier={modifierPlacement}
+                                        onSupprimer={p => setPlacementASupprimer(p)}
+                                        onApercu={p => setApercuMatelas({ placementId: p.id, numero: String(numeroSuivant(ordre.matelasLines || [], tissuCourant.id) - 1 || 1) })}
+                                        onMessage={showToast}
+                                    />
+                                </div>
+
+                                {/* 2. Numerotation */}
+                                <div className="flex flex-wrap items-end gap-2 p-3 rounded-lg bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border">
+                                    <label className="block">
+                                        <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{tx(lang, { fr: 'Premier numero', ar: 'أول رقم', en: 'First number' })}</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={numDepart}
+                                            onChange={e => setNumDepart(e.target.value === '' ? '' : Math.max(0, Math.round(Number(e.target.value))))}
+                                            placeholder={String(numeroSuivant((ordre.matelasLines || []).filter(l => l.fait), tissuCourant.id))}
+                                            className="h-9 w-24 px-2.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[13px] font-bold outline-none focus:border-indigo-400"
+                                        />
+                                    </label>
+                                    <div>
+                                        <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{tx(lang, { fr: 'Ordre', ar: 'الترتيب', en: 'Order' })}</span>
+                                        <div className="flex items-center bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg p-0.5 gap-0.5">
+                                            {([
+                                                ['grand', tx(lang, { fr: 'Plus gros d\u2019abord', ar: 'الأكبر أولاً', en: 'Largest first' })],
+                                                ['petit', tx(lang, { fr: 'Plus petit d\u2019abord', ar: 'الأصغر أولاً', en: 'Smallest first' })],
+                                                ['tableau', tx(lang, { fr: 'Ordre du tableau', ar: 'ترتيب الجدول', en: 'Table order' })],
+                                            ] as [SensNumerotation, string][]).map(([id, label]) => (
+                                                <button key={id} type="button" onClick={() => setSensNum(id)} className={`h-8 px-2.5 rounded-md text-[11px] font-semibold whitespace-nowrap ${sensNum === id ? 'bg-slate-900 dark:bg-dk-accent text-white' : 'text-slate-500 hover:text-slate-800'}`}>{label}</button>
+                                            ))}
                                         </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        disabled={lignesTissu.length === 0}
+                                        onClick={() => { renumeroterTissu(); showToast(tx(lang, { fr: 'Matelas renumerotes', ar: 'أُعيد ترقيم المفرشات', en: 'Lays renumbered' }), 'success'); }}
+                                        className="h-9 px-3 rounded-lg text-[12px] font-semibold border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft hover:border-indigo-300 disabled:opacity-40"
+                                    >
+                                        {tx(lang, { fr: 'Renumeroter', ar: 'إعادة الترقيم', en: 'Renumber' })}
+                                    </button>
+                                    <span className="text-[10px] text-slate-400 max-w-sm">{tx(lang, { fr: 'Les matelas deja coupes gardent leur numero.', ar: 'المفرشات المقصوصة تحتفظ برقمها.', en: 'Lays already cut keep their number.' })}</span>
+                                </div>
 
-                                        {(ordre.matelasLines || []).length === 0 ? (
-                                            <div className="text-center py-6 text-slate-400 dark:text-dk-muted text-[12px] font-medium bg-slate-50 dark:bg-dk-bg rounded-lg border border-dashed border-slate-200 dark:border-dk-border">
-                                                {tx(lang, { fr: 'Aucun matelas défini. Ajoutez une ligne pour commencer à couper.', ar: 'لم يتم تحديد أي مفرشة. أضف خطًا لبدء القص.', en: 'No layer defined. Add a line to start cutting.', es: 'Ninguna capa definida. Agregue una línea para comenzar a cortar.', pt: 'Nenhuma esteira definida. Adicione uma linha para começar a cortar.', tr: 'Hiçbir katman tanımlanmadı. Kesmeye başlamak için bir satır ekleyin.' })}
-                                            </div>
-                                        ) : (
-                                            <div className="overflow-x-auto">
-                                                <table className="w-full text-[12px] border-collapse border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface rounded-lg overflow-hidden min-w-[900px]">
-                                                    <thead>
-                                                        <tr className="bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border text-[10px] uppercase tracking-wider text-left">
-                                                            <th className="py-2.5 px-2 font-bold text-center w-16" title={tx(lang, { fr: 'Coupé', ar: 'مقصوص', en: 'Cut', es: 'Cortado', pt: 'Cortado', tr: 'Kesildi' })}>
-                                                                <CheckCircle2 className="w-3.5 h-3.5 mx-auto" />
-                                                            </th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-40">{tx(lang, { fr: 'Fichier (DXF/PLT)', ar: 'الملف (DXF/PLT)', en: 'File (DXF/PLT)', es: 'Archivo (DXF/PLT)', pt: 'Arquivo (DXF/PLT)', tr: 'Dosya (DXF/PLT)' })}</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-12">{tx(lang, { fr: 'N°', ar: 'رقم', en: 'No.', es: 'N°', pt: 'N°', tr: 'No.' })}</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-28" title={tx(lang, { fr: 'Mélange de tailles par pli : un placement = un tracé PLT', ar: 'تركيبة المقاسات في الطيّة: كل تركيبة = ملف PLT واحد', en: 'Size mix per ply: one placement = one PLT marker' })}>{tx(lang, { fr: 'Placement', ar: 'التركيبة', en: 'Placement' })}</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-32">{tx(lang, { fr: 'Couleur', ar: 'اللون', en: 'Color', es: 'Color', pt: 'Cor', tr: 'Renk' })}</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-40">{tx(lang, { fr: 'Matière', ar: 'المادة', en: 'Material', es: 'Material', pt: 'Material', tr: 'Malzeme' })}</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Plis', ar: 'طيات', en: 'Plys', es: 'Pliegues', pt: 'Dobras', tr: 'Kat Sayısı' })}</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-32">{tx(lang, { fr: 'Long. Tracée (m)', ar: 'الطول المرسوم (م)', en: 'Traced Length (m)', es: 'Long. Trazada (m)', pt: 'Comp. Traçado (m)', tr: 'Çizilen Uzunluk (m)' })}</th>
-                                                            {sizes.map((s, idx) => (
-                                                                <th key={idx} className="py-2.5 px-2 font-bold text-center text-emerald-700 dark:text-emerald-300 min-w-[50px]">{s}</th>
-                                                            ))}
-                                                            <th className="py-2.5 px-3 font-bold text-center w-24">{tx(lang, { fr: 'Total Pcs', ar: 'إجمالي القطع', en: 'Total Pcs', es: 'Total Pzs', pt: 'Total Peças', tr: 'Toplam Adet' })}</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-24" title={tx(lang, { fr: 'Pièces cumulées jusqu’à ce matelas', ar: 'القطع المتراكمة حتى هذه المفرشة', en: 'Pieces cumulated up to this lay' })}>{tx(lang, { fr: 'Cumul', ar: 'المتراكم', en: 'Running' })}</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-28">{tx(lang, { fr: 'Cons. (m)', ar: 'الاستهلاك (م)', en: 'Cons. (m)', es: 'Cons. (m)', pt: 'Cons. (m)', tr: 'Tük. (m)' })}</th>
-                                                            <th className="py-2.5 px-3 font-bold text-center w-24"></th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
-                                                        {(ordre.matelasLines || []).map((line, lIdx) => {
-                                                            let lineRatioSum = 0;
-                                                            sizes.forEach(s => { lineRatioSum += Number(line.ratios?.[s]) || 0; });
-                                                            const linePieces = (line.plis || 0) * lineRatioSum;
-                                                            // Comme la colonne de droite du cahier : 20, 40, 70, 100, 120.
-                                                            const cumul = (ordre.matelasLines || []).slice(0, lIdx + 1).reduce((acc, l) => acc + (l.plis || 0) * sizes.reduce((sr, sz) => sr + (Number(l.ratios?.[sz]) || 0), 0), 0);
-                                                            const placement = nomPlacement(line.ratios || {}, sizes);
-                                                            const memePlacement = placement ? (ordre.matelasLines || []).filter(l => nomPlacement(l.ratios || {}, sizes) === placement).length : 0;
-                                                            const lineCons = lineRatioSum > 0 ? (line.plis || 0) * ((line.longTracee || 0) + AMORCE_PAR_PLI_M) : 0;
-
-                                                            return (
-                                                                <tr key={line.id} className={`hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors ${line.fait ? 'bg-emerald-50/40 dark:bg-emerald-900/10' : ''}`}>
-                                                                    <td className="py-1 px-2 text-center align-top">
+                                {/* 3. Matelas */}
+                                <div>
+                                    <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-dk-muted mb-1.5">{tx(lang, { fr: '2. Matelas', ar: '2. المفرشات', en: '2. Lays' })}</p>
+                                    <TableMatelas
+                                        lignes={lignesTissu}
+                                        placements={placementsTissu}
+                                        tissu={tissuCourant}
+                                        tailles={sizes}
+                                        couleurs={nomsCouleurs}
+                                        commande={commandeCouleur}
+                                        pastille={colorDotFor}
+                                        fichierDe={p => fichierComplet(p.fichier)}
+                                        onModifier={modifierLigne}
+                                        onInserer={insererLigneApres}
+                                        onApercu={(l, p) => setApercuMatelas({ placementId: p.id, numero: l.numero || '', nom: nomFichierMatelas(p, tissuCourant.nom, l.numero || '0') })}
+                                        onMessage={showToast}
+                                        renderEtat={line => (
+                                            <>
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => setToggleFaitConfirmId(line.id)}
@@ -2366,93 +2648,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                                 {line.debut && <div>{heureLocale(line.debut)}{line.fait && line.fin ? `→${heureLocale(line.fin)}` : '…'}</div>}
                                                                             </div>
                                                                         )}
-                                                                    </td>
-                                                                    <td className="py-1 px-1.5 align-top">
-                                                                        <div className="relative flex flex-col gap-1 items-center">
-                                                                            {line.fichier ? (
-                                                                                <div className="flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-md px-1.5 py-1 w-full max-w-[150px]">
-                                                                                    <FileText className="w-3 h-3 text-indigo-500 shrink-0" />
-                                                                                    <span className="text-[9px] font-bold text-indigo-700 dark:text-indigo-300 truncate flex-1" title={line.fichier.nom}>{line.fichier.nom}</span>
-                                                                                    <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 rounded px-1 shrink-0">{line.fichier.format}</span>
-                                                                                    <button type="button" onClick={() => { const f = fichierComplet(line.fichier); if (f) downloadFichier(f); }} className="text-slate-400 hover:text-indigo-600 shrink-0" title={tx(lang, { fr: 'Télécharger', ar: 'تحميل', en: 'Download', es: 'Descargar', pt: 'Baixar', tr: 'İndir' })}>
-                                                                                        <Download className="w-3 h-3" />
-                                                                                    </button>
-                                                                                    <button type="button" onClick={() => setRemoveConfirmId(line.id)} className="text-slate-400 hover:text-rose-500 shrink-0" title={tx(lang, { fr: 'Détacher le fichier', ar: 'فصل الملف', en: 'Detach file', es: 'Desvincular', pt: 'Desvincular', tr: 'Ayır' })}>
-                                                                                        <X className="w-3 h-3" />
-                                                                                    </button>
-                                                                                </div>
-                                                                            ) : (
-                                                                                <span className="text-[10px] text-slate-400 dark:text-dk-muted font-medium">{tx(lang, { fr: 'Aucun fichier', ar: 'لا ملف', en: 'No file', es: 'Sin archivo', pt: 'Sem arquivo', tr: 'Dosya yok' })}</span>
-                                                                            )}
-                                                                            <div className="flex items-center gap-1">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={() => triggerFichierUpload(line.id)}
-                                                                                    title={tx(lang, { fr: 'Uploader un fichier DXF/PLT', ar: 'رفع ملف DXF/PLT', en: 'Upload DXF/PLT file', es: 'Subir archivo DXF/PLT', pt: 'Enviar arquivo DXF/PLT', tr: 'DXF/PLT yükle' })}
-                                                                                    className="p-1 bg-slate-100 dark:bg-dk-elevated hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-slate-500 hover:text-indigo-600 rounded transition-colors"
-                                                                                >
-                                                                                    <Upload className="w-3 h-3" />
-                                                                                </button>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={e => { e.stopPropagation(); setLibraryOpenId(libraryOpenId === line.id ? null : line.id); }}
-                                                                                    title={tx(lang, { fr: 'Réutiliser un fichier sauvegardé', ar: 'استرجاع ملف محفوظ', en: 'Reuse a saved file', es: 'Reutilizar archivo', pt: 'Reutilizar arquivo', tr: 'Kayıtlı dosya' })}
-                                                                                    className={`p-1 rounded transition-colors ${libraryOpenId === line.id ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600' : 'bg-slate-100 dark:bg-dk-elevated hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-slate-500 hover:text-indigo-600'}`}
-                                                                                >
-                                                                                    <FolderOpen className="w-3 h-3" />
-                                                                                </button>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    onClick={e => { e.stopPropagation(); setPltANumeroter({ numero: String(lIdx + 1), fichier: fichierComplet(line.fichier) ?? null }); }}
-                                                                                    title={tx(lang, { fr: `Ecrire le n° ${lIdx + 1} au milieu de chaque piece de ce trace`, ar: `كتابة الرقم ${lIdx + 1} وسط كل قطعة في هذا الملف`, en: `Write no. ${lIdx + 1} inside every piece of this trace`, es: `Escribir el n° ${lIdx + 1} en cada pieza`, pt: `Escrever o n° ${lIdx + 1} em cada peça`, tr: `Bu çizimin her parçasına ${lIdx + 1} yaz` })}
-                                                                                    className="p-1 rounded transition-colors bg-slate-100 dark:bg-dk-elevated hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-slate-500 hover:text-emerald-600"
-                                                                                >
-                                                                                    <Barcode className="w-3 h-3" />
-                                                                                </button>
-                                                                            </div>
-                                                                            {libraryOpenId === line.id && (
-                                                                                <div className="absolute top-full left-0 right-0 z-30 mt-1 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg shadow-lg shadow-slate-900/10 p-1 max-h-36 overflow-y-auto" onClick={e => e.stopPropagation()}>
-                                                                                    {fichiersSaves.length === 0 ? (
-                                                                                        <p className="text-[9px] text-slate-400 dark:text-dk-muted text-center py-1.5">{tx(lang, { fr: 'Aucun fichier sauvegardé', ar: 'لا ملفات محفوظة', en: 'No saved file', es: 'Sin archivos guardados', pt: 'Sem arquivos salvos', tr: 'Kayıtlı dosya yok' })}</p>
-                                                                                    ) : fichiersSaves.map(f => (
-                                                                                        <div key={f.id} className="flex items-center gap-1 py-0.5 px-1 hover:bg-slate-50 dark:hover:bg-dk-elevated rounded">
-                                                                                            <button type="button" onClick={() => handleAttachSavedFichier(line.id, f)} className="flex-1 flex items-center gap-1.5 min-w-0">
-                                                                                                <FileText className="w-3 h-3 text-indigo-400 shrink-0" />
-                                                                                                <span className="text-[9px] font-semibold text-slate-700 dark:text-dk-text truncate">{f.nom}</span>
-                                                                                                <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 rounded px-1">{f.format}</span>
-                                                                                            </button>
-                                                                                            <button type="button" onClick={() => handleDeleteSavedFichier(f.id)} className="text-slate-400 hover:text-rose-500 shrink-0" title={tx(lang, { fr: 'Supprimer de la bibliothèque', ar: 'حذف من المكتبة', en: 'Remove from library', es: 'Eliminar de biblioteca', pt: 'Remover', tr: 'Sil' })}>
-                                                                                                <Trash2 className="w-3 h-3" />
-                                                                                            </button>
-                                                                                        </div>
-                                                                                    ))}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="py-2 px-3 text-center font-bold text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg/50">{lIdx + 1}</td>
-                                                                    <td className="py-2 px-2 text-center">
-                                                                        {placement ? (
-                                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold uppercase whitespace-nowrap" title={memePlacement > 1 ? tx(lang, { fr: `Même tracé que ${memePlacement - 1} autre(s) matelas`, ar: `نفس ملف ${memePlacement - 1} مفرشة أخرى`, en: `Same marker as ${memePlacement - 1} other lay(s)` }) : undefined}>
-                                                                                {placement}
-                                                                                {memePlacement > 1 && <span className="text-[9px] font-semibold text-indigo-400">×{memePlacement}</span>}
-                                                                            </span>
-                                                                        ) : <span className="text-slate-300">—</span>}
-                                                                    </td>
-                                                                    <td className="py-1 px-2">
-                                                                        <div className="w-full py-1.5 px-1.5 flex items-center gap-1.5">
-                                                                            {line.couleur ? (
-                                                                                <span
-                                                                                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${colorDotFor(line.couleur).hex ? '' : colorDotFor(line.couleur).dotClass}`}
-                                                                                    style={colorDotFor(line.couleur).hex ? { backgroundColor: colorDotFor(line.couleur).hex! } : undefined}
-                                                                                />
-                                                                            ) : (
-                                                                                <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-dashed border-slate-300 dark:border-dk-border" />
-                                                                            )}
-                                                                            <span className="truncate text-[11px] font-semibold text-slate-700 dark:text-dk-text">{line.couleur || '—'}</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="py-1 px-2">
+                                                                    </>
+                                        )}
+                                        renderMatiere={line => (
+                                            <>
                                                                         <div className="relative flex items-center">
                                                                             {(() => {
                                                                                 const photo = line.matiere ? matierePhoto(line.matiere) : null;
@@ -2491,44 +2690,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                                 );
                                                                             })()}
                                                                         </div>
-                                                                    </td>
-                                                                    <td className="py-1 px-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            min="0"
-                                                                            value={line.plis || ''}
-                                                                            onChange={e => handleUpdateMatelasLine(line.id, 'plis', Number(e.target.value))}
-                                                                            className="w-full text-center py-1.5 px-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold outline-none focus:bg-white focus:border-indigo-400"
-                                                                            placeholder="0"
-                                                                        />
-                                                                    </td>
-                                                                    <td className="py-1 px-2">
-                                                                        <input
-                                                                            type="number"
-                                                                            step="0.01"
-                                                                            min="0"
-                                                                            value={line.longTracee || ''}
-                                                                            onChange={e => handleUpdateMatelasLine(line.id, 'longTracee', Number(e.target.value))}
-                                                                            className="w-full text-center py-1.5 px-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold outline-none focus:bg-white focus:border-indigo-400"
-                                                                            placeholder="0.00"
-                                                                        />
-                                                                    </td>
-                                                                    {sizes.map((s, idx) => (
-                                                                        <td key={idx} className="py-1 px-1">
-                                                                            <input
-                                                                                type="number"
-                                                                                min="0"
-                                                                                value={line.ratios?.[s] || ''}
-                                                                                onChange={e => handleUpdateMatelasRatio(line.id, s, Number(e.target.value))}
-                                                                                className="w-full text-center py-1.5 px-1 bg-emerald-50 dark:bg-emerald-900/30 border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold text-emerald-700 dark:text-emerald-300 outline-none focus:bg-emerald-50 dark:focus:bg-emerald-900/30 focus:border-emerald-400"
-                                                                                placeholder="0"
-                                                                            />
-                                                                        </td>
-                                                                    ))}
-                                                                    <td className="py-2 px-3 text-center font-bold text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-bg/20">{linePieces}</td>
-                                                                    <td className="py-2 px-3 text-center font-semibold tabular-nums text-slate-500 dark:text-dk-muted">{cumul}</td>
-                                                                    <td className="py-2 px-3 text-center font-bold text-slate-800 dark:text-dk-text bg-slate-50 dark:bg-dk-bg/20">{lineCons.toFixed(2)}</td>
-                                                                    <td className="py-1 px-2 text-center whitespace-nowrap">
+                                                                    </>
+                                        )}
+                                        renderActions={line => (
+                                            <>
                                                                         <button
                                                                             type="button"
                                                                             onClick={() => handlePrintMatelasTicket(line.id)}
@@ -2545,15 +2710,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                         >
                                                                             <Trash2 className="w-3.5 h-3.5" />
                                                                         </button>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })}
-                                                    </tbody>
-                                                </table>
-                                            </div>
+                                                                    </>
                                         )}
-                                    </div>
+                                    />
+                                </div>
+                            </div>
 
                             {/* SUIVI COUPE & BILAN CARD */}
                             <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 md:p-6">
@@ -3381,6 +3542,48 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 </>
                             );
                         })()}
+                </SheetModal>
+            )}
+
+            {apercuMatelas && (() => {
+                const p = (ordre.placements || []).find(x => x.id === apercuMatelas.placementId);
+                const f = p ? fichierComplet(p.fichier) : undefined;
+                if (!p || !f?.data) return null;
+                return (
+                    <AnnotationPlt
+                        numeroInitial={apercuMatelas.numero}
+                        fichierInitial={{ nom: f.nom, data: f.data }}
+                        reglagesInitiaux={p.numerotation}
+                        onReglages={r => modifierPlacement(p.id, { numerotation: r })}
+                        nomSortieImpose={apercuMatelas.nom}
+                        onClose={() => setApercuMatelas(null)}
+                    />
+                );
+            })()}
+
+            {confirmCalcul && (
+                <SheetModal onClose={() => setConfirmCalcul(false)} size="sm" zClass="z-[95]" bodyClassName="flex-1 overflow-y-auto min-h-0 p-5">
+                    <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Recalculer les matelas ?', ar: 'إعادة حساب المفرشات؟', en: 'Recompute lays?' })}</h3>
+                    <p className="text-[12px] text-slate-500 dark:text-dk-muted mt-1">
+                        {tx(lang, { fr: `Les ${lignesTissu.filter(l => !l.fait).length} matelas pas encore coupes de « ${tissuCourant.nom} » seront remplaces. Les matelas coupes restent, et le calcul ne porte que sur ce qui reste a couper.`, ar: `ستُستبدل ${lignesTissu.filter(l => !l.fait).length} مفرشة غير مقصوصة من «${tissuCourant.nom}». المفرشات المقصوصة تبقى، والحساب يشمل ما بقي للقص فقط.`, en: `The ${lignesTissu.filter(l => !l.fait).length} uncut lays of "${tissuCourant.nom}" will be replaced. Cut lays stay.` })}
+                    </p>
+                    <div className="flex justify-end gap-2 mt-5">
+                        <button type="button" onClick={() => setConfirmCalcul(false)} className="h-10 px-4 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel' })}</button>
+                        <button type="button" onClick={calculerMatelas} className="h-10 px-4 rounded-lg text-[12px] font-semibold bg-slate-900 text-white hover:bg-slate-800">{tx(lang, { fr: 'Recalculer', ar: 'إعادة الحساب', en: 'Recompute' })}</button>
+                    </div>
+                </SheetModal>
+            )}
+
+            {placementASupprimer && (
+                <SheetModal onClose={() => setPlacementASupprimer(null)} size="sm" zClass="z-[95]" bodyClassName="flex-1 overflow-y-auto min-h-0 p-5">
+                    <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Supprimer le placement', ar: 'حذف التركيبة', en: 'Delete placement' })} « {placementASupprimer.nom || '—'} » ?</h3>
+                    <p className="text-[12px] text-slate-500 dark:text-dk-muted mt-1">
+                        {tx(lang, { fr: 'Ses matelas pas encore coupes partent avec lui. Les matelas deja coupes restent.', ar: 'مفرشاتها غير المقصوصة تُحذف معها، والمقصوصة تبقى.', en: 'Its uncut lays go with it. Cut lays stay.' })}
+                    </p>
+                    <div className="flex justify-end gap-2 mt-5">
+                        <button type="button" onClick={() => setPlacementASupprimer(null)} className="h-10 px-4 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel' })}</button>
+                        <button type="button" onClick={() => supprimerPlacement(placementASupprimer)} className="h-10 px-4 rounded-lg text-[12px] font-semibold bg-rose-600 text-white hover:bg-rose-700">{tx(lang, { fr: 'Supprimer', ar: 'حذف', en: 'Delete' })}</button>
+                    </div>
                 </SheetModal>
             )}
 

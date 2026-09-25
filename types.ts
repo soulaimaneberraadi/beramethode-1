@@ -558,6 +558,55 @@ export interface MatelasLine {
   /** Debut et fin reels (ISO). Ils nourrissent le classement des groupes et, plus tard, un catalogue de temps des matelas. */
   debut?: string;
   fin?: string;
+  /** Placement (trace) etale : ses tailles, son fichier et sa longueur font foi. */
+  placementId?: string;
+  /** Matiere coupee (id de `OrdreCoupe.tissus`) ; absent = tissu principal. */
+  tissu?: string;
+  /** Numero d'ordre ecrit sur les pieces (« 77 ») ; absent = rang dans le tableau. */
+  numero?: string;
+}
+
+/** Une matiere a couper pour l'ordre : tissu principal, vlieseline, doublure, organza... */
+export interface TissuCoupe {
+  id: string;
+  nom: string;
+  /** Metrage recu pour cette matiere. */
+  recuM?: number;
+}
+
+/** Numerotation d'un trace, gardee pour tous les matelas qui l'etalent. */
+export interface ReglagesNumero {
+  hauteurCm: number;
+  largeurCm: number;
+  ecartMm: number;
+  repetitions: number;
+  /** Etiquettes (pieces) a ne pas numeroter, par index dans le trace. */
+  exclus?: number[];
+  /** Deplacement (mm) et hauteur propre, piece par piece, par index d'etiquette. */
+  ajustements?: Record<string, { x: number; y: number; hauteurCm?: number; libre?: boolean }>;
+}
+
+/**
+ * Un placement : un melange de tailles par pli (« M-XL », « XS×2 »), son
+ * trace PLT retravaille dans Optitex et sa consommation. Plusieurs matelas
+ * peuvent etaler le meme placement.
+ */
+export interface PlacementCoupe {
+  id: string;
+  /** Id de la matiere (`TissuCoupe`). */
+  tissu: string;
+  /** Tel que l'atelier l'ecrit : « XS-M », « XS a M ». */
+  nom: string;
+  ratios: Record<string, number>;
+  fichier?: MatelasFichier;
+  /** Longueur du trace, en metres : la consommation d'un pli (hors amorce). */
+  longueurM?: number;
+  laizeCm?: number;
+  /** Efficience annoncee par Optitex, en %. */
+  efficience?: number;
+  /** Plis au plus par matelas pour ce placement. */
+  maxPlis?: number;
+  numerotation?: ReglagesNumero;
 }
 
 /** Equipe de coupe : quelques ouvriers de la RH qui etalent et coupent ensemble. */
@@ -583,6 +632,9 @@ export interface OrdreCoupe {
   modeleFichier?: MatelasFichier; // reference file/photo of the model itself (not tied to a matelas line)
   /** Corrections manuelles du suivi coupe, par `${couleur}__${taille}`. */
   suiviManuel?: Record<string, { cut?: number; rem?: number }>;
+  /** Matieres coupees ; la premiere (id « principal ») porte les pieces du vetement. */
+  tissus?: TissuCoupe[];
+  placements?: PlacementCoupe[];
 }
 
 // --- NEW TYPE FOR LIBRARY ---

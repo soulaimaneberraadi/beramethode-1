@@ -40,7 +40,11 @@ export const estOuvert = (m: ModelData): boolean => {
     return st !== 'VALIDE' && st !== 'REJETE';
 };
 
-const lignesUtiles = (m: ModelData) => (m.ordreCoupe?.matelasLines || []).filter(l => sommeRatios(l) > 0);
+/**
+ * Pieces du vetement = matelas du tissu principal. La vlieseline, la doublure
+ * se coupent en plus : les compter doublerait la quantite coupee.
+ */
+const lignesUtiles = (m: ModelData) => (m.ordreCoupe?.matelasLines || []).filter(l => sommeRatios(l) > 0 && !l.tissu);
 
 const clientDe = (m: ModelData) => (m.ficheData?.client || '').trim();
 const typeDe = (m: ModelData) => (m.ficheData?.category || m.meta_data?.category || '').trim();
@@ -127,7 +131,7 @@ export const consoTissu = (m: ModelData): ConsoModele => {
         prevuM += mt;
         if (l.fait) { consommeM += mt; piecesCoupees += piecesLigne(l); }
     }
-    const recu = m.ordreCoupe?.tissuRecu;
+    const recu = m.ordreCoupe?.tissus?.find(t => t.id === 'principal')?.recuM ?? m.ordreCoupe?.tissuRecu;
     const recuM = typeof recu === 'number' && recu > 0 ? recu : null;
     return {
         id: m.id,

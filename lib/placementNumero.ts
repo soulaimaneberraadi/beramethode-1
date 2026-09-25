@@ -165,6 +165,11 @@ export interface DemandePlacement {
     /** Decalage supplementaire saisi a la main pour cette piece precise. */
     ajustementXmm?: number;
     ajustementYmm?: number;
+    /**
+     * Pose a la main : le numero va exactement au point d'ancrage + ajustement,
+     * sans chercher d'autre place. Le statut dit seulement s'il tient dans la piece.
+     */
+    positionLibre?: boolean;
 }
 
 /**
@@ -179,6 +184,12 @@ export function placerNumero(d: DemandePlacement): Placement {
     const pas = d.decalageMm * unitesParMm;
     const ajX = (d.ajustementXmm ?? 0) * unitesParMm;
     const ajY = (d.ajustementYmm ?? 0) * unitesParMm;
+
+    if (d.positionLibre) {
+        const x = e.x + ajX, y = e.y + ajY;
+        const tient = !!contour && rectangleDansContour(contour, empriseTexte(x, y, nb, d.largeurCm, d.hauteurCm, e.directionX, unitesParMm, 5));
+        return { x, y, hauteurCm: d.hauteurCm, largeurCm: d.largeurCm, statut: tient ? 'ok' : 'force' };
+    }
 
     // Sans contour identifie on ne peut rien verifier : on pose ou c'etait demande.
     if (!contour) {

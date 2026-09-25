@@ -5,56 +5,44 @@
  * taille, mais rien qui dise a quel ordre elle appartient. L'atelier ecrivait
  * donc le numero a la main, piece par piece, toute la journee.
  *
- * Cette fenetre ajoute ce numero pour que le traceur l'ecrive lui-meme au
- * milieu de chaque piece. Deux regles tiennent tout le reste :
+ * Cette fenetre montre ou le traceur ecrira le numero dans chaque piece et
+ * permet de le reprendre piece par piece : clic droit sur une piece, ou glisser
+ * le numero a la souris. Les reglages sont gardes par placement : tous les
+ * matelas qui etalent ce trace sortent avec les memes retouches.
+ *
+ * Deux regles tiennent tout le reste :
  *   — le trace d'origine n'est jamais redessine (voir `injecterEtiquettes`) ;
- *   — le numero ne sort jamais de sa piece (voir `placerNumero`).
+ *   — le numero ne sort pas de sa piece (voir `placerNumero`), sauf pose a la
+ *     main, et alors l'alerte le dit.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Upload, FileText, Download, AlertTriangle, Layers, X, Move, Send } from 'lucide-react';
+import { Upload, FileText, Download, AlertTriangle, Layers, X, Move, Send, Plus, Minus, EyeOff, RotateCcw } from 'lucide-react';
 import SheetModal from '../shared/SheetModal';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
+import type { ReglagesNumero } from '../../types';
+import { pointDansContour, type StatutPlacement } from '../../lib/placementNumero';
 import {
-    lireHpgl, injecterEtiquettes, decoderOctets, encoderOctets,
-    type LectureHpgl, type EtiquetteHpgl,
-} from '../../lib/hpgl';
-import {
-    contoursDePieces, contourContenant, placerNumeros,
-    type Placement, type StatutPlacement,
-} from '../../lib/placementNumero';
+    REGLAGES_NUMERO_DEFAUT, alertesPoses, analyserOctets, enBase64, numeroterPlt, octetsDepuisDataUrl, posesNumero,
+    type AnalysePlt,
+} from '../../lib/numerotationPlt';
 
 interface Props {
     /** Numero a ecrire : celui du matelas, pas le nom du modele. */
     numeroInitial?: string;
-    /** Fichier deja attache a la ligne de matelas, charge sans re-selection. */
+    /** Fichier deja attache au placement, charge sans re-selection. */
     fichierInitial?: { nom: string; data: string } | null;
+    /** Reglages deja enregistres pour ce placement. */
+    reglagesInitiaux?: ReglagesNumero;
+    /** Appele a chaque retouche : le placement les garde pour tous ses matelas. */
+    onReglages?: (r: ReglagesNumero) => void;
+    /** Nom du fichier sortant, quand l'ordre de coupe l'impose. */
+    nomSortieImpose?: string;
     onClose: () => void;
-}
-
-/** Les fichiers attaches sont stockes en dataURL base64 : on revient aux octets. */
-function octetsDepuisDataUrl(data: string): ArrayBuffer | null {
-    const virgule = data.indexOf(',');
-    if (virgule < 0 || !data.slice(0, virgule).includes(';base64')) return null;
-    try {
-        const binaire = atob(data.slice(virgule + 1));
-        const octets = new Uint8Array(binaire.length);
-        for (let i = 0; i < binaire.length; i++) octets[i] = binaire.charCodeAt(i);
-        return octets.buffer;
-    } catch {
-        return null;
-    }
 }
 
 /** Sans serveur (Vercel), personne ne peut ecrire dans le dossier du traceur. */
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
-
-const enBase64 = (octets: Uint8Array): string => {
-    let binaire = '';
-    const PAS = 0x8000;
-    for (let i = 0; i < octets.length; i += PAS) binaire += String.fromCharCode(...octets.subarray(i, i + PAS));
-    return btoa(binaire);
-};
 
 /** Au-dela, le rendu SVG coute plus qu'il n'apporte : on allege le trait. */
 const POINTS_MAX = 60000;
@@ -66,33 +54,55 @@ const COULEUR_STATUT: Record<StatutPlacement, string> = {
     force: 'text-rose-600 dark:text-rose-400',
 };
 
-export default function AnnotationPlt({ numeroInitial = '', fichierInitial = null, onClose }: Props) {
+type Ajustement = NonNullable<ReglagesNumero['ajustements']>[string];
+
+export default function AnnotationPlt({ numeroInitial = '', fichierInitial = null, reglagesInitiaux, onReglages, nomSortieImpose, onClose }: Props) {
     const { lang } = useLang();
     const inputRef = useRef<HTMLInputElement>(null);
+    const svgRef = useRef<SVGSVGElement>(null);
 
     const [nomFichier, setNomFichier] = useState('');
-    const [source, setSource] = useState('');
-    const [lecture, setLecture] = useState<LectureHpgl | null>(null);
+    const [analyse, setAnalyse] = useState<AnalysePlt | null>(null);
     const [erreur, setErreur] = useState('');
     const [survol, setSurvol] = useState(false);
 
+    const init = reglagesInitiaux || REGLAGES_NUMERO_DEFAUT;
     const [numero, setNumero] = useState(numeroInitial);
-    const [hauteurCm, setHauteurCm] = useState<number | ''>(3);
-    const [largeurCm, setLargeurCm] = useState<number | ''>(2);
-    const [ecartMm, setEcartMm] = useState<number | ''>(10);
-    const [repetitions, setRepetitions] = useState<number | ''>(1);
+    const [hauteurCm, setHauteurCm] = useState<number | ''>(init.hauteurCm);
+    const [largeurCm, setLargeurCm] = useState<number | ''>(init.largeurCm);
+    const [ecartMm, setEcartMm] = useState<number | ''>(init.ecartMm);
+    const [repetitions, setRepetitions] = useState<number | ''>(init.repetitions);
     const [opacite, setOpacite] = useState(100);
-    const [exclus, setExclus] = useState<Set<number>>(new Set());
-    const [ajustements, setAjustements] = useState<Record<number, { x: number; y: number }>>({});
+    const [exclus, setExclus] = useState<Set<number>>(() => new Set(init.exclus || []));
+    const [ajustements, setAjustements] = useState<Record<string, Ajustement>>(() => ({ ...(init.ajustements || {}) }));
     const [selection, setSelection] = useState<number | null>(null);
+    const [menu, setMenu] = useState<{ index: number; x: number; y: number } | null>(null);
+    const glisse = useRef<{ index: number; depart: { x: number; y: number }; base: { x: number; y: number } } | null>(null);
 
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en, es: fr, pt: fr, tr: en });
+    const nb = (v: number | '') => (typeof v === 'number' ? v : 0);
 
-    const adopter = useCallback((nom: string, buffer: ArrayBuffer) => {
+    const reglages: ReglagesNumero = useMemo(() => ({
+        hauteurCm: nb(hauteurCm),
+        largeurCm: nb(largeurCm),
+        ecartMm: nb(ecartMm),
+        repetitions: nb(repetitions) || 1,
+        exclus: [...exclus].sort((a, b) => a - b),
+        ajustements,
+    }), [hauteurCm, largeurCm, ecartMm, repetitions, exclus, ajustements]);
+
+    // Chaque retouche est gardee par le placement ; pas au premier rendu.
+    const premier = useRef(true);
+    useEffect(() => {
+        if (premier.current) { premier.current = false; return; }
+        if (reglages.hauteurCm > 0 && reglages.largeurCm > 0) onReglages?.(reglages);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [reglages]);
+
+    const adopter = useCallback((nom: string, buffer: ArrayBuffer, garderRetouches: boolean) => {
         try {
-            const texte = decoderOctets(buffer);
-            const lu = lireHpgl(texte);
-            if (lu.etiquettes.length === 0) {
+            const a = analyserOctets(buffer);
+            if (a.lecture.etiquettes.length === 0) {
                 setErreur(L(
                     "Aucun texte dans ce trace : rien ou accrocher le numero.",
                     'لا نصّ في هذا الملف، فلا موضع يُعلَّق عليه الرقم.',
@@ -100,10 +110,9 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                 ));
             }
             setNomFichier(nom);
-            setSource(texte);
-            setLecture(lu);
-            setExclus(new Set());
-            setAjustements({});
+            setAnalyse(a);
+            // Un autre fichier : les index de pieces ne veulent plus rien dire.
+            if (!garderRetouches) { setExclus(new Set()); setAjustements({}); }
             setSelection(null);
         } catch {
             setErreur(L('Fichier illisible.', 'تعذّرت قراءة الملف.', 'Unreadable file.'));
@@ -113,72 +122,30 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
     const charger = useCallback((fichier: File) => {
         setErreur('');
         const reader = new FileReader();
-        reader.onload = () => adopter(fichier.name, reader.result as ArrayBuffer);
+        reader.onload = () => adopter(fichier.name, reader.result as ArrayBuffer, false);
         reader.readAsArrayBuffer(fichier);
     }, [adopter]);
 
-    /* Le trace est deja attache a la ligne de matelas : on l'ouvre directement,
-       sans redemander a l'operateur d'aller le rechercher sur le disque. */
+    /* Le trace est deja attache au placement : on l'ouvre directement, avec
+       les retouches deja faites dessus. */
+    // Compare par valeur : la fenetre parente se redessine a chaque retouche enregistree.
     useEffect(() => {
         if (!fichierInitial) return;
         const buffer = octetsDepuisDataUrl(fichierInitial.data);
-        if (buffer) adopter(fichierInitial.nom, buffer);
+        if (buffer) adopter(fichierInitial.nom, buffer, true);
         else setErreur(L('Fichier attache illisible.', 'الملف المرفق غير قابل للقراءة.', 'Attached file unreadable.'));
-    }, [fichierInitial, adopter]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fichierInitial?.nom, fichierInitial?.data, adopter]);
 
-    const contours = useMemo(
-        () => (lecture ? contoursDePieces(lecture.polylignes) : []),
-        [lecture],
-    );
-
-    /**
-     * Les lignes d'en-tete du placement (modele, laize, efficience) sont
-     * ecrites hors matiere : seules les etiquettes posees dans le tissu sont
-     * des pieces a numeroter.
-     */
-    const candidats = useMemo(() => {
-        if (!lecture) return [] as Array<{ index: number; etiquette: EtiquetteHpgl }>;
-        const { minX, minY, maxX, maxY } = lecture.cadre;
-        return lecture.etiquettes
-            .map((etiquette, index) => ({ index, etiquette }))
-            .filter(({ etiquette: e }) => e.x >= minX && e.x <= maxX && e.y >= minY && e.y <= maxY);
-    }, [lecture]);
-
+    const lecture = analyse?.lecture ?? null;
+    const candidats = analyse?.candidats ?? [];
     const horsMatiere = (lecture?.etiquettes.length ?? 0) - candidats.length;
 
-    const nb = (v: number | '') => (typeof v === 'number' ? v : 0);
-
-    const poses = useMemo(() => {
-        if (!lecture || nb(hauteurCm) <= 0 || nb(largeurCm) <= 0) return [];
-        return candidats
-            .filter(c => !exclus.has(c.index))
-            .flatMap(({ index, etiquette }) => {
-                const aj = ajustements[index];
-                const placements = placerNumeros({
-                    etiquette,
-                    contour: contourContenant(contours, etiquette.x, etiquette.y),
-                    texte: numero.trim() || '0',
-                    hauteurCm: nb(hauteurCm),
-                    largeurCm: nb(largeurCm),
-                    decalageMm: nb(ecartMm),
-                    unitesParMm: lecture.unitesParMm,
-                    ajustementXmm: aj?.x ?? 0,
-                    ajustementYmm: aj?.y ?? 0,
-                }, nb(repetitions) || 1);
-                return placements.map((p, rang) => ({ index, rang, etiquette, placement: p }));
-            });
-    }, [lecture, candidats, exclus, contours, numero, hauteurCm, largeurCm, ecartMm, repetitions, ajustements]);
-
-    const alertes = useMemo(() => {
-        const parPiece = new Map<number, Placement>();
-        for (const p of poses) if (!parPiece.has(p.index)) parPiece.set(p.index, p.placement);
-        let reduit = 0, force = 0;
-        for (const p of parPiece.values()) {
-            if (p.statut === 'reduit') reduit++;
-            if (p.statut === 'force') force++;
-        }
-        return { reduit, force };
-    }, [poses]);
+    const poses = useMemo(
+        () => (analyse ? posesNumero(analyse, numero, reglages) : []),
+        [analyse, numero, reglages],
+    );
+    const alertes = useMemo(() => alertesPoses(poses), [poses]);
 
     const apercu = useMemo(() => {
         if (!lecture) return null;
@@ -200,39 +167,92 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
             traits,
             epaisseur: Math.max(largeur, hauteurVue) / 700,
             versSvgY: (y: number) => (maxY + minY) - y,
+            depuisSvgY: (sy: number) => (maxY + minY) - sy,
             tronque: total > POINTS_MAX,
             largeurCmVue: largeur / lecture.unitesParMm / 10,
             longueurCmVue: hauteurVue / lecture.unitesParMm / 10,
         };
     }, [lecture]);
 
-    const bouger = (index: number, dx: number, dy: number) => {
+    /** Point de l'ecran -> coordonnees du trace. */
+    const versTrace = (clientX: number, clientY: number): { x: number; y: number } | null => {
+        const svg = svgRef.current;
+        const m = svg?.getScreenCTM();
+        if (!svg || !m || !apercu) return null;
+        const p = new DOMPoint(clientX, clientY).matrixTransform(m.inverse());
+        return { x: p.x, y: apercu.depuisSvgY(p.y) };
+    };
+
+    /** La piece sous le curseur : celle dont le contour contient le point, sinon le numero le plus proche. */
+    const pieceSous = (x: number, y: number): number | null => {
+        if (!analyse) return null;
+        const dansPiece = candidats.find(c => {
+            const contour = analyse.contours.find(k => pointDansContour(k, c.etiquette.x, c.etiquette.y) && pointDansContour(k, x, y));
+            return !!contour;
+        });
+        if (dansPiece) return dansPiece.index;
+        let mieux: { index: number; d: number } | null = null;
+        for (const p of poses) {
+            const d = Math.hypot(p.placement.x - x, p.placement.y - y);
+            if (!mieux || d < mieux.d) mieux = { index: p.index, d };
+        }
+        return mieux ? mieux.index : null;
+    };
+
+    const retoucher = (index: number, maj: (a: Ajustement) => Ajustement | null) => {
         setAjustements(prev => {
-            const a = prev[index] ?? { x: 0, y: 0 };
-            return { ...prev, [index]: { x: a.x + dx, y: a.y + dy } };
+            const n = { ...prev };
+            const r = maj(prev[String(index)] ?? { x: 0, y: 0 });
+            if (r === null) delete n[String(index)]; else n[String(index)] = r;
+            return n;
         });
     };
 
-    /** Le trace d'origine plus le bloc de numeros — la seule sortie possible. */
-    const construireSortie = (): Uint8Array<ArrayBuffer> | null => {
-        if (!lecture || !numero.trim() || poses.length === 0) return null;
-        const sortie = injecterEtiquettes(
-            source,
-            poses.map(({ etiquette, placement }) => ({
-                x: placement.x,
-                y: placement.y,
-                texte: numero.trim(),
-                hauteurCm: placement.hauteurCm,
-                largeurCm: placement.largeurCm,
-                directionX: etiquette.directionX,
-                directionY: etiquette.directionY,
-                plume: etiquette.plume,
-            })),
-        );
-        return encoderOctets(sortie);
+    const bouger = (index: number, dx: number, dy: number) => retoucher(index, a => ({ ...a, x: a.x + dx, y: a.y + dy }));
+    const redimensionner = (index: number, facteur: number) => {
+        const actuelle = poses.find(p => p.index === index)?.placement.hauteurCm ?? nb(hauteurCm);
+        retoucher(index, a => ({ ...a, hauteurCm: Math.max(0.3, Number((actuelle * facteur).toFixed(2))) }));
     };
+    const basculerExclu = (index: number) => setExclus(prev => {
+        const s = new Set(prev);
+        if (s.has(index)) s.delete(index); else s.add(index);
+        return s;
+    });
 
-    const nomSortie = () => `${nomFichier.replace(/\.(plt|hpgl|hgl|prn)$/i, '')}-N${numero.trim()}.plt`;
+    /* Glisser un numero : il devient « pose a la main » et reste ou on le lache. */
+    const debutGlisse = (e: React.PointerEvent, index: number) => {
+        if (e.button !== 0 || !lecture) return;
+        const pt = versTrace(e.clientX, e.clientY);
+        const pose = poses.find(p => p.index === index);
+        const etiquette = candidats.find(c => c.index === index)?.etiquette;
+        if (!pt || !pose || !etiquette) return;
+        e.preventDefault();
+        (e.target as Element).setPointerCapture?.(e.pointerId);
+        const u = lecture.unitesParMm;
+        glisse.current = {
+            index,
+            depart: pt,
+            // Point de depart : la ou le numero est vraiment, pour qu'il ne saute pas.
+            base: { x: (pose.placement.x - etiquette.x) / u, y: (pose.placement.y - etiquette.y) / u },
+        };
+        setSelection(index);
+        setMenu(null);
+    };
+    const mouvementGlisse = (e: React.PointerEvent) => {
+        const g = glisse.current;
+        if (!g || !lecture) return;
+        const pt = versTrace(e.clientX, e.clientY);
+        if (!pt) return;
+        const u = lecture.unitesParMm;
+        const x = Number((g.base.x + (pt.x - g.depart.x) / u).toFixed(1));
+        const y = Number((g.base.y + (pt.y - g.depart.y) / u).toFixed(1));
+        retoucher(g.index, a => ({ ...a, x, y, libre: true }));
+    };
+    const finGlisse = () => { glisse.current = null; };
+
+    const nomSortie = () => nomSortieImpose || `${nomFichier.replace(/\.(plt|hpgl|hgl|prn)$/i, '')}-N${numero.trim()}.plt`;
+
+    const construireSortie = (): Uint8Array<ArrayBuffer> | null => (analyse ? numeroterPlt(analyse, numero, reglages) : null);
 
     const exporter = () => {
         const octets = construireSortie();
@@ -291,11 +311,13 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
         </label>
     );
 
+    const nomPiece = (index: number) => lecture?.etiquettes[index]?.texte || `#${index}`;
+
     return (
         <SheetModal
             onClose={onClose}
             title={L('Numeroter le trace de coupe', 'ترقيم ملف القص', 'Number the cutting trace')}
-            subtitle={nomFichier || undefined}
+            subtitle={nomSortieImpose || nomFichier || undefined}
             icon={<Layers className="w-4 h-4" />}
             size="2xl"
             bodyClassName="flex-1 overflow-y-auto min-h-0 p-4 md:p-5"
@@ -398,13 +420,15 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                 {apercu.largeurCmVue.toFixed(0)} × {apercu.longueurCmVue.toFixed(0)} cm
                             </span>
                         )}
-                        <button
-                            type="button"
-                            onClick={() => { setLecture(null); setSource(''); setNomFichier(''); setErreur(''); }}
-                            className="ml-auto h-7 px-2 rounded-md text-[11px] font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 inline-flex items-center gap-1 transition-colors"
-                        >
-                            <X className="w-3.5 h-3.5" />{L('Changer', 'تغيير', 'Change')}
-                        </button>
+                        {!fichierInitial && (
+                            <button
+                                type="button"
+                                onClick={() => { setAnalyse(null); setNomFichier(''); setErreur(''); }}
+                                className="ml-auto h-7 px-2 rounded-md text-[11px] font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 inline-flex items-center gap-1 transition-colors"
+                            >
+                                <X className="w-3.5 h-3.5" />{L('Changer', 'تغيير', 'Change')}
+                            </button>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
@@ -450,6 +474,9 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                 <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
                                     {poses.length} {L('numeros', 'رقماً', 'numbers')}
                                 </span>
+                                <span className="text-[10px] text-slate-400 dark:text-dk-muted">
+                                    {L('Clic droit sur une piece pour la reprendre · glissez un numero pour le deplacer', 'انقر بالزر الأيمن على قطعة لتعديلها · اسحب الرقم لتحريكه', 'Right-click a piece to adjust it · drag a number to move it')}
+                                </span>
                                 <label className="ml-auto flex items-center gap-2">
                                     <span className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase">
                                         {L('Transparence', 'الشفافية', 'Opacity')}
@@ -461,8 +488,24 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                     />
                                 </label>
                             </div>
-                            <div className="bg-slate-50 dark:bg-dk-bg p-2 overflow-auto">
-                                <svg viewBox={apercu.viewBox} className="w-full h-auto max-h-[50vh]" preserveAspectRatio="xMidYMid meet">
+                            <div className="bg-slate-50 dark:bg-dk-bg p-2 overflow-auto relative">
+                                <svg
+                                    ref={svgRef}
+                                    viewBox={apercu.viewBox}
+                                    className="w-full h-auto max-h-[55vh] touch-none"
+                                    preserveAspectRatio="xMidYMid meet"
+                                    onPointerMove={mouvementGlisse}
+                                    onPointerUp={finGlisse}
+                                    onPointerCancel={finGlisse}
+                                    onContextMenu={e => {
+                                        e.preventDefault();
+                                        const pt = versTrace(e.clientX, e.clientY);
+                                        const index = pt ? pieceSous(pt.x, pt.y) : null;
+                                        if (index === null) return;
+                                        setSelection(index);
+                                        setMenu({ index, x: e.clientX, y: e.clientY });
+                                    }}
+                                >
                                     {apercu.traits.map((pts, i) => (
                                         <polyline
                                             key={i} points={pts} fill="none" stroke="currentColor"
@@ -474,18 +517,21 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                         const sy = apercu.versSvgY(placement.y);
                                         const retourne = etiquette.directionX < 0;
                                         const actif = selection === index;
+                                        const hauteur = placement.hauteurCm * 10 * lecture!.unitesParMm;
                                         return (
                                             <text
                                                 key={`${index}-${rang}`}
                                                 x={placement.x}
                                                 y={sy}
-                                                fontSize={placement.hauteurCm * 10 * lecture.unitesParMm}
-                                                textAnchor={retourne ? 'end' : 'start'}
-                                                dominantBaseline={retourne ? 'auto' : 'hanging'}
+                                                fontSize={hauteur}
+                                                // Le traceur ecrit en LO5 : centre sur le point.
+                                                textAnchor="middle"
+                                                dominantBaseline="central"
                                                 transform={retourne ? `rotate(180 ${placement.x} ${sy})` : undefined}
                                                 opacity={opacite / 100}
+                                                onPointerDown={e => debutGlisse(e, index)}
                                                 onClick={() => setSelection(actif ? null : index)}
-                                                className={`${actif ? 'fill-indigo-600 dark:fill-indigo-400' : COULEUR_STATUT[placement.statut].replace('text-', 'fill-')} cursor-pointer`}
+                                                className={`${actif ? 'fill-indigo-600 dark:fill-indigo-400' : COULEUR_STATUT[placement.statut].replace('text-', 'fill-')} cursor-move select-none`}
                                                 fontWeight={700}
                                             >
                                                 {numero.trim() || '—'}
@@ -502,22 +548,48 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                         </div>
                     )}
 
+                    {menu && (
+                        <>
+                            <div className="fixed inset-0 z-[120]" onClick={() => setMenu(null)} onContextMenu={e => { e.preventDefault(); setMenu(null); }} />
+                            <div
+                                className="fixed z-[121] w-56 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-xl py-1 text-[12px]"
+                                style={{ left: Math.min(menu.x, window.innerWidth - 232), top: Math.min(menu.y, window.innerHeight - 230) }}
+                            >
+                                <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 truncate">{nomPiece(menu.index)}</p>
+                                {[
+                                    { icone: Move, texte: L('Deplacer : glissez le numero', 'تحريك: اسحب الرقم', 'Move: drag the number'), action: () => setSelection(menu.index) },
+                                    { icone: Plus, texte: L('Plus grand', 'أكبر', 'Bigger'), action: () => redimensionner(menu.index, 1.2) },
+                                    { icone: Minus, texte: L('Plus petit', 'أصغر', 'Smaller'), action: () => redimensionner(menu.index, 1 / 1.2) },
+                                    { icone: EyeOff, texte: exclus.has(menu.index) ? L('Numeroter cette piece', 'ترقيم هذه القطعة', 'Number this piece') : L('Ne pas numeroter cette piece', 'عدم ترقيم هذه القطعة', 'Skip this piece'), action: () => basculerExclu(menu.index) },
+                                    { icone: RotateCcw, texte: L('Remettre en automatique', 'إرجاعها للوضع التلقائي', 'Back to automatic'), action: () => retoucher(menu.index, () => null) },
+                                ].map(({ icone: Icone, texte, action }) => (
+                                    <button key={texte} type="button" onClick={() => { action(); setMenu(null); }} className="w-full flex items-center gap-2 px-3 h-9 text-left text-slate-700 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated">
+                                        <Icone className="w-3.5 h-3.5 text-slate-400 shrink-0" />{texte}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+
                     {selection !== null && (
                         <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-900/20 p-3">
                             <div className="flex items-center gap-2 mb-2">
                                 <Move className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                                 <span className="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 truncate">
-                                    {lecture.etiquettes[selection]?.texte}
+                                    {nomPiece(selection)}
                                 </span>
+                                {ajustements[String(selection)]?.libre && (
+                                    <span className="text-[9px] font-bold uppercase text-indigo-500">{L('pose a la main', 'موضع يدوي', 'manual')}</span>
+                                )}
                                 <button
                                     type="button"
-                                    onClick={() => { setAjustements(p => { const n = { ...p }; delete n[selection]; return n; }); }}
+                                    onClick={() => retoucher(selection, () => null)}
                                     className="ml-auto text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
                                 >
                                     {L('Remettre au centre', 'إعادة للوسط', 'Reset')}
                                 </button>
                             </div>
-                            <div className="grid grid-cols-4 gap-2">
+                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                                 {[
                                     { t: '← 5mm', dx: -5, dy: 0 },
                                     { t: '→ 5mm', dx: 5, dy: 0 },
@@ -533,6 +605,8 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                         {b.t}
                                     </button>
                                 ))}
+                                <button type="button" onClick={() => redimensionner(selection, 1.2)} className="h-9 rounded-lg bg-white dark:bg-dk-surface border border-indigo-200 dark:border-indigo-800 text-[12px] font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 inline-flex items-center justify-center gap-1"><Plus className="w-3.5 h-3.5" />{L('Taille', 'الحجم', 'Size')}</button>
+                                <button type="button" onClick={() => redimensionner(selection, 1 / 1.2)} className="h-9 rounded-lg bg-white dark:bg-dk-surface border border-indigo-200 dark:border-indigo-800 text-[12px] font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 inline-flex items-center justify-center gap-1"><Minus className="w-3.5 h-3.5" />{L('Taille', 'الحجم', 'Size')}</button>
                             </div>
                         </div>
                     )}
@@ -549,11 +623,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                         <input
                                             type="checkbox"
                                             checked={!exclus.has(index)}
-                                            onChange={() => setExclus(prev => {
-                                                const s = new Set(prev);
-                                                if (s.has(index)) s.delete(index); else s.add(index);
-                                                return s;
-                                            })}
+                                            onChange={() => basculerExclu(index)}
                                             className="w-3.5 h-3.5 accent-emerald-600"
                                         />
                                         <button
