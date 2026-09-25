@@ -38,6 +38,8 @@ interface Props {
     onReglages?: (r: ReglagesNumero) => void;
     /** Nom du fichier sortant, quand l'ordre de coupe l'impose. */
     nomSortieImpose?: string;
+    /** Depot chez le traceur (dossier relie ou serveur) ; sinon le serveur local. */
+    deposer?: (nom: string, octets: Uint8Array<ArrayBuffer>) => Promise<{ ok: boolean; message: string }>;
     onClose: () => void;
 }
 
@@ -56,7 +58,7 @@ const COULEUR_STATUT: Record<StatutPlacement, string> = {
 
 type Ajustement = NonNullable<ReglagesNumero['ajustements']>[string];
 
-export default function AnnotationPlt({ numeroInitial = '', fichierInitial = null, reglagesInitiaux, onReglages, nomSortieImpose, onClose }: Props) {
+export default function AnnotationPlt({ numeroInitial = '', fichierInitial = null, reglagesInitiaux, onReglages, nomSortieImpose, deposer, onClose }: Props) {
     const { lang } = useLang();
     const inputRef = useRef<HTMLInputElement>(null);
     const svgRef = useRef<SVGSVGElement>(null);
@@ -274,6 +276,11 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
         const octets = construireSortie();
         if (!octets) return;
         setEnvoi({ etat: 'envoi' });
+        if (deposer) {
+            const r = await deposer(nomSortie(), octets);
+            setEnvoi({ etat: r.ok ? 'ok' : 'erreur', message: r.message });
+            return;
+        }
         try {
             const res = await fetch('/api/traceur/deposer', {
                 method: 'POST',
@@ -351,7 +358,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                         <Download className="w-4 h-4" strokeWidth={2} />
                         {L('Telecharger le trace numerote', 'تنزيل الملف المرقَّم', 'Download numbered trace')}
                     </button>
-                    {!IS_STATIC && (
+                    {(deposer || !IS_STATIC) && (
                         <button
                             type="button"
                             onClick={envoyerAuTraceur}

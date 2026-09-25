@@ -14,10 +14,8 @@ import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { AMORCE_PAR_PLI_M } from '../../lib/coupeAtelier';
 import { nomFichierMatelas } from '../../lib/ordreCoupe';
-import { REGLAGES_NUMERO_DEFAUT, analyserFichier, enBase64, numeroterPlt } from '../../lib/numerotationPlt';
+import { REGLAGES_NUMERO_DEFAUT, analyserFichier, numeroterPlt } from '../../lib/numerotationPlt';
 import { grilleClavier } from './grilleClavier';
-
-const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
 interface Props {
     lignes: MatelasLine[];
@@ -35,6 +33,8 @@ interface Props {
     onInserer: (apresId: string) => void;
     onApercu: (ligne: MatelasLine, p: PlacementCoupe) => void;
     onMessage: (texte: string, type: 'success' | 'error' | 'info') => void;
+    /** Depot chez le traceur (dossier relie ou serveur) ; absent = pas de bouton. */
+    deposer?: (nom: string, octets: Uint8Array<ArrayBuffer>) => Promise<{ ok: boolean; message: string }>;
     renderEtat: (l: MatelasLine) => React.ReactNode;
     renderMatiere: (l: MatelasLine) => React.ReactNode;
     renderActions: (l: MatelasLine) => React.ReactNode;
@@ -68,7 +68,7 @@ function Choix({ valeur, options, onChoisir, vide }: { valeur: React.ReactNode; 
 
 export default function TableMatelas({
     lignes, placements, tissu, tailles, couleurs, commande, pastille, fichierDe,
-    onModifier, onInserer, onApercu, onMessage, renderEtat, renderMatiere, renderActions,
+    onModifier, onInserer, onApercu, onMessage, deposer, renderEtat, renderMatiere, renderActions,
 }: Props) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
@@ -130,17 +130,13 @@ export default function TableMatelas({
     const envoyer = async (l: MatelasLine) => {
         const g = generer(l);
         if (!g) { onMessage(L('Rien a numeroter : placement sans trace PLT ou matelas sans numero.', 'لا شيء للترقيم: تركيبة بلا ملف PLT أو مفرشة بلا رقم.', 'Nothing to number.'), 'error'); return; }
+        if (!deposer) return;
         setEnvoi(l.id);
         try {
-            const res = await fetch('/api/traceur/deposer', {
-                method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nom: g.nom, donnees: enBase64(g.octets) }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
-            onMessage(`${L('Envoye au traceur :', 'أُرسل إلى الـ traceur:', 'Sent to plotter:')} ${data.chemin}`, 'success');
-        } catch (e: any) {
-            onMessage(`${L('Envoi impossible :', 'تعذّر الإرسال:', 'Sending failed:')} ${e?.message || e}`, 'error');
+            const r = await deposer(g.nom, g.octets);
+            onMessage(r.ok
+                ? `${L('Envoye au traceur :', 'أُرسل إلى الـ traceur:', 'Sent to plotter:')} ${r.message}`
+                : `${L('Envoi impossible :', 'تعذّر الإرسال:', 'Sending failed:')} ${r.message}`, r.ok ? 'success' : 'error');
         } finally {
             setEnvoi(null);
         }
@@ -312,7 +308,7 @@ export default function TableMatelas({
                                                 </span>
                                                 <button type="button" onClick={() => onApercu(l, p!)} className="p-1.5 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50" title={L('Voir le numero dans les pieces', 'معاينة الرقم في القطع', 'Preview the number')}><Eye className="w-3.5 h-3.5" /></button>
                                                 <button type="button" onClick={() => telecharger(l)} className="p-1.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title={L('Telecharger', 'تنزيل', 'Download')}><Download className="w-3.5 h-3.5" /></button>
-                                                {!IS_STATIC && (
+                                                {deposer && (
                                                     <button type="button" disabled={envoi === l.id} onClick={() => envoyer(l)} className="p-1.5 rounded text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40" title={L('Envoyer au traceur', 'إرسال إلى الـ traceur', 'Send to plotter')}><Send className="w-3.5 h-3.5" /></button>
                                                 )}
                                             </div>

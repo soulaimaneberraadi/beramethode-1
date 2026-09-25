@@ -25,12 +25,20 @@ interface Props {
     /** Tissu de tous les matelas de chaque placement, en metres (id -> m). */
     consoTotale: Record<string, number>;
     maxPlisDefaut: number;
+    /** Longueur d'un rouleau de cette matiere, pour afficher les plis par rouleau. */
+    rouleauM?: number;
     onAjouter: () => void;
     onModifier: (id: string, patch: Partial<PlacementCoupe>) => void;
     onSupprimer: (p: PlacementCoupe) => void;
     onApercu: (p: PlacementCoupe) => void;
     onMessage: (texte: string, type: 'success' | 'error' | 'info') => void;
 }
+
+const memesRatios = (a: Record<string, number>, b: Record<string, number>) => {
+    const cles = new Set([...Object.keys(a), ...Object.keys(b)]);
+    for (const k of cles) if ((Number(a[k]) || 0) !== (Number(b[k]) || 0)) return false;
+    return true;
+};
 
 const lireDataUrl = (f: File) => new Promise<string>((ok, ko) => {
     const r = new FileReader();
@@ -45,7 +53,7 @@ const lireOctets = (f: File) => new Promise<ArrayBuffer>((ok, ko) => {
     r.readAsArrayBuffer(f);
 });
 
-export default function TablePlacements({ placements, tailles, nbMatelas, consoTotale, maxPlisDefaut, onAjouter, onModifier, onSupprimer, onApercu, onMessage }: Props) {
+export default function TablePlacements({ placements, tailles, nbMatelas, consoTotale, maxPlisDefaut, rouleauM, onAjouter, onModifier, onSupprimer, onApercu, onMessage }: Props) {
     const { lang } = useLang();
     const inputRef = useRef<HTMLInputElement>(null);
     const cibleFichier = useRef<string | null>(null);
@@ -81,9 +89,16 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
             if (entete.efficience) patch.efficience = entete.efficience;
             if (entete.tailles) {
                 const { ratios, inconnues } = associerTailles(entete.tailles, tailles);
-                if (Object.keys(ratios).length) {
+                patch.taillesTrace = ratios;
+                const actuel = p.ratios || {};
+                const vide = !Object.values(actuel).some(v => (Number(v) || 0) > 0);
+                if (Object.keys(ratios).length && vide) {
+                    // Placement encore vide : le trace dit ce qu'il contient.
                     patch.ratios = ratios;
-                    if (!p.nom.trim() || lireNotation(p.nom, tailles)) patch.nom = nomPlacement(ratios, tailles);
+                    patch.nom = nomPlacement(ratios, tailles);
+                } else if (Object.keys(ratios).length && !memesRatios(actuel, ratios)) {
+                    // Placement deja defini : un fichier different ne change jamais ses matelas en silence.
+                    onMessage(`${L('Attention : ce trace contient', 'انتبه: هذا الملف يحتوي', 'Warning: this trace holds')} ${nomPlacement(ratios, tailles)} ${L('mais le placement est', 'لكن التركيبة هي', 'but the placement is')} ${nomPlacement(actuel, tailles)}. ${L('Tailles gardees : verifiez le fichier.', 'أُبقيت المقاسات: تحقّق من الملف.', 'Sizes kept: check the file.')}`, 'error');
                 }
                 if (inconnues.length) {
                     onMessage(`${L('Tailles du trace absentes de la commande :', 'مقاسات في الملف غير موجودة في الطلب:', 'Trace sizes not in the order:')} ${inconnues.join(', ')}`, 'error');
@@ -213,7 +228,17 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                                 <div className="flex flex-wrap gap-1 text-[9px] font-semibold text-slate-500 dark:text-dk-muted">
                                                     {p.laizeCm ? <span className="px-1 rounded bg-slate-100 dark:bg-dk-elevated">LA {p.laizeCm} cm</span> : null}
                                                     {p.efficience ? <span className="px-1 rounded bg-slate-100 dark:bg-dk-elevated">E {p.efficience}%</span> : null}
+                                                    {rouleauM && p.longueurM ? <span className="px-1 rounded bg-slate-100 dark:bg-dk-elevated" title={L('Plis qu\u2019un rouleau donne', 'طيّات يعطيها الرولو', 'Plies per roll')}>{Math.floor(rouleauM / (p.longueurM + 0.03))} {L('plis/rouleau', 'طيّة/رولو', 'plies/roll')}</span> : null}
                                                 </div>
+                                                {p.taillesTrace && Object.keys(p.taillesTrace).length > 0 && !memesRatios(p.ratios || {}, p.taillesTrace) && (
+                                                    <div className="flex items-center gap-1 mt-0.5 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                                                        <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                                                        <span className="text-[10px] font-semibold text-amber-800 dark:text-amber-300 truncate">{L('Trace :', 'الملف:', 'Trace:')} {nomPlacement(p.taillesTrace, tailles)}</span>
+                                                        <button type="button" onClick={() => onModifier(p.id, { ratios: { ...p.taillesTrace! }, nom: nomPlacement(p.taillesTrace!, tailles) })} className="ml-auto shrink-0 text-[10px] font-bold text-amber-700 hover:underline">
+                                                            {L('Adopter', 'اعتماد', 'Use')}
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
                                             <button

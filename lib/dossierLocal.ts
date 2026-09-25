@@ -200,3 +200,48 @@ export async function ecrireDansDossier(
         return estVerrouille(e) ? 'verrouille' : 'erreur';
     }
 }
+
+/**
+ * Depose un fichier sans jamais remplacer celui qui attend deja : un meme
+ * trace renvoye au traceur doit repartir en impression (« nom-2.plt »), pas
+ * ecraser celui que le logiciel du traceur est peut-etre en train de lire.
+ * Chrome ecrit d'abord a cote puis renomme a la fermeture : le logiciel qui
+ * surveille le dossier ne voit jamais un fichier a moitie ecrit.
+ */
+export async function deposerSansEcraser(
+    cle: string,
+    nomFichier: string,
+    contenu: Blob,
+): Promise<{ resultat: ResultatEcriture; nom: string }> {
+    if (!estSupporte()) return { resultat: 'non-supporte', nom: nomFichier };
+    const handle = await lireHandle(cle);
+    if (!handle) return { resultat: 'aucun-dossier', nom: nomFichier };
+    try {
+        if ((await handle.queryPermission({ mode: 'readwrite' })) !== 'granted') return { resultat: 'permission', nom: nomFichier };
+    } catch {
+        return { resultat: 'erreur', nom: nomFichier };
+    }
+    const propre = assainirNomFichier(nomFichier);
+    const point = propre.lastIndexOf('.');
+    const racine = point > 0 ? propre.slice(0, point) : propre;
+    const ext = point > 0 ? propre.slice(point) : '';
+    for (let i = 1; i < 1000; i++) {
+        const nom = i === 1 ? propre : `${racine}-${i}${ext}`;
+        try {
+            await handle.getFileHandle(nom);
+            continue; // deja la : on prend le suivant
+        } catch {
+            // absent : c'est ce nom-la
+        }
+        try {
+            const fh = await handle.getFileHandle(nom, { create: true });
+            const w = await fh.createWritable();
+            await w.write(contenu);
+            await w.close();
+            return { resultat: 'ok', nom };
+        } catch (e) {
+            return { resultat: estVerrouille(e) ? 'verrouille' : 'erreur', nom };
+        }
+    }
+    return { resultat: 'erreur', nom: propre };
+}

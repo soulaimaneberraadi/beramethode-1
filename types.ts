@@ -572,6 +572,8 @@ export interface TissuCoupe {
   nom: string;
   /** Metrage recu pour cette matiere. */
   recuM?: number;
+  /** Longueur habituelle d'un rouleau : dit combien de plis un rouleau donne pour chaque placement. */
+  rouleauM?: number;
 }
 
 /** Numerotation d'un trace, gardee pour tous les matelas qui l'etalent. */
@@ -604,6 +606,12 @@ export interface PlacementCoupe {
   laizeCm?: number;
   /** Efficience annoncee par Optitex, en %. */
   efficience?: number;
+  /**
+   * Tailles lues dans l'en-tete du trace. Si elles different des tailles du
+   * placement, on ne touche a rien et on le signale : un mauvais fichier ne
+   * doit jamais changer en silence les quantites de ses matelas.
+   */
+  taillesTrace?: Record<string, number>;
   /** Plis au plus par matelas pour ce placement. */
   maxPlis?: number;
   numerotation?: ReglagesNumero;

@@ -181,7 +181,7 @@ export const matelasExecutes = (models: ModelData[]): MatelasExecute[] => {
                 modelId: m.id,
                 modele: m.ordreCoupe?.refModele || m.meta_data?.nom_modele || '',
                 client: clientDe(m),
-                numero: i + 1,
+                numero: parseInt(String(l.numero ?? ''), 10) || i + 1,
                 groupeId: l.groupe,
                 couleur: l.couleur || '',
                 plis: l.plis || 0,

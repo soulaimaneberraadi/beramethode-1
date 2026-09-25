@@ -30,6 +30,7 @@ import {
 import TablePlacements from './coupe/TablePlacements';
 import TableMatelas from './coupe/TableMatelas';
 import { useLienExcel, BarreExcel } from './coupe/LienExcel';
+import { useDossierTraceur, PuceTraceur } from './coupe/DossierTraceur';
 import type { DonneesExcelCoupe } from '../lib/coupeExcel';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
@@ -396,19 +397,31 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         'REJETE': { label: tx(lang, { fr: 'Rejeté', ar: 'مرفوض', en: 'Rejected', es: 'Rechazado', pt: 'Rejeitado', tr: 'Reddedildi' }), color: 'text-red-700 dark:text-red-300 border-red-400 dark:border-red-600', icon: XCircle },
     };
 
+    /**
+     * Ce que « Sauvegarder » enregistre, en une chaine comparable : l'ordre et
+     * la grille du modele. Les fichiers comptent par leur taille (pas leurs
+     * octets), et la quantite recalculee seule a l'ouverture ne compte pas.
+     */
+    const empreinteDe = (o: OrdreCoupe, fiche: any) => JSON.stringify({ o, g: fiche?.gridQuantities, c: fiche?.client, t: fiche?.category, s: fiche?.sizes, k: fiche?.colors },
+        (k, v) => (k === 'qteTotale' ? undefined : typeof v === 'string' && v.length > 2000 ? v.length : v));
+    const empreinteOuverte = useRef('');
+
     const openModel = (model: ModelData) => {
         setSelectedModel(model);
         if (model.ordreCoupe) {
             // Un ordre d'avant les placements est regroupe a l'ouverture ; rien n'est perdu
             // et rien n'est enregistre tant qu'on ne sauvegarde pas.
             const taillesModele = model.ficheData?.sizes || model.meta_data?.sizes || [];
-            setOrdre(migrerOrdre({
+            const ouvert = migrerOrdre({
                 ...model.ordreCoupe,
                 qteTotale: model.ordreCoupe.qteTotale || model.meta_data?.quantity || 0,
                 faisceaux: model.ordreCoupe.faisceaux || [],
                 matelasLines: model.ordreCoupe.matelasLines || [],
                 tissuRecu: model.ordreCoupe.tissuRecu || 0
-            }, taillesModele));
+            }, taillesModele);
+            setOrdre(ouvert);
+            // Le regroupement d'un ordre ancien n'est pas une modification de l'operateur.
+            empreinteOuverte.current = empreinteDe(ouvert, model.ficheData);
             setTissuActif(TISSU_PRINCIPAL);
         } else {
             setOrdre({
@@ -493,6 +506,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
 
         const success = await saveModelToServer(updatedModel);
         if (!success) return null;
+        empreinteOuverte.current = empreinteDe(ordre, updatedModel.ficheData);
         setModels(prev => prev.map(m => m.id === selectedModel.id ? updatedModel : m));
         setSelectedModel(updatedModel);
         showToast(tx(lang, { fr: 'Sauvegarde effectuée', ar: 'تم الحفظ بنجاح', en: 'Save successful', es: 'Guardado exitoso', pt: 'Salvo com sucesso', tr: 'Kaydetme başarılı' }), 'success');
@@ -842,7 +856,34 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         matelasLines: (prev.matelasLines || []).map(l => (l.id === id ? { ...l, ...patch } : l)),
     }));
 
+    const empreinteCourante = useMemo(() => (selectedModel ? empreinteDe(ordre, selectedModel.ficheData) : ''),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [ordre, selectedModel?.ficheData]);
+    const nonEnregistre = !!selectedModel && empreinteOuverte.current !== '' && empreinteCourante !== empreinteOuverte.current;
+
+    /** Quitter un ordre modifie : on demande d'abord. */
+    const [quitterVers, setQuitterVers] = useState<null | (() => void)>(null);
+    const quitterSi = (suite: () => void) => { if (nonEnregistre) setQuitterVers(() => suite); else suite(); };
+
+    // Ctrl+S enregistre ; fermer l'onglet avec des modifications demande confirmation.
+    const sauverRef = useRef<() => void>(() => {});
+    sauverRef.current = () => { if (selectedModel) handleSaveCoupe(false); };
+    useEffect(() => {
+        const touche = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); sauverRef.current(); }
+        };
+        window.addEventListener('keydown', touche);
+        return () => window.removeEventListener('keydown', touche);
+    }, []);
+    useEffect(() => {
+        if (!nonEnregistre) return;
+        const avant = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+        window.addEventListener('beforeunload', avant);
+        return () => window.removeEventListener('beforeunload', avant);
+    }, [nonEnregistre]);
+
     const lienExcel = useLienExcel();
+    const traceur = useDossierTraceur();
     const [entreprise, setEntreprise] = useState<string>('');
     useEffect(() => { loadCompanyIdentity().then(c => setEntreprise(c?.nom || '')).catch(() => {}); }, []);
 
@@ -1578,7 +1619,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             })
             .join('');
 
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(L.matelas)} ${idx + 1}</title>
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(L.matelas)} ${esc(line.numero || idx + 1)}</title>
 <style>
   @page { size: 80mm auto; margin: 0; }
   * { box-sizing: border-box; }
@@ -1607,7 +1648,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
   <div class="hd">
     ${company.nom ? `<div class="co">${esc(company.nom)}</div>` : ''}
     <div class="lbl">${esc(L.matelas)}</div>
-    <div class="n">N° ${idx + 1}</div>
+    <div class="n">N° ${esc(line.numero || idx + 1)}</div>
     <div class="mdl">${esc(ordre.refModele || selectedModel?.meta_data?.nom_modele || '')}</div>
   </div>
   ${line.couleur ? `<div class="kv"><span>${esc(L.couleur)}</span><span>${esc(line.couleur)}</span></div>` : ''}
@@ -1793,7 +1834,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     return (
                         <div
                             key={model.id}
-                            onClick={() => openModel(model)}
+                            onClick={() => { if (model.id !== selectedModel?.id) quitterSi(() => openModel(model)); }}
                             className={`group flex flex-col gap-1.5 px-2.5 py-2 rounded-lg cursor-pointer transition-all duration-150 ${
                                 isSelected
                                     ? 'bg-indigo-50 dark:bg-dk-accent/20 border border-indigo-200 shadow-sm dark:shadow-dk-sm'
@@ -1887,7 +1928,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 <div className={`${isMobile ? 'px-3 h-12' : 'px-6 h-14'} flex items-center gap-3 overflow-x-auto no-scrollbar`}>
                     {isMobile && selectedModel && (
                         <button
-                            onClick={() => setSelectedModel(null)}
+                            onClick={() => quitterSi(() => setSelectedModel(null))}
                             className="w-8 h-8 flex items-center justify-center rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
                         >
                             <ChevronLeft className="w-4 h-4" strokeWidth={2} />
@@ -1918,7 +1959,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     {selectedModel && !isMobile && (
                         <>
                             <button
-                                onClick={() => setSelectedModel(null)}
+                                onClick={() => quitterSi(() => setSelectedModel(null))}
                                 className="h-8 pl-1.5 pr-2.5 inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-500 dark:text-dk-muted hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated text-[12px] font-medium transition-colors shrink-0"
                                 title={tx(lang, { fr: 'Retour à la liste', ar: 'العودة إلى القائمة', en: 'Back to list', es: 'Volver a la lista', pt: 'Voltar à lista', tr: 'Listeye dön' })}
                             >
@@ -2001,9 +2042,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             <>
                                 <button
                                     onClick={() => handleSaveCoupe(false)}
-                                    className={`${isMobile ? 'w-11 h-11' : 'h-8 px-3'} inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors`}
-                                    title={tx(lang, { fr: 'Sauvegarder', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet' })}
+                                    className={`relative ${isMobile ? 'w-11 h-11' : 'h-8 px-3'} inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[12px] font-medium transition-colors`}
+                                    title={nonEnregistre
+                                        ? tx(lang, { fr: 'Modifications non enregistrees (Ctrl+S)', ar: 'تعديلات غير محفوظة (Ctrl+S)', en: 'Unsaved changes (Ctrl+S)' })
+                                        : tx(lang, { fr: 'Sauvegarder (Ctrl+S)', ar: 'حفظ (Ctrl+S)', en: 'Save (Ctrl+S)' })}
                                 >
+                                    {nonEnregistre && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-white dark:ring-dk-surface" />}
                                     <Save className="w-4 h-4" strokeWidth={2} />
                                     {!isMobile && tx(lang, { fr: 'Sauvegarder', ar: 'حفظ', en: 'Save', es: 'Guardar', pt: 'Salvar', tr: 'Kaydet' })}
                                 </button>
@@ -2485,7 +2529,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 </div>
 
                                 {/* Une page par matiere : tissu, vlieseline, doublure, organza... */}
-                                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-slate-200 dark:border-dk-border">
+                                <div className="flex items-end gap-1 border-b border-slate-200 dark:border-dk-border">
+                                    <div className="flex items-center gap-1 overflow-x-auto no-scrollbar min-w-0">
                                     {tissus.map(t => (
                                         <button
                                             key={t.id}
@@ -2497,14 +2542,15 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             <span className="ml-1.5 text-[10px] font-bold text-slate-400">{(ordre.matelasLines || []).filter(l => tissuDe(l) === t.id).length}</span>
                                         </button>
                                     ))}
-                                    <div className="relative">
+                                    </div>
+                                    <div className="relative shrink-0">
                                         <button type="button" onClick={() => setMenuTissu(m => !m)} className="h-9 px-2 inline-flex items-center gap-1 text-[12px] font-semibold text-slate-400 hover:text-indigo-600 whitespace-nowrap">
                                             <Plus className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Matiere', ar: 'مادة', en: 'Material' })}
                                         </button>
                                         {menuTissu && (
                                             <>
                                                 <div className="fixed inset-0 z-30" onClick={() => setMenuTissu(false)} />
-                                                <div className="absolute z-40 top-full left-0 mt-1 w-52 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg shadow-xl py-1">
+                                                <div className="absolute z-40 top-full right-0 sm:left-0 sm:right-auto mt-1 w-56 bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-lg shadow-xl py-1">
                                                     {TISSUS_PROPOSES.filter(n => !tissus.some(t => t.nom === n)).map(n => (
                                                         <button key={n} type="button" onClick={() => { ajouterTissu(n); setMenuTissu(false); }} className="w-full h-9 px-3 text-left text-[12px] font-semibold text-slate-700 dark:text-dk-text hover:bg-slate-50 dark:hover:bg-dk-elevated">{n}</button>
                                                     ))}
@@ -2542,6 +2588,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             className="h-9 w-28 px-2.5 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[13px] font-semibold outline-none focus:border-indigo-400"
                                         />
                                     </label>
+                                    <label className="block">
+                                        <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{tx(lang, { fr: 'Rouleau (m)', ar: 'طول الرولو (م)', en: 'Roll (m)' })}</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={tissuCourant.rouleauM || ''}
+                                            onChange={e => majTissu(tissuCourant.id, { rouleauM: Number(e.target.value) || undefined })}
+                                            placeholder="100"
+                                            title={tx(lang, { fr: 'Longueur habituelle d\u2019un rouleau : le tableau dit combien de plis il donne', ar: 'الطول المعتاد للرولو: يبيّن الجدول كم طيّة يعطي', en: 'Usual roll length: shows plies per roll' })}
+                                            className="h-9 w-24 px-2.5 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[13px] font-semibold outline-none focus:border-indigo-400"
+                                        />
+                                    </label>
                                     {tissuCourant.id !== TISSU_PRINCIPAL && (
                                         <button type="button" onClick={() => supprimerTissu(tissuCourant.id)} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg text-[11px] font-semibold text-slate-400 hover:text-rose-600 hover:bg-rose-50">
                                             <Trash2 className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Retirer cette matiere', ar: 'إزالة هذه المادة', en: 'Remove material' })}
@@ -2561,6 +2619,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         nbMatelas={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id).length]))}
                                         consoTotale={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id).reduce((acc, l) => acc + (l.plis || 0) * ((l.longTracee || 0) + AMORCE_PAR_PLI_M), 0)]))}
                                         maxPlisDefaut={Number(autoMaxPly) || 100}
+                                        rouleauM={tissuCourant.rouleauM}
                                         onAjouter={ajouterPlacement}
                                         onModifier={modifierPlacement}
                                         onSupprimer={p => setPlacementASupprimer(p)}
@@ -2603,6 +2662,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         {tx(lang, { fr: 'Renumeroter', ar: 'إعادة الترقيم', en: 'Renumber' })}
                                     </button>
                                     <span className="text-[10px] text-slate-400 max-w-sm">{tx(lang, { fr: 'Les matelas deja coupes gardent leur numero.', ar: 'المفرشات المقصوصة تحتفظ برقمها.', en: 'Lays already cut keep their number.' })}</span>
+                                    <div className="w-full sm:w-auto sm:ml-auto"><PuceTraceur traceur={traceur} /></div>
                                 </div>
 
                                 {/* 3. Matelas */}
@@ -2619,6 +2679,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         fichierDe={p => fichierComplet(p.fichier)}
                                         onModifier={modifierLigne}
                                         onInserer={insererLigneApres}
+                                        deposer={traceur.disponible ? traceur.deposer : undefined}
                                         onApercu={(l, p) => setApercuMatelas({ placementId: p.id, numero: l.numero || '', nom: nomFichierMatelas(p, tissuCourant.nom, l.numero || '0') })}
                                         onMessage={showToast}
                                         renderEtat={line => (
@@ -3378,6 +3439,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 />
                             </div>
                         </div>
+                        <p className="mt-3 text-[11px] text-slate-500 dark:text-dk-muted">
+                            {tx(lang, { fr: `Matiere « ${tissuCourant.nom} » : le plan couvre ce qui reste a couper.`, ar: `المادة «${tissuCourant.nom}»: الخطة تغطّي ما بقي للقص.`, en: `Material "${tissuCourant.nom}": the plan covers what is left to cut.` })}
+                            {lignesTissu.some(l => !l.fait) && (
+                                <span className="block mt-1 font-semibold text-amber-700 dark:text-amber-400">
+                                    {tx(lang, { fr: `Il remplacera les ${lignesTissu.filter(l => !l.fait).length} matelas pas encore coupes. Les matelas coupes restent.`, ar: `ستُستبدل ${lignesTissu.filter(l => !l.fait).length} مفرشة غير مقصوصة. المقصوصة تبقى.`, en: `It will replace the ${lignesTissu.filter(l => !l.fait).length} uncut lays. Cut lays stay.` })}
+                                </span>
+                            )}
+                        </p>
                         {apercuAuto && apercuAuto.length > 0 && (() => {
                             const traces = apercuAuto.reduce((n, g) => n + (g.placements?.length || 0), 0);
                             const matelas = apercuAuto.reduce((n, g) => n + (g.placements || []).reduce((m, p) => m + p.matelas.length, 0), 0);
@@ -3483,7 +3552,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             const targetIdx = (ordre.matelasLines || []).findIndex(l => l.id === toggleFaitConfirmId);
                             const targetLine = (ordre.matelasLines || [])[targetIdx];
                             const willBeFait = !targetLine?.fait;
-                            const matelasLabel = `${tx(lang, { fr: 'Matelas', ar: 'مفرشة', en: 'Matelas', es: 'Capa', pt: 'Esteira', tr: 'Katman' })} ${targetIdx + 1}`;
+                            const matelasLabel = `${tx(lang, { fr: 'Matelas', ar: 'مفرشة', en: 'Matelas', es: 'Capa', pt: 'Esteira', tr: 'Katman' })} ${targetLine?.numero || targetIdx + 1}`;
                             let targetRatioSum = 0;
                             sizes.forEach(s => { targetRatioSum += Number(targetLine?.ratios?.[s]) || 0; });
                             const targetPieces = (targetLine?.plis || 0) * targetRatioSum;
@@ -3545,6 +3614,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 </SheetModal>
             )}
 
+            {quitterVers && (
+                <SheetModal onClose={() => setQuitterVers(null)} size="sm" zClass="z-[97]" closeOnBackdrop={false} bodyClassName="flex-1 overflow-y-auto min-h-0 p-5">
+                    <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Modifications non enregistrees', ar: 'تعديلات غير محفوظة', en: 'Unsaved changes' })}</h3>
+                    <p className="text-[12px] text-slate-500 dark:text-dk-muted mt-1">{tx(lang, { fr: 'Cet ordre a des modifications qui ne sont pas encore enregistrees.', ar: 'في هذا الأمر تعديلات لم تُحفظ بعد.', en: 'This order has changes that are not saved yet.' })}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-5">
+                        <button type="button" onClick={() => setQuitterVers(null)} className="h-10 px-3 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">{tx(lang, { fr: 'Rester', ar: 'البقاء', en: 'Stay' })}</button>
+                        <button type="button" onClick={() => { const suite = quitterVers; setQuitterVers(null); empreinteOuverte.current = ''; suite(); }} className="h-10 px-3 rounded-lg text-[12px] font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200">{tx(lang, { fr: 'Quitter sans enregistrer', ar: 'خروج دون حفظ', en: 'Leave without saving' })}</button>
+                        <button type="button" onClick={async () => { const suite = quitterVers; setQuitterVers(null); const ok = await handleSaveCoupe(false); if (ok) suite(); }} className="h-10 px-3 rounded-lg text-[12px] font-semibold bg-slate-900 text-white hover:bg-slate-800">{tx(lang, { fr: 'Enregistrer et continuer', ar: 'حفظ ثم متابعة', en: 'Save and continue' })}</button>
+                    </div>
+                </SheetModal>
+            )}
+
             {apercuMatelas && (() => {
                 const p = (ordre.placements || []).find(x => x.id === apercuMatelas.placementId);
                 const f = p ? fichierComplet(p.fichier) : undefined;
@@ -3556,6 +3637,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         reglagesInitiaux={p.numerotation}
                         onReglages={r => modifierPlacement(p.id, { numerotation: r })}
                         nomSortieImpose={apercuMatelas.nom}
+                        deposer={traceur.disponible ? traceur.deposer : undefined}
                         onClose={() => setApercuMatelas(null)}
                     />
                 );
@@ -3602,7 +3684,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             </div>
                             <div className="flex-1">
                                 <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">
-                                    {tx(lang, { fr: 'Démarrer le matelas', ar: 'بدء المفرشة', en: 'Start lay' })} {idx + 1}
+                                    {tx(lang, { fr: 'Démarrer le matelas', ar: 'بدء المفرشة', en: 'Start lay' })} {(ordre.matelasLines || [])[idx]?.numero || idx + 1}
                                 </h3>
                                 <p className="text-[11px] text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang, { fr: 'L\'heure de début est notée maintenant ; la fin, quand vous le cocherez « coupé ».', ar: 'تُسجَّل ساعة البداية الآن، والنهاية حين تعلّمها «مقصوصة».', en: 'Start time is recorded now; the end when you mark it cut.' })}</p>
                             </div>
