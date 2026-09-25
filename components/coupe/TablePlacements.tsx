@@ -7,7 +7,7 @@
  * laize, la longueur et l'efficience ecrites par Optitex dans l'en-tete.
  */
 import React, { useRef, useState } from 'react';
-import { Eye, FileText, Plus, Trash2, Upload, X, AlertTriangle } from 'lucide-react';
+import { Eye, FileText, Plus, Trash2, Upload, X, AlertTriangle, RotateCcw } from 'lucide-react';
 import type { MatelasFichier, PlacementCoupe } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
@@ -27,6 +27,10 @@ interface Props {
     maxPlisDefaut: number;
     /** Longueur d'un rouleau de cette matiere, pour afficher les plis par rouleau. */
     rouleauM?: number;
+    /** Laize reelle du tissu (cm), pour verifier que chaque trace tient et ce qu'il perd en largeur. */
+    laizeTissuCm?: number;
+    /** Traces deja faits pour ce modele dans d'autres ordres, avec le meme melange de tailles. */
+    suggestions?: (p: PlacementCoupe) => { source: string; placement: PlacementCoupe }[];
     onAjouter: () => void;
     onModifier: (id: string, patch: Partial<PlacementCoupe>) => void;
     onSupprimer: (p: PlacementCoupe) => void;
@@ -53,7 +57,7 @@ const lireOctets = (f: File) => new Promise<ArrayBuffer>((ok, ko) => {
     r.readAsArrayBuffer(f);
 });
 
-export default function TablePlacements({ placements, tailles, nbMatelas, consoTotale, maxPlisDefaut, rouleauM, onAjouter, onModifier, onSupprimer, onApercu, onMessage }: Props) {
+export default function TablePlacements({ placements, tailles, nbMatelas, consoTotale, maxPlisDefaut, rouleauM, laizeTissuCm, suggestions, onAjouter, onModifier, onSupprimer, onApercu, onMessage }: Props) {
     const { lang } = useLang();
     const inputRef = useRef<HTMLInputElement>(null);
     const cibleFichier = useRef<string | null>(null);
@@ -230,6 +234,16 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                                     {p.efficience ? <span className="px-1 rounded bg-slate-100 dark:bg-dk-elevated">E {p.efficience}%</span> : null}
                                                     {rouleauM && p.longueurM ? <span className="px-1 rounded bg-slate-100 dark:bg-dk-elevated" title={L('Plis qu\u2019un rouleau donne', 'طيّات يعطيها الرولو', 'Plies per roll')}>{Math.floor(rouleauM / (p.longueurM + 0.03))} {L('plis/rouleau', 'طيّة/رولو', 'plies/roll')}</span> : null}
                                                 </div>
+                                                {laizeTissuCm && p.laizeCm && p.laizeCm > laizeTissuCm + 0.5 ? (
+                                                    <div className="flex items-center gap-1 mt-0.5 px-1.5 py-1 rounded bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
+                                                        <AlertTriangle className="w-3 h-3 shrink-0" />
+                                                        {L(`Trace ${p.laizeCm} cm plus large que le tissu (${laizeTissuCm} cm)`, `التفصيلة ${p.laizeCm} سم أعرض من الثوب (${laizeTissuCm} سم)`, `Marker ${p.laizeCm} cm wider than fabric (${laizeTissuCm} cm)`)}
+                                                    </div>
+                                                ) : laizeTissuCm && p.laizeCm && laizeTissuCm - p.laizeCm >= 2 ? (
+                                                    <div className="mt-0.5 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-[10px] font-semibold text-amber-700 dark:text-amber-300" title={L('Bande de tissu non utilisee a chaque pli', 'شريط من الثوب لا يُستعمل في كل طيّة', 'Unused fabric strip on every ply')}>
+                                                        {L('Perte en largeur', 'ضياع في العرض', 'Width loss')} {(laizeTissuCm - p.laizeCm).toFixed(1)} cm ({(((laizeTissuCm - p.laizeCm) / laizeTissuCm) * 100).toFixed(1)}%)
+                                                    </div>
+                                                ) : null}
                                                 {p.taillesTrace && Object.keys(p.taillesTrace).length > 0 && !memesRatios(p.ratios || {}, p.taillesTrace) && (
                                                     <div className="flex items-center gap-1 mt-0.5 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                                                         <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
@@ -241,13 +255,35 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                                 )}
                                             </div>
                                         ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => { cibleFichier.current = p.id; inputRef.current?.click(); }}
-                                                className="w-full h-8 flex items-center justify-center gap-1.5 rounded border border-dashed border-slate-300 dark:border-dk-border text-[11px] font-semibold text-slate-500 hover:text-indigo-600 hover:border-indigo-300"
-                                            >
-                                                <Upload className="w-3.5 h-3.5" /> {L('Deposer le .plt', 'ضع ملف plt', 'Drop the .plt')}
-                                            </button>
+                                            <div className="flex flex-col gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { cibleFichier.current = p.id; inputRef.current?.click(); }}
+                                                    className="w-full h-8 flex items-center justify-center gap-1.5 rounded border border-dashed border-slate-300 dark:border-dk-border text-[11px] font-semibold text-slate-500 hover:text-indigo-600 hover:border-indigo-300"
+                                                >
+                                                    <Upload className="w-3.5 h-3.5" /> {L('Deposer le .plt', 'ضع ملف plt', 'Drop the .plt')}
+                                                </button>
+                                                {(suggestions?.(p) || []).slice(0, 2).map(sg => (
+                                                    <button
+                                                        key={sg.placement.id}
+                                                        type="button"
+                                                        onClick={() => onModifier(p.id, {
+                                                            fichier: sg.placement.fichier,
+                                                            longueurM: sg.placement.longueurM,
+                                                            laizeCm: sg.placement.laizeCm,
+                                                            efficience: sg.placement.efficience,
+                                                            taillesTrace: sg.placement.taillesTrace,
+                                                            numerotation: sg.placement.numerotation,
+                                                            maxPlis: p.maxPlis ?? sg.placement.maxPlis,
+                                                        })}
+                                                        className="w-full min-h-7 px-1.5 py-1 flex items-center gap-1 rounded bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-[10px] font-semibold text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 text-left"
+                                                        title={sg.placement.fichier?.nom}
+                                                    >
+                                                        <RotateCcw className="w-3 h-3 shrink-0" />
+                                                        <span className="truncate">{L('Reprendre le trace de', 'استعمال ملف', 'Reuse trace from')} {sg.source}{sg.placement.efficience ? ` · E ${sg.placement.efficience}%` : ''}{sg.placement.longueurM ? ` · ${sg.placement.longueurM.toFixed(2)} m` : ''}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
                                         )}
                                     </td>
                                     <td className="py-1 px-1">

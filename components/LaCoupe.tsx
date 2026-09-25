@@ -671,6 +671,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const [pointageGroupe, setPointageGroupe] = useState<string | undefined>(undefined);
     const [pointageDebut, setPointageDebut] = useState('');
     const [pointageFin, setPointageFin] = useState('');
+    const [plisCoupes, setPlisCoupes] = useState<number | ''>('');
+    const [creerReste, setCreerReste] = useState(true);
     /** Le meme groupe enchaine souvent plusieurs matelas : on le propose d'office. */
     const [dernierGroupe, setDernierGroupe] = useState<string | undefined>(undefined);
 
@@ -681,6 +683,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         setPointageGroupe(l?.groupe || dernierGroupe);
         setPointageDebut(heureLocale(l?.debut));
         setPointageFin(heureLocale(new Date().toISOString()));
+        setPlisCoupes(l?.plis || '');
+        setCreerReste(true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [toggleFaitConfirmId, demarrerId]);
 
@@ -698,21 +702,46 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
      * alimente le classement des groupes et la base de temps des matelas.
      * Decocher retire la fin (le matelas n'est plus coupe) mais garde le debut.
      */
-    const handleToggleMatelasFait = (id: string, pointage?: { groupe?: string; debut?: string | null; fin?: string | null }) => {
-        setOrdre(prev => ({
-            ...prev,
-            matelasLines: (prev.matelasLines || []).map(line => {
-                if (line.id !== id) return line;
-                if (line.fait) return { ...line, fait: false, fin: undefined };
-                return {
+    const handleToggleMatelasFait = (
+        id: string,
+        pointage?: { groupe?: string; debut?: string | null; fin?: string | null },
+        coupe?: { plis: number; creerReste: boolean },
+    ) => {
+        setOrdre(prev => {
+            const lignes = [...(prev.matelasLines || [])];
+            const i = lignes.findIndex(l => l.id === id);
+            if (i < 0) return prev;
+            const line = lignes[i];
+            if (line.fait) {
+                lignes[i] = { ...line, fait: false, fin: undefined };
+                return { ...prev, matelasLines: lignes };
+            }
+            // Rouleau fini, defaut : on note ce qui a vraiment ete coupe, et le reste repart en matelas.
+            const prevus = line.plis || 0;
+            // Ce qui a ete coupe fait foi, plus ou moins que prevu.
+            const reels = coupe && coupe.plis > 0 ? coupe.plis : prevus;
+            lignes[i] = {
+                ...line,
+                plis: reels,
+                fait: true,
+                groupe: pointage?.groupe || line.groupe,
+                debut: pointage?.debut || line.debut,
+                fin: pointage?.fin || undefined,
+            };
+            if (reels < prevus && coupe?.creerReste) {
+                lignes.splice(i + 1, 0, {
                     ...line,
-                    fait: true,
-                    groupe: pointage?.groupe || line.groupe,
-                    debut: pointage?.debut || line.debut,
-                    fin: pointage?.fin || undefined,
-                };
-            })
-        }));
+                    id: `MAT-${Date.now().toString(36)}-reste`,
+                    plis: prevus - reels,
+                    fait: false,
+                    groupe: undefined,
+                    debut: undefined,
+                    fin: undefined,
+                    numero: String(numeroSuivant(lignes, tissuDe(line))),
+                });
+            }
+            return { ...prev, matelasLines: lignes };
+        });
         if (pointage?.groupe) setDernierGroupe(pointage.groupe);
         setToggleFaitConfirmId(null);
     };
@@ -934,6 +963,44 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 };
             }),
         };
+    };
+
+    /**
+     * Un reassort du meme modele reprend les traces deja retravailles dans
+     * Optitex (fichier, longueur, retouches de numeros), matiere et melange
+     * de tailles identiques. Le meilleur rendement d'abord.
+     */
+    const signatureMelange = (r: Record<string, number>) => Object.entries(r || {})
+        .filter(([, v]) => (Number(v) || 0) > 0).map(([k, v]) => `${k.trim().toUpperCase()}x${v}`).sort().join('|');
+    const cleModele = (m: ModelData) => sansAccents(String(m.meta_data?.reference || m.ordreCoupe?.refModele || m.meta_data?.nom_modele || '').trim());
+    const suggestionsTrace = (p: PlacementCoupe): { source: string; placement: PlacementCoupe }[] => {
+        if (!selectedModel) return [];
+        const cle = cleModele(selectedModel);
+        const sig = signatureMelange(p.ratios);
+        if (!cle || !sig) return [];
+        const out: { source: string; placement: PlacementCoupe }[] = [];
+        for (const m of models || []) {
+            if (!m || m.id === selectedModel.id || cleModele(m) !== cle) continue;
+            const tissusM = tissuParDefaut(m.ordreCoupe || ({} as OrdreCoupe));
+            for (const q of m.ordreCoupe?.placements || []) {
+                if (!q.fichier?.data || signatureMelange(q.ratios) !== sig) continue;
+                const nomTissu = tissusM.find(t => t.id === q.tissu)?.nom || 'Tissu';
+                if (sansAccents(nomTissu) !== sansAccents(tissuCourant.nom)) continue;
+                const quand = m.updatedAt ? new Date(m.updatedAt).toLocaleDateString('fr-FR') : '';
+                out.push({ source: `${m.ordreCoupe?.refModele || m.meta_data?.nom_modele || ''}${quand ? ` (${quand})` : ''}`, placement: q });
+            }
+        }
+        return out.sort((a, b) => (b.placement.efficience || 0) - (a.placement.efficience || 0));
+    };
+
+    /** Couverture d'une matiere : ses pieces par taille face a la commande. null = rien de planifie. */
+    const couvertureTissu = (id: string): 'exacte' | 'ecart' | null => {
+        const lignes = (ordre.matelasLines || []).filter(l => tissuDe(l) === id);
+        if (!lignes.length) return null;
+        const commande: Record<string, number> = {};
+        const nomsC = nomsCouleurs.length ? nomsCouleurs : [];
+        sizes.forEach((s, i) => { commande[s] = nomsC.length ? nomsC.reduce((a, c) => a + (commandeCouleur(c)[s] || 0), 0) : (matrixStats.colTotals[i] || 0); });
+        return sizes.every(s => lignes.reduce((a, l) => a + (l.plis || 0) * (Number(l.ratios?.[s]) || 0), 0) === commande[s]) ? 'exacte' : 'ecart';
     };
 
     /** Ce qui reste a couper dans la matiere ouverte : commande moins les matelas deja coupes. */
@@ -2540,6 +2607,13 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         >
                                             {t.nom}
                                             <span className="ml-1.5 text-[10px] font-bold text-slate-400">{(ordre.matelasLines || []).filter(l => tissuDe(l) === t.id).length}</span>
+                                            {(() => {
+                                                const c = couvertureTissu(t.id);
+                                                if (!c) return null;
+                                                return c === 'exacte'
+                                                    ? <CheckCircle2 className="inline w-3 h-3 ml-1 text-emerald-500" />
+                                                    : <AlertTriangle className="inline w-3 h-3 ml-1 text-amber-500"><title>{tx(lang, { fr: 'Les matelas ne couvrent pas exactement la commande', ar: 'المفرشات لا تغطّي الطلب بالضبط', en: 'Lays do not cover the order exactly' })}</title></AlertTriangle>;
+                                            })()}
                                         </button>
                                     ))}
                                     </div>
@@ -2589,6 +2663,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         />
                                     </label>
                                     <label className="block">
+                                        <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{tx(lang, { fr: 'Laize (cm)', ar: 'عرض الثوب (سم)', en: 'Width (cm)' })}</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={tissuCourant.laizeCm || ''}
+                                            onChange={e => majTissu(tissuCourant.id, { laizeCm: Number(e.target.value) || undefined })}
+                                            placeholder="150"
+                                            title={tx(lang, { fr: 'Laize reelle du tissu recu : chaque trace est compare a elle', ar: 'العرض الحقيقي للثوب المستلم: كل تفصيلة تُقارن به', en: 'Actual fabric width: every marker is checked against it' })}
+                                            className="h-9 w-24 px-2.5 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[13px] font-semibold outline-none focus:border-indigo-400"
+                                        />
+                                    </label>
+                                    <label className="block">
                                         <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{tx(lang, { fr: 'Rouleau (m)', ar: 'طول الرولو (م)', en: 'Roll (m)' })}</span>
                                         <input
                                             type="number"
@@ -2620,6 +2706,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         consoTotale={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id).reduce((acc, l) => acc + (l.plis || 0) * ((l.longTracee || 0) + AMORCE_PAR_PLI_M), 0)]))}
                                         maxPlisDefaut={Number(autoMaxPly) || 100}
                                         rouleauM={tissuCourant.rouleauM}
+                                        laizeTissuCm={tissuCourant.laizeCm}
+                                        suggestions={suggestionsTrace}
                                         onAjouter={ajouterPlacement}
                                         onModifier={modifierPlacement}
                                         onSupprimer={p => setPlacementASupprimer(p)}
@@ -3591,6 +3679,23 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                 <ChampHeure label={tx(lang, { fr: 'Début', ar: 'البداية', en: 'Start' })} value={pointageDebut} onChange={setPointageDebut} />
                                                 <ChampHeure label={tx(lang, { fr: 'Fin', ar: 'النهاية', en: 'End' })} value={pointageFin} onChange={setPointageFin} />
                                             </div>
+                                            <div>
+                                                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted mb-1">{tx(lang, { fr: 'Plis reellement coupes', ar: 'الطيّات المقصوصة فعلاً', en: 'Plies actually cut' })}</span>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    value={plisCoupes}
+                                                    onChange={e => setPlisCoupes(e.target.value === '' ? '' : Math.max(0, Math.round(Number(e.target.value))))}
+                                                    placeholder={String(targetLine?.plis || 0)}
+                                                    className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[14px] font-bold tabular-nums outline-none focus:border-indigo-400"
+                                                />
+                                                {typeof plisCoupes === 'number' && plisCoupes > 0 && plisCoupes < (targetLine?.plis || 0) && (
+                                                    <label className="mt-2 flex items-start gap-2 text-[12px] text-amber-800 dark:text-amber-300 cursor-pointer">
+                                                        <input type="checkbox" checked={creerReste} onChange={e => setCreerReste(e.target.checked)} className="mt-0.5 w-4 h-4 accent-amber-600" />
+                                                        <span>{tx(lang, { fr: `Creer un matelas pour les ${(targetLine?.plis || 0) - plisCoupes} plis restants (numero suivant)`, ar: `إنشاء مفرشة لـ ${(targetLine?.plis || 0) - plisCoupes} طيّة الباقية (بالرقم التالي)`, en: `Create a lay for the ${(targetLine?.plis || 0) - plisCoupes} remaining plies` })}</span>
+                                                    </label>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                     <div className="flex items-center justify-end gap-2 mt-5">
@@ -3602,7 +3707,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                 // Le debut garde le jour ou l'etalage a commence ; la fin, c'est aujourd'hui.
                                                 debut: isoDepuisHeure(pointageDebut, targetLine?.debut ? new Date(targetLine.debut) : new Date()),
                                                 fin: isoDepuisHeure(pointageFin),
-                                            } : undefined)}
+                                            } : undefined, willBeFait && typeof plisCoupes === 'number' ? { plis: plisCoupes, creerReste } : undefined)}
                                             className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
                                         >
                                             {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}

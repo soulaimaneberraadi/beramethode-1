@@ -574,6 +574,11 @@ export interface TissuCoupe {
   recuM?: number;
   /** Longueur habituelle d'un rouleau : dit combien de plis un rouleau donne pour chaque placement. */
   rouleauM?: number;
+  /**
+   * Laize reelle du tissu recu, en cm. Un trace plus large ne tient pas sur la
+   * table ; un trace plus etroit laisse une bande perdue a chaque pli.
+   */
+  laizeCm?: number;
 }
 
 /** Numerotation d'un trace, gardee pour tous les matelas qui l'etalent. */
