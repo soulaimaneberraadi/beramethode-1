@@ -13,7 +13,7 @@ import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { nomPlacement } from '../../lib/planMatelas';
 import { associerTailles, lireEntete, lireNotation } from '../../lib/ordreCoupe';
-import { analyserTexte } from '../../lib/numerotationPlt';
+import { analyserFichier, analyserTexte } from '../../lib/numerotationPlt';
 import { decoderOctets } from '../../lib/hpgl';
 import { grilleClavier } from './grilleClavier';
 
@@ -42,6 +42,24 @@ const memesRatios = (a: Record<string, number>, b: Record<string, number>) => {
     const cles = new Set([...Object.keys(a), ...Object.keys(b)]);
     for (const k of cles) if ((Number(a[k]) || 0) !== (Number(b[k]) || 0)) return false;
     return true;
+};
+
+/**
+ * Tailles ecrites dans l'en-tete du trace. Lues aussi pour les fichiers
+ * deposes avant ce controle : un vieux fichier n'echappe pas a la verification.
+ */
+const taillesDuTrace = (p: PlacementCoupe, tailles: string[]): Record<string, number> | null => {
+    if (p.taillesTrace && Object.keys(p.taillesTrace).length) return p.taillesTrace;
+    if (!p.fichier?.data) return null;
+    try {
+        const a = analyserFichier(p.fichier);
+        const e = a ? lireEntete(a.entete) : null;
+        if (!e?.tailles) return null;
+        const { ratios } = associerTailles(e.tailles, tailles);
+        return Object.keys(ratios).length ? ratios : null;
+    } catch {
+        return null;
+    }
 };
 
 const lireDataUrl = (f: File) => new Promise<string>((ok, ko) => {
@@ -244,15 +262,27 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                                         {L('Perte en largeur', 'ضياع في العرض', 'Width loss')} {(laizeTissuCm - p.laizeCm).toFixed(1)} cm ({(((laizeTissuCm - p.laizeCm) / laizeTissuCm) * 100).toFixed(1)}%)
                                                     </div>
                                                 ) : null}
-                                                {p.taillesTrace && Object.keys(p.taillesTrace).length > 0 && !memesRatios(p.ratios || {}, p.taillesTrace) && (
-                                                    <div className="flex items-center gap-1 mt-0.5 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                                                        <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
-                                                        <span className="text-[10px] font-semibold text-amber-800 dark:text-amber-300 truncate">{L('Trace :', 'الملف:', 'Trace:')} {nomPlacement(p.taillesTrace, tailles)}</span>
-                                                        <button type="button" onClick={() => onModifier(p.id, { ratios: { ...p.taillesTrace! }, nom: nomPlacement(p.taillesTrace!, tailles) })} className="ml-auto shrink-0 text-[10px] font-bold text-amber-700 hover:underline">
-                                                            {L('Adopter', 'اعتماد', 'Use')}
-                                                        </button>
-                                                    </div>
-                                                )}
+                                                {(() => {
+                                                    const trace = taillesDuTrace(p, tailles);
+                                                    if (!trace || memesRatios(p.ratios || {}, trace)) return null;
+                                                    const pcsTrace = Object.values(trace).reduce((a, v) => a + (Number(v) || 0), 0);
+                                                    return (
+                                                        <div className="mt-0.5 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                                                            <div className="flex items-start gap-1">
+                                                                <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
+                                                                <span className="text-[10px] font-semibold text-amber-800 dark:text-amber-300 leading-tight">
+                                                                    {L('Le fichier contient', 'الملف فيه', 'The file holds')} <b className="uppercase">{nomPlacement(trace, tailles)}</b> ({pcsTrace} {L('pc/pli', 'قطعة/طيّة', 'pc/ply')}), {L('la ligne dit', 'والسطر يقول', 'the row says')} <b className="uppercase">{nomPlacement(p.ratios || {}, tailles) || '—'}</b> ({pcs} {L('pc/pli', 'قطعة/طيّة', 'pc/ply')}).
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between gap-2 mt-1">
+                                                                <span className="text-[9px] text-amber-700 dark:text-amber-400">{L('Mauvais fichier ? Remplacez-le.', 'ملف خاطئ؟ استبدله.', 'Wrong file? Replace it.')}</span>
+                                                                <button type="button" onClick={() => onModifier(p.id, { ratios: { ...trace }, nom: nomPlacement(trace, tailles), taillesTrace: trace })} className="shrink-0 h-6 px-2 rounded bg-amber-600 text-white text-[10px] font-bold hover:bg-amber-700">
+                                                                    {L('Prendre les tailles du fichier', 'اعتماد مقاسات الملف', 'Use the file sizes')}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         ) : (
                                             <div className="flex flex-col gap-1">
