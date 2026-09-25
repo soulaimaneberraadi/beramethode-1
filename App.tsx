@@ -2185,6 +2185,8 @@ export default function App() {
                             onNavigate={(v) => handleNavigation(v as any)}
                             onCreateNewProject={() => createNewProject('coupe')}
                             onTransferToPlanning={envoyerAuPlanning}
+                            settings={globalSettings}
+                            setSettings={setGlobalSettings}
                         />
                     )}
 

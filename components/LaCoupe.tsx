@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ModelData, OrdreCoupe, Faisceau, MatelasFichier } from '../types';
+import { ModelData, OrdreCoupe, Faisceau, MatelasFichier, AppSettings, GroupeCoupe } from '../types';
 import {
     Scissors, FileText, CheckCircle2, Clock, Search, Layers, ChevronRight,
     AlertCircle, Printer, PackageSearch, Plus, Trash2, Barcode,
@@ -17,6 +17,11 @@ import { useLang } from '../src/context/LanguageContext';
 import ExcelInput from './ExcelInput';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import AnnotationPlt from './coupe/AnnotationPlt';
+import {
+    CartesAccueil, PageOrdres, PageTissu, PageGroupes, useRhDuJour, ChampHeure, ChoixGroupe,
+    isoDepuisHeure, heureLocale, type PageAccueil,
+} from './coupe/AccueilCoupe';
+import { AMORCE_PAR_PLI_M, presenceGroupes } from '../lib/coupeAtelier';
 import { TEXTILE_COLORS } from '../data/textileData';
 import { PurchasingData } from '../types';
 
@@ -41,16 +46,13 @@ interface LaCoupeProps {
     onCreateNewProject?: () => void;
     /** Ouvre la fenetre qui cree l'OF au Planning (partagee avec la Bibliotheque). */
     onTransferToPlanning?: (model: ModelData) => void;
+    /** Reglages de l'entreprise : on y garde les groupes de coupe. */
+    settings?: AppSettings;
+    setSettings?: React.Dispatch<React.SetStateAction<AppSettings>>;
 }
 
 const MOBILE_BREAKPOINT = 768;
 
-/**
- * Longueur perdue en bout de chaque pli (amorce/coupe de lisiere), en metres.
- * Elle entre dans la consommation de chaque matelas : la changer ici la
- * change partout — tableau, bilan, suivi matiere et ticket imprime.
- */
-const AMORCE_PAR_PLI_M = 0.03;
 
 /** Les memes propositions que la Fiche Technique, pour que les types se retrouvent a l'identique. */
 const TYPES_VETEMENT = ['T-Shirt', 'Polo', 'Chemise', 'Pantalon', 'Robe', 'Veste', 'Sweat', 'Short', 'Jupe', 'Pyjama', 'Sous-vêtement'];
@@ -74,7 +76,7 @@ function useIsMobile(): boolean {
     return isMobile;
 }
 
-export default function LaCoupe({ models, setModels, onOpenInAtelier, currentModelId, setFicheData, onNavigate, onCreateNewProject, onTransferToPlanning }: LaCoupeProps) {
+export default function LaCoupe({ models, setModels, onOpenInAtelier, currentModelId, setFicheData, onNavigate, onCreateNewProject, onTransferToPlanning, settings, setSettings }: LaCoupeProps) {
     const isMobile = useIsMobile();
     const { lang } = useLang();
     /* Préférence d'agrandissement partagée : celui qui agrandit la liste des
@@ -214,6 +216,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const coupeModels = (models || []).filter(m =>
         m && m.meta_data && (m.workflowStatus === 'COUPE' || m.isPublishedToLibrary === false || !m.workflowStatus)
     );
+    /** Pour la consommation de « n'importe quel modele » : y compris ceux deja partis au Planning. */
+    const modelesAvecCoupe = (models || []).filter(m => m && m.meta_data && m.ordreCoupe);
+
+    const groupesCoupe = settings?.groupesCoupe || [];
+    const setGroupesCoupe = (g: GroupeCoupe[]) => setSettings?.(prev => ({ ...prev, groupesCoupe: g }));
 
     // Modèles publiés à la Bibliothèque, pas encore engagés en Coupe — proposés dans "Sélectionner un modèle existant"
     const libraryModelsForCoupe = (models || []).filter(m =>
@@ -586,6 +593,23 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
 
     const [deleteLineConfirmId, setDeleteLineConfirmId] = useState<string | null>(null);
     const [toggleFaitConfirmId, setToggleFaitConfirmId] = useState<string | null>(null);
+    const [demarrerId, setDemarrerId] = useState<string | null>(null);
+    // Pointage du matelas saisi dans la fenetre de confirmation.
+    const [pointageGroupe, setPointageGroupe] = useState<string | undefined>(undefined);
+    const [pointageDebut, setPointageDebut] = useState('');
+    const [pointageFin, setPointageFin] = useState('');
+    /** Le meme groupe enchaine souvent plusieurs matelas : on le propose d'office. */
+    const [dernierGroupe, setDernierGroupe] = useState<string | undefined>(undefined);
+
+    useEffect(() => {
+        const id = toggleFaitConfirmId || demarrerId;
+        if (!id) return;
+        const l = (ordre.matelasLines || []).find(x => x.id === id);
+        setPointageGroupe(l?.groupe || dernierGroupe);
+        setPointageDebut(heureLocale(l?.debut));
+        setPointageFin(heureLocale(new Date().toISOString()));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [toggleFaitConfirmId, demarrerId]);
 
     const handleDeleteMatelasLine = (id: string) => {
         setOrdre(prev => ({
@@ -595,15 +619,40 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         setDeleteLineConfirmId(null);
     };
 
-    /** Suivi d'avancement : une ligne cochée = matelas effectivement coupé. */
-    const handleToggleMatelasFait = (id: string) => {
+    /**
+     * Suivi d'avancement : une ligne cochée = matelas effectivement coupé.
+     * En le cochant on note aussi qui l'a coupe et quand : c'est ce qui
+     * alimente le classement des groupes et la base de temps des matelas.
+     * Decocher retire la fin (le matelas n'est plus coupe) mais garde le debut.
+     */
+    const handleToggleMatelasFait = (id: string, pointage?: { groupe?: string; debut?: string | null; fin?: string | null }) => {
         setOrdre(prev => ({
             ...prev,
-            matelasLines: (prev.matelasLines || []).map(line =>
-                line.id === id ? { ...line, fait: !line.fait } : line
-            )
+            matelasLines: (prev.matelasLines || []).map(line => {
+                if (line.id !== id) return line;
+                if (line.fait) return { ...line, fait: false, fin: undefined };
+                return {
+                    ...line,
+                    fait: true,
+                    groupe: pointage?.groupe || line.groupe,
+                    debut: pointage?.debut || line.debut,
+                    fin: pointage?.fin || undefined,
+                };
+            })
         }));
+        if (pointage?.groupe) setDernierGroupe(pointage.groupe);
         setToggleFaitConfirmId(null);
+    };
+
+    /** Le groupe commence l'etalage : on retient l'heure, la fin viendra en cochant « coupe ». */
+    const handleDemarrerMatelas = (id: string, groupe: string | undefined) => {
+        const debut = new Date().toISOString();
+        setOrdre(prev => ({
+            ...prev,
+            matelasLines: (prev.matelasLines || []).map(line => line.id === id ? { ...line, debut, groupe: groupe || line.groupe } : line)
+        }));
+        if (groupe) setDernierGroupe(groupe);
+        setDemarrerId(null);
     };
 
     const handleUpdateMatelasMatiere = (id: string, value: string) => {
@@ -2176,7 +2225,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                 <table className="w-full text-[12px] border-collapse border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface rounded-lg overflow-hidden min-w-[900px]">
                                                     <thead>
                                                         <tr className="bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border text-[10px] uppercase tracking-wider text-left">
-                                                            <th className="py-2.5 px-2 font-bold text-center w-10" title={tx(lang, { fr: 'Coupé', ar: 'مقصوص', en: 'Cut', es: 'Cortado', pt: 'Cortado', tr: 'Kesildi' })}>
+                                                            <th className="py-2.5 px-2 font-bold text-center w-16" title={tx(lang, { fr: 'Coupé', ar: 'مقصوص', en: 'Cut', es: 'Cortado', pt: 'Cortado', tr: 'Kesildi' })}>
                                                                 <CheckCircle2 className="w-3.5 h-3.5 mx-auto" />
                                                             </th>
                                                             <th className="py-2.5 px-3 font-bold text-center w-40">{tx(lang, { fr: 'Fichier (DXF/PLT)', ar: 'الملف (DXF/PLT)', en: 'File (DXF/PLT)', es: 'Archivo (DXF/PLT)', pt: 'Arquivo (DXF/PLT)', tr: 'Dosya (DXF/PLT)' })}</th>
@@ -2211,6 +2260,23 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                                         >
                                                                             {line.fait && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                                                                         </button>
+                                                                        {/* Qui coupe, et depuis quand : la base du classement des groupes */}
+                                                                        {!line.fait && !line.debut && groupesCoupe.length > 0 && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setDemarrerId(line.id)}
+                                                                                title={tx(lang, { fr: 'Démarrer ce matelas', ar: 'بدء هذه المفرشة', en: 'Start this lay' })}
+                                                                                className="mt-1 mx-auto flex items-center justify-center w-7 h-6 rounded-md bg-slate-100 dark:bg-dk-elevated text-slate-500 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 transition-colors"
+                                                                            >
+                                                                                <PlayCircle className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                        )}
+                                                                        {(line.debut || line.groupe) && (
+                                                                            <div className={`mt-1 text-[9px] leading-tight font-semibold tabular-nums whitespace-nowrap ${line.fait ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                                                                {line.groupe && <div className="truncate max-w-[64px] mx-auto">{groupesCoupe.find(g => g.id === line.groupe)?.nom || '—'}</div>}
+                                                                                {line.debut && <div>{heureLocale(line.debut)}{line.fait && line.fin ? `→${heureLocale(line.fin)}` : '…'}</div>}
+                                                                            </div>
+                                                                        )}
                                                                     </td>
                                                                     <td className="py-1 px-1.5 align-top">
                                                                         <div className="relative flex flex-col gap-1 items-center">
@@ -2768,6 +2834,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         ) : (
                             <EmptyDashboard
                                 models={filteredModels}
+                                ordres={coupeModels}
+                                tousModeles={modelesAvecCoupe}
+                                groupes={groupesCoupe}
+                                setGroupes={setGroupesCoupe}
                                 statusMap={STATUS_MAP}
                                 prepCount={prepCount}
                                 activeCount={activeCount}
@@ -3150,15 +3220,81 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             <X className="w-4 h-4" />
                                         </button>
                                     </div>
+                                    {willBeFait && (
+                                        <div className="space-y-3 border-t border-slate-100 dark:border-dk-border pt-3">
+                                            {groupesCoupe.length > 0 ? (
+                                                <div>
+                                                    <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted mb-1">{tx(lang, { fr: 'Groupe qui a coupé', ar: 'المجموعة التي قصّت', en: 'Group that cut it' })}</span>
+                                                    <ChoixGroupe groupes={groupesCoupe} value={pointageGroupe} onChange={setPointageGroupe} />
+                                                </div>
+                                            ) : (
+                                                <p className="text-[11px] text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Créez vos groupes depuis l\'accueil (carte « Groupes présents ») pour suivre qui coupe chaque matelas.', ar: 'أنشئ مجموعاتك من الصفحة الرئيسية (بطاقة «المجموعات الحاضرة») لتتبّع من يقصّ كل مفرشة.', en: 'Create your groups from the home page to track who cuts each lay.' })}</p>
+                                            )}
+                                            <div className="flex gap-2">
+                                                <ChampHeure label={tx(lang, { fr: 'Début', ar: 'البداية', en: 'Start' })} value={pointageDebut} onChange={setPointageDebut} />
+                                                <ChampHeure label={tx(lang, { fr: 'Fin', ar: 'النهاية', en: 'End' })} value={pointageFin} onChange={setPointageFin} />
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="flex items-center justify-end gap-2 mt-5">
                                         <button type="button" onClick={() => setToggleFaitConfirmId(null)} className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 transition-colors">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel', es: 'Cancelar', pt: 'Cancelar', tr: 'İptal' })}</button>
-                                        <button type="button" onClick={() => handleToggleMatelasFait(toggleFaitConfirmId)} className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">{tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}</button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleToggleMatelasFait(toggleFaitConfirmId, willBeFait ? {
+                                                groupe: pointageGroupe,
+                                                // Le debut garde le jour ou l'etalage a commence ; la fin, c'est aujourd'hui.
+                                                debut: isoDepuisHeure(pointageDebut, targetLine?.debut ? new Date(targetLine.debut) : new Date()),
+                                                fin: isoDepuisHeure(pointageFin),
+                                            } : undefined)}
+                                            className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                                        >
+                                            {tx(lang, { fr: 'Confirmer', ar: 'تأكيد', en: 'Confirm', es: 'Confirmar', pt: 'Confirmar', tr: 'Onayla' })}
+                                        </button>
                                     </div>
                                 </>
                             );
                         })()}
                 </SheetModal>
             )}
+
+            {demarrerId && (() => {
+                const idx = (ordre.matelasLines || []).findIndex(l => l.id === demarrerId);
+                return (
+                    <SheetModal
+                        onClose={() => setDemarrerId(null)}
+                        size="sm"
+                        zClass="z-[95]"
+                        bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+                    >
+                        <div className="flex items-start gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-amber-50 dark:bg-amber-900/30">
+                                <PlayCircle className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div className="flex-1">
+                                <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">
+                                    {tx(lang, { fr: 'Démarrer le matelas', ar: 'بدء المفرشة', en: 'Start lay' })} {idx + 1}
+                                </h3>
+                                <p className="text-[11px] text-slate-500 dark:text-dk-muted mt-0.5">{tx(lang, { fr: 'L\'heure de début est notée maintenant ; la fin, quand vous le cocherez « coupé ».', ar: 'تُسجَّل ساعة البداية الآن، والنهاية حين تعلّمها «مقصوصة».', en: 'Start time is recorded now; the end when you mark it cut.' })}</p>
+                            </div>
+                            <button type="button" onClick={() => setDemarrerId(null)} className="p-1.5 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full text-slate-400 shrink-0">
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <ChoixGroupe groupes={groupesCoupe} value={pointageGroupe} onChange={setPointageGroupe} />
+                        <div className="flex items-center justify-end gap-2 mt-5">
+                            <button type="button" onClick={() => setDemarrerId(null)} className="h-10 px-4 rounded-lg text-[12px] font-semibold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel' })}</button>
+                            <button
+                                type="button"
+                                disabled={!pointageGroupe}
+                                onClick={() => handleDemarrerMatelas(demarrerId, pointageGroupe)}
+                                className="h-10 px-4 rounded-lg text-[12px] font-semibold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40"
+                            >
+                                {tx(lang, { fr: 'Démarrer', ar: 'ابدأ', en: 'Start' })}
+                            </button>
+                        </div>
+                    </SheetModal>
+                );
+            })()}
 
             {/* TOAST */}
             {toastMessage && (
@@ -3695,9 +3831,15 @@ function StatCard({ label, value, icon: Icon, color, delay }: {
 
 /* ─────── Empty Dashboard (when no model selected) ─────── */
 function EmptyDashboard({
-    models, statusMap, prepCount, activeCount, valCount, getProgress, onNew, onOpen,
+    models, ordres, tousModeles, groupes, setGroupes, statusMap, prepCount, activeCount, valCount, getProgress, onNew, onOpen,
 }: {
     models: ModelData[];
+    /** Tous les ordres de La Coupe, sans le filtre de recherche de la liste. */
+    ordres: ModelData[];
+    /** Tout modele qui porte un ordre de coupe, meme parti au Planning. */
+    tousModeles: ModelData[];
+    groupes: GroupeCoupe[];
+    setGroupes: (g: GroupeCoupe[]) => void;
     statusMap: any;
     prepCount: number;
     activeCount: number;
@@ -3713,29 +3855,19 @@ function EmptyDashboard({
         return db - da;
     }).slice(0, 6);
 
-    /**
-     * Ce qui compte a l'atelier, calcule sur les matelas eux-memes :
-     * ce qui reste a couper, ce qui l'est deja, et le tissu encore a etaler.
-     * Un ordre sans matelas saisi compte pour sa quantite entiere, a couper.
-     * Les ordres valides ou rejetes ne laissent rien a couper.
-     */
-    let aCouper = 0, coupees = 0, tissuRestant = 0;
-    for (const m of models) {
-        const st = m.ordreCoupe?.status || 'EN_PREPARATION';
-        const ouvert = st !== 'VALIDE' && st !== 'REJETE';
-        const lignes = (m.ordreCoupe?.matelasLines || []).filter(l => Object.values(l.ratios || {}).some(r => (Number(r) || 0) > 0));
-        if (lignes.length === 0) {
-            if (ouvert) aCouper += m.ordreCoupe?.qteTotale || m.meta_data?.quantity || 0;
-            continue;
-        }
-        for (const l of lignes) {
-            const pieces = (l.plis || 0) * Object.values(l.ratios || {}).reduce((s, r) => s + (Number(r) || 0), 0);
-            if (l.fait) coupees += pieces;
-            else if (ouvert) {
-                aCouper += pieces;
-                tissuRestant += (l.plis || 0) * ((l.longTracee || 0) + AMORCE_PAR_PLI_M);
-            }
-        }
+    const [page, setPage] = useState<PageAccueil | null>(null);
+    const rh = useRhDuJour();
+    const presence = useMemo(() => presenceGroupes(groupes, rh.ouvriers, rh.pointage, rh.date), [groupes, rh.ouvriers, rh.pointage, rh.date]);
+
+    // Chaque carte ouvre sa page a la place de l'accueil, avec un retour.
+    if (page) {
+        return (
+            <div className="p-4 md:p-6 max-w-6xl 2xl:max-w-7xl mx-auto">
+                {page === 'ordres' && <PageOrdres models={ordres} onBack={() => setPage(null)} onOpen={onOpen} />}
+                {page === 'tissu' && <PageTissu models={tousModeles} onBack={() => setPage(null)} onOpen={onOpen} />}
+                {page === 'groupes' && <PageGroupes models={tousModeles} groupes={groupes} setGroupes={setGroupes} rh={rh} onBack={() => setPage(null)} />}
+            </div>
+        );
     }
 
     return (
@@ -3771,12 +3903,8 @@ function EmptyDashboard({
                 </div>
             </div>
 
-            {/* Les comptes par statut sont deja dans l en-tete : ici, le travail qui reste */}
-            <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                <StatCard label={tx(lang, { fr: 'À couper', ar: 'للقص', en: 'To cut', es: 'Por cortar', pt: 'A cortar', tr: 'Kesilecek' })} value={aCouper} icon={Scissors} color="bg-rose-500" delay={200} />
-                <StatCard label={tx(lang, { fr: 'Coupées', ar: 'مقصوصة', en: 'Cut', es: 'Cortadas', pt: 'Cortadas', tr: 'Kesilen' })} value={coupees} icon={CheckCircle2} color="bg-emerald-500" delay={250} />
-                <StatCard label={tx(lang, { fr: 'Tissu à étaler', ar: 'ثوب للفرش', en: 'Fabric to spread', es: 'Tejido por extender', pt: 'Tecido a estender', tr: 'Serilecek kumaş' })} value={`${Math.round(tissuRestant).toLocaleString()} m`} icon={Layers} color="bg-indigo-500" delay={300} />
-            </div>
+            {/* Trois chiffres de l'atelier ; chacun ouvre sa page */}
+            <CartesAccueil models={ordres} groupes={groupes} presence={presence} etatRh={rh.etat} onOuvrir={setPage} />
 
             {/* Recent orders */}
             {recent.length > 0 && (

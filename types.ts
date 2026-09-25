@@ -356,6 +356,11 @@ export interface Pause {
 }
 
 export interface AppSettings {
+  /**
+   * Groupes de coupe. Pas le champ « equipe » de la RH : celui-la designe la
+   * parda (le poste de travail matin/soir), pas l'equipe qui coupe ensemble.
+   */
+  groupesCoupe?: GroupeCoupe[];
   // --- EXISTING FINANCIAL SETTINGS ---
   costMinute: number;
   useCostMinute: boolean;
@@ -548,6 +553,19 @@ export interface MatelasLine {
   fichier?: MatelasFichier; // attached DXF/PLT cutting file (base64)
   fait?: boolean; // ligne coupée/confirmée (suivi d'avancement)
   matiere?: string; // matière consommée par cette ligne (relie la conso au stock Simulation Fournitures)
+  /** Groupe de coupe qui a etale et coupe ce matelas (id de `AppSettings.groupesCoupe`). */
+  groupe?: string;
+  /** Debut et fin reels (ISO). Ils nourrissent le classement des groupes et, plus tard, un catalogue de temps des matelas. */
+  debut?: string;
+  fin?: string;
+}
+
+/** Equipe de coupe : quelques ouvriers de la RH qui etalent et coupent ensemble. */
+export interface GroupeCoupe {
+  id: string;
+  nom: string;
+  /** Ids `hr_workers` : leur presence vient du pointage. */
+  membres: string[];
 }
 
 export interface OrdreCoupe {
