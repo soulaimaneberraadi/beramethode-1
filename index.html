@@ -38,6 +38,9 @@
       ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
       * { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.1) transparent; }
       .dark ::-webkit-scrollbar-thumb { background: rgba(194,210,202,0.18); }
+      /* Rangees qu'on fait glisser au doigt : la classe etait utilisee partout sans jamais etre definie */
+      .no-scrollbar { scrollbar-width: none; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
       .dark .glass-card { background: rgba(20,33,28,0.72); border-color: rgba(157,181,171,0.10); }
       .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.3); }
       @media print { :root,.dark { color-scheme: light; } .dark * { background:#fff!important;color:#000!important; } }

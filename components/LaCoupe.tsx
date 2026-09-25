@@ -8,7 +8,7 @@ import {
     Palette, X, Menu, ChevronLeft, LayoutGrid, List, Calendar, BarChart3,
     Download, Filter, Copy, Edit3, MoreVertical, ArrowRight, TrendingUp,
     ArrowUpDown, RefreshCw, Zap, Target, Star, Hash, Upload, FolderOpen, Check,
-    PanelLeftClose, PanelLeftOpen, Library, ChevronDown, AlertTriangle
+    PanelLeftClose, PanelLeftOpen, Library, ChevronDown, AlertTriangle, ArrowLeft, Building2, Tag
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useRouteSegment } from '../lib/router';
@@ -51,6 +51,13 @@ const MOBILE_BREAKPOINT = 768;
  * change partout — tableau, bilan, suivi matiere et ticket imprime.
  */
 const AMORCE_PAR_PLI_M = 0.03;
+
+/** Les memes propositions que la Fiche Technique, pour que les types se retrouvent a l'identique. */
+const TYPES_VETEMENT = ['T-Shirt', 'Polo', 'Chemise', 'Pantalon', 'Robe', 'Veste', 'Sweat', 'Short', 'Jupe', 'Pyjama', 'Sous-vêtement'];
+
+const sansAccents = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const clientDe = (m: ModelData) => (m.ficheData?.client || '').trim();
+const typeDe = (m: ModelData) => (m.ficheData?.category || m.meta_data?.category || '').trim();
 
 function useIsMobile(): boolean {
     const [isMobile, setIsMobile] = useState<boolean>(() => {
@@ -217,10 +224,16 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         (m.meta_data?.reference || '').toLowerCase().includes(modelPickerSearch.toLowerCase())
     );
 
+    // Chaque mot tape doit se retrouver quelque part : « zara jupe » trouve les
+    // jupes du client Zara. Accents ignores, pour que « sous vetement » suffise.
+    const motsRecherche = sansAccents(searchTerm || '').split(/\s+/).filter(Boolean);
     const filteredModels = coupeModels.filter(m => {
         if (!m) return false;
-        const matchesSearch = (m.meta_data?.nom_modele || '').toLowerCase().includes((searchTerm || '').toLowerCase()) ||
-            (m.ordreCoupe?.refModele || '').toLowerCase().includes((searchTerm || '').toLowerCase());
+        const fouille = sansAccents([
+            m.meta_data?.nom_modele, m.ordreCoupe?.refModele, m.meta_data?.reference,
+            clientDe(m), typeDe(m),
+        ].filter(Boolean).join(' '));
+        const matchesSearch = motsRecherche.every(mot => fouille.includes(mot));
         const st = m.ordreCoupe?.status || 'EN_PREPARATION';
         const matchesStatus = filterStatus === 'ALL' || st === filterStatus;
         return matchesSearch && matchesStatus;
@@ -868,6 +881,26 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         if (currentModelId === selectedModel.id && setFicheData) setFicheData(updatedFiche);
     };
 
+    /**
+     * Client et type se saisissent aussi ici : un ordre cree directement en
+     * coupe n'a pas de fiche technique, et sans eux la recherche ne le
+     * retrouverait jamais. Meme chemin que la grille : enregistre au Sauvegarder.
+     */
+    const updateFicheChamp = (champ: 'client' | 'category', valeur: string) => {
+        if (!selectedModel) return;
+        const updatedFiche = { ...buildFiche(), [champ]: valeur };
+        setModels(prev => prev.map(m => m.id === selectedModel.id ? { ...m, ficheData: updatedFiche } : m));
+        setSelectedModel({ ...selectedModel, ficheData: updatedFiche });
+        if (currentModelId === selectedModel.id && setFicheData) setFicheData(updatedFiche);
+    };
+
+    const clientsConnus = useMemo(() =>
+        [...new Set((models || []).map(m => m && clientDe(m)).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b)),
+    [models]);
+    const typesConnus = useMemo(() =>
+        [...new Set([...TYPES_VETEMENT, ...(models || []).map(m => m && typeDe(m)).filter(Boolean) as string[]])],
+    [models]);
+
     const colorInputRef = React.useRef<HTMLInputElement>(null);
 
     const buildFiche = () => selectedModel?.ficheData || {
@@ -1333,7 +1366,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" strokeWidth={2} />
                         <input
                             type="text"
-                            placeholder={tx(lang, { fr: 'Rechercher un ordre...', ar: 'البحث عن أمر...', en: 'Search an order...', es: 'Buscar una orden...', pt: 'Pesquisar uma ordem...', tr: 'Bir emir ara...' })}
+                            placeholder={tx(lang, { fr: 'Ordre, client ou type (jupe…)', ar: 'أمر، زبون أو نوع (تنورة…)', en: 'Order, client or type (skirt…)', es: 'Orden, cliente o tipo (falda…)', pt: 'Ordem, cliente ou tipo (saia…)', tr: 'Emir, müşteri veya tür (etek…)' })}
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             className="w-full h-9 pl-9 pr-3 text-[13px] text-slate-700 dark:text-dk-text-soft placeholder:text-slate-400 bg-slate-50 dark:bg-dk-bg focus:bg-white border border-transparent focus:border-slate-200 focus:ring-2 focus:ring-slate-100 rounded-md outline-none transition-all"
@@ -1383,6 +1416,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     const StatusIcon = conf.icon;
                     const ref = model.ordreCoupe?.refModele || model.meta_data?.reference || '';
                     const qte = model.ordreCoupe?.qteTotale || model.meta_data?.quantity || 0;
+                    // La reference repete souvent le nom a l'identique : inutile de l'afficher deux fois.
+                    const refDistincte = !!ref && ref !== model.meta_data?.nom_modele;
+                    const client = clientDe(model);
+                    const type = typeDe(model);
                     const progress = st === 'EN_PREPARATION' ? 25 : st === 'EN_COURS' ? 60 : st === 'SOUS_TRAITANCE' ? 75 : st === 'VALIDE' ? 100 : st === 'REJETE' ? 0 : 0;
                     return (
                         <div
@@ -1411,23 +1448,26 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             <span className="shrink-0 px-1 py-0.5 text-[8px] font-bold uppercase text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 rounded">{tx(lang, { fr: 'Draft', ar: 'مسودة', en: 'Draft', es: 'Borrador', pt: 'Rascunho', tr: 'Taslak' })}</span>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        {ref && (
-                                            <>
-                                            <span className={`text-[9px] font-medium truncate ${isSelected ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-400 dark:text-dk-muted'}`}>
-                                                {ref}
-                                            </span>
-                                            {qte > 0 && (
-                                                <>
-                                                    <span className="text-slate-300 dark:text-dk-muted text-[8px]">·</span>
-                                                    <span className={`text-[9px] font-medium ${isSelected ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-400 dark:text-dk-muted'}`}>
-                                                    {qte} pcs
+                                    {(client || type) && (
+                                        <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                                            {client && (
+                                                <span className={`inline-flex items-center gap-1 min-w-0 text-[10px] font-semibold ${isSelected ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-600 dark:text-dk-text-soft'}`}>
+                                                    <Building2 className="w-2.5 h-2.5 shrink-0 opacity-60" />
+                                                    <span className="truncate">{client}</span>
                                                 </span>
-                                                </>
                                             )}
-                                            </>
-                                        )}
-                                    </div>
+                                            {type && (
+                                                <span className="shrink-0 px-1 py-px rounded text-[8px] font-bold uppercase tracking-wide bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted">{type}</span>
+                                            )}
+                                        </div>
+                                    )}
+                                    {(refDistincte || qte > 0) && (
+                                        <div className={`flex items-center gap-1.5 mt-0.5 text-[9px] font-medium ${isSelected ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-400 dark:text-dk-muted'}`}>
+                                            {refDistincte && <span className="truncate">{ref}</span>}
+                                            {refDistincte && qte > 0 && <span className="text-slate-300 dark:text-dk-muted text-[8px]">·</span>}
+                                            {qte > 0 && <span className="shrink-0">{qte} pcs</span>}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className={`shrink-0 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide flex items-center gap-1 ${
                                     isSelected ? 'bg-indigo-100 text-indigo-600 dark:text-dk-accent-text' : 'bg-slate-50 dark:bg-dk-bg text-slate-500 dark:text-dk-muted'
@@ -1505,21 +1545,25 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         </button>
                     )}
 
+                    {/* Retour : en tete, fleche vers la gauche, comme la fleche du mobile */}
+                    {selectedModel && !isMobile && (
+                        <>
+                            <button
+                                onClick={() => setSelectedModel(null)}
+                                className="h-8 pl-1.5 pr-2.5 inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-500 dark:text-dk-muted hover:text-slate-900 dark:hover:text-dk-text hover:bg-slate-100 dark:hover:bg-dk-elevated text-[12px] font-medium transition-colors shrink-0"
+                                title={tx(lang, { fr: 'Retour à la liste', ar: 'العودة إلى القائمة', en: 'Back to list', es: 'Volver a la lista', pt: 'Voltar à lista', tr: 'Listeye dön' })}
+                            >
+                                <ArrowLeft className="w-4 h-4" strokeWidth={2} />
+                                <span>{tx(lang, { fr: 'Retour', ar: 'عودة', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}</span>
+                            </button>
+                            <div className="w-px h-5 bg-slate-200 dark:bg-dk-border shrink-0" />
+                        </>
+                    )}
+
                     <div className="flex items-baseline gap-2 shrink-0">
                         <h1 className={`${isMobile ? 'text-[15px]' : 'text-[15px]'} font-semibold text-slate-900 dark:text-dk-text tracking-tight`}>{tx(lang, { fr: 'La Coupe', ar: 'قسم القص', en: 'Cutting Dept.', es: 'Departamento de Corte', pt: 'Corte', tr: 'Kesim' })}</h1>
-                        {!isMobile && <span className="text-[12px] text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Ordre de Fabrication', ar: 'أمر تصنيع', en: 'Production Order', es: 'Orden de Fabricación', pt: 'Ordem de Fabricação', tr: 'Üretim Emri' })}</span>}
+                        {!isMobile && <span className="hidden xl:inline text-[12px] text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Ordre de Fabrication', ar: 'أمر تصنيع', en: 'Production Order', es: 'Orden de Fabricación', pt: 'Ordem de Fabricação', tr: 'Üretim Emri' })}</span>}
                     </div>
-
-                    {selectedModel && !isMobile && (
-                        <button
-                            onClick={() => setSelectedModel(null)}
-                            className="h-8 px-2.5 inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] font-medium transition-colors shrink-0"
-                            title={tx(lang, { fr: 'Retour à la liste', ar: 'العودة إلى القائمة', en: 'Back to list', es: 'Volver a la lista', pt: 'Voltar à lista', tr: 'Listeye dön' })}
-                        >
-                            <ArrowRight className="w-4 h-4" strokeWidth={2} />
-                            <span>{tx(lang, { fr: 'Retour', ar: 'عودة', en: 'Back', es: 'Volver', pt: 'Voltar', tr: 'Geri' })}</span>
-                        </button>
-                    )}
 
                     {/* Stats inline */}
                     {!isMobile && !selectedModel && (
@@ -1572,7 +1616,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             title={tx(lang, { fr: 'Filtres', ar: 'مرشحات', en: 'Filters', es: 'Filtros', pt: 'Filtros', tr: 'Filtreler' })}
                         >
                             <Filter className="w-4 h-4" strokeWidth={1.75} />
-                            {!isMobile && <span>{tx(lang, { fr: 'Filtres', ar: 'مرشحات', en: 'Filters', es: 'Filtros', pt: 'Filtros', tr: 'Filtreler' })}</span>}
+                            {!isMobile && <span className="hidden xl:inline">{tx(lang, { fr: 'Filtres', ar: 'مرشحات', en: 'Filters', es: 'Filtros', pt: 'Filtros', tr: 'Filtreler' })}</span>}
                         </button>
                         {!isMobile && (
                             <button
@@ -1581,7 +1625,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 title={tx(lang, { fr: 'Export Excel', ar: 'تصدير Excel', en: 'Export Excel', es: 'Exportar Excel', pt: 'Exportar Excel', tr: 'Excel Aktar' })}
                             >
                                 <Download className="w-4 h-4" strokeWidth={1.75} />
-                                <span>{tx(lang, { fr: 'Export', ar: 'تصدير', en: 'Export', es: 'Exportar', pt: 'Exportar', tr: 'Aktar' })}</span>
+                                <span className="hidden xl:inline">{tx(lang, { fr: 'Export', ar: 'تصدير', en: 'Export', es: 'Exportar', pt: 'Exportar', tr: 'Aktar' })}</span>
                             </button>
                         )}
                         {selectedModel && (
@@ -1731,8 +1775,31 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                     className="bg-transparent text-xl md:text-2xl font-bold text-white tracking-tight border-b border-transparent hover:border-white/20 focus:border-rose-500 outline-none w-full sm:w-72 transition-colors"
                                                     placeholder={tx(lang, { fr: 'Nom de la référence...', ar: 'اسم المرجع...', en: 'Reference name...', es: 'Nombre de la referencia...', pt: 'Nome da referência...', tr: 'Referans adı...' })}
                                                 />
-                                                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                                    <p className="text-slate-400 dark:text-dk-muted text-[11px] font-medium">{tx(lang, { fr: 'Paramètres de matelassage', ar: 'إعدادات المفرشة', en: 'Layering settings', es: 'Configuración de capas', pt: 'Configurações de esteiramento', tr: 'Katman ayarları' })}</p>
+                                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                                    <label className="inline-flex items-center gap-1.5 h-7 px-2 rounded-md bg-white/5 border border-white/10 focus-within:border-rose-500 transition-colors">
+                                                        <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                                                        <input
+                                                            type="text"
+                                                            list="coupe-clients-connus"
+                                                            value={selectedModel.ficheData?.client || ''}
+                                                            onChange={e => updateFicheChamp('client', e.target.value)}
+                                                            placeholder={tx(lang, { fr: 'Client', ar: 'الزبون', en: 'Client', es: 'Cliente', pt: 'Cliente', tr: 'Müşteri' })}
+                                                            className="w-28 bg-transparent text-[12px] font-semibold text-white placeholder:text-slate-500 outline-none"
+                                                        />
+                                                    </label>
+                                                    <label className="inline-flex items-center gap-1.5 h-7 px-2 rounded-md bg-white/5 border border-white/10 focus-within:border-rose-500 transition-colors">
+                                                        <Tag className="w-3 h-3 text-slate-400 shrink-0" />
+                                                        <input
+                                                            type="text"
+                                                            list="coupe-types-connus"
+                                                            value={selectedModel.ficheData?.category || selectedModel.meta_data?.category || ''}
+                                                            onChange={e => updateFicheChamp('category', e.target.value)}
+                                                            placeholder={tx(lang, { fr: 'Type (jupe, sweat…)', ar: 'النوع (تنورة…)', en: 'Type (skirt…)', es: 'Tipo (falda…)', pt: 'Tipo (saia…)', tr: 'Tür (etek…)' })}
+                                                            className="w-28 bg-transparent text-[12px] font-semibold text-white placeholder:text-slate-500 outline-none"
+                                                        />
+                                                    </label>
+                                                    <datalist id="coupe-clients-connus">{clientsConnus.map(c => <option key={c} value={c} />)}</datalist>
+                                                    <datalist id="coupe-types-connus">{typesConnus.map(t => <option key={t} value={t} />)}</datalist>
                                                     {onOpenInAtelier && (
                                                         <button
                                                             type="button"
@@ -3843,11 +3910,16 @@ function InputField({
 }
 
 /* ─────── Header Stats ─────── */
+/**
+ * Sans `color`, c'est le total : libelle toujours visible, pas de pastille.
+ * Les autres gardent leur pastille ; leur libelle ne s'affiche qu'en tres
+ * large, sinon la barre deborde et « Nouvel Ordre » passe hors de vue.
+ */
 function HeaderStat({ label, value, color }: { label: string; value: number; color?: string }) {
     return (
-        <div className="inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap">
-            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${color || 'bg-slate-400'}`} />
-            <span className="text-[11px] text-slate-500 dark:text-dk-muted">{label}</span>
+        <div className="inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap" title={`${label} : ${value}`}>
+            {color && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${color}`} />}
+            <span className={`text-[11px] text-slate-500 dark:text-dk-muted ${color ? 'hidden 2xl:inline' : ''}`}>{label}</span>
             <span className="text-[11px] font-semibold tabular-nums text-slate-700 dark:text-dk-text-soft">{value}</span>
         </div>
     );
