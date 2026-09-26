@@ -603,7 +603,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                                 paintOrder="stroke"
                                             >
                                                 <title>{nomPiece(index)}</title>
-                                                {texteNumero(numero.trim() || '—', style, contexte)}
+                                                {placement.texte ?? texteNumero(numero.trim() || '—', style, contexte)}
                                             </text>
                                         );
                                     })}

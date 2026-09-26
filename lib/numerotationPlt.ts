@@ -13,7 +13,7 @@ import {
     decoderOctets, encoderOctets, insererNumerosDansPieces, lireHpgl,
     type EtiquetteAAjouter, type EtiquetteHpgl, type LectureHpgl,
 } from './hpgl';
-import { contourContenant, contoursDePieces, placerNumeros, type Contour, type Placement } from './placementNumero';
+import { contourContenant, contourDuTexte, contoursDePieces, placerNumeros, type Contour, type Placement } from './placementNumero';
 
 /**
  * Un numero se lit de loin, a la table : grand par defaut. La transparence ne
@@ -107,7 +107,7 @@ export function analyserTexte(source: string): AnalysePlt {
     const lecture = lireHpgl(source);
     const { minX, minY, maxX, maxY } = lecture.cadre;
     const dedans = (e: EtiquetteHpgl) => e.x >= minX && e.x <= maxX && e.y >= minY && e.y <= maxY;
-    const contours = contoursDePieces(lecture.polylignes);
+    const contours = contoursDePieces(lecture.polylignes, lecture.unitesParMm);
     /*
      * UN numero par piece. Les traces du client ecrivent deux ou trois lignes
      * dans chaque piece (« XS A », « 4-57PHRTE-BAJDE », « L1 REMATADOS »...) :
@@ -184,6 +184,7 @@ export function posesNumero(a: AnalysePlt, numero: string, r: ReglagesNumero, ct
     if (r.hauteurCm <= 0 || r.largeurCm <= 0) return [];
     const exclus = new Set(r.exclus || []);
     const texte = texteNumero(numero.trim() || '0', r, ctx);
+    const texteCourt = texteNumero(numero.trim() || '0', { format: 'nu' });
     return a.candidats
         .filter(c => !exclus.has(c.index))
         .flatMap(({ index, etiquette }) => {
@@ -193,7 +194,7 @@ export function posesNumero(a: AnalysePlt, numero: string, r: ReglagesNumero, ct
             const largeurCm = r.largeurCm * (hauteurCm / r.hauteurCm);
             return placerNumeros({
                 etiquette,
-                contour: contourContenant(a.contours, etiquette.x, etiquette.y),
+                contour: contourDuTexte(a.contours, etiquette.x, etiquette.y),
                 texte,
                 hauteurCm,
                 largeurCm,
@@ -202,6 +203,7 @@ export function posesNumero(a: AnalysePlt, numero: string, r: ReglagesNumero, ct
                 ajustementXmm: aj?.x ?? 0,
                 ajustementYmm: aj?.y ?? 0,
                 positionLibre: !!aj?.libre,
+                texteCourt,
             }, r.repetitions || 1).map((placement, rang) => ({ index, rang, etiquette, placement }));
         });
 }
@@ -217,7 +219,7 @@ export function numeroterPlt(a: AnalysePlt, numero: string, r: ReglagesNumero, c
         const base: EtiquetteAAjouter = {
             x: placement.x,
             y: placement.y,
-            texte,
+            texte: placement.texte ?? texte,
             hauteurCm: placement.hauteurCm,
             largeurCm: placement.largeurCm,
             directionX: etiquette.directionX,

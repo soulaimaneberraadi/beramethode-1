@@ -13,7 +13,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { decoderOctets, lireHpgl } from './hpgl';
-import { REGLAGES_NUMERO_DEFAUT, analyserOctets, analyserTexte, numeroterPlt, posesNumero, texteNumero } from './numerotationPlt';
+import { REGLAGES_NUMERO_DEFAUT, alertesPoses, analyserOctets, analyserTexte, numeroterPlt, posesNumero, texteNumero } from './numerotationPlt';
 import { lireEntete } from './ordreCoupe';
 
 const ETX = '\x03';
@@ -90,6 +90,41 @@ assert.ok(numeros.every(x => x.origine === 5));
 const gras = decoderOctets(numeroterPlt(a, '77', { ...r, gras: true }, { code: 'TE' })!.buffer);
 assert.equal(gras.split(`LB77 TE${ETX}`).length - 1, 4);
 
+// --- Piece en V (nom pose au centre, dans le vide entre les bras) et piece tracee en morceaux ---
+{
+    const V =
+        'IN;IP0,0,1016,1016;SC0,1000,0,1000;SP1;PU0,0;PD90000,0,90000,40000,0,40000,0,0;PU;\n' +
+        // V : deux bras de ~10 cm, le centre (40000,20000) est dans le vide
+        'PU2000,20000;PD80000,38000,80000,30000,12000,20000,80000,10000,80000,2000,2000,20000;PU;\n' +
+        `DI1.000,0.000;SI0.3,0.45;LO5;PU40000,20000;LBL1 BRAS${ETX}\n` +
+        // carre trace en deux morceaux, crayon leve entre les deux (bouts a 0,2 mm)
+        'PU82000,5000;PD89000,5000,89000,15000;PU89000,15008;PD82000,15000,82000,5000;PU;\n' +
+        `PU85500,10000;LBS A${ETX}PU85500,9600;LBS${ETX}PU85500,9200;LBA${ETX}\n`;
+    const av = analyserTexte(V);
+    assert.equal(av.candidats.length, 2, 'une piece en V + un carre en morceaux');
+    const petit = { ...REGLAGES_NUMERO_DEFAUT, hauteurCm: 1.5, largeurCm: 1 };
+    const poses = posesNumero(av, '185', petit);
+    assert.equal(poses.length, 2);
+    assert.ok(poses.every(p => p.placement.statut !== 'force'), 'aucun numero pose a l aveugle');
+    // Le numero de la piece en V est dans un bras, pas dans le vide ou etait son nom.
+    const brasV = poses.find(p => p.etiquette.texte === 'L1 BRAS')!.placement;
+    assert.ok(Math.abs(brasV.y - 20000) > 3000 || brasV.x > 70000, `numero du V hors du vide (${Math.round(brasV.x)},${Math.round(brasV.y)})`);
+    // Le carre en morceaux est reconnu comme une piece.
+    assert.ok(av.contours.some(c => c.points.some(([x, y]) => x === 89000 && y === 15000)), 'contour recolle');
+}
+
+// --- Petite piece : le numero seul plutot que tout le texte qui deborde ---
+{
+    const P = 'IN;IP0,0,1016,1016;SC0,1000,0,1000;SP1;PU0,0;PD20000,0,20000,10000,0,10000,0,0;PU;\n' +
+        'PU1000,1000;PD2400,1000,2400,1500,1000,1500,1000,1000;PU;\n' +
+        `DI1.000,0.000;SI0.1,0.15;LO5;PU1700,1250;LBXS${ETX}\n`;
+    const ap = analyserTexte(P);
+    const [pose] = posesNumero(ap, '185', { ...REGLAGES_NUMERO_DEFAUT, format: 'parentheses', modele: '{n}-{code}' }, { code: 'TE' });
+    assert.equal(pose.placement.texte, '185', 'piece de 3,5 cm : « 185 » au lieu de « (185)-TE »');
+    const sortie = decoderOctets(numeroterPlt(ap, '185', { ...REGLAGES_NUMERO_DEFAUT, format: 'parentheses', modele: '{n}-{code}' }, { code: 'TE' })!.buffer);
+    assert.ok(sortie.includes(`LB185${ETX}`) && !sortie.includes('(185)-TE'), 'le fichier porte le texte court');
+}
+
 // --- Vrais traces de l'atelier, s'ils sont sur ce poste (jamais copies dans le depot) ---
 const DOSSIER = 'C:/Users/HP/Desktop/New folder';
 if (fs.existsSync(DOSSIER)) {
@@ -104,6 +139,7 @@ if (fs.existsSync(DOSSIER)) {
         const poses = posesNumero(an, '77', r, { code: 'TE' });
         const parPiece = new Set(poses.map(p => p.index));
         assert.equal(parPiece.size, an.candidats.length, `${nom} : un numero par piece`);
+        assert.equal(alertesPoses(poses).force, 0, `${nom} : aucun numero pose hors de sa piece`);
         const out = numeroterPlt(an, '77', r, { code: 'TE' });
         if (out) {
             const txt = decoderOctets(out.buffer);

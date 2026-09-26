@@ -25,7 +25,7 @@ import { AMORCE_PAR_PLI_M, presenceGroupes } from '../lib/coupeAtelier';
 import { planifierPlacements, decouperEnMatelas, nomPlacement, repartirPlis } from '../lib/planMatelas';
 import {
     TISSU_PRINCIPAL, TISSUS_PROPOSES, tissuDe, estPrincipal, migrerOrdre, appliquerPlacement, matelasDuPlacement,
-    plisPourPlacements, renumeroter, numeroSuivant, nomFichierMatelas, codeMatiere, type SensNumerotation,
+    plisPourPlacements, renumeroter, numeroSuivant, nomFichierMatelas, codeMatiere, codeTraceSuivant, type SensNumerotation,
 } from '../lib/ordreCoupe';
 import ImportExcelCoupe, { type ChoixImport } from './coupe/ImportExcelCoupe';
 import SerieEtiquetage from './coupe/SerieEtiquetage';
@@ -34,7 +34,7 @@ import { paquetsSerie, saisieDe } from '../lib/serieEtiquetage';
 import TablePlacements from './coupe/TablePlacements';
 import TableMatelas from './coupe/TableMatelas';
 import { grilleClavier } from './coupe/grilleClavier';
-import { useLienExcel, BarreExcel, PuceExcel } from './coupe/LienExcel';
+import { useLienExcel, BarreExcel } from './coupe/LienExcel';
 import ReglagesNumeroForm from './coupe/ReglagesNumeroForm';
 import { reglagesAvecDefaut, texteNumero } from '../lib/numerotationPlt';
 import { useDossierTraceur, PuceTraceur } from './coupe/DossierTraceur';
@@ -890,10 +890,20 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     }, [colors, sizes, gridQuantities]);
 
     const majTissu = (id: string, patch: Partial<TissuCoupe>) => setOrdre(prev => {
+        const avant = tissuParDefaut(prev).find(t => t.id === id);
         const liste = tissuParDefaut(prev).map(t => (t.id === id ? { ...t, ...patch } : t));
         // Le metrage recu du tissu principal reste aussi la ou le bilan le lit.
         const recu = id === TISSU_PRINCIPAL && 'recuM' in patch ? { tissuRecu: patch.recuM || 0 } : {};
-        return { ...prev, ...recu, tissus: liste };
+        // Le code de la matiere change : les codes de ses traces suivent (TE-01 -> FO-01).
+        let placements = prev.placements;
+        const apres = liste.find(t => t.id === id);
+        if ('code' in patch && avant && apres) {
+            const ancien = `${codeMatiere(avant)}-`, nouveau = `${codeMatiere(apres)}-`;
+            if (ancien !== nouveau) {
+                placements = (prev.placements || []).map(p => (p.tissu === id && p.code && p.code.toUpperCase().startsWith(ancien) ? { ...p, code: nouveau + p.code.slice(ancien.length) } : p));
+            }
+        }
+        return { ...prev, ...recu, tissus: liste, placements };
     });
     const ajouterTissu = (nom: string) => {
         const id = `TIS-${Date.now().toString(36)}`;
@@ -914,14 +924,16 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         setTissuActif(TISSU_PRINCIPAL);
     };
 
+    /** Code du prochain trace de la matiere ouverte : FO-01, FO-02... */
+    const codeSuivant = (o: OrdreCoupe) => codeTraceSuivant(codeMatiere(tissuCourant), (o.placements || []).filter(p => p.tissu === tissuCourant.id).map(p => p.code));
     const ajouterPlacement = () => setOrdre(prev => ({
         ...prev,
-        placements: [...(prev.placements || []), { id: `PLC-${Date.now().toString(36)}`, tissu: tissuCourant.id, nom: '', ratios: {} }],
+        placements: [...(prev.placements || []), { id: `PLC-${Date.now().toString(36)}`, tissu: tissuCourant.id, nom: '', ratios: {}, code: codeSuivant(prev) }],
     }));
     /** Placement cree deja rempli (plusieurs traces deposes d'un coup) ; rend son id. */
     const ajouterPlacementAvec = (init: Partial<PlacementCoupe>): string => {
         const id = `PLC-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4).toString(36)}`;
-        setOrdre(prev => ({ ...prev, placements: [...(prev.placements || []), { nom: '', ratios: {}, ...init, id, tissu: tissuCourant.id }] }));
+        setOrdre(prev => ({ ...prev, placements: [...(prev.placements || []), { nom: '', ratios: {}, ...init, code: init.code || codeSuivant(prev), id, tissu: tissuCourant.id }] }));
         return id;
     };
     /** Un placement change : ses matelas pas encore coupes suivent (tailles, longueur). */
@@ -1054,6 +1066,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
      * suit le meme chemin que sa saisie a la main.
      */
     const [importOuvert, setImportOuvert] = useState(false);
+    const [menuOutils, setMenuOutils] = useState(false);
     const appliquerImportExcel = (c: ChoixImport) => {
         if (!selectedModel) return;
         const fiche: any = buildFiche();
@@ -2320,7 +2333,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             <Filter className="w-4 h-4" strokeWidth={1.75} />
                             {!isMobile && <span className="hidden xl:inline">{tx(lang, { fr: 'Filtres', ar: 'مرشحات', en: 'Filters', es: 'Filtros', pt: 'Filtros', tr: 'Filtreler' })}</span>}
                         </button>
-                        {!isMobile && (
+                        {!isMobile && !selectedModel && (
                             <button
                                 onClick={handleExportExcel}
                                 className="h-8 px-2.5 inline-flex items-center justify-center gap-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 text-[12px] font-medium transition-colors"
@@ -2569,7 +2582,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                     title={config.label}
                                                 >
                                                     <Icon className="w-3 h-3" />
-                                                    <span>{config.label.split(' ')[0]}</span>
+                                                    <span>{config.label}</span>
                                                 </button>
                                             );
                                         })}
@@ -2804,12 +2817,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                                         <button
                                             type="button"
-                                            onClick={openAutoMatelasModal}
-                                            className="h-8 px-3 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors flex items-center gap-1.5 shadow-sm"
-                                            title={tx(lang, { fr: 'Proposer les placements et les matelas les plus economes', ar: 'اقتراح أوفر التركيبات والمفرشات', en: 'Suggest the most economical placements and lays' })}
+                                            onClick={() => setImportOuvert(true)}
+                                            className="h-8 px-3 rounded-lg text-[11px] font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300 flex items-center gap-1.5"
+                                            title={tx(lang, { fr: 'Lire le REPARTOS du client ou une feuille de coupe Excel', ar: 'قراءة REPARTOS الزبون أو ورقة قص Excel', en: 'Read the client REPARTOS or an Excel cut sheet' })}
                                         >
-                                            <Zap className="w-3.5 h-3.5" />
-                                            Auto
+                                            <FileSpreadsheet className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Importer Excel', ar: 'استيراد Excel', en: 'Import Excel' })}
                                         </button>
                                         <button
                                             type="button"
@@ -2821,21 +2833,26 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             <Layers className="w-3.5 h-3.5" />
                                             {tx(lang, { fr: 'Calculer les matelas', ar: 'حساب المفرشات', en: 'Compute lays' })}
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleAddMatelasLine}
-                                            className="h-8 px-3 bg-indigo-600 dark:bg-dk-accent text-white hover:bg-indigo-700 dark:hover:bg-dk-accent-hover text-[11px] font-semibold rounded-lg flex items-center gap-1 transition-colors"
-                                        >
-                                            <Plus className="w-3 h-3" /> {tx(lang, { fr: 'Ajouter Matelas', ar: 'إضافة مفرشة', en: 'Add Layer', es: 'Agregar Capa', pt: 'Adicionar Esteira', tr: 'Katman Ekle' })}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setImportOuvert(true)}
-                                            className="h-8 px-3 rounded-lg text-[11px] font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300 flex items-center gap-1.5"
-                                            title={tx(lang, { fr: 'Lire le REPARTOS du client ou une feuille de coupe Excel', ar: 'قراءة REPARTOS الزبون أو ورقة قص Excel', en: 'Read the client REPARTOS or an Excel cut sheet' })}
-                                        >
-                                            <FileSpreadsheet className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Importer Excel', ar: 'استيراد Excel', en: 'Import Excel' })}
-                                        </button>
+                                        <div className="relative">
+                                            <button type="button" onClick={() => setMenuOutils(m => !m)} className="h-8 w-8 rounded-lg border border-slate-200 dark:border-dk-border text-slate-500 hover:border-indigo-300 flex items-center justify-center" title={tx(lang, { fr: 'Autres actions', ar: 'عمليات أخرى', en: 'More actions' })}>
+                                                <MoreVertical className="w-4 h-4" />
+                                            </button>
+                                            {menuOutils && (
+                                                <>
+                                                    <div className="fixed inset-0 z-30" onClick={() => setMenuOutils(false)} />
+                                                    <div className="absolute z-40 right-0 top-full mt-1 w-72 rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface shadow-xl py-1 text-[12px]">
+                                                        <button type="button" onClick={() => { setMenuOutils(false); openAutoMatelasModal(); }} className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated">
+                                                            <Zap className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                                            <span><b className="block text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Proposer des placements (Auto)', ar: 'اقتراح تركيبات (Auto)', en: 'Suggest placements (Auto)' })}</b><span className="text-[11px] text-slate-500">{tx(lang, { fr: 'Seulement si le client n\u2019impose pas ses traces', ar: 'فقط إن لم يفرض الزبون تفصيلاته', en: 'Only when the client does not impose markers' })}</span></span>
+                                                        </button>
+                                                        <button type="button" onClick={() => { setMenuOutils(false); handleAddMatelasLine(); }} className="w-full flex items-start gap-2 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-dk-elevated">
+                                                            <Plus className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                                                            <span><b className="block text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Ajouter un matelas vide', ar: 'إضافة مفرشة فارغة', en: 'Add an empty lay' })}</b><span className="text-[11px] text-slate-500">{tx(lang, { fr: 'Ou « + » sur une ligne pour inserer dessous', ar: 'أو «+» في سطر للإدراج تحته', en: 'Or "+" on a row to insert below' })}</span></span>
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -2965,6 +2982,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         suggestions={suggestionsTrace}
                                         onAjouter={ajouterPlacement}
                                         onAjouterAvec={ajouterPlacementAvec}
+                                        prefixeCode={codeMatiere(tissuCourant)}
                                         onModifier={modifierPlacement}
                                         onSupprimer={p => setPlacementASupprimer(p)}
                                         onApercu={p => setApercuMatelas({ placementId: p.id, numero: String(numeroSuivant(ordre.matelasLines || [], tissuCourant.id) - 1 || 1) })}
@@ -3016,7 +3034,6 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     </button>
                                     <div className="w-full sm:w-auto sm:ml-auto flex flex-col items-start sm:items-end gap-1.5">
                                         <PuceTraceur traceur={traceur} />
-                                        {selectedModel && <PuceExcel lien={lienExcel} donnees={() => donneesExcel({ ...selectedModel, ordreCoupe: ordre })} />}
                                     </div>
                                 </div>
 
@@ -3168,13 +3185,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 </div>
                             )}
 
-                            {/* SUIVI COUPE & BILAN CARD */}
+                            {/* SUIVI COUPE : coupe reel / reste, par couleur x taille (le prevu est au pied du tableau des matelas) */}
+                            {(ordre.matelasLines || []).length > 0 && suiviCoupe.rows.some(r => sizes.some(s => (r.cutPer[s] || 0) > 0 || (r.targetPer[s] || 0) > 0)) && (
                             <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 md:p-6">
-                                    {/* COMPARAISON TAILLES (Target vs Cut) & BILAN TISSU */}
-
-                                    {/* SUIVI COUPE (découpé / restant) par couleur × taille */}
-                                    {(ordre.matelasLines || []).length > 0 && suiviCoupe.rows.some(r => sizes.some((s, sIdx) => (r.cutPer[s] || 0) > 0 || (r.targetPer[s] || 0) > 0)) && (
-                                        <div className="mb-5 border-t border-slate-100 dark:border-dk-border pt-5">
+                                    {(
+                                        <div>
                                             <div className="flex items-center justify-between mb-3">
                                                 <h5 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider flex items-center gap-1.5">
                                                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
@@ -3288,144 +3303,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             </div>
                                         </div>
                                     )}
-
-                                    {(ordre.matelasLines || []).length > 0 && (
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 border-t border-slate-100 dark:border-dk-border pt-5">
-                                            {/* Comparative table */}
-                                            <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-4 border border-slate-200 dark:border-dk-border">
-                                                <h5 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-2.5">{tx(lang, { fr: 'Bilan par Taille (Cible vs Réalisé)', ar: 'الحسبنة حسب المقاس (المستهدف مقابل المحقق)', en: 'Balance by Size (Target vs Actual)', es: 'Balance por Talla (Objetivo vs Realizado)', pt: 'Balanço por Tamanho (Alvo vs Realizado)', tr: 'Beden Bazında Bilanço (Hedef vs Gerçekleşen)' })}</h5>
-                                                <div className="overflow-x-auto">
-                                                    <table className="w-full text-[11px] border-collapse bg-white dark:bg-dk-surface rounded-lg overflow-hidden border border-slate-200 dark:border-dk-border">
-                                                        <thead>
-                                                            <tr className="bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border text-[9px] uppercase tracking-wider text-left">
-                                                                <th className="py-2 px-2.5 font-bold">{tx(lang, { fr: 'Mesure', ar: 'المقاس', en: 'Size', es: 'Medida', pt: 'Medida', tr: 'Ölçü' })}</th>
-                                                                {sizes.map((s, idx) => (
-                                                                    <th key={idx} className="py-2 px-1 text-center font-bold">{s}</th>
-                                                                ))}
-                                                                <th className="py-2 px-2.5 text-center font-bold bg-slate-200 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft w-16">{tx(lang, { fr: 'Total', ar: 'المجموع', en: 'Total', es: 'Total', pt: 'Total', tr: 'Toplam' })}</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
-                                                            <tr>
-                                                                <td className="py-2 px-2.5 font-semibold text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'Cible (Fiche)', ar: 'المستهدف (الورقة)', en: 'Target (Sheet)', es: 'Objetivo (Ficha)', pt: 'Alvo (Ficha)', tr: 'Hedef (Fiş)' })}</td>
-                                                                {sizes.map((s, idx) => {
-                                                                    // Map size to its column index in gridQuantities
-                                                                    return (
-                                                                        <td key={idx} className="py-2 px-1 text-center font-semibold text-slate-700 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg/50">
-                                                                            {matrixStats.colTotals[idx] || 0}
-                                                                        </td>
-                                                                    );
-                                                                })}
-                                                                <td className="py-2 px-2.5 text-center font-bold bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text-soft">{matrixStats.grandTotal}</td>
-                                                            </tr>
-                                                            <tr>
-                                                                <td className="py-2 px-2.5 font-semibold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/10">{tx(lang, { fr: 'Réalisé (Coupe)', ar: 'المحقق (القص)', en: 'Actual (Cut)', es: 'Realizado (Corte)', pt: 'Realizado (Corte)', tr: 'Gerçekleşen (Kesim)' })}</td>
-                                                                {sizes.map((s, idx) => (
-                                                                    <td key={idx} className="py-2 px-1 text-center font-bold text-indigo-700 dark:text-dk-accent-text bg-indigo-50 dark:bg-dk-accent/10">
-                                                                        {matelasCalculations.perSize[s] || 0}
-                                                                    </td>
-                                                                ))}
-                                                                <td className="py-2 px-2.5 text-center font-bold bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-400">{matelasCalculations.totalPieces}</td>
-                                                            </tr>
-                                                            <tr className="border-t border-slate-200 dark:border-dk-border">
-                                                                <td className="py-2 px-2.5 font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Écart (DIF)', ar: 'الفرق', en: 'Gap (DIF)', es: 'Diferencia (DIF)', pt: 'Diferença (DIF)', tr: 'Fark (DIF)' })}</td>
-                                                                {sizes.map((s, idx) => {
-                                                                    const diff = (matelasCalculations.perSize[s] || 0) - (matrixStats.colTotals[idx] || 0);
-                                                                    return (
-                                                                        <td
-                                                                            key={idx}
-                                                                            className={`py-2 px-1 text-center font-bold ${
-                                                                                diff === 0 ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : diff > 0 ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/20'
-                                                                            }`}
-                                                                        >
-                                                                            {diff > 0 ? `+${diff}` : diff}
-                                                                        </td>
-                                                                    );
-                                                                })}
-                                                                {(() => {
-                                                                    const totalDiff = matelasCalculations.totalPieces - matrixStats.grandTotal;
-                                                                    return (
-                                                                        <td
-                                                                            className={`py-2 px-2.5 text-center font-bold ${
-                                                                                totalDiff === 0 ? 'bg-emerald-600 text-white' : totalDiff > 0 ? 'bg-blue-600 text-white' : 'bg-rose-600 text-white'
-                                                                            }`}
-                                                                        >
-                                                                            {totalDiff > 0 ? `+${totalDiff}` : totalDiff}
-                                                                        </td>
-                                                                    );
-                                                                })()}
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-
-                                            {/* Tissu summary card */}
-                                            <div className="bg-slate-50 dark:bg-dk-bg rounded-xl p-4 border border-slate-200 dark:border-dk-border flex flex-col justify-between">
-                                                <div>
-                                                    <h5 className="text-[11px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider mb-2.5">{tx(lang, { fr: 'Bilan Matière', ar: 'حساب المواد', en: 'Material Balance', es: 'Balance de Material', pt: 'Balanço de Material', tr: 'Malzeme Bilançosu' })}</h5>
-                                                    <div className="grid grid-cols-3 gap-2 text-center">
-                                                        <div className="bg-white dark:bg-dk-surface rounded-lg p-2 border border-slate-100 dark:border-dk-border">
-                                                            <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang, { fr: 'Tissu Reçu', ar: 'النسيج المستلم', en: 'Fabric Received', es: 'Tejido Recibido', pt: 'Tecido Recebido', tr: 'Alınan Kumaş' })}</p>
-                                                            <p className="text-sm font-bold text-slate-700 dark:text-dk-text-soft mt-0.5">{ordre.tissuRecu || 0} m</p>
-                                                        </div>
-                                                        <div className="bg-white dark:bg-dk-surface rounded-lg p-2 border border-slate-100 dark:border-dk-border">
-                                                            <p className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang, { fr: 'Consommé', ar: 'المستهلك', en: 'Consumed', es: 'Consumido', pt: 'Consumido', tr: 'Tüketilen' })}</p>
-                                                            <p className="text-sm font-bold text-indigo-600 dark:text-dk-accent-text mt-0.5">{matelasCalculations.totalFabric.toFixed(1)} m</p>
-                                                        </div>
-                                                        {(() => {
-                                                            const solde = (ordre.tissuRecu || 0) - matelasCalculations.totalFabric;
-                                                            return (
-                                                                <div className={`rounded-lg p-2 border ${solde >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/55 border-emerald-100 text-emerald-800' : 'bg-rose-50 dark:bg-rose-900/55 border-rose-100 text-rose-800'}`}>
-                                                                    <p className="text-[9px] font-bold uppercase opacity-80">{tx(lang, { fr: 'Reste (DIF)', ar: 'المتبقي', en: 'Remaining (DIF)', es: 'Restante (DIF)', pt: 'Restante (DIF)', tr: 'Kalan (DIF)' })}</p>
-                                                                    <p className="text-sm font-bold mt-0.5">{solde.toFixed(1)} m</p>
-                                                                </div>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                </div>
-
-                                                {/* Alerts & Optimization */}
-                                                <div className="mt-3">
-                                                    {(() => {
-                                                        const targetNeed = (ordre.consommation || 0) * (matrixStats.grandTotal || 0);
-                                                        const gap = targetNeed - matelasCalculations.totalFabric;
-                                                        
-                                                        if (targetNeed === 0) return null;
-                                                        
-                                                        if (gap >= 0) {
-                                                            return (
-                                                                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg border border-emerald-200 flex gap-2">
-                                                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                                                                    <div>
-                                                                        <p className="text-[11px] font-bold text-emerald-800">{tx(lang, { fr: 'Économie de tissu réalisée !', ar: 'تم تحقيق توفير في النسيج!', en: 'Fabric savings achieved!', es: '¡Ahorro de tejido logrado!', pt: 'Economia de tecido realizada!', tr: 'Kumaş tasarrufu sağlandı!' })}</p>
-                                                                        <p className="text-[10px] text-emerald-700/90 dark:text-emerald-300/90 mt-0.5">
-                                                                            {tx(lang, { fr: 'Gain de', ar: 'توفير', en: 'Savings of', es: 'Ahorro de', pt: 'Ganho de', tr: 'Tasarruf' })} <strong>{gap.toFixed(1)}m</strong> {tx(lang, { fr: 'par rapport au besoin théorique', ar: 'مقابل الاحتياج النظري', en: 'compared to theoretical need', es: 'con respecto a la necesidad teórica', pt: 'em relação à necessidade teórica', tr: 'teorik ihtiyaca kıyasla' })} ({targetNeed.toFixed(1)}m).
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        } else {
-                                                            return (
-                                                                <div className="p-2.5 bg-orange-50 dark:bg-orange-900/30 rounded-lg border border-orange-200 flex gap-2">
-                                                                    <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
-                                                                    <div>
-                                                                        <p className="text-[11px] font-bold text-orange-800">{tx(lang, { fr: 'Surconsommation', ar: 'استهلاك زائد', en: 'Overconsumption', es: 'Sobreconsumo', pt: 'Sobreconsumo', tr: 'Aşırı Tüketim' })} ( ضياع الثوب )</p>
-                                                                        <p className="text-[10px] text-orange-700/90 mt-0.5">
-                                                                            {tx(lang, { fr: 'Dépassement de', ar: 'تجاوز', en: 'Excess of', es: 'Exceso de', pt: 'Excedente de', tr: 'Fazla' })} <strong>{Math.abs(gap).toFixed(1)}m</strong> {tx(lang, { fr: 'par rapport au besoin théorique', ar: 'مقابل الاحتياج النظري', en: 'compared to theoretical need', es: 'con respecto a la necesidad teórica', pt: 'em relação à necessidade teórica', tr: 'teorik ihtiyaca kıyasla' })} ({targetNeed.toFixed(1)}m).
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        }
-                                                    })()}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
                             </div>
+                            )}
 
-                            {/* MATERIALS CARD */}
+                            {/* FOURNITURES : seulement si la fiche de cout en definit */}
+                            {requiredMaterials.length > 0 && (
                             <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
                                 <div className="px-4 md:px-6 py-4 border-b border-slate-100 dark:border-dk-border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                                     <div className="flex items-center gap-2">
@@ -3522,6 +3404,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     )}
                                 </div>
                             </div>
+                            )}
 
                         </div>
                     ) : (

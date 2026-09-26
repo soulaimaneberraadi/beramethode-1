@@ -32,6 +32,8 @@ interface Props {
     /** Traces deja faits pour ce modele dans d'autres ordres, avec le meme melange de tailles. */
     suggestions?: (p: PlacementCoupe) => { source: string; placement: PlacementCoupe }[];
     onAjouter: () => void;
+    /** Code de la matiere (TE, FO...) : les codes de ses traces commencent par lui. */
+    prefixeCode?: string;
     /** Nouveau placement deja rempli (depot de plusieurs traces) : rend son id. */
     onAjouterAvec?: (init: Partial<PlacementCoupe>) => string;
     onModifier: (id: string, patch: Partial<PlacementCoupe>) => void;
@@ -90,7 +92,7 @@ export function codeDuNomFichier(nom: string): string | undefined {
     return mot ? mot[1] : undefined;
 }
 
-export default function TablePlacements({ placements, tailles, nbMatelas, consoTotale, maxPlisDefaut, rouleauM, laizeTissuCm, suggestions, onAjouter, onAjouterAvec, onModifier, onSupprimer, onApercu, onMessage }: Props) {
+export default function TablePlacements({ placements, tailles, nbMatelas, consoTotale, maxPlisDefaut, rouleauM, laizeTissuCm, suggestions, onAjouter, onAjouterAvec, prefixeCode = 'TE', onModifier, onSupprimer, onApercu, onMessage }: Props) {
     const { lang } = useLang();
     const inputRef = useRef<HTMLInputElement>(null);
     const cibleFichier = useRef<string | null>(null);
@@ -257,7 +259,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                         <input
                                             value={p.code || ''}
                                             onChange={e => onModifier(p.id, { code: e.target.value.toUpperCase().replace(/\s+/g, '') || undefined })}
-                                            placeholder="TE-01"
+                                            placeholder={`${prefixeCode}-${String(i + 1).padStart(2, '0')}`}
                                             className="w-full h-8 px-2 rounded border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[11px] font-bold uppercase text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 focus:bg-white"
                                         />
                                     </td>

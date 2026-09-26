@@ -33,6 +33,8 @@ export interface Placement {
     hauteurCm: number;
     largeurCm: number;
     statut: StatutPlacement;
+    /** Texte reellement pose, s'il differe du texte demande (numero seul sur une petite piece). */
+    texte?: string;
 }
 
 /**
@@ -64,18 +66,63 @@ const aireSignee = (points: Array<[number, number]>): number => {
  * Retient les polylignes refermees sur elles-memes : ce sont les pieces. Le
  * plus grand contour est le bord du tissu, pas une piece — on l'ecarte.
  */
-export function contoursDePieces(polylignes: Polyligne[]): Contour[] {
+const longueur = (pts: Array<[number, number]>) => {
+    let l = 0;
+    for (let k = 1; k < pts.length; k++) l += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
+    return l;
+};
+const distance = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+
+/**
+ * Certains traces dessinent le bord d'une piece en plusieurs morceaux, le
+ * crayon leve entre deux (les fichiers « 1384 » du client). Sans les relier,
+ * la piece n'a pas de contour : on ne peut plus verifier que le numero est
+ * dedans, et il sortait de la piece. On recolle les morceaux dont les bouts
+ * se touchent (a `tolerance` pres), le plus proche d'abord ; les petits traits
+ * (crans, reperes) ne servent pas de pont.
+ */
+function assemblerMorceaux(ouverts: Array<Array<[number, number]>>, tolerance: number, longueurMin: number): Array<Array<[number, number]>> {
+    const restants = ouverts.filter(p => p.length >= 2 && longueur(p) >= longueurMin).map(p => [...p]);
+    const fermes: Array<Array<[number, number]>> = [];
+    while (restants.length) {
+        let chaine = restants.shift()!;
+        for (;;) {
+            if (chaine.length >= 4 && distance(chaine[0], chaine[chaine.length - 1]) <= tolerance) break;
+            const bout = chaine[chaine.length - 1];
+            let choix = -1, inverse = false, mieux = tolerance;
+            restants.forEach((p, k) => {
+                const a = distance(bout, p[0]);
+                const b = distance(bout, p[p.length - 1]);
+                if (a <= mieux) { mieux = a; choix = k; inverse = false; }
+                if (b <= mieux) { mieux = b; choix = k; inverse = true; }
+            });
+            if (choix < 0) break;
+            const suite = restants.splice(choix, 1)[0];
+            chaine = chaine.concat((inverse ? [...suite].reverse() : suite).slice(1));
+        }
+        if (chaine.length >= 4 && distance(chaine[0], chaine[chaine.length - 1]) <= tolerance) fermes.push(chaine);
+    }
+    return fermes;
+}
+
+/**
+ * Retient les polylignes refermees sur elles-memes : ce sont les pieces, y
+ * compris celles tracees en plusieurs morceaux. Le plus grand contour est le
+ * bord du tissu, pas une piece — on l'ecarte.
+ */
+export function contoursDePieces(polylignes: Polyligne[], unitesParMm = 40): Contour[] {
     const fermes: Contour[] = [];
+    const ouverts: Array<Array<[number, number]>> = [];
     for (const p of polylignes) {
         const pts = p.points;
-        if (pts.length < 4) continue;
-        let perimetre = 0;
-        for (let k = 1; k < pts.length; k++) {
-            perimetre += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
-        }
+        if (pts.length < 2) continue;
+        const perimetre = longueur(pts);
         if (perimetre <= 0) continue;
-        const ecart = Math.hypot(pts[pts.length - 1][0] - pts[0][0], pts[pts.length - 1][1] - pts[0][1]);
-        if (ecart > perimetre * 0.02) continue;
+        const ecart = distance(pts[pts.length - 1], pts[0]);
+        if (pts.length >= 4 && ecart <= perimetre * 0.02) fermes.push({ points: pts, aire: Math.abs(aireSignee(pts)) });
+        else ouverts.push(pts);
+    }
+    for (const pts of assemblerMorceaux(ouverts, 2 * unitesParMm, 15 * unitesParMm)) {
         fermes.push({ points: pts, aire: Math.abs(aireSignee(pts)) });
     }
     if (fermes.length <= 1) return fermes;
@@ -92,6 +139,45 @@ export function pointDansContour(contour: Contour, x: number, y: number): boolea
         if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) dedans = !dedans;
     }
     return dedans;
+}
+
+/** Centre de gravite d'un contour (surface), et son cadre. */
+function centreEtCadre(c: Contour): { cx: number; cy: number; minX: number; minY: number; maxX: number; maxY: number } {
+    const pts = c.points;
+    let a = 0, cx = 0, cy = 0, minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const f = pts[j][0] * pts[i][1] - pts[i][0] * pts[j][1];
+        a += f;
+        cx += (pts[j][0] + pts[i][0]) * f;
+        cy += (pts[j][1] + pts[i][1]) * f;
+        const [x, y] = pts[i];
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+    if (Math.abs(a) < 1e-9) return { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, minX, minY, maxX, maxY };
+    return { cx: cx / (3 * a), cy: cy / (3 * a), minX, minY, maxX, maxY };
+}
+
+/**
+ * La piece a laquelle appartient un texte, meme quand le texte n'est pas
+ * dedans. Le logiciel du client pose le nom au centre de la piece : pour une
+ * piece en V (deux bras), ce centre tombe dans le vide entre les bras, et le
+ * numero y tombait aussi — hors de la piece. D'abord la piece qui contient le
+ * texte ; sinon, parmi celles dont le cadre le contient, celle dont le centre
+ * est le plus proche.
+ */
+export function contourDuTexte(contours: Contour[], x: number, y: number): Contour | null {
+    const dedans = contourContenant(contours, x, y);
+    if (dedans) return dedans;
+    let trouve: Contour | null = null;
+    let mieux = Infinity;
+    for (const c of contours) {
+        const g = centreEtCadre(c);
+        if (x < g.minX || x > g.maxX || y < g.minY || y > g.maxY) continue;
+        const d = Math.hypot(g.cx - x, g.cy - y);
+        if (d < mieux) { mieux = d; trouve = c; }
+    }
+    return trouve;
 }
 
 /** La piece la plus petite qui contient ce point : une piece peut en chevaucher une autre. */
@@ -205,6 +291,12 @@ export interface DemandePlacement {
      * sans chercher d'autre place. Le statut dit seulement s'il tient dans la piece.
      */
     positionLibre?: boolean;
+    /**
+     * Texte de repli pour une piece trop petite : le numero seul (« 185 » au
+     * lieu de « (185)-TE »). Un numero lisible vaut mieux qu'un texte complet
+     * qui deborde sur la piece voisine.
+     */
+    texteCourt?: string;
 }
 
 /**
@@ -299,12 +391,20 @@ export function placerNumero(d: DemandePlacement): Placement {
         }
     }
 
-    // 5. Rien ne tient : on pose au plus petit, a l'endroit demande, et on le dit.
+    // 5. Piece trop petite pour tout le texte : le numero seul.
+    if (d.texteCourt && d.texteCourt.length < texte.length) {
+        const court = placerNumero({ ...d, texte: d.texteCourt, texteCourt: undefined });
+        if (court.statut !== 'force') return { ...court, texte: d.texteCourt };
+    }
+
+    // 6. Rien ne tient : au plus petit, SUR le texte de la piece (qui, lui, est
+    //    dedans) plutot qu'a cote, ou il tombait hors de la piece. On le dit.
     return {
         x: e.x + ajX,
-        y: e.y + sens * pas + ajY,
+        y: e.y + ajY,
         ...taille(FACTEUR_MIN),
         statut: 'force',
+        texte: d.texteCourt && d.texteCourt.length < texte.length ? d.texteCourt : undefined,
     };
 }
 
@@ -320,8 +420,8 @@ export function placerNumeros(d: DemandePlacement, repetitions: number): Placeme
     const voulu = Math.max(1, Math.floor(repetitions) || 1);
     if (voulu === 1 || !d.contour) return [premier];
 
-    const { etiquette: e, contour, texte, unitesParMm } = d;
-    const nb = Math.max(1, texte.length);
+    const { etiquette: e, contour, unitesParMm } = d;
+    const nb = Math.max(1, (premier.texte ?? d.texte).length);
     const sens = e.directionX < 0 ? -1 : 1;
     const jeu = Math.abs(d.decalageMm * unitesParMm);
     const hNum = premier.hauteurCm * 10 * unitesParMm;

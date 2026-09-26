@@ -18,11 +18,13 @@ interface Props {
     avecOpacite?: boolean;
     /** Code de la matiere pour l'exemple (« TE »). */
     code?: string;
+    /** Dans un volet etroit : deux colonnes, quelle que soit la largeur de l'ecran. */
+    etroit?: boolean;
 }
 
 const FORMATS: NonNullable<ReglagesNumero['format']>[] = ['nu', 'parentheses', 'crochets', 'no', 'tirets'];
 
-export default function ReglagesNumeroForm({ valeur, onChange, exemple = '77', avecOpacite = true, code = 'TE' }: Props) {
+export default function ReglagesNumeroForm({ valeur, onChange, exemple = '77', avecOpacite = true, code = 'TE', etroit = false }: Props) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
     const maj = (patch: Partial<ReglagesNumero>) => onChange({ ...valeur, ...patch });
@@ -48,7 +50,7 @@ export default function ReglagesNumeroForm({ valeur, onChange, exemple = '77', a
 
     return (
         <div className="space-y-3">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className={`grid grid-cols-2 gap-2.5 ${etroit ? '' : 'sm:grid-cols-4'}`}>
                 {champ(L('Hauteur cm', 'الارتفاع سم', 'Height cm'), 'hauteurCm', '0.1', L('Hauteur des chiffres : la taille maximale, reduite seulement si la piece est trop petite', 'ارتفاع الأرقام: الحجم الأقصى، ويُصغَّر فقط إذا كانت القطعة صغيرة', 'Digit height'))}
                 {champ(L('Largeur cm', 'العرض سم', 'Width cm'), 'largeurCm', '0.1', L('Largeur de chaque chiffre', 'عرض كل رقم', 'Digit width'))}
                 {champ(L('Ecart mm', 'الفاصل مم', 'Gap mm'), 'ecartMm', '1', L('Distance au nom de la piece', 'المسافة عن اسم القطعة', 'Distance to the piece name'))}

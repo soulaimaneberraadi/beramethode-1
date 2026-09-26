@@ -43,6 +43,19 @@ export const estPrincipal = (x: { tissu?: string }) => tissuDe(x) === TISSU_PRIN
 
 const cleTaille = (t: string) => t.trim().toUpperCase();
 
+/** Prochain code de trace d'une matiere : FO-01, FO-02... (apres le plus grand deja pris). */
+export function codeTraceSuivant(prefixe: string, codes: (string | undefined)[]): string {
+    const p = prefixe.toUpperCase();
+    let max = 0;
+    for (const c of codes) {
+        const brut = (c || '').trim().toUpperCase();
+        if (!brut.startsWith(`${p}-`)) continue;
+        const n = Number(brut.slice(p.length + 1));
+        if (Number.isInteger(n)) max = Math.max(max, n);
+    }
+    return `${p}-${String(max + 1).padStart(2, '0')}`;
+}
+
 /* ------------------------------------------------------------------ */
 /* Ecriture de l'atelier : « XS-M », « XS a M », « XS×2 »               */
 /* ------------------------------------------------------------------ */

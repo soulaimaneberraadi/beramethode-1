@@ -70,7 +70,7 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
 
     const ChoixChaine = ({ valeur, onChoisir, id }: { valeur?: string; onChoisir: (c: string | undefined) => void; id: string }) => (
         <div className="relative">
-            <button type="button" onClick={() => setMenuChaine(m => (m === id ? null : id))} className="w-full h-7 px-1.5 flex items-center gap-1 rounded-md border border-transparent hover:border-slate-200 dark:hover:border-dk-border text-[11px] font-semibold">
+            <button type="button" onClick={() => setMenuChaine(m => (m === id ? null : id))} className="w-full min-h-[26px] px-1.5 flex items-center gap-1 text-[12px] font-semibold hover:bg-slate-50 dark:hover:bg-dk-elevated">
                 <span className={`flex-1 min-w-0 truncate text-left ${valeur ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-300'}`}>{valeur ? nomChaine(valeur) : (chainePlanifiee ? nomChaine(chainePlanifiee) : '—')}</span>
                 <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
             </button>
@@ -94,12 +94,14 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
         return <p className="py-4 text-[12px] text-slate-400">{L('La serie se calcule des matelas du tissu principal : ajoutez-en d’abord.', 'تُحسب السلسلة من مفرشات الثوب الرئيسي: أضفها أولاً.', 'The series comes from main-fabric lays.')}</p>;
     }
 
-    const champ = 'w-full h-7 px-1.5 rounded-md border border-transparent hover:border-slate-200 dark:hover:border-dk-border focus:border-indigo-400 focus:bg-white dark:focus:bg-dk-surface bg-transparent outline-none text-[11px] tabular-nums';
+    /* Cellule saisissable facon Excel : sans cadre, la grille du tableau fait les bords. */
+    const champ = 'w-full h-full min-h-[26px] px-1 bg-transparent outline-none text-center text-[12px] tabular-nums focus:bg-white dark:focus:bg-dk-surface focus:ring-2 focus:ring-inset focus:ring-emerald-500';
     const dernier = paquets[paquets.length - 1];
 
     return (
         <div className="space-y-2">
-            <div className="flex flex-wrap items-end gap-3">
+            {/* Meme bloc que la numerotation des matelas */}
+            <div className="flex flex-wrap items-end gap-2 p-3 rounded-lg bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border">
                 <label className="block">
                     <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{L('Premier numero', 'أول رقم', 'First number')}</span>
                     <input
@@ -111,20 +113,20 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
                         className="h-9 w-24 px-2.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[13px] font-bold outline-none focus:border-indigo-400"
                     />
                 </label>
-                <p className="text-[12px] text-slate-600 dark:text-dk-text-soft pb-2">
-                    <b>{paquets.length}</b> {L('paquets', 'حزمة', 'bundles')} · {L('serie', 'السلسلة', 'series')} <b className="tabular-nums">{paquets[0].debut} → {dernier.fin}</b>
-                </p>
-                <div className="flex flex-wrap gap-1.5 pb-1.5 ml-auto">
+                <div className="h-9 px-3 inline-flex items-center rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-[12px] text-slate-600 dark:text-dk-text-soft whitespace-nowrap">
+                    <b>{paquets.length}</b>&nbsp;{L('paquets', 'حزمة', 'bundles')}&nbsp;·&nbsp;{L('serie', 'السلسلة', 'series')}&nbsp;<b className="tabular-nums text-blue-700 dark:text-blue-300">{paquets[0].debut} → {dernier.fin}</b>
+                </div>
+                {chainePlanifiee && paquets.some(p => !saisieDe(serie, p.cle).chaine) && (
+                    <button type="button" onClick={() => saisir(paquets.filter(p => !saisieDe(serie, p.cle).chaine).map(p => p.cle), { chaine: chainePlanifiee })} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-[12px] font-semibold text-emerald-700 hover:bg-emerald-100">
+                        <Factory className="w-3.5 h-3.5" />{L('Paquets sans chaine', 'حزم بلا سلسلة', 'Bundles without line')} → {nomChaine(chainePlanifiee)} ({L('planning', 'التخطيط', 'planning')})
+                    </button>
+                )}
+                <div className="flex flex-wrap gap-1.5 ml-auto">
                     {Object.entries(parChaine).map(([c, n]) => (
-                        <span key={c} className="h-7 px-2 inline-flex items-center gap-1 rounded-full bg-indigo-50 dark:bg-indigo-900/20 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
-                            <Factory className="w-3 h-3" />{nomChaine(c)} · {n} pcs
+                        <span key={c} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-[12px] font-semibold text-indigo-700 dark:text-indigo-300">
+                            <Factory className="w-3.5 h-3.5" />{nomChaine(c)} · {n} pcs
                         </span>
                     ))}
-                    {chainePlanifiee && paquets.some(p => !saisieDe(serie, p.cle).chaine) && (
-                        <button type="button" onClick={() => saisir(paquets.filter(p => !saisieDe(serie, p.cle).chaine).map(p => p.cle), { chaine: chainePlanifiee })} className="h-7 px-2.5 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100">
-                            {L('Paquets sans chaine', 'حزم بلا سلسلة', 'Bundles without line')} → {nomChaine(chainePlanifiee)}
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -157,25 +159,15 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
                 )}
             </div>
 
-            <div className="rounded-xl border border-slate-200 dark:border-dk-border overflow-auto max-h-[65vh] bg-white dark:bg-dk-surface">
-                <table className="w-max min-w-[880px] text-[12px] border-separate border-spacing-0 select-none">
+            <div className="overflow-auto max-h-[65vh] bg-white dark:bg-dk-surface">
+                <table className="border-collapse text-[12px] select-none">
+                    <colgroup>
+                        {[80, 64, 64, 76, 76, 60, 96, 44, 80, 64, 80, 120].map((w, i) => <col key={i} style={{ width: w }} />)}
+                    </colgroup>
                     <thead>
-                        <tr className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-dk-muted">
-                            {[
-                                [L('Date', 'التاريخ', 'Date'), 'min-w-[96px] text-left'],
-                                [L('N° paq', 'رقم الحزمة', 'Bundle'), 'text-center'],
-                                [L('Pli', 'طيّة', 'Ply'), 'text-right'],
-                                [L('Serie', 'من', 'From'), 'text-right'],
-                                [L('Serie 2', 'إلى', 'To'), 'text-right'],
-                                [L('Taille', 'المقاس', 'Size'), 'text-center'],
-                                [L('Pieces (-/+)', 'قطع (-/+)', 'Pcs (-/+)'), 'min-w-[84px] text-right'],
-                                ['N', 'min-w-[52px] text-center'],
-                                [L('Entree', 'دخول', 'In'), 'min-w-[96px] text-left'],
-                                [L('Lot', 'الدفعة', 'Lot'), 'min-w-[84px] text-left'],
-                                [L('Sortie', 'خروج', 'Out'), 'min-w-[96px] text-left'],
-                                [L('Chaine', 'السلسلة', 'Line'), 'min-w-[150px] text-left'],
-                            ].map(([t, c]) => (
-                                <th key={t} className={`sticky top-0 z-10 bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border py-2 px-1.5 font-bold whitespace-nowrap ${c}`}>{t}</th>
+                        <tr>
+                            {['DATE', 'N\u00b0 PAQ', 'PLI', 'SERIE', 'SERIE2', 'TAILLE', 'PIECES (-/+)', 'N', 'ENTREE', 'LOTE', 'SORTE', 'CHAINE'].map(t => (
+                                <th key={t} className="sticky top-0 z-10 bg-white dark:bg-dk-surface border border-slate-400 dark:border-dk-border h-7 px-1 text-center font-bold text-blue-700 dark:text-blue-300 whitespace-nowrap">{t}</th>
                             ))}
                         </tr>
                     </thead>
@@ -183,9 +175,8 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
                         {paquets.map((p, i) => {
                             const s = saisieDe(serie, p.cle);
                             const choisi = choisis.has(p.cle);
-                            const nouveauPaquet = i > 0 && paquets[i - 1].matelasId !== p.matelasId;
-                            const fond = choisi ? 'bg-indigo-50 dark:bg-indigo-950' : p.fait ? 'bg-emerald-50/60 dark:bg-emerald-950/40' : '';
-                            const td = `${fond} ${nouveauPaquet ? 'border-t-2 border-t-slate-200 dark:border-t-dk-border' : 'border-t border-t-slate-50 dark:border-t-dk-border'} py-0.5 px-1.5`;
+                            const fond = choisi ? 'bg-emerald-100 dark:bg-emerald-900/40' : p.fait ? 'bg-[#E2EFDA] dark:bg-emerald-950/40' : '';
+                            const td = `${fond} border border-slate-300 dark:border-dk-border p-0 text-center`;
                             return (
                                 <tr
                                     key={p.cle}
@@ -196,25 +187,24 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
                                         setChoisis(new Set(paquets.slice(a, b + 1).map(x => x.cle)));
                                     }}
                                 >
-                                    <td className={td}><input value={s.date || ''} onChange={e => saisir([p.cle], { date: e.target.value })} placeholder="jj/mm" className={champ} /></td>
-                                    <td className={`${td} text-center font-bold text-slate-900 dark:text-dk-text`}>{p.paquet}</td>
-                                    <td className={`${td} text-right tabular-nums`}>{p.plis}</td>
-                                    <td className={`${td} text-right tabular-nums font-bold text-indigo-700 dark:text-indigo-300`}>{p.debut}</td>
-                                    <td className={`${td} text-right tabular-nums font-bold text-indigo-700 dark:text-indigo-300`}>{p.fin}</td>
-                                    <td className={`${td} text-center font-bold uppercase text-emerald-700 dark:text-emerald-300`}>{p.taille}</td>
+                                    <td className={td}><input value={s.date || ''} onChange={e => saisir([p.cle], { date: e.target.value })} className={champ} /></td>
+                                    <td className={`${td} font-bold text-slate-900 dark:text-dk-text`}>{p.paquet}</td>
+                                    <td className={`${td} tabular-nums`}>{p.plis}</td>
+                                    <td className={`${td} tabular-nums`}>{p.debut}</td>
+                                    <td className={`${td} tabular-nums`}>{p.fin}</td>
+                                    <td className={`${td} font-semibold`}>{p.taille}</td>
                                     <td className={td}>
                                         <input
-                                            type="number"
+                                            inputMode="numeric"
                                             value={s.pieces ?? ''}
-                                            onChange={e => saisir([p.cle], { pieces: e.target.value === '' ? undefined : Math.round(Number(e.target.value)) })}
-                                            placeholder="·"
-                                            className={`${champ} text-right ${s.pieces ? (s.pieces < 0 ? 'text-rose-600 font-bold' : 'text-amber-600 font-bold') : ''}`}
+                                            onChange={e => { const v = e.target.value.trim(); if (v === '' || v === '-') { saisir([p.cle], { pieces: undefined }); return; } const n = Math.round(Number(v)); if (Number.isFinite(n)) saisir([p.cle], { pieces: n }); }}
+                                            className={`${champ} ${s.pieces ? (s.pieces < 0 ? 'text-rose-600 font-bold' : 'text-amber-600 font-bold') : ''}`}
                                         />
                                     </td>
-                                    <td className={td}><input value={s.n || ''} onChange={e => saisir([p.cle], { n: e.target.value })} className={`${champ} text-center`} /></td>
-                                    <td className={td}><input value={s.entree || ''} onChange={e => saisir([p.cle], { entree: e.target.value })} placeholder="jj/mm" className={champ} /></td>
+                                    <td className={td}><input value={s.n || ''} onChange={e => saisir([p.cle], { n: e.target.value })} className={champ} /></td>
+                                    <td className={td}><input value={s.entree || ''} onChange={e => saisir([p.cle], { entree: e.target.value })} className={champ} /></td>
                                     <td className={td}><input value={s.lote || ''} onChange={e => saisir([p.cle], { lote: e.target.value })} className={champ} /></td>
-                                    <td className={td}><input value={s.sortie || ''} onChange={e => saisir([p.cle], { sortie: e.target.value })} placeholder="jj/mm" className={champ} /></td>
+                                    <td className={td}><input value={s.sortie || ''} onChange={e => saisir([p.cle], { sortie: e.target.value })} className={champ} /></td>
                                     <td className={td}><ChoixChaine id={p.cle} valeur={s.chaine} onChoisir={c => saisir([p.cle], { chaine: c })} /></td>
                                 </tr>
                             );
