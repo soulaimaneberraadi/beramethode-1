@@ -706,15 +706,15 @@ export interface SerieEtiquetage {
 }
 
 export interface SaisiePaquet {
-  /** Date (ISO jour). */
+  /** Date, telle que saisie (jj/mm/aaaa). */
   date?: string;
   /** Pieces en plus ou en moins constatees au comptage. */
   pieces?: number;
   n?: string;
-  /** Entree en chaine (ISO jour). */
+  /** Entree en chaine (jj/mm/aaaa). */
   entree?: string;
   lote?: string;
-  /** Sortie de chaine (ISO jour). */
+  /** Sortie de chaine (jj/mm/aaaa). */
   sortie?: string;
   /** Chaine de montage (id `CHAINE n` du Planning). */
   chaine?: string;

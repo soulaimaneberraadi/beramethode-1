@@ -24,7 +24,7 @@ import type { ReglagesNumero } from '../../types';
 import { contourContenant, pointDansContour, type Contour, type StatutPlacement } from '../../lib/placementNumero';
 import {
     alertesPoses, analyserOctets, enBase64, numeroterPlt, octetsDepuisDataUrl, posesNumero, reglagesAvecDefaut, texteNumero,
-    type AnalysePlt,
+    type AnalysePlt, type ContexteNumero,
 } from '../../lib/numerotationPlt';
 import ReglagesNumeroForm from './ReglagesNumeroForm';
 
@@ -39,6 +39,8 @@ interface Props {
     onReglages?: (r: ReglagesNumero) => void;
     /** Nom du fichier sortant, quand l'ordre de coupe l'impose. */
     nomSortieImpose?: string;
+    /** Matiere et placement du matelas : « 77 TE ». */
+    contexte?: ContexteNumero;
     /** Reglages de l'entreprise : point de depart d'un trace qui n'en a pas encore. */
     reglagesDefaut?: ReglagesNumero;
     /** « Enregistrer comme reglages par defaut » : taille et style proposes aux prochains traces. */
@@ -63,7 +65,7 @@ const COULEUR_STATUT: Record<StatutPlacement, string> = {
 
 type Ajustement = NonNullable<ReglagesNumero['ajustements']>[string];
 
-export default function AnnotationPlt({ numeroInitial = '', fichierInitial = null, reglagesInitiaux, onReglages, nomSortieImpose, deposer, reglagesDefaut, onDefaut, onClose }: Props) {
+export default function AnnotationPlt({ numeroInitial = '', fichierInitial = null, reglagesInitiaux, onReglages, nomSortieImpose, deposer, reglagesDefaut, onDefaut, contexte, onClose }: Props) {
     const { lang } = useLang();
     const inputRef = useRef<HTMLInputElement>(null);
     const svgRef = useRef<SVGSVGElement>(null);
@@ -77,7 +79,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
     /** Taille et style du numero, sans les retouches piece par piece. */
     const styleDe = (r: ReglagesNumero): ReglagesNumero => ({
         hauteurCm: r.hauteurCm, largeurCm: r.largeurCm, ecartMm: r.ecartMm, repetitions: r.repetitions,
-        format: r.format, gras: r.gras, inclinaison: r.inclinaison, opacite: r.opacite,
+        format: r.format, gras: r.gras, inclinaison: r.inclinaison, opacite: r.opacite, modele: r.modele,
     });
     const [numero, setNumero] = useState(numeroInitial);
     const [style, setStyle] = useState<ReglagesNumero>(() => styleDe(init));
@@ -151,8 +153,9 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
     const horsMatiere = (lecture?.etiquettes.length ?? 0) - candidats.length;
 
     const poses = useMemo(
-        () => (analyse ? posesNumero(analyse, numero, reglages) : []),
-        [analyse, numero, reglages],
+        () => (analyse ? posesNumero(analyse, numero, reglages, contexte) : []),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [analyse, numero, reglages, contexte?.code, contexte?.placement],
     );
     const alertes = useMemo(() => alertesPoses(poses), [poses]);
 
@@ -270,7 +273,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
 
     const nomSortie = () => nomSortieImpose || `${nomFichier.replace(/\.(plt|hpgl|hgl|prn)$/i, '')}-N${numero.trim()}.plt`;
 
-    const construireSortie = (): Uint8Array<ArrayBuffer> | null => (analyse ? numeroterPlt(analyse, numero, reglages) : null);
+    const construireSortie = (): Uint8Array<ArrayBuffer> | null => (analyse ? numeroterPlt(analyse, numero, reglages, contexte) : null);
 
     const exporter = () => {
         const octets = construireSortie();
@@ -498,7 +501,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                             />
                         </label>
                         <div className="flex-1 min-w-0">
-                            <ReglagesNumeroForm valeur={style} onChange={setStyle} exemple={numero.trim() || '77'} />
+                            <ReglagesNumeroForm valeur={style} onChange={setStyle} exemple={numero.trim() || '77'} code={contexte?.code || 'TE'} />
                         </div>
                     </div>
 
@@ -600,7 +603,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                                 paintOrder="stroke"
                                             >
                                                 <title>{nomPiece(index)}</title>
-                                                {texteNumero(numero.trim() || '—', style)}
+                                                {texteNumero(numero.trim() || '—', style, contexte)}
                                             </text>
                                         );
                                     })}

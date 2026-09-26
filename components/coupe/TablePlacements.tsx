@@ -7,7 +7,7 @@
  * laize, la longueur et l'efficience ecrites par Optitex dans l'en-tete.
  */
 import React, { useRef, useState } from 'react';
-import { Eye, FileText, Plus, Trash2, Upload, X, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Eye, FileText, Plus, Trash2, Upload, X, AlertTriangle, RotateCcw, Files } from 'lucide-react';
 import type { MatelasFichier, PlacementCoupe } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
@@ -32,6 +32,8 @@ interface Props {
     /** Traces deja faits pour ce modele dans d'autres ordres, avec le meme melange de tailles. */
     suggestions?: (p: PlacementCoupe) => { source: string; placement: PlacementCoupe }[];
     onAjouter: () => void;
+    /** Nouveau placement deja rempli (depot de plusieurs traces) : rend son id. */
+    onAjouterAvec?: (init: Partial<PlacementCoupe>) => string;
     onModifier: (id: string, patch: Partial<PlacementCoupe>) => void;
     onSupprimer: (p: PlacementCoupe) => void;
     onApercu: (p: PlacementCoupe) => void;
@@ -75,7 +77,20 @@ const lireOctets = (f: File) => new Promise<ArrayBuffer>((ok, ko) => {
     r.readAsArrayBuffer(f);
 });
 
-export default function TablePlacements({ placements, tailles, nbMatelas, consoTotale, maxPlisDefaut, rouleauM, laizeTissuCm, suggestions, onAjouter, onModifier, onSupprimer, onApercu, onMessage }: Props) {
+/**
+ * Code du trace dans le nom du fichier du client :
+ * « 4-57PHR-9008-3868-800-139-TE-00.PLT » -> TE-00, « ...-148-EN-01----24V... » -> EN-01,
+ * « ...-TE-VIVOS.PLT » -> TE-VIVOS, « ...-AFINADOS.PLT » -> AFINADOS.
+ */
+export function codeDuNomFichier(nom: string): string | undefined {
+    const base = nom.replace(/\.(plt|hpgl|hgl|prn)$/i, '').toUpperCase().replace(/-{2,}/g, '-');
+    const numero = [...base.matchAll(/(?:^|-)([A-Z][A-Z0-9]?-\d{1,3})(?=-|$)/g)].pop();
+    if (numero) return numero[1];
+    const mot = /-([A-Z]{2}-[A-Z]{3,}|[A-Z]{4,})$/.exec(base);
+    return mot ? mot[1] : undefined;
+}
+
+export default function TablePlacements({ placements, tailles, nbMatelas, consoTotale, maxPlisDefaut, rouleauM, laizeTissuCm, suggestions, onAjouter, onAjouterAvec, onModifier, onSupprimer, onApercu, onMessage }: Props) {
     const { lang } = useLang();
     const inputRef = useRef<HTMLInputElement>(null);
     const cibleFichier = useRef<string | null>(null);
@@ -85,8 +100,8 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
 
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
 
-    const adopterFichier = async (id: string, f: File) => {
-        const p = placements.find(x => x.id === id);
+    const adopterFichier = async (id: string, f: File, connu?: PlacementCoupe) => {
+        const p = connu || placements.find(x => x.id === id);
         if (!p) return;
         if (!/\.(plt|hpgl|hgl|prn)$/i.test(f.name)) {
             onMessage(L('Seuls les traces .plt sont acceptes ici.', 'تُقبل هنا ملفات plt فقط.', 'Only .plt traces here.'), 'error');
@@ -135,6 +150,42 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
         }
     };
 
+    /*
+     * Plusieurs traces deposes d'un coup (le dossier envoye par le client) :
+     * chaque fichier va au placement qui porte son code (TE-00), sinon a un
+     * placement vide avec les memes tailles, sinon il en cree un.
+     */
+    const multiRef = useRef<HTMLInputElement>(null);
+    const [survolTable, setSurvolTable] = useState(false);
+    const deposerPlusieurs = async (fichiers: File[]) => {
+        const plts = fichiers.filter(f => /\.(plt|hpgl|hgl|prn)$/i.test(f.name));
+        if (!plts.length) { onMessage(L('Aucun fichier .plt.', 'لا يوجد ملف plt.', 'No .plt file.'), 'error'); return; }
+        const pris = new Set<string>();
+        let relies = 0, crees = 0;
+        for (const f of plts) {
+            let ratios: Record<string, number> = {};
+            try {
+                const e = lireEntete(analyserTexte(decoderOctets(await lireOctets(f))).entete);
+                if (e.tailles) ratios = associerTailles(e.tailles, tailles).ratios;
+            } catch { /* illisible : adopterFichier le dira */ }
+            const code = codeDuNomFichier(f.name);
+            const cible = (code && placements.find(p => !pris.has(p.id) && (p.code || '').toUpperCase() === code))
+                || (Object.keys(ratios).length ? placements.find(p => !pris.has(p.id) && !p.fichier && memesRatios(p.ratios || {}, ratios)) : undefined);
+            if (cible) {
+                pris.add(cible.id);
+                await adopterFichier(cible.id, f, cible);
+                relies++;
+            } else if (onAjouterAvec) {
+                const init: Partial<PlacementCoupe> = { code, ratios, nom: Object.keys(ratios).length ? nomPlacement(ratios, tailles) : (code || '') };
+                const id = onAjouterAvec(init);
+                pris.add(id);
+                await adopterFichier(id, f, { id, tissu: '', nom: init.nom || '', ratios, code });
+                crees++;
+            }
+        }
+        onMessage(`${plts.length} ${L('trace(s) :', 'ملف:', 'trace(s):')} ${relies} ${L('relie(s) a leur placement', 'رُبط بتركيبته', 'linked')}${crees ? `, ${crees} ${L('nouveau(x) placement(s)', 'تركيبة جديدة', 'new placement(s)')}` : ''}.`, 'success');
+    };
+
     const champNombre = 'w-full text-center h-8 px-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white dark:focus:bg-dk-surface focus:border-indigo-400';
 
     // Colonnes saisissables : 0 nom, 1..n tailles, n+1 longueur, n+2 plis max.
@@ -166,10 +217,17 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                 className="hidden"
                 onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f && cibleFichier.current) adopterFichier(cibleFichier.current, f); }}
             />
-            <div className="overflow-x-auto">
-                <table className="w-full text-[12px] border-collapse border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface min-w-[760px]">
+            <input ref={multiRef} type="file" multiple accept=".plt,.hpgl,.hgl,.prn" className="hidden" onChange={e => { const fs = Array.from(e.target.files || []); e.target.value = ''; if (fs.length) deposerPlusieurs(fs); }} />
+            <div
+                className={`overflow-x-auto rounded-lg ${survolTable ? 'ring-2 ring-indigo-300' : ''}`}
+                onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setSurvolTable(true); } }}
+                onDragLeave={e => { if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setSurvolTable(false); }}
+                onDrop={e => { e.preventDefault(); setSurvolTable(false); const fs = Array.from(e.dataTransfer.files || []); if (fs.length) deposerPlusieurs(fs); }}
+            >
+                <table className="w-full text-[12px] border-collapse border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface min-w-[860px]">
                     <thead>
                         <tr className="bg-slate-50 dark:bg-dk-bg text-slate-600 dark:text-dk-text-soft border-b border-slate-200 dark:border-dk-border text-[10px] uppercase tracking-wider">
+                            <th className="py-2 px-2 text-left w-24" title={L('Code du trace chez le client (TE-01) : la fin du nom de son fichier', 'رمز التفصيلة عند الزبون (TE-01)', 'Client marker code (TE-01)')}>{L('Code', 'الرمز', 'Code')}</th>
                             <th className="py-2 px-2 text-left w-36">{L('Placement', 'التركيبة', 'Placement')}</th>
                             {tailles.map(t => <th key={t} className="py-2 px-1 text-center text-emerald-700 dark:text-emerald-300 min-w-[44px]">{t}</th>)}
                             <th className="py-2 px-2 text-center w-14" title={L('Pieces par pli', 'قطع في الطيّة', 'Pieces per ply')}>{L('Pcs/pli', 'قطعة/طيّة', 'Pcs/ply')}</th>
@@ -184,7 +242,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                     <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                         {placements.length === 0 && (
                             <tr>
-                                <td colSpan={tailles.length + 8} className="py-6 text-center text-[12px] text-slate-400 dark:text-dk-muted">
+                                <td colSpan={tailles.length + 9} className="py-6 text-center text-[12px] text-slate-400 dark:text-dk-muted">
                                     {L('Aucun placement. Ajoutez « XS-M », « XS a M » ou « XS×2 », puis deposez son trace PLT.', 'لا توجد تركيبات. أضف «XS-M» أو «XS a M» أو «XS×2» ثم ضع ملف PLT الخاص بها.', 'No placement yet. Add "XS-M", "XS a M" or "XS×2", then drop its PLT.')}
                                 </td>
                             </tr>
@@ -194,7 +252,15 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                             const brouillon = brouillons[p.id];
                             const nomInvalide = brouillon !== undefined && brouillon.trim() !== '' && !lireNotation(brouillon, tailles);
                             return (
-                                <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/40">
+                                <tr key={p.id} className="align-top hover:bg-slate-50 dark:hover:bg-dk-elevated/40">
+                                    <td className="py-1 px-2">
+                                        <input
+                                            value={p.code || ''}
+                                            onChange={e => onModifier(p.id, { code: e.target.value.toUpperCase().replace(/\s+/g, '') || undefined })}
+                                            placeholder="TE-01"
+                                            className="w-full h-8 px-2 rounded border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[11px] font-bold uppercase text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 focus:bg-white"
+                                        />
+                                    </td>
                                     <td className="py-1 px-2">
                                         <input
                                             {...cellule(i, 0)}
@@ -233,7 +299,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                         className={`py-1 px-2 ${survol === p.id ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}
                                         onDragOver={e => { e.preventDefault(); setSurvol(p.id); }}
                                         onDragLeave={() => setSurvol(null)}
-                                        onDrop={e => { e.preventDefault(); setSurvol(null); const f = e.dataTransfer.files?.[0]; if (f) adopterFichier(p.id, f); }}
+                                        onDrop={e => { e.preventDefault(); e.stopPropagation(); setSurvol(null); setSurvolTable(false); const f = e.dataTransfer.files?.[0]; if (f) adopterFichier(p.id, f); }}
                                     >
                                         {p.fichier ? (
                                             <div className="flex flex-col gap-0.5">
@@ -376,6 +442,11 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                 <button type="button" onClick={onAjouter} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 dark:border-dk-border text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300 hover:text-indigo-600">
                     <Plus className="w-3.5 h-3.5" /> {L('Ajouter un placement', 'إضافة تركيبة', 'Add placement')}
                 </button>
+                {onAjouterAvec && (
+                    <button type="button" onClick={() => multiRef.current?.click()} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-800 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100" title={L('Tous les PLT du client d\u2019un coup : chacun rejoint son placement par son code (TE-00) ou ses tailles. On peut aussi les glisser sur le tableau.', 'كل ملفات PLT دفعة واحدة: كل ملف يلتحق بتركيبته برمزه أو مقاساته. يمكن أيضاً سحبها فوق الجدول.', 'All client PLTs at once')}>
+                        <Files className="w-3.5 h-3.5" /> {L('Deposer plusieurs traces', 'إضافة عدّة ملفات', 'Drop several traces')}
+                    </button>
+                )}
                 {placements.some(p => !p.fichier) && placements.length > 0 && (() => {
                     const sans = placements.filter(p => !p.fichier).map(p => (p.nom || '—').toUpperCase());
                     return (

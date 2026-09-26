@@ -19,6 +19,23 @@ export const TISSUS_PROPOSES = ['Vlieseline', 'Doublure (foro)', 'Organza', 'The
 export const tissuDe = (x: { tissu?: string }) => x.tissu || TISSU_PRINCIPAL;
 
 /**
+ * Code court d'une matiere, ecrit a cote du numero (« 77 TE », « 77 VSLIN »)
+ * et nom de sa feuille Excel : celui saisi, sinon celui de l'atelier.
+ */
+export function codeMatiere(t: { id: string; nom: string; code?: string }): string {
+    if (t.code && t.code.trim()) return t.code.trim().toUpperCase();
+    if (t.id === TISSU_PRINCIPAL) return 'TE';
+    const n = t.nom.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+    if (/VLIES|VSLIN|VLIZ/.test(n)) return 'VSLIN';
+    if (/FORO|FORRO|DOUBL/.test(n)) return 'FO';
+    if (/ENTRE|THERMO|ENTOIL|FUSIBL/.test(n)) return 'EN';
+    if (/ORGAN/.test(n)) return 'ORG';
+    if (/COMBIN/.test(n)) return 'CO';
+    if (/MOLLET/.test(n)) return 'MOL';
+    return n.replace(/[^A-Z0-9]/g, '').slice(0, 5) || 'MAT';
+}
+
+/**
  * Seules les pieces du tissu principal font des vetements : la vlieseline et
  * la doublure se coupent en plus, elles ne doivent jamais gonfler la quantite.
  */

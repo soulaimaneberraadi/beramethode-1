@@ -7,7 +7,7 @@ import React from 'react';
 import type { ReglagesNumero } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
-import { texteNumero } from '../../lib/numerotationPlt';
+import { MODELES_TEXTE, texteNumero } from '../../lib/numerotationPlt';
 
 interface Props {
     valeur: ReglagesNumero;
@@ -16,11 +16,13 @@ interface Props {
     exemple?: string;
     /** Transparence de l'apercu : utile dans l'apercu, pas dans un reglage d'entreprise sans trace. */
     avecOpacite?: boolean;
+    /** Code de la matiere pour l'exemple (« TE »). */
+    code?: string;
 }
 
 const FORMATS: NonNullable<ReglagesNumero['format']>[] = ['nu', 'parentheses', 'crochets', 'no', 'tirets'];
 
-export default function ReglagesNumeroForm({ valeur, onChange, exemple = '77', avecOpacite = true }: Props) {
+export default function ReglagesNumeroForm({ valeur, onChange, exemple = '77', avecOpacite = true, code = 'TE' }: Props) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
     const maj = (patch: Partial<ReglagesNumero>) => onChange({ ...valeur, ...patch });
@@ -53,6 +55,24 @@ export default function ReglagesNumeroForm({ valeur, onChange, exemple = '77', a
                 {champ(L('Fois par piece', 'مرّات في القطعة', 'Times per piece'), 'repetitions', '1', L('Combien de fois le numero est ecrit dans chaque piece', 'كم مرّة يُكتب الرقم في كل قطعة', 'How many times per piece'))}
             </div>
 
+            <div>
+                <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1 uppercase tracking-wide">{L('Texte ecrit dans la piece', 'النص المكتوب في القطعة', 'Text written in the piece')}</span>
+                <div className="flex flex-wrap items-center gap-1">
+                    {MODELES_TEXTE.map(m => (
+                        <button key={m} type="button" onClick={() => maj({ modele: m })} className={puce((valeur.modele || '{n}') === m)}>
+                            {texteNumero(exemple, { format: valeur.format, modele: m }, { code })}
+                        </button>
+                    ))}
+                    <input
+                        value={MODELES_TEXTE.includes(valeur.modele || '{n}') ? '' : (valeur.modele || '')}
+                        onChange={e => maj({ modele: e.target.value || '{n}' })}
+                        placeholder={L('Autre : {n} {code} ...', 'آخر: {n} {code} ...', 'Other: {n} {code} ...')}
+                        title={L('{n} = numero du matelas · {code} = code de la matiere (TE, VSLIN...) · {pl} = placement', '{n} = رقم المفرشة · {code} = رمز المادة · {pl} = التركيبة', '{n} = lay number · {code} = material code · {pl} = placement')}
+                        className="h-9 w-44 px-2.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-[12px] font-semibold outline-none focus:border-emerald-400"
+                    />
+                </div>
+            </div>
+
             <div className="flex flex-wrap items-end gap-x-4 gap-y-2.5">
                 <div>
                     <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1 uppercase tracking-wide">{L('Ecriture', 'الكتابة', 'Style')}</span>
@@ -68,7 +88,7 @@ export default function ReglagesNumeroForm({ valeur, onChange, exemple = '77', a
                     <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1 uppercase tracking-wide">{L('Trait', 'الخط', 'Stroke')}</span>
                     <div className="flex gap-1">
                         <button type="button" onClick={() => maj({ gras: false })} className={puce(!valeur.gras)}>{L('Normal', 'عادي', 'Normal')}</button>
-                        <button type="button" onClick={() => maj({ gras: true })} className={`${puce(!!valeur.gras)} font-black`} title={L('Trait double : plus lisible sur tissu fonce', 'خط مزدوج: أوضح على الثوب الداكن', 'Double stroke')}>{L('Gras', 'عريض', 'Bold')}</button>
+                        <button type="button" onClick={() => maj({ gras: true })} className={`${puce(!!valeur.gras)} font-black`} title={L('Trait double : plus lisible sur tissu fonce. Optitex le lit comme deux textes : a eviter si le fichier repasse par Optitex.', 'خط مزدوج: أوضح على الثوب الداكن. Optitex يقرؤه كنصّين: تجنّبه إذا مرّ الملف عبر Optitex.', 'Double stroke: Optitex reads it as two texts')}>{L('Gras', 'عريض', 'Bold')}</button>
                     </div>
                 </div>
                 <div>

@@ -2187,6 +2187,7 @@ export default function App() {
                             onTransferToPlanning={envoyerAuPlanning}
                             settings={globalSettings}
                             setSettings={setGlobalSettings}
+                            planningEvents={planningEvents}
                         />
                     )}
 

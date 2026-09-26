@@ -8,12 +8,12 @@
  * l'envoyer au traceur, ou le glisser a la souris dans Optitex.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Eye, Download, Send, GripVertical, ChevronDown, AlertTriangle, CheckCircle2, Plus, Copy, ArrowUp, ArrowDown, Trash2, X, Sigma } from 'lucide-react';
+import { Eye, Download, Send, GripVertical, ChevronDown, AlertTriangle, CheckCircle2, Plus, Copy, ArrowUp, ArrowDown, Trash2, X, Sigma, FolderInput, Check } from 'lucide-react';
 import type { MatelasFichier, MatelasLine, PlacementCoupe, ReglagesNumero, TissuCoupe } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { AMORCE_PAR_PLI_M } from '../../lib/coupeAtelier';
-import { nomFichierMatelas } from '../../lib/ordreCoupe';
+import { codeMatiere, nomFichierMatelas } from '../../lib/ordreCoupe';
 import { analyserFichier, numeroterPlt, reglagesAvecDefaut } from '../../lib/numerotationPlt';
 import { grilleClavier } from './grilleClavier';
 
@@ -37,6 +37,8 @@ interface Props {
     deposer?: (nom: string, octets: Uint8Array<ArrayBuffer>) => Promise<{ ok: boolean; message: string }>;
     /** Lignes choisies : supprimer (jamais une ligne deja coupee), dupliquer, deplacer. */
     onSupprimerLignes: (ids: string[]) => void;
+    /** Confirmer coupees (vert) — ou annuler — les lignes choisies, sans fenetre. */
+    onConfirmerLignes: (ids: string[], fait: boolean) => void;
     onDupliquerLignes: (ids: string[]) => void;
     onDeplacerLigne: (id: string, sens: -1 | 1) => void;
     /** Reglages de numerotation de l'entreprise, pour les traces qui n'en ont pas. */
@@ -93,7 +95,7 @@ function Choix({ valeur, options, onChoisir, vide, cellule }: { valeur: React.Re
 export default function TableMatelas({
     lignes, placements, tissu, tailles, couleurs, commande, pastille, fichierDe,
     onModifier, onInserer, onApercu, onMessage, deposer, renderEtat, renderMatiere, renderActions,
-    onSupprimerLignes, onDupliquerLignes, onDeplacerLigne, reglagesDefaut,
+    onSupprimerLignes, onDupliquerLignes, onDeplacerLigne, reglagesDefaut, onConfirmerLignes,
 }: Props) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
@@ -131,6 +133,24 @@ export default function TableMatelas({
         }
         ancre.current = id;
     };
+    /*
+     * Choisir a la souris en glissant, comme dans Excel : on appuie sur une
+     * ligne, on descend, les lignes survolees sont prises ; au lacher, la
+     * barre d'actions (telecharger, traceur, confirmer...) est la.
+     */
+    const glisse = useRef<number | null>(null);
+    const [enGlisse, setEnGlisse] = useState(false);
+    useEffect(() => {
+        const fin = () => { glisse.current = null; setEnGlisse(false); };
+        window.addEventListener('mouseup', fin);
+        return () => window.removeEventListener('mouseup', fin);
+    }, []);
+    const etendreGlisse = (i: number) => {
+        if (glisse.current === null) return;
+        const a = Math.min(glisse.current, i), b = Math.max(glisse.current, i);
+        setChoisies(new Set(lignes.slice(a, b + 1).map(l => l.id)));
+    };
+
     const idsChoisis = lignes.filter(l => choisies.has(l.id)).map(l => l.id);
     const coupeesChoisies = lignes.filter(l => choisies.has(l.id) && l.fait).length;
     const actions = {
@@ -205,13 +225,18 @@ export default function TableMatelas({
         if (!p || !f || !l.numero) return null;
         const a = analyserFichier(f);
         if (!a) return null;
-        const octets = numeroterPlt(a, l.numero, reglagesAvecDefaut(p.numerotation, reglagesDefaut));
+        const octets = numeroterPlt(a, l.numero, reglagesAvecDefaut(p.numerotation, reglagesDefaut), { code: codeMatiere(tissu), placement: p.nom });
         return octets ? { octets, nom: nomSortie(l, p) } : null;
     };
 
-    const telecharger = (l: MatelasLine) => {
-        const g = generer(l);
-        if (!g) { onMessage(L('Rien a numeroter : placement sans trace PLT ou matelas sans numero.', 'لا شيء للترقيم: تركيبة بلا ملف PLT أو مفرشة بلا رقم.', 'Nothing to number: no PLT or no number.'), 'error'); return; }
+    /** Le fichier est parti chez le traceur : le matelas passe en bleu (envoye, pas encore coupe). */
+    const marquerEnvoye = (ls: MatelasLine[]) => {
+        const maintenant = new Date().toISOString();
+        ls.filter(l => !l.fait).forEach(l => onModifier(l.id, { envoyeLe: maintenant }));
+    };
+    const rienANumeroter = () => onMessage(L('Rien a numeroter : placement sans trace PLT ou matelas sans numero.', 'لا شيء للترقيم: تركيبة بلا ملف PLT أو مفرشة بلا رقم.', 'Nothing to number: no PLT or no number.'), 'error');
+
+    const enregistrerSous = (g: { octets: Uint8Array<ArrayBuffer>; nom: string }) => {
         const url = URL.createObjectURL(new Blob([g.octets], { type: 'application/octet-stream' }));
         const a = document.createElement('a');
         a.href = url; a.download = g.nom;
@@ -219,19 +244,98 @@ export default function TableMatelas({
         setTimeout(() => URL.revokeObjectURL(url), 5000);
     };
 
+    const telecharger = (l: MatelasLine) => {
+        const g = generer(l);
+        if (!g) { rienANumeroter(); return; }
+        enregistrerSous(g);
+        marquerEnvoye([l]);
+    };
+
     const envoyer = async (l: MatelasLine) => {
         const g = generer(l);
-        if (!g) { onMessage(L('Rien a numeroter : placement sans trace PLT ou matelas sans numero.', 'لا شيء للترقيم: تركيبة بلا ملف PLT أو مفرشة بلا رقم.', 'Nothing to number.'), 'error'); return; }
+        if (!g) { rienANumeroter(); return; }
         if (!deposer) return;
         setEnvoi(l.id);
         try {
             const r = await deposer(g.nom, g.octets);
+            if (r.ok) marquerEnvoye([l]);
             onMessage(r.ok
                 ? `${L('Envoye au traceur :', 'أُرسل إلى الـ traceur:', 'Sent to plotter:')} ${r.message}`
                 : `${L('Envoi impossible :', 'تعذّر الإرسال:', 'Sending failed:')} ${r.message}`, r.ok ? 'success' : 'error');
         } finally {
             setEnvoi(null);
         }
+    };
+
+    /* ---- Plusieurs matelas a la fois ---- */
+    const lignesChoisies = () => lignes.filter(l => choisies.has(l.id));
+    const fichiersChoisis = () => lignesChoisies().map(l => ({ l, g: generer(l) })).filter((x): x is { l: MatelasLine; g: { octets: Uint8Array<ArrayBuffer>; nom: string } } => !!x.g);
+    const [occupe, setOccupe] = useState(false);
+
+    /** Chaque trace numerote est telecharge (Chrome demande une fois d'autoriser plusieurs fichiers). */
+    const telechargerChoisies = async () => {
+        const fs = fichiersChoisis();
+        if (!fs.length) { rienANumeroter(); return; }
+        for (const { g } of fs) {
+            enregistrerSous(g);
+            await new Promise(r => setTimeout(r, 350));
+        }
+        marquerEnvoye(fs.map(x => x.l));
+        const sans = lignesChoisies().length - fs.length;
+        onMessage(`${fs.length} ${L('fichier(s) telecharge(s)', 'ملف نُزّل', 'file(s) downloaded')}${sans ? ` · ${sans} ${L('sans trace PLT ou sans numero', 'بلا ملف PLT أو بلا رقم', 'without PLT or number')}` : ''}`, sans ? 'info' : 'success');
+    };
+
+    const envoyerChoisies = async () => {
+        if (!deposer) return;
+        const fs = fichiersChoisis();
+        if (!fs.length) { rienANumeroter(); return; }
+        setOccupe(true);
+        let ok = 0; const echecs: string[] = [];
+        try {
+            for (const { l, g } of fs) {
+                const r = await deposer(g.nom, g.octets);
+                if (r.ok) { ok++; marquerEnvoye([l]); } else echecs.push(`${l.numero} : ${r.message}`);
+            }
+        } finally {
+            setOccupe(false);
+        }
+        onMessage(echecs.length
+            ? `${ok} ${L('envoye(s)', 'أُرسل', 'sent')} · ${L('echec', 'فشل', 'failed')} ${echecs.join(' ; ')}`
+            : `${ok} ${L('trace(s) envoye(s) au traceur', 'ملف أُرسل إلى الـ traceur', 'trace(s) sent to plotter')}`, echecs.length ? 'error' : 'success');
+    };
+
+    /**
+     * Copier les traces numerotes dans un dossier choisi (celui d'Optitex, une
+     * cle USB...). Un navigateur ne peut pas mettre des fichiers dans le
+     * presse-papiers de Windows : on les ecrit directement dans le dossier.
+     */
+    const peutCopier = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+    const copierChoisies = async () => {
+        const fs = fichiersChoisis();
+        if (!fs.length) { rienANumeroter(); return; }
+        let dossier: any;
+        try {
+            dossier = await (window as any).showDirectoryPicker({ id: 'bera-copie-traces', mode: 'readwrite' });
+        } catch {
+            return; // fenetre fermee
+        }
+        setOccupe(true);
+        let ok = 0;
+        try {
+            for (const { l, g } of fs) {
+                try {
+                    const fh = await dossier.getFileHandle(g.nom, { create: true });
+                    const w = await fh.createWritable();
+                    await w.write(new Blob([g.octets]));
+                    await w.close();
+                    ok++;
+                    marquerEnvoye([l]);
+                } catch { /* fichier ouvert ailleurs : on continue */ }
+            }
+        } finally {
+            setOccupe(false);
+        }
+        onMessage(`${ok}/${fs.length} ${L('trace(s) copie(s) dans', 'ملف نُسخ إلى', 'trace(s) copied to')} ${dossier.name}`, ok === fs.length ? 'success' : 'error');
     };
 
     /**
@@ -246,6 +350,7 @@ export default function TableMatelas({
         e.dataTransfer.effectAllowed = 'copy';
         e.dataTransfer.setData('DownloadURL', `application/octet-stream:${g.nom}:${url}`);
         e.dataTransfer.setData('text/plain', g.nom);
+        marquerEnvoye([l]);
         setTimeout(() => { URL.revokeObjectURL(url); urls.current = urls.current.filter(u => u !== url); }, 120000);
     };
 
@@ -278,6 +383,10 @@ export default function TableMatelas({
 
     const ecartCls = (v: number) => v === 0 ? 'text-emerald-600 dark:text-emerald-400' : v < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400';
     const signe = (v: number) => (v > 0 ? `+${v}` : String(v));
+
+    /* L'ancienne colonne « Matiere » par ligne : montree seulement si une ligne en porte une (la matiere est l'onglet). */
+    const avecMatiere = lignes.some(l => (l.matiere || '').trim());
+    const colsFixes = avecMatiere ? 11 : 10;
 
     let cumul = 0;
     return (
@@ -400,9 +509,35 @@ export default function TableMatelas({
                 <div className="flex flex-wrap items-center gap-1.5 mb-2 min-h-9">
                     {idsChoisis.length > 0 ? (
                         <>
-                            <span className="h-8 px-2.5 inline-flex items-center rounded-lg bg-indigo-600 text-white text-[11px] font-bold">
+                            <span className="h-8 px-2.5 inline-flex items-center rounded-lg bg-indigo-600 text-white text-[11px] font-bold whitespace-nowrap">
                                 {idsChoisis.length} {L('ligne(s)', 'سطر', 'row(s)')}
                             </span>
+                            {(() => {
+                                const aConfirmer = lignesChoisies().filter(l => !l.fait).length;
+                                return aConfirmer > 0 ? (
+                                    <button type="button" onClick={() => onConfirmerLignes(idsChoisis, true)} className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white text-[11px] font-bold hover:bg-emerald-700" title={L('Matelas coupes : passent en vert', 'مفرشات مقصوصة: تصبح خضراء', 'Cut: turn green')}>
+                                        <Check className="w-3.5 h-3.5" />{L('Confirmer coupe', 'تأكيد القص', 'Confirm cut')} ({aConfirmer})
+                                    </button>
+                                ) : (
+                                    <button type="button" onClick={() => onConfirmerLignes(idsChoisis, false)} className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 text-emerald-700 text-[11px] font-semibold hover:bg-emerald-50">
+                                        <X className="w-3.5 h-3.5" />{L('Annuler la confirmation', 'إلغاء التأكيد', 'Undo confirm')}
+                                    </button>
+                                );
+                            })()}
+                            <button type="button" disabled={occupe} onClick={telechargerChoisies} className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300 text-[11px] font-semibold hover:bg-indigo-100 disabled:opacity-40" title={L('Telecharger les traces numerotes', 'تنزيل الملفات المرقّمة', 'Download numbered traces')}>
+                                <Download className="w-3.5 h-3.5" />{L('Telecharger', 'تنزيل', 'Download')}
+                            </button>
+                            {deposer && (
+                                <button type="button" disabled={occupe} onClick={envoyerChoisies} className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft text-[11px] font-semibold hover:border-indigo-300 disabled:opacity-40">
+                                    <Send className="w-3.5 h-3.5" />{L('Envoyer au traceur', 'إرسال إلى الـ traceur', 'Send to plotter')}
+                                </button>
+                            )}
+                            {peutCopier && (
+                                <button type="button" disabled={occupe} onClick={copierChoisies} className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft text-[11px] font-semibold hover:border-indigo-300 disabled:opacity-40" title={L('Ecrire les traces numerotes dans un dossier (Optitex, cle USB...)', 'كتابة الملفات المرقّمة في مجلّد (Optitex، USB...)', 'Write numbered traces into a folder')}>
+                                    <FolderInput className="w-3.5 h-3.5" />{L('Copier dans un dossier', 'نسخ إلى مجلّد', 'Copy to folder')}
+                                </button>
+                            )}
+                            <span className="w-px h-6 bg-slate-200 dark:bg-dk-border mx-0.5" />
                             {[
                                 { f: actions.inserer, i: Plus, t: L('Inserer dessous', 'إدراج تحت', 'Insert below'), k: 'Ctrl +' },
                                 { f: actions.dupliquer, i: Copy, t: L('Dupliquer', 'تكرار', 'Duplicate'), k: 'Ctrl D' },
@@ -417,14 +552,14 @@ export default function TableMatelas({
                             <button type="button" onClick={() => setChoisies(new Set())} className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100" title="Echap"><X className="w-4 h-4" /></button>
                         </>
                     ) : (
-                        <span className="text-[11px] text-slate-400">{L('Cliquez une ligne pour la choisir · Ctrl ou Maj pour en prendre plusieurs · clic droit pour les actions', 'انقر سطراً لاختياره · Ctrl أو Shift لعدّة أسطر · الزر الأيمن للعمليات', 'Click a row to select · Ctrl/Shift for several · right-click for actions')}</span>
+                        <span className="text-[11px] text-slate-400">{L('Cliquez une ligne, ou appuyez et descendez pour en prendre plusieurs · Ctrl ou Maj aussi · clic droit pour les actions', 'انقر سطراً، أو اضغط واسحب للأسفل لأخذ عدّة أسطر · Ctrl أو Shift أيضاً · الزر الأيمن للعمليات', 'Click a row, or press and drag down to take several · Ctrl/Shift too · right-click for actions')}</span>
                     )}
                     <button type="button" onClick={() => setAvecCumuls(v => !v)} className={`ml-auto h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg border text-[11px] font-semibold ${avecCumuls ? 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300' : 'border-slate-200 text-slate-500'}`} title={L('Cumul de chaque taille, couleur par couleur', 'المتراكم لكل مقاس، لوناً بلون', 'Running total per size, per colour')}>
                         <Sigma className="w-3.5 h-3.5" />{L('Cumul par taille', 'المتراكم لكل مقاس', 'Per-size running')}
                     </button>
                 </div>
 
-                <div className="relative rounded-xl border border-slate-200 dark:border-dk-border overflow-auto max-h-[72vh] bg-white dark:bg-dk-surface">
+                <div className={`relative rounded-xl border border-slate-200 dark:border-dk-border overflow-auto max-h-[75vh] bg-white dark:bg-dk-surface ${enGlisse ? 'select-none' : ''}`}>
                     <table className="w-full text-[12px] border-separate border-spacing-0">
                         <thead>
                             <tr className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-dk-muted">
@@ -435,8 +570,8 @@ export default function TableMatelas({
                                             <th className={`${th} z-30 text-center`} style={{ left: 0, width: COL_ETAT, minWidth: COL_ETAT, maxWidth: COL_ETAT }} title={L('Coupe', 'مقصوص', 'Cut')}><CheckCircle2 className="w-3.5 h-3.5 mx-auto" /></th>
                                             <th className={`${th} z-30 text-center border-r`} style={{ left: COL_ETAT, width: COL_NUMERO, minWidth: COL_NUMERO, maxWidth: COL_NUMERO }} title={L('Numero ecrit sur les pieces', 'الرقم الذي يُكتب على القطع', 'Number written on pieces')}>N°</th>
                                             <th className={`${th} text-left min-w-[104px]`}>{L('Placement', 'التركيبة', 'Placement')}</th>
-                                            <th className={`${th} text-left min-w-[150px]`}>{L('Couleur', 'اللون', 'Colour')}</th>
-                                            <th className={`${th} text-left min-w-[130px]`}>{L('Matiere', 'المادة', 'Material')}</th>
+                                            <th className={`${th} text-left min-w-[120px]`}>{L('Couleur', 'اللون', 'Colour')}</th>
+                                            {avecMatiere && <th className={`${th} text-left min-w-[130px]`}>{L('Matiere', 'المادة', 'Material')}</th>}
                                             <th className={`${th} text-right`} style={{ minWidth: 80 }}>{L('Plis', 'طيّات', 'Plies')}</th>
                                             {tailles.map(t => (
                                                 <React.Fragment key={t}>
@@ -447,8 +582,8 @@ export default function TableMatelas({
                                             <th className={`${th} text-right border-l border-slate-200 dark:border-dk-border`} style={{ minWidth: 64 }}>{L('Total', 'المجموع', 'Total')}</th>
                                             <th className={`${th} text-right`} style={{ minWidth: 64 }}>{L('Cumul', 'المتراكم', 'Running')}</th>
                                             <th className={`${th} text-right`} style={{ minWidth: 72 }}>{L('Conso m', 'الاستهلاك م', 'Fabric m')}</th>
-                                            <th className={`${th} text-left min-w-[220px] border-l border-slate-200 dark:border-dk-border`}>{L('Trace numerote', 'الملف المرقَّم', 'Numbered trace')}</th>
-                                            <th className={th} style={{ minWidth: 96 }}></th>
+                                            <th className={`${th} text-left min-w-[200px] border-l border-slate-200 dark:border-dk-border`}>{L('Trace numerote', 'الملف المرقَّم', 'Numbered trace')}</th>
+                                            <th className={th} style={{ minWidth: 80 }}></th>
                                         </>
                                     );
                                 })()}
@@ -456,7 +591,7 @@ export default function TableMatelas({
                         </thead>
                         <tbody>
                             {lignes.length === 0 && (
-                                <tr><td colSpan={tailles.length * (avecCumuls ? 2 : 1) + 11} className="py-8 text-center text-[12px] text-slate-400 dark:text-dk-muted">
+                                <tr><td colSpan={tailles.length * (avecCumuls ? 2 : 1) + colsFixes} className="py-8 text-center text-[12px] text-slate-400 dark:text-dk-muted">
                                     {L('Aucun matelas. « Calculer les matelas » les cree depuis vos placements et la commande.', 'لا توجد مفرشات. «حساب المفرشات» يُنشئها من التركيبات والطلب.', 'No lay yet. "Compute lays" creates them from your placements and the order.')}
                                 </td></tr>
                             )}
@@ -478,18 +613,25 @@ export default function TableMatelas({
                                     const bloque = !!l.fait;
                                     const choisie = choisies.has(l.id);
                                     // Fond opaque : les deux premieres colonnes restent collees a gauche en defilant.
-                                    const fond = choisie ? 'bg-indigo-50 dark:bg-indigo-950' : l.fait ? 'bg-emerald-50 dark:bg-emerald-950' : i % 2 ? 'bg-slate-50/70 dark:bg-dk-bg' : 'bg-white dark:bg-dk-surface';
+                                    const envoye = !l.fait && !!l.envoyeLe;
+                                    const fond = choisie ? 'bg-indigo-50 dark:bg-indigo-950' : l.fait ? 'bg-emerald-50 dark:bg-emerald-950' : envoye ? 'bg-sky-50 dark:bg-sky-950' : i % 2 ? 'bg-slate-50 dark:bg-dk-bg' : 'bg-white dark:bg-dk-surface';
                                     const td = `${fond} border-b border-slate-100 dark:border-dk-border py-1 px-1.5`;
                                     const caseSaisie = 'w-full h-8 rounded-md border border-transparent hover:border-slate-200 dark:hover:border-dk-border focus:border-indigo-400 focus:bg-white dark:focus:bg-dk-surface bg-transparent outline-none tabular-nums disabled:hover:border-transparent';
                                     return (
                                         <tr
                                             key={l.id}
-                                            onMouseDown={e => { const t = e.target as HTMLElement; if (e.button === 0 && !t.closest('input,button,a,[draggable="true"]')) choisir(l.id, e); }}
+                                            onMouseDown={e => {
+                                                const t = e.target as HTMLElement;
+                                                if (e.button !== 0 || t.closest('input,button,a,[draggable="true"]')) return;
+                                                choisir(l.id, e);
+                                                if (!e.shiftKey && !e.ctrlKey && !e.metaKey) { glisse.current = i; setEnGlisse(true); }
+                                            }}
+                                            onMouseEnter={e => { if (glisse.current !== null && e.buttons === 1) etendreGlisse(i); }}
                                             onFocusCapture={() => { if (!choisies.has(l.id)) { setChoisies(new Set([l.id])); ancre.current = l.id; } }}
                                             onContextMenu={e => { e.preventDefault(); if (!choisies.has(l.id)) { setChoisies(new Set([l.id])); ancre.current = l.id; } setMenuLigne({ x: e.clientX, y: e.clientY }); }}
                                             className="group"
                                         >
-                                            <td className={`${td} sticky z-10 text-center align-middle overflow-hidden ${choisie ? 'shadow-[inset_3px_0_0_0_rgb(79,70,229)]' : ''}`} style={{ left: 0, width: COL_ETAT, minWidth: COL_ETAT, maxWidth: COL_ETAT }}>{renderEtat(l)}</td>
+                                            <td className={`${td} sticky z-10 text-center align-middle overflow-hidden ${choisie ? 'shadow-[inset_3px_0_0_0_rgb(79,70,229)]' : envoye ? 'shadow-[inset_3px_0_0_0_rgb(14,165,233)]' : ''}`} style={{ left: 0, width: COL_ETAT, minWidth: COL_ETAT, maxWidth: COL_ETAT }}>{renderEtat(l)}</td>
                                             <td className={`${td} sticky z-10 border-r border-slate-100 dark:border-dk-border`} style={{ left: COL_ETAT, width: COL_NUMERO, minWidth: COL_NUMERO, maxWidth: COL_NUMERO }}>
                                                 <input
                                                     {...cellule(i, 0)}
@@ -519,7 +661,7 @@ export default function TableMatelas({
                                                     <Choix cellule valeur={couleurCellule(l.couleur)} vide={L('Couleur', 'اللون', 'Colour')} options={couleurs.map(c => ({ id: c, label: couleurCellule(c) }))} onChoisir={c => onModifier(l.id, { couleur: c })} />
                                                 )}
                                             </td>
-                                            <td className={td}>{renderMatiere(l)}</td>
+                                            {avecMatiere && <td className={td}>{renderMatiere(l)}</td>}
                                             <td className={td}>
                                                 <input
                                                     {...cellule(i, 1)}
@@ -594,7 +736,7 @@ export default function TableMatelas({
                             return (
                                 <tfoot className="text-[11px] font-bold">
                                     <tr className="bg-slate-100 dark:bg-dk-elevated">
-                                        <td colSpan={5} className={`${tf} bg-slate-100 dark:bg-dk-elevated text-right uppercase tracking-wide text-slate-600 dark:text-dk-text-soft`}>{L('Total', 'المجموع', 'Total')} · {lignes.length} {L('matelas', 'مفرشة', 'lays')}</td>
+                                        <td colSpan={avecMatiere ? 5 : 4} className={`${tf} bg-slate-100 dark:bg-dk-elevated text-right uppercase tracking-wide text-slate-600 dark:text-dk-text-soft`}>{L('Total', 'المجموع', 'Total')} · {lignes.length} {L('matelas', 'مفرشة', 'lays')}</td>
                                         <td className={`${tf} bg-slate-100 dark:bg-dk-elevated text-right tabular-nums`}>{bilan.plis}</td>
                                         {tailles.map(t => (
                                             <React.Fragment key={t}>
@@ -610,13 +752,13 @@ export default function TableMatelas({
                                         </td>
                                     </tr>
                                     <tr className="bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted">
-                                        <td colSpan={6} className="py-1.5 px-1.5 text-right uppercase tracking-wide">{L('Commande', 'الطلب', 'Order')}</td>
+                                        <td colSpan={avecMatiere ? 6 : 5} className="py-1.5 px-1.5 text-right uppercase tracking-wide">{L('Commande', 'الطلب', 'Order')}</td>
                                         {tailles.map(t => <React.Fragment key={t}><td className="py-1.5 px-1.5 text-right tabular-nums">{bilan.cmd[t]}</td>{cumulVide && <td></td>}</React.Fragment>)}
                                         <td className="py-1.5 px-1.5 text-right tabular-nums">{totalCmd}</td>
                                         <td colSpan={4}></td>
                                     </tr>
                                     <tr className="bg-white dark:bg-dk-surface">
-                                        <td colSpan={6} className="py-1.5 px-1.5 text-right uppercase tracking-wide text-slate-600 dark:text-dk-text-soft">{L('Ecart', 'الفارق', 'Gap')}</td>
+                                        <td colSpan={avecMatiere ? 6 : 5} className="py-1.5 px-1.5 text-right uppercase tracking-wide text-slate-600 dark:text-dk-text-soft">{L('Ecart', 'الفارق', 'Gap')}</td>
                                         {tailles.map(t => { const v = bilan.total[t] - bilan.cmd[t]; return <React.Fragment key={t}><td className={`py-1.5 px-1.5 text-right tabular-nums ${ecartCls(v)}`}>{v === 0 ? '✓' : signe(v)}</td>{cumulVide && <td></td>}</React.Fragment>; })}
                                         {(() => { const v = bilan.pieces - totalCmd; return <td className={`py-1.5 px-1.5 text-right tabular-nums ${ecartCls(v)}`}>{v === 0 ? '✓' : signe(v)}</td>; })()}
                                         <td colSpan={4}></td>

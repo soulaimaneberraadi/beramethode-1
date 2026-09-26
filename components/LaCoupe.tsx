@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ModelData, OrdreCoupe, Faisceau, MatelasFichier, MatelasLine, AppSettings, GroupeCoupe, PlacementCoupe, TissuCoupe } from '../types';
+import { ModelData, OrdreCoupe, Faisceau, MatelasFichier, MatelasLine, AppSettings, GroupeCoupe, PlacementCoupe, TissuCoupe, PlanningEvent } from '../types';
 import {
     Scissors, FileText, CheckCircle2, Clock, Search, Layers, ChevronRight,
     AlertCircle, Printer, PackageSearch, Plus, Trash2, Barcode,
@@ -8,7 +8,7 @@ import {
     Palette, X, Menu, ChevronLeft, LayoutGrid, List, Calendar, BarChart3,
     Download, Filter, Copy, Edit3, MoreVertical, ArrowRight, TrendingUp,
     ArrowUpDown, RefreshCw, Zap, Target, Star, Hash, Upload, FolderOpen, Check,
-    PanelLeftClose, PanelLeftOpen, Library, ChevronDown, AlertTriangle, ArrowLeft, Building2, Tag
+    PanelLeftClose, PanelLeftOpen, Library, ChevronDown, AlertTriangle, ArrowLeft, Building2, Tag, FileSpreadsheet, Tags, Receipt
 } from 'lucide-react';
 import { tx } from '../lib/i18n';
 import { useRouteSegment } from '../lib/router';
@@ -25,8 +25,12 @@ import { AMORCE_PAR_PLI_M, presenceGroupes } from '../lib/coupeAtelier';
 import { planifierPlacements, decouperEnMatelas, nomPlacement, repartirPlis } from '../lib/planMatelas';
 import {
     TISSU_PRINCIPAL, TISSUS_PROPOSES, tissuDe, estPrincipal, migrerOrdre, appliquerPlacement, matelasDuPlacement,
-    plisPourPlacements, renumeroter, numeroSuivant, nomFichierMatelas, type SensNumerotation,
+    plisPourPlacements, renumeroter, numeroSuivant, nomFichierMatelas, codeMatiere, type SensNumerotation,
 } from '../lib/ordreCoupe';
+import ImportExcelCoupe, { type ChoixImport } from './coupe/ImportExcelCoupe';
+import SerieEtiquetage from './coupe/SerieEtiquetage';
+import { appliquerImport } from '../lib/appliquerImport';
+import { paquetsSerie, saisieDe } from '../lib/serieEtiquetage';
 import TablePlacements from './coupe/TablePlacements';
 import TableMatelas from './coupe/TableMatelas';
 import { grilleClavier } from './coupe/grilleClavier';
@@ -62,6 +66,8 @@ interface LaCoupeProps {
     /** Reglages de l'entreprise : on y garde les groupes de coupe. */
     settings?: AppSettings;
     setSettings?: React.Dispatch<React.SetStateAction<AppSettings>>;
+    /** OF du Planning : la chaine d'un modele est proposee pour ses paquets. */
+    planningEvents?: PlanningEvent[];
 }
 
 const MOBILE_BREAKPOINT = 768;
@@ -89,7 +95,7 @@ function useIsMobile(): boolean {
     return isMobile;
 }
 
-export default function LaCoupe({ models, setModels, onOpenInAtelier, currentModelId, setFicheData, onNavigate, onCreateNewProject, onTransferToPlanning, settings, setSettings }: LaCoupeProps) {
+export default function LaCoupe({ models, setModels, onOpenInAtelier, currentModelId, setFicheData, onNavigate, onCreateNewProject, onTransferToPlanning, settings, setSettings, planningEvents }: LaCoupeProps) {
     const isMobile = useIsMobile();
     const { lang } = useLang();
     /* Préférence d'agrandissement partagée : celui qui agrandit la liste des
@@ -786,6 +792,31 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         setToggleFaitConfirmId(null);
     };
 
+    /**
+     * Un clic sur ✓ : le matelas est coupe (vert), sans fenetre. Le debut est
+     * celui note au demarrage, sinon l'envoi au traceur ; la fin, maintenant.
+     * Un second clic annule. Le detail (plis reels, groupe, heures) reste
+     * accessible par le bouton horloge.
+     */
+    const basculerFait = (l: MatelasLine) => handleToggleMatelasFait(l.id, l.fait ? undefined : {
+        groupe: l.groupe || dernierGroupe,
+        debut: l.debut || l.envoyeLe || null,
+        fin: new Date().toISOString(),
+    });
+    /** Plusieurs matelas choisis : coupes (vert) ou pas, d'un coup. */
+    const confirmerLignes = (ids: string[], fait: boolean) => {
+        const maintenant = new Date().toISOString();
+        setOrdre(prev => ({
+            ...prev,
+            matelasLines: (prev.matelasLines || []).map(l => {
+                if (!ids.includes(l.id) || !!l.fait === fait) return l;
+                return fait
+                    ? { ...l, fait: true, groupe: l.groupe || dernierGroupe, debut: l.debut || l.envoyeLe, fin: maintenant }
+                    : { ...l, fait: false, fin: undefined };
+            }),
+        }));
+    };
+
     /** Le groupe commence l'etalage : on retient l'heure, la fin viendra en cochant « coupe ». */
     const handleDemarrerMatelas = (id: string, groupe: string | undefined) => {
         const debut = new Date().toISOString();
@@ -887,6 +918,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         ...prev,
         placements: [...(prev.placements || []), { id: `PLC-${Date.now().toString(36)}`, tissu: tissuCourant.id, nom: '', ratios: {} }],
     }));
+    /** Placement cree deja rempli (plusieurs traces deposes d'un coup) ; rend son id. */
+    const ajouterPlacementAvec = (init: Partial<PlacementCoupe>): string => {
+        const id = `PLC-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4).toString(36)}`;
+        setOrdre(prev => ({ ...prev, placements: [...(prev.placements || []), { nom: '', ratios: {}, ...init, id, tissu: tissuCourant.id }] }));
+        return id;
+    };
     /** Un placement change : ses matelas pas encore coupes suivent (tailles, longueur). */
     const modifierPlacement = (id: string, patch: Partial<PlacementCoupe>) => setOrdre(prev => {
         const placements = (prev.placements || []).map(p => (p.id === id ? { ...p, ...patch } : p));
@@ -1004,6 +1041,44 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [models]);
 
+    /** Chaines de montage, comme le Planning les nomme (CHAINE 1..n). */
+    const chainesAtelier = useMemo(() => Array.from({ length: settings?.chainsCount || 4 }, (_, i) => {
+        const id = `CHAINE ${i + 1}`;
+        return { id, name: settings?.chainNames?.[id] || id };
+    }), [settings?.chainsCount, settings?.chainNames]);
+
+    /*
+     * Import d'un ordre Excel : tailles et quantites dans la repartition du
+     * modele (couleur choisie), matieres, placements et matelas dans l'ordre.
+     * Rien n'est enregistre avant « Sauvegarder », sauf la repartition qui
+     * suit le meme chemin que sa saisie a la main.
+     */
+    const [importOuvert, setImportOuvert] = useState(false);
+    const appliquerImportExcel = (c: ChoixImport) => {
+        if (!selectedModel) return;
+        const fiche: any = buildFiche();
+        const couleursFiche: any[] = [...(fiche.colors || [])];
+        const nomDe = (x: any) => (typeof x === 'string' ? x : x.name || x.id);
+        let nomCouleur = c.couleur;
+        if (!nomCouleur) {
+            nomCouleur = c.nouvelleCouleur;
+            couleursFiche.push(couleursFiche.length && typeof couleursFiche[0] === 'string' ? nomCouleur : { id: Date.now().toString(), name: nomCouleur });
+        }
+        const r = appliquerImport(ordre, c.feuille, { tailles: fiche.sizes || [], couleur: nomCouleur, remplacer: c.remplacer, maxPlis: Number(autoMaxPly) || 100 });
+        const col = couleursFiche.find(x => nomDe(x) === nomCouleur);
+        const cId = typeof col === 'string' ? col : (col?.id || col?.name);
+        const grille: Record<string, number> = { ...(fiche.gridQuantities || {}) };
+        r.tailles.forEach((t, i) => { if (t in r.quantites) grille[`${cId}_${i}`] = r.quantites[t]; });
+        const quantite = Object.values(grille).reduce((a: number, v: any) => a + (Number(v) || 0), 0);
+        applyFicheUpdate({ ...fiche, sizes: r.tailles, colors: couleursFiche, gridQuantities: grille, quantity: quantite, client: fiche.client || c.feuille.client || '' });
+        setOrdre(r.ordre);
+        showToast(tx(lang, {
+            fr: `Importe : ${r.resume.placements} placement(s), ${r.resume.matelas} matelas${r.alertes.length ? ` · ${r.alertes.length} ligne(s) a verifier` : ''}. Verifiez puis Sauvegardez.`,
+            ar: `تم الاستيراد: ${r.resume.placements} تركيبة، ${r.resume.matelas} مفرشة${r.alertes.length ? ` · ${r.alertes.length} سطر للتحقق` : ''}. تحقّق ثم احفظ.`,
+            en: `Imported: ${r.resume.placements} placement(s), ${r.resume.matelas} lays. Check then Save.`,
+        }), r.alertes.length ? 'info' : 'success');
+    };
+
     const lienExcel = useLienExcel();
     const traceur = useDossierTraceur();
     const [entreprise, setEntreprise] = useState<string>('');
@@ -1023,15 +1098,34 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             type: typeDe(m),
             statut: STATUS_MAP[o.status as keyof typeof STATUS_MAP]?.label,
             date: new Date().toLocaleDateString('fr-FR'),
+            pedido: o.pedido,
+            refFournisseur: o.refFournisseur,
             tailles: sizes,
             repartition,
+            serie: (() => {
+                const paquets = paquetsSerie(o.matelasLines || [], sizes, o.serie?.depart || 1);
+                if (!paquets.length) return undefined;
+                return {
+                    lignes: paquets.map(pq => {
+                        const sa = saisieDe(o.serie, pq.cle);
+                        return {
+                            date: sa.date, paquet: pq.paquet, plis: pq.plis, debut: pq.debut, fin: pq.fin, taille: pq.taille,
+                            pieces: sa.pieces, n: sa.n, entree: sa.entree, lote: sa.lote, sortie: sa.sortie,
+                            chaine: sa.chaine ? (chainesAtelier.find(c => c.id === sa.chaine)?.name || sa.chaine) : undefined,
+                        };
+                    }),
+                };
+            })(),
             tissus: tissuParDefaut(o).map(t => {
                 const pls = (o.placements || []).filter(p => p.tissu === t.id);
                 let cumul = 0;
                 return {
                     nom: t.nom,
+                    code: codeMatiere(t),
+                    principal: t.id === TISSU_PRINCIPAL,
                     recuM: t.recuM,
-                    placements: pls.map(p => ({ nom: p.nom, ratios: p.ratios, fichier: p.fichier?.nom, longueurM: p.longueurM, laizeCm: p.laizeCm, efficience: p.efficience, maxPlis: p.maxPlis })),
+                    laizeCm: t.laizeCm,
+                    placements: pls.map(p => ({ nom: p.nom, code: p.code, ratios: p.ratios, fichier: p.fichier?.nom, longueurM: p.longueurM, laizeCm: p.laizeCm, efficience: p.efficience, maxPlis: p.maxPlis })),
                     matelas: (o.matelasLines || []).filter(l => tissuDe(l) === t.id).map(l => {
                         const pieces = Object.fromEntries(sizes.map(s => [s, (l.plis || 0) * (Number(l.ratios?.[s]) || 0)]));
                         const total = Object.values(pieces).reduce((a, b) => a + b, 0);
@@ -1041,6 +1135,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             numero: l.numero || '',
                             placement: p?.nom || nomPlacement(l.ratios || {}, sizes),
                             couleur: l.couleur || '',
+                            couleurIndex: l.couleur && nomsCouleurs.includes(l.couleur) ? nomsCouleurs.indexOf(l.couleur) + 1 : undefined,
+                            ratios: l.ratios || {},
+                            longueurM: l.longTracee || 0,
+                            envoye: !l.fait && !!l.envoyeLe,
                             plis: l.plis || 0,
                             pieces,
                             total,
@@ -2353,7 +2451,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     )}
 
                     {selectedModel ? (
-                        <div className="max-w-4xl xl:max-w-5xl 2xl:max-w-[1400px] mx-auto p-4 md:p-6 space-y-4 md:space-y-5">
+                        <div className="w-full max-w-[1920px] mx-auto p-3 md:p-5 space-y-4 md:space-y-5">
 
                             {/* ORDER HEADER CARD */}
                             <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
@@ -2403,6 +2501,16 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             onChange={e => updateFicheChamp('category', e.target.value)}
                                                             placeholder={tx(lang, { fr: 'Type (jupe, sweat…)', ar: 'النوع (تنورة…)', en: 'Type (skirt…)', es: 'Tipo (falda…)', pt: 'Tipo (saia…)', tr: 'Tür (etek…)' })}
                                                             className="w-28 bg-transparent text-[12px] font-semibold text-white placeholder:text-slate-500 outline-none"
+                                                        />
+                                                    </label>
+                                                    <label className="inline-flex items-center gap-1.5 h-7 px-2 rounded-md bg-white/5 border border-white/10 focus-within:border-rose-500 transition-colors" title={tx(lang, { fr: 'Numero de commande du client (PEDIDO)', ar: 'رقم طلب الزبون (PEDIDO)', en: 'Client order number (PEDIDO)' })}>
+                                                        <Receipt className="w-3 h-3 text-slate-400 shrink-0" />
+                                                        <input
+                                                            type="text"
+                                                            value={ordre.pedido || ''}
+                                                            onChange={e => setOrdre({ ...ordre, pedido: e.target.value || undefined })}
+                                                            placeholder={tx(lang, { fr: 'N° commande', ar: 'رقم الطلب', en: 'Order no.' })}
+                                                            className="w-24 bg-transparent text-[12px] font-semibold text-white placeholder:text-slate-500 outline-none"
                                                         />
                                                     </label>
                                                     <datalist id="coupe-clients-connus">{clientsConnus.map(c => <option key={c} value={c} />)}</datalist>
@@ -2720,6 +2828,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         >
                                             <Plus className="w-3 h-3" /> {tx(lang, { fr: 'Ajouter Matelas', ar: 'إضافة مفرشة', en: 'Add Layer', es: 'Agregar Capa', pt: 'Adicionar Esteira', tr: 'Katman Ekle' })}
                                         </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setImportOuvert(true)}
+                                            className="h-8 px-3 rounded-lg text-[11px] font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800 dark:text-emerald-300 flex items-center gap-1.5"
+                                            title={tx(lang, { fr: 'Lire le REPARTOS du client ou une feuille de coupe Excel', ar: 'قراءة REPARTOS الزبون أو ورقة قص Excel', en: 'Read the client REPARTOS or an Excel cut sheet' })}
+                                        >
+                                            <FileSpreadsheet className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Importer Excel', ar: 'استيراد Excel', en: 'Import Excel' })}
+                                        </button>
                                     </div>
                                 </div>
 
@@ -2733,6 +2849,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             onClick={() => setTissuActif(t.id)}
                                             className={`h-9 px-3 -mb-px border-b-2 text-[12px] font-semibold whitespace-nowrap transition-colors ${t.id === tissuCourant.id ? 'border-indigo-600 text-indigo-700 dark:text-indigo-300' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                                         >
+                                            <span className="mr-1 px-1 rounded bg-slate-100 dark:bg-dk-elevated text-[9px] font-bold text-slate-500">{codeMatiere(t)}</span>
                                             {t.nom}
                                             <span className="ml-1.5 text-[10px] font-bold text-slate-400">{(ordre.matelasLines || []).filter(l => tissuDe(l) === t.id).length}</span>
                                             {(() => {
@@ -2777,6 +2894,16 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             value={tissuCourant.nom}
                                             onChange={e => majTissu(tissuCourant.id, { nom: e.target.value })}
                                             className="h-9 w-44 px-2.5 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[13px] font-semibold outline-none focus:border-indigo-400"
+                                        />
+                                    </label>
+                                    <label className="block">
+                                        <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{tx(lang, { fr: 'Code', ar: 'الرمز', en: 'Code' })}</span>
+                                        <input
+                                            value={tissuCourant.code ?? ''}
+                                            onChange={e => majTissu(tissuCourant.id, { code: e.target.value.toUpperCase().replace(/\s+/g, '') || undefined })}
+                                            placeholder={codeMatiere({ ...tissuCourant, code: undefined })}
+                                            title={tx(lang, { fr: 'Ecrit a cote du numero dans les pieces (77 TE, 77 VSLIN) et nom de la feuille Excel', ar: 'يُكتب بجانب الرقم في القطع (77 TE) واسم ورقة Excel', en: 'Written next to the number (77 TE) and Excel sheet name' })}
+                                            className="h-9 w-20 px-2.5 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[13px] font-bold uppercase outline-none focus:border-indigo-400"
                                         />
                                     </label>
                                     <label className="block">
@@ -2837,6 +2964,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         laizeTissuCm={tissuCourant.laizeCm}
                                         suggestions={suggestionsTrace}
                                         onAjouter={ajouterPlacement}
+                                        onAjouterAvec={ajouterPlacementAvec}
                                         onModifier={modifierPlacement}
                                         onSupprimer={p => setPlacementASupprimer(p)}
                                         onApercu={p => setApercuMatelas({ placementId: p.id, numero: String(numeroSuivant(ordre.matelasLines || [], tissuCourant.id) - 1 || 1) })}
@@ -2909,20 +3037,33 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         onSupprimerLignes={supprimerLignes}
                                         onDupliquerLignes={dupliquerLignes}
                                         onDeplacerLigne={deplacerLigne}
+                                        onConfirmerLignes={confirmerLignes}
                                         reglagesDefaut={settings?.numerotationDefaut}
                                         deposer={traceur.disponible ? traceur.deposer : undefined}
                                         onApercu={(l, p) => setApercuMatelas({ placementId: p.id, numero: l.numero || '', nom: nomFichierMatelas(p, tissuCourant.nom, l.numero || '0') })}
                                         onMessage={showToast}
                                         renderEtat={line => (
                                             <>
+                                                                        <div className="flex items-center justify-center gap-0.5">
                                                                         <button
                                                                             type="button"
-                                                                            onClick={() => setToggleFaitConfirmId(line.id)}
+                                                                            onClick={() => basculerFait(line)}
                                                                             title={tx(lang, { fr: line.fait ? 'Marquer comme non coupé' : 'Marquer comme coupé', ar: line.fait ? 'إلغاء تعليم كمقصوص' : 'تعليم كمقصوص', en: line.fait ? 'Mark as not cut' : 'Mark as cut', es: line.fait ? 'Marcar como no cortado' : 'Marcar como cortado', pt: line.fait ? 'Marcar como não cortado' : 'Marcar como cortado', tr: line.fait ? 'Kesilmedi işaretle' : 'Kesildi işaretle' })}
-                                                                            className={`w-[18px] h-[18px] rounded-md border-2 flex items-center justify-center transition-colors mx-auto ${line.fait ? 'bg-emerald-500 border-emerald-500' : 'bg-white dark:bg-dk-surface border-slate-300 dark:border-dk-border hover:border-emerald-400'}`}
+                                                                            className={`w-[22px] h-[22px] shrink-0 rounded-md border-2 flex items-center justify-center transition-colors ${line.fait ? 'bg-emerald-500 border-emerald-500' : line.envoyeLe ? 'bg-sky-500 border-sky-500 hover:bg-emerald-500 hover:border-emerald-500' : 'bg-white dark:bg-dk-surface border-slate-300 dark:border-dk-border hover:border-emerald-400'}`}
                                                                         >
-                                                                            {line.fait && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+                                                                            {line.fait ? <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} /> : line.envoyeLe ? <Send className="w-3 h-3 text-white" strokeWidth={2.5}><title>{tx(lang, { fr: `Envoye au traceur a ${heureLocale(line.envoyeLe)} — cliquez quand il est coupe`, ar: `أُرسل إلى الـ traceur على ${heureLocale(line.envoyeLe)} — انقر عند القص`, en: `Sent at ${heureLocale(line.envoyeLe)} — click when cut` })}</title></Send> : null}
                                                                         </button>
+                                                                        {!line.fait && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setToggleFaitConfirmId(line.id)}
+                                                                                title={tx(lang, { fr: 'Confirmer avec le detail : plis reellement coupes, groupe, heures, metres', ar: 'تأكيد مع التفاصيل: الطيّات المقصوصة فعلاً، الفريق، الساعات، الأمتار', en: 'Confirm with details' })}
+                                                                                className="flex items-center justify-center w-5 h-6 rounded text-slate-300 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-dk-elevated"
+                                                                            >
+                                                                                <Clock className="w-3 h-3" />
+                                                                            </button>
+                                                                        )}
+                                                                        </div>
                                                                         {/* Qui coupe, et depuis quand : la base du classement des groupes */}
                                                                         {!line.fait && !line.debut && groupesCoupe.length > 0 && (
                                                                             <button
@@ -3007,6 +3148,25 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                     />
                                 </div>
                             </div>
+
+                            {/* SERIE D'ETIQUETAGE (tissu principal) */}
+                            {(ordre.matelasLines || []).some(l => estPrincipal(l)) && (
+                                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 md:p-5">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Tags className="w-4 h-4 text-indigo-500" />
+                                        <h3 className="text-[14px] font-semibold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Serie d\u2019etiquetage', ar: 'سلسلة الإتيكيتات', en: 'Ticket series' })}</h3>
+                                        <span className="text-[11px] text-slate-400">{tx(lang, { fr: 'tissu principal · un paquet par taille de chaque matelas', ar: 'الثوب الرئيسي · حزمة لكل مقاس في كل مفرشة', en: 'main fabric · one bundle per size of each lay' })}</span>
+                                    </div>
+                                    <SerieEtiquetage
+                                        lignes={ordre.matelasLines || []}
+                                        tailles={sizes}
+                                        serie={ordre.serie}
+                                        onChange={serie => setOrdre(prev => ({ ...prev, serie }))}
+                                        chaines={chainesAtelier}
+                                        chainePlanifiee={(planningEvents || []).find(e => e.modelId === selectedModel.id)?.chaineId}
+                                    />
+                                </div>
+                            )}
 
                             {/* SUIVI COUPE & BILAN CARD */}
                             <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 md:p-6">
@@ -3874,6 +4034,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 </SheetModal>
             )}
 
+            {importOuvert && selectedModel && (
+                <ImportExcelCoupe
+                    couleurs={nomsCouleurs}
+                    onClose={() => setImportOuvert(false)}
+                    onImporter={c => { setImportOuvert(false); appliquerImportExcel(c); }}
+                />
+            )}
+
             {conflit && (
                 <SheetModal onClose={() => setConflit(null)} size="sm" zClass="z-[98]" closeOnBackdrop={false} bodyClassName="flex-1 overflow-y-auto min-h-0 p-5">
                     <div className="flex items-start gap-3">
@@ -3946,7 +4114,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 opacity: (brouillonDefaut.opacite ?? 60) / 100,
                             }}
                         >
-                            {texteNumero('77', brouillonDefaut)}
+                            {texteNumero('77', brouillonDefaut, { code: 'TE' })}
                         </span>
                     </div>
                     <p className="mt-2 text-[11px] text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Le numero garde cette taille tant qu\u2019il tient dans la piece ; dans une piece plus petite, il prend la plus grande taille qui y entre.', ar: 'يحتفظ الرقم بهذا الحجم ما دام يدخل في القطعة؛ وفي القطعة الأصغر يأخذ أكبر حجم يدخل فيها.', en: 'The number keeps this size when it fits; in smaller pieces it takes the largest size that fits.' })}</p>
@@ -3985,6 +4153,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         numeroInitial={apercuMatelas.numero}
                         fichierInitial={{ nom: f.nom, data: f.data }}
                         reglagesInitiaux={p.numerotation}
+                        contexte={{ code: codeMatiere(tissus.find(t => t.id === p.tissu) || tissuCourant), placement: p.nom }}
                         onReglages={r => modifierPlacement(p.id, { numerotation: r })}
                         nomSortieImpose={apercuMatelas.nom}
                         deposer={traceur.disponible ? traceur.deposer : undefined}
@@ -4323,7 +4492,7 @@ function CalendarView({ models, onOpen, getProgress }: {
     const next = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
 
     return (
-        <div className="p-4 md:p-6 max-w-6xl mx-auto">
+        <div className="p-4 md:p-6 w-full max-w-[1920px] mx-auto">
             <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
                 <div className="px-4 md:px-6 py-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
                     <h3 className="text-[14px] font-semibold text-slate-800 dark:text-dk-text capitalize">{monthName}</h3>
@@ -4457,7 +4626,7 @@ function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any 
     }).join(', ');
 
     return (
-        <div className="p-4 md:p-6 max-w-6xl 2xl:max-w-7xl mx-auto space-y-4">
+        <div className="p-4 md:p-6 w-full max-w-[1920px] mx-auto space-y-4">
             {/* Top stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <StatCard label={tx(lang, { fr: 'Total Ordres', ar: 'إجمالي الأوامر', en: 'Total Orders', es: 'Total Órdenes', pt: 'Total Ordens', tr: 'Toplam Emirler' })} value={models.length} icon={Layers} color="bg-slate-900" />
@@ -4626,7 +4795,7 @@ function EmptyDashboard({
     // Chaque carte ouvre sa page a la place de l'accueil, avec un retour.
     if (page) {
         return (
-            <div className="p-4 md:p-6 max-w-6xl 2xl:max-w-7xl mx-auto">
+            <div className="p-4 md:p-6 w-full max-w-[1920px] mx-auto">
                 {page === 'ordres' && <PageOrdres models={ordres} onBack={() => setPage(null)} onOpen={onOpen} />}
                 {page === 'tissu' && <PageTissu models={tousModeles} onBack={() => setPage(null)} onOpen={onOpen} />}
                 {page === 'groupes' && <PageGroupes models={tousModeles} groupes={groupes} setGroupes={setGroupes} rh={rh} onBack={() => setPage(null)} />}
@@ -4635,7 +4804,7 @@ function EmptyDashboard({
     }
 
     return (
-        <div className="p-4 md:p-6 max-w-6xl 2xl:max-w-7xl mx-auto space-y-4">
+        <div className="p-4 md:p-6 w-full max-w-[1920px] mx-auto space-y-4">
             {/* Hero */}
             <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 md:p-8 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-80 h-80 bg-rose-500/8 rounded-full blur-3xl" />
