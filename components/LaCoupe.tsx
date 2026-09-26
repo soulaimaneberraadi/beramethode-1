@@ -30,7 +30,9 @@ import {
 import TablePlacements from './coupe/TablePlacements';
 import TableMatelas from './coupe/TableMatelas';
 import { grilleClavier } from './coupe/grilleClavier';
-import { useLienExcel, BarreExcel } from './coupe/LienExcel';
+import { useLienExcel, BarreExcel, PuceExcel } from './coupe/LienExcel';
+import ReglagesNumeroForm from './coupe/ReglagesNumeroForm';
+import { reglagesAvecDefaut, texteNumero } from '../lib/numerotationPlt';
 import { useDossierTraceur, PuceTraceur } from './coupe/DossierTraceur';
 import type { DonneesExcelCoupe } from '../lib/coupeExcel';
 import { TEXTILE_COLORS } from '../data/textileData';
@@ -406,12 +408,16 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const empreinteDe = (o: OrdreCoupe, fiche: any) => JSON.stringify({ o, g: fiche?.gridQuantities, c: fiche?.client, t: fiche?.category, s: fiche?.sizes, k: fiche?.colors },
         (k, v) => (k === 'qteTotale' ? undefined : typeof v === 'string' && v.length > 2000 ? v.length : v));
     const empreinteOuverte = useRef('');
+    /** Version de l'ordre sur laquelle on travaille (son `majLe` a l'ouverture ou au dernier enregistrement). */
+    const baseOrdre = useRef<string | undefined>(undefined);
+    const [conflit, setConflit] = useState<{ serveur: ModelData } | null>(null);
     /** Grille, client et type tels qu'a l'ouverture : « quitter sans enregistrer » les remet. */
     const ficheOuverte = useRef<{ id: string; fiche: any } | null>(null);
 
     const openModel = (model: ModelData) => {
         setSelectedModel(model);
         ficheOuverte.current = { id: model.id, fiche: model.ficheData };
+        baseOrdre.current = model.ordreCoupe?.majLe;
         if (model.ordreCoupe) {
             // Un ordre d'avant les placements est regroupe a l'ouverture ; rien n'est perdu
             // et rien n'est enregistre tant qu'on ne sauvegarde pas.
@@ -493,14 +499,37 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         }
     };
 
-    const handleSaveCoupe = async (publish: boolean = false): Promise<ModelData | null> => {
+    const handleSaveCoupe = async (publish: boolean = false, forcer = false): Promise<ModelData | null> => {
         if (!selectedModel) return null;
 
+        /*
+         * Une autre fenetre (ou un autre poste) a-t-elle enregistre cet ordre
+         * depuis qu'on l'a ouvert ici ? Alors on n'ecrase pas en silence : on
+         * demande. C'est ainsi que des traces PLT disparaissaient.
+         */
+        if (!forcer) {
+            try {
+                const res = await fetch('/api/models', { credentials: 'include' });
+                if (res.ok) {
+                    const liste = await res.json();
+                    const serveur = Array.isArray(liste) ? (liste as ModelData[]).find(m => m && m.id === selectedModel.id) : undefined;
+                    const majServeur = serveur?.ordreCoupe?.majLe;
+                    if (serveur && majServeur && majServeur !== baseOrdre.current && (!baseOrdre.current || majServeur > baseOrdre.current)) {
+                        setConflit({ serveur });
+                        return null;
+                    }
+                }
+            } catch { /* serveur injoignable : on enregistre comme avant */ }
+        }
+
+        const maintenant = new Date().toISOString();
         const finalQte = matelasCalculations.totalPieces > 0 ? matelasCalculations.totalPieces : ordre.qteTotale;
         const updatedModel: ModelData = {
             ...selectedModel,
+            // L'horodatage fait gagner cette version quand les fenetres se resynchronisent.
+            updatedAt: maintenant,
             isPublishedToLibrary: publish ? true : selectedModel.isPublishedToLibrary,
-            ordreCoupe: { ...ordre, qteTotale: finalQte },
+            ordreCoupe: { ...ordre, qteTotale: finalQte, majLe: maintenant },
             meta_data: {
                 ...(selectedModel.meta_data || { nom_modele: '', date_creation: new Date().toISOString(), total_temps: 0, effectif: 1 }),
                 nom_modele: ordre.refModele || selectedModel.meta_data?.nom_modele || tx(lang, { fr: 'Sans Nom', ar: 'بدون اسم', en: 'Unnamed', es: 'Sin Nombre', pt: 'Sem Nome', tr: 'İsimsiz' }),
@@ -510,7 +539,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
 
         const success = await saveModelToServer(updatedModel);
         if (!success) return null;
-        empreinteOuverte.current = empreinteDe(ordre, updatedModel.ficheData);
+        baseOrdre.current = maintenant;
+        setOrdre(prev => ({ ...prev, majLe: maintenant }));
+        empreinteOuverte.current = empreinteDe({ ...ordre, majLe: maintenant }, updatedModel.ficheData);
         ficheOuverte.current = { id: updatedModel.id, fiche: updatedModel.ficheData };
         setModels(prev => prev.map(m => m.id === selectedModel.id ? updatedModel : m));
         setSelectedModel(updatedModel);
@@ -808,6 +839,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const [confirmCalcul, setConfirmCalcul] = useState(false);
     const [placementASupprimer, setPlacementASupprimer] = useState<PlacementCoupe | null>(null);
     const [apercuMatelas, setApercuMatelas] = useState<{ placementId: string; numero: string; nom?: string } | null>(null);
+    const [reglagesDefautOuverts, setReglagesDefautOuverts] = useState(false);
+    const [brouillonDefaut, setBrouillonDefaut] = useState(() => reglagesAvecDefaut(undefined, settings?.numerotationDefaut));
 
     const tissuParDefaut = (o: OrdreCoupe): TissuCoupe[] => (o.tissus?.length ? o.tissus : [{ id: TISSU_PRINCIPAL, nom: 'Tissu', recuM: o.tissuRecu || undefined }]);
     const tissus = tissuParDefaut(ordre);
@@ -889,6 +922,40 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         return { ...prev, matelasLines: lignes };
     });
 
+    /** Supprimer des matelas choisis ; un matelas deja coupe reste, c'est de l'historique. */
+    const supprimerLignes = (ids: string[]) => setOrdre(prev => ({
+        ...prev,
+        matelasLines: (prev.matelasLines || []).filter(l => !ids.includes(l.id) || l.fait),
+    }));
+    /** Dupliquer : chaque copie arrive sous son original, pas coupee, avec le numero suivant. */
+    const dupliquerLignes = (ids: string[]) => setOrdre(prev => {
+        const lignes = [...(prev.matelasLines || [])];
+        for (const id of ids) {
+            const i = lignes.findIndex(l => l.id === id);
+            if (i < 0) continue;
+            const o = lignes[i];
+            lignes.splice(i + 1, 0, {
+                ...o,
+                id: `MAT-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4)}`,
+                fait: false, groupe: undefined, debut: undefined, fin: undefined, metresReels: undefined,
+                numero: String(numeroSuivant(lignes, tissuDe(o))),
+            });
+        }
+        return { ...prev, matelasLines: lignes };
+    });
+    /** Monter ou descendre d'un cran, parmi les matelas de la meme matiere. */
+    const deplacerLigne = (id: string, sens: -1 | 1) => setOrdre(prev => {
+        const lignes = [...(prev.matelasLines || [])];
+        const i = lignes.findIndex(l => l.id === id);
+        if (i < 0) return prev;
+        const tissu = tissuDe(lignes[i]);
+        let j = i + sens;
+        while (j >= 0 && j < lignes.length && tissuDe(lignes[j]) !== tissu) j += sens;
+        if (j < 0 || j >= lignes.length) return prev;
+        [lignes[i], lignes[j]] = [lignes[j], lignes[i]];
+        return { ...prev, matelasLines: lignes };
+    });
+
     const modifierLigne = (id: string, patch: Partial<MatelasLine>) => setOrdre(prev => ({
         ...prev,
         matelasLines: (prev.matelasLines || []).map(l => (l.id === id ? { ...l, ...patch } : l)),
@@ -919,6 +986,23 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         window.addEventListener('beforeunload', avant);
         return () => window.removeEventListener('beforeunload', avant);
     }, [nonEnregistre]);
+
+    /*
+     * Au retour dans la fenetre, l'application relit les modeles du serveur.
+     * Si l'ordre ouvert ici a ete enregistre ailleurs entre-temps et qu'on n'a
+     * rien modifie, on affiche la version enregistree au lieu de garder
+     * l'ancienne a l'ecran — c'est elle qu'un « Sauvegarder » aurait ecrasee.
+     */
+    useEffect(() => {
+        if (!selectedModel) return;
+        const recent = (models || []).find(m => m && m.id === selectedModel.id);
+        const maj = recent?.ordreCoupe?.majLe;
+        if (!recent || !maj || maj === baseOrdre.current || (baseOrdre.current && maj < baseOrdre.current)) return;
+        if (nonEnregistre) return; // la sauvegarde demandera quoi faire
+        openModel(recent);
+        showToast(tx(lang, { fr: 'Ordre mis a jour : il avait ete enregistre dans une autre fenetre', ar: 'حُدّث الأمر: كان قد حُفظ في نافذة أخرى', en: 'Order refreshed: it was saved in another window' }), 'info');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [models]);
 
     const lienExcel = useLienExcel();
     const traceur = useDossierTraceur();
@@ -2794,7 +2878,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         {tx(lang, { fr: 'Renumeroter', ar: 'إعادة الترقيم', en: 'Renumber' })}
                                     </button>
                                     <span className="text-[10px] text-slate-400 max-w-sm">{tx(lang, { fr: 'Les matelas deja coupes gardent leur numero.', ar: 'المفرشات المقصوصة تحتفظ برقمها.', en: 'Lays already cut keep their number.' })}</span>
-                                    <div className="w-full sm:w-auto sm:ml-auto"><PuceTraceur traceur={traceur} /></div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setReglagesDefautOuverts(true)}
+                                        className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-500 hover:border-indigo-300"
+                                        title={tx(lang, { fr: 'Reglages de numerotation par defaut', ar: 'إعدادات الترقيم الافتراضية', en: 'Default numbering settings' })}
+                                    >
+                                        <MoreVertical className="w-4 h-4" />
+                                    </button>
+                                    <div className="w-full sm:w-auto sm:ml-auto flex flex-col items-start sm:items-end gap-1.5">
+                                        <PuceTraceur traceur={traceur} />
+                                        {selectedModel && <PuceExcel lien={lienExcel} donnees={() => donneesExcel({ ...selectedModel, ordreCoupe: ordre })} />}
+                                    </div>
                                 </div>
 
                                 {/* 3. Matelas */}
@@ -2811,6 +2906,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         fichierDe={p => fichierComplet(p.fichier)}
                                         onModifier={modifierLigne}
                                         onInserer={insererLigneApres}
+                                        onSupprimerLignes={supprimerLignes}
+                                        onDupliquerLignes={dupliquerLignes}
+                                        onDeplacerLigne={deplacerLigne}
+                                        reglagesDefaut={settings?.numerotationDefaut}
                                         deposer={traceur.disponible ? traceur.deposer : undefined}
                                         onApercu={(l, p) => setApercuMatelas({ placementId: p.id, numero: l.numero || '', nom: nomFichierMatelas(p, tissuCourant.nom, l.numero || '0') })}
                                         onMessage={showToast}
@@ -3775,6 +3874,85 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 </SheetModal>
             )}
 
+            {conflit && (
+                <SheetModal onClose={() => setConflit(null)} size="sm" zClass="z-[98]" closeOnBackdrop={false} bodyClassName="flex-1 overflow-y-auto min-h-0 p-5">
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                        <div>
+                            <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Cet ordre a ete enregistre ailleurs', ar: 'حُفظ هذا الأمر في مكان آخر', en: 'This order was saved elsewhere' })}</h3>
+                            <p className="text-[12px] text-slate-500 dark:text-dk-muted mt-1">
+                                {tx(lang, { fr: 'Une autre fenetre ou un autre poste l\u2019a enregistre', ar: 'نافذة أخرى أو جهاز آخر حفظه', en: 'Another window or device saved it' })}
+                                {conflit.serveur.ordreCoupe?.majLe ? ` (${new Date(conflit.serveur.ordreCoupe.majLe).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })})` : ''}
+                                {tx(lang, { fr: ' apres son ouverture ici. Enregistrer maintenant ecraserait ses placements, traces et matelas.', ar: ' بعد فتحه هنا. الحفظ الآن سيمحو تركيباته وملفاته ومفرشاته.', en: ' after it was opened here. Saving now would overwrite its placements, traces and lays.' })}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 mt-5">
+                        <button type="button" onClick={() => {
+                            const s = conflit.serveur;
+                            setConflit(null);
+                            setModels(prev => prev.map(m => (m.id === s.id ? s : m)));
+                            empreinteOuverte.current = '';
+                            openModel(s);
+                        }} className="h-10 px-3 rounded-lg text-[12px] font-semibold bg-slate-900 text-white hover:bg-slate-800">
+                            {tx(lang, { fr: 'Ouvrir la version enregistree (conseille)', ar: 'فتح النسخة المحفوظة (مستحسن)', en: 'Open the saved version (recommended)' })}
+                        </button>
+                        <button type="button" onClick={async () => { setConflit(null); await handleSaveCoupe(false, true); }} className="h-10 px-3 rounded-lg text-[12px] font-semibold text-rose-600 border border-rose-200 hover:bg-rose-50">
+                            {tx(lang, { fr: 'Ecraser avec ma version', ar: 'الكتابة فوقها بنسختي', en: 'Overwrite with my version' })}
+                        </button>
+                        <button type="button" onClick={() => setConflit(null)} className="h-10 px-3 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">
+                            {tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel' })}
+                        </button>
+                    </div>
+                </SheetModal>
+            )}
+
+            {reglagesDefautOuverts && (
+                <SheetModal
+                    onClose={() => setReglagesDefautOuverts(false)}
+                    title={tx(lang, { fr: 'Numerotation par defaut', ar: 'الترقيم الافتراضي', en: 'Default numbering' })}
+                    subtitle={tx(lang, { fr: 'Proposee a chaque nouveau trace ; chaque trace garde ensuite ses propres retouches', ar: 'تُقترح لكل ملف جديد، وكل ملف يحتفظ بعدها بتعديلاته', en: 'Proposed for each new trace' })}
+                    size="lg"
+                    zClass="z-[96]"
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5"
+                    footer={(
+                        <div className="w-full flex flex-wrap justify-end gap-2">
+                            <button type="button" onClick={() => setBrouillonDefaut(reglagesAvecDefaut(undefined, undefined))} className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-500 hover:bg-slate-100">{tx(lang, { fr: 'Valeurs d\u2019usine', ar: 'القيم الأصلية', en: 'Factory values' })}</button>
+                            <button type="button" onClick={() => setReglagesDefautOuverts(false)} className="h-9 px-4 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel' })}</button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const { exclus: _e, ajustements: _a, ...style } = brouillonDefaut;
+                                    setSettings?.(prev => ({ ...prev, numerotationDefaut: style }));
+                                    setReglagesDefautOuverts(false);
+                                    showToast(tx(lang, { fr: 'Reglages de numerotation enregistres', ar: 'حُفظت إعدادات الترقيم', en: 'Numbering defaults saved' }), 'success');
+                                }}
+                                className="h-9 px-4 rounded-lg text-[12px] font-semibold bg-slate-900 text-white hover:bg-slate-800"
+                            >
+                                {tx(lang, { fr: 'Enregistrer', ar: 'حفظ', en: 'Save' })}
+                            </button>
+                        </div>
+                    )}
+                >
+                    <ReglagesNumeroForm valeur={brouillonDefaut} onChange={setBrouillonDefaut} />
+                    <div className="mt-4 p-4 rounded-xl bg-slate-50 dark:bg-dk-bg border border-slate-100 dark:border-dk-border flex items-center justify-center min-h-[90px]">
+                        <span
+                            className="text-slate-900 dark:text-dk-text tabular-nums"
+                            style={{
+                                fontSize: Math.min(64, Math.max(18, (brouillonDefaut.hauteurCm || 1) * 14)),
+                                fontWeight: brouillonDefaut.gras ? 900 : 700,
+                                display: 'inline-block',
+                                transform: `skewX(-${brouillonDefaut.inclinaison || 0}deg) scaleX(${Math.max(0.4, Math.min(1.6, (brouillonDefaut.largeurCm || 1) / (brouillonDefaut.hauteurCm || 1) / 0.7))})`,
+                                opacity: (brouillonDefaut.opacite ?? 60) / 100,
+                            }}
+                        >
+                            {texteNumero('77', brouillonDefaut)}
+                        </span>
+                    </div>
+                    <p className="mt-2 text-[11px] text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Le numero garde cette taille tant qu\u2019il tient dans la piece ; dans une piece plus petite, il prend la plus grande taille qui y entre.', ar: 'يحتفظ الرقم بهذا الحجم ما دام يدخل في القطعة؛ وفي القطعة الأصغر يأخذ أكبر حجم يدخل فيها.', en: 'The number keeps this size when it fits; in smaller pieces it takes the largest size that fits.' })}</p>
+                </SheetModal>
+            )}
+
             {quitterVers && (
                 <SheetModal onClose={() => setQuitterVers(null)} size="sm" zClass="z-[97]" closeOnBackdrop={false} bodyClassName="flex-1 overflow-y-auto min-h-0 p-5">
                     <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Modifications non enregistrees', ar: 'تعديلات غير محفوظة', en: 'Unsaved changes' })}</h3>
@@ -3810,6 +3988,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         onReglages={r => modifierPlacement(p.id, { numerotation: r })}
                         nomSortieImpose={apercuMatelas.nom}
                         deposer={traceur.disponible ? traceur.deposer : undefined}
+                        reglagesDefaut={settings?.numerotationDefaut}
+                        onDefaut={r => { setSettings?.(prev => ({ ...prev, numerotationDefaut: r })); showToast(tx(lang, { fr: 'Reglages de numerotation enregistres par defaut', ar: 'حُفظت إعدادات الترقيم الافتراضية', en: 'Numbering defaults saved' }), 'success'); }}
                         onClose={() => setApercuMatelas(null)}
                     />
                 );

@@ -36,6 +36,22 @@ export const saveModel = (req: Request, res: Response) => {
     return res.status(400).json({ message: 'Model ID is required' });
   }
 
+  /*
+   * Plusieurs ecrans enregistrent le modele entier (sous-traitance,
+   * bibliotheque...). Venu d'une fenetre restee ouverte sur une version
+   * ancienne, un tel enregistrement effacait l'ordre de coupe fait entre-temps
+   * (placements, traces PLT, matelas). L'ordre de coupe le plus recent gagne.
+   */
+  try {
+    const ancien = db.prepare('SELECT data FROM models WHERE id = ? AND owner_id = ?').get(model.id, ownerId) as { data: string } | undefined;
+    if (ancien) {
+      const precedent = JSON.parse(ancien.data);
+      const majAvant = precedent?.ordreCoupe?.majLe as string | undefined;
+      const majRecu = model?.ordreCoupe?.majLe as string | undefined;
+      if (majAvant && (!majRecu || majRecu < majAvant)) model.ordreCoupe = precedent.ordreCoupe;
+    }
+  } catch { /* ancienne ligne illisible : on enregistre ce qui arrive */ }
+
   try {
     const stmt = db.prepare(`
       INSERT INTO models (id, user_id, owner_id, data, updated_at)

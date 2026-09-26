@@ -323,6 +323,8 @@ export interface EtiquetteAAjouter {
     directionY?: number;
     /** Plume, reprise de l'etiquette d'origine pour que le traceur marque pareil. */
     plume?: number;
+    /** Inclinaison des caracteres en degres (SL) ; 0 ou absent = droit. */
+    inclinaison?: number;
 }
 
 /**
@@ -366,13 +368,15 @@ export function injecterEtiquettes(
         const h = Number(e.hauteurCm.toFixed(3));
         const dx = e.directionX ?? 1;
         const dy = e.directionY ?? 0;
-        return `SP${e.plume ?? 1};DI${dx},${dy};PU${x},${y};SI${l},${h};LB${e.texte}${terminateur}`;
+        // SL prend la tangente de l'angle ; remis a 0 en fin de bloc.
+        const sl = e.inclinaison ? `SL${Number(Math.tan((e.inclinaison * Math.PI) / 180).toFixed(3))};` : 'SL0;';
+        return `SP${e.plume ?? 1};DI${dx},${dy};PU${x},${y};SI${l},${h};${sl}LB${e.texte}${terminateur}`;
     });
 
     // LO5 centre le texte sur le point vise, horizontalement et verticalement.
     // C'est la convention des traces de placement, et surtout la seule qui
     // rende `x,y` utilisable tel quel comme centre du numero.
-    const bloc = `;LO5;${lignes.join('')};PU;LO1;DI1,0;`;
+    const bloc = `;LO5;${lignes.join('')};PU;LO1;DI1,0;SL0;`;
     const point = trouverPointInsertion(source);
     return source.slice(0, point) + bloc + source.slice(point);
 }

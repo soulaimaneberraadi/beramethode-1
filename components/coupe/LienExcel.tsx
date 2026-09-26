@@ -23,6 +23,8 @@ export interface LienExcel {
     permission: 'granted' | 'prompt' | 'denied' | null;
     derniere: { heure: string; resultat: ResultatEcriture } | null;
     choisir: () => Promise<void>;
+    /** Relie un dossier et y ecrit l'ordre aussitot. */
+    choisirEtEcrire: (d: DonneesExcelCoupe) => Promise<ResultatEcriture | null>;
     reactiver: () => Promise<void>;
     /** Reecrit le classeur si un dossier est relie et autorise ; sinon ne fait rien. */
     ecrire: (d: DonneesExcelCoupe) => Promise<ResultatEcriture | null>;
@@ -46,10 +48,30 @@ export function useLienExcel(): LienExcel {
         const r = await choisirDossier(CLE);
         if (r) await relire();
     };
+    /** Relier puis ecrire tout de suite : on voit le fichier dans le dossier sans attendre la prochaine sauvegarde. */
+    const choisirEtEcrire = async (d: DonneesExcelCoupe) => {
+        const r = await choisirDossier(CLE);
+        if (!r) return null;
+        await relire();
+        return ecrireApres(d);
+    };
     // Le navigateur ne rend l'acces qu'apres un clic : d'ou ce bouton apres un rechargement.
     const reactiver = async () => {
         await autoriserDossier(CLE);
         await relire();
+    };
+
+    /** Ecriture juste apres un choix de dossier : l'etat « dossier » n'est pas encore relu. */
+    const ecrireApres = async (d: DonneesExcelCoupe) => {
+        try {
+            const octets = await construireClasseurCoupe(d);
+            const r = await ecrireDansDossier(CLE, nomFichierExcel(d), new Blob([octets], { type: TYPE_XLSX }));
+            setDerniere({ heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), resultat: r });
+            return r;
+        } catch {
+            setDerniere({ heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), resultat: 'erreur' });
+            return 'erreur' as const;
+        }
     };
 
     const ecrire = async (d: DonneesExcelCoupe) => {
@@ -75,7 +97,7 @@ export function useLienExcel(): LienExcel {
         setTimeout(() => URL.revokeObjectURL(url), 5000);
     };
 
-    return { supporte, dossier, permission, derniere, choisir, reactiver, ecrire, telecharger };
+    return { supporte, dossier, permission, derniere, choisir, choisirEtEcrire, reactiver, ecrire, telecharger };
 }
 
 /** Barre discrete sous l'en-tete de l'ordre : ou va l'Excel, et quand il a ete mis a jour. */
@@ -123,7 +145,7 @@ export function BarreExcel({ lien, donnees }: { lien: LienExcel; donnees: () => 
                     </button>
                 )}
                 {lien.supporte && (
-                    <button type="button" disabled={occupe} onClick={() => agir(async () => { await lien.choisir(); })} className={bouton}>
+                    <button type="button" disabled={occupe} onClick={() => agir(() => lien.choisirEtEcrire(donnees()))} className={bouton}>
                         <FolderOpen className="w-3.5 h-3.5" /> {lien.dossier ? L('Changer de dossier', 'تغيير المجلّد', 'Change folder') : L('Relier a un dossier', 'ربط بمجلّد', 'Link a folder')}
                     </button>
                 )}
@@ -131,6 +153,33 @@ export function BarreExcel({ lien, donnees }: { lien: LienExcel; donnees: () => 
                     <Download className="w-3.5 h-3.5" /> {L('Telecharger', 'تنزيل', 'Download')}
                 </button>
             </div>
+        </div>
+    );
+}
+
+/** Petite ligne « Excel : dossier » a cote du traceur, la ou l'on travaille les matelas. */
+export function PuceExcel({ lien, donnees }: { lien: LienExcel; donnees: () => DonneesExcelCoupe }) {
+    const { lang } = useLang();
+    const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
+    const [occupe, setOccupe] = useState(false);
+    const agir = async (f: () => Promise<unknown>) => { setOccupe(true); try { await f(); } finally { setOccupe(false); } };
+    const bouton = 'h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-[11px] font-semibold border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft hover:border-emerald-300 disabled:opacity-40';
+    return (
+        <div className="flex flex-wrap items-center gap-1.5">
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <span className="text-[11px] text-slate-600 dark:text-dk-text-soft">
+                Excel : {lien.dossier ? <b>{lien.dossier}</b> : L('aucun dossier', 'لا مجلّد', 'no folder')}
+                {lien.dossier && lien.permission !== 'granted' && <span className="text-amber-600"> · {L('a reactiver', 'يحتاج تفعيلاً', 'needs re-activation')}</span>}
+                {lien.derniere?.resultat === 'ok' && <span className="text-emerald-600"> · {lien.derniere.heure}</span>}
+                {lien.derniere?.resultat === 'verrouille' && <span className="text-rose-600"> · {L('ferme dans Excel ?', 'مغلق في Excel؟', 'close it in Excel')}</span>}
+            </span>
+            {lien.supporte && lien.dossier && lien.permission !== 'granted' && (
+                <button type="button" disabled={occupe} onClick={() => agir(async () => { await lien.reactiver(); await lien.ecrire(donnees()); })} className={bouton}><RefreshCw className="w-3.5 h-3.5" />{L('Reactiver', 'تفعيل', 'Re-activate')}</button>
+            )}
+            {lien.supporte && (
+                <button type="button" disabled={occupe} onClick={() => agir(() => lien.choisirEtEcrire(donnees()))} className={bouton}><FolderOpen className="w-3.5 h-3.5" />{lien.dossier ? L('Changer', 'تغيير', 'Change') : L('Relier le dossier Excel', 'ربط مجلّد Excel', 'Link Excel folder')}</button>
+            )}
+            <button type="button" disabled={occupe} onClick={() => agir(() => lien.telecharger(donnees()))} className={bouton} title={L('Telecharger le classeur', 'تنزيل الملف', 'Download workbook')}><Download className="w-3.5 h-3.5" /></button>
         </div>
     );
 }

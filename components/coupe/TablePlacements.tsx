@@ -376,11 +376,17 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                 <button type="button" onClick={onAjouter} className="h-8 px-3 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 dark:border-dk-border text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft hover:border-indigo-300 hover:text-indigo-600">
                     <Plus className="w-3.5 h-3.5" /> {L('Ajouter un placement', 'إضافة تركيبة', 'Add placement')}
                 </button>
-                {placements.some(p => !p.fichier) && placements.length > 0 && (
-                    <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
-                        <AlertTriangle className="w-3 h-3" /> {L('Sans trace PLT, ce placement ne pourra pas etre numerote.', 'بدون ملف PLT لا يمكن ترقيم هذه التركيبة.', 'Without a PLT, this placement cannot be numbered.')}
-                    </span>
-                )}
+                {placements.some(p => !p.fichier) && placements.length > 0 && (() => {
+                    const sans = placements.filter(p => !p.fichier).map(p => (p.nom || '—').toUpperCase());
+                    return (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
+                            <AlertTriangle className="w-3 h-3 shrink-0" />
+                            {sans.length === placements.length
+                                ? L('Aucun placement n\u2019a encore son trace PLT : deposez-les pour numeroter les matelas.', 'لا توجد أي تركيبة بملف PLT بعد: ضعها لترقيم المفرشات.', 'No placement has its PLT yet.')
+                                : `${L('Sans trace PLT (pas de numerotation) :', 'بلا ملف PLT (لا ترقيم):', 'No PLT (no numbering):')} ${sans.join(', ')}`}
+                        </span>
+                    );
+                })()}
             </div>
         </div>
     );

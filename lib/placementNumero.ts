@@ -42,8 +42,15 @@ export interface Placement {
  */
 const AVANCE = 1.5;
 
-/** Paliers de reduction essayes avant d'abandonner la taille demandee. */
-const PALIERS = [1, 0.85, 0.7, 0.6, 0.5, 0.4, 0.3, 0.22];
+/**
+ * Plus petite taille acceptable, en fraction de la taille demandee. En dessous
+ * le numero ne se lit plus a la table : on le pose quand meme, mais on le dit.
+ */
+const FACTEUR_MIN = 0.2;
+/** Pas de la recherche de taille : 5 % de la taille demandee. */
+const PAS_FACTEUR = 0.05;
+/** Grille de recherche d'une place ailleurs dans la piece. */
+const GRILLE = 11;
 
 const aireSignee = (points: Array<[number, number]>): number => {
     let s = 0;
@@ -97,15 +104,43 @@ export function contourContenant(contours: Contour[], x: number, y: number): Con
     return trouve;
 }
 
-/** Les quatre coins du rectangle sont dans la piece — suffisant a cette echelle. */
+/**
+ * Le rectangle est dans la piece : ses quatre coins, le milieu de ses quatre
+ * cotes et son centre. Les coins seuls laissaient passer un numero a cheval
+ * sur l'echancrure d'une piece concave (encolure, emmanchure).
+ */
 function rectangleDansContour(contour: Contour, r: Rectangle): boolean {
+    const mx = (r.minX + r.maxX) / 2;
+    const my = (r.minY + r.maxY) / 2;
     return (
         pointDansContour(contour, r.minX, r.minY) &&
         pointDansContour(contour, r.maxX, r.minY) &&
         pointDansContour(contour, r.minX, r.maxY) &&
         pointDansContour(contour, r.maxX, r.maxY) &&
-        pointDansContour(contour, (r.minX + r.maxX) / 2, (r.minY + r.maxY) / 2)
+        pointDansContour(contour, mx, my) &&
+        pointDansContour(contour, mx, r.minY) &&
+        pointDansContour(contour, mx, r.maxY) &&
+        pointDansContour(contour, r.minX, my) &&
+        pointDansContour(contour, r.maxX, my)
     );
+}
+
+/** Points d'une grille posee sur la piece, gardes s'ils sont dedans, du plus proche au plus loin du point donne. */
+function grilleDansPiece(contour: Contour, versX: number, versY: number): Array<[number, number]> {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [x, y] of contour.points) {
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+    const pts: Array<[number, number]> = [];
+    for (let i = 1; i < GRILLE; i++) {
+        for (let j = 1; j < GRILLE; j++) {
+            const x = minX + ((maxX - minX) * i) / GRILLE;
+            const y = minY + ((maxY - minY) * j) / GRILLE;
+            if (pointDansContour(contour, x, y)) pts.push([x, y]);
+        }
+    }
+    return pts.sort((a, b) => Math.hypot(a[0] - versX, a[1] - versY) - Math.hypot(b[0] - versX, b[1] - versY));
 }
 
 function seChevauchent(a: Rectangle, b: Rectangle): boolean {
@@ -211,70 +246,64 @@ export function placerNumero(d: DemandePlacement): Placement {
     const demiOrigine = ((e.hauteurCm ?? 0.6) * 10 * unitesParMm) / 2;
     const jeu = Math.abs(pas);
 
+    const taille = (f: number) => ({
+        hauteurCm: Number((d.hauteurCm * f).toFixed(3)),
+        largeurCm: Number((d.largeurCm * f).toFixed(3)),
+    });
+    /** Le numero de taille `f`, centre en x,y, tient dans la piece (et evite le texte d'origine). */
+    const tient = (x: number, y: number, f: number, eviterTexte: boolean) => {
+        const t = taille(f);
+        const r = empriseTexte(x, y, nb, t.largeurCm, t.hauteurCm, e.directionX, unitesParMm, 5);
+        return rectangleDansContour(contour, r) && (!eviterTexte || !seChevauchent(r, empriseOrigine));
+    };
+
     /**
+     * Pres du texte d'origine : au-dessous puis au-dessus, de plus en plus loin.
      * L'ecart demande separe les deux textes BORD A BORD. Le mesurer depuis le
      * point vise serait faux : les deux textes sont centres sur le leur, et un
      * chiffre de 3 cm deborderait de moitie sur le nom de la piece.
      */
-    const candidatsY = (hNum: number): number[] => {
-        const base = demiOrigine + hNum / 2;
-        return [
-            e.y - sens * (base + jeu),
-            e.y + sens * (base + jeu),
-            e.y - sens * (base + jeu * 2.2),
-            e.y + sens * (base + jeu * 2.2),
-            e.y - sens * (base + jeu * 3.4),
-            e.y + sens * (base + jeu * 3.4),
-        ];
+    const presDuTexte = (f: number): Array<[number, number]> => {
+        const base = demiOrigine + (d.hauteurCm * f * 10 * unitesParMm) / 2;
+        return [1, 2.2, 3.4].flatMap(k => [
+            [e.x + ajX, e.y - sens * (base + jeu * k) + ajY],
+            [e.x + ajX, e.y + sens * (base + jeu * k) + ajY],
+        ] as Array<[number, number]>);
     };
 
-    let repli: Placement | null = null;
+    // 1. A la taille demandee, pres du texte : la place habituelle.
+    const pres = presDuTexte(1);
+    for (let i = 0; i < pres.length; i++) {
+        const [x, y] = pres[i];
+        if (tient(x, y, 1, true)) return { x, y, ...taille(1), statut: i === 0 ? 'ok' : 'deplace' };
+    }
 
-    for (const facteur of PALIERS) {
-        const hauteurCm = Number((d.hauteurCm * facteur).toFixed(3));
-        const largeurCm = Number((d.largeurCm * facteur).toFixed(3));
-        // Le numero est injecte en LO5 : x,y est son centre, aligne sur celui
-        // du texte d'origine.
-        const x = e.x + ajX;
-        const hNum = hauteurCm * 10 * unitesParMm;
-        const positions = candidatsY(hNum);
+    // 2. A la taille demandee, ailleurs dans la piece : un grand numero bien pose
+    //    vaut mieux qu'un petit numero colle au texte.
+    const grille = grilleDansPiece(contour, e.x, e.y).map(([x, y]) => [x + ajX, y + ajY] as [number, number]);
+    for (const [x, y] of grille) {
+        if (tient(x, y, 1, true)) return { x, y, ...taille(1), statut: 'deplace' };
+    }
 
-        for (let i = 0; i < positions.length; i++) {
-            const y = positions[i] + ajY;
-            const emprise = empriseTexte(x, y, nb, largeurCm, hauteurCm, e.directionX, unitesParMm, 5);
-
-            if (!rectangleDansContour(contour, emprise)) continue;
-            if (seChevauchent(emprise, empriseOrigine)) continue;
-
-            const statut: StatutPlacement = facteur === 1
-                ? (i === 0 ? 'ok' : 'deplace')
-                : 'reduit';
-            return { x, y, hauteurCm, largeurCm, statut };
-        }
-
-        // Memorise la plus grande taille qui tient dans la piece, quitte a
-        // frôler le texte d'origine : lisible vaut mieux qu'absent.
-        if (!repli) {
-            for (const brut of positions) {
-                const y = brut + ajY;
-                const emprise = empriseTexte(x, y, nb, largeurCm, hauteurCm, e.directionX, unitesParMm, 5);
-                if (rectangleDansContour(contour, emprise)) {
-                    repli = { x, y, hauteurCm, largeurCm, statut: 'reduit' };
-                    break;
-                }
-            }
+    // 3. La plus grande taille qui tienne vraiment, par pas de 5 %, pres du texte d'abord.
+    for (let f = 1 - PAS_FACTEUR; f >= FACTEUR_MIN - 1e-9; f -= PAS_FACTEUR) {
+        for (const [x, y] of [...presDuTexte(f), ...grille]) {
+            if (tient(x, y, f, true)) return { x, y, ...taille(f), statut: 'reduit' };
         }
     }
 
-    if (repli) return repli;
+    // 4. Rien ne tient sans toucher le texte d'origine : lisible vaut mieux qu'absent.
+    for (let f = 1; f >= FACTEUR_MIN - 1e-9; f -= PAS_FACTEUR) {
+        for (const [x, y] of [...presDuTexte(f), ...grille]) {
+            if (tient(x, y, f, false)) return { x, y, ...taille(f), statut: 'reduit' };
+        }
+    }
 
-    // Rien ne tient : on pose au plus petit, a l'endroit demande, et on le dit.
-    const facteur = PALIERS[PALIERS.length - 1];
+    // 5. Rien ne tient : on pose au plus petit, a l'endroit demande, et on le dit.
     return {
         x: e.x + ajX,
         y: e.y + sens * pas + ajY,
-        hauteurCm: Number((d.hauteurCm * facteur).toFixed(3)),
-        largeurCm: Number((d.largeurCm * facteur).toFixed(3)),
+        ...taille(FACTEUR_MIN),
         statut: 'force',
     };
 }

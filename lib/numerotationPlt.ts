@@ -15,7 +15,34 @@ import {
 } from './hpgl';
 import { contourContenant, contoursDePieces, placerNumeros, type Contour, type Placement } from './placementNumero';
 
-export const REGLAGES_NUMERO_DEFAUT: ReglagesNumero = { hauteurCm: 3, largeurCm: 2, ecartMm: 10, repetitions: 1 };
+/**
+ * Un numero se lit de loin, a la table : grand par defaut. La transparence ne
+ * concerne que l'apercu (le traceur ecrit toujours plein).
+ */
+export const REGLAGES_NUMERO_DEFAUT: ReglagesNumero = {
+    hauteurCm: 4, largeurCm: 2.8, ecartMm: 10, repetitions: 1,
+    format: 'nu', gras: false, inclinaison: 0, opacite: 60,
+};
+
+/** Reglages complets : ceux du trace, completes par ceux de l'entreprise, puis par les valeurs d'usine. */
+export const reglagesAvecDefaut = (r?: ReglagesNumero, defaut?: ReglagesNumero): ReglagesNumero => ({
+    ...REGLAGES_NUMERO_DEFAUT,
+    ...(defaut || {}),
+    ...(r || {}),
+});
+
+/** « 77 » tel que le traceur l'ecrira : (77), [77], N°77, -77-. */
+export function texteNumero(numero: string, r: Pick<ReglagesNumero, 'format'>): string {
+    const n = numero.trim();
+    if (!n) return n;
+    switch (r.format) {
+        case 'parentheses': return `(${n})`;
+        case 'crochets': return `[${n}]`;
+        case 'no': return `N${'\u00b0'}${n}`;
+        case 'tirets': return `-${n}-`;
+        default: return n;
+    }
+}
 
 /** Les fichiers attaches sont gardes en dataURL base64 : on revient aux octets. */
 export function octetsDepuisDataUrl(data: string): ArrayBuffer | null {
@@ -92,7 +119,7 @@ export interface PoseNumero {
 export function posesNumero(a: AnalysePlt, numero: string, r: ReglagesNumero): PoseNumero[] {
     if (r.hauteurCm <= 0 || r.largeurCm <= 0) return [];
     const exclus = new Set(r.exclus || []);
-    const texte = numero.trim() || '0';
+    const texte = texteNumero(numero.trim() || '0', r);
     return a.candidats
         .filter(c => !exclus.has(c.index))
         .flatMap(({ index, etiquette }) => {
@@ -117,20 +144,27 @@ export function posesNumero(a: AnalysePlt, numero: string, r: ReglagesNumero): P
 
 /** Le trace d'origine plus le bloc de numeros. null s'il n'y a rien a numeroter. */
 export function numeroterPlt(a: AnalysePlt, numero: string, r: ReglagesNumero): Uint8Array<ArrayBuffer> | null {
-    const texte = numero.trim();
-    if (!texte) return null;
-    const poses = posesNumero(a, texte, r);
+    if (!numero.trim()) return null;
+    const texte = texteNumero(numero, r);
+    const poses = posesNumero(a, numero, r);
     if (poses.length === 0) return null;
-    return encoderOctets(injecterEtiquettes(a.source, poses.map(({ etiquette, placement }) => ({
-        x: placement.x,
-        y: placement.y,
-        texte,
-        hauteurCm: placement.hauteurCm,
-        largeurCm: placement.largeurCm,
-        directionX: etiquette.directionX,
-        directionY: etiquette.directionY,
-        plume: etiquette.plume,
-    }))));
+    const u = a.lecture.unitesParMm;
+    const etiquettes = poses.flatMap(({ etiquette, placement }) => {
+        const base = {
+            x: placement.x,
+            y: placement.y,
+            texte,
+            hauteurCm: placement.hauteurCm,
+            largeurCm: placement.largeurCm,
+            directionX: etiquette.directionX,
+            directionY: etiquette.directionY,
+            plume: etiquette.plume,
+            inclinaison: r.inclinaison || 0,
+        };
+        // Gras : le meme numero repasse avec un decalage d'un trait de plume (~0,4 mm).
+        return r.gras ? [base, { ...base, x: base.x + 0.4 * u, y: base.y + 0.2 * u }] : [base];
+    });
+    return encoderOctets(injecterEtiquettes(a.source, etiquettes));
 }
 
 /** Pieces a verifier : numero reduit faute de place, ou pose sans place sure. */

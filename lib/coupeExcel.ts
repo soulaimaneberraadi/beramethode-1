@@ -1,7 +1,10 @@
 /**
- * Classeur Excel d'un ordre de coupe : une feuille "Ordre" (repartition
- * couleur x taille) + une feuille par tissu (placements PLT puis matelas,
- * avec commande/ecart pour verifier d'un coup d'oeil qu'on a assez trace).
+ * Classeur Excel d'un ordre de coupe : UNE SEULE feuille "Ordre de coupe" qui
+ * s'enchaine de haut en bas comme la page de l'appli — titre, repartition
+ * couleur x taille, puis pour chaque matiere : bandeau, placements PLT,
+ * matelas (avec colonnes Sigma cumulees par couleur), totaux/commande/ecart.
+ * Avant, chaque matiere avait sa propre feuille et l'atelier ne regardait que
+ * la premiere : il croyait les matelas absents.
  *
  * Le nom de fichier est stable (construireClasseurCoupe + nomFichierExcel
  * de la meme commande donnent toujours le meme nom) : ecrit via dossierLocal.ts,
@@ -86,10 +89,12 @@ const COULEUR_LABEL = 'FF475569';       // slate-600
 const COULEUR_TEXTE = 'FF0F172A';       // slate-900
 const COULEUR_TOTAL_FOND = 'FFE2E8F0';  // slate-200
 const COULEUR_FAIT_FOND = 'FFDCFCE7';   // green-100
+const COULEUR_VERT_TEXTE = 'FF16A34A';  // green-600 : ✓ / ecart nul / sigma atteint
 const COULEUR_ECART_NEG_FOND = 'FFFEE2E2'; // red-100
 const COULEUR_ECART_NEG_TEXTE = 'FFB91C1C'; // red-700
 const COULEUR_ECART_POS_FOND = 'FFFEF3C7'; // amber-100
 const COULEUR_ECART_POS_TEXTE = 'FFB45309'; // amber-700
+const COULEUR_SIGMA_TEXTE = 'FF94A3B8'; // slate-400 : colonnes Sigma (cumul), discretes
 
 const FMT_ENTIER = '#,##0';
 const FMT_METRES = '#,##0.00';
@@ -109,23 +114,6 @@ function colLetter(n: number): string {
         i = Math.floor((i - 1) / 26);
     }
     return s;
-}
-
-/** Caracteres interdits dans un nom de feuille Excel. */
-const CARACTERES_INTERDITS_FEUILLE = /[\\/?*[\]:]/g;
-
-/** Nom de feuille valide (<=31 car., unique) a partir d'un nom de tissu quelconque. */
-function nomFeuilleUnique(nomTissu: string, dejaUtilises: Set<string>): string {
-    const base = (nomTissu || 'Tissu').replace(CARACTERES_INTERDITS_FEUILLE, ' ').trim().slice(0, 31) || 'Tissu';
-    let candidat = base;
-    let n = 2;
-    while (dejaUtilises.has(candidat.toLowerCase())) {
-        const suffixe = ` (${n})`;
-        candidat = base.slice(0, 31 - suffixe.length) + suffixe;
-        n++;
-    }
-    dejaUtilises.add(candidat.toLowerCase());
-    return candidat;
 }
 
 const CARACTERES_INTERDITS_FICHIER = /[\\/:*?"<>|\x00-\x1f]/g;
@@ -150,6 +138,12 @@ function commandeParTaille(d: DonneesExcelCoupe): Record<string, number> {
     return out;
 }
 
+/** Commande d'une couleur precise (0 si la couleur n'est pas dans la repartition). */
+function commandeCouleurTaille(d: DonneesExcelCoupe, couleur: string, taille: string): number {
+    const ligne = d.repartition.find(r => r.couleur === couleur);
+    return ligne ? (Number(ligne.quantites[taille]) || 0) : 0;
+}
+
 /* ------------------------------------------------------------------ */
 /* Styles de cellule                                                   */
 /* ------------------------------------------------------------------ */
@@ -163,6 +157,12 @@ const toutesBordures = { top: bordureFine, left: bordureFine, bottom: bordureFin
 
 function styleBandeauTitre(c: Cellule) {
     c.font = { bold: true, size: 14, color: { argb: COULEUR_ENTETE_TEXTE }, name: 'Calibri' };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COULEUR_ENTETE } };
+    c.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+}
+
+function styleBandeauMatiere(c: Cellule) {
+    c.font = { bold: true, size: 12, color: { argb: COULEUR_ENTETE_TEXTE }, name: 'Calibri' };
     c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COULEUR_ENTETE } };
     c.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
 }
@@ -207,14 +207,44 @@ function styleValeur(c: Cellule, valeur: string | number) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Feuille "Ordre"                                                     */
+/* Disposition des colonnes de la table Matelas (la plus large) —      */
+/* Repartition et Placements reutilisent juste les premieres colonnes. */
 /* ------------------------------------------------------------------ */
 
-function construireFeuilleOrdre(wb: Classeur, d: DonneesExcelCoupe): void {
-    const nTailles = d.tailles.length;
-    const nbCols = 2 + nTailles; // Couleur + tailles + Total
+interface Colonnes {
+    fait: number; numero: number; placement: number; couleur: number; plis: number;
+    tailleDebut: number; // paire (valeur, sigma) par taille, a partir d'ici
+    total: number; cumul: number; conso: number; groupe: number; debut: number; fin: number; fichierSortie: number;
+    nbCols: number;
+}
 
-    const ws: Feuille = wb.addWorksheet('Ordre', {
+function calculerColonnes(nTailles: number): Colonnes {
+    const fait = 1, numero = 2, placement = 3, couleur = 4, plis = 5;
+    const tailleDebut = 6;
+    const total = tailleDebut + nTailles * 2;
+    const cumul = total + 1;
+    const conso = cumul + 1;
+    const groupe = conso + 1;
+    const debut = groupe + 1;
+    const fin = debut + 1;
+    const fichierSortie = fin + 1;
+    return { fait, numero, placement, couleur, plis, tailleDebut, total, cumul, conso, groupe, debut, fin, fichierSortie, nbCols: fichierSortie };
+}
+
+function colValeurTaille(col: Colonnes, i: number): number { return col.tailleDebut + i * 2; }
+function colSigmaTaille(col: Colonnes, i: number): number { return col.tailleDebut + i * 2 + 1; }
+
+/* ------------------------------------------------------------------ */
+/* Construction de la feuille unique                                   */
+/* ------------------------------------------------------------------ */
+
+function construireFeuilleOrdreDeCoupe(wb: Classeur, d: DonneesExcelCoupe): void {
+    const tailles = d.tailles;
+    const nTailles = tailles.length;
+    const col = calculerColonnes(nTailles);
+    const nbCols = col.nbCols;
+
+    const ws: Feuille = wb.addWorksheet('Ordre de coupe', {
         pageSetup: {
             orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0,
             margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
@@ -222,11 +252,24 @@ function construireFeuilleOrdre(wb: Classeur, d: DonneesExcelCoupe): void {
         views: [{ showGridLines: false }],
     });
 
-    ws.columns = [
-        { width: 22 },
-        ...Array.from({ length: nTailles }, () => ({ width: 11 })),
-        { width: 14 },
-    ];
+    const largeurs: number[] = new Array(nbCols).fill(9);
+    largeurs[col.fait - 1] = 6;
+    largeurs[col.numero - 1] = 9;
+    largeurs[col.placement - 1] = 18;
+    largeurs[col.couleur - 1] = 13;
+    largeurs[col.plis - 1] = 8;
+    tailles.forEach((_, i) => {
+        largeurs[colValeurTaille(col, i) - 1] = 9;
+        largeurs[colSigmaTaille(col, i) - 1] = 10;
+    });
+    largeurs[col.total - 1] = 10;
+    largeurs[col.cumul - 1] = 10;
+    largeurs[col.conso - 1] = 11;
+    largeurs[col.groupe - 1] = 12;
+    largeurs[col.debut - 1] = 9;
+    largeurs[col.fin - 1] = 9;
+    largeurs[col.fichierSortie - 1] = 20;
+    ws.columns = largeurs.map(width => ({ width }));
 
     // --- Bandeau titre ---
     ws.mergeCells(1, 1, 1, nbCols);
@@ -251,16 +294,23 @@ function construireFeuilleOrdre(wb: Classeur, d: DonneesExcelCoupe): void {
         styleValeur(ws.getCell(r, 2), valeur);
         r++;
     }
+    const derniereLigneMeta = r - 1;
     r++; // ligne vide
 
-    // --- Table repartition couleur x taille ---
-    const ligneEntete = r;
-    const entetes = ['Couleur', ...d.tailles, 'Total'];
-    entetes.forEach((label, i) => styleEntete(Object.assign(ws.getCell(ligneEntete, i + 1), { value: label })));
-    ws.getRow(ligneEntete).height = 22;
+    /* ---------------------------------------------------------------- */
+    /* Section Repartition (couleur x taille)                            */
+    /* ---------------------------------------------------------------- */
+    ws.mergeCells(r, 1, r, nbCols);
+    styleSousEnteteSection(Object.assign(ws.getCell(r, 1), { value: 'Répartition' }));
     r++;
 
-    const premiereLigneData = r;
+    const ligneEnteteRepart = r;
+    const entetesRepart = ['Couleur', ...tailles, 'Total'];
+    entetesRepart.forEach((label, i) => styleEntete(Object.assign(ws.getCell(r, i + 1), { value: label })));
+    ws.getRow(r).height = 22;
+    r++;
+
+    const premiereLigneRepart = r;
     d.repartition.forEach((ligne, idx) => {
         const zebra = idx % 2 === 1;
         const cCouleur = ws.getCell(r, 1);
@@ -268,7 +318,7 @@ function construireFeuilleOrdre(wb: Classeur, d: DonneesExcelCoupe): void {
         styleDonnee(cCouleur, zebra);
         cCouleur.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
 
-        d.tailles.forEach((taille, i) => {
+        tailles.forEach((taille, i) => {
             const c = ws.getCell(r, 2 + i);
             c.value = Number(ligne.quantites[taille]) || 0;
             c.numFmt = FMT_ENTIER;
@@ -276,112 +326,76 @@ function construireFeuilleOrdre(wb: Classeur, d: DonneesExcelCoupe): void {
         });
 
         const cTotal = ws.getCell(r, 2 + nTailles);
-        const totalLigne = d.tailles.reduce((s, t) => s + (Number(ligne.quantites[t]) || 0), 0);
+        const totalLigne = tailles.reduce((s, t) => s + (Number(ligne.quantites[t]) || 0), 0);
         cTotal.value = { formula: `SUM(${colLetter(2)}${r}:${colLetter(1 + nTailles)}${r})`, result: totalLigne };
         cTotal.numFmt = FMT_ENTIER;
         styleDonnee(cTotal, zebra);
         cTotal.font = { ...cTotal.font, bold: true };
         r++;
     });
-    const derniereLigneData = r - 1;
+    const derniereLigneRepart = r - 1;
 
-    // --- Ligne TOTAL + grand total ---
-    const ligneTotal = r;
-    const cLabelTotal = ws.getCell(ligneTotal, 1);
-    cLabelTotal.value = 'TOTAL';
-    styleTotal(cLabelTotal);
-    cLabelTotal.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+    const ligneTotalRepart = r;
+    const cLabelTotalRepart = ws.getCell(r, 1);
+    cLabelTotalRepart.value = 'TOTAL';
+    styleTotal(cLabelTotalRepart);
+    cLabelTotalRepart.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
 
-    const commande = commandeParTaille(d);
-    d.tailles.forEach((taille, i) => {
-        const col = 2 + i;
-        const c = ws.getCell(ligneTotal, col);
+    const commandeGlobale = commandeParTaille(d);
+    tailles.forEach((taille, i) => {
+        const c2 = 2 + i;
+        const c = ws.getCell(ligneTotalRepart, c2);
         c.value = {
-            formula: `SUM(${colLetter(col)}${premiereLigneData}:${colLetter(col)}${derniereLigneData})`,
-            result: commande[taille],
+            formula: `SUM(${colLetter(c2)}${premiereLigneRepart}:${colLetter(c2)}${derniereLigneRepart})`,
+            result: commandeGlobale[taille],
         };
         c.numFmt = FMT_ENTIER;
         styleTotal(c);
     });
-    const grandTotal = d.tailles.reduce((s, t) => s + commande[t], 0);
-    const cGrandTotal = ws.getCell(ligneTotal, 2 + nTailles);
-    cGrandTotal.value = {
-        formula: `SUM(${colLetter(2)}${ligneTotal}:${colLetter(1 + nTailles)}${ligneTotal})`,
-        result: grandTotal,
+    const grandTotalRepart = tailles.reduce((s, t) => s + commandeGlobale[t], 0);
+    const cGrandTotalRepart = ws.getCell(ligneTotalRepart, 2 + nTailles);
+    cGrandTotalRepart.value = {
+        formula: `SUM(${colLetter(2)}${ligneTotalRepart}:${colLetter(1 + nTailles)}${ligneTotalRepart})`,
+        result: grandTotalRepart,
     };
-    cGrandTotal.numFmt = FMT_ENTIER;
-    styleTotal(cGrandTotal);
+    cGrandTotalRepart.numFmt = FMT_ENTIER;
+    styleTotal(cGrandTotalRepart);
+    r++;
+    r++; // ligne vide avant la premiere matiere
 
-    ws.views = [{ showGridLines: false, state: 'frozen', ySplit: ligneEntete }];
-    ws.pageSetup.printTitlesRow = `${ligneEntete}:${ligneEntete}`;
+    /* ---------------------------------------------------------------- */
+    /* Une section par matiere                                          */
+    /* ---------------------------------------------------------------- */
+    for (const tissu of d.tissus) {
+        r = construireSectionMatiere(ws, tissu, d, col, r);
+        r++; // ligne vide entre matieres
+    }
+
+    ws.views = [{ showGridLines: false, state: 'frozen', ySplit: derniereLigneMeta }];
+    ws.pageSetup.printTitlesRow = `1:${derniereLigneMeta}`;
 }
 
-/* ------------------------------------------------------------------ */
-/* Feuille par tissu                                                   */
-/* ------------------------------------------------------------------ */
-
-function construireFeuilleTissu(
-    wb: Classeur,
+/** Construit le bloc d'une matiere (bandeau + placements + matelas + totaux) a partir de la ligne `r0` ; rend la derniere ligne ecrite. */
+function construireSectionMatiere(
+    ws: Feuille,
     tissu: DonneesExcelCoupe['tissus'][number],
     d: DonneesExcelCoupe,
-    dejaUtilises: Set<string>,
-): void {
+    col: Colonnes,
+    r0: number,
+): number {
     const tailles = d.tailles;
     const nTailles = tailles.length;
-    // Colonnes de la table Matelas (la plus large) ; la table Placements
-    // partage les memes colonnes, ce qui laisse quelques largeurs approximatives
-    // pour elle mais rien n'est jamais tronque (juste un peu d'air en trop).
-    const colFait = 1, colNumero = 2, colPlacement = 3, colCouleur = 4, colPlis = 5;
-    const colTailleDebut = 6;
-    const colTotal = colTailleDebut + nTailles;
-    const colCumul = colTotal + 1;
-    const colConso = colCumul + 1;
-    const colGroupe = colConso + 1;
-    const colDebut = colGroupe + 1;
-    const colFin = colDebut + 1;
-    const colFichierSortie = colFin + 1;
-    const nbCols = colFichierSortie;
+    const nbCols = col.nbCols;
+    let r = r0;
 
-    const nomFeuille = nomFeuilleUnique(tissu.nom, dejaUtilises);
-    const ws: Feuille = wb.addWorksheet(nomFeuille, {
-        pageSetup: {
-            orientation: 'landscape', paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-            margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
-        },
-        views: [{ showGridLines: false }],
-    });
-
-    ws.columns = [
-        { width: 6 }, { width: 9 }, { width: 18 }, { width: 13 }, { width: 8 },
-        ...Array.from({ length: nTailles }, () => ({ width: 9 })),
-        { width: 10 }, { width: 10 }, { width: 11 }, { width: 12 }, { width: 9 }, { width: 9 }, { width: 20 },
-    ];
-
-    // --- Bandeau titre ---
-    ws.mergeCells(1, 1, 1, nbCols);
-    const titre = ws.getCell(1, 1);
-    titre.value = tissu.nom;
-    styleBandeauTitre(titre);
-    ws.getRow(1).height = 28;
-
-    let r = 2;
-
-    // --- Recu / reste (seulement si recu connu ; "reste" pointe vers la ligne
-    // de total Conso ecrite plus bas — la reference avant coup n'est pas un
-    // probleme pour Excel) ---
-    let ligneRecu: number | null = null;
-    if (typeof tissu.recuM === 'number') {
-        ligneRecu = r;
-        styleLabel(ws.getCell(r, 1), 'Reçu (m)');
-        const cRecu = ws.getCell(r, 2);
-        cRecu.value = tissu.recuM;
-        cRecu.numFmt = FMT_METRES;
-        cRecu.font = { size: 10, color: { argb: COULEUR_TEXTE } };
-        styleLabel(ws.getCell(r, 4), 'Reste (m)');
-        // La formule est completee apres avoir ecrit la ligne de totaux (voir plus bas).
-        r++;
-        r++; // ligne vide
-    }
+    // --- Bandeau matiere (nom + recu eventuel, en un seul bandeau plein largeur) ---
+    ws.mergeCells(r, 1, r, nbCols);
+    const texteBandeau = typeof tissu.recuM === 'number'
+        ? `Matière : ${tissu.nom}  —  Reçu ${tissu.recuM} m`
+        : `Matière : ${tissu.nom}`;
+    styleBandeauMatiere(Object.assign(ws.getCell(r, 1), { value: texteBandeau }));
+    ws.getRow(r).height = 24;
+    r++;
 
     // --- Section Placements (tracés PLT) ---
     ws.mergeCells(r, 1, r, nbCols);
@@ -453,92 +467,127 @@ function construireFeuilleTissu(
 
     const enteteMatelas = r;
     const entetesMatelas: string[] = [];
-    entetesMatelas[colFait - 1] = '✓';
-    entetesMatelas[colNumero - 1] = 'N°';
-    entetesMatelas[colPlacement - 1] = 'Placement';
-    entetesMatelas[colCouleur - 1] = 'Couleur';
-    entetesMatelas[colPlis - 1] = 'Plis';
-    tailles.forEach((t, i) => { entetesMatelas[colTailleDebut - 1 + i] = t; });
-    entetesMatelas[colTotal - 1] = 'Total';
-    entetesMatelas[colCumul - 1] = 'Cumul';
-    entetesMatelas[colConso - 1] = 'Conso (m)';
-    entetesMatelas[colGroupe - 1] = 'Groupe';
-    entetesMatelas[colDebut - 1] = 'Début';
-    entetesMatelas[colFin - 1] = 'Fin';
-    entetesMatelas[colFichierSortie - 1] = 'Fichier numéroté';
+    entetesMatelas[col.fait - 1] = '✓';
+    entetesMatelas[col.numero - 1] = 'N°';
+    entetesMatelas[col.placement - 1] = 'Placement';
+    entetesMatelas[col.couleur - 1] = 'Couleur';
+    entetesMatelas[col.plis - 1] = 'Plis';
+    tailles.forEach((t, i) => {
+        entetesMatelas[colValeurTaille(col, i) - 1] = t;
+        entetesMatelas[colSigmaTaille(col, i) - 1] = `Σ ${t}`;
+    });
+    entetesMatelas[col.total - 1] = 'Total';
+    entetesMatelas[col.cumul - 1] = 'Cumul';
+    entetesMatelas[col.conso - 1] = 'Conso (m)';
+    entetesMatelas[col.groupe - 1] = 'Groupe';
+    entetesMatelas[col.debut - 1] = 'Début';
+    entetesMatelas[col.fin - 1] = 'Fin';
+    entetesMatelas[col.fichierSortie - 1] = 'Fichier numéroté';
     entetesMatelas.forEach((label, i) => styleEntete(Object.assign(ws.getCell(r, i + 1), { value: label })));
     ws.getRow(r).height = 20;
     r++;
 
     const premiereLigneMatelas = r;
+    // Cumul par couleur (Sigma), remis a zero a chaque matiere — c'est le
+    // "depuis le premier matelas de CETTE matiere" demande.
+    const cumulCouleur = new Map<string, Record<string, number>>();
+
     tissu.matelas.forEach((m, idx) => {
         const zebra = idx % 2 === 1;
         const fondFait = m.fait ? { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: COULEUR_FAIT_FOND } } : undefined;
         const applique = (c: Cellule) => { styleDonnee(c, zebra); if (fondFait) c.fill = fondFait; };
 
-        const cFait = ws.getCell(r, colFait);
+        const cFait = ws.getCell(r, col.fait);
         cFait.value = m.fait ? '✓' : '';
         applique(cFait);
-        cFait.font = { ...cFait.font, bold: true, color: { argb: 'FF16A34A' } };
+        cFait.font = { ...cFait.font, bold: true, color: { argb: COULEUR_VERT_TEXTE } };
 
-        const cNumero = ws.getCell(r, colNumero);
+        const cNumero = ws.getCell(r, col.numero);
         cNumero.value = m.numero;
         applique(cNumero);
         cNumero.font = { ...cNumero.font, bold: true };
 
-        const cPlacement = ws.getCell(r, colPlacement);
+        const cPlacement = ws.getCell(r, col.placement);
         cPlacement.value = m.placement;
         applique(cPlacement);
         cPlacement.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
 
-        const cCouleur = ws.getCell(r, colCouleur);
+        const cCouleur = ws.getCell(r, col.couleur);
         cCouleur.value = m.couleur;
         applique(cCouleur);
 
-        const cPlis = ws.getCell(r, colPlis);
+        const cPlis = ws.getCell(r, col.plis);
         cPlis.value = m.plis || 0;
         cPlis.numFmt = FMT_ENTIER;
         applique(cPlis);
 
+        if (!cumulCouleur.has(m.couleur)) cumulCouleur.set(m.couleur, {});
+        const cumulTailleCouleur = cumulCouleur.get(m.couleur)!;
+
         tailles.forEach((taille, i) => {
-            const c = ws.getCell(r, colTailleDebut + i);
-            c.value = Number(m.pieces[taille]) || 0;
-            c.numFmt = FMT_ENTIER;
-            applique(c);
+            const pieces = Number(m.pieces[taille]) || 0;
+            const cVal = ws.getCell(r, colValeurTaille(col, i));
+            cVal.value = pieces;
+            cVal.numFmt = FMT_ENTIER;
+            applique(cVal);
+
+            const sigmaAvant = cumulTailleCouleur[taille] || 0;
+            const sigma = sigmaAvant + pieces;
+            cumulTailleCouleur[taille] = sigma;
+
+            const colVal = colValeurTaille(col, i);
+            const colSig = colSigmaTaille(col, i);
+            const cSigma = ws.getCell(r, colSig);
+            cSigma.value = {
+                formula: `SUMIFS(${colLetter(colVal)}$${premiereLigneMatelas}:${colLetter(colVal)}${r}, ${colLetter(col.couleur)}$${premiereLigneMatelas}:${colLetter(col.couleur)}${r}, ${colLetter(col.couleur)}${r})`,
+                result: sigma,
+            };
+            cSigma.numFmt = FMT_ENTIER;
+            applique(cSigma);
+            cSigma.font = { ...cSigma.font, color: { argb: COULEUR_SIGMA_TEXTE } };
+
+            const commandeCouleur = commandeCouleurTaille(d, m.couleur, taille);
+            if (commandeCouleur > 0 || sigma > 0) {
+                if (sigma === commandeCouleur) {
+                    cSigma.font = { ...cSigma.font, bold: true, color: { argb: COULEUR_VERT_TEXTE } };
+                } else if (sigma > commandeCouleur) {
+                    cSigma.font = { ...cSigma.font, color: { argb: COULEUR_ECART_POS_TEXTE } };
+                }
+            }
         });
 
-        const cTotal = ws.getCell(r, colTotal);
+        const cTotal = ws.getCell(r, col.total);
         cTotal.value = {
-            formula: `SUM(${colLetter(colTailleDebut)}${r}:${colLetter(colTailleDebut + nTailles - 1)}${r})`,
+            formula: `SUM(${colLetter(colValeurTaille(col, 0))}${r}:${colLetter(colValeurTaille(col, nTailles - 1))}${r})`,
             result: m.total,
         };
         cTotal.numFmt = FMT_ENTIER;
         applique(cTotal);
         cTotal.font = { ...cTotal.font, bold: true };
 
-        const cCumul = ws.getCell(r, colCumul);
+        const cCumul = ws.getCell(r, col.cumul);
         cCumul.value = m.cumul || 0;
         cCumul.numFmt = FMT_ENTIER;
         applique(cCumul);
 
-        const cConso = ws.getCell(r, colConso);
+        const cConso = ws.getCell(r, col.conso);
         cConso.value = m.consoM || 0;
         cConso.numFmt = FMT_METRES;
         applique(cConso);
 
-        const cGroupe = ws.getCell(r, colGroupe);
+        const cGroupe = ws.getCell(r, col.groupe);
         cGroupe.value = m.groupe || '-';
         applique(cGroupe);
 
-        const cDebut = ws.getCell(r, colDebut);
+        const cDebut = ws.getCell(r, col.debut);
         cDebut.value = m.debut || '-';
         applique(cDebut);
 
-        const cFin = ws.getCell(r, colFin);
+        const cFin = ws.getCell(r, col.fin);
         cFin.value = m.fin || '-';
         applique(cFin);
 
-        const cFichierSortie = ws.getCell(r, colFichierSortie);
+        const cFichierSortie = ws.getCell(r, col.fichierSortie);
         cFichierSortie.value = m.fichierSortie || '-';
         applique(cFichierSortie);
         cFichierSortie.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
@@ -548,89 +597,80 @@ function construireFeuilleTissu(
     const derniereLigneMatelas = r - 1;
     const aDesMatelas = tissu.matelas.length > 0;
 
-    // --- Ligne de totaux (formules SUM avec resultat en cache) ---
+    // --- Ligne de totaux (formules SUM avec resultat en cache ; colonnes Sigma vides) ---
     const ligneTotaux = r;
-    styleTotal(Object.assign(ws.getCell(r, colFait), { value: '' }));
-    styleTotal(Object.assign(ws.getCell(r, colNumero), { value: '' }));
-    const cLabelTotaux = ws.getCell(r, colPlacement);
+    styleTotal(Object.assign(ws.getCell(r, col.fait), { value: '' }));
+    styleTotal(Object.assign(ws.getCell(r, col.numero), { value: '' }));
+    const cLabelTotaux = ws.getCell(r, col.placement);
     cLabelTotaux.value = 'TOTAL';
     styleTotal(cLabelTotaux);
     cLabelTotaux.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
-    styleTotal(Object.assign(ws.getCell(r, colCouleur), { value: '' }));
+    styleTotal(Object.assign(ws.getCell(r, col.couleur), { value: '' }));
 
-    const sumRange = (col: number) => `${colLetter(col)}${premiereLigneMatelas}:${colLetter(col)}${derniereLigneMatelas}`;
-    const sommeCol = (col: number, extract: (m: (typeof tissu.matelas)[number]) => number) =>
+    const sumRange = (c: number) => `${colLetter(c)}${premiereLigneMatelas}:${colLetter(c)}${derniereLigneMatelas}`;
+    const sommeCol = (extract: (m: (typeof tissu.matelas)[number]) => number) =>
         tissu.matelas.reduce((s, m) => s + (extract(m) || 0), 0);
 
-    const cPlisTotal = ws.getCell(r, colPlis);
+    const cPlisTotal = ws.getCell(r, col.plis);
     cPlisTotal.value = aDesMatelas
-        ? { formula: `SUM(${sumRange(colPlis)})`, result: sommeCol(colPlis, m => m.plis) }
+        ? { formula: `SUM(${sumRange(col.plis)})`, result: sommeCol(m => m.plis) }
         : 0;
     cPlisTotal.numFmt = FMT_ENTIER;
     styleTotal(cPlisTotal);
 
     const totalParTaille: Record<string, number> = {};
     tailles.forEach((taille, i) => {
-        const col = colTailleDebut + i;
-        const total = sommeCol(col, m => Number(m.pieces[taille]) || 0);
+        const colVal = colValeurTaille(col, i);
+        const colSig = colSigmaTaille(col, i);
+        const total = sommeCol(m => Number(m.pieces[taille]) || 0);
         totalParTaille[taille] = total;
-        const c = ws.getCell(r, col);
-        c.value = aDesMatelas ? { formula: `SUM(${sumRange(col)})`, result: total } : 0;
+        const c = ws.getCell(r, colVal);
+        c.value = aDesMatelas ? { formula: `SUM(${sumRange(colVal)})`, result: total } : 0;
         c.numFmt = FMT_ENTIER;
         styleTotal(c);
+        styleTotal(Object.assign(ws.getCell(r, colSig), { value: '' }));
     });
 
     const totalGeneral = tailles.reduce((s, t) => s + totalParTaille[t], 0);
-    const cTotalTotal = ws.getCell(r, colTotal);
+    const cTotalTotal = ws.getCell(r, col.total);
     cTotalTotal.value = aDesMatelas
-        ? { formula: `SUM(${sumRange(colTotal)})`, result: totalGeneral }
+        ? { formula: `SUM(${sumRange(col.total)})`, result: totalGeneral }
         : 0;
     cTotalTotal.numFmt = FMT_ENTIER;
     styleTotal(cTotalTotal);
 
-    styleTotal(Object.assign(ws.getCell(r, colCumul), { value: '' }));
+    styleTotal(Object.assign(ws.getCell(r, col.cumul), { value: '' }));
 
-    const consoTotal = sommeCol(colConso, m => m.consoM);
-    const cConsoTotal = ws.getCell(r, colConso);
-    cConsoTotal.value = aDesMatelas ? { formula: `SUM(${sumRange(colConso)})`, result: consoTotal } : 0;
+    const consoTotal = sommeCol(m => m.consoM);
+    const cConsoTotal = ws.getCell(r, col.conso);
+    cConsoTotal.value = aDesMatelas ? { formula: `SUM(${sumRange(col.conso)})`, result: consoTotal } : 0;
     cConsoTotal.numFmt = FMT_METRES;
     styleTotal(cConsoTotal);
 
-    for (const col of [colGroupe, colDebut, colFin, colFichierSortie]) {
-        styleTotal(Object.assign(ws.getCell(r, col), { value: '' }));
+    for (const c of [col.groupe, col.debut, col.fin, col.fichierSortie]) {
+        styleTotal(Object.assign(ws.getCell(r, c), { value: '' }));
     }
     r++;
-
-    // Complete la formule "Reste (m)" laissee en attente plus haut, maintenant
-    // que la cellule Conso totale existe.
-    if (ligneRecu !== null) {
-        const cReste = ws.getCell(ligneRecu, 5);
-        const cRecuAddr = `${colLetter(2)}${ligneRecu}`;
-        const cConsoTotalAddr = `${colLetter(colConso)}${ligneTotaux}`;
-        cReste.value = { formula: `${cRecuAddr}-${cConsoTotalAddr}`, result: (tissu.recuM || 0) - consoTotal };
-        cReste.numFmt = FMT_METRES;
-        cReste.font = { size: 10, color: { argb: COULEUR_TEXTE } };
-    }
 
     // --- Ligne Commande (repartition, toutes couleurs) ---
     const ligneCommande = r;
     const commande = commandeParTaille(d);
-    const cLabelCommande = ws.getCell(r, colPlacement);
+    const cLabelCommande = ws.getCell(r, col.placement);
     cLabelCommande.value = 'Commande';
     styleDonnee(cLabelCommande, false);
     cLabelCommande.font = { ...cLabelCommande.font, bold: true };
     cLabelCommande.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
     tailles.forEach((taille, i) => {
-        const col = colTailleDebut + i;
-        const c = ws.getCell(r, col);
+        const colVal = colValeurTaille(col, i);
+        const c = ws.getCell(r, colVal);
         c.value = commande[taille];
         c.numFmt = FMT_ENTIER;
         styleDonnee(c, false);
     });
     const commandeTotale = tailles.reduce((s, t) => s + commande[t], 0);
-    const cCommandeTotal = ws.getCell(r, colTotal);
+    const cCommandeTotal = ws.getCell(r, col.total);
     cCommandeTotal.value = {
-        formula: `SUM(${colLetter(colTailleDebut)}${ligneCommande}:${colLetter(colTailleDebut + nTailles - 1)}${ligneCommande})`,
+        formula: `SUM(${colLetter(colValeurTaille(col, 0))}${ligneCommande}:${colLetter(colValeurTaille(col, nTailles - 1))}${ligneCommande})`,
         result: commandeTotale,
     };
     cCommandeTotal.numFmt = FMT_ENTIER;
@@ -638,9 +678,9 @@ function construireFeuilleTissu(
     cCommandeTotal.font = { ...cCommandeTotal.font, bold: true };
     r++;
 
-    // --- Ligne Ecart (prevu - commande, formule, couleur selon le signe) ---
+    // --- Ligne Ecart (prevu - commande, formule, couleur selon le signe ; vert si nul) ---
     const ligneEcart = r;
-    const cLabelEcart = ws.getCell(r, colPlacement);
+    const cLabelEcart = ws.getCell(r, col.placement);
     cLabelEcart.value = 'Écart';
     styleDonnee(cLabelEcart, false);
     cLabelEcart.font = { ...cLabelEcart.font, bold: true };
@@ -655,26 +695,51 @@ function construireFeuilleTissu(
         } else if (valeur > 0) {
             c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COULEUR_ECART_POS_FOND } };
             c.font = { ...c.font, color: { argb: COULEUR_ECART_POS_TEXTE } };
+        } else {
+            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COULEUR_FAIT_FOND } };
+            c.font = { ...c.font, color: { argb: COULEUR_VERT_TEXTE } };
         }
     };
 
     tailles.forEach((taille, i) => {
-        const col = colTailleDebut + i;
+        const colVal = colValeurTaille(col, i);
         const ecart = totalParTaille[taille] - commande[taille];
-        const c = ws.getCell(r, col);
-        c.value = { formula: `${colLetter(col)}${ligneTotaux}-${colLetter(col)}${ligneCommande}`, result: ecart };
+        const c = ws.getCell(r, colVal);
+        c.value = { formula: `${colLetter(colVal)}${ligneTotaux}-${colLetter(colVal)}${ligneCommande}`, result: ecart };
         styleDonnee(c, false);
         styleEcart(c, ecart);
     });
     const ecartTotal = totalGeneral - commandeTotale;
-    const cEcartTotal = ws.getCell(r, colTotal);
-    cEcartTotal.value = { formula: `${colLetter(colTotal)}${ligneTotaux}-${colLetter(colTotal)}${ligneCommande}`, result: ecartTotal };
+    const cEcartTotal = ws.getCell(r, col.total);
+    cEcartTotal.value = { formula: `${colLetter(col.total)}${ligneTotaux}-${colLetter(col.total)}${ligneCommande}`, result: ecartTotal };
     styleDonnee(cEcartTotal, false);
     styleEcart(cEcartTotal, ecartTotal);
     r++;
 
-    ws.views = [{ showGridLines: false, state: 'frozen', ySplit: enteteMatelas }];
-    ws.pageSetup.printTitlesRow = `${enteteMatelas}:${enteteMatelas}`;
+    // --- Ligne Reçu / Reste (m), seulement si recu connu ---
+    if (typeof tissu.recuM === 'number') {
+        const ligneRecu = r;
+        const cLabel = ws.getCell(r, col.placement);
+        cLabel.value = 'Reçu / Reste (m)';
+        styleDonnee(cLabel, false);
+        cLabel.font = { ...cLabel.font, bold: true };
+        cLabel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+
+        const cRecu = ws.getCell(r, col.conso);
+        cRecu.value = tissu.recuM;
+        cRecu.numFmt = FMT_METRES;
+        styleDonnee(cRecu, false);
+
+        const cResteAddr = `${colLetter(col.conso)}${ligneRecu}`;
+        const cConsoTotalAddr = `${colLetter(col.conso)}${ligneTotaux}`;
+        const cReste = ws.getCell(r, col.groupe);
+        cReste.value = { formula: `${cResteAddr}-${cConsoTotalAddr}`, result: (tissu.recuM || 0) - consoTotal };
+        cReste.numFmt = FMT_METRES;
+        styleDonnee(cReste, false);
+        r++;
+    }
+
+    return r - 1;
 }
 
 /* ------------------------------------------------------------------ */
@@ -687,12 +752,7 @@ export async function construireClasseurCoupe(d: DonneesExcelCoupe): Promise<Arr
     wb.creator = d.entreprise || 'BERAMETHODE';
     wb.created = new Date();
 
-    construireFeuilleOrdre(wb, d);
-
-    const dejaUtilises = new Set<string>();
-    for (const tissu of d.tissus) {
-        construireFeuilleTissu(wb, tissu, d, dejaUtilises);
-    }
+    construireFeuilleOrdreDeCoupe(wb, d);
 
     const donnees = await wb.xlsx.writeBuffer();
     const octets = donnees instanceof Uint8Array ? donnees : new Uint8Array(donnees as unknown as ArrayBufferLike);

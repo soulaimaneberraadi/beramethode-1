@@ -2,9 +2,11 @@
  * Lancer: node --import tsx lib/coupeExcel.test.ts
  *
  * Construit un classeur a partir de l'exemple du cahier de l'atelier (commande
- * Zara RF7887.600.81), le relit avec exceljs et verifie feuilles, en-tetes,
- * une ligne de matelas, les formules SUM (avec resultat en cache) et la ligne
- * Ecart. Ecrit aussi une copie sur disque pour inspection visuelle.
+ * Zara RF7887.600.81), le relit avec exceljs et verifie : une seule feuille
+ * "Ordre de coupe", repartition, bandeaux de matiere, table Placements, table
+ * Matelas avec ses colonnes Sigma (formule SUMIFS + resultat en cache), lignes
+ * TOTAL/Commande/Ecart/Reçu-Reste. Ecrit aussi une copie sur disque pour
+ * inspection visuelle.
  */
 import assert from 'node:assert/strict';
 import ExcelJS from 'exceljs';
@@ -37,6 +39,8 @@ const donnees: DonneesExcelCoupe = {
                 { nom: 'XS-S', ratios: { XS: 1, S: 1 }, fichier: 'XSS.plt', longueurM: 1.1, laizeCm: 150, efficience: 88, maxPlis: 40 },
                 { nom: 'XS×2', ratios: { XS: 2 }, fichier: 'XS2.plt', longueurM: 1.0, laizeCm: 150, efficience: 80, maxPlis: 30 },
             ],
+            // Cumuls Sigma attendus (meme couleur 'Noir' du debut a la fin) :
+            // XS : 0, 0, 15, 30, 50  |  M : 10, 20, 20, 20, 20
             matelas: [
                 { numero: '1', placement: 'M-XL', couleur: 'Noir', plis: 10, pieces: { M: 10, XL: 10 }, total: 20, cumul: 20, consoM: 12.0, fait: true, groupe: 'G1', debut: '08:00', fin: '08:40', fichierSortie: '77-1.plt' },
                 { numero: '2', placement: 'M-XL', couleur: 'Noir', plis: 10, pieces: { M: 10, XL: 10 }, total: 20, cumul: 40, consoM: 12.0, fait: true, groupe: 'G1', debut: '08:40', fin: '09:20', fichierSortie: '77-2.plt' },
@@ -45,18 +49,21 @@ const donnees: DonneesExcelCoupe = {
                 { numero: '5', placement: 'XS×2', couleur: 'Noir', plis: 10, pieces: { XS: 20 }, total: 20, cumul: 120, consoM: 10.0, fait: false },
             ],
         },
-        // Deuxieme tissu : conso volontairement au-dessus pour S/M/XL et en-dessous
-        // pour XS, pour verifier les deux couleurs d'ecart (rouge/ambre).
+        // Deuxieme matiere, sans recu, couleur 'Blanc' absente de la repartition
+        // (commande = 0) : verifie que les plages Sigma repartent a zero a la
+        // premiere ligne de CETTE matiere (et non a la suite de 'Tissu'), et
+        // que Sigma > commande (0) colore en ambre des que des pieces existent.
         {
-            nom: 'Doublure',
-            placements: [{ nom: 'Unique', ratios: { XS: 1, S: 1, M: 1, XL: 1 } }],
+            nom: 'Vlieseline',
+            placements: [{ nom: 'Unique', ratios: { XS: 1, S: 1 } }],
             matelas: [
-                { numero: '1', placement: 'Unique', couleur: 'Noir', plis: 40, pieces: { XS: 40, S: 40, M: 40, XL: 40 }, total: 160, cumul: 160, consoM: 32, fait: true, groupe: 'G1' },
+                { numero: '1', placement: 'Unique', couleur: 'Blanc', plis: 5, pieces: { XS: 5, S: 0 }, total: 5, cumul: 5, consoM: 3, fait: true },
+                { numero: '2', placement: 'Unique', couleur: 'Blanc', plis: 5, pieces: { XS: 5, S: 0 }, total: 5, cumul: 10, consoM: 3, fait: false },
             ],
         },
-        // Troisieme tissu : meme nom que le precedent (teste le dedoublonnement
-        // de nom de feuille) et sans aucun matelas (teste la branche 0 litteral).
-        { nom: 'Doublure', placements: [], matelas: [] },
+        // Troisieme matiere sans aucun matelas (teste la branche 0 litteral
+        // de la ligne TOTAL, sans formule SUM puisqu'il n'y a aucune ligne).
+        { nom: 'Molleton', placements: [], matelas: [] },
     ],
 };
 
@@ -67,162 +74,180 @@ async function main() {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buf);
 
-    // --- Feuilles : noms et dedoublonnement ---
+    // --- Une seule feuille ---
     const noms = wb.worksheets.map(ws => ws.name);
-    assert.deepEqual(noms, ['Ordre', 'Tissu', 'Doublure', 'Doublure (2)']);
+    assert.deepEqual(noms, ['Ordre de coupe'], 'une seule feuille, plus de feuille par matiere');
+    const ws = wb.getWorksheet('Ordre de coupe')!;
 
     /* ------------------------------------------------------------------ */
-    /* Feuille "Ordre"                                                     */
+    /* Bandeau titre + bloc meta                                           */
     /* ------------------------------------------------------------------ */
-    const ordre = wb.getWorksheet('Ordre')!;
-    assert.ok(String(ordre.getCell(1, 1).value).includes('Ordre de coupe'));
-    assert.ok(String(ordre.getCell(1, 1).value).includes('BERAMETHODE'));
+    assert.ok(String(ws.getCell(1, 1).value).includes('Ordre de coupe'));
+    assert.ok(String(ws.getCell(1, 1).value).includes('BERAMETHODE'));
+    assert.equal(ws.getCell(2, 1).value, 'Modèle');
+    assert.equal(ws.getCell(2, 2).value, 'Jupe Zara');
+    assert.equal(ws.getCell(3, 2).value, 'RF7887.600.81');
+    assert.equal(ws.getCell(4, 2).value, 'Zara');
+    assert.equal(ws.getCell(7, 1).value, 'Date');
+    assert.equal(ws.getCell(7, 2).value, '2026-09-25');
 
-    assert.equal(ordre.getCell(2, 1).value, 'Modèle');
-    assert.equal(ordre.getCell(2, 2).value, 'Jupe Zara');
-    assert.equal(ordre.getCell(3, 1).value, 'Référence');
-    assert.equal(ordre.getCell(3, 2).value, 'RF7887.600.81');
-    assert.equal(ordre.getCell(4, 1).value, 'Client');
-    assert.equal(ordre.getCell(4, 2).value, 'Zara');
-    assert.equal(ordre.getCell(7, 1).value, 'Date');
-    assert.equal(ordre.getCell(7, 2).value, '2026-09-25');
-
-    // En-tete table (ligne 9) : Couleur | XS | S | M | XL | Total
+    /* ------------------------------------------------------------------ */
+    /* Section Répartition (lignes 9-12)                                   */
+    /* ------------------------------------------------------------------ */
+    assert.equal(ws.getCell(9, 1).value, 'Répartition');
     assert.deepEqual(
-        [1, 2, 3, 4, 5, 6].map(c => ordre.getCell(9, c).value),
+        [1, 2, 3, 4, 5, 6].map(c => ws.getCell(10, c).value),
         ['Couleur', 'XS', 'S', 'M', 'XL', 'Total'],
     );
-
-    // Ligne de donnees (10) : Noir 50/30/20/20, Total = formule SUM = 120
-    assert.equal(ordre.getCell(10, 1).value, 'Noir');
-    assert.deepEqual([2, 3, 4, 5].map(c => ordre.getCell(10, c).value), [50, 30, 20, 20]);
-    const totalLigneNoir = ordre.getCell(10, 6);
-    assert.equal(totalLigneNoir.formula, 'SUM(B10:E10)');
+    assert.equal(ws.getCell(11, 1).value, 'Noir');
+    assert.deepEqual([2, 3, 4, 5].map(c => ws.getCell(11, c).value), [50, 30, 20, 20]);
+    const totalLigneNoir = ws.getCell(11, 6);
+    assert.equal(totalLigneNoir.formula, 'SUM(B11:E11)');
     assert.equal(totalLigneNoir.result, 120);
-
-    // Ligne TOTAL (11) + grand total
-    assert.equal(ordre.getCell(11, 1).value, 'TOTAL');
-    assert.equal(ordre.getCell(11, 2).result, 50);
-    assert.equal(ordre.getCell(11, 5).result, 20);
-    assert.equal(ordre.getCell(11, 6).result, 120);
+    assert.equal(ws.getCell(12, 1).value, 'TOTAL');
+    assert.equal(ws.getCell(12, 2).result, 50);
+    assert.equal(ws.getCell(12, 6).result, 120);
 
     /* ------------------------------------------------------------------ */
-    /* Feuille "Tissu"                                                     */
+    /* Matiere "Tissu" : bandeau (ligne 14) avec le reçu                    */
     /* ------------------------------------------------------------------ */
-    const tissu = wb.getWorksheet('Tissu')!;
-    assert.equal(tissu.getCell(1, 1).value, 'Tissu');
+    const bandeauTissu = String(ws.getCell(14, 1).value);
+    assert.ok(bandeauTissu.includes('Matière : Tissu'), 'bandeau matiere : nom');
+    assert.ok(bandeauTissu.includes('Reçu 70 m'), 'bandeau matiere : reçu');
 
-    // Recu / reste (ligne 2)
-    assert.equal(tissu.getCell(2, 1).value, 'Reçu (m)');
-    assert.equal(tissu.getCell(2, 2).value, 70);
-    assert.equal(tissu.getCell(2, 4).value, 'Reste (m)');
-    const cReste = tissu.getCell(2, 5);
-    assert.equal(cReste.formula, 'B2-L17');
-    presque(Number(cReste.result), 70 - 67, 'reste = recu - conso totale');
-
-    // En-tete Placements (ligne 5)
+    // --- Placements (ligne 16 = en-tete, 17-19 = donnees) ---
+    assert.equal(ws.getCell(15, 1).value, 'Placements (tracés PLT)');
     assert.deepEqual(
-        [1, 2, 3, 4, 5].map(c => tissu.getCell(5, c).value),
-        ['Placement', 'XS', 'S', 'M', 'XL'],
+        [1, 2, 3, 4, 5, 6].map(c => ws.getCell(16, c).value),
+        ['Placement', 'XS', 'S', 'M', 'XL', 'Pièces/pli'],
     );
-    assert.equal(tissu.getCell(5, 10), tissu.getCell(5, 10)); // sanity: colonne stable
-    assert.equal(tissu.getCell(5, 6).value, 'Pièces/pli');
+    assert.equal(ws.getCell(17, 1).value, 'M-XL');
+    assert.equal(ws.getCell(17, 2).value, 0); // XS
+    assert.equal(ws.getCell(17, 4).value, 1); // M
+    assert.equal(ws.getCell(17, 5).value, 1); // XL
+    assert.equal(ws.getCell(17, 6).value, 2); // Pieces/pli = 1+1
 
-    // Ligne de placement M-XL (ligne 6) : ratio ×1 sur M et XL, 0 (donc blanc) sur XS/S
-    assert.equal(tissu.getCell(6, 1).value, 'M-XL');
-    assert.equal(tissu.getCell(6, 2).value, 0); // XS
-    assert.equal(tissu.getCell(6, 4).value, 1); // M
-    assert.equal(tissu.getCell(6, 5).value, 1); // XL
-    assert.equal(tissu.getCell(6, 6).value, 2); // Pieces/pli = 1+1
-
-    // En-tete Matelas (ligne 11)
+    /* ------------------------------------------------------------------ */
+    /* Matelas (ligne 21 = titre section, 22 = en-tete, 23-27 = lignes)     */
+    /* ------------------------------------------------------------------ */
+    assert.equal(ws.getCell(21, 1).value, 'Matelas');
     assert.deepEqual(
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].map(c => tissu.getCell(11, c).value),
-        ['✓', 'N°', 'Placement', 'Couleur', 'Plis', 'XS', 'S', 'M', 'XL', 'Total', 'Cumul', 'Conso (m)', 'Groupe', 'Début', 'Fin', 'Fichier numéroté'],
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20].map(c => ws.getCell(22, c).value),
+        ['✓', 'N°', 'Placement', 'Couleur', 'Plis', 'XS', 'Σ XS', 'S', 'Σ S', 'M', 'Σ M', 'XL', 'Σ XL', 'Total', 'Cumul', 'Conso (m)', 'Groupe', 'Début', 'Fin', 'Fichier numéroté'],
     );
 
-    // Matelas n°1 (ligne 12) : M-XL, 10 plis, M=10 XL=10, total formule=20, cumul=20
-    const r12 = 12;
-    assert.equal(tissu.getCell(r12, 1).value, '✓');
-    assert.equal(tissu.getCell(r12, 2).value, '1');
-    assert.equal(tissu.getCell(r12, 3).value, 'M-XL');
-    assert.equal(tissu.getCell(r12, 5).value, 10);
-    assert.equal(tissu.getCell(r12, 8).value, 10); // M
-    assert.equal(tissu.getCell(r12, 9).value, 10); // XL
-    const cTotalM1 = tissu.getCell(r12, 10);
-    assert.equal(cTotalM1.formula, 'SUM(F12:I12)');
+    // Matelas n°1 (ligne 23) : M-XL, 10 plis, M=10 XL=10, total formule=20
+    assert.equal(ws.getCell(23, 1).value, '✓');
+    assert.equal(ws.getCell(23, 2).value, '1');
+    assert.equal(ws.getCell(23, 3).value, 'M-XL');
+    assert.equal(ws.getCell(23, 4).value, 'Noir');
+    assert.equal(ws.getCell(23, 5).value, 10);
+    assert.equal(ws.getCell(23, 10).value, 10); // M (piece)
+    assert.equal(ws.getCell(23, 12).value, 10); // XL (piece)
+    const cTotalM1 = ws.getCell(23, 14);
+    assert.equal(cTotalM1.formula, 'SUM(F23:L23)');
     assert.equal(cTotalM1.result, 20);
-    assert.equal(tissu.getCell(r12, 11).value, 20); // cumul
-    assert.equal(tissu.getCell(r12, 16).value, '77-1.plt');
+    assert.equal(ws.getCell(23, 20).value, '77-1.plt');
 
-    // Matelas n°4 (ligne 15) : pas fait -> pas de ✓, fichier numerote absent -> '-'
-    assert.equal(tissu.getCell(15, 1).value, '');
-    assert.equal(tissu.getCell(15, 16).value, '-');
+    // Matelas n°4 (ligne 26) : pas fait -> pas de ✓, fichier numerote absent -> '-'
+    assert.equal(ws.getCell(26, 1).value, '');
+    assert.equal(ws.getCell(26, 20).value, '-');
 
-    // Ligne de totaux (17) : SUM par taille + plis + total + conso, avec resultat en cache
-    const ligneTotaux = 17;
-    assert.equal(tissu.getCell(ligneTotaux, 3).value, 'TOTAL');
-    const cPlisTotal = tissu.getCell(ligneTotaux, 5);
-    assert.equal(cPlisTotal.formula, 'SUM(E12:E16)');
-    assert.equal(cPlisTotal.result, 60); // 10+10+15+15+10
+    // --- Colonnes Sigma : formule SUMIFS (reference la colonne Couleur = D) + resultat en cache ---
+    const sigmaXS = [23, 24, 25, 26, 27].map(r => ws.getCell(r, 7));
+    assert.deepEqual(sigmaXS.map(c => c.result), [0, 0, 15, 30, 50], 'cumul Sigma XS par matelas');
+    const sigmaM = [23, 24, 25, 26, 27].map(r => ws.getCell(r, 11));
+    assert.deepEqual(sigmaM.map(c => c.result), [10, 20, 20, 20, 20], 'cumul Sigma M par matelas');
+    assert.match(sigmaXS[0].formula!, /^SUMIFS\(F\$23:F23, D\$23:D23, D23\)$/, 'SUMIFS reference la colonne Couleur (D)');
+    assert.match(sigmaXS[4].formula!, /^SUMIFS\(F\$23:F27, D\$23:D27, D27\)$/, 'la plage part de la 1re ligne de CETTE matiere');
 
-    const totauxAttendus: Record<number, number> = { 6: 50, 7: 30, 8: 20, 9: 20 }; // XS,S,M,XL
+    // --- Coloration Sigma : vert gras des que ca atteint la commande de la couleur ---
+    const commandeNoirXS = 50, commandeNoirM = 20;
+    presque(sigmaXS[4].result as number, commandeNoirXS); // 50 == commande -> vert gras
+    assert.equal((ws.getCell(27, 7).font as any).color?.argb, 'FF16A34A');
+    assert.equal((ws.getCell(27, 7).font as any).bold, true);
+    presque(sigmaM[1].result as number, commandeNoirM); // ligne 24 : M atteint 20 des la 2e ligne
+    assert.equal((ws.getCell(24, 11).font as any).color?.argb, 'FF16A34A');
+    // Avant d'atteindre la commande : gris clair, pas de vert
+    assert.equal((ws.getCell(23, 11).font as any).color?.argb, 'FF94A3B8');
+
+    /* ------------------------------------------------------------------ */
+    /* TOTAL (28) / Commande (29) / Écart (30) / Reçu-Reste (31)            */
+    /* ------------------------------------------------------------------ */
+    assert.equal(ws.getCell(28, 3).value, 'TOTAL');
+    const cPlisTotal = ws.getCell(28, 5);
+    assert.equal(cPlisTotal.formula, 'SUM(E23:E27)');
+    assert.equal(cPlisTotal.result, 60);
+    const totauxAttendus: Record<number, number> = { 6: 50, 8: 30, 10: 20, 12: 20 }; // XS,S,M,XL (colonnes valeur)
     for (const [col, attendu] of Object.entries(totauxAttendus)) {
-        const c = tissu.getCell(ligneTotaux, Number(col));
-        assert.equal(c.formula, `SUM(${['F', 'G', 'H', 'I'][Number(col) - 6]}12:${['F', 'G', 'H', 'I'][Number(col) - 6]}16)`);
+        const c = ws.getCell(28, Number(col));
         assert.equal(c.result, attendu);
     }
-    const cTotalTotal = tissu.getCell(ligneTotaux, 10);
-    assert.equal(cTotalTotal.result, 120);
-    const cConsoTotal = tissu.getCell(ligneTotaux, 12);
-    assert.equal(cConsoTotal.formula, 'SUM(L12:L16)');
+    assert.equal(ws.getCell(28, 14).result, 120); // Total general
+    const cConsoTotal = ws.getCell(28, 16);
+    assert.equal(cConsoTotal.formula, 'SUM(P23:P27)');
     presque(Number(cConsoTotal.result), 67.0);
+    // Colonnes Sigma vides sur la ligne TOTAL
+    assert.equal(ws.getCell(28, 7).value, '');
+    assert.equal(ws.getCell(28, 11).value, '');
 
-    // Ligne Commande (18) : reprise de la repartition, meme pour ce tissu principal
-    const ligneCommande = 18;
-    assert.equal(tissu.getCell(ligneCommande, 3).value, 'Commande');
-    assert.deepEqual([6, 7, 8, 9].map(c => tissu.getCell(ligneCommande, c).value), [50, 30, 20, 20]);
-    assert.equal(tissu.getCell(ligneCommande, 10).result, 120);
+    assert.equal(ws.getCell(29, 3).value, 'Commande');
+    assert.deepEqual([6, 8, 10, 12].map(c => ws.getCell(29, c).value), [50, 30, 20, 20]);
 
-    // Ligne Ecart (19) : prevu - commande = 0 partout pour ce tissu (exemple du cahier)
-    const ligneEcart = 19;
-    assert.equal(tissu.getCell(ligneEcart, 3).value, 'Écart');
-    for (const col of [6, 7, 8, 9, 10]) {
-        const c = tissu.getCell(ligneEcart, col);
-        assert.equal(c.result, 0, `ecart nul colonne ${col}`);
+    assert.equal(ws.getCell(30, 3).value, 'Écart');
+    for (const col of [6, 8, 10, 12, 14]) {
+        assert.equal(ws.getCell(30, col).result, 0, `ecart nul colonne ${col}`);
+        // vert "style ✓" quand l'ecart est nul
+        assert.equal((ws.getCell(30, col).fill as ExcelJS.FillPattern).fgColor?.argb, 'FFDCFCE7');
+        assert.equal((ws.getCell(30, col).font as any).color?.argb, 'FF16A34A');
     }
-    assert.equal(tissu.getCell(ligneEcart, 6).formula, `F${ligneTotaux}-F${ligneCommande}`);
+    assert.equal(ws.getCell(30, 6).formula, 'F28-F29');
+
+    assert.equal(ws.getCell(31, 3).value, 'Reçu / Reste (m)');
+    assert.equal(ws.getCell(31, 16).value, 70); // Reçu
+    const cReste = ws.getCell(31, 17);
+    assert.equal(cReste.formula, 'P31-P28');
+    presque(Number(cReste.result), 70 - 67, 'reste = recu - conso totale');
 
     /* ------------------------------------------------------------------ */
-    /* Feuille "Doublure" : ecarts non nuls (rouge / ambre)                */
+    /* Matiere "Vlieseline" (bandeau ligne 32, sans reçu) : Sigma reparti   */
+    /* de zero a sa propre 1re ligne (39), pas a la suite de 'Tissu'.       */
     /* ------------------------------------------------------------------ */
-    // Doublure : pas de recu, 1 placement, 1 matelas -> mise en page plus courte
-    // que 'Tissu' (titre=1, placements: titre=2/entete=3/donnees=4, matelas:
-    // titre=6/entete=7/donnees=8, totaux=9, commande=10, ecart=11).
-    const doublure = wb.getWorksheet('Doublure')!;
-    // Totaux : XS=40 (commande 50 -> ecart -10, negatif), S=40 (commande 30 -> +10, positif)
-    const ecartXS = doublure.getCell(11, 6);
-    const ecartS = doublure.getCell(11, 7);
-    assert.equal(ecartXS.result, -10);
-    assert.equal(ecartS.result, 10);
-    const fondXS = (ecartXS.fill as ExcelJS.FillPattern).fgColor?.argb;
-    const fondS = (ecartS.fill as ExcelJS.FillPattern).fgColor?.argb;
-    assert.equal(fondXS, 'FFFEE2E2', 'ecart negatif : fond rouge clair');
-    assert.equal(fondS, 'FFFEF3C7', 'ecart positif : fond ambre clair');
+    const bandeauVli = String(ws.getCell(32, 1).value);
+    assert.ok(bandeauVli.includes('Matière : Vlieseline'));
+    assert.ok(!bandeauVli.includes('Reçu'), 'pas de reçu pour cette matiere');
 
-    // Ligne fait=true (ligne 8, seul matelas) -> fond vert clair sur toute la ligne
-    const fondFait = (doublure.getCell(8, 3).fill as ExcelJS.FillPattern).fgColor?.argb;
-    assert.equal(fondFait, 'FFDCFCE7');
+    const sigmaXSVli = [39, 40].map(r => ws.getCell(r, 7));
+    assert.deepEqual(sigmaXSVli.map(c => c.result), [5, 10], 'ne reprend pas le cumul de Tissu (qui finissait a 50)');
+    assert.match(sigmaXSVli[0].formula!, /^SUMIFS\(F\$39:F39, D\$39:D39, D39\)$/);
+    // Commande 'Blanc' absente de la repartition -> 0 -> Sigma > 0 est toujours en depassement (ambre)
+    assert.equal((sigmaXSVli[0].font as any).color?.argb, 'FFB45309');
+    assert.equal((sigmaXSVli[0].font as any).bold, undefined);
+
+    assert.equal(ws.getCell(43, 3).value, 'Écart');
+    assert.equal(ws.getCell(43, 6).result, -40); // 10 (total XS Vlieseline) - 50 (commande XS toutes couleurs)
+    assert.equal((ws.getCell(43, 6).fill as ExcelJS.FillPattern).fgColor?.argb, 'FFFEE2E2', 'ecart negatif : fond rouge');
+
+    // Pas de Reçu/Reste pour cette matiere (pas de recuM) : la ligne suivante est le bandeau Molleton
+    assert.equal(ws.getCell(44, 1).value, 'Matière : Molleton');
 
     /* ------------------------------------------------------------------ */
-    /* Feuille "Doublure (2)" : aucun matelas -> totaux litteraux a 0       */
-    /* (titre=1, placements: titre=2/entete=3, matelas: titre=5/entete=6,   */
-    /* totaux=7, commande=8, ecart=9 — pas de ligne de donnees dans aucune   */
-    /* des deux tables). */
+    /* Matiere "Molleton" : aucun placement ni matelas -> TOTAL litteral 0  */
     /* ------------------------------------------------------------------ */
-    const doublure2 = wb.getWorksheet('Doublure (2)')!;
-    assert.equal(doublure2.getCell(7, 5).value, 0); // plis total, sans formule (aucun matelas)
-    assert.equal(doublure2.getCell(9, 6).result, -50); // ecart = 0 - commande(50)
+    assert.equal(ws.getCell(50, 3).value, 'TOTAL');
+    assert.equal(ws.getCell(50, 5).value, 0); // plis, litteral (pas de formule, aucun matelas)
+    assert.equal(ws.getCell(52, 3).value, 'Écart');
+    assert.equal(ws.getCell(52, 6).result, -50); // 0 - commande(50)
+
+    /* ------------------------------------------------------------------ */
+    /* Mise en page : gel uniquement sur les lignes de titre               */
+    /* ------------------------------------------------------------------ */
+    const vue = ws.views?.[0] as ExcelJS.WorksheetViewFrozen;
+    assert.equal(vue.state, 'frozen');
+    assert.equal(vue.ySplit, 7);
+    assert.equal(ws.pageSetup.printTitlesRow, '1:7');
+    assert.equal(ws.pageSetup.orientation, 'landscape');
+    assert.equal(ws.pageSetup.fitToWidth, 1);
 
     /* ------------------------------------------------------------------ */
     /* nomFichierExcel : stable, assaini, avec extension                   */

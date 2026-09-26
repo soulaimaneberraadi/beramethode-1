@@ -361,6 +361,8 @@ export interface AppSettings {
    * parda (le poste de travail matin/soir), pas l'equipe qui coupe ensemble.
    */
   groupesCoupe?: GroupeCoupe[];
+  /** Numerotation proposee a chaque nouveau trace (taille, style, repetitions). */
+  numerotationDefaut?: ReglagesNumero;
   // --- EXISTING FINANCIAL SETTINGS ---
   costMinute: number;
   useCostMinute: boolean;
@@ -593,6 +595,14 @@ export interface ReglagesNumero {
   exclus?: number[];
   /** Deplacement (mm) et hauteur propre, piece par piece, par index d'etiquette. */
   ajustements?: Record<string, { x: number; y: number; hauteurCm?: number; libre?: boolean }>;
+  /** Ecriture du numero : 77, (77), [77], N°77 ou -77-. */
+  format?: 'nu' | 'parentheses' | 'crochets' | 'no' | 'tirets';
+  /** Trait double, legerement decale : plus lisible sur un tissu fonce ou chine. */
+  gras?: boolean;
+  /** Inclinaison des caracteres, en degres (0 = droit). */
+  inclinaison?: number;
+  /** Transparence de l'apercu seulement (le traceur, lui, ecrit plein), en %. */
+  opacite?: number;
 }
 
 /**
@@ -649,6 +659,12 @@ export interface OrdreCoupe {
   suiviManuel?: Record<string, { cut?: number; rem?: number }>;
   /** Matieres coupees ; la premiere (id « principal ») porte les pieces du vetement. */
   tissus?: TissuCoupe[];
+  /**
+   * Heure du dernier enregistrement de l'ordre par La Coupe. Sert a savoir si
+   * une autre fenetre l'a enregistre entre-temps : sans elle, une fenetre
+   * restee ouverte sur une version ancienne l'ecrasait (placements, traces PLT).
+   */
+  majLe?: string;
   placements?: PlacementCoupe[];
 }
 
