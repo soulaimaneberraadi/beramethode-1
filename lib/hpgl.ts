@@ -47,6 +47,10 @@ export interface EtiquetteHpgl {
      * l'encombrement calcule tombe a cote de la piece.
      */
     origine: number;
+    /** Terminateur de label en vigueur (DT) : un numero ajoute juste avant doit finir pareil. */
+    terminateur: string;
+    /** Coordonnees absolues (PA) ou relatives (PR) a cet endroit du fichier. */
+    absolu: boolean;
 }
 
 export interface Polyligne {
@@ -192,6 +196,8 @@ export function lireHpgl(source: string): LectureHpgl {
                 directionY,
                 plume,
                 origine,
+                terminateur,
+                absolu,
             });
             i = j < n ? j + 1 : n;
             continue;
@@ -343,6 +349,61 @@ export function trouverPointInsertion(source: string): number {
         if (idx >= 0 && decalage + idx < meilleur) meilleur = decalage + idx;
     }
     return meilleur;
+}
+
+const nb = (v: number) => Number(v.toFixed(3));
+
+/**
+ * Le numero d'une piece, ecrit JUSTE AVANT le texte d'origine de cette piece,
+ * comme une etiquette de plus — et non en bloc a la fin du fichier.
+ *
+ * Optitex rattache un texte a la piece qu'il accompagne : un bloc ajoute a la
+ * fin ne suivait plus aucune piece, il n'apparaissait qu'en fusionnant toutes
+ * les couches d'annotation. Ici chaque numero est dans le flux de sa piece.
+ *
+ * Aucun octet d'origine n'est touche : on insere entre deux commandes, puis on
+ * remet exactement l'etat que le texte d'origine attendait (taille SI, origine
+ * LO, position du crayon, mode PA/PR). Le texte d'origine s'ecrit donc comme
+ * avant, au meme endroit, de la meme taille.
+ */
+export function insererNumerosDansPieces(
+    source: string,
+    insertions: Array<{ ancre: EtiquetteHpgl; etiquettes: EtiquetteAAjouter[] }>,
+): string {
+    const parPosition = new Map<number, { ancre: EtiquetteHpgl; etiquettes: EtiquetteAAjouter[] }>();
+    for (const ins of insertions) {
+        if (ins.etiquettes.length === 0) continue;
+        const deja = parPosition.get(ins.ancre.debut);
+        if (deja) deja.etiquettes.push(...ins.etiquettes);
+        else parPosition.set(ins.ancre.debut, { ancre: ins.ancre, etiquettes: [...ins.etiquettes] });
+    }
+    if (parPosition.size === 0) return source;
+
+    const morceaux: string[] = [];
+    let curseur = 0;
+    for (const position of [...parPosition.keys()].sort((a, b) => a - b)) {
+        const { ancre, etiquettes } = parPosition.get(position)!;
+        const t = ancre.terminateur || ETX;
+        let bloc = ancre.absolu ? '' : 'PA;';
+        let incline = false;
+        for (const e of etiquettes) {
+            bloc += `DI${nb(e.directionX ?? 1)},${nb(e.directionY ?? 0)};SI${nb(e.largeurCm)},${nb(e.hauteurCm)};LO5;PU${Math.round(e.x)},${Math.round(e.y)};`;
+            if (e.inclinaison) {
+                bloc += `SL${nb(Math.tan((e.inclinaison * Math.PI) / 180))};`;
+                incline = true;
+            }
+            bloc += `LB${e.texte}${t}`;
+        }
+        // Etat attendu par le texte d'origine qui suit.
+        if (incline) bloc += 'SL0;';
+        bloc += ancre.largeurCm != null && ancre.hauteurCm != null ? `SI${ancre.largeurCm},${ancre.hauteurCm};` : 'SI;';
+        bloc += `LO${ancre.origine};DI${ancre.directionX},${ancre.directionY};PU${ancre.x},${ancre.y};`;
+        if (!ancre.absolu) bloc += 'PR;';
+        morceaux.push(source.slice(curseur, position), bloc);
+        curseur = position;
+    }
+    morceaux.push(source.slice(curseur));
+    return morceaux.join('');
 }
 
 /**

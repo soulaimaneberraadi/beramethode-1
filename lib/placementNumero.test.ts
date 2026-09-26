@@ -24,7 +24,7 @@ const rect = (x0: number, y0: number, x1: number, y1: number): Polyligne => ({
 const etiquette = (x: number, y: number, texte: string, directionX = 1): EtiquetteHpgl => ({
     debut: 0, fin: 0, texte, x, y,
     largeurCm: 0.423, hauteurCm: 0.635,
-    directionX, directionY: 0, plume: 1, origine: 5,
+    directionX, directionY: 0, plume: 1, origine: 5, terminateur: '', absolu: true,
 });
 
 const dansContour = (c: Contour, r: { minX: number; minY: number; maxX: number; maxY: number }) =>

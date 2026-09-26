@@ -568,6 +568,12 @@ export interface MatelasLine {
   numero?: string;
   /** Metres de tissu reellement partis dans ce matelas (mesure au rouleau), s'ils ont ete notes. */
   metresReels?: number;
+  /**
+   * Heure ou le trace numerote de ce matelas est parti chez le traceur
+   * (envoye, telecharge ou glisse). Le matelas passe en bleu : envoye, pas
+   * encore confirme coupe.
+   */
+  envoyeLe?: string;
 }
 
 /** Une matiere a couper pour l'ordre : tissu principal, vlieseline, doublure, organza... */
@@ -583,6 +589,11 @@ export interface TissuCoupe {
    * table ; un trace plus etroit laisse une bande perdue a chaque pli.
    */
   laizeCm?: number;
+  /**
+   * Code court de la matiere, ecrit a cote du numero dans les pieces
+   * (« 77 TE », « 77 VSLIN ») et nom de sa feuille Excel (« FO », « EN »).
+   */
+  code?: string;
 }
 
 /** Numerotation d'un trace, gardee pour tous les matelas qui l'etalent. */
@@ -603,6 +614,11 @@ export interface ReglagesNumero {
   inclinaison?: number;
   /** Transparence de l'apercu seulement (le traceur, lui, ecrit plein), en %. */
   opacite?: number;
+  /**
+   * Ce qui s'ecrit autour du numero : « {n} » (77), « {n} {code} » (77 TE),
+   * « {code} {n} »... {pl} = nom du placement.
+   */
+  modele?: string;
 }
 
 /**
@@ -616,6 +632,8 @@ export interface PlacementCoupe {
   tissu: string;
   /** Tel que l'atelier l'ecrit : « XS-M », « XS a M ». */
   nom: string;
+  /** Code du trace chez le client (« TE-01 », « EN-02 ») : c'est aussi la fin du nom de son fichier PLT. */
+  code?: string;
   ratios: Record<string, number>;
   fichier?: MatelasFichier;
   /** Longueur du trace, en metres : la consommation d'un pli (hors amorce). */
@@ -666,6 +684,40 @@ export interface OrdreCoupe {
    */
   majLe?: string;
   placements?: PlacementCoupe[];
+  /** Numero de commande du client (« PEDIDO »). */
+  pedido?: string;
+  /** Reference fournisseur (« Ref proveedor »). */
+  refFournisseur?: string;
+  /** Serie d'etiquetage : ce que l'atelier saisit paquet par paquet (les numeros, eux, se calculent). */
+  serie?: SerieEtiquetage;
+}
+
+/**
+ * Serie d'etiquetage du tissu principal. Chaque paquet (une taille d'un
+ * matelas, sur tous ses plis) recoit une plage de numeros qui se suivent sur
+ * tout l'ordre : 1-82, 83-164... Les plages se recalculent a partir des
+ * matelas ; seules les saisies de l'atelier sont gardees ici.
+ */
+export interface SerieEtiquetage {
+  /** Premier numero de la serie (1 par defaut). */
+  depart?: number;
+  /** Saisies par paquet (cle : `${matelasId}:${taille}:${rang}`). */
+  saisies?: Record<string, SaisiePaquet>;
+}
+
+export interface SaisiePaquet {
+  /** Date (ISO jour). */
+  date?: string;
+  /** Pieces en plus ou en moins constatees au comptage. */
+  pieces?: number;
+  n?: string;
+  /** Entree en chaine (ISO jour). */
+  entree?: string;
+  lote?: string;
+  /** Sortie de chaine (ISO jour). */
+  sortie?: string;
+  /** Chaine de montage (id `CHAINE n` du Planning). */
+  chaine?: string;
 }
 
 // --- NEW TYPE FOR LIBRARY ---

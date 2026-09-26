@@ -99,13 +99,18 @@ export function lireEntete(textes: string[]): EnteteTrace {
 
     const qte = /MODELE\s*:\s*TAIL\s*\/\s*QTE\s*:\s*([^;]*)/i.exec(tout);
     if (qte) {
-        const contenu = qte[1].trim();
-        const deuxPoints = contenu.lastIndexOf(':');
-        const liste = deuxPoints >= 0 ? contenu.slice(deuxPoints + 1) : contenu;
-        if (deuxPoints > 0) out.modele = contenu.slice(0, deuxPoints).trim();
+        /*
+         * Chaque element peut repeter le modele : « 4-56RNZ:S/10,4-56RNZ:S/4 »
+         * (24 S), « CO-XS:XS/1,CO-L:L/1 » (un XS, un L). Lire seulement apres le
+         * dernier « : » de toute la liste ne gardait que la derniere taille.
+         */
         const tailles: Record<string, number> = {};
-        for (const item of liste.split(',')) {
-            const m = /^\s*([^/]+?)\s*\/\s*(\d+)\s*$/.exec(item);
+        for (const item of qte[1].split(',')) {
+            const brut = item.trim();
+            if (!brut) continue;
+            const deuxPoints = brut.lastIndexOf(':');
+            if (deuxPoints > 0 && !out.modele) out.modele = brut.slice(0, deuxPoints).trim();
+            const m = /^\s*([^/]+?)\s*\/\s*(\d+)\s*$/.exec(deuxPoints >= 0 ? brut.slice(deuxPoints + 1) : brut);
             if (m) tailles[m[1]] = (tailles[m[1]] || 0) + Number(m[2]);
         }
         if (Object.keys(tailles).length) out.tailles = tailles;

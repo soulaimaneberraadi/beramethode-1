@@ -28,17 +28,12 @@ if (!fs.existsSync(CHEMIN)) {
     const sortie = numeroterPlt(a, '77', r)!;
     assert.ok(sortie, 'un fichier sort');
     const original = new Uint8Array(buffer);
-    // Tout l'original se retrouve, dans l'ordre : seul un bloc est insere avant la fin de page.
-    let debutCommun = 0;
-    while (debutCommun < original.length && original[debutCommun] === sortie[debutCommun]) debutCommun++;
-    const finOriginal = original.length - debutCommun;
-    assert.deepEqual(
-        Array.from(sortie.subarray(sortie.length - finOriginal)),
-        Array.from(original.subarray(debutCommun)),
-        'la fin du trace d origine est intacte',
-    );
+    // Tout l'original se retrouve, dans l'ordre : les numeros sont glisses entre ses commandes.
+    let k = 0;
+    for (let i = 0; i < sortie.length && k < original.length; i++) if (sortie[i] === original[k]) k++;
+    assert.equal(k, original.length, 'chaque octet du trace d origine est la, dans l ordre');
     assert.ok(sortie.length > original.length);
-    assert.ok(new TextDecoder('latin1').decode(sortie.subarray(debutCommun, sortie.length - finOriginal)).includes('LB77'));
+    assert.ok(new TextDecoder('latin1').decode(sortie).includes('LB77'));
 
     // Piece posee a la main : exactement a l'ancrage + le deplacement demande.
     const premier = a.candidats[0];
