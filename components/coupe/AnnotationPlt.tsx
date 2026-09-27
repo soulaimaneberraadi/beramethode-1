@@ -16,7 +16,7 @@
  *     main, et alors l'alerte le dit.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Upload, FileText, Download, AlertTriangle, Layers, X, Move, Send, Plus, Minus, EyeOff, RotateCcw, MoreVertical, Save } from 'lucide-react';
+import { Upload, FileText, Download, AlertTriangle, Layers, X, Move, Send, Plus, Minus, EyeOff, RotateCcw, MoreVertical, Save, ZoomIn, ZoomOut, Scan, Type } from 'lucide-react';
 import SheetModal from '../shared/SheetModal';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
@@ -54,7 +54,12 @@ interface Props {
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 
 /** Au-dela, le rendu SVG coute plus qu'il n'apporte : on allege le trait. */
-const POINTS_MAX = 60000;
+const POINTS_MAX = 200000;
+
+/** Le choix plein ecran / fenetre suit l'operateur d'un trace a l'autre. */
+const CLE_PLEIN_ECRAN = 'bera_numerotation_plein_ecran';
+
+type Vue = { x: number; y: number; w: number; h: number };
 
 const COULEUR_STATUT: Record<StatutPlacement, string> = {
     ok: 'text-emerald-600 dark:text-emerald-400',
@@ -174,9 +179,28 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
             traits.push(poly.points.map(([px, py]) => `${px},${(maxY + minY) - py}`).join(' '));
         }
 
+        // Les textes du trace tels que le traceur les ecrit (nom de piece, taille, modele...).
+        const textes = lecture.etiquettes.map(e => {
+            const o = e.origine > 10 ? e.origine - 10 : (e.origine || 1);
+            const col = Math.min(2, Math.max(0, Math.floor((o - 1) / 3)));
+            const rangee = Math.min(2, Math.max(0, (o - 1) % 3));
+            return {
+                x: e.x,
+                y: (maxY + minY) - e.y,
+                texte: e.texte,
+                taille: (e.hauteurCm ?? 0.3) * 10 * lecture.unitesParMm,
+                angle: -Math.atan2(e.directionY, e.directionX) * 180 / Math.PI,
+                ancre: (['start', 'middle', 'end'] as const)[col],
+                base: (['alphabetic', 'central', 'hanging'] as const)[rangee],
+            };
+        });
+
+        const base: Vue = { x: minX - marge, y: minY - marge, w: largeur + marge * 2, h: hauteurVue + marge * 2 };
         return {
-            viewBox: `${minX - marge} ${minY - marge} ${largeur + marge * 2} ${hauteurVue + marge * 2}`,
+            base,
+            viewBox: `${base.x} ${base.y} ${base.w} ${base.h}`,
             traits,
+            textes,
             epaisseur: Math.max(largeur, hauteurVue) / 700,
             versSvgY: (y: number) => (maxY + minY) - y,
             depuisSvgY: (sy: number) => (maxY + minY) - sy,
@@ -194,6 +218,122 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
         const p = new DOMPoint(clientX, clientY).matrixTransform(m.inverse());
         return { x: p.x, y: apercu.depuisSvgY(p.y) };
     };
+
+    /*
+     * Zoom et deplacement, comme dans Optitex : molette = zoom sous le curseur,
+     * glisser le fond = deplacer le dessin, deux doigts = pincer, double-clic =
+     * zoom. La vue vit aussi dans une ref : les evenements rapides (molette,
+     * pincement) calculent sur la derniere vue, pas sur le dernier rendu.
+     */
+    const [vue, setVueEtat] = useState<Vue | null>(null);
+    const vueRef = useRef<Vue | null>(null);
+    const poserVue = (v: Vue | null) => { vueRef.current = v; setVueEtat(v); };
+    useEffect(() => { poserVue(null); }, [apercu]);
+    const vueCourante = (): Vue | null => vueRef.current ?? apercu?.base ?? null;
+    const [textesTrace, setTextesTrace] = useState(true);
+
+    /** Point de l'ecran -> coordonnees SVG sur une vue donnee (xMidYMid meet). */
+    const versVue = (cx: number, cy: number, v: Vue) => {
+        const r = svgRef.current!.getBoundingClientRect();
+        const s = Math.min(r.width / v.w, r.height / v.h) || 1;
+        return { x: v.x + (cx - (r.left + (r.width - v.w * s) / 2)) / s, y: v.y + (cy - (r.top + (r.height - v.h * s) / 2)) / s, s };
+    };
+    const zoomer = (k: number, cx?: number, cy?: number) => {
+        const v = vueCourante();
+        const b = apercu?.base;
+        const svg = svgRef.current;
+        if (!v || !b || !svg || !Number.isFinite(k) || k <= 0) return;
+        const w = Math.min(b.w * 1.5, Math.max(b.w / 300, v.w / k));
+        const kk = v.w / w;
+        const r = svg.getBoundingClientRect();
+        const p = versVue(cx ?? r.left + r.width / 2, cy ?? r.top + r.height / 2, v);
+        poserVue({ x: p.x - (p.x - v.x) / kk, y: p.y - (p.y - v.y) / kk, w, h: v.h / kk });
+    };
+    const echelle = apercu && vue ? apercu.base.w / vue.w : 1;
+
+    const pan = useRef<{ id: number; cx: number; cy: number; v: Vue; bouge: boolean } | null>(null);
+    const doigts = useRef(new Map<number, { x: number; y: number }>());
+    const pince = useRef<{ d: number; mx: number; my: number } | null>(null);
+    const clicAnnule = useRef(false);
+    const [deplacement, setDeplacement] = useState(false);
+
+    // Molette : React pose ses ecouteurs « passifs », qui ne peuvent pas empecher la page de defiler.
+    useEffect(() => {
+        const svg = svgRef.current;
+        if (!svg) return;
+        const roue = (e: WheelEvent) => {
+            e.preventDefault();
+            const d = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+            zoomer(Math.exp(-d * 0.0015), e.clientX, e.clientY);
+        };
+        svg.addEventListener('wheel', roue, { passive: false });
+        return () => svg.removeEventListener('wheel', roue);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [apercu]);
+
+    const debutPointeur = (e: React.PointerEvent<SVGSVGElement>) => {
+        clicAnnule.current = false;
+        doigts.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (doigts.current.size === 2) {
+            const [a, b] = [...doigts.current.values()];
+            pince.current = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+            pan.current = null;
+            glisse.current = null;
+            return;
+        }
+        if (glisse.current) return; // un numero est deja pris a la souris
+        if (e.button !== 0 && e.button !== 1) return;
+        const v = vueCourante();
+        if (!v) return;
+        e.preventDefault();
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        pan.current = { id: e.pointerId, cx: e.clientX, cy: e.clientY, v, bouge: false };
+    };
+    /** Rend true si le mouvement a servi au zoom ou au deplacement. */
+    const mouvementVue = (e: React.PointerEvent<SVGSVGElement>): boolean => {
+        if (doigts.current.has(e.pointerId)) doigts.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        const pc = pince.current;
+        if (pc && doigts.current.size === 2) {
+            const [a, b] = [...doigts.current.values()];
+            const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+            const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+            const v = vueCourante();
+            if (v) {
+                const sc = versVue(mx, my, v).s;
+                poserVue({ ...v, x: v.x - (mx - pc.mx) / sc, y: v.y - (my - pc.my) / sc });
+                zoomer(d / pc.d, mx, my);
+            }
+            pince.current = { d, mx, my };
+            clicAnnule.current = true;
+            return true;
+        }
+        const p = pan.current;
+        if (p && p.id === e.pointerId) {
+            const dx = e.clientX - p.cx, dy = e.clientY - p.cy;
+            if (!p.bouge && Math.hypot(dx, dy) < 4) return true;
+            if (!p.bouge) { p.bouge = true; setDeplacement(true); }
+            const sc = versVue(e.clientX, e.clientY, p.v).s;
+            poserVue({ ...p.v, x: p.v.x - dx / sc, y: p.v.y - dy / sc });
+            return true;
+        }
+        return false;
+    };
+    const finPointeur = (e: React.PointerEvent<SVGSVGElement>) => {
+        doigts.current.delete(e.pointerId);
+        if (doigts.current.size < 2) pince.current = null;
+        if (pan.current?.id === e.pointerId) {
+            if (pan.current.bouge) clicAnnule.current = true;
+            pan.current = null;
+            setDeplacement(false);
+        }
+        finGlisse();
+    };
+
+    const [pleinEcran, setPleinEcran] = useState(() => { try { return localStorage.getItem(CLE_PLEIN_ECRAN) === '1'; } catch { return false; } });
+    const basculerPleinEcran = () => setPleinEcran(p => {
+        try { localStorage.setItem(CLE_PLEIN_ECRAN, p ? '0' : '1'); } catch { /* stockage indisponible : le choix vaut pour cette fois */ }
+        return !p;
+    });
 
     /** Contour de chaque piece : le plus petit qui contient son texte. */
     const contourDe = useMemo(() => {
@@ -354,6 +494,9 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
             subtitle={nomSortieImpose || nomFichier || undefined}
             icon={<Layers className="w-4 h-4" />}
             size="2xl"
+            fixedHeight={!!lecture}
+            fullscreen={pleinEcran}
+            onToggleFullscreen={basculerPleinEcran}
             headerActions={onDefaut ? (
                 <div className="relative">
                     <button type="button" onClick={() => setMenuReglages(m => !m)} className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-dk-elevated" title={L('Reglages par defaut', 'الإعدادات الافتراضية', 'Default settings')}>
@@ -376,7 +519,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                     )}
                 </div>
             ) : undefined}
-            bodyClassName={lecture ? 'flex-1 min-h-0 overflow-hidden p-0 lg:h-[76vh]' : 'flex-1 overflow-y-auto min-h-0 p-4 md:p-5'}
+            bodyClassName={lecture ? 'flex-1 min-h-0 overflow-y-auto lg:overflow-hidden p-0' : 'flex-1 overflow-y-auto min-h-0 p-4 md:p-5'}
             footer={(
                 <div className="w-full flex flex-col gap-2">
                 {envoi && (
@@ -451,9 +594,9 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                     </span>
                 </button>
             ) : (
-                <div className="h-full flex flex-col lg:flex-row min-h-0 overflow-y-auto lg:overflow-hidden">
+                <div className="min-h-full lg:h-full flex flex-col lg:flex-row">
                     {/* Volet de gauche : le trace, sur toute la hauteur */}
-                    <div className="lg:flex-1 min-w-0 min-h-0 flex flex-col gap-3 p-4">
+                    <div className="lg:flex-1 min-w-0 lg:min-h-0 flex flex-col gap-3 p-3 sm:p-4">
                     {erreur && (
                         <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -505,7 +648,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                     )}
 
                     {apercu && (
-                        <div className="h-[48vh] lg:h-auto lg:flex-1 min-h-0 flex flex-col rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface overflow-hidden">
+                        <div className="h-[60vh] shrink-0 lg:shrink lg:h-auto lg:flex-1 lg:min-h-0 flex flex-col rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface overflow-hidden">
                             <div className="px-3 py-2 border-b border-slate-100 dark:border-dk-border flex items-center gap-3 flex-wrap">
                                 <span className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">
                                     {L('Apercu', 'المعاينة', 'Preview')}
@@ -513,27 +656,31 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                 <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
                                     {poses.length} {L('numeros', 'رقماً', 'numbers')}
                                 </span>
-                                <span className="text-[10px] text-slate-400 dark:text-dk-muted">
-                                    {L('Clic droit sur une piece pour la reprendre · glissez un numero pour le deplacer', 'انقر بالزر الأيمن على قطعة لتعديلها · اسحب الرقم لتحريكه', 'Right-click a piece to adjust it · drag a number to move it')}
+                                <span className="hidden sm:inline text-[10px] text-slate-400 dark:text-dk-muted">
+                                    {L('Molette : zoom · glisser le fond : deplacer · clic droit sur une piece : la reprendre · glissez un numero pour le deplacer', 'العجلة: تكبير · اسحب الخلفية: تحريك · زرّ أيمن على قطعة: تعديلها · اسحب الرقم لتحريكه', 'Wheel: zoom · drag background: pan · right-click a piece · drag a number')}
                                 </span>
 
                             </div>
                             <div className="flex-1 min-h-0 bg-slate-50 dark:bg-dk-bg p-2 overflow-hidden relative">
                                 <svg
                                     ref={svgRef}
-                                    viewBox={apercu.viewBox}
-                                    className="w-full h-full touch-none"
+                                    viewBox={vue ? `${vue.x} ${vue.y} ${vue.w} ${vue.h}` : apercu.viewBox}
+                                    className={`w-full h-full touch-none select-none ${deplacement ? 'cursor-grabbing' : 'cursor-grab'}`}
                                     preserveAspectRatio="xMidYMid meet"
+                                    onPointerDown={debutPointeur}
+                                    onDoubleClick={e => { if ((e.target as Element).tagName !== 'text') zoomer(2, e.clientX, e.clientY); }}
                                     onPointerMove={e => {
+                                        if (mouvementVue(e)) return;
                                         mouvementGlisse(e);
                                         if (glisse.current) return;
                                         const pt = versTrace(e.clientX, e.clientY);
                                         setSurvolPiece(pt ? pieceSous(pt.x, pt.y, false) : null);
                                     }}
                                     onPointerLeave={() => setSurvolPiece(null)}
-                                    onPointerUp={finGlisse}
-                                    onPointerCancel={finGlisse}
+                                    onPointerUp={finPointeur}
+                                    onPointerCancel={finPointeur}
                                     onClick={e => {
+                                        if (clicAnnule.current) { clicAnnule.current = false; return; }
                                         if ((e.target as Element).tagName === 'text') return;
                                         const pt = versTrace(e.clientX, e.clientY);
                                         const index = pt ? pieceSous(pt.x, pt.y, false) : null;
@@ -552,14 +699,24 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                         <polyline
                                             key={i} points={pts} fill="none" stroke="currentColor"
                                             className="text-slate-400 dark:text-dk-muted"
-                                            strokeWidth={apercu.epaisseur}
+                                            strokeWidth={1} vectorEffect="non-scaling-stroke"
                                         />
                                     ))}
+                                    {textesTrace && apercu.textes.map((t, i) => (
+                                        <text
+                                            key={`t${i}`} x={t.x} y={t.y} fontSize={t.taille}
+                                            textAnchor={t.ancre} dominantBaseline={t.base}
+                                            transform={t.angle ? `rotate(${t.angle} ${t.x} ${t.y})` : undefined}
+                                            fontFamily="Arial, sans-serif"
+                                            className="fill-slate-500 dark:fill-dk-muted select-none"
+                                            pointerEvents="none"
+                                        >{t.texte}</text>
+                                    ))}
                                     {survolPiece !== null && survolPiece !== selection && polygone(survolPiece) && (
-                                        <polygon points={polygone(survolPiece)!} fill="rgb(99 102 241 / 0.07)" stroke="rgb(99 102 241 / 0.5)" strokeWidth={apercu.epaisseur * 1.5} pointerEvents="none" />
+                                        <polygon points={polygone(survolPiece)!} fill="rgb(99 102 241 / 0.07)" stroke="rgb(99 102 241 / 0.5)" strokeWidth={1.5} vectorEffect="non-scaling-stroke" pointerEvents="none" />
                                     )}
                                     {selection !== null && polygone(selection) && (
-                                        <polygon points={polygone(selection)!} fill="rgb(99 102 241 / 0.16)" stroke="rgb(79 70 229)" strokeWidth={apercu.epaisseur * 3} pointerEvents="none" />
+                                        <polygon points={polygone(selection)!} fill="rgb(99 102 241 / 0.16)" stroke="rgb(79 70 229)" strokeWidth={2.5} vectorEffect="non-scaling-stroke" pointerEvents="none" />
                                     )}
                                     {poses.map(({ index, rang, etiquette, placement }) => {
                                         const sy = apercu.versSvgY(placement.y);
@@ -592,6 +749,14 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                         );
                                     })}
                                 </svg>
+                                <div className="absolute top-3 right-3 flex items-center gap-0.5 rounded-lg border border-slate-200 dark:border-dk-border bg-white/95 dark:bg-dk-surface/95 shadow-sm p-0.5">
+                                    <button type="button" onClick={() => zoomer(1 / 1.5)} className="w-8 h-8 inline-flex items-center justify-center rounded-md text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated" title={L('Zoom arriere', 'تصغير', 'Zoom out')}><ZoomOut className="w-4 h-4" /></button>
+                                    <button type="button" onClick={() => poserVue(null)} className="min-w-[48px] h-8 px-1 rounded-md text-[11px] font-bold tabular-nums text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated" title={L('Revenir a 100 %', 'العودة إلى 100%', 'Back to 100%')}>{Math.round(echelle * 100)}%</button>
+                                    <button type="button" onClick={() => zoomer(1.5)} className="w-8 h-8 inline-flex items-center justify-center rounded-md text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated" title={L('Zoom avant', 'تكبير', 'Zoom in')}><ZoomIn className="w-4 h-4" /></button>
+                                    <button type="button" onClick={() => poserVue(null)} className="w-8 h-8 inline-flex items-center justify-center rounded-md text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated" title={L('Voir tout le trace', 'عرض الملف كاملاً', 'Fit the whole trace')}><Scan className="w-4 h-4" /></button>
+                                    <span className="w-px h-5 bg-slate-200 dark:bg-dk-border mx-0.5" />
+                                    <button type="button" onClick={() => setTextesTrace(t => !t)} className={`w-8 h-8 inline-flex items-center justify-center rounded-md ${textesTrace ? 'bg-slate-900 text-white dark:bg-dk-accent' : 'text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 dark:hover:bg-dk-elevated'}`} title={L('Textes du trace (nom de piece, taille...)', 'نصوص الملف (اسم القطعة، المقاس...)', 'Trace texts (piece name, size...)')}><Type className="w-4 h-4" /></button>
+                                </div>
                             </div>
                             {apercu.tronque && (
                                 <p className="px-3 py-1.5 text-[10px] text-slate-400 dark:text-dk-muted border-t border-slate-100 dark:border-dk-border">
@@ -604,7 +769,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                     </div>
 
                     {/* Volet de droite : numero, reglages, piece choisie, liste des pieces */}
-                    <aside className="lg:w-[380px] shrink-0 min-h-0 lg:overflow-y-auto border-t lg:border-t-0 lg:border-l border-slate-100 dark:border-dk-border p-4 space-y-4">
+                    <aside className="lg:w-[380px] shrink-0 lg:min-h-0 lg:overflow-y-auto border-t lg:border-t-0 lg:border-l border-slate-100 dark:border-dk-border p-4 space-y-4">
                     <div className="space-y-3">
                         <label className="block">
                             <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1 uppercase tracking-wide">

@@ -67,6 +67,10 @@ interface SheetModalProps {
     /** Fourni uniquement pour les fenêtres à contenu dense (tableaux, grilles). */
     fullscreen?: boolean;
     onToggleFullscreen?: () => void;
+    /** Hauteur fixe (92vh) : pour une fenetre que son contenu remplit en hauteur
+     *  (apercu d'un trace). Le corps a alors une vraie hauteur, et la fenetre
+     *  ne glisse plus derriere la souris quand on deplace le dessin. */
+    fixedHeight?: boolean;
     footer?: React.ReactNode;
     /** `true` : les enfants sont posés tels quels dans la colonne (l'appelant
      *  gère lui-même son défilement, typiquement un `<form>` déjà en `flex-1`). */
@@ -120,6 +124,7 @@ export default function SheetModal({
     zClass = 'z-50',
     fullscreen,
     onToggleFullscreen,
+    fixedHeight = false,
     footer,
     bare = false,
     bodyClassName,
@@ -177,18 +182,18 @@ export default function SheetModal({
     if (typeof document === 'undefined') return null;
 
     const panelCls = [
-        'relative w-full overflow-hidden flex flex-col rounded-t-2xl max-h-[92vh]',
+        `relative w-full overflow-hidden flex flex-col rounded-t-2xl max-h-[92vh]${fixedHeight ? ' h-[92vh]' : ''}`,
         panelClassName ?? 'bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border shadow-2xl dark:shadow-dk-elevated text-slate-700 dark:text-dk-text',
         // En plein écran, la feuille devient la page : bord à bord, sans coins
         // arrondis ni marge. Sinon on agrandit une fenêtre qui reste une fenêtre.
-        fullscreen ? FULLSCREEN_CLS : `sm:rounded-2xl sm:my-auto ${SIZE_CLS[size]}`,
+        fullscreen ? FULLSCREEN_CLS : `sm:rounded-2xl sm:my-auto ${fixedHeight ? SIZE_CLS[size].replace('sm:h-auto', 'sm:h-[92vh]') : SIZE_CLS[size]}`,
     ].join(' ');
 
     const showHeader = Boolean(title) || Boolean(headerActions);
 
     return createPortal(
         <div
-            className={`fixed inset-0 ${fullscreen ? Z_FULLSCREEN : zClass} flex items-end sm:items-center justify-center p-0 overflow-y-auto ${fullscreen ? '' : 'sm:p-4'} ${backdropClassName ?? 'bg-slate-950/25 dark:bg-dk-bg/50 backdrop-blur-[2px]'}`}
+            className={`fixed inset-0 ${fullscreen ? Z_FULLSCREEN : zClass} flex items-end sm:items-center justify-center p-0 ${fixedHeight ? 'overflow-hidden' : 'overflow-y-auto'} ${fullscreen ? '' : 'sm:p-4'} ${backdropClassName ?? 'bg-slate-950/25 dark:bg-dk-bg/50 backdrop-blur-[2px]'}`}
             onClick={closeOnBackdrop ? onClose : undefined}
         >
             <div
