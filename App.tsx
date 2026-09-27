@@ -51,8 +51,10 @@ import { computeChainEfficiency } from './utils/efficiency';
 import { DEFAULT_CALENDAR_APP_SETTINGS } from './lib/defaultCalendarSettings';
 import { navigate, getCurrentRoute, parseHash, onRouteChange, replaceRoute, useRouteParam, createRouteUrl } from './lib/router';
 import { memoriserIdentite } from './src/lib/crashRelay';
+import { IS_COUPE, NOM_PRODUIT, deviceLabel } from './lib/edition';
 
 const Login = lazyWithRetry('Login', () => import('./src/components/Login'));
+const CoupeBoot = lazyWithRetry('CoupeBoot', () => import('./src/components/CoupeBoot'));
 const Setup = lazyWithRetry('Setup', () => import('./components/Setup'));
 const Welcome = lazyWithRetry('Welcome', () => import('./components/Welcome'));
 const AdminDashboard = lazyWithRetry('AdminDashboard', () => import('./src/components/AdminDashboard'));
@@ -119,10 +121,12 @@ export default function App() {
 
     // Vérification first-boot (Express uniquement).
     // setupNeeded = null → en cours de vérification, false → déjà initialisé, true → setup requis.
-    const [setupNeeded, setSetupNeeded] = useState<boolean | null>(IS_STATIC ? false : null);
+    // BERACOUPE gère son propre premier-démarrage (GET /api/edition, écran
+    // « Nom de l'entreprise ») via CoupeBoot — jamais le wizard Setup existant.
+    const [setupNeeded, setSetupNeeded] = useState<boolean | null>((IS_STATIC || IS_COUPE) ? false : null);
 
     useEffect(() => {
-        if (IS_STATIC) return; // setup uniquement en mode Express (EXE local)
+        if (IS_STATIC || IS_COUPE) return; // setup uniquement en mode Express (EXE local), hors édition coupe
         fetch('/api/setup/status', { credentials: 'include' })
             .then((r) => r.json())
             .then((data: { initialized?: boolean }) => {
@@ -135,6 +139,25 @@ export default function App() {
             });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // BERACOUPE — présence réseau local : un battement toutes les 30 s (et un
+    // immédiat à l'ouverture) pour que Configuration → « Appareils connectés »
+    // liste les postes/téléphones ouverts sur le réseau de l'atelier.
+    useEffect(() => {
+        if (!IS_COUPE || !user) return;
+        const appareil = deviceLabel();
+        const envoyerPresence = () => {
+            fetch('/api/edition/presence', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ appareil }),
+            }).catch(() => { /* best-effort : réseau local instable, sans conséquence */ });
+        };
+        envoyerPresence();
+        const id = setInterval(envoyerPresence, 30000);
+        return () => clearInterval(id);
+    }, [user]);
 
     // Déclenche l'écran de bienvenue au premier accès après création de compte.
     // `bera_welcome_pending` est posé au moment du signup (Signup.tsx / wizard Setup).
@@ -196,7 +219,7 @@ export default function App() {
         // reste actif le temps de runBootSequence (premier boot réel).
         isActive: !IS_STATIC,
         progress: 0,
-        text: 'BERAMETHODE',
+        text: NOM_PRODUIT,
         subText: tx(lang, {fr:'Initialisation des modules...',ar:'جاري تهيئة الوحدات...',en:'Initializing modules...',es:'Inicializando módulos...',pt:'A inicializar módulos...',tr:'Modüller başlatılıyor...'}),
         error: null,
     }));
@@ -209,7 +232,7 @@ export default function App() {
             return;
         }
         if (authLoading) {
-            setAppLoading({ isActive: true, progress: 5, text: 'BERAMETHODE', subText: tx(lang, {fr:'Vérification de la session...',ar:'التحقق من الجلسة...',en:'Checking session...',es:'Verificando sesión...',pt:'A verificar sessão...',tr:'Oturum kontrol ediliyor...'}), error: null });
+            setAppLoading({ isActive: true, progress: 5, text: NOM_PRODUIT, subText: tx(lang, {fr:'Vérification de la session...',ar:'التحقق من الجلسة...',en:'Checking session...',es:'Verificando sesión...',pt:'A verificar sessão...',tr:'Oturum kontrol ediliyor...'}), error: null });
             return;
         }
         if (!user) {
@@ -224,7 +247,7 @@ export default function App() {
         const myRun = ++bootRunIdRef.current;
         const controller = new AbortController();
         let isCancelled = false;
-        setAppLoading(prev => ({ ...prev, isActive: true, progress: Math.max(prev.progress, 5), text: 'BERAMETHODE', subText: tx(lang, {fr:'Initialisation des modules...',ar:'جاري تهيئة الوحدات...',en:'Initializing modules...',es:'Inicializando módulos...',pt:'A inicializar módulos...',tr:'Modüller başlatılıyor...'}), error: null }));
+        setAppLoading(prev => ({ ...prev, isActive: true, progress: Math.max(prev.progress, 5), text: NOM_PRODUIT, subText: tx(lang, {fr:'Initialisation des modules...',ar:'جاري تهيئة الوحدات...',en:'Initializing modules...',es:'Inicializando módulos...',pt:'A inicializar módulos...',tr:'Modüller başlatılıyor...'}), error: null }));
         runBootSequence(lang, (p) => {
             if (isCancelled) return;
             if (myRun !== bootRunIdRef.current) return;
@@ -284,7 +307,7 @@ export default function App() {
         setAuthView('login');
     };
 
-    const [currentView, setCurrentView] = useState<'vuegenerale' | 'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps'>('dashboard');
+    const [currentView, setCurrentView] = useState<'vuegenerale' | 'dashboard' | 'ingenierie' | 'library' | 'coupe' | 'effectifs' | 'gestionRh' | 'planning' | 'suivi' | 'magasin' | 'export' | 'config' | 'profil' | 'admin' | 'rendement' | 'pageMachine' | 'machin' | 'facturation' | 'atelierProd' | 'sousTraitance' | 'catalogTemps'>(IS_COUPE ? 'coupe' : 'dashboard');
     const [companyLogo, setCompanyLogo] = useState<string | null>(null);
     const [companyName, setCompanyName] = useState<string>('');
     const [directSuiviModelId, setDirectSuiviModelId] = useState<string | null>(null);
@@ -402,8 +425,13 @@ export default function App() {
     // le plafond MASTER (licence), le type de compte et les permissions de rôle.
     // Le choix local de l'admin (navConfig.hidden) reste une couche additionnelle.
     const extraHidden = resolveHiddenPages(accountType, licenseHiddenModules, permHiddenPages);
-    const effectiveNavConfig = extraHidden.length
-        ? { ...navConfig, hidden: [...new Set([...navConfig.hidden, ...extraHidden])] }
+    // BERACOUPE : seules Bibliothèque, La Coupe et Configuration restent dans la
+    // navigation (Profil reste à part, toujours affiché — voir bouton profil du header).
+    const COUPE_ALLOWED_VIEWS = ['library', 'coupe', 'config'];
+    const coupeHidden = IS_COUPE ? defaultNavOrder.filter(v => !COUPE_ALLOWED_VIEWS.includes(v)) : [];
+    const allExtraHidden = coupeHidden.length ? [...new Set([...extraHidden, ...coupeHidden])] : extraHidden;
+    const effectiveNavConfig = allExtraHidden.length
+        ? { ...navConfig, hidden: [...new Set([...navConfig.hidden, ...allExtraHidden])] }
         : navConfig;
 
 
@@ -411,11 +439,17 @@ export default function App() {
     const [routeNotFound, setRouteNotFound] = useState(false);
 
     useEffect(() => {
-        const ALLOW = new Set(['vuegenerale', 'dashboard', 'ingenierie', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'facturation', 'atelierProd', 'sousTraitance', 'catalogTemps']);
+        // BERACOUPE : seules ces pages existent dans la navigation — un lien
+        // direct vers une autre page (favori, ancien onglet) retombe sur La Coupe
+        // au lieu d'ouvrir un module absent de cette édition.
+        const ALLOW = IS_COUPE
+            ? new Set(['library', 'coupe', 'config', 'profil'])
+            : new Set(['vuegenerale', 'dashboard', 'ingenierie', 'library', 'coupe', 'effectifs', 'gestionRh', 'planning', 'suivi', 'magasin', 'export', 'config', 'profil', 'admin', 'rendement', 'pageMachine', 'machin', 'facturation', 'atelierProd', 'sousTraitance', 'catalogTemps']);
+        const defaultView = IS_COUPE ? 'coupe' : 'dashboard';
         const syncHashToView = () => {
             const route = getCurrentRoute();
             if (!route.view && !route.isNotFound) {
-                setCurrentView('dashboard');
+                setCurrentView(defaultView);
                 setRouteTokens([]);
                 setRouteNotFound(false);
             } else if (route.view && ALLOW.has(route.view)) {
@@ -432,8 +466,8 @@ export default function App() {
                 // vue ni l'ecran « page introuvable » n'etaient mis a jour, et
                 // l'application restait sur ce qu'elle affichait avant — y
                 // compris un « page introuvable » d'avant, qui semblait alors
-                // surgir de nulle part. On retombe sur le tableau de bord.
-                setCurrentView('dashboard');
+                // surgir de nulle part. On retombe sur la page d'accueil de l'édition.
+                setCurrentView(defaultView);
                 setRouteTokens([]);
                 setRouteNotFound(false);
             }
@@ -1681,7 +1715,7 @@ export default function App() {
     // N'affecte PAS le boot réel (uniquement en mode DEV + query param explicite).
     if (import.meta.env.DEV && (new URLSearchParams(window.location.search).get('preview') === 'setup' || (typeof localStorage !== 'undefined' && localStorage.getItem('bera_preview') === 'setup'))) {
         return (
-            <Suspense fallback={<GlobalLoader isActive={true} progress={30} text="BERAMETHODE" subText="Preview…" />}>
+            <Suspense fallback={<GlobalLoader isActive={true} progress={30} text={NOM_PRODUIT} subText="Preview…" />}>
                 <Setup onComplete={() => { /* preview: no-op */ }} />
             </Suspense>
         );
@@ -1689,7 +1723,7 @@ export default function App() {
     // Aperçu isolé de l'écran de bienvenue : http://localhost:5173/?preview=welcome
     if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === 'welcome') {
         return (
-            <Suspense fallback={<GlobalLoader isActive={true} progress={30} text="BERAMETHODE" subText="Preview…" />}>
+            <Suspense fallback={<GlobalLoader isActive={true} progress={30} text={NOM_PRODUIT} subText="Preview…" />}>
                 <Welcome userName={user?.name || 'Soulaimane'} onStart={() => { /* preview: no-op */ }} />
             </Suspense>
         );
@@ -1704,14 +1738,14 @@ export default function App() {
                 <GlobalLoader
                     isActive
                     progress={10}
-                    text="BERAMETHODE"
+                    text={NOM_PRODUIT}
                     subText="Vérification de la configuration…"
                 />
             );
         }
         if (setupNeeded && !user) {
             return (
-                <Suspense fallback={<GlobalLoader isActive={true} progress={30} text="BERAMETHODE" subText="Chargement du setup…" />}>
+                <Suspense fallback={<GlobalLoader isActive={true} progress={30} text={NOM_PRODUIT} subText="Chargement du setup…" />}>
                     <Setup
                         // L'appareil est vierge, mais le compte peut déjà exister
                         // ailleurs : laisser une porte vers l'écran de connexion.
@@ -1739,8 +1773,17 @@ export default function App() {
     }
 
     if (!user) {
+        // BERACOUPE : ni Signup, ni Login, ni wizard Setup — un seul compte
+        // partagé par atelier, ouvert automatiquement (voir src/components/CoupeBoot.tsx).
+        if (IS_COUPE) {
+            return (
+                <Suspense fallback={<GlobalLoader isActive={true} progress={30} text={NOM_PRODUIT} subText="Chargement..." />}>
+                    <CoupeBoot />
+                </Suspense>
+            );
+        }
         return (
-            <Suspense fallback={<GlobalLoader isActive={true} progress={50} text="BERAMETHODE" subText="Chargement..." />}>
+            <Suspense fallback={<GlobalLoader isActive={true} progress={50} text={NOM_PRODUIT} subText="Chargement..." />}>
                 {authView === 'login'
                     ? <Login onSwitch={() => setAuthView('signup')} onGuest={handleGuestLogin} />
                     : <Setup
@@ -1765,14 +1808,17 @@ export default function App() {
     // l ecran de reactivation. Il n enferme personne — le bouton d export y
     // reste, parce que la paie et la comptabilite qui sont la-dedans doivent
     // pouvoir sortir meme quand on ne paie plus.
-    if (licenceVerrouillee) {
+    // Absent en édition BERACOUPE : ni licence BERA MASTER, ni écran de
+    // réactivation — l'atelier n'a rien à activer sur un poste local.
+    if (licenceVerrouillee && !IS_COUPE) {
         return <LicenceEcranVerrouille />;
     }
 
     // Écran de bienvenue (une seule fois, juste après la création du compte).
-    if (showWelcome) {
+    // Non applicable en édition BERACOUPE (pas de wizard signup qui la déclenche).
+    if (showWelcome && !IS_COUPE) {
         return (
-            <Suspense fallback={<GlobalLoader isActive={true} progress={70} text="BERAMETHODE" subText="Bienvenue…" />}>
+            <Suspense fallback={<GlobalLoader isActive={true} progress={70} text={NOM_PRODUIT} subText="Bienvenue…" />}>
                 <Welcome userName={user.name} onStart={dismissWelcome} />
             </Suspense>
         );
@@ -1879,11 +1925,13 @@ export default function App() {
     return (
         <DataOwnerProvider user={user ? { ...user, id: Number(user.id) } : null} isGuest={isGuest}>
             <div className="flex flex-col h-screen bg-white dark:bg-dk-bg text-gray-800 dark:text-dk-text font-sans overflow-hidden transition-colors duration-300" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-                <AnnouncementBar />
-                <LicenseBanner />
+                {/* Annonces, licence BERA MASTER et bandeau d'abonnement : absents
+                    en édition BERACOUPE (poste local, pas de licence à activer). */}
+                {!IS_COUPE && <AnnouncementBar />}
+                {!IS_COUPE && <LicenseBanner />}
                 {/* Fin d abonnement proche, ou delai de grace en cours : on
                     previent au-dessus du programme sans rien entraver. */}
-                <LicenceBandeau />
+                {!IS_COUPE && <LicenceBandeau />}
 
                 {/* HEADER TOP BAR - COMPACT (h-12) & CLEAN */}
                 <AppHeader
@@ -1920,7 +1968,11 @@ export default function App() {
                         <nav className="relative w-72 max-w-[85vw] bg-white dark:bg-dk-surface shadow-2xl h-[100dvh] flex flex-col animate-in slide-in-from-left duration-200">
                             {/* Header */}
                             <div className="px-4 py-4 border-b border-gray-100 dark:border-dk-border flex items-center justify-between shrink-0">
-                                <span className="font-extrabold text-lg text-gray-900 dark:text-dk-text">BERA<span className="text-emerald-700">METHODE</span></span>
+                                <span className="font-extrabold text-lg text-gray-900 dark:text-dk-text">
+                                    {IS_COUPE
+                                        ? <>BERA<span className="text-red-600">COUPE</span></>
+                                        : <>BERA<span className="text-emerald-700">METHODE</span></>}
+                                </span>
                                 <button aria-label={tx(lang, {fr:'Fermer le menu',ar:'إغلاق القائمة',en:'Close menu',es:'Cerrar menú',pt:'Fechar menu',tr:'Menüyü kapat'})} onClick={() => setMobileMenuOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-dk-elevated/60 text-gray-500 dark:text-dk-muted">
                                     <X className="w-5 h-5" />
                                 </button>

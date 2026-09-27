@@ -14,8 +14,10 @@
     "test": "node scripts/run-tests.mjs",
     "electron:dev": "concurrently --kill-others-on-fail --names \"SERVER,ELECTRON\" \"npm run dev:app\" \"electron .\"",
     "electron:build:win": "node scripts/native-electron.mjs && tsup && vite build --mode electron && electron-builder --win",
+    "electron:build:coupe": "node scripts/native-electron.mjs && tsup && vite build --mode coupe && electron-builder --win --config electron-builder.coupe.json",
     "electron:rebuild": "electron-rebuild -f -w better-sqlite3",
     "dev:app:https": "node scripts/dev-https.mjs",
+    "dev:coupe": "node scripts/dev-coupe.mjs",
     "recuperer-admin": "tsx scripts/recuperer-admin.ts"
   },
   "dependencies": {

@@ -24,6 +24,96 @@ export const getSetupStatus = (_req: Request, res: Response) => {
 };
 
 /**
+ * Cœur de création partagé entre `/api/setup/init` (BERAMETHODE) et
+ * `/api/edition/setup` (BERACOUPE — voir `editionController.ts`) : crée la
+ * ligne company_settings (id=1) + le premier utilisateur admin + le rôle
+ * système « Patron ». N'écrit PAS le cookie et ne vérifie PAS le guard
+ * setup_complete=1 — ça reste la responsabilité de l'appelant, dont le
+ * contexte (message d'erreur, code HTTP) diffère selon l'édition.
+ */
+export async function createCompanyAndAdmin(params: {
+  companyName: string;
+  specialty?: string | null;
+  adminEmail: string;
+  adminPassword: string;
+  adminName?: string;
+  accountType?: string;
+  profileMeta?: Record<string, unknown> | null;
+  logo?: string | null;
+}): Promise<{ userId: number; email: string; name: string }> {
+  const { companyName, specialty, adminEmail, adminPassword, adminName, accountType, profileMeta, logo } = params;
+
+  // Type de compte : 'societe' (défaut) | 'client' | 'personnel'.
+  const normalizedType =
+    accountType === 'client' || accountType === 'personnel' ? accountType : 'societe';
+  // Méta spécifique au type (région client, spécialisation personnel) → JSON.
+  let profileMetaJson: string | null = null;
+  if (profileMeta && typeof profileMeta === 'object') {
+    try { profileMetaJson = JSON.stringify(profileMeta); } catch { profileMetaJson = null; }
+  }
+  // Logo (base64 data URL) optionnel — stocké tel quel dans company_settings.logo.
+  const logoValue = typeof logo === 'string' && logo.startsWith('data:image/') ? logo : null;
+
+  const normalizedEmail = String(adminEmail).trim().toLowerCase();
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
+  const doSetup = db.transaction(() => {
+    // Créer (ou remplacer) le premier utilisateur admin
+    const userStmt = db.prepare(
+      `INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, 'admin')`
+    );
+    const userInfo = userStmt.run(normalizedEmail, hashedPassword, adminName || '');
+
+    // Récupérer l'id (en cas de IGNORE si email existait déjà)
+    let userId = userInfo.lastInsertRowid as number;
+    if (!userId) {
+      const row = db
+        .prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?')
+        .get(normalizedEmail) as { id: number } | undefined;
+      if (!row) throw new Error('Impossible de créer ou trouver le compte admin');
+      userId = row.id;
+      // S'assurer que le rôle est bien admin
+      db.prepare(`UPDATE users SET role = 'admin' WHERE id = ?`).run(userId);
+    }
+
+    // Créer / mettre à jour company_settings (singleton id=1)
+    db.prepare(
+      `INSERT INTO company_settings (id, name, specialty, logo, account_type, profile_meta, setup_complete)
+       VALUES (1, ?, ?, ?, ?, ?, 1)
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         specialty = excluded.specialty,
+         logo = excluded.logo,
+         account_type = excluded.account_type,
+         profile_meta = excluded.profile_meta,
+         setup_complete = 1`
+    ).run(companyName, specialty || null, logoValue, normalizedType, profileMetaJson);
+
+    // Seed du rôle système « Patron » (level 0) + adhésion du patron à sa
+    // propre société. Débloque le flux multi-membres : addMember exige un
+    // role_id existant, or aucun rôle n'était créé à l'onboarding. Le patron
+    // reste super (loadUserContext : userId === ownerId OU rôle is_system
+    // level 0). Idempotent via ids déterministes (ré-exécution sûre).
+    // Les utilisateurs solo existants (sans ligne company_members) gardent
+    // le fallback solo — ce seed ne touche que les NOUVELLES installations.
+    const patronRoleId = `role-patron-${userId}`;
+    db.prepare(
+      `INSERT OR IGNORE INTO company_roles (id, owner_id, name, level, parent_role_id, is_system)
+       VALUES (?, ?, 'Patron', 0, NULL, 1)`
+    ).run(patronRoleId, userId);
+    db.prepare(
+      `INSERT OR IGNORE INTO company_members (id, owner_id, user_id, role_id, status)
+       VALUES (?, ?, ?, ?, 'active')`
+    ).run(`member-${userId}`, userId, userId, patronRoleId);
+
+    return userId;
+  });
+
+  const userId = doSetup();
+  return { userId, email: normalizedEmail, name: adminName || '' };
+}
+
+/**
  * POST /api/setup/init
  * Corps attendu : { companyName, specialty, adminEmail, adminPassword, adminName }
  * - Guard : si setup_complete=1 déjà → 403
@@ -39,17 +129,6 @@ export const initSetup = async (req: Request, res: Response) => {
     });
   }
 
-  // Type de compte : 'societe' (défaut) | 'client' | 'personnel'.
-  const normalizedType =
-    accountType === 'client' || accountType === 'personnel' ? accountType : 'societe';
-  // Méta spécifique au type (région client, spécialisation personnel) → JSON.
-  let profileMetaJson: string | null = null;
-  if (profileMeta && typeof profileMeta === 'object') {
-    try { profileMetaJson = JSON.stringify(profileMeta); } catch { profileMetaJson = null; }
-  }
-  // Logo (base64 data URL) optionnel — stocké tel quel dans company_settings.logo.
-  const logoValue = typeof logo === 'string' && logo.startsWith('data:image/') ? logo : null;
-
   // Guard : setup déjà effectué
   const existing = db
     .prepare('SELECT setup_complete FROM company_settings WHERE id = 1')
@@ -60,62 +139,9 @@ export const initSetup = async (req: Request, res: Response) => {
   }
 
   try {
-    const normalizedEmail = String(adminEmail).trim().toLowerCase();
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
-
-    const doSetup = db.transaction(() => {
-      // Créer (ou remplacer) le premier utilisateur admin
-      const userStmt = db.prepare(
-        `INSERT OR IGNORE INTO users (email, password, name, role) VALUES (?, ?, ?, 'admin')`
-      );
-      const userInfo = userStmt.run(normalizedEmail, hashedPassword, adminName || '');
-
-      // Récupérer l'id (en cas de IGNORE si email existait déjà)
-      let userId = userInfo.lastInsertRowid as number;
-      if (!userId) {
-        const row = db
-          .prepare('SELECT id FROM users WHERE LOWER(TRIM(email)) = ?')
-          .get(normalizedEmail) as { id: number } | undefined;
-        if (!row) throw new Error('Impossible de créer ou trouver le compte admin');
-        userId = row.id;
-        // S'assurer que le rôle est bien admin
-        db.prepare(`UPDATE users SET role = 'admin' WHERE id = ?`).run(userId);
-      }
-
-      // Créer / mettre à jour company_settings (singleton id=1)
-      db.prepare(
-        `INSERT INTO company_settings (id, name, specialty, logo, account_type, profile_meta, setup_complete)
-         VALUES (1, ?, ?, ?, ?, ?, 1)
-         ON CONFLICT(id) DO UPDATE SET
-           name = excluded.name,
-           specialty = excluded.specialty,
-           logo = excluded.logo,
-           account_type = excluded.account_type,
-           profile_meta = excluded.profile_meta,
-           setup_complete = 1`
-      ).run(companyName, specialty || null, logoValue, normalizedType, profileMetaJson);
-
-      // Seed du rôle système « Patron » (level 0) + adhésion du patron à sa
-      // propre société. Débloque le flux multi-membres : addMember exige un
-      // role_id existant, or aucun rôle n'était créé à l'onboarding. Le patron
-      // reste super (loadUserContext : userId === ownerId OU rôle is_system
-      // level 0). Idempotent via ids déterministes (ré-exécution sûre).
-      // Les utilisateurs solo existants (sans ligne company_members) gardent
-      // le fallback solo — ce seed ne touche que les NOUVELLES installations.
-      const patronRoleId = `role-patron-${userId}`;
-      db.prepare(
-        `INSERT OR IGNORE INTO company_roles (id, owner_id, name, level, parent_role_id, is_system)
-         VALUES (?, ?, 'Patron', 0, NULL, 1)`
-      ).run(patronRoleId, userId);
-      db.prepare(
-        `INSERT OR IGNORE INTO company_members (id, owner_id, user_id, role_id, status)
-         VALUES (?, ?, ?, ?, 'active')`
-      ).run(`member-${userId}`, userId, userId, patronRoleId);
-
-      return userId;
+    const { userId } = await createCompanyAndAdmin({
+      companyName, specialty, adminEmail, adminPassword, adminName, accountType, profileMeta, logo,
     });
-
-    const userId = doSetup();
 
     const token = jwt.sign(
       { id: userId, email: adminEmail.trim().toLowerCase(), role: 'admin' },

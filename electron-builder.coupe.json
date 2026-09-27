@@ -1,0 +1,40 @@
+{
+  "appId": "com.beracoupe.app",
+  "productName": "BERACOUPE",
+  "extraMetadata": {
+    "name": "beracoupe",
+    "productName": "BERACOUPE",
+    "beraEdition": "coupe"
+  },
+  "npmRebuild": false,
+  "asar": true,
+  "asarUnpack": [
+    "**/better-sqlite3/**",
+    "**/node_modules/better-sqlite3/**"
+  ],
+  "files": [
+    "dist/**",
+    "dist-server/**",
+    "electron/**"
+  ],
+  "directories": {
+    "output": "C:/Users/HP/Desktop/bera-coupe-exe"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon-coupe.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "BERACOUPE",
+    "deleteAppDataOnUninstall": false
+  }
+}

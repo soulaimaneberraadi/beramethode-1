@@ -7,6 +7,8 @@ import AgendaModal from './AgendaModal';
 import { tx, pickT } from '../lib/i18n';
 import { TRANSLATIONS } from './configTranslations';
 import { BoutiqueConfigSection } from './soustraitance/StoreSync';
+import { ReseauLocalSection, AppareilsConnectesSection, AProposSection } from './config/ReseauLocal';
+import { IS_COUPE } from '../lib/edition';
 
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
 import type { Lang } from '../app/constants';
@@ -281,8 +283,9 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     </button>
                                 </div>
 
-                                {/* Option 2 — Masquer la page Machines du menu */}
-                                {navConfig && setNavConfig && (() => {
+                                {/* Option 2 — Masquer la page Machines du menu (sans objet en
+                                    édition BERACOUPE : ces pages sont déjà absentes de la nav). */}
+                                {!IS_COUPE && navConfig && setNavConfig && (() => {
                                     const MACHINE_VIEWS = ['pageMachine', 'machin'];
                                     const isHidden = MACHINE_VIEWS.every(v => navConfig.hidden.includes(v));
                                     return (
@@ -503,7 +506,9 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                 </div>
             </div>
 
-            {/* FULL WIDTH BLOCK: Config Moteur APS */}
+            {/* FULL WIDTH BLOCK: Config Moteur APS — sans objet en édition BERACOUPE
+                (pas de planification de chaînes de production dans la salle de coupe). */}
+            {!IS_COUPE && (
             <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
                 <div onClick={() => toggleSec('aps')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['aps'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                     <div className="flex items-center gap-2">
@@ -686,11 +691,14 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     </div>
                 </div>
             </div>
+            )}
 
-            {/* FULL WIDTH BLOCK: Commercial / Ventes
+            {/* FULL WIDTH BLOCK: Commercial / Ventes — sans objet en édition BERACOUPE
+                (pas de vente/facturation dans la salle de coupe).
                 Règles de gestion commerciales sorties du code : chaque atelier a sa
                 marge plancher, son unité de vente et son vocabulaire client. Tous les
                 champs sont optionnels — laissés vides, le comportement actuel est conservé. */}
+            {!IS_COUPE && (
             <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
                 <div onClick={() => toggleSec('commercial')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['commercial'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                     <div className="flex items-center gap-2">
@@ -931,20 +939,25 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     </div>
                 </div>
             </div>
+            )}
 
-            {/* FULL WIDTH BLOCK: Boutique en ligne
+            {/* FULL WIDTH BLOCK: Boutique en ligne — sans objet en édition BERACOUPE
+                (pas de vente en ligne dans la salle de coupe).
                 Branchement de la boutique (Shopify, WooCommerce ou site sur mesure).
                 Les données ne viennent PAS des réglages `draft` mais du serveur
                 (`/api/store/config`) : une clé d'accès n'a rien à faire dans un
                 brouillon que l'on peut abandonner sans enregistrer. */}
+            {!IS_COUPE && (
             <BoutiqueConfigSection
                 lang={lang}
                 open={!!openSec['boutique']}
                 onToggle={() => toggleSec('boutique')}
             />
+            )}
 
-            {/* FULL WIDTH BLOCK: Personnalisation du Menu de Navigation */}
-            {navConfig && setNavConfig && (
+            {/* FULL WIDTH BLOCK: Personnalisation du Menu de Navigation — sans objet en
+                édition BERACOUPE (navigation fixe : Bibliothèque / La Coupe / Configuration). */}
+            {!IS_COUPE && navConfig && setNavConfig && (
                 <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
                     <div onClick={() => toggleSec('nav')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['nav'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                         <div className="flex items-center gap-2">
@@ -1189,7 +1202,9 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                 </div>
             )}
 
-            {/* FULL WIDTH BLOCK: Gestion des Tâches (Phase 24) */}
+            {/* FULL WIDTH BLOCK: Gestion des Tâches (Phase 24) — sans objet en édition
+                BERACOUPE (organigramme/chaînes de production, pas la salle de coupe). */}
+            {!IS_COUPE && (
             <div className="bg-white dark:bg-dk-surface rounded-2xl shadow-sm dark:shadow-dk-sm border border-slate-200 dark:border-dk-border overflow-hidden flex flex-col mt-6">
                 <div onClick={() => toggleSec('tasks')} className={`px-5 py-4 bg-slate-50 dark:bg-dk-bg flex items-center justify-between cursor-pointer select-none ${openSec['tasks'] ? 'border-b border-slate-100 dark:border-dk-border' : ''}`}>
                     <div className="flex items-center gap-2">
@@ -1309,6 +1324,17 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     </div>
                 </div>
             </div>
+            )}
+
+            {/* FULL WIDTH BLOCKS — édition BERACOUPE uniquement : réseau local de
+                l'atelier, appareils actuellement ouverts, et identité de l'édition. */}
+            {IS_COUPE && (
+                <>
+                    <ReseauLocalSection lang={lang} open={!!openSec['reseauLocal']} onToggle={() => toggleSec('reseauLocal')} />
+                    <AppareilsConnectesSection lang={lang} open={!!openSec['appareils']} onToggle={() => toggleSec('appareils')} />
+                    <AProposSection lang={lang} open={!!openSec['apropos']} onToggle={() => toggleSec('apropos')} />
+                </>
+            )}
 
             <AgendaModal isOpen={showAgenda} onClose={() => setShowAgenda(false)} settings={draft} setSettings={setDraft} lang={lang} />
         </div >

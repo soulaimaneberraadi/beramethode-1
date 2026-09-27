@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
+import { IS_COUPE } from '../lib/edition';
 
 interface GlobalLoaderProps {
     isActive: boolean;
@@ -88,7 +89,12 @@ export default function GlobalLoader({
                 {/* Brand Identity Text */}
                 <div className="text-center mb-6">
                     <h1 className="select-none text-xl font-extrabold tracking-[0.15em] uppercase text-slate-900 dark:text-dk-text">
-                        {tx(lang, {fr:"BERA",ar:"BERA",en:"BERA",es:"BERA",pt:"BERA",tr:"BERA"})}<span className="text-emerald-600 dark:text-emerald-400">{tx(lang, {fr:"METHODE",ar:"METHODE",en:"METHODE",es:"METHODE",pt:"METHODE",tr:"METHODE"})}</span>
+                        {tx(lang, {fr:"BERA",ar:"BERA",en:"BERA",es:"BERA",pt:"BERA",tr:"BERA"})}
+                        {IS_COUPE ? (
+                            <span className="text-red-600 dark:text-red-400">COUPE</span>
+                        ) : (
+                            <span className="text-emerald-600 dark:text-emerald-400">{tx(lang, {fr:"METHODE",ar:"METHODE",en:"METHODE",es:"METHODE",pt:"METHODE",tr:"METHODE"})}</span>
+                        )}
                     </h1>
                 </div>
 

@@ -22,6 +22,15 @@ contextBridge.exposeInMainWorld('beraElectron', {
   platform: process.platform,
 
   /**
+   * Édition du binaire desktop : 'coupe' pour BERACOUPE (salle de coupe,
+   * atelier en LAN), 'beramethode' sinon. Posée par electron/main.ts AVANT
+   * le chargement de la page (process.env.BERA_EDITION), lue ici côté
+   * preload — le renderer (lib/edition.ts) s'appuie normalement sur
+   * VITE_EDITION au build, ceci ne sert qu'au contexte Electron pur.
+   */
+  edition: process.env.BERA_EDITION === 'coupe' ? 'coupe' : 'beramethode',
+
+  /**
    * Glisser plusieurs traces PLT numerotes hors de l'application (vers Optitex,
    * un dossier Windows...), comme une selection de fichiers dans l'Explorateur.
    * Le navigateur ne sait en glisser qu'un ; ici le processus principal les

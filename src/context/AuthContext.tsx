@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { startCloudSync, stopCloudSync, pullSnapshotFromCloud, pushSnapshotToCloud, ensureLocalDataOwner, clearLocalAppData, isCloudSyncUserId } from '../lib/cloudSync';
+import { IS_COUPE } from '../../lib/edition';
 
 interface User {
   id: number | string;
@@ -161,6 +162,12 @@ const cloudOwnerFor = async (userData: Pick<User, 'id' | 'cloudUserId' | 'email'
 };
 
 const activateLocalDataOwner = async (userData: Pick<User, 'id' | 'cloudUserId' | 'email'>): Promise<void> => {
+  if (IS_COUPE) {
+    // Édition BERACOUPE : compte unique partagé, local au réseau de l'atelier.
+    // Jamais de scope cloud, jamais de pull/startCloudSync (pas de Supabase ici).
+    ensureLocalDataOwner(String(userData.id));
+    return;
+  }
   const ownerId = await cloudOwnerFor(userData);
   ensureLocalDataOwner(ownerId);
   if (isCloudSyncUserId(ownerId)) {
@@ -184,6 +191,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (!IS_STATIC) {
+      if (IS_COUPE) {
+        // BERACOUPE : pas de login/signup, pas de pont Supabase. Un cookie
+        // existant (`/api/auth/me`) suffit à rouvrir la session du compte
+        // partagé. Sinon `user` reste `null` : App.tsx affiche alors l'écran
+        // BERACOUPE (Nom de l'entreprise / connexion silencieuse), qui
+        // appellera `login()` après `POST /api/edition/setup|session`.
+        const checkAuthCoupe = async () => {
+          try {
+            const res = await fetch('/api/auth/me', { credentials: 'include' });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.user?.id != null) {
+                await activateLocalDataOwner(data.user);
+                setUser(data.user);
+              }
+            }
+          } catch (error) {
+            console.error('Auth check (coupe) failed', error);
+          } finally {
+            setLoading(false);
+          }
+        };
+        checkAuthCoupe();
+        return;
+      }
       // Legacy backend auth
       const checkAuth = async () => {
         try {

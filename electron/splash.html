@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:;" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'unsafe-inline';" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -28,10 +28,15 @@
       box-shadow: 0 12px 28px -8px rgba(16,185,129,.55);
       animation: pop .5s cubic-bezier(.2,.8,.2,1.2);
     }
+    body.coupe .logo {
+      background: linear-gradient(145deg, #dc2626 0%, #991b1b 100%);
+      box-shadow: 0 12px 28px -8px rgba(220,38,38,.55);
+    }
     .logo span { color: #fff; font-size: 50px; font-weight: 800; line-height: 1; }
     @keyframes pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     .name { font-size: 26px; font-weight: 800; letter-spacing: 2px; color: #0f172a; }
     .name b { color: #10b981; }
+    body.coupe .name b { color: #dc2626; }
     .tag { font-size: 12.5px; color: #64748b; letter-spacing: .5px; margin-top: -8px; }
     .bar {
       width: 200px; height: 5px; border-radius: 99px;
@@ -43,6 +48,9 @@
       background: linear-gradient(90deg, #34d399, #10b981);
       animation: slide 1.2s ease-in-out infinite;
     }
+    body.coupe .bar::after {
+      background: linear-gradient(90deg, #f87171, #dc2626);
+    }
     @keyframes slide {
       0%   { transform: translateX(-100%); }
       100% { transform: translateX(350%); }
@@ -52,11 +60,21 @@
 </head>
 <body>
   <div class="card">
-    <div class="logo"><span>B</span></div>
-    <div class="name">BERA<b>METHODE</b></div>
-    <div class="tag">Système ERP Textile</div>
+    <div class="logo"><span id="logoLetter">B</span></div>
+    <div class="name" id="nameLine">BERA<b>METHODE</b></div>
+    <div class="tag" id="tagLine">Système ERP Textile</div>
     <div class="bar"></div>
     <div class="status">Démarrage…</div>
   </div>
+  <script>
+    // main.ts charge ce fichier avec ?edition=coupe pour BERACOUPE — aucune
+    // autre logique (pas de accès Node : contextIsolation + sandbox actifs).
+    if (new URLSearchParams(location.search).get('edition') === 'coupe') {
+      document.body.classList.add('coupe');
+      document.getElementById('logoLetter').textContent = 'C';
+      document.getElementById('nameLine').innerHTML = 'BERA<b>COUPE</b>';
+      document.getElementById('tagLine').textContent = 'Salle de Coupe';
+    }
+  </script>
 </body>
 </html>

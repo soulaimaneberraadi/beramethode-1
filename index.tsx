@@ -17,6 +17,11 @@ import { APP_VERSION } from './src/lib/dataVersion';
 import { initDiagnostics } from './src/lib/diagnostics';
 import { demarrerRelaisPlantages } from './src/lib/crashRelay';
 import { installerFileHorsLigne } from './src/lib/filaHorsLigne';
+import { applyEditionBranding } from './lib/edition';
+
+// BERACOUPE (VITE_EDITION=coupe) : titre du document + favicon corrigés avant
+// même le montage React. En édition BERAMETHODE (VITE_EDITION absent), no-op.
+applyEditionBranding();
 
 // Capture des breadcrumbs (console + erreurs) le plus tôt possible, pour les
 // joindre aux réclamations en cas de bug.

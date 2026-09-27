@@ -38,6 +38,7 @@ import SyncIndicator from '../components/SyncIndicator';
 import BandeauHorsLigne from '../components/shared/BandeauHorsLigne';
 import { clearLocalAppData } from '../src/lib/cloudSync';
 import { createRouteUrl } from '../lib/router';
+import { IS_COUPE } from '../lib/edition';
 
 // clic avec Ctrl/Cmd/Shift ou molette (bouton du milieu) = laisser le navigateur
 // ouvrir un nouvel onglet, sans declencher la navigation interne
@@ -213,17 +214,19 @@ export default function AppHeader({
                         {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
                     </button>
 
-                    {/* Logo — toujours BERAMETHODE */}
+                    {/* Logo — BERAMETHODE, ou BERACOUPE en édition salle de coupe */}
                     <button
                         type="button"
-                        aria-label={`BERAMETHODE — ${tx(lang, {fr:"Retour au tableau de bord",ar:"العودة إلى لوحة القيادة",en:"Back to dashboard",es:"Volver al panel",pt:"Voltar ao painel",tr:"Gösterge paneline dön"})}`}
-                        onClick={() => handleNavigation('dashboard')}
-                        className="group relative inline-flex items-center justify-center px-1 py-0.5 rounded-sm border-none transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60"
+                        aria-label={`${IS_COUPE ? 'BERACOUPE' : 'BERAMETHODE'} — ${tx(lang, {fr:"Retour au tableau de bord",ar:"العودة إلى لوحة القيادة",en:"Back to dashboard",es:"Volver al panel",pt:"Voltar ao painel",tr:"Gösterge paneline dön"})}`}
+                        onClick={() => handleNavigation(IS_COUPE ? 'coupe' : 'dashboard')}
+                        className={`group relative inline-flex items-center justify-center px-1 py-0.5 rounded-sm border-none transition-all duration-200 hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 ${IS_COUPE ? 'focus-visible:ring-red-400/60' : 'focus-visible:ring-emerald-400/60'}`}
                     >
                         <span
-                            className={`relative font-extrabold text-base sm:text-lg tracking-tight transition-all duration-200 [text-shadow:none] group-hover:[text-shadow:0_1px_3px_rgba(16,185,129,0.4),0_2px_8px_rgba(16,185,129,0.22)] ${currentView === 'dashboard' ? 'text-gray-900 dark:text-dk-text' : 'text-gray-800 dark:text-dk-text group-hover:text-emerald-700 dark:group-hover:text-emerald-400'}`}
+                            className={`relative font-extrabold text-base sm:text-lg tracking-tight transition-all duration-200 [text-shadow:none] ${IS_COUPE ? 'group-hover:[text-shadow:0_1px_3px_rgba(220,38,38,0.4),0_2px_8px_rgba(220,38,38,0.22)]' : 'group-hover:[text-shadow:0_1px_3px_rgba(16,185,129,0.4),0_2px_8px_rgba(16,185,129,0.22)]'} ${currentView === (IS_COUPE ? 'coupe' : 'dashboard') ? 'text-gray-900 dark:text-dk-text' : `text-gray-800 dark:text-dk-text ${IS_COUPE ? 'group-hover:text-red-700 dark:group-hover:text-red-400' : 'group-hover:text-emerald-700 dark:group-hover:text-emerald-400'}`}`}
                         >
-                            BERA<span className="text-emerald-700 dark:text-emerald-400">METHODE</span>
+                            {IS_COUPE
+                                ? <>BERA<span className="text-red-600 dark:text-red-400">COUPE</span></>
+                                : <>BERA<span className="text-emerald-700 dark:text-emerald-400">METHODE</span></>}
                         </span>
                     </button>
 
@@ -268,8 +271,9 @@ export default function AppHeader({
                         );
                     })()}
 
-                    {/* WORKSPACE SWITCHER — bascule entre sociétés isolées du même compte */}
-                    <WorkspaceSwitcher lang={lang} companyLogo={companyLogo} companyName={companyName} />
+                    {/* WORKSPACE SWITCHER — bascule entre sociétés isolées du même compte.
+                        Absent en édition BERACOUPE : compte unique partagé par atelier. */}
+                    {!IS_COUPE && <WorkspaceSwitcher lang={lang} companyLogo={companyLogo} companyName={companyName} />}
 
                     {/* AUTO-SAVE INDICATOR */}
                     {currentView === 'ingenierie' && (
@@ -439,13 +443,18 @@ export default function AppHeader({
                         </div>
                     </button>
 
-                    <button
-                        onClick={logout}
-                        className="flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-dk-surface border border-gray-100 dark:border-dk-border text-gray-400 dark:text-dk-muted hover:text-red-600 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800 transition-colors cursor-pointer"
-                        title={t.logout}
-                    >
-                        <LogOut className="w-3.5 h-3.5" />
-                    </button>
+                    {/* Déconnexion absente en édition BERACOUPE : compte unique partagé
+                        de l'appareil, cliquer déconnexion purgerait les données locales
+                        de l'atelier sans utilité (`/api/edition/session` rouvre seul). */}
+                    {!IS_COUPE && (
+                        <button
+                            onClick={logout}
+                            className="flex items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-dk-surface border border-gray-100 dark:border-dk-border text-gray-400 dark:text-dk-muted hover:text-red-600 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-800 transition-colors cursor-pointer"
+                            title={t.logout}
+                        >
+                            <LogOut className="w-3.5 h-3.5" />
+                        </button>
+                    )}
                 </div>
             </div>
         </header>

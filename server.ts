@@ -156,6 +156,14 @@ import {
   upsertCatalogCuration,
   deleteCatalogCuration,
 } from './server/catalogController';
+import {
+  getEdition,
+  postEditionSetup,
+  postEditionSession,
+  postEditionPresence,
+  getEditionAppareils,
+  estAdressePrivee,
+} from './server/editionController';
 
 // ── Agent 3: UUID Generation (prevents sequential ID enumeration) ──
 function generateUUID(): string {
@@ -181,12 +189,36 @@ async function startServer() {
     app.set('trust proxy', 1);
   }
 
+  const editionCoupe = process.env.BERA_EDITION === 'coupe';
+
+  // ── BERACOUPE : garde réseau local ───────────────────────────────────────
+  // Cette édition n'a ni inscription ni écran de connexion — n'importe quel
+  // appareil qui obtient le cookie est dedans. La seule barrière, c'est le
+  // réseau : on refuse tout de suite ce qui n'est pas loopback ou une plage
+  // privée (10/8, 172.16/12, 192.168/16, fc00::/7, fe80::/10), avant toute
+  // route. En édition BERAMETHODE (défaut), ce bloc n'existe pas.
+  if (editionCoupe) {
+    app.use((req, res, next) => {
+      // `req.socket.remoteAddress` (adresse TCP réelle), jamais `req.ip` : ce
+      // dernier suit `trust proxy` (activé en production) et lirait
+      // X-Forwarded-For — un en-tête qu'un appareil du LAN peut forger
+      // lui-même pour usurper une IP privée et passer la garde. Il n'y a pas
+      // de vrai reverse proxy devant BERACOUPE, donc seule l'adresse socket
+      // fait foi.
+      const ip = req.socket.remoteAddress || '';
+      if (!estAdressePrivee(ip)) {
+        return res.status(403).json({ message: 'Accès réseau non autorisé.' });
+      }
+      next();
+    });
+  }
+
   app.use((_req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production' && !editionCoupe) {
       res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     }
     next();
@@ -209,11 +241,18 @@ async function startServer() {
             fontSrc: ["'self'", 'https:', 'data:'],
             imgSrc: ["'self'", 'data:', 'https:'],
             connectSrc: ["'self'", 'https:'],
+            // BERACOUPE reste en http sur le LAN : cette directive (ajoutée
+            // par défaut par helmet) ferait charger toute ressource en
+            // https:// et casserait la page. `null` la retire du jeu.
+            ...(editionCoupe ? { upgradeInsecureRequests: null } : {}),
           },
         },
         crossOriginEmbedderPolicy: false,
         referrerPolicy: { policy: 'same-origin' },
         dnsPrefetchControl: { allow: false },
+        // Idem : HSTS dit au navigateur de forcer https pour ce domaine — sur
+        // le LAN de l'atelier il n'y a pas de https, donc pas de HSTS.
+        hsts: editionCoupe ? false : undefined,
       })
     );
   }
@@ -621,6 +660,17 @@ async function startServer() {
   // ── Setup initial (Desktop Foundation) ──
   app.get('/api/setup/status', getSetupStatus);
   app.post('/api/setup/init', initSetup);
+
+  // ── BERACOUPE (BERA_EDITION=coupe) : pas d'inscription, pas d'écran de
+  // connexion — un seul compte atelier partagé par tous les postes du LAN.
+  // Les handlers eux-mêmes renvoient 404 si BERA_EDITION !== 'coupe', donc
+  // en édition BERAMETHODE ces routes se comportent comme si elles n'étaient
+  // pas déclarées.
+  app.get('/api/edition', getEdition);
+  app.post('/api/edition/setup', postEditionSetup);
+  app.post('/api/edition/session', postEditionSession);
+  app.post('/api/edition/presence', postEditionPresence);
+  app.get('/api/edition/appareils', getEditionAppareils);
 
   // ── Licence (proxy vers l'Edge Function Supabase verify-license) ──
   // Public : appelé durant le boot, avant l'authentification.
@@ -1163,8 +1213,11 @@ async function startServer() {
       });
       // En mode Electron (EXE local), n'écouter que sur la loopback pour ne PAS
       // exposer l'API sur le réseau (M3 — sécurité Desktop). En web/dev, 0.0.0.0
-      // garde l'accès LAN (téléphones sur le même WiFi).
-      const host = process.env.ELECTRON_MODE === 'true' ? '127.0.0.1' : '0.0.0.0';
+      // garde l'accès LAN (téléphones sur le même WiFi). BERACOUPE inverse ce
+      // choix pour Electron : l'accès LAN est le but même du produit (postes
+      // et téléphones de l'atelier), donc 0.0.0.0 même sous Electron — la
+      // garde réseau privé plus haut empêche l'exposition publique.
+      const host = editionCoupe ? '0.0.0.0' : (process.env.ELECTRON_MODE === 'true' ? '127.0.0.1' : '0.0.0.0');
       httpServer.listen(port, host, () => {
         const usedPort = (httpServer.address() as any)?.port ?? port;
         const nets = os.networkInterfaces();
@@ -1180,9 +1233,13 @@ async function startServer() {
         }
         console.log(`  └─ Mode:    ${process.env.NODE_ENV || 'development'}`);
         console.log(`  └─ CWD:    ${process.cwd()} (database.sqlite doit être ici)\n`);
-        logSupabaseSyncStatus();
-        // Start realtime listener (Vercel/phone → PC) — fire and forget
-        void startSupabaseSync();
+        // BERACOUPE est local-only (pas de compte cloud, pas de licence) : la
+        // synchronisation Supabase ne doit jamais démarrer dans cette édition.
+        if (!editionCoupe) {
+          logSupabaseSyncStatus();
+          // Start realtime listener (Vercel/phone → PC) — fire and forget
+          void startSupabaseSync();
+        }
         // Synchronisation boutique en ligne. Encapsulé : une couche e-commerce
         // cassée ne doit jamais empêcher l'ERP de démarrer.
         try { startStoreSyncWorker(); } catch (e) { console.error('  ⚠️  Worker boutique non démarré :', e); }

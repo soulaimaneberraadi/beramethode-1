@@ -35,6 +35,51 @@ function logBoot(msg: string): void {
   console.log(msg);
 }
 
+// ─── Édition : BERAMETHODE (par défaut) ou BERACOUPE ────────────────────────
+//
+// BERACOUPE est produit à partir du MÊME code, empaqueté avec
+// electron-builder.coupe.json dont `extraMetadata` pose `beraEdition: "coupe"`
+// dans le package.json packagé. En dev, `BERA_EDITION=coupe` (variable
+// d'environnement) permet de tester le switch sans empaqueter.
+//
+// Détecté et figé AVANT app.whenReady() : tout ce qui dépend du nom de l'app
+// (app.getPath('userData'), donc la base SQLite + les secrets) doit voir le
+// bon nom dès le premier accès.
+type Edition = 'beramethode' | 'coupe';
+
+function detectEdition(): Edition {
+  if (process.env.BERA_EDITION === 'coupe') return 'coupe';
+  if (process.env.BERA_EDITION === 'beramethode') return 'beramethode';
+  try {
+    const pkgPath = path.join(app.getAppPath(), 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as { beraEdition?: string };
+    if (pkg.beraEdition === 'coupe') return 'coupe';
+  } catch { /* package.json illisible → édition par défaut */ }
+  return 'beramethode';
+}
+
+const EDITION: Edition = detectEdition();
+const IS_COUPE = EDITION === 'coupe';
+const PRODUCT_NAME = IS_COUPE ? 'BERACOUPE' : 'BERAMETHODE';
+
+if (IS_COUPE) {
+  // app.setName() AVANT tout app.getPath('userData') (appelé plus bas dans
+  // whenReady) → userData devient %APPDATA%\BERACOUPE, séparé de BERAMETHODE.
+  app.setName('BERACOUPE');
+  // Propagé au serveur Express, en process (packagé) comme en spawn (dev) :
+  // server.ts lit BERA_EDITION pour lier 0.0.0.0 + activer les routes LAN.
+  process.env.BERA_EDITION = 'coupe';
+  // middleware.ts re-signe le cookie de session toutes les 30 min avec
+  // secure=true dès NODE_ENV=production (jwtConfig.ts) — casserait les
+  // sessions en http sur le LAN de l'atelier. Et pas de sync serveur→Supabase
+  // pour cette édition locale-only (supabaseSync.ts / supabaseRealtime.ts).
+  // Posés ici, AVANT require du serveur in-process / spawn dev, pour que le
+  // bloc `if (key && !process.env[key])` du chargement du .env packagé
+  // (plus bas) ne les écrase pas.
+  process.env.COOKIE_SECURE = 'false';
+  process.env.SUPABASE_SERVER_SYNC = 'false';
+}
+
 // ─── C1 : JWT_SECRET persistant ─────────────────────────────────────────────
 
 function getOrCreateSecret(userDataPath: string): string {
@@ -74,7 +119,7 @@ function getOrCreateMasterKey(userDataPath: string): string {
 
 // ─── Port libre ──────────────────────────────────────────────────────────────
 
-function findFreePort(preferred = 7000): Promise<number> {
+function findFreePort(preferred = 7000, host = '127.0.0.1'): Promise<number> {
   return new Promise((resolve, reject) => {
     const srv = net.createServer();
     srv.unref();
@@ -82,14 +127,14 @@ function findFreePort(preferred = 7000): Promise<number> {
       // preferred occupé → OS choisit un port libre
       const srv2 = net.createServer();
       srv2.unref();
-      srv2.listen(0, '127.0.0.1', () => {
+      srv2.listen(0, host, () => {
         const addr = srv2.address();
         const port = typeof addr === 'object' && addr ? addr.port : 0;
         srv2.close(() => resolve(port));
       });
       srv2.on('error', reject);
     });
-    srv.listen(preferred, '127.0.0.1', () => {
+    srv.listen(preferred, host, () => {
       srv.close(() => resolve(preferred));
     });
   });
@@ -219,7 +264,7 @@ function createSplash(): BrowserWindow {
   });
 
   const splashPath = path.join(__dirname, 'splash.html');
-  splash.loadFile(splashPath);
+  splash.loadFile(splashPath, IS_COUPE ? { query: { edition: 'coupe' } } : undefined);
 
   return splash;
 }
@@ -266,7 +311,7 @@ ipcMain.on('bera:glisser-traces', (event, fichiers: { nom: string; octets: Uint8
       fs.writeFileSync(chemin, Buffer.from(f.octets));
       return chemin;
     });
-    const iconePath = path.join(__dirname, 'icon.png');
+    const iconePath = path.join(__dirname, IS_COUPE ? 'icon-coupe.png' : 'icon.png');
     let icone = fs.existsSync(iconePath) ? nativeImage.createFromPath(iconePath) : nativeImage.createEmpty();
     if (!icone.isEmpty()) icone = icone.resize({ width: 32, height: 32 });
     event.sender.startDrag({ file: chemins[0], files: chemins, icon: icone });
@@ -277,14 +322,17 @@ ipcMain.on('bera:glisser-traces', (event, fichiers: { nom: string; octets: Uint8
 
 async function createWindow(port: number) {
   const preloadPath = path.join(__dirname, 'preload.js');
-  const iconPath = path.join(__dirname, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
+  const iconFile = process.platform === 'win32'
+    ? (IS_COUPE ? 'icon-coupe.ico' : 'icon.ico')
+    : (IS_COUPE ? 'icon-coupe.png' : 'icon.png');
+  const iconPath = path.join(__dirname, iconFile);
 
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1024,
     minHeight: 700,
-    title: 'BERAMETHODE',
+    title: PRODUCT_NAME,
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     // Caché jusqu'à ce que la page soit chargée (évite la flash blanche)
     show: false,
@@ -333,7 +381,10 @@ app.whenReady().then(async () => {
     const userDataPath = app.getPath('userData');
     const jwtSecret = getOrCreateSecret(userDataPath);
     const dbPath = path.join(userDataPath, 'database.sqlite');
-    const port = await findFreePort(7000);
+    // BERACOUPE écoute sur 0.0.0.0 (atelier en LAN) → on sonde aussi sur
+    // 0.0.0.0 pour détecter un conflit de port côté réseau, pas seulement en
+    // local. BERAMETHODE reste sondé sur 127.0.0.1 (comportement inchangé).
+    const port = await findFreePort(7000, IS_COUPE ? '0.0.0.0' : '127.0.0.1');
 
     logBoot(`[BERA] Démarrage du serveur sur le port ${port}…`);
 
@@ -356,8 +407,11 @@ app.whenReady().then(async () => {
     // Charger l'app (ferme le splash à l'intérieur)
     await createWindow(port);
 
-    // Initialiser les mises à jour automatiques en production
-    if (app.isPackaged) {
+    // Initialiser les mises à jour automatiques en production — pas pour
+    // BERACOUPE : pas de serveur de publication configuré pour cette édition,
+    // checkForUpdatesAndNotify() échouerait (ou pire, tenterait de résoudre
+    // la config de publish de BERAMETHODE).
+    if (app.isPackaged && !IS_COUPE) {
       logBoot('[BERA] Initialisation de autoUpdater...');
       autoUpdater.checkForUpdatesAndNotify().catch((err) => {
         logBoot(`[BERA] Erreur autoUpdater: ${err}`);
