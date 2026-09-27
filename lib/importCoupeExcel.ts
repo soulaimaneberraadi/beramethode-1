@@ -202,7 +202,14 @@ export function lireRatios(
 ): { ratios: Record<string, number> | null; aVerifier?: string } {
     const etalees = etalerTailles(taillesTexte, tailles);
     if (etalees === null) {
-        return { ratios: null, aVerifier: `Taille non reconnue : "${taillesTexte}"` };
+        // Cas reel (REPARTOS « MELO SANTOS ») : commande en S-M-L, mais les blocs
+        // entretela/combinado recopies d'un autre modele gardent une ligne XS.
+        // Dire que la taille manque a la commande, pas qu'elle est illisible.
+        const seule = taillesTexte.trim().toUpperCase();
+        const aVerifier = /^(\d?X{0,3}[SML]|X{1,3}L|\d{2,3})$/.test(seule)
+            ? `Taille ${seule} absente de la commande (${tailles.join(', ')}) : ligne recopiee d'un autre modele ?`
+            : `Taille non reconnue : "${taillesTexte}"`;
+        return { ratios: null, aVerifier };
     }
     const distinctes = [...new Set(etalees)];
     const texte = (ratiosTexte || '').trim();
@@ -421,6 +428,10 @@ function lireFeuilleRepartos(ws: ExcelJS.Worksheet): FeuilleImportee | null {
                 ?? (!suivanteEstStructurelle ? nombreCellule(filaSuivante.getCell(3)) : undefined);
             const plis = nombreCellule(fila.getCell(9))
                 ?? (!suivanteEstStructurelle ? nombreCellule(filaSuivante.getCell(9)) : undefined);
+
+            // « C1-5 » seul sur sa ligne (ni taille, ni ratio, ni longueur, ni plis) :
+            // ligne modele laissee vide par le client, pas un marqueur.
+            if (!taillesTexte && !ratiosTexte && !longueurM && !plis) { r += ligneConsommee ? 2 : 1; continue; }
 
             const { ratios, aVerifier } = lireRatios(taillesTexte, ratiosTexte, tailles);
 
