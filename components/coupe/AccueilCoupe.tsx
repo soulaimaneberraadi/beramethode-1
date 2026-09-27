@@ -15,11 +15,11 @@ import {
     ArrowLeft, Scissors, Users, Layers, Search, Plus, Trash2, Edit3, Check, X,
     RefreshCw, Trophy, Clock, Building2, ChevronRight, AlertTriangle,
 } from 'lucide-react';
-import type { GroupeCoupe, ModelData } from '../../types';
+import type { AppSettings, GroupeCoupe, ModelData, OuvrierCoupe, PointageCoupe } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import {
-    aujourdhui, consoTissu, estAuTravail, estOuvert, matelasExecutes, presenceGroupes,
+    aujourdhui, consoTissu, estAuTravail, estOuvert, matelasExecutes, presenceAtelier, presenceGroupes,
     resumerOrdre, statsGroupes, tempsStandard, minutesPrevues, texteDuree, type OuvrierRh, type PointageRh, type PresenceGroupe, type StatutPresence,
 } from '../../lib/coupeAtelier';
 
@@ -85,6 +85,56 @@ export function useRhDuJour() {
 
     useEffect(() => { charger(); }, [charger]);
     return { ouvriers, pointage, etat, date, recharger: charger };
+}
+
+/**
+ * Ouvriers et presence de la salle de coupe, saisis dans La Coupe meme : la
+ * coupe ne depend plus de la RH. Meme forme que `useRhDuJour`, plus de quoi
+ * ajouter un ouvrier et le pointer.
+ */
+export interface AtelierCoupe {
+    ouvriers: OuvrierRh[];
+    pointage: PointageRh[];
+    etat: EtatRh;
+    date: string;
+    recharger: () => void;
+    liste: OuvrierCoupe[];
+    ajouter: (nom: string) => void;
+    retirer: (id: string) => void;
+    /** null : retire le pointage du jour. */
+    pointer: (ids: string[], statut: PointageCoupe['statut'] | null) => void;
+}
+
+export function useAtelierCoupe(
+    liste: OuvrierCoupe[] | undefined,
+    pointageTout: AppSettings['pointageCoupe'],
+    maj: (f: (prev: AppSettings) => AppSettings) => void,
+): AtelierCoupe {
+    const date = aujourdhui();
+    const { ouvriers, pointage } = useMemo(() => presenceAtelier(liste, pointageTout, date), [liste, pointageTout, date]);
+    const heure = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    return {
+        ouvriers, pointage, etat: 'ok', date, recharger: () => { /* local : rien a relire */ },
+        liste: liste || [],
+        ajouter: nom => {
+            const n = nom.trim();
+            if (!n) return;
+            maj(prev => ({ ...prev, ouvriersCoupe: [...(prev.ouvriersCoupe || []), { id: `OC-${Date.now().toString(36)}-${Math.floor(Math.random() * 1000)}`, nom: n }] }));
+        },
+        retirer: id => maj(prev => ({
+            ...prev,
+            ouvriersCoupe: (prev.ouvriersCoupe || []).filter(o => o.id !== id),
+            groupesCoupe: (prev.groupesCoupe || []).map(g => ({ ...g, membres: g.membres.filter(m => m !== id) })),
+        })),
+        pointer: (ids, statut) => maj(prev => {
+            const jour = { ...(prev.pointageCoupe?.[date] || {}) };
+            for (const id of ids) {
+                if (statut === null) delete jour[id];
+                else jour[id] = { statut, entree: statut === 'ABSENT' ? undefined : (jour[id]?.entree || heure()) };
+            }
+            return { ...prev, pointageCoupe: { ...(prev.pointageCoupe || {}), [date]: jour } };
+        }),
+    };
 }
 
 /* ------------------------------------------------------------------ */
@@ -520,7 +570,7 @@ function EditeurGroupe({ initial, ouvriers, autres, onSave, onCancel }: {
                 </label>
                 <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-100 dark:border-dk-border divide-y divide-slate-100 dark:divide-dk-border">
                     {visibles.length === 0 && (
-                        <p className="text-[11px] text-slate-400 text-center py-4">{tx(lang, { fr: 'Aucun ouvrier dans la RH', ar: 'لا يوجد عمّال في الموارد البشرية', en: 'No worker in HR' })}</p>
+                        <p className="text-[11px] text-slate-400 text-center py-4">{tx(lang, { fr: 'Ajoutez d\'abord les ouvriers de coupe (au-dessus).', ar: 'أضف أولاً عمّال القص (في الأعلى).', en: 'Add the cutting workers first (above).' })}</p>
                     )}
                     {visibles.map(o => {
                         const id = String(o.id);
@@ -558,10 +608,25 @@ export function PageGroupes({ models, groupes, setGroupes, rh, onBack }: {
     models: ModelData[];
     groupes: GroupeCoupe[];
     setGroupes: (g: GroupeCoupe[]) => void;
-    rh: ReturnType<typeof useRhDuJour>;
+    rh: AtelierCoupe;
     onBack: () => void;
 }) {
     const { lang } = useLang();
+    const [nouvelOuvrier, setNouvelOuvrier] = useState('');
+    const ajouterOuvrier = () => { rh.ajouter(nouvelOuvrier); setNouvelOuvrier(''); };
+    const [ouvrierASupprimer, setOuvrierASupprimer] = useState<OuvrierCoupe | null>(null);
+    /** Ordres en cours ou le groupe a coupe, avec ses matelas et ses metres. */
+    const ordresDuGroupe = (id: string) => {
+        const ouverts = new Map(models.filter(estOuvert).map(m => [m.id, m]));
+        const par = new Map<string, { nom: string; nb: number; metres: number }>();
+        for (const x of executes) {
+            if (x.groupeId !== id || !ouverts.has(x.modelId)) continue;
+            const c = par.get(x.modelId) || { nom: x.modele || '—', nb: 0, metres: 0 };
+            c.nb++; c.metres += x.metres;
+            par.set(x.modelId, c);
+        }
+        return [...par.values()].sort((a, b) => b.nb - a.nb);
+    };
     const [edition, setEdition] = useState<GroupeCoupe | 'nouveau' | null>(null);
     const [aSupprimer, setASupprimer] = useState<GroupeCoupe | null>(null);
     const [periode, setPeriode] = useState<Periode>('7j');
@@ -601,33 +666,48 @@ export function PageGroupes({ models, groupes, setGroupes, rh, onBack }: {
         <div>
             <EnTetePage
                 titre={tx(lang, { fr: 'Groupes de coupe', ar: 'مجموعات القص', en: 'Cutting groups' })}
-                sousTitre={`${tx(lang, { fr: 'Pointage du', ar: 'حضور يوم', en: 'Attendance of' })} ${rh.date.split('-').reverse().join('/')}`}
+                sousTitre={`${tx(lang, { fr: 'Présence du', ar: 'حضور يوم', en: 'Attendance of' })} ${rh.date.split('-').reverse().join('/')}`}
                 onBack={onBack}
-                actions={
-                    <button type="button" onClick={rh.recharger} title={tx(lang, { fr: 'Actualiser le pointage', ar: 'تحديث الحضور', en: 'Refresh attendance' })} className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-dk-elevated shrink-0">
-                        <RefreshCw className={`w-4 h-4 ${rh.etat === 'chargement' ? 'animate-spin' : ''}`} />
-                    </button>
-                }
             />
-
-            {rh.etat === 'refuse' && (
-                <div className="flex items-start gap-2 mb-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-[12px] text-amber-800 dark:text-amber-300">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                    {tx(lang, { fr: 'Votre compte n\'a pas accès à la RH : la présence ne peut pas être lue. Demandez l\'accès « Gestion RH ».', ar: 'حسابك لا يملك صلاحية الموارد البشرية، فلا يمكن قراءة الحضور. اطلب صلاحية «Gestion RH».', en: 'Your account cannot read HR, so attendance is unavailable.' })}
-                </div>
-            )}
-            {rh.etat === 'erreur' && (
-                <div className="flex items-start gap-2 mb-3 p-3 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-[12px] text-rose-700 dark:text-rose-300">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                    {tx(lang, { fr: 'Le pointage n\'a pas pu être lu. Réessayez avec le bouton d\'actualisation.', ar: 'تعذّرت قراءة الحضور. أعد المحاولة بزر التحديث.', en: 'Attendance could not be read. Try refreshing.' })}
-                </div>
-            )}
 
             <Resume items={[
                 { label: tx(lang, { fr: 'Groupes', ar: 'المجموعات', en: 'Groups' }), valeur: fmtN(groupes.length) },
                 { label: tx(lang, { fr: 'Présents', ar: 'الحاضرة', en: 'Present' }), valeur: `${presence.filter(p => p.estPresent).length}`, ton: 'text-emerald-600 dark:text-emerald-400' },
                 { label: tx(lang, { fr: 'Ouvriers', ar: 'العمّال', en: 'Workers' }), valeur: `${presentsTotal}/${groupes.reduce((s, g) => s + g.membres.length, 0)}` },
             ]} />
+
+            {/* Ouvriers de la salle de coupe : saisis ici, sans la RH */}
+            <div className="mb-4 bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-3">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                    <h3 className="text-[13px] font-semibold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Ouvriers de coupe', ar: 'عمّال القص', en: 'Cutting workers' })} <span className="text-[11px] font-normal text-slate-400">· {rh.liste.length}</span></h3>
+                </div>
+                <div className="flex gap-2 mb-2">
+                    <input
+                        value={nouvelOuvrier}
+                        onChange={e => setNouvelOuvrier(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') ajouterOuvrier(); }}
+                        placeholder={tx(lang, { fr: 'Nom de l\'ouvrier', ar: 'اسم العامل', en: 'Worker name' })}
+                        className="flex-1 min-w-0 h-10 px-3 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[13px] outline-none focus:border-indigo-400"
+                    />
+                    <button type="button" disabled={!nouvelOuvrier.trim()} onClick={ajouterOuvrier} className="h-10 px-3 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 dark:bg-dk-accent text-white text-[12px] font-semibold disabled:opacity-40 shrink-0">
+                        <Plus className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Ajouter', ar: 'إضافة', en: 'Add' })}
+                    </button>
+                </div>
+                {rh.liste.length === 0 ? (
+                    <p className="text-[11px] text-slate-400">{tx(lang, { fr: 'Ajoutez les ouvriers qui étalent et coupent, puis formez les groupes.', ar: 'أضف العمّال الذين يفرشون ويقصّون، ثم كوّن المجموعات.', en: 'Add the workers who spread and cut, then build the groups.' })}</p>
+                ) : (
+                    <div className="flex flex-wrap gap-1">
+                        {rh.liste.map(o => (
+                            <span key={o.id} className="inline-flex items-center gap-1 h-7 pl-2.5 pr-1 rounded-full bg-slate-100 dark:bg-dk-elevated text-[11px] font-medium text-slate-700 dark:text-dk-text">
+                                <span className="truncate max-w-[140px]">{o.nom}</span>
+                                <button type="button" onClick={() => setOuvrierASupprimer(o)} className="w-5 h-5 inline-flex items-center justify-center rounded-full text-slate-400 hover:text-rose-600 hover:bg-rose-50" title={tx(lang, { fr: 'Retirer', ar: 'حذف', en: 'Remove' })}>
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </span>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {/* Groupes et presence */}
             <div className="flex items-center justify-between mb-2">
@@ -649,7 +729,7 @@ export function PageGroupes({ models, groupes, setGroupes, rh, onBack }: {
                 <div className="text-center py-8 px-4 bg-white dark:bg-dk-surface rounded-xl border border-dashed border-slate-200 dark:border-dk-border mb-4">
                     <Users className="w-7 h-7 text-slate-300 mx-auto mb-2" />
                     <p className="text-[13px] font-semibold text-slate-600 dark:text-dk-text-soft">{tx(lang, { fr: 'Aucun groupe de coupe', ar: 'لا توجد مجموعات قص', en: 'No cutting group' })}</p>
-                    <p className="text-[11px] text-slate-400 mt-1 max-w-xs mx-auto">{tx(lang, { fr: 'Créez un groupe et choisissez ses ouvriers dans la RH : leur présence viendra du pointage.', ar: 'أنشئ مجموعة واختر عمّالها من الموارد البشرية، وسيُقرأ حضورهم من التوقيت.', en: 'Create a group and pick its workers from HR; attendance comes from clock-ins.' })}</p>
+                    <p className="text-[11px] text-slate-400 mt-1 max-w-xs mx-auto">{tx(lang, { fr: 'Créez un groupe et choisissez ses ouvriers ; pointez-les ici chaque jour en cliquant sur leur nom.', ar: 'أنشئ مجموعة واختر عمّالها، ثم سجّل حضورهم هنا كل يوم بالنقر على أسمائهم.', en: 'Create a group, pick its workers, and mark them here each day by clicking their name.' })}</p>
                 </div>
             )}
 
@@ -678,15 +758,51 @@ export function PageGroupes({ models, groupes, setGroupes, rh, onBack }: {
                                 {(p?.membres || []).length === 0 && <span className="text-[11px] text-slate-400">{tx(lang, { fr: 'Aucun membre', ar: 'لا أعضاء', en: 'No member' })}</span>}
                                 {(p?.membres || []).map(mb => {
                                     const s = STATUTS[mb.statut] || STATUTS.NON_POINTE;
+                                    // Un clic pointe l'ouvrier : present, puis absent, puis present...
+                                    const suivant = estAuTravail(mb.statut) ? 'ABSENT' : 'PRESENT';
                                     return (
-                                        <span key={mb.id} title={`${tx(lang, s)}${mb.entree ? ` · ${mb.entree}` : ''}`} className={`inline-flex items-center gap-1 h-6 px-2 rounded-full text-[10px] font-medium ${estAuTravail(mb.statut) ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300' : 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted'}`}>
+                                        <button
+                                            key={mb.id}
+                                            type="button"
+                                            disabled={mb.inconnu}
+                                            onClick={() => rh.pointer([mb.id], suivant)}
+                                            title={`${tx(lang, s)}${mb.entree ? ` · ${mb.entree}` : ''} — ${tx(lang, { fr: 'cliquez pour pointer', ar: 'انقر للتسجيل', en: 'click to mark' })}`}
+                                            className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-medium border transition-colors ${estAuTravail(mb.statut) ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300' : mb.statut === 'ABSENT' ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 line-through' : 'bg-slate-50 dark:bg-dk-elevated border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted'}`}
+                                        >
                                             <span className={`w-1.5 h-1.5 rounded-full ${s.point}`} />
                                             <span className="truncate max-w-[110px]">{mb.nom}</span>
+                                            {mb.entree && estAuTravail(mb.statut) && <span className="text-[9px] opacity-70 tabular-nums">{mb.entree}</span>}
                                             {mb.inconnu && <AlertTriangle className="w-3 h-3 text-amber-500" />}
-                                        </span>
+                                        </button>
                                     );
                                 })}
+                                {(p?.membres || []).some(mb => !mb.inconnu && !estAuTravail(mb.statut)) && (
+                                    <button type="button" onClick={() => rh.pointer((p?.membres || []).filter(mb => !mb.inconnu && mb.statut !== 'ABSENT').map(mb => mb.id), 'PRESENT')} className="h-7 px-2 rounded-full text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20">
+                                        {tx(lang, { fr: 'Tous présents', ar: 'الكل حاضر', en: 'All present' })}
+                                    </button>
+                                )}
                             </div>
+                            {(() => {
+                                const absents = (p?.membres || []).filter(mb => mb.statut === 'ABSENT').length;
+                                const encours = ordresDuGroupe(g.id);
+                                return (
+                                    <>
+                                        {absents > 0 && <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 mb-1.5">{absents} {tx(lang, { fr: 'absent(s) aujourd\'hui', ar: 'غائب اليوم', en: 'absent today' })}</p>}
+                                        {encours.length > 0 && (
+                                            <div className="mb-2">
+                                                <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{tx(lang, { fr: 'Ordres en cours coupés', ar: 'طلبات جارية قصّتها', en: 'Open orders cut' })}</span>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {encours.map(o => (
+                                                        <span key={o.nom} className="inline-flex items-center gap-1 h-6 px-2 rounded-md bg-indigo-50 dark:bg-indigo-900/20 text-[10px] text-indigo-800 dark:text-indigo-300">
+                                                            <b className="truncate max-w-[120px]">{o.nom}</b> · {o.nb} {tx(lang, { fr: 'mat.', ar: 'مفرشة', en: 'lays' })} · {fmtM(o.metres)}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
                             <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-dk-muted border-t border-slate-100 dark:border-dk-border pt-2">
                                 <span>{tx(lang, { fr: 'Aujourd\'hui', ar: 'اليوم', en: 'Today' })}:</span>
                                 <span><b className="text-slate-700 dark:text-dk-text-soft tabular-nums">{jour.length}</b> {tx(lang, { fr: 'matelas', ar: 'مفرشة', en: 'lays' })}</span>
@@ -804,6 +920,18 @@ export function PageGroupes({ models, groupes, setGroupes, rh, onBack }: {
                 )}
             </div>
 
+            {ouvrierASupprimer && (
+                <div className="fixed inset-0 z-[95] bg-slate-900/40 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setOuvrierASupprimer(null)}>
+                    <div className="w-full sm:max-w-sm bg-white dark:bg-dk-surface rounded-t-2xl sm:rounded-2xl p-5" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">{tx(lang, { fr: 'Retirer', ar: 'حذف', en: 'Remove' })} « {ouvrierASupprimer.nom} » ?</h3>
+                        <p className="text-[12px] text-slate-500 mt-1">{tx(lang, { fr: 'Il sort de son groupe. Les matelas deja coupes par le groupe ne changent pas.', ar: 'يخرج من مجموعته. المفرشات التي قصّتها المجموعة لا تتغيّر.', en: 'Leaves their group. Lays already cut do not change.' })}</p>
+                        <div className="flex justify-end gap-2 mt-5">
+                            <button type="button" onClick={() => setOuvrierASupprimer(null)} className="h-10 px-4 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel' })}</button>
+                            <button type="button" onClick={() => { rh.retirer(ouvrierASupprimer.id); setOuvrierASupprimer(null); }} className="h-10 px-4 rounded-lg text-[12px] font-semibold bg-rose-600 text-white">{tx(lang, { fr: 'Retirer', ar: 'حذف', en: 'Remove' })}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {aSupprimer && (
                 <div className="fixed inset-0 z-[95] bg-slate-900/40 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setASupprimer(null)}>
                     <div className="w-full sm:max-w-sm bg-white dark:bg-dk-surface rounded-t-2xl sm:rounded-2xl p-5" onClick={e => e.stopPropagation()}>

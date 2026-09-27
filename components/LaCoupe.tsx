@@ -18,7 +18,7 @@ import ExcelInput from './ExcelInput';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import AnnotationPlt from './coupe/AnnotationPlt';
 import {
-    CartesAccueil, PageOrdres, PageTissu, PageGroupes, useRhDuJour, ChampHeure, ChoixGroupe,
+    CartesAccueil, PageOrdres, PageTissu, PageGroupes, useAtelierCoupe, ChampHeure, ChoixGroupe,
     isoDepuisHeure, heureLocale, type PageAccueil,
 } from './coupe/AccueilCoupe';
 import { matelasExecutes, metresPlis, presenceGroupes, tempsStandard } from '../lib/coupeAtelier';
@@ -3492,6 +3492,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                 tousModeles={modelesAvecCoupe}
                                 groupes={groupesCoupe}
                                 setGroupes={setGroupesCoupe}
+                                ouvriersCoupe={settings?.ouvriersCoupe}
+                                pointageCoupe={settings?.pointageCoupe}
+                                majReglages={f => setSettings?.(f)}
                                 statusMap={STATUS_MAP}
                                 prepCount={prepCount}
                                 activeCount={activeCount}
@@ -4791,8 +4794,11 @@ function StatCard({ label, value, icon: Icon, color, delay }: {
 
 /* ─────── Empty Dashboard (when no model selected) ─────── */
 function EmptyDashboard({
-    models, ordres, tousModeles, groupes, setGroupes, statusMap, prepCount, activeCount, valCount, getProgress, onNew, onOpen,
+    models, ordres, tousModeles, groupes, setGroupes, ouvriersCoupe, pointageCoupe, majReglages, statusMap, prepCount, activeCount, valCount, getProgress, onNew, onOpen,
 }: {
+    ouvriersCoupe?: AppSettings['ouvriersCoupe'];
+    pointageCoupe?: AppSettings['pointageCoupe'];
+    majReglages: (f: (prev: AppSettings) => AppSettings) => void;
     models: ModelData[];
     /** Tous les ordres de La Coupe, sans le filtre de recherche de la liste. */
     ordres: ModelData[];
@@ -4816,7 +4822,8 @@ function EmptyDashboard({
     }).slice(0, 6);
 
     const [page, setPage] = useState<PageAccueil | null>(null);
-    const rh = useRhDuJour();
+    // Ouvriers et presence saisis dans La Coupe : plus besoin de la RH.
+    const rh = useAtelierCoupe(ouvriersCoupe, pointageCoupe, majReglages);
     const presence = useMemo(() => presenceGroupes(groupes, rh.ouvriers, rh.pointage, rh.date), [groupes, rh.ouvriers, rh.pointage, rh.date]);
 
     // Chaque carte ouvre sa page a la place de l'accueil, avec un retour.

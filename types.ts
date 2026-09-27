@@ -361,6 +361,13 @@ export interface AppSettings {
    * parda (le poste de travail matin/soir), pas l'equipe qui coupe ensemble.
    */
   groupesCoupe?: GroupeCoupe[];
+  /**
+   * Ouvriers de la salle de coupe, saisis dans La Coupe (sans passer par la RH) :
+   * ce sont eux qu'on met dans les groupes et qu'on pointe chaque jour.
+   */
+  ouvriersCoupe?: OuvrierCoupe[];
+  /** Presence des ouvriers de coupe : date AAAA-MM-JJ -> id ouvrier -> statut et heure d'arrivee. */
+  pointageCoupe?: Record<string, Record<string, PointageCoupe>>;
   /** Numerotation proposee a chaque nouveau trace (taille, style, repetitions). */
   numerotationDefaut?: ReglagesNumero;
   // --- EXISTING FINANCIAL SETTINGS ---
@@ -694,10 +701,22 @@ export interface PlacementCoupe {
 export type TraceLaize = Pick<PlacementCoupe, 'fichier' | 'longueurM' | 'laizeCm' | 'efficience' | 'taillesTrace' | 'taillesFichier' | 'ecartAccepte' | 'numerotation'>;
 
 /** Equipe de coupe : quelques ouvriers de la RH qui etalent et coupent ensemble. */
+/** Un ouvrier de la salle de coupe, saisi dans La Coupe. */
+export interface OuvrierCoupe {
+  id: string;
+  nom: string;
+}
+
+export interface PointageCoupe {
+  statut: 'PRESENT' | 'RETARD' | 'ABSENT';
+  /** Heure d'arrivee HH:MM (present ou en retard). */
+  entree?: string;
+}
+
 export interface GroupeCoupe {
   id: string;
   nom: string;
-  /** Ids `hr_workers` : leur presence vient du pointage. */
+  /** Ids des ouvriers (`AppSettings.ouvriersCoupe`, ou `hr_workers` pour les groupes d'avant). */
   membres: string[];
 }
 

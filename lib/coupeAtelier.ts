@@ -5,7 +5,7 @@
  * Aucune dependance a React : ce que l'atelier voit doit pouvoir se verifier
  * par un test, parce qu'un metre de tissu mal compte se paie.
  */
-import type { GroupeCoupe, MatelasLine, ModelData } from '../types';
+import type { AppSettings, GroupeCoupe, MatelasLine, ModelData, OuvrierCoupe } from '../types';
 
 /**
  * Longueur perdue en bout de chaque pli (amorce/coupe de lisiere), en metres.
@@ -307,6 +307,17 @@ export const presenceGroupes = (
         return { groupeId: g.id, membres, presents, estPresent: presents > 0 };
     });
 };
+
+/**
+ * Ouvriers et pointage saisis dans La Coupe, sous la meme forme que ceux de la
+ * RH : le calcul de presence des groupes ne change pas de source a l'autre.
+ */
+export const presenceAtelier = (
+    ouvriers: OuvrierCoupe[] | undefined, pointage: AppSettings['pointageCoupe'], date: string,
+): { ouvriers: OuvrierRh[]; pointage: PointageRh[] } => ({
+    ouvriers: (ouvriers || []).map(o => ({ id: o.id, full_name: o.nom, is_active: true })),
+    pointage: Object.entries(pointage?.[date] || {}).map(([id, p]) => ({ worker_id: id, date, statut: p.statut, heure_entree: p.entree || null })),
+});
 
 /** Date du jour AAAA-MM-JJ en heure locale : c'est la date ecrite dans le pointage. */
 export const aujourdhui = (d = new Date()): string =>
