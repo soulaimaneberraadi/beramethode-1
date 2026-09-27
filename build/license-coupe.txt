@@ -1,0 +1,16 @@
+﻿BERACOUPE — la salle de coupe
+Issue de BERAMETHODE
+
+BERACOUPE est l'édition « salle de coupe » de BERAMETHODE : ordres de coupe, placements PLT, matelas numérotés, série d'étiquetage, groupes de coupe et bibliothèque des modèles, sur un seul poste de l'atelier.
+
+Les autres postes et les téléphones de l'entreprise l'ouvrent dans leur navigateur, sur le réseau local (Wi-Fi) de l'atelier. Rien ne part sur Internet : les données restent sur ce poste.
+
+Mise à jour : installer une nouvelle version de BERACOUPE par-dessus l'ancienne remplace le programme et garde toutes les données.
+
+CONTRAT DE LICENCE UTILISATEUR FINAL (résumé)
+- Le logiciel est concédé en licence, il n'est pas vendu.
+- Il est interdit de le décompiler, de le modifier ou de le redistribuer sans accord écrit.
+- Les données saisies restent la propriété de l'entreprise qui les saisit.
+- Le logiciel est fourni tel quel ; faites des sauvegardes régulières de vos données.
+
+En poursuivant l'installation, vous acceptez ces conditions.

@@ -24,7 +24,9 @@
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64"]
+        "arch": [
+          "x64"
+        ]
       }
     ],
     "icon": "build/icon-coupe.ico"
@@ -35,6 +37,11 @@
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
     "shortcutName": "BERACOUPE",
-    "deleteAppDataOnUninstall": false
+    "deleteAppDataOnUninstall": false,
+    "installerIcon": "build/icon-coupe.ico",
+    "uninstallerIcon": "build/icon-coupe.ico",
+    "installerHeaderIcon": "build/icon-coupe.ico",
+    "license": "build/license-coupe.txt",
+    "uninstallDisplayName": "BERACOUPE"
   }
 }
