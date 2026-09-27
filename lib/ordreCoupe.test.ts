@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import type { MatelasLine, OrdreCoupe } from '../types';
 import {
-    associerTailles, avecCodes, estPrincipal, lireEntete, lireNotation, matelasDuPlacement, migrerOrdre,
+    associerTailles, avecCodes, estPrincipal, jeuxDeLaize, placementsActifs, lireEntete, lireNotation, matelasDuPlacement, migrerOrdre,
     nomFichierMatelas, numeroSuivant, plisPourPlacements, renumeroter, TISSU_PRINCIPAL,
 } from './ordreCoupe';
 
@@ -148,6 +148,26 @@ const T = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
     assert.deepEqual(avecCodes(tissus, pls).map(p => p.code), ['TE-06', 'TE-05', 'FO-01', 'TE-07']);
     const tous = avecCodes(tissus, pls);
     assert.equal(avecCodes(tissus, tous), tous, 'deja codes : meme tableau');
+}
+
+{
+    // Laize qui change en cours d'ordre : deux jeux de traces, la laize du tissu choisit.
+    const pl = (id: string, laizeCm?: number) => ({ id, tissu: TISSU_PRINCIPAL, nom: id, ratios: { S: 1 }, laizeCm });
+    const ps = [pl('a150', 150), pl('b150', 149.8), pl('a145', 145), pl('b145', 145.2), pl('vide')];
+    assert.deepEqual(jeuxDeLaize(ps).map(j => [j.laizeCm, j.placements.map(p => p.id)]), [[150, ['a150', 'b150']], [145.2, ['b145', 'a145']]]);
+    const etroit = placementsActifs(ps, 146);
+    assert.equal(etroit.laizeJeu, 145.2);
+    assert.deepEqual(etroit.actifs.map(p => p.id), ['a145', 'b145', 'vide']);
+    assert.deepEqual(etroit.enReserve.map(p => p.id), ['a150', 'b150']);
+    // Le tissu revient a la normale : le jeu large reprend.
+    assert.deepEqual(placementsActifs(ps, 150).actifs.map(p => p.id), ['a150', 'b150', 'vide']);
+    // Rien ne tient : on le dit, on n'invente pas.
+    const rien = placementsActifs(ps, 140);
+    assert.equal(rien.aucunNeTient, true);
+    assert.deepEqual(rien.actifs.map(p => p.id), ['vide']);
+    // Un seul jeu, ou laize non saisie : tout reste actif, comme avant.
+    assert.equal(placementsActifs([pl('x', 150), pl('y', 150)], 140).actifs.length, 2);
+    assert.equal(placementsActifs(ps, undefined).actifs.length, 5);
 }
 
 console.log('ordreCoupe: OK');

@@ -25,7 +25,7 @@ import { matelasExecutes, metresPlis, presenceGroupes, tempsStandard } from '../
 import { planifierPlacements, decouperEnMatelas, nomPlacement, repartirPlis } from '../lib/planMatelas';
 import {
     TISSU_PRINCIPAL, TISSUS_PROPOSES, tissuDe, estPrincipal, migrerOrdre, appliquerPlacement, matelasDuPlacement,
-    plisPourPlacements, renumeroter, numeroSuivant, nomFichierMatelas, codeMatiere, codeTraceSuivant, type SensNumerotation,
+    plisPourPlacements, renumeroter, numeroSuivant, nomFichierMatelas, codeMatiere, codeTraceSuivant, placementsActifs, jeuxDeLaize, type SensNumerotation,
 } from '../lib/ordreCoupe';
 import ImportExcelCoupe, { type ChoixImport } from './coupe/ImportExcelCoupe';
 import SerieEtiquetage from './coupe/SerieEtiquetage';
@@ -1246,12 +1246,31 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
      */
     const calculerMatelas = () => {
         setConfirmCalcul(false);
+        // Laize changee en cours d'ordre : seul le jeu de traces qui tient dans le tissu sert.
+        const jeu = placementsActifs(placementsTissu, tissuCourant.laizeCm);
+        if (jeu.aucunNeTient) {
+            showToast(tx(lang, {
+                fr: `Aucun jeu de traces ne tient dans ${tissuCourant.laizeCm} cm. Corrigez la laize du tissu ou deposez les traces refaits a cette laize.`,
+                ar: `لا توجد مجموعة ملفات تسعها ${tissuCourant.laizeCm} سم. صحّح عرض الثوب أو ضع الملفات المعادة بهذا العرض.`,
+                en: `No marker set fits ${tissuCourant.laizeCm} cm.`,
+            }), 'error');
+            return;
+        }
+        if (jeuxDeLaize(placementsTissu).length >= 2 && !(Number(tissuCourant.laizeCm) > 0)) {
+            showToast(tx(lang, {
+                fr: 'Traces de plusieurs laizes dans cette matiere : choisissez la laize du tissu en cours au-dessus des placements. Si ce sont deux matieres differentes, separez-les avec « + Matiere ».',
+                ar: 'في هذه المادة ملفات بعدة عروض: اختر عرض الثوب الحالي فوق التركيبات. وإن كانتا مادتين مختلفتين، افصلهما بـ «+ Matière».',
+                en: 'Markers of several widths in this material: pick the current fabric width above the placements.',
+            }), 'error');
+            return;
+        }
+        const utilises = jeu.actifs;
         const nouvelles: MatelasLine[] = [];
         const manques: { couleur: string; tailles: [string, number][] }[] = [];
         for (const g of ciblesParCouleur()) {
             const reste = resteACouper(g.couleur, g.targets);
-            const r = plisPourPlacements(placementsTissu, reste, sizes);
-            for (const p of placementsTissu) {
+            const r = plisPourPlacements(utilises, reste, sizes);
+            for (const p of utilises) {
                 const plis = r.plis[p.id] || 0;
                 if (plis > 0) nouvelles.push(...matelasDuPlacement(p, g.couleur, plis, Number(autoMaxPly) || 100, 0));
             }
@@ -1266,7 +1285,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         if (manques.length) {
             // Ce qui reste a couper, puis pourquoi : une taille qu'aucun placement ne contient,
             // ou un reste plus petit que ce qu'un pli donne (S×2 ne coupe jamais un S seul).
-            const contenues = new Set(placementsTissu.flatMap(p => Object.entries(p.ratios || {}).filter(([, v]) => (Number(v) || 0) > 0).map(([t]) => t)));
+            const contenues = new Set(utilises.flatMap(p => Object.entries(p.ratios || {}).filter(([, v]) => (Number(v) || 0) > 0).map(([t]) => t)));
             const manquantes = [...new Set(manques.flatMap(m => m.tailles.map(([t]) => t)))];
             const sansPlacement = manquantes.filter(t => !contenues.has(t)).map(t => t.toUpperCase());
             const resteCourt = manquantes.filter(t => contenues.has(t)).map(t => t.toUpperCase());
@@ -1277,7 +1296,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 resteCourt.length ? `${resteCourt.join(', ')} : ${tx(lang, { fr: 'le reste est plus petit que ce qu\u2019un pli donne (ajoutez un placement a 1 piece ou coupez-le a part).', ar: 'الباقي أقلّ ممّا تعطيه طيّة واحدة (أضف تركيبة بقطعة واحدة أو اقطعه وحده).', en: 'the remainder is smaller than one ply gives.' })}` : '',
             ].filter(Boolean).join(' '), 'error');
         } else {
-            showToast(tx(lang, { fr: `${nouvelles.length} matelas crees, commande couverte exactement.`, ar: `أُنشئت ${nouvelles.length} مفرشة، والطلب مغطّى بالضبط.`, en: `${nouvelles.length} lays created, order covered exactly.` }), 'success');
+            const jeuTexte = jeu.laizeJeu ? tx(lang, { fr: ` Traces de laize ${jeu.laizeJeu} cm (${jeu.enReserve.length} d'une autre laize gardes pour les matelas deja coupes).`, ar: ` ملفات عرض ${jeu.laizeJeu} سم (${jeu.enReserve.length} من عرض آخر محفوظة للمفرشات المقصوصة).`, en: ` Markers of width ${jeu.laizeJeu} cm.` }) : '';
+            showToast(tx(lang, { fr: `${nouvelles.length} matelas crees, commande couverte exactement.`, ar: `أُنشئت ${nouvelles.length} مفرشة، والطلب مغطّى بالضبط.`, en: `${nouvelles.length} lays created, order covered exactly.` }) + jeuTexte, 'success');
         }
     };
 
@@ -3016,6 +3036,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         maxPlisDefaut={Number(autoMaxPly) || 100}
                                         rouleauM={tissuCourant.rouleauM}
                                         laizeTissuCm={tissuCourant.laizeCm}
+                                        onChoisirLaize={cm => majTissu(tissuCourant.id, { laizeCm: cm })}
+                                        nbCoupes={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id && l.fait).length]))}
                                         suggestions={suggestionsTrace}
                                         onAjouter={ajouterPlacement}
                                         onAjouterAvec={ajouterPlacementAvec}
@@ -4100,6 +4122,19 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         return perdues > 0 ? (
                             <p className="mt-3 px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-[12px] font-semibold text-rose-700 dark:text-rose-300">
                                 {tx(lang, { fr: `${perdues} paquet(s) de la serie ont deja une date, une entree ou une chaine : ces saisies partiront avec leurs matelas. Confirmez d\u2019abord les matelas deja coupes.`, ar: `${perdues} حزمة في السلسلة عليها تاريخ أو دخول أو سلسلة: ستضيع مع مفرشاتها. أكّد أولاً المفرشات المقصوصة.`, en: `${perdues} bundle(s) already have a date, entry or line: they will be lost with their lays. Confirm cut lays first.` })}
+                            </p>
+                        ) : null;
+                    })()}
+                    {(() => {
+                        // Deja envoye au traceur mais pas encore confirme : peut-etre sur la table en ce moment.
+                        const envoyes = lignesTissu.filter(l => !l.fait && l.envoyeLe);
+                        return envoyes.length ? (
+                            <p className="mt-3 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-[12px] font-semibold text-amber-800 dark:text-amber-300">
+                                {tx(lang, {
+                                    fr: `${envoyes.length} matelas deja envoye(s) au traceur (N° ${envoyes.map(l => l.numero).join(', ')}) seront aussi remplaces. S'ils sont sur la table, confirmez-les coupes d'abord.`,
+                                    ar: `${envoyes.length} مفرشة أُرسلت إلى الـ traceur (رقم ${envoyes.map(l => l.numero).join('، ')}) ستُستبدل أيضاً. إن كانت على الطاولة، أكّد قصّها أولاً.`,
+                                    en: `${envoyes.length} lay(s) already sent to the plotter will be replaced too. If on the table, confirm them cut first.`,
+                                })}
                             </p>
                         ) : null;
                     })()}

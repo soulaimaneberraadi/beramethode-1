@@ -392,3 +392,65 @@ export function migrerOrdre(o: OrdreCoupe, tailles: string[]): OrdreCoupe {
     for (const p of placements) if (!p.fichier && fichierPar.has(p.id)) p.fichier = fichierPar.get(p.id);
     return { ...o, tissus, placements: avecCodes(tissus, placements), matelasLines: nouvelles };
 }
+
+/* ------------------------------------------------------------------ */
+/* Jeux de traces par laize : le tissu change de largeur en cours d'ordre */
+/* ------------------------------------------------------------------ */
+
+/** Deux traces de laizes a moins de 0,5 cm l'une de l'autre sont du meme jeu. */
+export const TOLERANCE_LAIZE_CM = 0.5;
+
+export interface JeuLaize {
+    /** Laize des traces du jeu (la plus large du groupe), en cm. */
+    laizeCm: number;
+    placements: PlacementCoupe[];
+}
+
+/**
+ * Placements regroupes par laize du trace, du plus large au plus etroit.
+ * Un placement sans laize (pas encore de fichier) n'appartient a aucun jeu.
+ */
+export function jeuxDeLaize(placements: PlacementCoupe[]): JeuLaize[] {
+    const jeux: JeuLaize[] = [];
+    const tries = placements.filter(p => (p.laizeCm || 0) > 0).sort((a, b) => (b.laizeCm || 0) - (a.laizeCm || 0));
+    for (const p of tries) {
+        const j = jeux.find(x => Math.abs(x.laizeCm - (p.laizeCm || 0)) <= TOLERANCE_LAIZE_CM);
+        if (j) j.placements.push(p);
+        else jeux.push({ laizeCm: p.laizeCm || 0, placements: [p] });
+    }
+    return jeux;
+}
+
+export interface PlacementsActifs {
+    /** Placements que le calcul des matelas peut utiliser. */
+    actifs: PlacementCoupe[];
+    /** Laize du jeu retenu (null : un seul jeu, ou laize du tissu non saisie). */
+    laizeJeu: number | null;
+    /** Placements d'un autre jeu, gardes pour l'historique (matelas deja coupes). */
+    enReserve: PlacementCoupe[];
+    /** Plusieurs jeux et aucun ne tient dans la laize saisie. */
+    aucunNeTient: boolean;
+}
+
+/**
+ * Le tissu arrive plus etroit (ou plus large) en cours d'ordre : l'atelier refait
+ * les traces a la nouvelle laize. Les deux jeux restent dans l'ordre — les
+ * matelas deja coupes gardent leurs traces — et la laize saisie pour la matiere
+ * choisit celui qui sert au calcul : le plus large qui tient dans le tissu.
+ * Un seul jeu : rien ne change, tout est actif (l'alerte « plus large que le
+ * tissu » reste la pour le cas ou il ne tient pas).
+ */
+export function placementsActifs(placements: PlacementCoupe[], laizeTissuCm?: number): PlacementsActifs {
+    const jeux = jeuxDeLaize(placements);
+    if (jeux.length < 2 || !(Number(laizeTissuCm) > 0)) return { actifs: placements, laizeJeu: null, enReserve: [], aucunNeTient: false };
+    const jeu = jeux.find(j => j.laizeCm <= Number(laizeTissuCm) + TOLERANCE_LAIZE_CM);
+    const sansLaize = placements.filter(p => !((p.laizeCm || 0) > 0));
+    if (!jeu) return { actifs: sansLaize, laizeJeu: null, enReserve: placements.filter(p => !sansLaize.includes(p)), aucunNeTient: true };
+    const dedans = new Set([...jeu.placements, ...sansLaize]);
+    return {
+        actifs: placements.filter(p => dedans.has(p)),
+        laizeJeu: jeu.laizeCm,
+        enReserve: placements.filter(p => !dedans.has(p)),
+        aucunNeTient: false,
+    };
+}
