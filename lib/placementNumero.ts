@@ -297,6 +297,29 @@ export interface DemandePlacement {
      * qui deborde sur la piece voisine.
      */
     texteCourt?: string;
+    /** Texte entoure d'un cercle : c'est le cercle qui doit tenir dans la piece. */
+    cercle?: boolean;
+}
+
+/**
+ * Cadre rond autour d'un texte centre (unites du fichier) : deux demi-cercles
+ * de rayon `r` relies par des droites de demi-longueur `a`. Un numero court
+ * (« 7 ») donne un cercle (a = 0) ; « 77 TE » une pilule qui epouse le texte —
+ * un vrai cercle autour d'un texte long mesurait 20 cm de large.
+ */
+export function cadreTexte(nbCaracteres: number, largeurCm: number, hauteurCm: number, unitesParMm: number): { a: number; r: number } {
+    const l = nbCaracteres * largeurCm * AVANCE * 10 * unitesParMm;
+    const h = hauteurCm * 10 * unitesParMm;
+    const m = 2.5 * unitesParMm;
+    const r = h / 2 + m;
+    return { a: Math.max(0, l / 2 + m - r), r };
+}
+
+/** Ce qui doit tenir dans la piece : le texte, ou son cadre rond. */
+function boite(x: number, y: number, nb: number, largeurCm: number, hauteurCm: number, directionX: number, unitesParMm: number, cercle?: boolean): Rectangle {
+    if (!cercle) return empriseTexte(x, y, nb, largeurCm, hauteurCm, directionX, unitesParMm, 5);
+    const { a, r } = cadreTexte(nb, largeurCm, hauteurCm, unitesParMm);
+    return { minX: x - a - r, maxX: x + a + r, minY: y - r, maxY: y + r };
 }
 
 /**
@@ -314,7 +337,7 @@ export function placerNumero(d: DemandePlacement): Placement {
 
     if (d.positionLibre) {
         const x = e.x + ajX, y = e.y + ajY;
-        const tient = !!contour && rectangleDansContour(contour, empriseTexte(x, y, nb, d.largeurCm, d.hauteurCm, e.directionX, unitesParMm, 5));
+        const tient = !!contour && rectangleDansContour(contour, boite(x, y, nb, d.largeurCm, d.hauteurCm, e.directionX, unitesParMm, d.cercle));
         return { x, y, hauteurCm: d.hauteurCm, largeurCm: d.largeurCm, statut: tient ? 'ok' : 'force' };
     }
 
@@ -345,7 +368,7 @@ export function placerNumero(d: DemandePlacement): Placement {
     /** Le numero de taille `f`, centre en x,y, tient dans la piece (et evite le texte d'origine). */
     const tient = (x: number, y: number, f: number, eviterTexte: boolean) => {
         const t = taille(f);
-        const r = empriseTexte(x, y, nb, t.largeurCm, t.hauteurCm, e.directionX, unitesParMm, 5);
+        const r = boite(x, y, nb, t.largeurCm, t.hauteurCm, e.directionX, unitesParMm, d.cercle);
         return rectangleDansContour(contour, r) && (!eviterTexte || !seChevauchent(r, empriseOrigine));
     };
 
@@ -408,43 +431,70 @@ export function placerNumero(d: DemandePlacement): Placement {
     };
 }
 
+/** Points d'une grille fine sur la piece (candidats pour les copies du numero). */
+function grilleFine(contour: Contour, n: number): Array<[number, number]> {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [x, y] of contour.points) {
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+    const pts: Array<[number, number]> = [];
+    for (let i = 1; i < n; i++) for (let j = 1; j < n; j++) pts.push([minX + ((maxX - minX) * i) / n, minY + ((maxY - minY) * j) / n]);
+    return pts;
+}
+
+const agrandir = (r: Rectangle, m: number): Rectangle => ({ minX: r.minX - m, minY: r.minY - m, maxX: r.maxX + m, maxY: r.maxY + m });
+
 /**
- * Repete le numero dans une meme piece. Sur un dos ou un devant, un seul
- * numero au centre disparait des que le paquet est plie : en poser plusieurs
- * le rend lisible quel que soit le cote visible. Les copies qui ne tiennent
- * pas ne sont pas posees — mieux vaut deux numeros propres que quatre a
- * cheval sur le bord.
+ * Repete le numero dans une meme piece, reparti sur toute la piece.
+ *
+ * Une grande piece pliee dans le paquet ne montre qu'un bord : empiles au
+ * milieu, les numeros disparaissaient tous ensemble et l'ouvrier devait
+ * deplier ou retourner la piece pour les trouver. Chaque copie va donc la ou
+ * elle est le plus loin de celles deja posees (vers les bords et les coins),
+ * en restant a distance de la ligne de coupe pour que la lame ne la tranche pas.
+ * Les copies qui ne tiennent pas ne sont pas posees : mieux vaut deux numeros
+ * propres que quatre a cheval sur le bord.
  */
 export function placerNumeros(d: DemandePlacement, repetitions: number): Placement[] {
     const premier = placerNumero(d);
     const voulu = Math.max(1, Math.floor(repetitions) || 1);
-    if (voulu === 1 || !d.contour) return [premier];
+    if (voulu === 1 || !d.contour || d.positionLibre) return [premier];
 
     const { etiquette: e, contour, unitesParMm } = d;
     const nb = Math.max(1, (premier.texte ?? d.texte).length);
-    const sens = e.directionX < 0 ? -1 : 1;
-    const jeu = Math.abs(d.decalageMm * unitesParMm);
     const hNum = premier.hauteurCm * 10 * unitesParMm;
+    // Air entre deux numeros, et marge a garder avec la ligne de coupe.
+    const air = Math.max(Math.abs(d.decalageMm * unitesParMm), hNum * 0.3);
+    const margeBord = Math.max(5 * unitesParMm, hNum * 0.25);
 
     const poses: Placement[] = [premier];
     const emprises: Rectangle[] = [
-        empriseTexte(premier.x, premier.y, nb, premier.largeurCm, premier.hauteurCm, e.directionX, unitesParMm, 5),
+        boite(premier.x, premier.y, nb, premier.largeurCm, premier.hauteurCm, e.directionX, unitesParMm, d.cercle),
         empriseTexte(e.x, e.y, e.texte.length, e.largeurCm ?? 0.4, e.hauteurCm ?? 0.6, e.directionX, unitesParMm, e.origine),
     ];
 
-    for (let k = 1; k < voulu && poses.length < voulu; k++) {
-        const essais = [
-            premier.y - sens * (hNum + jeu) * k,
-            premier.y + sens * (hNum + jeu) * k,
-        ];
-        for (const y of essais) {
-            const emprise = empriseTexte(premier.x, y, nb, premier.largeurCm, premier.hauteurCm, e.directionX, unitesParMm, 5);
-            if (!rectangleDansContour(contour, emprise)) continue;
-            if (emprises.some(r => seChevauchent(emprise, r))) continue;
-            poses.push({ ...premier, y, statut: premier.statut });
-            emprises.push(emprise);
-            break;
+    // Places possibles, une fois : le numero y tient (avec sa marge au bord si possible).
+    const candidats: Array<{ x: number; y: number; r: Rectangle; marge: boolean }> = [];
+    for (const [x, y] of grilleFine(contour, 20)) {
+        const r = boite(x, y, nb, premier.largeurCm, premier.hauteurCm, e.directionX, unitesParMm, d.cercle);
+        if (!rectangleDansContour(contour, r)) continue;
+        candidats.push({ x, y, r, marge: rectangleDansContour(contour, agrandir(r, margeBord)) });
+    }
+    const avecMarge = candidats.some(c => c.marge);
+    const utiles = avecMarge ? candidats.filter(c => c.marge) : candidats;
+
+    while (poses.length < voulu) {
+        let meilleur: (typeof utiles)[number] | null = null;
+        let loin = -1;
+        for (const c of utiles) {
+            if (emprises.some(r => seChevauchent(agrandir(c.r, air / 2), r))) continue;
+            const dmin = Math.min(...poses.map(p => Math.hypot(p.x - c.x, p.y - c.y)));
+            if (dmin > loin) { loin = dmin; meilleur = c; }
         }
+        if (!meilleur) break;
+        poses.push({ ...premier, x: meilleur.x, y: meilleur.y, statut: premier.statut });
+        emprises.push(meilleur.r);
     }
 
     return poses;

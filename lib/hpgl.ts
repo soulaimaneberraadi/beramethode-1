@@ -331,6 +331,8 @@ export interface EtiquetteAAjouter {
     plume?: number;
     /** Inclinaison des caracteres en degres (SL) ; 0 ou absent = droit. */
     inclinaison?: number;
+    /** Cadre rond trace autour du texte, centre sur x,y (unites du fichier) : demi-longueur droite `a`, rayon `r`. */
+    cadre?: { a: number; r: number };
 }
 
 /**
@@ -366,6 +368,20 @@ const nb = (v: number) => Number(v.toFixed(3));
  * LO, position du crayon, mode PA/PR). Le texte d'origine s'ecrit donc comme
  * avant, au meme endroit, de la meme taille.
  */
+/**
+ * Cadre rond en HPGL absolu : un bord droit, un demi-cercle (AA, sens direct),
+ * l'autre bord, l'autre demi-cercle. Suit la direction du texte (DI), pour
+ * qu'un numero pose en travers garde son cadre dans le meme sens.
+ */
+export function cadreHpgl(x: number, y: number, a: number, r: number, dx: number, dy: number): string {
+    const n = Math.hypot(dx, dy) || 1;
+    const ux = dx / n, uy = dy / n;      // le long du texte
+    const vx = -uy, vy = ux;             // en travers
+    const pt = (s: number, t: number) => `${Math.round(x + ux * s + vx * t)},${Math.round(y + uy * s + vy * t)}`;
+    const centre = (s: number) => `${Math.round(x + ux * s)},${Math.round(y + uy * s)}`;
+    return `PU${pt(-a, -r)};PD${pt(a, -r)};AA${centre(a)},180;PD${pt(-a, r)};AA${centre(-a)},180;PU;`;
+}
+
 export function insererNumerosDansPieces(
     source: string,
     insertions: Array<{ ancre: EtiquetteHpgl; etiquettes: EtiquetteAAjouter[] }>,
@@ -393,6 +409,7 @@ export function insererNumerosDansPieces(
                 incline = true;
             }
             bloc += `LB${e.texte}${t}`;
+            if (e.cadre && e.cadre.r > 0) bloc += cadreHpgl(e.x, e.y, e.cadre.a, e.cadre.r, e.directionX ?? 1, e.directionY ?? 0);
         }
         // Etat attendu par le texte d'origine qui suit.
         if (incline) bloc += 'SL0;';

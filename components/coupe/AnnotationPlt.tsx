@@ -21,7 +21,7 @@ import SheetModal from '../shared/SheetModal';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import type { ReglagesNumero } from '../../types';
-import { contourContenant, pointDansContour, type Contour, type StatutPlacement } from '../../lib/placementNumero';
+import { cadreTexte, contourContenant, pointDansContour, type Contour, type StatutPlacement } from '../../lib/placementNumero';
 import {
     alertesPoses, analyserOctets, enBase64, numeroterPlt, octetsDepuisDataUrl, posesNumero, reglagesAvecDefaut, texteNumero,
     type AnalysePlt, type ContexteNumero,
@@ -84,7 +84,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
     /** Taille et style du numero, sans les retouches piece par piece. */
     const styleDe = (r: ReglagesNumero): ReglagesNumero => ({
         hauteurCm: r.hauteurCm, largeurCm: r.largeurCm, ecartMm: r.ecartMm, repetitions: r.repetitions,
-        format: r.format, gras: r.gras, inclinaison: r.inclinaison, opacite: r.opacite, modele: r.modele,
+        format: r.format, gras: r.gras, cercle: r.cercle, inclinaison: r.inclinaison, opacite: r.opacite, modele: r.modele,
     });
     const [numero, setNumero] = useState(numeroInitial);
     const [style, setStyle] = useState<ReglagesNumero>(() => styleDe(init));
@@ -723,9 +723,25 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                         const retourne = etiquette.directionX < 0;
                                         const actif = selection === index;
                                         const hauteur = placement.hauteurCm * 10 * lecture!.unitesParMm;
+                                        const ecrit = placement.texte ?? texteNumero(numero.trim() || '—', style, contexte);
+                                        const cadre = style.cercle ? cadreTexte(ecrit.length, placement.largeurCm, placement.hauteurCm, lecture!.unitesParMm) : null;
                                         return (
+                                            <React.Fragment key={`${index}-${rang}`}>
+                                            {cadre && (
+                                                <rect
+                                                    x={placement.x - cadre.a - cadre.r}
+                                                    y={sy - cadre.r}
+                                                    width={2 * (cadre.a + cadre.r)}
+                                                    height={2 * cadre.r}
+                                                    rx={cadre.r}
+                                                    fill="none"
+                                                    opacity={opacite / 100}
+                                                    strokeWidth={hauteur * 0.06}
+                                                    className={`${actif ? 'stroke-indigo-700 dark:stroke-indigo-300' : COULEUR_STATUT[placement.statut].replace('text-', 'stroke-')}`}
+                                                    pointerEvents="none"
+                                                />
+                                            )}
                                             <text
-                                                key={`${index}-${rang}`}
                                                 x={placement.x}
                                                 y={sy}
                                                 fontSize={hauteur}
@@ -744,8 +760,9 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                                 paintOrder="stroke"
                                             >
                                                 <title>{nomPiece(index)}</title>
-                                                {placement.texte ?? texteNumero(numero.trim() || '—', style, contexte)}
+                                                {ecrit}
                                             </text>
+                                            </React.Fragment>
                                         );
                                     })}
                                 </svg>

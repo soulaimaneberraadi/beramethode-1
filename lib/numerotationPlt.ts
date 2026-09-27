@@ -13,7 +13,7 @@ import {
     decoderOctets, encoderOctets, insererNumerosDansPieces, lireHpgl,
     type EtiquetteAAjouter, type EtiquetteHpgl, type LectureHpgl,
 } from './hpgl';
-import { contourContenant, contourDuTexte, contoursDePieces, placerNumeros, type Contour, type Placement } from './placementNumero';
+import { cadreTexte, contourContenant, contourDuTexte, contoursDePieces, placerNumeros, type Contour, type Placement } from './placementNumero';
 
 /**
  * Un numero se lit de loin, a la table : grand par defaut. La transparence ne
@@ -204,6 +204,7 @@ export function posesNumero(a: AnalysePlt, numero: string, r: ReglagesNumero, ct
                 ajustementYmm: aj?.y ?? 0,
                 positionLibre: !!aj?.libre,
                 texteCourt,
+                cercle: !!r.cercle,
             }, r.repetitions || 1).map((placement, rang) => ({ index, rang, etiquette, placement }));
         });
 }
@@ -226,10 +227,11 @@ export function numeroterPlt(a: AnalysePlt, numero: string, r: ReglagesNumero, c
             directionY: etiquette.directionY,
             plume: etiquette.plume,
             inclinaison: r.inclinaison || 0,
+            cadre: r.cercle ? cadreTexte((placement.texte ?? texte).length, placement.largeurCm, placement.hauteurCm, u) : undefined,
         };
         // Gras : le meme numero repasse avec un decalage d'un trait de plume (~0,4 mm).
         // Optitex, lui, y lit deux textes : a eviter pour un fichier qui y repasse.
-        const etiquettes = r.gras ? [base, { ...base, x: base.x + 0.4 * u, y: base.y + 0.2 * u }] : [base];
+        const etiquettes = r.gras ? [base, { ...base, x: base.x + 0.4 * u, y: base.y + 0.2 * u, cadre: undefined }] : [base];
         return { ancre: etiquette, etiquettes };
     });
     return encoderOctets(insererNumerosDansPieces(a.source, insertions));

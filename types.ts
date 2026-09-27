@@ -627,6 +627,8 @@ export interface ReglagesNumero {
   format?: 'nu' | 'parentheses' | 'crochets' | 'no' | 'tirets';
   /** Trait double, legerement decale : plus lisible sur un tissu fonce ou chine. */
   gras?: boolean;
+  /** Le texte (numero, « 77 TE »...) entoure d'un cercle trace : on le trouve d'un coup d'oeil sur la piece. */
+  cercle?: boolean;
   /** Inclinaison des caracteres, en degres (0 = droit). */
   inclinaison?: number;
   /** Transparence de l'apercu seulement (le traceur, lui, ecrit plein), en %. */

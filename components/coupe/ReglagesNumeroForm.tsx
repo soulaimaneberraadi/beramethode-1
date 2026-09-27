@@ -87,6 +87,15 @@ export default function ReglagesNumeroForm({ valeur, onChange, exemple = '77', a
                     </div>
                 </div>
                 <div>
+                    <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1 uppercase tracking-wide">{L('Cadre', 'الإطار', 'Frame')}</span>
+                    <div className="flex gap-1">
+                        <button type="button" onClick={() => maj({ cercle: false })} className={puce(!valeur.cercle)}>{L('Sans', 'بدون', 'None')}</button>
+                        <button type="button" onClick={() => maj({ cercle: true })} className={puce(!!valeur.cercle)} title={L('Le texte entoure d’un cadre rond : on le trouve d’un coup d’oeil sur la piece', 'النص داخل إطار دائري: يُرى بسرعة على القطعة', 'Text inside a round frame')}>
+                            <span className="inline-flex items-center justify-center px-1.5 h-5 rounded-full border-[1.5px] border-current leading-none">{exemple}</span>
+                        </button>
+                    </div>
+                </div>
+                <div>
                     <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1 uppercase tracking-wide">{L('Trait', 'الخط', 'Stroke')}</span>
                     <div className="flex gap-1">
                         <button type="button" onClick={() => maj({ gras: false })} className={puce(!valeur.gras)}>{L('Normal', 'عادي', 'Normal')}</button>
