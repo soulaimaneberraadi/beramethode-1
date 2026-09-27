@@ -13,7 +13,7 @@ import type { MatelasFichier, MatelasLine, PlacementCoupe, ReglagesNumero, Tissu
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { metresPlis, longueurManquante, minutesPrevues, texteDuree, type TempsStandard } from '../../lib/coupeAtelier';
-import { codeMatiere, nomFichierMatelas } from '../../lib/ordreCoupe';
+import { codeMatiere, nomFichierMatelas, placementPourLigne } from '../../lib/ordreCoupe';
 import { analyserFichier, numeroterPlt, reglagesAvecDefaut } from '../../lib/numerotationPlt';
 import { grilleClavier } from './grilleClavier';
 import { problemeTrace } from './TablePlacements';
@@ -49,6 +49,8 @@ interface Props {
     renderActions: (l: MatelasLine) => React.ReactNode;
     /** Temps standard appris des matelas chronometres : donne la duree de coupe qui reste. */
     tempsStd?: TempsStandard | null;
+    /** Laize du tissu en cours : un matelas coupe sur une autre laize garde le trace de celle-ci. */
+    laizeActive?: string;
 }
 
 /** Colonnes collees a gauche : largeurs fixes, sinon la seconde chevauche la suite en defilant. */
@@ -98,7 +100,7 @@ function Choix({ valeur, options, onChoisir, vide, cellule }: { valeur: React.Re
 export default function TableMatelas({
     lignes, placements, tissu, tailles, couleurs, commande, pastille, fichierDe,
     onModifier, onInserer, onApercu, onMessage, deposer, renderEtat, renderMatiere, renderActions,
-    onSupprimerLignes, onDupliquerLignes, onDeplacerLigne, reglagesDefaut, onConfirmerLignes, tempsStd,
+    onSupprimerLignes, onDupliquerLignes, onDeplacerLigne, reglagesDefaut, onConfirmerLignes, tempsStd, laizeActive,
 }: Props) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
@@ -177,7 +179,12 @@ export default function TableMatelas({
         else if (!enSaisie && e.key === 'Escape') setChoisies(new Set());
     };
 
-    const placementDe = (l: MatelasLine) => placements.find(p => p.id === l.placementId);
+    const placementDe = (l: MatelasLine) => {
+        const p = placements.find(x => x.id === l.placementId);
+        return p ? placementPourLigne(p, l, laizeActive) : undefined;
+    };
+    /** Le matelas est sur la laize en cours (les alertes de trace ne valent que pour elle). */
+    const surLaizeActive = (l: MatelasLine) => !l.laizeId || !laizeActive || l.laizeId === laizeActive;
     /** Trace qui ne correspond pas a sa ligne (taille hors commande, tailles differentes) : signale sur chaque matelas. */
     const problemes = useMemo(() => Object.fromEntries(placements.map(p => [p.id, problemeTrace(p, tailles)])), [placements, tailles]);
     const piecesTaille = (l: MatelasLine, t: string) => (l.plis || 0) * (Number(l.ratios?.[t]) || 0);
@@ -263,7 +270,7 @@ export default function TableMatelas({
 
     /** Un trace qui ne correspond pas a sa ligne ne part pas au traceur : la table couperait autre chose que ce qui est compte. */
     const traceBloque = (ls: MatelasLine[]): boolean => {
-        const faux = ls.map(l => placementDe(l)).find(p => p && problemes[p.id]);
+        const faux = ls.filter(surLaizeActive).map(l => placementDe(l)).find(p => p && problemes[p.id]);
         if (!faux) return false;
         onMessage(`${problemes[faux.id]}. ${L('Corrigez le placement (ou « C’est voulu ») avant d’envoyer au traceur.', 'صحّح التركيبة (أو «مقصود») قبل الإرسال إلى الـ traceur.', 'Fix the placement (or mark it intended) before plotting.')}`, 'error');
         return true;
@@ -724,7 +731,7 @@ export default function TableMatelas({
                                                             <GripVertical className="w-3 h-3 text-indigo-400 shrink-0" />
                                                             <span className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 truncate">{nomSortie(l, p!)}</span>
                                                         </span>
-                                                        {problemes[p!.id] && (
+                                                        {problemes[p!.id] && surLaizeActive(l) && (
                                                             <span className="p-1 text-rose-600 shrink-0" title={`${problemes[p!.id]} — ${L('verifiez le placement avant de tracer', 'راجع التركيبة قبل الإرسال', 'check the placement before plotting')}`}>
                                                                 <AlertTriangle className="w-3.5 h-3.5" />
                                                             </span>

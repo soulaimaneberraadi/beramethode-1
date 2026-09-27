@@ -8,11 +8,11 @@
  */
 import React, { useMemo, useRef, useState } from 'react';
 import { Eye, FileText, Plus, Trash2, Upload, X, AlertTriangle, RotateCcw, Files } from 'lucide-react';
-import type { MatelasFichier, PlacementCoupe } from '../../types';
+import type { LaizeCoupe, MatelasFichier, PlacementCoupe } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { nomPlacement } from '../../lib/planMatelas';
-import { associerTailles, jeuxDeLaize, lireEntete, lireNotation, placementsActifs, TOLERANCE_LAIZE_CM } from '../../lib/ordreCoupe';
+import { associerTailles, lireEntete, lireNotation } from '../../lib/ordreCoupe';
 import { analyserFichier, analyserTexte } from '../../lib/numerotationPlt';
 import { decoderOctets } from '../../lib/hpgl';
 import { grilleClavier } from './grilleClavier';
@@ -30,9 +30,14 @@ interface Props {
     rouleauM?: number;
     /** Laize reelle du tissu (cm), pour verifier que chaque trace tient et ce qu'il perd en largeur. */
     laizeTissuCm?: number;
-    /** La laize du tissu en cours change : choisit le jeu de traces qui sert au calcul. */
-    onChoisirLaize?: (laizeCm: number) => void;
-    /** Matelas deja coupes par placement : un jeu en reserve les garde. */
+    /** Laizes du tissu recues pour cet ordre (une seule tant qu'elle n'a pas change) et celle en cours. */
+    laizes?: LaizeCoupe[];
+    laizeActive?: string;
+    /** Le tissu change de laize : l'appelant demande confirmation avant de basculer. */
+    onChoisirLaize?: (laizeId: string) => void;
+    /** « + » : le tissu arrive a une nouvelle laize (cm). */
+    onCreerLaize?: (cm: number) => void;
+    /** Matelas deja coupes, par placement, sur la laize en cours : leur trace ne se remplace pas par un autre de laize differente. */
     nbCoupes?: Record<string, number>;
     /** Traces deja faits pour ce modele dans d'autres ordres, avec le meme melange de tailles. */
     suggestions?: (p: PlacementCoupe) => { source: string; placement: PlacementCoupe }[];
@@ -127,7 +132,7 @@ export function codeDuNomFichier(nom: string): string | undefined {
     return mot ? mot[1] : undefined;
 }
 
-export default function TablePlacements({ placements, tailles, nbMatelas, consoTotale, maxPlisDefaut, rouleauM, laizeTissuCm, onChoisirLaize, nbCoupes, suggestions, onAjouter, onAjouterAvec, prefixeCode = 'TE', onModifier, onSupprimer, onApercu, onMessage }: Props) {
+export default function TablePlacements({ placements, tailles, nbMatelas, consoTotale, maxPlisDefaut, rouleauM, laizeTissuCm, laizes = [], laizeActive, onChoisirLaize, onCreerLaize, nbCoupes, suggestions, onAjouter, onAjouterAvec, prefixeCode = 'TE', onModifier, onSupprimer, onApercu, onMessage }: Props) {
     const { lang } = useLang();
     const inputRef = useRef<HTMLInputElement>(null);
     const cibleFichier = useRef<string | null>(null);
@@ -161,11 +166,17 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
 
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
 
-    /* Jeux de traces par laize : le tissu a change de largeur en cours d'ordre. */
-    const jeux = useMemo(() => jeuxDeLaize(placements), [placements]);
-    const actifs = useMemo(() => placementsActifs(placements, laizeTissuCm), [placements, laizeTissuCm]);
-    const enReserve = useMemo(() => new Set(actifs.enReserve.map(p => p.id)), [actifs]);
-    const memeLaize = (a?: number, b?: number) => !(a && b) || Math.abs(a - b) <= TOLERANCE_LAIZE_CM;
+    const memeLaize = (a?: number, b?: number) => !(a && b) || Math.abs(a - b) <= 0.5;
+    const [nouvelleLaize, setNouvelleLaize] = useState<number | '' | null>(null);
+    /**
+     * Un placement dont des matelas sont deja coupes sur la laize en cours ne
+     * prend pas un trace d'une autre laize : ce serait refaire en silence le trace
+     * de ces matelas. Il faut d'abord creer la nouvelle laize (« + »).
+     */
+    const refusLaize = (p: PlacementCoupe, laizeFichier?: number): string | null => {
+        if (!((nbCoupes?.[p.id] || 0) > 0) || !p.fichier || memeLaize(p.laizeCm, laizeFichier)) return null;
+        return `${p.code || p.nom} : ${L('trace en', 'الملف بعرض', 'marker at')} ${laizeFichier} cm, ${L('le tissu en cours est a', 'والثوب الحالي', 'current fabric is')} ${p.laizeCm} cm ${L(`et ${nbCoupes?.[p.id]} matelas sont deja coupes avec l'ancien trace. Creez la laize ${laizeFichier} cm avec « + », puis deposez-le.`, `و${nbCoupes?.[p.id]} مفرشة قُصّت بالملف القديم. أنشئ العرض ${laizeFichier} سم بـ «+» ثم ضعه.`, `and lays were already cut with the old one. Create the ${laizeFichier} cm width with "+" first.`)}`;
+    };
 
     /** Rend les tailles du fichier absentes de la commande ; `silencieux` : l'appelant fait un seul message pour tout un lot. */
     const adopterFichier = async (id: string, f: File, connu?: PlacementCoupe, silencieux = false): Promise<string[]> => {
@@ -184,18 +195,8 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
             const [data, octets] = await Promise.all([lireDataUrl(f), lireOctets(f)]);
             const analyse = analyserTexte(decoderOctets(octets));
             const entete = lireEntete(analyse.entete);
-            /*
-             * Trace refait a une autre laize sur un placement qui a deja son fichier :
-             * c'est un nouveau jeu, pas un remplacement. L'ancien reste pour les
-             * matelas deja coupes (leur trace numerote doit rester celui qu'ils ont eu).
-             */
-            if (!silencieux && p.fichier && p.laizeCm && entete.laizeCm && !memeLaize(p.laizeCm, entete.laizeCm) && onAjouterAvec) {
-                const idNouveau = onAjouterAvec({ code: p.code, nom: p.nom, ratios: { ...(p.ratios || {}) }, maxPlis: p.maxPlis });
-                const r = await adopterFichier(idNouveau, f, { id: idNouveau, tissu: p.tissu, nom: p.nom, ratios: { ...(p.ratios || {}) }, code: p.code }, true);
-                onMessage(`${L('Laize', 'العرض', 'Width')} ${entete.laizeCm} cm ≠ ${p.laizeCm} cm : ${L('nouveau placement cree pour ce trace, l\u2019ancien est garde pour les matelas deja coupes.', 'أُنشئت تركيبة جديدة لهذا الملف، والقديمة محفوظة للمفرشات المقصوصة.', 'new placement created; the old one is kept for cut lays.')}`, 'info');
-                if (onChoisirLaize) onChoisirLaize(entete.laizeCm);
-                return r;
-            }
+            const refus = refusLaize(p, entete.laizeCm);
+            if (refus) { onMessage(refus, 'error'); return []; }
             const fichier: MatelasFichier = { id: `FIL-${Date.now()}-${Math.floor(Math.random() * 1000)}`, nom: f.name, format: 'PLT', data, size: f.size };
             const patch: Partial<PlacementCoupe> = {
                 fichier,
@@ -249,7 +250,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
         const plts = fichiers.filter(f => /\.(plt|hpgl|hgl|prn)$/i.test(f.name));
         if (!plts.length) { onMessage(L('Aucun fichier .plt.', 'لا يوجد ملف plt.', 'No .plt file.'), 'error'); return; }
         const pris = new Set<string>();
-        const laizesDeposees = new Set<number>();
+        const refuses: string[] = [];
         let relies = 0, crees = 0;
         const absentes = new Map<string, string[]>();
         for (const f of plts) {
@@ -261,13 +262,14 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                 if (e.tailles) { brut = e.tailles; ratios = associerTailles(e.tailles, tailles).ratios; }
                 laizeFichier = e.laizeCm;
             } catch { /* illisible : adopterFichier le dira */ }
-            if (laizeFichier) laizesDeposees.add(laizeFichier);
             const code = codeDuNomFichier(f.name);
-            // Meme code mais autre laize : trace refait pour un autre tissu, il ne remplace pas l'ancien.
-            const cible = (code && placements.find(p => !pris.has(p.id) && (p.code || '').toUpperCase() === code && (!p.fichier || memeLaize(p.laizeCm, laizeFichier))))
+            const cible = (code && placements.find(p => !pris.has(p.id) && (p.code || '').toUpperCase() === code))
                 || (Object.keys(ratios).length ? placements.find(p => !pris.has(p.id) && !p.fichier && memesRatios(p.ratios || {}, ratios)) : undefined);
             let manque: string[] = [];
-            if (cible) {
+            if (cible && refusLaize(cible, laizeFichier)) {
+                pris.add(cible.id);
+                refuses.push(cible.code || cible.nom);
+            } else if (cible) {
                 pris.add(cible.id);
                 manque = await adopterFichier(cible.id, f, cible, true);
                 relies++;
@@ -281,11 +283,8 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
             }
             manque.forEach(t => absentes.set(t, [...(absentes.get(t) || []), f.name]));
         }
-        // Un nouveau jeu de traces (autre laize que ceux deja la) devient le jeu du tissu en cours.
-        const nouvelleLaize = laizesDeposees.size === 1 ? [...laizesDeposees].find(l => jeux.length > 0 && !jeux.some(j => memeLaize(j.laizeCm, l))) : undefined;
-        if (nouvelleLaize && onChoisirLaize) onChoisirLaize(nouvelleLaize);
-        const bilan = `${plts.length} ${L('trace(s) :', 'ملف:', 'trace(s):')} ${relies} ${L('relie(s) a leur placement', 'رُبط بتركيبته', 'linked')}${crees ? `, ${crees} ${L('nouveau(x) placement(s)', 'تركيبة جديدة', 'new placement(s)')}` : ''}.${nouvelleLaize ? ` ${L(`Nouveau jeu de laize ${nouvelleLaize} cm : c'est lui qui sert au calcul, les anciens traces restent pour les matelas deja coupes.`, `مجموعة جديدة بعرض ${nouvelleLaize} سم: هي التي تُستعمل في الحساب، والملفات القديمة تبقى للمفرشات المقصوصة.`, `New ${nouvelleLaize} cm set is now used.`)}` : ''}`;
-        if (absentes.size) {
+        const bilan = `${plts.length} ${L('trace(s) :', 'ملف:', 'trace(s):')} ${relies} ${L('relie(s) a leur placement', 'رُبط بتركيبته', 'linked')}${crees ? `, ${crees} ${L('nouveau(x) placement(s)', 'تركيبة جديدة', 'new placement(s)')}` : ''}.${refuses.length ? ` ${refuses.length} ${L('refuse(s)', 'مرفوض', 'refused')} (${refuses.join(', ')}) : ${L('laize differente de celle du tissu en cours, alors que des matelas sont deja coupes. Creez la nouvelle laize avec « + ».', 'عرض مختلف عن الثوب الحالي وقد قُصّت مفرشات. أنشئ العرض الجديد بـ «+».', 'other width while lays are already cut. Create the new width with "+".')}` : ''}`;
+        if (absentes.size || refuses.length) {
             onMessage(`${bilan} ${L('Taille(s) absente(s) de la commande :', 'مقاسات غير موجودة في الطلب:', 'Sizes not in the order:')} ${[...absentes.keys()].join(', ')} — ${L('ajoutez-la aux tailles du modele, leurs placements restent sans quantite en attendant.', 'أضفها إلى مقاسات الموديل، وتبقى تركيباتها بلا كمية حتى ذلك.', 'add it to the model sizes; those placements stay empty meanwhile.')}`, 'error');
         } else {
             onMessage(bilan, 'success');
@@ -324,37 +323,65 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                 onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f && cibleFichier.current) adopterFichier(cibleFichier.current, f); }}
             />
             <input ref={multiRef} type="file" multiple accept=".plt,.hpgl,.hgl,.prn" className="hidden" onChange={e => { const fs = Array.from(e.target.files || []); e.target.value = ''; if (fs.length) deposerPlusieurs(fs); }} />
-            {jeux.length >= 2 && (
-                <div className="mb-2 p-2.5 rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50/60 dark:bg-sky-900/10">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11px] font-bold text-sky-800 dark:text-sky-300 mr-1">{L('Laize du tissu en cours', 'عرض الثوب الحالي', 'Current fabric width')} :</span>
-                        {jeux.map(j => {
-                            const actif = actifs.laizeJeu !== null && Math.abs(actifs.laizeJeu - j.laizeCm) <= TOLERANCE_LAIZE_CM;
-                            const coupes = j.placements.reduce((n, p) => n + (nbCoupes?.[p.id] || 0), 0);
-                            return (
-                                <button
-                                    key={j.laizeCm}
-                                    type="button"
-                                    onClick={() => onChoisirLaize?.(j.laizeCm)}
-                                    disabled={!onChoisirLaize}
-                                    className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-md border text-[11px] font-semibold transition-colors ${actif ? 'bg-sky-600 border-sky-600 text-white' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:border-sky-400'}`}
-                                    title={L('Les matelas se calculent avec les traces de cette laize. Les autres restent pour les matelas deja coupes.', 'تُحسب المفرشات بملفات هذا العرض، والباقي يبقى للمفرشات المقصوصة.', 'Lays are computed with this width; the others stay for cut lays.')}
-                                >
-                                    {j.laizeCm} cm
-                                    <span className={actif ? 'text-sky-100' : 'text-slate-400'}>· {j.placements.length} {L('traces', 'ملف', 'markers')}{coupes ? ` · ${coupes} ${L('coupes', 'مقصوصة', 'cut')}` : ''}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                    <p className="mt-1.5 text-[10px] text-sky-800/80 dark:text-sky-300/80">
-                        {actifs.aucunNeTient
-                            ? L(`Aucun jeu ne tient dans ${laizeTissuCm} cm : choisissez la laize du tissu en cours.`, `لا توجد مجموعة تسعها ${laizeTissuCm} سم: اختر عرض الثوب الحالي.`, `No set fits ${laizeTissuCm} cm.`)
-                            : actifs.laizeJeu === null
-                                ? L('Plusieurs laizes : choisissez celle du tissu en cours, sinon le calcul melange les deux jeux.', 'عدة عروض: اختر عرض الثوب الحالي، وإلا خلط الحساب المجموعتين.', 'Several widths: pick the current one.')
-                                : L('« Calculer les matelas » recalcule seulement ce qui reste a couper, avec ce jeu. Les matelas coupes gardent leur trace et leur numero ; la suite continue apres le dernier.', '«Calculer les matelas» يعيد حساب الباقي فقط بهذه المجموعة. المفرشات المقصوصة تحتفظ بملفها ورقمها، والترقيم يكمل بعد آخر رقم.', 'Only what is left is recomputed with this set.')}
-                    </p>
-                </div>
-            )}
+            {/* Laize du tissu : une seule tant qu'elle ne change pas ; « + » quand le tissu arrive a une autre largeur. */}
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mr-0.5">{L('Laize du tissu', 'عرض الثوب', 'Fabric width')}</span>
+                {laizes.length === 0 && (
+                    <span className="h-8 px-2.5 inline-flex items-center rounded-md border border-dashed border-slate-300 text-[11px] text-slate-400">{L('non saisie', 'غير مُدخل', 'not set')}</span>
+                )}
+                {laizes.map(z => {
+                    const actif = z.id === laizeActive;
+                    return (
+                        <button
+                            key={z.id}
+                            type="button"
+                            onClick={() => { if (!actif) onChoisirLaize?.(z.id); }}
+                            disabled={actif || !onChoisirLaize}
+                            className={`h-8 px-3 inline-flex items-center gap-1 rounded-md border text-[12px] font-bold transition-colors ${actif ? 'bg-sky-600 border-sky-600 text-white cursor-default' : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border text-slate-600 dark:text-dk-text-soft hover:border-sky-400'}`}
+                            title={actif
+                                ? L('Laize du tissu en cours : ses traces servent au calcul et au suivi', 'عرض الثوب الحالي: ملفاته تُستعمل في الحساب والمتابعة', 'Current fabric width')
+                                : L('Revenir a cette laize (a confirmer)', 'الرجوع إلى هذا العرض (بعد التأكيد)', 'Switch to this width (to confirm)')}
+                        >
+                            {z.cm} cm
+                        </button>
+                    );
+                })}
+                {onCreerLaize && (nouvelleLaize === null ? (
+                    <button
+                        type="button"
+                        onClick={() => setNouvelleLaize('')}
+                        className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-dashed border-slate-300 dark:border-dk-border text-slate-500 hover:border-sky-400 hover:text-sky-600"
+                        title={L('Le tissu arrive a une autre laize : creer la nouvelle', 'وصل الثوب بعرض آخر: أنشئ العرض الجديد', 'Fabric arrives at another width')}
+                    >
+                        <Plus className="w-4 h-4" />
+                    </button>
+                ) : (
+                    <span className="inline-flex items-center gap-1">
+                        <input
+                            autoFocus
+                            type="number"
+                            inputMode="decimal"
+                            value={nouvelleLaize}
+                            onChange={e => setNouvelleLaize(e.target.value === '' ? '' : Number(e.target.value))}
+                            onKeyDown={e => {
+                                if (e.key === 'Escape') setNouvelleLaize(null);
+                                if (e.key === 'Enter' && typeof nouvelleLaize === 'number' && nouvelleLaize > 0) { onCreerLaize(nouvelleLaize); setNouvelleLaize(null); }
+                            }}
+                            placeholder="cm"
+                            className="w-20 h-8 px-2 rounded-md border border-sky-300 bg-white dark:bg-dk-bg text-[12px] font-bold outline-none focus:border-sky-500"
+                        />
+                        <button
+                            type="button"
+                            disabled={!(typeof nouvelleLaize === 'number' && nouvelleLaize > 0)}
+                            onClick={() => { if (typeof nouvelleLaize === 'number' && nouvelleLaize > 0) { onCreerLaize(nouvelleLaize); setNouvelleLaize(null); } }}
+                            className="h-8 px-2.5 rounded-md bg-sky-600 text-white text-[11px] font-semibold disabled:opacity-40"
+                        >
+                            {L('Creer', 'إنشاء', 'Create')}
+                        </button>
+                        <button type="button" onClick={() => setNouvelleLaize(null)} className="h-8 w-8 inline-flex items-center justify-center rounded-md text-slate-400 hover:bg-slate-100"><X className="w-3.5 h-3.5" /></button>
+                    </span>
+                ))}
+            </div>
             <div
                 className={`overflow-x-auto rounded-lg ${survolTable ? 'ring-2 ring-indigo-300' : ''}`}
                 onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); setSurvolTable(true); } }}
@@ -389,7 +416,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                             const brouillon = brouillons[p.id];
                             const nomInvalide = brouillon !== undefined && brouillon.trim() !== '' && !lireNotation(brouillon, tailles);
                             return (
-                                <tr key={p.id} className={`align-top hover:bg-slate-50 dark:hover:bg-dk-elevated/40 ${enReserve.has(p.id) ? 'opacity-50' : ''}`} title={enReserve.has(p.id) ? L(`Laize ${p.laizeCm} cm : en reserve, hors du calcul`, `عرض ${p.laizeCm} سم: محفوظة، خارج الحساب`, `Width ${p.laizeCm} cm: kept, not used`) : undefined}>
+                                <tr key={p.id} className="align-top hover:bg-slate-50 dark:hover:bg-dk-elevated/40">
                                     <td className="py-1 px-2">
                                         <input
                                             value={p.code || ''}
@@ -476,12 +503,12 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                                         </div>
                                                     );
                                                 })()}
-                                                {!enReserve.has(p.id) && laizeTissuCm && p.laizeCm && p.laizeCm > laizeTissuCm + 0.5 ? (
+                                                {laizeTissuCm && p.laizeCm && p.laizeCm > laizeTissuCm + 0.5 ? (
                                                     <div className="flex items-center gap-1 mt-0.5 px-1.5 py-1 rounded bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
                                                         <AlertTriangle className="w-3 h-3 shrink-0" />
                                                         {L(`Trace ${p.laizeCm} cm plus large que le tissu (${laizeTissuCm} cm)`, `التفصيلة ${p.laizeCm} سم أعرض من الثوب (${laizeTissuCm} سم)`, `Marker ${p.laizeCm} cm wider than fabric (${laizeTissuCm} cm)`)}
                                                     </div>
-                                                ) : !enReserve.has(p.id) && laizeTissuCm && p.laizeCm && laizeTissuCm - p.laizeCm >= 2 ? (
+                                                ) : laizeTissuCm && p.laizeCm && laizeTissuCm - p.laizeCm >= 2 ? (
                                                     <div className="mt-0.5 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/20 text-[10px] font-semibold text-amber-700 dark:text-amber-300" title={L('Bande de tissu non utilisee a chaque pli', 'شريط من الثوب لا يُستعمل في كل طيّة', 'Unused fabric strip on every ply')}>
                                                         {L('Perte en largeur', 'ضياع في العرض', 'Width loss')} {(laizeTissuCm - p.laizeCm).toFixed(1)} cm ({(((laizeTissuCm - p.laizeCm) / laizeTissuCm) * 100).toFixed(1)}%)
                                                     </div>

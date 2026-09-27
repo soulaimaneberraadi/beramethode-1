@@ -574,6 +574,8 @@ export interface MatelasLine {
    * encore confirme coupe.
    */
   envoyeLe?: string;
+  /** Laize (`TissuCoupe.laizes[].id`) du tissu sur lequel ce matelas est coupe : son trace est celui de cette laize. */
+  laizeId?: string;
 }
 
 /** Une matiere a couper pour l'ordre : tissu principal, vlieseline, doublure, organza... */
@@ -594,6 +596,21 @@ export interface TissuCoupe {
    * (« 77 TE », « 77 VSLIN ») et nom de sa feuille Excel (« FO », « EN »).
    */
   code?: string;
+  /**
+   * Laizes du tissu recues pour cet ordre. Vide tant que la laize n'a jamais
+   * change : une seule laize, celle de `laizeCm`. Quand le tissu arrive plus
+   * etroit ou plus large, l'atelier en cree une autre et refait ses traces.
+   */
+  laizes?: LaizeCoupe[];
+  /** Laize du tissu en cours (id dans `laizes`) : ses traces servent au calcul. */
+  laizeActive?: string;
+}
+
+/** Une laize de tissu recue pendant l'ordre. */
+export interface LaizeCoupe {
+  id: string;
+  cm: number;
+  creeLe: string;
 }
 
 /** Numerotation d'un trace, gardee pour tous les matelas qui l'etalent. */
@@ -662,7 +679,17 @@ export interface PlacementCoupe {
   /** Plis au plus par matelas pour ce placement. */
   maxPlis?: number;
   numerotation?: ReglagesNumero;
+  /**
+   * Traces des autres laizes (cle : id de laize). Les champs du placement
+   * (fichier, longueur, laize...) sont ceux de la laize en cours ; changer de
+   * laize les range ici et ressort ceux de l'autre. Les matelas deja coupes
+   * retrouvent ainsi le trace de leur laize.
+   */
+  tracesLaize?: Record<string, TraceLaize>;
 }
+
+/** Ce qui change d'une laize a l'autre dans un placement : le trace et ce qu'on en lit. */
+export type TraceLaize = Pick<PlacementCoupe, 'fichier' | 'longueurM' | 'laizeCm' | 'efficience' | 'taillesTrace' | 'taillesFichier' | 'ecartAccepte' | 'numerotation'>;
 
 /** Equipe de coupe : quelques ouvriers de la RH qui etalent et coupent ensemble. */
 export interface GroupeCoupe {

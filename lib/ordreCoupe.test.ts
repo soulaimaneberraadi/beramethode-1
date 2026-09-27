@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import type { MatelasLine, OrdreCoupe } from '../types';
 import {
-    associerTailles, avecCodes, estPrincipal, jeuxDeLaize, placementsActifs, lireEntete, lireNotation, matelasDuPlacement, migrerOrdre,
+    associerTailles, avecCodes, changerLaize, creerLaize, estPrincipal, laizesDe, placementPourLigne, lireEntete, lireNotation, matelasDuPlacement, migrerOrdre,
     nomFichierMatelas, numeroSuivant, plisPourPlacements, renumeroter, TISSU_PRINCIPAL,
 } from './ordreCoupe';
 
@@ -151,23 +151,47 @@ const T = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
 }
 
 {
-    // Laize qui change en cours d'ordre : deux jeux de traces, la laize du tissu choisit.
-    const pl = (id: string, laizeCm?: number) => ({ id, tissu: TISSU_PRINCIPAL, nom: id, ratios: { S: 1 }, laizeCm });
-    const ps = [pl('a150', 150), pl('b150', 149.8), pl('a145', 145), pl('b145', 145.2), pl('vide')];
-    assert.deepEqual(jeuxDeLaize(ps).map(j => [j.laizeCm, j.placements.map(p => p.id)]), [[150, ['a150', 'b150']], [145.2, ['b145', 'a145']]]);
-    const etroit = placementsActifs(ps, 146);
-    assert.equal(etroit.laizeJeu, 145.2);
-    assert.deepEqual(etroit.actifs.map(p => p.id), ['a145', 'b145', 'vide']);
-    assert.deepEqual(etroit.enReserve.map(p => p.id), ['a150', 'b150']);
-    // Le tissu revient a la normale : le jeu large reprend.
-    assert.deepEqual(placementsActifs(ps, 150).actifs.map(p => p.id), ['a150', 'b150', 'vide']);
-    // Rien ne tient : on le dit, on n'invente pas.
-    const rien = placementsActifs(ps, 140);
-    assert.equal(rien.aucunNeTient, true);
-    assert.deepEqual(rien.actifs.map(p => p.id), ['vide']);
-    // Un seul jeu, ou laize non saisie : tout reste actif, comme avant.
-    assert.equal(placementsActifs([pl('x', 150), pl('y', 150)], 140).actifs.length, 2);
-    assert.equal(placementsActifs(ps, undefined).actifs.length, 5);
+    // Laize qui change en cours d'ordre : 40 matelas coupes a 150, la suite a 145, puis retour a 150.
+    const f150 = { id: 'F150', nom: 'TE-01.PLT', format: 'PLT' as const, data: '', size: 0 };
+    const f145 = { id: 'F145', nom: 'TE-01.PLT', format: 'PLT' as const, data: '', size: 0 };
+    const o: OrdreCoupe = {
+        refModele: 'M', longueurMatelas: 0, consommation: 0, nbrFeuilles: 0, nbrMatelas: 0, qteTotale: 0, status: 'EN_COURS', faisceaux: [], tissuRecu: 0,
+        tissus: [{ id: TISSU_PRINCIPAL, nom: 'Tissu', laizeCm: 150 }],
+        placements: [{ id: 'p', tissu: TISSU_PRINCIPAL, nom: 'S', ratios: { S: 1 }, fichier: f150, longueurM: 2, laizeCm: 150 }],
+        matelasLines: [
+            { id: 'c1', plis: 100, longTracee: 2, ratios: { S: 1 }, placementId: 'p', numero: '40', fait: true },
+            { id: 'r1', plis: 100, longTracee: 2, ratios: { S: 1 }, placementId: 'p', numero: '41' },
+        ],
+    };
+    // Une seule laize tant qu'on n'en cree pas : celle du tissu.
+    assert.deepEqual(laizesDe(o.tissus![0], o.placements!).laizes.map(l => l.cm), [150]);
+    const { ordre: o1, id } = creerLaize(o, TISSU_PRINCIPAL, 145, 'T');
+    assert.equal(id, 'L2');
+    assert.deepEqual(o1.tissus![0].laizes!.map(l => [l.id, l.cm]), [['L1', 150], ['L2', 145]]);
+    assert.equal(o1.tissus![0].laizeActive, 'L1', 'creer ne change pas encore de laize');
+    assert.deepEqual(o1.matelasLines!.map(l => l.laizeId), ['L1', 'L1']);
+    // Passage a 145 : le trace 150 est range, le placement attend son nouveau fichier.
+    const o2 = changerLaize(o1, TISSU_PRINCIPAL, 'L2');
+    const p2 = o2.placements![0];
+    assert.equal(p2.fichier, undefined);
+    assert.equal(p2.longueurM, undefined);
+    assert.deepEqual(p2.tracesLaize!.L1.fichier, f150);
+    assert.equal(o2.tissus![0].laizeCm, 145);
+    const [c1, r1] = o2.matelasLines!;
+    assert.equal(c1.laizeId, 'L1'); assert.equal(c1.longTracee, 2, 'le coupe garde sa longueur');
+    assert.equal(r1.laizeId, 'L2'); assert.equal(r1.longTracee, 0, 'le reste attend le trace 145 : pas de chiffre faux');
+    // Le matelas coupe retrouve son trace 150.
+    assert.deepEqual(placementPourLigne(p2, c1, 'L2').fichier, f150);
+    assert.equal(placementPourLigne(p2, c1, 'L2').longueurM, 2);
+    // Le trace 145 est depose, puis le tissu revient a 150 : chaque laize retrouve le sien.
+    const o3 = { ...o2, placements: [{ ...p2, fichier: f145, longueurM: 1.9, laizeCm: 145 }] };
+    const o4 = changerLaize(o3, TISSU_PRINCIPAL, 'L1');
+    assert.deepEqual(o4.placements![0].fichier, f150);
+    assert.equal(o4.placements![0].longueurM, 2);
+    assert.deepEqual(o4.placements![0].tracesLaize!.L2.fichier, f145);
+    assert.equal(o4.matelasLines![1].longTracee, 2);
+    // Deja la : on ne cree pas deux fois la meme laize.
+    assert.equal(creerLaize(o4, TISSU_PRINCIPAL, 145).id, 'L2');
 }
 
 console.log('ordreCoupe: OK');

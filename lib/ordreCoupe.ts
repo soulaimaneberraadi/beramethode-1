@@ -8,7 +8,7 @@
  * Le numero est celui que le traceur ecrira au milieu de chaque piece.
  * Tout ici est pur et teste : un pli de trop, c'est du tissu coupe pour rien.
  */
-import type { MatelasFichier, MatelasLine, OrdreCoupe, PlacementCoupe, TissuCoupe } from '../types';
+import type { LaizeCoupe, MatelasFichier, MatelasLine, OrdreCoupe, PlacementCoupe, TissuCoupe, TraceLaize } from '../types';
 import { nomPlacement, repartirPlis } from './planMatelas';
 
 export const TISSU_PRINCIPAL = 'principal';
@@ -394,63 +394,111 @@ export function migrerOrdre(o: OrdreCoupe, tailles: string[]): OrdreCoupe {
 }
 
 /* ------------------------------------------------------------------ */
-/* Jeux de traces par laize : le tissu change de largeur en cours d'ordre */
+/* Laize du tissu qui change en cours d'ordre                           */
 /* ------------------------------------------------------------------ */
 
-/** Deux traces de laizes a moins de 0,5 cm l'une de l'autre sont du meme jeu. */
-export const TOLERANCE_LAIZE_CM = 0.5;
+/** Champs d'un placement qui dependent de la laize (le trace et ce qu'on en lit). */
+export const CHAMPS_TRACE = ['fichier', 'longueurM', 'laizeCm', 'efficience', 'taillesTrace', 'taillesFichier', 'ecartAccepte', 'numerotation'] as const;
 
-export interface JeuLaize {
-    /** Laize des traces du jeu (la plus large du groupe), en cm. */
-    laizeCm: number;
-    placements: PlacementCoupe[];
+const extraireTrace = (p: PlacementCoupe): TraceLaize => {
+    const t: TraceLaize = {};
+    for (const k of CHAMPS_TRACE) if (p[k] !== undefined) (t as any)[k] = p[k];
+    return t;
+};
+
+const sansTrace = (p: PlacementCoupe): PlacementCoupe => {
+    const q = { ...p };
+    for (const k of CHAMPS_TRACE) delete (q as any)[k];
+    return q;
+};
+
+/** Laize la plus frequente des traces deja deposes (cm), pour nommer la premiere laize. */
+const laizeDesTraces = (placements: PlacementCoupe[]): number | undefined => {
+    const compte = new Map<number, number>();
+    for (const p of placements) if ((p.laizeCm || 0) > 0) compte.set(Math.round(p.laizeCm!), (compte.get(Math.round(p.laizeCm!)) || 0) + 1);
+    return [...compte.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+};
+
+/** Laizes de la matiere : au moins une, celle du tissu (ou des traces) tant qu'aucune n'a ete creee. */
+export function laizesDe(t: TissuCoupe, placements: PlacementCoupe[]): { laizes: LaizeCoupe[]; active: string | undefined; implicite: boolean } {
+    if (t.laizes && t.laizes.length) return { laizes: t.laizes, active: t.laizeActive || t.laizes[0].id, implicite: false };
+    const cm = Number(t.laizeCm) > 0 ? Number(t.laizeCm) : laizeDesTraces(placements.filter(p => p.tissu === t.id));
+    return { laizes: cm ? [{ id: 'L1', cm, creeLe: '' }] : [], active: cm ? 'L1' : undefined, implicite: true };
 }
 
+const lignesDuTissu = (o: OrdreCoupe, tissuId: string) => (l: MatelasLine) => tissuDe(l) === tissuId;
+
 /**
- * Placements regroupes par laize du trace, du plus large au plus etroit.
- * Un placement sans laize (pas encore de fichier) n'appartient a aucun jeu.
+ * Nouvelle laize pour la matiere (le tissu arrive a `cm`). La premiere fois, la
+ * laize d'origine est d'abord inscrite et tous les matelas existants y sont
+ * rattaches : les coupes gardent ainsi leur trace. La nouvelle n'est pas encore
+ * active — il faut la choisir (et confirmer).
  */
-export function jeuxDeLaize(placements: PlacementCoupe[]): JeuLaize[] {
-    const jeux: JeuLaize[] = [];
-    const tries = placements.filter(p => (p.laizeCm || 0) > 0).sort((a, b) => (b.laizeCm || 0) - (a.laizeCm || 0));
-    for (const p of tries) {
-        const j = jeux.find(x => Math.abs(x.laizeCm - (p.laizeCm || 0)) <= TOLERANCE_LAIZE_CM);
-        if (j) j.placements.push(p);
-        else jeux.push({ laizeCm: p.laizeCm || 0, placements: [p] });
+export function creerLaize(o: OrdreCoupe, tissuId: string, cm: number, maintenant = new Date().toISOString()): { ordre: OrdreCoupe; id: string } {
+    const tissus = o.tissus && o.tissus.length ? o.tissus : [{ id: TISSU_PRINCIPAL, nom: 'Tissu' } as TissuCoupe];
+    const t = tissus.find(x => x.id === tissuId);
+    if (!t) return { ordre: o, id: '' };
+    const { laizes, active, implicite } = laizesDe(t, o.placements || []);
+    let liste = [...laizes];
+    let lignes = o.matelasLines || [];
+    let actif = active;
+    if (implicite) {
+        const origine: LaizeCoupe = liste[0] ? { ...liste[0], id: 'L1', creeLe: maintenant } : { id: 'L1', cm: Number(t.laizeCm) || cm, creeLe: maintenant };
+        liste = [origine];
+        actif = origine.id;
+        const dans = lignesDuTissu(o, tissuId);
+        lignes = lignes.map(l => (dans(l) && !l.laizeId ? { ...l, laizeId: origine.id } : l));
     }
-    return jeux;
-}
-
-export interface PlacementsActifs {
-    /** Placements que le calcul des matelas peut utiliser. */
-    actifs: PlacementCoupe[];
-    /** Laize du jeu retenu (null : un seul jeu, ou laize du tissu non saisie). */
-    laizeJeu: number | null;
-    /** Placements d'un autre jeu, gardes pour l'historique (matelas deja coupes). */
-    enReserve: PlacementCoupe[];
-    /** Plusieurs jeux et aucun ne tient dans la laize saisie. */
-    aucunNeTient: boolean;
+    const existe = liste.find(x => Math.abs(x.cm - cm) < 0.05);
+    if (existe) {
+        const tissusMaj = tissus.map(x => (x.id === tissuId ? { ...x, laizes: liste, laizeActive: actif, laizeCm: x.laizeCm ?? liste[0].cm } : x));
+        return { ordre: { ...o, tissus: tissusMaj, matelasLines: lignes }, id: existe.id };
+    }
+    const id = `L${liste.reduce((m, x) => Math.max(m, Number(x.id.slice(1)) || 0), 0) + 1}`;
+    liste.push({ id, cm, creeLe: maintenant });
+    const tissusMaj = tissus.map(x => (x.id === tissuId ? { ...x, laizes: liste, laizeActive: actif, laizeCm: x.laizeCm ?? liste[0].cm } : x));
+    return { ordre: { ...o, tissus: tissusMaj, matelasLines: lignes }, id };
 }
 
 /**
- * Le tissu arrive plus etroit (ou plus large) en cours d'ordre : l'atelier refait
- * les traces a la nouvelle laize. Les deux jeux restent dans l'ordre — les
- * matelas deja coupes gardent leurs traces — et la laize saisie pour la matiere
- * choisit celui qui sert au calcul : le plus large qui tient dans le tissu.
- * Un seul jeu : rien ne change, tout est actif (l'alerte « plus large que le
- * tissu » reste la pour le cas ou il ne tient pas).
+ * Passe la matiere sur une autre laize : chaque placement range le trace de la
+ * laize quittee et ressort celui de la nouvelle (rien si elle n'en a pas encore :
+ * « Deposer le .plt »). Les matelas coupes gardent leur laize ; ceux qui restent
+ * a couper passent sur la nouvelle, avec sa longueur (0 tant que son trace
+ * manque : leur tissu s'affiche « — », jamais un chiffre faux).
  */
-export function placementsActifs(placements: PlacementCoupe[], laizeTissuCm?: number): PlacementsActifs {
-    const jeux = jeuxDeLaize(placements);
-    if (jeux.length < 2 || !(Number(laizeTissuCm) > 0)) return { actifs: placements, laizeJeu: null, enReserve: [], aucunNeTient: false };
-    const jeu = jeux.find(j => j.laizeCm <= Number(laizeTissuCm) + TOLERANCE_LAIZE_CM);
-    const sansLaize = placements.filter(p => !((p.laizeCm || 0) > 0));
-    if (!jeu) return { actifs: sansLaize, laizeJeu: null, enReserve: placements.filter(p => !sansLaize.includes(p)), aucunNeTient: true };
-    const dedans = new Set([...jeu.placements, ...sansLaize]);
+export function changerLaize(o: OrdreCoupe, tissuId: string, laizeId: string): OrdreCoupe {
+    const tissus = o.tissus || [];
+    const t = tissus.find(x => x.id === tissuId);
+    if (!t || !t.laizes?.some(x => x.id === laizeId)) return o;
+    const quittee = t.laizeActive || t.laizes[0].id;
+    if (quittee === laizeId) return o;
+    const cible = t.laizes.find(x => x.id === laizeId)!;
+    const placements = (o.placements || []).map(p => {
+        if (p.tissu !== tissuId) return p;
+        const archives = { ...(p.tracesLaize || {}), [quittee]: extraireTrace(p) };
+        const ressort = archives[laizeId] || {};
+        delete archives[laizeId];
+        return { ...sansTrace(p), ...ressort, tracesLaize: archives };
+    });
+    const dans = lignesDuTissu(o, tissuId);
+    const longueur = new Map(placements.map(p => [p.id, p.longueurM || 0]));
+    const matelasLines = (o.matelasLines || []).map(l => {
+        if (!dans(l)) return l;
+        if (l.fait) return l.laizeId ? l : { ...l, laizeId: quittee };
+        return { ...l, laizeId, longTracee: l.placementId ? (longueur.get(l.placementId) ?? 0) : l.longTracee };
+    });
     return {
-        actifs: placements.filter(p => dedans.has(p)),
-        laizeJeu: jeu.laizeCm,
-        enReserve: placements.filter(p => !dedans.has(p)),
-        aucunNeTient: false,
+        ...o,
+        placements,
+        matelasLines,
+        tissus: tissus.map(x => (x.id === tissuId ? { ...x, laizeActive: laizeId, laizeCm: cible.cm } : x)),
     };
+}
+
+/** Le placement tel que le matelas l'a coupe : avec le trace de sa laize s'il n'est pas celui en cours. */
+export function placementPourLigne(p: PlacementCoupe, l: Pick<MatelasLine, 'laizeId'>, laizeActive?: string): PlacementCoupe {
+    if (!l.laizeId || !laizeActive || l.laizeId === laizeActive) return p;
+    const t = p.tracesLaize?.[l.laizeId];
+    return t ? { ...sansTrace(p), ...t } : sansTrace(p);
 }

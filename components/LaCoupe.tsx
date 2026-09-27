@@ -25,7 +25,7 @@ import { matelasExecutes, metresPlis, presenceGroupes, tempsStandard } from '../
 import { planifierPlacements, decouperEnMatelas, nomPlacement, repartirPlis } from '../lib/planMatelas';
 import {
     TISSU_PRINCIPAL, TISSUS_PROPOSES, tissuDe, estPrincipal, migrerOrdre, appliquerPlacement, matelasDuPlacement,
-    plisPourPlacements, renumeroter, numeroSuivant, nomFichierMatelas, codeMatiere, codeTraceSuivant, placementsActifs, jeuxDeLaize, type SensNumerotation,
+    plisPourPlacements, renumeroter, numeroSuivant, nomFichierMatelas, codeMatiere, codeTraceSuivant, creerLaize, changerLaize, laizesDe, placementPourLigne, type SensNumerotation,
 } from '../lib/ordreCoupe';
 import ImportExcelCoupe, { type ChoixImport } from './coupe/ImportExcelCoupe';
 import SerieEtiquetage from './coupe/SerieEtiquetage';
@@ -874,7 +874,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const [sensNum, setSensNum] = useState<SensNumerotation>('grand');
     const [confirmCalcul, setConfirmCalcul] = useState(false);
     const [placementASupprimer, setPlacementASupprimer] = useState<PlacementCoupe | null>(null);
-    const [apercuMatelas, setApercuMatelas] = useState<{ placementId: string; numero: string; nom?: string } | null>(null);
+    const [apercuMatelas, setApercuMatelas] = useState<{ placementId: string; numero: string; nom?: string; laizeId?: string } | null>(null);
+    /** Changement de laize demande : il ne s'applique qu'apres confirmation. */
+    const [laizeAConfirmer, setLaizeAConfirmer] = useState<string | null>(null);
     const [reglagesDefautOuverts, setReglagesDefautOuverts] = useState(false);
     const [brouillonDefaut, setBrouillonDefaut] = useState(() => reglagesAvecDefaut(undefined, settings?.numerotationDefaut));
 
@@ -882,6 +884,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const tissus = tissuParDefaut(ordre);
     const tissuCourant = tissus.find(t => t.id === tissuActif) || tissus[0];
     const placementsTissu = (ordre.placements || []).filter(p => p.tissu === tissuCourant.id);
+    /** Laizes du tissu en cours (une seule tant qu'elle n'a pas change). */
+    const laizesTissu = laizesDe(tissuCourant, ordre.placements || []);
     const lignesTissu = (ordre.matelasLines || []).filter(l => tissuDe(l) === tissuCourant.id);
     const nomsCouleurs: string[] = (colors as any[]).map((c: any) => c.name || (typeof c === 'string' ? c : c.id)).filter(Boolean);
     const commandeCouleur = React.useCallback((couleur: string): Record<string, number> => {
@@ -1246,25 +1250,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
      */
     const calculerMatelas = () => {
         setConfirmCalcul(false);
-        // Laize changee en cours d'ordre : seul le jeu de traces qui tient dans le tissu sert.
-        const jeu = placementsActifs(placementsTissu, tissuCourant.laizeCm);
-        if (jeu.aucunNeTient) {
-            showToast(tx(lang, {
-                fr: `Aucun jeu de traces ne tient dans ${tissuCourant.laizeCm} cm. Corrigez la laize du tissu ou deposez les traces refaits a cette laize.`,
-                ar: `لا توجد مجموعة ملفات تسعها ${tissuCourant.laizeCm} سم. صحّح عرض الثوب أو ضع الملفات المعادة بهذا العرض.`,
-                en: `No marker set fits ${tissuCourant.laizeCm} cm.`,
-            }), 'error');
-            return;
-        }
-        if (jeuxDeLaize(placementsTissu).length >= 2 && !(Number(tissuCourant.laizeCm) > 0)) {
-            showToast(tx(lang, {
-                fr: 'Traces de plusieurs laizes dans cette matiere : choisissez la laize du tissu en cours au-dessus des placements. Si ce sont deux matieres differentes, separez-les avec « + Matiere ».',
-                ar: 'في هذه المادة ملفات بعدة عروض: اختر عرض الثوب الحالي فوق التركيبات. وإن كانتا مادتين مختلفتين، افصلهما بـ «+ Matière».',
-                en: 'Markers of several widths in this material: pick the current fabric width above the placements.',
-            }), 'error');
-            return;
-        }
-        const utilises = jeu.actifs;
+        const utilises = placementsTissu;
         const nouvelles: MatelasLine[] = [];
         const manques: { couleur: string; tailles: [string, number][] }[] = [];
         for (const g of ciblesParCouleur()) {
@@ -1296,8 +1282,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 resteCourt.length ? `${resteCourt.join(', ')} : ${tx(lang, { fr: 'le reste est plus petit que ce qu\u2019un pli donne (ajoutez un placement a 1 piece ou coupez-le a part).', ar: 'الباقي أقلّ ممّا تعطيه طيّة واحدة (أضف تركيبة بقطعة واحدة أو اقطعه وحده).', en: 'the remainder is smaller than one ply gives.' })}` : '',
             ].filter(Boolean).join(' '), 'error');
         } else {
-            const jeuTexte = jeu.laizeJeu ? tx(lang, { fr: ` Traces de laize ${jeu.laizeJeu} cm (${jeu.enReserve.length} d'une autre laize gardes pour les matelas deja coupes).`, ar: ` ملفات عرض ${jeu.laizeJeu} سم (${jeu.enReserve.length} من عرض آخر محفوظة للمفرشات المقصوصة).`, en: ` Markers of width ${jeu.laizeJeu} cm.` }) : '';
-            showToast(tx(lang, { fr: `${nouvelles.length} matelas crees, commande couverte exactement.`, ar: `أُنشئت ${nouvelles.length} مفرشة، والطلب مغطّى بالضبط.`, en: `${nouvelles.length} lays created, order covered exactly.` }) + jeuTexte, 'success');
+            showToast(tx(lang, { fr: `${nouvelles.length} matelas crees, commande couverte exactement.`, ar: `أُنشئت ${nouvelles.length} مفرشة، والطلب مغطّى بالضبط.`, en: `${nouvelles.length} lays created, order covered exactly.` }), 'success');
         }
     };
 
@@ -2997,7 +2982,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                             type="number"
                                             min="0"
                                             value={tissuCourant.laizeCm || ''}
-                                            onChange={e => majTissu(tissuCourant.id, { laizeCm: Number(e.target.value) || undefined })}
+                                            onChange={e => {
+                                                const cm = Number(e.target.value) || undefined;
+                                                // Laizes deja creees : le champ corrige celle du tissu en cours.
+                                                const laizesMaj = tissuCourant.laizes?.map(z => (z.id === (tissuCourant.laizeActive || tissuCourant.laizes![0].id) && cm ? { ...z, cm } : z));
+                                                majTissu(tissuCourant.id, laizesMaj ? { laizeCm: cm, laizes: laizesMaj } : { laizeCm: cm });
+                                            }}
                                             placeholder="150"
                                             title={tx(lang, { fr: 'Laize reelle du tissu recu : chaque trace est compare a elle', ar: 'العرض الحقيقي للثوب المستلم: كل تفصيلة تُقارن به', en: 'Actual fabric width: every marker is checked against it' })}
                                             className="h-9 w-24 px-2.5 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[13px] font-semibold outline-none focus:border-indigo-400"
@@ -3036,8 +3026,15 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         maxPlisDefaut={Number(autoMaxPly) || 100}
                                         rouleauM={tissuCourant.rouleauM}
                                         laizeTissuCm={tissuCourant.laizeCm}
-                                        onChoisirLaize={cm => majTissu(tissuCourant.id, { laizeCm: cm })}
-                                        nbCoupes={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id && l.fait).length]))}
+                                        laizes={laizesTissu.laizes}
+                                        laizeActive={laizesTissu.active}
+                                        onChoisirLaize={id => setLaizeAConfirmer(id)}
+                                        onCreerLaize={cm => {
+                                            const r = creerLaize(ordre, tissuCourant.id, cm);
+                                            setOrdre(r.ordre);
+                                            if (r.id && r.id !== laizesTissu.active) setLaizeAConfirmer(r.id);
+                                        }}
+                                        nbCoupes={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id && l.fait && (!l.laizeId || !laizesTissu.active || l.laizeId === laizesTissu.active)).length]))}
                                         suggestions={suggestionsTrace}
                                         onAjouter={ajouterPlacement}
                                         onAjouterAvec={ajouterPlacementAvec}
@@ -3116,8 +3113,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         onConfirmerLignes={confirmerLignes}
                                         reglagesDefaut={settings?.numerotationDefaut}
                                         tempsStd={tempsStd}
+                                        laizeActive={tissuCourant.laizes?.length ? laizesTissu.active : undefined}
                                         deposer={traceur.disponible ? traceur.deposer : undefined}
-                                        onApercu={(l, p) => setApercuMatelas({ placementId: p.id, numero: l.numero || '', nom: nomFichierMatelas(p, tissuCourant.nom, l.numero || '0') })}
+                                        onApercu={(l, p) => setApercuMatelas({ placementId: p.id, numero: l.numero || '', nom: nomFichierMatelas(p, tissuCourant.nom, l.numero || '0'), laizeId: l.laizeId })}
                                         onMessage={showToast}
                                         renderEtat={line => (
                                             <>
@@ -4090,7 +4088,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             )}
 
             {apercuMatelas && (() => {
-                const p = (ordre.placements || []).find(x => x.id === apercuMatelas.placementId);
+                const brut = (ordre.placements || []).find(x => x.id === apercuMatelas.placementId);
+                const tissuP = brut ? tissus.find(t => t.id === brut.tissu) : undefined;
+                const active = tissuP?.laizes?.length ? (tissuP.laizeActive || tissuP.laizes[0].id) : undefined;
+                // Matelas coupe sur une autre laize : on montre son trace a lui, et ses reglages ne touchent pas le trace en cours.
+                const autreLaize = !!(apercuMatelas.laizeId && active && apercuMatelas.laizeId !== active);
+                const p = brut ? placementPourLigne(brut, { laizeId: apercuMatelas.laizeId }, active) : undefined;
                 const f = p ? fichierComplet(p.fichier) : undefined;
                 if (!p || !f?.data) return null;
                 return (
@@ -4099,13 +4102,69 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         fichierInitial={{ nom: f.nom, data: f.data }}
                         reglagesInitiaux={p.numerotation}
                         contexte={{ code: codeMatiere(tissus.find(t => t.id === p.tissu) || tissuCourant), placement: p.nom }}
-                        onReglages={r => modifierPlacement(p.id, { numerotation: r })}
+                        onReglages={r => { if (!autreLaize) modifierPlacement(p.id, { numerotation: r }); }}
                         nomSortieImpose={apercuMatelas.nom}
                         deposer={traceur.disponible ? traceur.deposer : undefined}
                         reglagesDefaut={settings?.numerotationDefaut}
                         onDefaut={r => { setSettings?.(prev => ({ ...prev, numerotationDefaut: r })); showToast(tx(lang, { fr: 'Reglages de numerotation enregistres par defaut', ar: 'حُفظت إعدادات الترقيم الافتراضية', en: 'Numbering defaults saved' }), 'success'); }}
                         onClose={() => setApercuMatelas(null)}
                     />
+                );
+            })()}
+
+            {laizeAConfirmer && (() => {
+                const cible = tissuCourant.laizes?.find(z => z.id === laizeAConfirmer);
+                if (!cible) return null;
+                const quittee = tissuCourant.laizes?.find(z => z.id === (tissuCourant.laizeActive || tissuCourant.laizes![0].id));
+                const lignesT = lignesTissu;
+                const coupes = lignesT.filter(l => l.fait).length;
+                const restent = lignesT.filter(l => !l.fait);
+                const envoyes = restent.filter(l => l.envoyeLe);
+                const avecTrace = placementsTissu.filter(p => p.tracesLaize?.[cible.id]?.fichier).length;
+                return (
+                    <SheetModal onClose={() => setLaizeAConfirmer(null)} size="sm" zClass="z-[95]" bodyClassName="flex-1 overflow-y-auto min-h-0 p-5">
+                        <h3 className="text-[14px] font-semibold text-slate-900 dark:text-dk-text">
+                            {tx(lang, { fr: `Passer le tissu a ${cible.cm} cm ?`, ar: `تحويل الثوب إلى ${cible.cm} سم؟`, en: `Switch fabric to ${cible.cm} cm?` })}
+                        </h3>
+                        <ul className="mt-2 space-y-1.5 text-[12px] text-slate-600 dark:text-dk-muted list-disc pl-4">
+                            <li>{tx(lang, {
+                                fr: `Les ${coupes} matelas deja coupes gardent leurs traces${quittee ? ` de ${quittee.cm} cm` : ''} et leur numero.`,
+                                ar: `المفرشات المقصوصة (${coupes}) تحتفظ بملفاتها${quittee ? ` بعرض ${quittee.cm} سم` : ''} وأرقامها.`,
+                                en: `${coupes} cut lays keep their markers and numbers.`,
+                            })}</li>
+                            <li>{avecTrace
+                                ? tx(lang, { fr: `${avecTrace} placement(s) reprennent leur trace de ${cible.cm} cm.`, ar: `${avecTrace} تركيبة تسترجع ملفها بعرض ${cible.cm} سم.`, en: `${avecTrace} placement(s) get their ${cible.cm} cm marker back.` })
+                                : tx(lang, { fr: `La colonne « Trace PLT » se vide : deposez les traces refaits a ${cible.cm} cm (« Deposer plusieurs traces »).`, ar: `عمود «Trace PLT» يُفرغ: ضع الملفات المعادة بعرض ${cible.cm} سم.`, en: `The PLT column empties: drop the ${cible.cm} cm markers.` })}</li>
+                            <li>{tx(lang, {
+                                fr: `Les ${restent.length} matelas pas encore coupes passent sur ${cible.cm} cm ; ensuite « Calculer les matelas » refait la suite avec les nouveaux traces, et la numerotation continue apres le dernier coupe.`,
+                                ar: `المفرشات غير المقصوصة (${restent.length}) تنتقل إلى ${cible.cm} سم؛ ثم «Calculer les matelas» يعيد حساب الباقي بالملفات الجديدة، والترقيم يكمل بعد آخر مقصوصة.`,
+                                en: `${restent.length} uncut lays move to ${cible.cm} cm; then recompute the lays.`,
+                            })}</li>
+                        </ul>
+                        {envoyes.length > 0 && (
+                            <p className="mt-3 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-[12px] font-semibold text-amber-800 dark:text-amber-300">
+                                {tx(lang, {
+                                    fr: `${envoyes.length} matelas deja envoye(s) au traceur (N° ${envoyes.map(l => l.numero).join(', ')}) : s'ils sont sur la table, confirmez-les coupes avant de changer de laize.`,
+                                    ar: `${envoyes.length} مفرشة أُرسلت إلى الـ traceur (رقم ${envoyes.map(l => l.numero).join('، ')}): إن كانت على الطاولة، أكّد قصّها قبل تغيير العرض.`,
+                                    en: `${envoyes.length} lay(s) already sent to the plotter: confirm them cut first if they are on the table.`,
+                                })}
+                            </p>
+                        )}
+                        <div className="flex justify-end gap-2 mt-5">
+                            <button type="button" onClick={() => setLaizeAConfirmer(null)} className="h-10 px-4 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel' })}</button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setOrdre(prev => changerLaize(prev, tissuCourant.id, cible.id));
+                                    setLaizeAConfirmer(null);
+                                    showToast(tx(lang, { fr: `Tissu en cours : ${cible.cm} cm.`, ar: `الثوب الحالي: ${cible.cm} سم.`, en: `Current fabric: ${cible.cm} cm.` }), 'success');
+                                }}
+                                className="h-10 px-4 rounded-lg text-[12px] font-semibold bg-sky-600 text-white hover:bg-sky-700"
+                            >
+                                {tx(lang, { fr: `Confirmer ${cible.cm} cm`, ar: `تأكيد ${cible.cm} سم`, en: `Confirm ${cible.cm} cm` })}
+                            </button>
+                        </div>
+                    </SheetModal>
                 );
             })()}
 
