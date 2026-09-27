@@ -8,7 +8,7 @@
  * suivent. La chaine proposee est celle que le Planning a donnee au modele.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Tag, ChevronDown, CalendarCheck, LogIn, LogOut, X, Factory, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { Tag, ChevronDown, CalendarCheck, LogIn, LogOut, X, Factory, FileSpreadsheet, Loader2, Download } from 'lucide-react';
 import type { MatelasLine, SaisiePaquet, SerieEtiquetage as Serie } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
@@ -23,11 +23,13 @@ interface Props {
     /** Chaine du modele au Planning, proposee d'office. */
     chainePlanifiee?: string;
     onMessage?: (texte: string, type: 'success' | 'error' | 'info') => void;
+    /** Telecharge la feuille SERIE au format de l'atelier. */
+    onExporter?: () => Promise<void>;
 }
 
 const aujourdhui = () => new Date().toLocaleDateString('fr-FR');
 
-export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chaines, chainePlanifiee, onMessage }: Props) {
+export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chaines, chainePlanifiee, onMessage, onExporter }: Props) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
     const depart = serie?.depart && serie.depart > 0 ? serie.depart : 1;
@@ -42,6 +44,12 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
      */
     const entreeExcel = useRef<HTMLInputElement>(null);
     const [lectureExcel, setLectureExcel] = useState(false);
+    const [exportExcel, setExportExcel] = useState(false);
+    const exporter = async () => {
+        if (!onExporter) return;
+        setExportExcel(true);
+        try { await onExporter(); } catch { onMessage?.(L('Export Excel impossible.', 'تعذّر تصدير Excel.', 'Excel export failed.'), 'error'); } finally { setExportExcel(false); }
+    };
     const importerExcel = async (f: File) => {
         setLectureExcel(true);
         try {
@@ -148,6 +156,11 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
                 <button type="button" disabled={lectureExcel} onClick={() => entreeExcel.current?.click()} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white dark:bg-dk-surface text-[12px] font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50" title={L('Reprendre une feuille SERIE tenue dans Excel', 'استيراد ورقة SERIE من Excel', 'Import a SERIE sheet from Excel')}>
                     {lectureExcel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}{L('Importer Excel', 'استيراد Excel', 'Import Excel')}
                 </button>
+                {onExporter && (
+                    <button type="button" disabled={exportExcel || paquets.length === 0} onClick={exporter} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-emerald-600 bg-emerald-600 text-[12px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-50" title={L('La feuille SERIE, au format de l\u2019atelier', 'ورقة SERIE بصيغة الورشة', 'The SERIE sheet, workshop format')}>
+                        {exportExcel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}{L('Telecharger Excel', 'تنزيل Excel', 'Download Excel')}
+                    </button>
+                )}
                 <div className="flex flex-wrap gap-1.5 ml-auto">
                     {Object.entries(parChaine).map(([c, n]) => (
                         <span key={c} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-[12px] font-semibold text-indigo-700 dark:text-indigo-300">

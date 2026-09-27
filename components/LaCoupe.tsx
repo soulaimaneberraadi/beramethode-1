@@ -3190,6 +3190,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         chaines={chainesAtelier}
                                         chainePlanifiee={(planningEvents || []).find(e => e.modelId === selectedModel.id)?.chaineId}
                                         onMessage={showToast}
+                                        onExporter={() => lienExcel.telechargerSerie(donneesExcel({ ...selectedModel, ordreCoupe: ordre }))}
                                     />
                                 </div>
                             )}

@@ -514,7 +514,8 @@ function construireFeuilleSerie(wb: Classeur, d: DonneesExcelCoupe, serie: Serie
     const ws: Feuille = wb.addWorksheet(nomFeuille, { pageSetup: { ...PAGE_SETUP } });
     ws.properties.defaultRowHeight = HAUTEUR_LIGNE;
 
-    const largeurs = [10, 8, 9, 10, 10, 8, 13, 5, 10, 8, 10, 12];
+    // Largeurs relevees sur la feuille SERIE de l'atelier (ZINTURA).
+    const largeurs = [10, 8, 8, 10, 10, 8, 13, 5, 10, 8, 10, 10];
     ws.columns = largeurs.map(width => ({ width }));
 
     ecrireTitre(ws, d.entreprise);
@@ -525,15 +526,13 @@ function construireFeuilleSerie(wb: Classeur, d: DonneesExcelCoupe, serie: Serie
     ecrire(ws, 2, 3, 'Cliente', { bold: true, border: false });
     ws.mergeCells(2, 4, 2, 5);
     ecrire(ws, 2, 4, 'Articulo', { bold: true, border: false });
-    ws.mergeCells(2, 6, 2, 7);
     ecrire(ws, 2, 6, 'Ref proveedor', { bold: true, border: false });
     ecrire(ws, 2, 12, 'PEDIDO', { bold: true, border: false });
 
     ecrire(ws, 3, 2, d.date || '', { bold: true, border: false });
     ecrire(ws, 3, 3, d.client || '', { bold: true, border: false });
     ws.mergeCells(3, 4, 3, 5);
-    ecrire(ws, 3, 4, d.modele + (d.reference ? ' ' + d.reference : ''), { bold: true, border: false });
-    ws.mergeCells(3, 6, 3, 7);
+    ecrire(ws, 3, 4, d.modele || d.reference || '', { bold: true, border: false });
     ecrire(ws, 3, 6, d.refFournisseur || '', { bold: true, border: false });
     ecrire(ws, 3, 12, numOuTexte(d.pedido), { bold: true, border: false });
 

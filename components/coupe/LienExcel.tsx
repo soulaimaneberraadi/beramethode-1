@@ -29,6 +29,8 @@ export interface LienExcel {
     /** Reecrit le classeur si un dossier est relie et autorise ; sinon ne fait rien. */
     ecrire: (d: DonneesExcelCoupe) => Promise<ResultatEcriture | null>;
     telecharger: (d: DonneesExcelCoupe) => Promise<void>;
+    /** La feuille SERIE seule, au format de l'atelier : « SERIE <dossier>.xlsx ». */
+    telechargerSerie: (d: DonneesExcelCoupe) => Promise<void>;
 }
 
 /**
@@ -116,7 +118,17 @@ export function useLienExcel(): LienExcel {
         setTimeout(() => URL.revokeObjectURL(url), 5000);
     };
 
-    return { supporte, dossier, permission, derniere, choisir, choisirEtEcrire, reactiver, ecrire, telecharger };
+    const telechargerSerie = async (d: DonneesExcelCoupe) => {
+        const n = nomsFichiersModele(d);
+        const octets = await construireClasseurCoupe(d, 'serie');
+        const url = URL.createObjectURL(new Blob([octets], { type: TYPE_XLSX }));
+        const a = document.createElement('a');
+        a.href = url; a.download = n.serie;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+    };
+
+    return { supporte, dossier, permission, derniere, choisir, choisirEtEcrire, reactiver, ecrire, telecharger, telechargerSerie };
 }
 
 /** Barre discrete sous l'en-tete de l'ordre : ou va l'Excel, et quand il a ete mis a jour. */

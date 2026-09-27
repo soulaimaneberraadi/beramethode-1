@@ -648,6 +648,12 @@ export interface PlacementCoupe {
    */
   taillesTrace?: Record<string, number>;
   /**
+   * Tailles telles que l'en-tete du fichier les ecrit (« XS: 2 »), avant tout
+   * rapprochement avec la commande : une taille absente de la commande reste
+   * visible ici et se rattache seule quand on l'ajoute au modele.
+   */
+  taillesFichier?: Record<string, number>;
+  /**
    * Ecart fichier / ligne declare voulu par l'atelier (« tailles du fichier|tailles
    * de la ligne »). Il ne vaut que pour ces tailles-la : changer le fichier ou la
    * ligne fait revenir l'alerte.

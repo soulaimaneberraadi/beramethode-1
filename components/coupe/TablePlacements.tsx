@@ -56,19 +56,29 @@ const signatureEcart = (trace: Record<string, number>, ratios: Record<string, nu
  * Tailles ecrites dans l'en-tete du trace. Lues aussi pour les fichiers
  * deposes avant ce controle : un vieux fichier n'echappe pas a la verification.
  */
-const taillesDuTrace = (p: PlacementCoupe, tailles: string[]): Record<string, number> | null => {
-    if (p.taillesTrace && Object.keys(p.taillesTrace).length) return p.taillesTrace;
-    if (!p.fichier?.data) return null;
-    try {
-        const a = analyserFichier(p.fichier);
-        const e = a ? lireEntete(a.entete) : null;
-        if (!e?.tailles) return null;
-        const { ratios } = associerTailles(e.tailles, tailles);
-        return Object.keys(ratios).length ? ratios : null;
-    } catch {
-        return null;
+const lectureTrace = (p: PlacementCoupe, tailles: string[]): { ratios: Record<string, number>; inconnues: string[]; brut: Record<string, number> } | null => {
+    let brut = p.taillesFichier && Object.keys(p.taillesFichier).length ? p.taillesFichier : null;
+    if (!brut && p.taillesTrace && Object.keys(p.taillesTrace).length) return { ratios: p.taillesTrace, inconnues: [], brut: p.taillesTrace };
+    if (!brut && p.fichier?.data) {
+        try {
+            const a = analyserFichier(p.fichier);
+            const e = a ? lireEntete(a.entete) : null;
+            if (e?.tailles && Object.keys(e.tailles).length) brut = e.tailles;
+        } catch { /* illisible : rien a comparer */ }
     }
+    if (!brut) return null;
+    const { ratios, inconnues } = associerTailles(brut, tailles);
+    return { ratios, inconnues, brut };
 };
+
+/** Tailles du trace rapprochees de la commande (null si le fichier n'en dit rien ou si aucune n'y figure). */
+const taillesDuTrace = (p: PlacementCoupe, tailles: string[]): Record<string, number> | null => {
+    const l = lectureTrace(p, tailles);
+    return l && Object.keys(l.ratios).length ? l.ratios : null;
+};
+
+/** « XS×2 » tel que le fichier l'ecrit, meme pour une taille que la commande n'a pas. */
+const nomBrut = (brut: Record<string, number>) => nomPlacement(brut, Object.keys(brut));
 
 const lireDataUrl = (f: File) => new Promise<string>((ok, ko) => {
     const r = new FileReader();
@@ -106,16 +116,18 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
 
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
 
-    const adopterFichier = async (id: string, f: File, connu?: PlacementCoupe) => {
+    /** Rend les tailles du fichier absentes de la commande ; `silencieux` : l'appelant fait un seul message pour tout un lot. */
+    const adopterFichier = async (id: string, f: File, connu?: PlacementCoupe, silencieux = false): Promise<string[]> => {
         const p = connu || placements.find(x => x.id === id);
-        if (!p) return;
+        if (!p) return [];
+        const dire: typeof onMessage = (t, type) => { if (!silencieux || type === 'error') onMessage(t, type); };
         if (!/\.(plt|hpgl|hgl|prn)$/i.test(f.name)) {
-            onMessage(L('Seuls les traces .plt sont acceptes ici.', 'تُقبل هنا ملفات plt فقط.', 'Only .plt traces here.'), 'error');
-            return;
+            dire(L('Seuls les traces .plt sont acceptes ici.', 'تُقبل هنا ملفات plt فقط.', 'Only .plt traces here.'), 'error');
+            return [];
         }
         if (f.size > 15 * 1024 * 1024) {
-            onMessage(L('Trace trop volumineux (15 Mo au plus).', 'الملف كبير جداً (15 ميغابايت كحدّ أقصى).', 'Trace too large (max 15 MB).'), 'error');
-            return;
+            dire(L('Trace trop volumineux (15 Mo au plus).', 'الملف كبير جداً (15 ميغابايت كحدّ أقصى).', 'Trace too large (max 15 MB).'), 'error');
+            return [];
         }
         try {
             const [data, octets] = await Promise.all([lireDataUrl(f), lireOctets(f)]);
@@ -130,29 +142,36 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
             if (entete.longueurM) patch.longueurM = Number(entete.longueurM.toFixed(4));
             if (entete.laizeCm) patch.laizeCm = entete.laizeCm;
             if (entete.efficience) patch.efficience = entete.efficience;
+            let absentes: string[] = [];
             if (entete.tailles) {
                 const { ratios, inconnues } = associerTailles(entete.tailles, tailles);
+                absentes = inconnues;
                 patch.taillesTrace = ratios;
+                patch.taillesFichier = { ...entete.tailles };
                 const actuel = p.ratios || {};
                 const vide = !Object.values(actuel).some(v => (Number(v) || 0) > 0);
-                if (Object.keys(ratios).length && vide) {
+                if (Object.keys(ratios).length && vide && !inconnues.length) {
                     // Placement encore vide : le trace dit ce qu'il contient.
                     patch.ratios = ratios;
                     patch.nom = nomPlacement(ratios, tailles);
+                } else if (vide && inconnues.length) {
+                    // Taille que la commande n'a pas : le nom dit ce que contient le fichier, les quantites attendent.
+                    patch.nom = nomBrut(entete.tailles);
                 } else if (Object.keys(ratios).length && !memesRatios(actuel, ratios)) {
                     // Placement deja defini : un fichier different ne change jamais ses matelas en silence.
-                    onMessage(`${L('Attention : ce trace contient', 'انتبه: هذا الملف يحتوي', 'Warning: this trace holds')} ${nomPlacement(ratios, tailles)} ${L('mais le placement est', 'لكن التركيبة هي', 'but the placement is')} ${nomPlacement(actuel, tailles)}. ${L('Tailles gardees : verifiez le fichier.', 'أُبقيت المقاسات: تحقّق من الملف.', 'Sizes kept: check the file.')}`, 'error');
-                }
-                if (inconnues.length) {
-                    onMessage(`${L('Tailles du trace absentes de la commande :', 'مقاسات في الملف غير موجودة في الطلب:', 'Trace sizes not in the order:')} ${inconnues.join(', ')}`, 'error');
+                    dire(`${L('Attention : ce trace contient', 'انتبه: هذا الملف يحتوي', 'Warning: this trace holds')} ${nomPlacement(ratios, tailles)} ${L('mais le placement est', 'لكن التركيبة هي', 'but the placement is')} ${nomPlacement(actuel, tailles)}. ${L('Tailles gardees : verifiez le fichier.', 'أُبقيت المقاسات: تحقّق من الملف.', 'Sizes kept: check the file.')}`, 'error');
                 }
             }
             onModifier(id, patch);
-            if (entete.longueurM || entete.tailles) {
-                onMessage(L('Trace lu : tailles, longueur et laize remplies depuis le fichier.', 'قُرئ الملف: المقاسات والطول والعرض مُلئت منه.', 'Trace read: sizes, length and width filled in.'), 'success');
+            if (absentes.length) {
+                if (!silencieux) onMessage(`${f.name} : ${L('taille(s)', 'مقاس(ات)', 'size(s)')} ${absentes.join(', ')} ${L('absente(s) de la commande. Ajoutez-la aux tailles du modele.', 'غير موجودة في الطلب. أضفها إلى مقاسات الموديل.', 'not in the order. Add it to the model sizes.')}`, 'error');
+            } else if (entete.longueurM || entete.tailles) {
+                dire(L('Trace lu : tailles, longueur et laize remplies depuis le fichier.', 'قُرئ الملف: المقاسات والطول والعرض مُلئت منه.', 'Trace read: sizes, length and width filled in.'), 'success');
             }
+            return absentes;
         } catch {
-            onMessage(L('Trace illisible.', 'تعذّرت قراءة الملف.', 'Unreadable trace.'), 'error');
+            dire(L('Trace illisible.', 'تعذّرت قراءة الملف.', 'Unreadable trace.'), 'error');
+            return [];
         }
     };
 
@@ -168,28 +187,38 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
         if (!plts.length) { onMessage(L('Aucun fichier .plt.', 'لا يوجد ملف plt.', 'No .plt file.'), 'error'); return; }
         const pris = new Set<string>();
         let relies = 0, crees = 0;
+        const absentes = new Map<string, string[]>();
         for (const f of plts) {
             let ratios: Record<string, number> = {};
+            let brut: Record<string, number> = {};
             try {
                 const e = lireEntete(analyserTexte(decoderOctets(await lireOctets(f))).entete);
-                if (e.tailles) ratios = associerTailles(e.tailles, tailles).ratios;
+                if (e.tailles) { brut = e.tailles; ratios = associerTailles(e.tailles, tailles).ratios; }
             } catch { /* illisible : adopterFichier le dira */ }
             const code = codeDuNomFichier(f.name);
             const cible = (code && placements.find(p => !pris.has(p.id) && (p.code || '').toUpperCase() === code))
                 || (Object.keys(ratios).length ? placements.find(p => !pris.has(p.id) && !p.fichier && memesRatios(p.ratios || {}, ratios)) : undefined);
+            let manque: string[] = [];
             if (cible) {
                 pris.add(cible.id);
-                await adopterFichier(cible.id, f, cible);
+                manque = await adopterFichier(cible.id, f, cible, true);
                 relies++;
             } else if (onAjouterAvec) {
-                const init: Partial<PlacementCoupe> = { code, ratios, nom: Object.keys(ratios).length ? nomPlacement(ratios, tailles) : (code || '') };
+                const nom = Object.keys(ratios).length ? nomPlacement(ratios, tailles) : Object.keys(brut).length ? nomBrut(brut) : (code || '');
+                const init: Partial<PlacementCoupe> = { code, ratios, nom };
                 const id = onAjouterAvec(init);
                 pris.add(id);
-                await adopterFichier(id, f, { id, tissu: '', nom: init.nom || '', ratios, code });
+                manque = await adopterFichier(id, f, { id, tissu: '', nom, ratios, code }, true);
                 crees++;
             }
+            manque.forEach(t => absentes.set(t, [...(absentes.get(t) || []), f.name]));
         }
-        onMessage(`${plts.length} ${L('trace(s) :', 'ملف:', 'trace(s):')} ${relies} ${L('relie(s) a leur placement', 'رُبط بتركيبته', 'linked')}${crees ? `, ${crees} ${L('nouveau(x) placement(s)', 'تركيبة جديدة', 'new placement(s)')}` : ''}.`, 'success');
+        const bilan = `${plts.length} ${L('trace(s) :', 'ملف:', 'trace(s):')} ${relies} ${L('relie(s) a leur placement', 'رُبط بتركيبته', 'linked')}${crees ? `, ${crees} ${L('nouveau(x) placement(s)', 'تركيبة جديدة', 'new placement(s)')}` : ''}.`;
+        if (absentes.size) {
+            onMessage(`${bilan} ${L('Taille(s) absente(s) de la commande :', 'مقاسات غير موجودة في الطلب:', 'Sizes not in the order:')} ${[...absentes.keys()].join(', ')} — ${L('ajoutez-la aux tailles du modele, leurs placements restent sans quantite en attendant.', 'أضفها إلى مقاسات الموديل، وتبقى تركيباتها بلا كمية حتى ذلك.', 'add it to the model sizes; those placements stay empty meanwhile.')}`, 'error');
+        } else {
+            onMessage(bilan, 'success');
+        }
     };
 
     const champNombre = 'w-full text-center h-8 px-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-semibold text-slate-800 dark:text-dk-text outline-none focus:bg-white dark:focus:bg-dk-surface focus:border-indigo-400';
@@ -334,6 +363,18 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                                         {L('Perte en largeur', 'ضياع في العرض', 'Width loss')} {(laizeTissuCm - p.laizeCm).toFixed(1)} cm ({(((laizeTissuCm - p.laizeCm) / laizeTissuCm) * 100).toFixed(1)}%)
                                                     </div>
                                                 ) : null}
+                                                {(() => {
+                                                    const lu = lectureTrace(p, tailles);
+                                                    if (!lu || !lu.inconnues.length) return null;
+                                                    return (
+                                                        <div className="flex items-start gap-1 mt-0.5 px-1.5 py-1 rounded bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-[10px] font-semibold text-rose-700 dark:text-rose-300 leading-tight">
+                                                            <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                                                            <span>
+                                                                {L('Le fichier contient', 'الملف فيه', 'The file holds')} <b className="uppercase">{nomBrut(lu.brut)}</b> : {L('taille', 'المقاس', 'size')} <b>{lu.inconnues.join(', ')}</b> {L('absente de la commande. Ajoutez-la aux tailles du modele.', 'غير موجود في الطلب. أضفه إلى مقاسات الموديل.', 'not in the order. Add it to the model sizes.')}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })()}
                                                 {(() => {
                                                     const trace = taillesDuTrace(p, tailles);
                                                     if (!trace || memesRatios(p.ratios || {}, trace)) return null;
