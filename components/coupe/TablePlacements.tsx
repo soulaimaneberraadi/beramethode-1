@@ -16,6 +16,7 @@ import { associerTailles, lireEntete, lireNotation } from '../../lib/ordreCoupe'
 import { analyserFichier, analyserTexte } from '../../lib/numerotationPlt';
 import { decoderOctets } from '../../lib/hpgl';
 import { grilleClavier } from './grilleClavier';
+import { AMORCE_PAR_PLI_M } from '../../lib/coupeAtelier';
 
 interface Props {
     placements: PlacementCoupe[];
@@ -309,7 +310,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                             value={p.code || ''}
                                             onChange={e => onModifier(p.id, { code: e.target.value.toUpperCase().replace(/\s+/g, '') || undefined })}
                                             placeholder={`${prefixeCode}-${String(i + 1).padStart(2, '0')}`}
-                                            className="w-full h-8 px-2 rounded border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[11px] font-bold uppercase text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 focus:bg-white"
+                                            className="w-full min-w-[64px] h-8 px-2 rounded border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[11px] font-bold uppercase text-slate-700 dark:text-dk-text outline-none focus:border-indigo-400 focus:bg-white"
                                         />
                                     </td>
                                     <td className="py-1 px-2">
@@ -367,7 +368,7 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                                 <div className="flex flex-wrap gap-1 text-[9px] font-semibold text-slate-500 dark:text-dk-muted">
                                                     {p.laizeCm ? <span className="px-1 rounded bg-slate-100 dark:bg-dk-elevated">LA {p.laizeCm} cm</span> : null}
                                                     {p.efficience ? <span className="px-1 rounded bg-slate-100 dark:bg-dk-elevated">E {p.efficience}%</span> : null}
-                                                    {rouleauM && p.longueurM ? <span className="px-1 rounded bg-slate-100 dark:bg-dk-elevated" title={L('Plis qu\u2019un rouleau donne', 'طيّات يعطيها الرولو', 'Plies per roll')}>{Math.floor(rouleauM / (p.longueurM + 0.03))} {L('plis/rouleau', 'طيّة/رولو', 'plies/roll')}</span> : null}
+                                                    {rouleauM && p.longueurM ? <span className="px-1 rounded bg-slate-100 dark:bg-dk-elevated" title={L('Plis qu\u2019un rouleau donne', 'طيّات يعطيها الرولو', 'Plies per roll')}>{Math.floor(rouleauM / (p.longueurM + AMORCE_PAR_PLI_M))} {L('plis/rouleau', 'طيّة/رولو', 'plies/roll')}</span> : null}
                                                 </div>
                                                 {laizeTissuCm && p.laizeCm && p.laizeCm > laizeTissuCm + 0.5 ? (
                                                     <div className="flex items-center gap-1 mt-0.5 px-1.5 py-1 rounded bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-[10px] font-semibold text-rose-700 dark:text-rose-300">

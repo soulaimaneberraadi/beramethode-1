@@ -1331,7 +1331,10 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             const nom = nomPlacement(ratios, sizes);
             const deja = [...placementsTissu, ...nouveauxPlacements].find(x => nomPlacement(x.ratios || {}, sizes) === nom);
             if (deja) return deja;
-            const p: PlacementCoupe = { id: `PLC-${Date.now().toString(36)}-${nouveauxPlacements.length}`, tissu: tissuId, nom, ratios: { ...ratios }, maxPlis: maxPly };
+            // Le code suit la matiere (TE-03, FO-02...) comme un placement ajoute a la main :
+            // sans lui, le trace du client ne se rattache pas par son nom de fichier.
+            const code = codeTraceSuivant(codeMatiere(tissuCourant), [...placementsTissu, ...nouveauxPlacements].map(x => x.code));
+            const p: PlacementCoupe = { id: `PLC-${Date.now().toString(36)}-${nouveauxPlacements.length}`, tissu: tissuId, nom, code, ratios: { ...ratios }, maxPlis: maxPly };
             nouveauxPlacements.push(p);
             return p;
         };
