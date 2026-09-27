@@ -119,6 +119,36 @@ function getOrCreateMasterKey(userDataPath: string): string {
 
 // ─── Port libre ──────────────────────────────────────────────────────────────
 
+/** Le port est-il libre sur cette interface ? */
+function portLibre(port: number, host: string): Promise<boolean> {
+  return new Promise(resolve => {
+    const srv = net.createServer();
+    srv.unref();
+    srv.once('error', () => resolve(false));
+    srv.listen(port, host, () => srv.close(() => resolve(true)));
+  });
+}
+
+/**
+ * BERACOUPE : le lien du reseau local (http://IP:PORT) est note, imprime en QR,
+ * mis en favori sur les telephones — il ne doit pas changer a chaque lancement.
+ * On essaie donc 7000, puis 7001... 7010, et seulement ensuite un port au hasard.
+ */
+async function portStable(host: string): Promise<number> {
+  for (let p = 7000; p <= 7010; p++) if (await portLibre(p, host)) return p;
+  // Tout est pris : le systeme choisit (le lien change, l'ecran Reseau local l'affiche).
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.unref();
+    srv.once('error', reject);
+    srv.listen(0, host, () => {
+      const addr = srv.address();
+      const port = typeof addr === 'object' && addr ? addr.port : 0;
+      srv.close(() => resolve(port));
+    });
+  });
+}
+
 function findFreePort(preferred = 7000, host = '127.0.0.1'): Promise<number> {
   return new Promise((resolve, reject) => {
     const srv = net.createServer();
@@ -384,7 +414,7 @@ app.whenReady().then(async () => {
     // BERACOUPE écoute sur 0.0.0.0 (atelier en LAN) → on sonde aussi sur
     // 0.0.0.0 pour détecter un conflit de port côté réseau, pas seulement en
     // local. BERAMETHODE reste sondé sur 127.0.0.1 (comportement inchangé).
-    const port = await findFreePort(7000, IS_COUPE ? '0.0.0.0' : '127.0.0.1');
+    const port = IS_COUPE ? await portStable('0.0.0.0') : await findFreePort(7000, '127.0.0.1');
 
     logBoot(`[BERA] Démarrage du serveur sur le port ${port}…`);
 
