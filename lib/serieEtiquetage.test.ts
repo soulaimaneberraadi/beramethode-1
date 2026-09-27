@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import type { MatelasLine } from '../types';
-import { figerSerie, lireSerieExcel, paquetsSerie, piecesParChaine, saisiesDepuisSerie } from './serieEtiquetage';
+import { avancementSerie, figerSerie, lireSerieExcel, paquetsSerie, piecesParChaine, saisiesDepuisSerie } from './serieEtiquetage';
 
 const T = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const m = (id: string, numero: string, plis: number, ratios: Record<string, number>, extra: Partial<MatelasLine> = {}): MatelasLine =>
@@ -94,5 +94,19 @@ const m = (id: string, numero: string, plis: number, ratios: Record<string, numb
     assert.deepEqual(r.saisies[paquets[0].cle], { date: '25/09/2026', pieces: -2, entree: '26/09', lote: 'L1', chaine: 'STAR1+2' });
     assert.equal(r.saisies[paquets[1].cle].chaine, 'CHAINE 1', 'nom connu du Planning -> son id');
     assert.equal(r.saisies[paquets[2].cle].sortie, '28/09');
-    console.log('serieEtiquetage: OK');
+    {
+    // Avancement vu du Planning : coupe, entre en chaine, sorti.
+    const ls = [m('a', '1', 10, { S: 1, M: 1 }, { fait: true }), m('b', '2', 5, { M: 1 })];
+    const ps = paquetsSerie(ls, ['S', 'M'], 1);
+    const serie = { saisies: { [ps[0].cle]: { entree: '27/09/2026', chaine: 'CHAINE 1', pieces: -1 }, [ps[1].cle]: { entree: '27/09/2026', sortie: '28/09/2026', chaine: 'CHAINE 2' } } };
+    const a = avancementSerie(ls, ['S', 'M'], serie)!;
+    assert.deepEqual(a.total, { paquets: 3, pieces: 24 });
+    assert.deepEqual(a.coupes, { paquets: 2, pieces: 19 });
+    assert.deepEqual(a.entres, { paquets: 2, pieces: 19 });
+    assert.deepEqual(a.sortis, { paquets: 1, pieces: 10 });
+    assert.deepEqual(a.parChaine, { 'CHAINE 1': 9, 'CHAINE 2': 10 });
+    assert.equal(avancementSerie([], ['S'], undefined), null);
+}
+
+console.log('serieEtiquetage: OK');
 })().catch(e => { console.error(e); process.exit(1); });

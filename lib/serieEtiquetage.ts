@@ -245,3 +245,46 @@ export function saisiesDepuisSerie(
     }
     return { saisies, reprises, sansPaquet };
 }
+
+/* ------------------------------------------------------------------ */
+/* Avancement de la serie, vu du Planning                               */
+/* ------------------------------------------------------------------ */
+
+export interface CompteSerie { paquets: number; pieces: number }
+
+export interface AvancementSerie {
+    total: CompteSerie;
+    /** Matelas coupes : les paquets existent. */
+    coupes: CompteSerie;
+    /** Paquets partis en chaine (ENTREE saisie). */
+    entres: CompteSerie;
+    /** Paquets revenus de la chaine (SORTE saisie). */
+    sortis: CompteSerie;
+    /** Pieces entrees, par chaine (id « CHAINE n »). */
+    parChaine: Record<string, number>;
+}
+
+/**
+ * Ce que la serie d'etiquetage dit de l'avancement d'un modele : combien de
+ * paquets sont coupes, entres en chaine, sortis. Les pieces d'un paquet sont
+ * ses plis, corrigees par la colonne PIECES (-/+) de l'atelier.
+ */
+export function avancementSerie(lignes: MatelasLine[], tailles: string[], serie: SerieEtiquetage | undefined): AvancementSerie | null {
+    const paquets = paquetsSerie(lignes, tailles, serie?.depart || 1, serie?.figes);
+    if (!paquets.length) return null;
+    const vide = (): CompteSerie => ({ paquets: 0, pieces: 0 });
+    const a: AvancementSerie = { total: vide(), coupes: vide(), entres: vide(), sortis: vide(), parChaine: {} };
+    const compter = (c: CompteSerie, n: number) => { c.paquets++; c.pieces += n; };
+    for (const p of paquets) {
+        const s = saisieDe(serie, p.cle);
+        const n = Math.max(0, p.plis + (Number(s.pieces) || 0));
+        compter(a.total, n);
+        if (p.fait) compter(a.coupes, n);
+        if (s.entree) {
+            compter(a.entres, n);
+            if (s.chaine) a.parChaine[s.chaine] = (a.parChaine[s.chaine] || 0) + n;
+        }
+        if (s.sortie) compter(a.sortis, n);
+    }
+    return a;
+}

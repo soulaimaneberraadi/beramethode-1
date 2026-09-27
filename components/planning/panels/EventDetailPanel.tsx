@@ -13,6 +13,7 @@ import { calculateRollingEndDate } from '../../../utils/planning';
 import { tx } from '../../../lib/i18n';
 import { useLang } from '../../../src/context/LanguageContext';
 import { useRouteSegment } from '../../../lib/router';
+import { avancementSerie } from '../../../lib/serieEtiquetage';
 
 const getExtendedStatusMeta = (status: string | undefined, lang: string) => {
     if (status === 'EXTERNAL_PROCESS') {
@@ -139,6 +140,11 @@ export default function EventDetailPanel({
     const startYmd = evStartYmd(event);
     const endYmd = evEndYmd(event);
     const model = models.find(m => m.id === event.modelId);
+    /* La serie d'etiquetage de La Coupe : paquets coupes, entres en chaine, sortis. */
+    // Sans hook : on est apres le « if (!event) return null » ; le calcul est court.
+    const serie = model?.ordreCoupe?.matelasLines?.length
+        ? avancementSerie(model.ordreCoupe.matelasLines, model.ficheData?.sizes || model.meta_data?.sizes || [], model.ordreCoupe.serie)
+        : null;
     let rollingEndYmd = endYmd;
     if (model && qty > 0) {
         const sam = Number(model.meta_data?.total_temps) || 15;
@@ -481,6 +487,36 @@ export default function EventDetailPanel({
                                 {chainEfficiency != null && <span>η {Math.round(chainEfficiency * 100)}%</span>}
                             </div>
                         </div>
+                    </section>
+                )}
+
+                {/* Serie de coupe : ou en sont les paquets de ce modele */}
+                {serie && (
+                    <section className="px-6 py-4 border-b border-slate-200/30 dark:border-dk-border/30">
+                        <div className="text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest mb-2">{tx(lang, { fr: 'Série de coupe', ar: 'سيري القص', en: 'Cutting series' })}</div>
+                        {([
+                            [tx(lang, { fr: 'Coupé', ar: 'مقصوص', en: 'Cut' }), serie.coupes, 'bg-sky-500'],
+                            [tx(lang, { fr: 'Entré en chaîne', ar: 'دخل السلسلة', en: 'Into line' }), serie.entres, 'bg-indigo-500'],
+                            [tx(lang, { fr: 'Sorti', ar: 'خرج', en: 'Out' }), serie.sortis, 'bg-emerald-500'],
+                        ] as const).map(([label, c, couleur]) => (
+                            <div key={label} className="mb-2 last:mb-0">
+                                <div className="flex items-baseline justify-between text-[11px]">
+                                    <span className="font-semibold text-slate-600 dark:text-dk-muted">{label}</span>
+                                    <span className="tabular-nums font-bold text-slate-800 dark:text-dk-text">
+                                        {c.pieces.toLocaleString('fr-FR')} / {serie.total.pieces.toLocaleString('fr-FR')}
+                                        <span className="text-slate-400 font-medium"> · {c.paquets}/{serie.total.paquets} {tx(lang, { fr: 'paquets', ar: 'حزمة', en: 'bundles' })}</span>
+                                    </span>
+                                </div>
+                                <div className="h-1.5 mt-1 rounded-full bg-slate-100 dark:bg-dk-elevated overflow-hidden">
+                                    <div className={`h-full ${couleur}`} style={{ width: `${serie.total.pieces ? Math.min(100, (c.pieces / serie.total.pieces) * 100) : 0}%` }} />
+                                </div>
+                            </div>
+                        ))}
+                        {event.chaineId && serie.entres.pieces > 0 && (
+                            <p className="mt-2 text-[11px] text-slate-500 dark:text-dk-muted">
+                                {tx(lang, { fr: 'Entrées sur cette chaîne', ar: 'الداخل إلى هذه السلسلة', en: 'Into this line' })} : <b className="tabular-nums text-slate-800 dark:text-dk-text">{(serie.parChaine[event.chaineId] || 0).toLocaleString('fr-FR')}</b>
+                            </p>
+                        )}
                     </section>
                 )}
 
