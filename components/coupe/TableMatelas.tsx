@@ -145,6 +145,8 @@ export default function TableMatelas({
      */
     const glisse = useRef<number | null>(null);
     const [enGlisse, setEnGlisse] = useState(false);
+    /** Appui sur une ligne deja dans la selection : on attend de savoir si c'est un glisser (toute la selection part) ou un clic (on ne garde qu'elle). */
+    const reduireA = useRef<string | null>(null);
     useEffect(() => {
         const fin = () => { glisse.current = null; setEnGlisse(false); };
         window.addEventListener('mouseup', fin);
@@ -157,6 +159,8 @@ export default function TableMatelas({
     };
 
     const idsChoisis = lignes.filter(l => choisies.has(l.id)).map(l => l.id);
+    /** La selection porte au moins un trace numerote : elle peut se glisser d'un bloc. */
+    const lot2Pret = lignes.some(l => choisies.has(l.id) && !!l.numero && !!placements.find(p => p.id === l.placementId)?.fichier);
     const coupeesChoisies = lignes.filter(l => choisies.has(l.id) && l.fait).length;
     const actions = {
         inserer: () => { const dernier = idsChoisis[idsChoisis.length - 1]; if (dernier) onInserer(dernier); },
@@ -369,15 +373,41 @@ export default function TableMatelas({
      * Glisser le fichier hors du navigateur (bureau, dossier, Optitex) :
      * Chrome et Edge creent le fichier a l'endroit ou on le lache.
      */
+    /**
+     * Glisser vers Optitex ou un dossier, comme une selection de fichiers dans
+     * l'Explorateur : si la ligne fait partie d'une selection, toute la selection
+     * part, dans l'ordre des numeros. L'application (.exe) le fait en un geste ;
+     * le navigateur ne sait porter qu'un fichier par glisser.
+     */
     const glisser = (e: React.DragEvent, l: MatelasLine) => {
-        const g = generer(l);
+        reduireA.current = null;
+        glisse.current = null; setEnGlisse(false);
+        const lot = (choisies.has(l.id) && choisies.size > 1 ? lignes.filter(x => choisies.has(x.id)) : [l])
+            .map(x => ({ l: x, g: generer(x) }))
+            .filter((x): x is { l: MatelasLine; g: NonNullable<ReturnType<typeof generer>> } => !!x.g)
+            .sort((a, b) => (parseInt(String(a.l.numero), 10) || 0) - (parseInt(String(b.l.numero), 10) || 0));
+        const electron = (window as any).beraElectron;
+        if (lot.length && electron?.glisserTraces) {
+            e.preventDefault();
+            electron.glisserTraces(lot.map(x => ({ nom: x.g.nom, octets: x.g.octets })));
+            marquerEnvoye(lot.map(x => x.l));
+            return;
+        }
+        const g = lot.find(x => x.l.id === l.id)?.g || lot[0]?.g;
         if (!g) { e.preventDefault(); return; }
+        if (lot.length > 1) {
+            onMessage(L(
+                'Le navigateur ne glisse qu\u2019un fichier a la fois. Dans l\u2019application BERAMETHODE (.exe), toute la selection part d\u2019un coup. Ici : « Envoyer au traceur » ou « Copier dans un dossier ».',
+                'المتصفّح يسحب ملفاً واحداً فقط. في برنامج BERAMETHODE (.exe) تذهب الأسطر المختارة كلها دفعة واحدة. هنا: «Envoyer au traceur» أو «Copier dans un dossier».',
+                'The browser drags one file at a time; the desktop app drags the whole selection.',
+            ), 'info');
+        }
         const url = URL.createObjectURL(new Blob([g.octets], { type: 'application/octet-stream' }));
         urls.current.push(url);
         e.dataTransfer.effectAllowed = 'copy';
         e.dataTransfer.setData('DownloadURL', `application/octet-stream:${g.nom}:${url}`);
         e.dataTransfer.setData('text/plain', g.nom);
-        marquerEnvoye([l]);
+        marquerEnvoye([lot.find(x => x.g === g)?.l || l]);
         setTimeout(() => { URL.revokeObjectURL(url); urls.current = urls.current.filter(u => u !== url); }, 120000);
     };
 
@@ -572,8 +602,8 @@ export default function TableMatelas({
                                 { f: actions.descendre, i: ArrowDown, t: L('Descendre', 'إلى الأسفل', 'Down'), k: 'Alt ↓', off: idsChoisis.length !== 1 },
                                 { f: actions.supprimer, i: Trash2, t: L('Supprimer', 'حذف', 'Delete'), k: 'Suppr', rouge: true },
                             ].map(b => (
-                                <button key={b.t} type="button" disabled={b.off} onClick={b.f} title={b.k} className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg border text-[11px] font-semibold disabled:opacity-40 ${b.rouge ? 'border-rose-200 text-rose-600 hover:bg-rose-50' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-700 dark:text-dk-text-soft hover:border-indigo-300'}`}>
-                                    <b.i className="w-3.5 h-3.5" />{b.t}<span className="hidden xl:inline text-[9px] text-slate-400 font-medium">{b.k}</span>
+                                <button key={b.t} type="button" disabled={b.off} onClick={b.f} title={`${b.t} (${b.k})`} aria-label={b.t} className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border disabled:opacity-40 ${b.rouge ? 'border-rose-200 text-rose-600 hover:bg-rose-50' : 'border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft hover:border-indigo-300'}`}>
+                                    <b.i className="w-3.5 h-3.5" />
                                 </button>
                             ))}
                             <button type="button" onClick={() => setChoisies(new Set())} className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100" title="Echap"><X className="w-4 h-4" /></button>
@@ -591,26 +621,26 @@ export default function TableMatelas({
                         <thead>
                             <tr className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-dk-muted">
                                 {(() => {
-                                    const th = 'sticky top-0 z-20 bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border py-2.5 px-1.5 font-bold whitespace-nowrap';
+                                    const th = 'sticky top-0 z-20 bg-slate-50 dark:bg-dk-bg border-b border-slate-200 dark:border-dk-border py-1.5 px-1.5 font-bold whitespace-nowrap';
                                     return (
                                         <>
                                             <th className={`${th} z-30 text-center`} style={{ left: 0, width: COL_ETAT, minWidth: COL_ETAT, maxWidth: COL_ETAT }} title={L('Coupe', 'مقصوص', 'Cut')}><CheckCircle2 className="w-3.5 h-3.5 mx-auto" /></th>
                                             <th className={`${th} z-30 text-center border-r`} style={{ left: COL_ETAT, width: COL_NUMERO, minWidth: COL_NUMERO, maxWidth: COL_NUMERO }} title={L('Numero ecrit sur les pieces', 'الرقم الذي يُكتب على القطع', 'Number written on pieces')}>N°</th>
-                                            <th className={`${th} text-left min-w-[104px]`}>{L('Placement', 'التركيبة', 'Placement')}</th>
-                                            <th className={`${th} text-left min-w-[120px]`}>{L('Couleur', 'اللون', 'Colour')}</th>
+                                            <th className={`${th} text-left min-w-[88px]`}>{L('Placement', 'التركيبة', 'Placement')}</th>
+                                            <th className={`${th} text-left min-w-[100px]`}>{L('Couleur', 'اللون', 'Colour')}</th>
                                             {avecMatiere && <th className={`${th} text-left min-w-[130px]`}>{L('Matiere', 'المادة', 'Material')}</th>}
-                                            <th className={`${th} text-right`} style={{ minWidth: 80 }}>{L('Plis', 'طيّات', 'Plies')}</th>
+                                            <th className={`${th} text-right`} style={{ minWidth: 56 }}>{L('Plis', 'طيّات', 'Plies')}</th>
                                             {tailles.map(t => (
                                                 <React.Fragment key={t}>
-                                                    <th className={`${th} text-right min-w-[52px] text-emerald-700 dark:text-emerald-300 border-l border-slate-100 dark:border-dk-border`}>{t}</th>
-                                                    {avecCumuls && <th className={`${th} text-right min-w-[58px] text-slate-400 font-semibold`} title={L(`Cumul ${t} pour la couleur de la ligne`, `متراكم ${t} للون السطر`, `${t} running total for the row colour`)}>Σ {t}</th>}
+                                                    <th className={`${th} text-right min-w-[42px] text-emerald-700 dark:text-emerald-300 border-l border-slate-100 dark:border-dk-border`}>{t}</th>
+                                                    {avecCumuls && <th className={`${th} text-right min-w-[46px] text-slate-400 font-semibold`} title={L(`Cumul ${t} pour la couleur de la ligne`, `متراكم ${t} للون السطر`, `${t} running total for the row colour`)}>Σ {t}</th>}
                                                 </React.Fragment>
                                             ))}
-                                            <th className={`${th} text-right border-l border-slate-200 dark:border-dk-border`} style={{ minWidth: 64 }}>{L('Total', 'المجموع', 'Total')}</th>
-                                            <th className={`${th} text-right`} style={{ minWidth: 64 }}>{L('Cumul', 'المتراكم', 'Running')}</th>
-                                            <th className={`${th} text-right`} style={{ minWidth: 72 }}>{L('Conso m', 'الاستهلاك م', 'Fabric m')}</th>
-                                            <th className={`${th} text-left min-w-[200px] border-l border-slate-200 dark:border-dk-border`}>{L('Trace numerote', 'الملف المرقَّم', 'Numbered trace')}</th>
-                                            <th className={th} style={{ minWidth: 80 }}></th>
+                                            <th className={`${th} text-right border-l border-slate-200 dark:border-dk-border`} style={{ minWidth: 52 }}>{L('Total', 'المجموع', 'Total')}</th>
+                                            <th className={`${th} text-right`} style={{ minWidth: 52 }}>{L('Cumul', 'المتراكم', 'Running')}</th>
+                                            <th className={`${th} text-right`} style={{ minWidth: 60 }}>{L('Conso m', 'الاستهلاك م', 'Fabric m')}</th>
+                                            <th className={`${th} text-left min-w-[170px] border-l border-slate-200 dark:border-dk-border`}>{L('Trace numerote', 'الملف المرقَّم', 'Numbered trace')}</th>
+                                            <th className={th} style={{ minWidth: 64 }}></th>
                                         </>
                                     );
                                 })()}
@@ -642,17 +672,24 @@ export default function TableMatelas({
                                     // Fond opaque : les deux premieres colonnes restent collees a gauche en defilant.
                                     const envoye = !l.fait && !!l.envoyeLe;
                                     const fond = choisie ? 'bg-indigo-50 dark:bg-indigo-950' : l.fait ? 'bg-emerald-50 dark:bg-emerald-950' : envoye ? 'bg-sky-50 dark:bg-sky-950' : i % 2 ? 'bg-slate-50 dark:bg-dk-bg' : 'bg-white dark:bg-dk-surface';
-                                    const td = `${fond} border-b border-slate-100 dark:border-dk-border py-1 px-1.5`;
-                                    const caseSaisie = 'w-full h-8 rounded-md border border-transparent hover:border-slate-200 dark:hover:border-dk-border focus:border-indigo-400 focus:bg-white dark:focus:bg-dk-surface bg-transparent outline-none tabular-nums disabled:hover:border-transparent';
+                                    const td = `${fond} border-b border-slate-100 dark:border-dk-border py-0.5 px-1.5`;
+                                    const caseSaisie = 'w-full h-7 rounded-md border border-transparent hover:border-slate-200 dark:hover:border-dk-border focus:border-indigo-400 focus:bg-white dark:focus:bg-dk-surface bg-transparent outline-none tabular-nums disabled:hover:border-transparent';
                                     return (
                                         <tr
                                             key={l.id}
+                                            draggable={choisie && choisies.size > 1 && lot2Pret}
+                                            onDragStart={e => { if (e.target === e.currentTarget) glisser(e, l); }}
                                             onMouseDown={e => {
                                                 const t = e.target as HTMLElement;
-                                                if (e.button !== 0 || t.closest('input,button,a,[draggable="true"]')) return;
+                                                if (e.button !== 0 || t.closest('input,button,a')) return;
+                                                const tire = t.closest('[draggable="true"]');
+                                                if (tire && tire !== e.currentTarget) return;
+                                                // Dans la selection : pas de nouvelle selection, c'est peut-etre le debut d'un glisser.
+                                                if (choisie && choisies.size > 1 && !e.shiftKey && !e.ctrlKey && !e.metaKey) { reduireA.current = l.id; return; }
                                                 choisir(l.id, e);
                                                 if (!e.shiftKey && !e.ctrlKey && !e.metaKey) { glisse.current = i; setEnGlisse(true); }
                                             }}
+                                            onMouseUp={() => { if (reduireA.current === l.id) { setChoisies(new Set([l.id])); ancre.current = l.id; } reduireA.current = null; }}
                                             onMouseEnter={e => { if (glisse.current !== null && e.buttons === 1) etendreGlisse(i); }}
                                             onFocusCapture={() => { if (!choisies.has(l.id)) { setChoisies(new Set([l.id])); ancre.current = l.id; } }}
                                             onContextMenu={e => { e.preventDefault(); if (!choisies.has(l.id)) { setChoisies(new Set([l.id])); ancre.current = l.id; } setMenuLigne({ x: e.clientX, y: e.clientY }); }}
@@ -667,7 +704,7 @@ export default function TableMatelas({
                                                     onChange={e => onModifier(l.id, { numero: e.target.value.trim() })}
                                                     placeholder={String(i + 1)}
                                                     title={doublons.has((l.numero || '').trim()) ? L('Numero en double : deux paquets porteraient le meme numero', 'رقم مكرّر: حزمتان ستحملان نفس الرقم', 'Duplicate number') : undefined}
-                                                    className={`${caseSaisie} text-center text-[14px] font-bold ${doublons.has((l.numero || '').trim()) ? '!border-rose-400 !bg-rose-50 text-rose-700' : 'text-slate-900 dark:text-dk-text'}`}
+                                                    className={`${caseSaisie} text-center text-[13px] font-bold ${doublons.has((l.numero || '').trim()) ? '!border-rose-400 !bg-rose-50 text-rose-700' : 'text-slate-900 dark:text-dk-text'}`}
                                                 />
                                             </td>
                                             <td className={td}>
@@ -699,7 +736,7 @@ export default function TableMatelas({
                                                     onChange={e => onModifier(l.id, { plis: Math.max(0, Math.round(Number(e.target.value) || 0)) })}
                                                     placeholder="0"
                                                     title={trop ? L(`Plus que ${p!.maxPlis} plis, le maximum de ce placement`, `أكثر من ${p!.maxPlis} طيّة، وهو الحدّ الأقصى لهذه التركيبة`, `Over ${p!.maxPlis} plies`) : undefined}
-                                                    className={`${caseSaisie} px-2 text-right text-[13px] font-bold ${trop ? '!border-rose-300 !bg-rose-50 text-rose-700' : 'text-slate-800 dark:text-dk-text'}`}
+                                                    className={`${caseSaisie} px-2 text-right text-[12px] font-bold ${trop ? '!border-rose-300 !bg-rose-50 text-rose-700' : 'text-slate-800 dark:text-dk-text'}`}
                                                 />
                                             </td>
                                             {tailles.map(t => {
@@ -725,7 +762,7 @@ export default function TableMatelas({
                                                         <span
                                                             draggable
                                                             onDragStart={e => glisser(e, l)}
-                                                            className="flex-1 min-w-0 max-w-[210px] inline-flex items-center gap-1 h-7 px-1.5 rounded-md bg-indigo-50/70 dark:bg-indigo-900/20 cursor-grab active:cursor-grabbing"
+                                                            className="flex-1 min-w-0 max-w-[180px] inline-flex items-center gap-1 h-6 px-1.5 rounded-md bg-indigo-50/70 dark:bg-indigo-900/20 cursor-grab active:cursor-grabbing"
                                                             title={L('Glissez ce fichier dans Optitex ou dans un dossier', 'اسحب هذا الملف إلى Optitex أو إلى مجلّد', 'Drag this file into Optitex or a folder')}
                                                         >
                                                             <GripVertical className="w-3 h-3 text-indigo-400 shrink-0" />
@@ -736,10 +773,10 @@ export default function TableMatelas({
                                                                 <AlertTriangle className="w-3.5 h-3.5" />
                                                             </span>
                                                         )}
-                                                        <button type="button" onClick={() => onApercu(l, p!)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50" title={L('Voir le numero dans les pieces', 'معاينة الرقم في القطع', 'Preview')}><Eye className="w-3.5 h-3.5" /></button>
-                                                        <button type="button" onClick={() => telecharger(l)} className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title={L('Telecharger', 'تنزيل', 'Download')}><Download className="w-3.5 h-3.5" /></button>
+                                                        <button type="button" onClick={() => onApercu(l, p!)} className="p-1 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50" title={L('Voir le numero dans les pieces', 'معاينة الرقم في القطع', 'Preview')}><Eye className="w-3.5 h-3.5" /></button>
+                                                        <button type="button" onClick={() => telecharger(l)} className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title={L('Telecharger', 'تنزيل', 'Download')}><Download className="w-3.5 h-3.5" /></button>
                                                         {deposer && (
-                                                            <button type="button" disabled={envoi === l.id} onClick={() => envoyer(l)} className="p-1.5 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40" title={L('Envoyer au traceur', 'إرسال إلى الـ traceur', 'Send to plotter')}><Send className="w-3.5 h-3.5" /></button>
+                                                            <button type="button" disabled={envoi === l.id} onClick={() => envoyer(l)} className="p-1 rounded-md text-slate-400 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40" title={L('Envoyer au traceur', 'إرسال إلى الـ traceur', 'Send to plotter')}><Send className="w-3.5 h-3.5" /></button>
                                                         )}
                                                     </div>
                                                 ) : (
@@ -750,7 +787,7 @@ export default function TableMatelas({
                                             </td>
                                             <td className={`${td} text-center whitespace-nowrap`}>
                                                 <div className="flex items-center justify-end gap-0.5 opacity-60 group-hover:opacity-100">
-                                                    <button type="button" onClick={() => onInserer(l.id)} className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title={L('Inserer un matelas en dessous', 'إدراج مفرشة تحت هذه', 'Insert below')}>
+                                                    <button type="button" onClick={() => onInserer(l.id)} className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title={L('Inserer un matelas en dessous', 'إدراج مفرشة تحت هذه', 'Insert below')}>
                                                         <Plus className="w-3.5 h-3.5" />
                                                     </button>
                                                     {renderActions(l)}

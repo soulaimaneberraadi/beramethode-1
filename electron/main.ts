@@ -16,7 +16,7 @@
  *  - Ferme proprement le processus serveur à la fermeture de la fenêtre
  */
 
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, nativeImage } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -228,6 +228,53 @@ function createSplash(): BrowserWindow {
 
 let mainWindow: BrowserWindow | null = null;
 
+/* ------------------------------------------------------------------ */
+/* Glisser des traces PLT hors de l'application                         */
+/* ------------------------------------------------------------------ */
+
+const DOSSIER_GLISSER = path.join(os.tmpdir(), 'beramethode-traces');
+
+/** Les dossiers de glisser de plus d'un jour ne servent plus : on les retire au demarrage. */
+function nettoyerGlisser() {
+  try {
+    if (!fs.existsSync(DOSSIER_GLISSER)) return;
+    const limite = Date.now() - 24 * 3600 * 1000;
+    for (const nom of fs.readdirSync(DOSSIER_GLISSER)) {
+      const chemin = path.join(DOSSIER_GLISSER, nom);
+      try { if (fs.statSync(chemin).mtimeMs < limite) fs.rmSync(chemin, { recursive: true, force: true }); } catch { /* en cours d'usage */ }
+    }
+  } catch { /* rien a nettoyer */ }
+}
+
+/**
+ * Le renderer envoie les traces numerotes (nom + octets) au debut d'un glisser :
+ * on les ecrit dans un dossier temporaire, dans l'ordre recu, puis le systeme
+ * les porte comme une selection de fichiers de l'Explorateur.
+ */
+ipcMain.on('bera:glisser-traces', (event, fichiers: { nom: string; octets: Uint8Array }[]) => {
+  try {
+    if (!Array.isArray(fichiers) || fichiers.length === 0 || fichiers.length > 1000) return;
+    const dossier = path.join(DOSSIER_GLISSER, `${Date.now()}-${crypto.randomBytes(3).toString('hex')}`);
+    fs.mkdirSync(dossier, { recursive: true });
+    const pris = new Set<string>();
+    const chemins = fichiers.map((f, i) => {
+      let nom = path.basename(String(f?.nom || '')).replace(/[<>:"/\\|?*\x00-\x1f]/g, '-').trim() || `trace-${i + 1}.plt`;
+      if (!/\.(plt|hpgl|hgl|prn)$/i.test(nom)) nom += '.plt';
+      while (pris.has(nom.toLowerCase())) nom = nom.replace(/(\.[^.]+)$/, `-${i + 1}$1`);
+      pris.add(nom.toLowerCase());
+      const chemin = path.join(dossier, nom);
+      fs.writeFileSync(chemin, Buffer.from(f.octets));
+      return chemin;
+    });
+    const iconePath = path.join(__dirname, 'icon.png');
+    let icone = fs.existsSync(iconePath) ? nativeImage.createFromPath(iconePath) : nativeImage.createEmpty();
+    if (!icone.isEmpty()) icone = icone.resize({ width: 32, height: 32 });
+    event.sender.startDrag({ file: chemins[0], files: chemins, icon: icone });
+  } catch (err) {
+    console.error('[glisser-traces]', err);
+  }
+});
+
 async function createWindow(port: number) {
   const preloadPath = path.join(__dirname, 'preload.js');
   const iconPath = path.join(__dirname, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
@@ -276,6 +323,7 @@ async function createWindow(port: number) {
 app.whenReady().then(async () => {
   // Désactiver le menu natif pour un look premium et moderne
   Menu.setApplicationMenu(null);
+  nettoyerGlisser();
 
   // Afficher le splash immédiatement
   splashWindow = createSplash();

@@ -20,4 +20,13 @@ contextBridge.exposeInMainWorld('beraElectron', {
 
   /** Platform : 'win32' | 'darwin' | 'linux' */
   platform: process.platform,
+
+  /**
+   * Glisser plusieurs traces PLT numerotes hors de l'application (vers Optitex,
+   * un dossier Windows...), comme une selection de fichiers dans l'Explorateur.
+   * Le navigateur ne sait en glisser qu'un ; ici le processus principal les
+   * ecrit dans un dossier temporaire et lance le glisser du systeme.
+   * A appeler depuis un `dragstart` apres `preventDefault()`.
+   */
+  glisserTraces: (fichiers: { nom: string; octets: Uint8Array }[]) => ipcRenderer.send('bera:glisser-traces', fichiers),
 });
