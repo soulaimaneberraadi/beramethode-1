@@ -30,7 +30,7 @@ import {
 import ImportExcelCoupe, { type ChoixImport } from './coupe/ImportExcelCoupe';
 import SerieEtiquetage from './coupe/SerieEtiquetage';
 import { appliquerImport } from '../lib/appliquerImport';
-import { paquetsSerie, saisieDe } from '../lib/serieEtiquetage';
+import { paquetsSerie, saisieDe, saisiesDepuisSerie } from '../lib/serieEtiquetage';
 import TablePlacements from './coupe/TablePlacements';
 import TableMatelas from './coupe/TableMatelas';
 import { grilleClavier } from './coupe/grilleClavier';
@@ -1084,7 +1084,15 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         r.tailles.forEach((t, i) => { if (t in r.quantites) grille[`${cId}_${i}`] = r.quantites[t]; });
         const quantite = Object.values(grille).reduce((a: number, v: any) => a + (Number(v) || 0), 0);
         applyFicheUpdate({ ...fiche, sizes: r.tailles, colors: couleursFiche, gridQuantities: grille, quantity: quantite, client: fiche.client || c.feuille.client || '' });
-        setOrdre(r.ordre);
+        // La feuille SERIE du meme classeur : ses saisies vont sur les paquets des matelas importes.
+        let ordreImporte = r.ordre;
+        if (c.serie?.length) {
+            const depart = c.serie[0].debut && c.serie[0].debut > 0 ? c.serie[0].debut : (r.ordre.serie?.depart || 1);
+            const paquets = paquetsSerie(r.ordre.matelasLines || [], r.tailles, depart);
+            const { saisies } = saisiesDepuisSerie(paquets, c.serie, chainesAtelier);
+            ordreImporte = { ...r.ordre, serie: { ...(r.ordre.serie || {}), depart, saisies: { ...(r.ordre.serie?.saisies || {}), ...saisies } } };
+        }
+        setOrdre(ordreImporte);
         showToast(tx(lang, {
             fr: `Importe : ${r.resume.placements} placement(s), ${r.resume.matelas} matelas${r.alertes.length ? ` · ${r.alertes.length} ligne(s) a verifier` : ''}. Verifiez puis Sauvegardez.`,
             ar: `تم الاستيراد: ${r.resume.placements} تركيبة، ${r.resume.matelas} مفرشة${r.alertes.length ? ` · ${r.alertes.length} سطر للتحقق` : ''}. تحقّق ثم احفظ.`,
@@ -3181,6 +3189,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         onChange={serie => setOrdre(prev => ({ ...prev, serie }))}
                                         chaines={chainesAtelier}
                                         chainePlanifiee={(planningEvents || []).find(e => e.modelId === selectedModel.id)?.chaineId}
+                                        onMessage={showToast}
                                     />
                                 </div>
                             )}

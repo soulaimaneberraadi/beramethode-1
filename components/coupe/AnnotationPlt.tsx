@@ -376,7 +376,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                     )}
                 </div>
             ) : undefined}
-            bodyClassName="flex-1 overflow-y-auto min-h-0 p-4 md:p-5"
+            bodyClassName={lecture ? 'flex-1 min-h-0 overflow-hidden p-0 lg:h-[76vh]' : 'flex-1 overflow-y-auto min-h-0 p-4 md:p-5'}
             footer={(
                 <div className="w-full flex flex-col gap-2">
                 {envoi && (
@@ -451,7 +451,9 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                     </span>
                 </button>
             ) : (
-                <div className="space-y-4">
+                <div className="h-full flex flex-col lg:flex-row min-h-0 overflow-y-auto lg:overflow-hidden">
+                    {/* Volet de gauche : le trace, sur toute la hauteur */}
+                    <div className="lg:flex-1 min-w-0 min-h-0 flex flex-col gap-3 p-4">
                     {erreur && (
                         <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
@@ -487,24 +489,6 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                         )}
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <label className="block sm:w-32 shrink-0">
-                            <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1 uppercase tracking-wide">
-                                {L('Numero', 'الرقم', 'Number')}
-                            </span>
-                            <input
-                                type="text"
-                                value={numero}
-                                onChange={e => setNumero(e.target.value)}
-                                placeholder="66"
-                                className="w-full h-10 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 text-[16px] font-bold text-slate-800 dark:text-dk-text outline-none focus:bg-white focus:border-emerald-400"
-                            />
-                        </label>
-                        <div className="flex-1 min-w-0">
-                            <ReglagesNumeroForm valeur={style} onChange={setStyle} exemple={numero.trim() || '77'} code={contexte?.code || 'TE'} />
-                        </div>
-                    </div>
-
                     {(alertes.reduit > 0 || alertes.force > 0) && (
                         <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
                             {alertes.reduit > 0 && (
@@ -521,7 +505,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                     )}
 
                     {apercu && (
-                        <div className="rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface overflow-hidden">
+                        <div className="h-[48vh] lg:h-auto lg:flex-1 min-h-0 flex flex-col rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface overflow-hidden">
                             <div className="px-3 py-2 border-b border-slate-100 dark:border-dk-border flex items-center gap-3 flex-wrap">
                                 <span className="text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wider">
                                     {L('Apercu', 'المعاينة', 'Preview')}
@@ -534,11 +518,11 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                 </span>
 
                             </div>
-                            <div className="bg-slate-50 dark:bg-dk-bg p-2 overflow-auto relative">
+                            <div className="flex-1 min-h-0 bg-slate-50 dark:bg-dk-bg p-2 overflow-hidden relative">
                                 <svg
                                     ref={svgRef}
                                     viewBox={apercu.viewBox}
-                                    className="w-full h-auto max-h-[55vh] touch-none"
+                                    className="w-full h-full touch-none"
                                     preserveAspectRatio="xMidYMid meet"
                                     onPointerMove={e => {
                                         mouvementGlisse(e);
@@ -617,6 +601,101 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                         </div>
                     )}
 
+                    </div>
+
+                    {/* Volet de droite : numero, reglages, piece choisie, liste des pieces */}
+                    <aside className="lg:w-[380px] shrink-0 min-h-0 lg:overflow-y-auto border-t lg:border-t-0 lg:border-l border-slate-100 dark:border-dk-border p-4 space-y-4">
+                    <div className="space-y-3">
+                        <label className="block">
+                            <span className="block text-[10px] font-bold text-slate-400 dark:text-dk-muted mb-1 uppercase tracking-wide">
+                                {L('Numero', 'الرقم', 'Number')}
+                            </span>
+                            <input
+                                type="text"
+                                value={numero}
+                                onChange={e => setNumero(e.target.value)}
+                                placeholder="66"
+                                className="w-full h-10 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-lg px-2.5 text-[16px] font-bold text-slate-800 dark:text-dk-text outline-none focus:bg-white focus:border-emerald-400"
+                            />
+                        </label>
+                        <div className="flex-1 min-w-0">
+                            <ReglagesNumeroForm valeur={style} onChange={setStyle} exemple={numero.trim() || '77'} code={contexte?.code || 'TE'} etroit />
+                        </div>
+                    </div>
+
+                    {selection !== null && (
+                        <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-900/20 p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Move className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                <span className="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 truncate">
+                                    {nomPiece(selection)}
+                                </span>
+                                {ajustements[String(selection)]?.libre && (
+                                    <span className="text-[9px] font-bold uppercase text-indigo-500">{L('pose a la main', 'موضع يدوي', 'manual')}</span>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => retoucher(selection, () => null)}
+                                    className="ml-auto text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                                >
+                                    {L('Remettre au centre', 'إعادة للوسط', 'Reset')}
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                                {[
+                                    { t: '← 5mm', dx: -5, dy: 0 },
+                                    { t: '→ 5mm', dx: 5, dy: 0 },
+                                    { t: '↑ 5mm', dx: 0, dy: 5 },
+                                    { t: '↓ 5mm', dx: 0, dy: -5 },
+                                ].map(b => (
+                                    <button
+                                        key={b.t}
+                                        type="button"
+                                        onClick={() => bouger(selection, b.dx, b.dy)}
+                                        className="h-9 rounded-lg bg-white dark:bg-dk-surface border border-indigo-200 dark:border-indigo-800 text-[12px] font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                                    >
+                                        {b.t}
+                                    </button>
+                                ))}
+                                <button type="button" onClick={() => redimensionner(selection, 1.2)} className="h-9 rounded-lg bg-white dark:bg-dk-surface border border-indigo-200 dark:border-indigo-800 text-[12px] font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 inline-flex items-center justify-center gap-1"><Plus className="w-3.5 h-3.5" />{L('Taille', 'الحجم', 'Size')}</button>
+                                <button type="button" onClick={() => redimensionner(selection, 1 / 1.2)} className="h-9 rounded-lg bg-white dark:bg-dk-surface border border-indigo-200 dark:border-indigo-800 text-[12px] font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 inline-flex items-center justify-center gap-1"><Minus className="w-3.5 h-3.5" />{L('Taille', 'الحجم', 'Size')}</button>
+                            </div>
+                        </div>
+                    )}
+
+                    <details open className="rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface">
+                        <summary className="px-3 py-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft cursor-pointer select-none">
+                            {L('Choisir les pieces', 'اختيار القطع', 'Choose pieces')}
+                        </summary>
+                        <div className="max-h-56 overflow-y-auto border-t border-slate-100 dark:border-dk-border divide-y divide-slate-50 dark:divide-dk-border">
+                            {candidats.map(({ index, etiquette }) => {
+                                const pose = poses.find(p => p.index === index);
+                                return (
+                                    <div key={index} className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-dk-elevated">
+                                        <input
+                                            type="checkbox"
+                                            checked={!exclus.has(index)}
+                                            onChange={() => basculerExclu(index)}
+                                            className="w-3.5 h-3.5 accent-emerald-600"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelection(selection === index ? null : index)}
+                                            className="flex-1 text-left text-[11px] font-medium text-slate-700 dark:text-dk-text-soft truncate"
+                                        >
+                                            {etiquette.texte}
+                                        </button>
+                                        {pose && (
+                                            <span className={`text-[10px] font-bold shrink-0 ${COULEUR_STATUT[pose.placement.statut]}`}>
+                                                {pose.placement.hauteurCm.toFixed(1)} cm
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </details>
+                    </aside>
                     {menu && (
                         <>
                             <div className="fixed inset-0 z-[120]" onClick={() => setMenu(null)} onContextMenu={e => { e.preventDefault(); setMenu(null); }} />
@@ -664,78 +743,6 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                         </>
                     )}
 
-                    {selection !== null && (
-                        <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-900/20 p-3">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Move className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                                <span className="text-[11px] font-bold text-indigo-800 dark:text-indigo-300 truncate">
-                                    {nomPiece(selection)}
-                                </span>
-                                {ajustements[String(selection)]?.libre && (
-                                    <span className="text-[9px] font-bold uppercase text-indigo-500">{L('pose a la main', 'موضع يدوي', 'manual')}</span>
-                                )}
-                                <button
-                                    type="button"
-                                    onClick={() => retoucher(selection, () => null)}
-                                    className="ml-auto text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
-                                >
-                                    {L('Remettre au centre', 'إعادة للوسط', 'Reset')}
-                                </button>
-                            </div>
-                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                                {[
-                                    { t: '← 5mm', dx: -5, dy: 0 },
-                                    { t: '→ 5mm', dx: 5, dy: 0 },
-                                    { t: '↑ 5mm', dx: 0, dy: 5 },
-                                    { t: '↓ 5mm', dx: 0, dy: -5 },
-                                ].map(b => (
-                                    <button
-                                        key={b.t}
-                                        type="button"
-                                        onClick={() => bouger(selection, b.dx, b.dy)}
-                                        className="h-9 rounded-lg bg-white dark:bg-dk-surface border border-indigo-200 dark:border-indigo-800 text-[12px] font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
-                                    >
-                                        {b.t}
-                                    </button>
-                                ))}
-                                <button type="button" onClick={() => redimensionner(selection, 1.2)} className="h-9 rounded-lg bg-white dark:bg-dk-surface border border-indigo-200 dark:border-indigo-800 text-[12px] font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 inline-flex items-center justify-center gap-1"><Plus className="w-3.5 h-3.5" />{L('Taille', 'الحجم', 'Size')}</button>
-                                <button type="button" onClick={() => redimensionner(selection, 1 / 1.2)} className="h-9 rounded-lg bg-white dark:bg-dk-surface border border-indigo-200 dark:border-indigo-800 text-[12px] font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 inline-flex items-center justify-center gap-1"><Minus className="w-3.5 h-3.5" />{L('Taille', 'الحجم', 'Size')}</button>
-                            </div>
-                        </div>
-                    )}
-
-                    <details className="rounded-xl border border-slate-200 dark:border-dk-border bg-white dark:bg-dk-surface">
-                        <summary className="px-3 py-2 text-[11px] font-bold text-slate-600 dark:text-dk-text-soft cursor-pointer select-none">
-                            {L('Choisir les pieces', 'اختيار القطع', 'Choose pieces')}
-                        </summary>
-                        <div className="max-h-56 overflow-y-auto border-t border-slate-100 dark:border-dk-border divide-y divide-slate-50 dark:divide-dk-border">
-                            {candidats.map(({ index, etiquette }) => {
-                                const pose = poses.find(p => p.index === index);
-                                return (
-                                    <div key={index} className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-dk-elevated">
-                                        <input
-                                            type="checkbox"
-                                            checked={!exclus.has(index)}
-                                            onChange={() => basculerExclu(index)}
-                                            className="w-3.5 h-3.5 accent-emerald-600"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setSelection(selection === index ? null : index)}
-                                            className="flex-1 text-left text-[11px] font-medium text-slate-700 dark:text-dk-text-soft truncate"
-                                        >
-                                            {etiquette.texte}
-                                        </button>
-                                        {pose && (
-                                            <span className={`text-[10px] font-bold shrink-0 ${COULEUR_STATUT[pose.placement.statut]}`}>
-                                                {pose.placement.hauteurCm.toFixed(1)} cm
-                                            </span>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </details>
                 </div>
             )}
         </SheetModal>

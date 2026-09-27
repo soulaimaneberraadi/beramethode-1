@@ -609,13 +609,41 @@ function construireFeuilleTraces(wb: Classeur, d: DonneesExcelCoupe, nomFeuille:
 /* Construction du classeur                                             */
 /* ------------------------------------------------------------------ */
 
-export async function construireClasseurCoupe(d: DonneesExcelCoupe): Promise<ArrayBuffer> {
+/**
+ * Dossier d'un modele : « 2560-207-251_ZINTURA (76237) », comme les classeurs
+ * de l'atelier (article_client (commande)). Dedans, l'ordre de coupe et la serie.
+ */
+export function nomDossierModele(d: Pick<DonneesExcelCoupe, 'modele' | 'reference' | 'client' | 'pedido'>): string {
+    const article = nettoyerSegmentFichier(d.modele) || nettoyerSegmentFichier(d.reference) || 'Modele';
+    const client = nettoyerSegmentFichier(d.client);
+    const pedido = nettoyerSegmentFichier(d.pedido);
+    return `${article}${client ? `_${client}` : ''}${pedido ? ` (${pedido})` : ''}`.slice(0, 120);
+}
+
+/** Les deux classeurs d'un modele, dans son dossier. */
+export function nomsFichiersModele(d: Pick<DonneesExcelCoupe, 'modele' | 'reference' | 'client' | 'pedido'>): { dossier: string; ordre: string; serie: string } {
+    const dossier = nomDossierModele(d);
+    return { dossier, ordre: `ORDRE DE COUPE ${dossier}.xlsx`, serie: `SERIE ${dossier}.xlsx` };
+}
+
+/**
+ * `partie` : 'ordre' = feuilles des matieres + TRACES ; 'serie' = la feuille
+ * SERIE seule (etiquetage) ; 'tout' = un seul classeur avec tout.
+ */
+export async function construireClasseurCoupe(d: DonneesExcelCoupe, partie: 'tout' | 'ordre' | 'serie' = 'tout'): Promise<ArrayBuffer> {
     const ExcelJS = (await import('exceljs')).default;
     const wb = new ExcelJS.Workbook();
     wb.creator = d.entreprise || 'BERAMETHODE';
     wb.created = new Date();
 
-    const auSerie = !!(d.serie && d.serie.lignes && d.serie.lignes.length > 0);
+    const auSerie = partie !== 'ordre' && !!(d.serie && d.serie.lignes && d.serie.lignes.length > 0);
+
+    if (partie === 'serie') {
+        construireFeuilleSerie(wb, d, (auSerie ? d.serie : { lignes: [] }) as SerieCoupe, 'SERIE - Tissu');
+        const brut = await wb.xlsx.writeBuffer();
+        const o = brut instanceof Uint8Array ? brut : new Uint8Array(brut as unknown as ArrayBufferLike);
+        return o.buffer.slice(o.byteOffset, o.byteOffset + o.byteLength) as ArrayBuffer;
+    }
     const nomFeuilleSerie = 'SERIE - Tissu';
     const nomFeuilleTraces = 'TRACES';
 

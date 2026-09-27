@@ -12,7 +12,7 @@ import { FileSpreadsheet, FolderOpen, Download, RefreshCw, AlertTriangle } from 
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { autoriserDossier, choisirDossier, dossierMemorise, ecrireDansDossier, estSupporte, type ResultatEcriture } from '../../lib/dossierLocal';
-import { construireClasseurCoupe, nomFichierExcel, type DonneesExcelCoupe } from '../../lib/coupeExcel';
+import { construireClasseurCoupe, nomsFichiersModele, type DonneesExcelCoupe } from '../../lib/coupeExcel';
 
 const CLE = 'excel-coupe';
 const TYPE_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -29,6 +29,19 @@ export interface LienExcel {
     /** Reecrit le classeur si un dossier est relie et autorise ; sinon ne fait rien. */
     ecrire: (d: DonneesExcelCoupe) => Promise<ResultatEcriture | null>;
     telecharger: (d: DonneesExcelCoupe) => Promise<void>;
+}
+
+/**
+ * Un dossier par modele, deux classeurs dedans : l'ordre de coupe et la serie
+ * d'etiquetage. Le plus mauvais resultat des deux est rendu (un fichier ouvert
+ * dans Excel ne doit pas passer inapercu).
+ */
+async function ecrireModele(d: DonneesExcelCoupe): Promise<ResultatEcriture> {
+    const n = nomsFichiersModele(d);
+    const [ordre, serie] = await Promise.all([construireClasseurCoupe(d, 'ordre'), construireClasseurCoupe(d, 'serie')]);
+    const r1 = await ecrireDansDossier(CLE, n.ordre, new Blob([ordre], { type: TYPE_XLSX }), n.dossier);
+    if (r1 !== 'ok') return r1;
+    return ecrireDansDossier(CLE, n.serie, new Blob([serie], { type: TYPE_XLSX }), n.dossier);
 }
 
 export function useLienExcel(): LienExcel {
@@ -64,8 +77,7 @@ export function useLienExcel(): LienExcel {
     /** Ecriture juste apres un choix de dossier : l'etat « dossier » n'est pas encore relu. */
     const ecrireApres = async (d: DonneesExcelCoupe) => {
         try {
-            const octets = await construireClasseurCoupe(d);
-            const r = await ecrireDansDossier(CLE, nomFichierExcel(d), new Blob([octets], { type: TYPE_XLSX }));
+            const r = await ecrireModele(d);
             setDerniere({ heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), resultat: r });
             return r;
         } catch {
@@ -77,8 +89,7 @@ export function useLienExcel(): LienExcel {
     const ecrire = async (d: DonneesExcelCoupe) => {
         if (!supporte || !dossier) return null;
         try {
-            const octets = await construireClasseurCoupe(d);
-            const r = await ecrireDansDossier(CLE, nomFichierExcel(d), new Blob([octets], { type: TYPE_XLSX }));
+            const r = await ecrireModele(d);
             setDerniere({ heure: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), resultat: r });
             if (r === 'permission') setPermission('prompt');
             return r;
@@ -88,11 +99,19 @@ export function useLienExcel(): LienExcel {
         }
     };
 
+    /** Un navigateur ne telecharge pas un dossier : on le livre dans un .zip qui le contient. */
     const telecharger = async (d: DonneesExcelCoupe) => {
-        const octets = await construireClasseurCoupe(d);
-        const url = URL.createObjectURL(new Blob([octets], { type: TYPE_XLSX }));
+        const n = nomsFichiersModele(d);
+        const [ordre, serie] = await Promise.all([construireClasseurCoupe(d, 'ordre'), construireClasseurCoupe(d, 'serie')]);
+        const JSZip = (await import('jszip')).default;
+        const zip = new JSZip();
+        const dossier = zip.folder(n.dossier)!;
+        dossier.file(n.ordre, ordre);
+        dossier.file(n.serie, serie);
+        const contenu = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(contenu);
         const a = document.createElement('a');
-        a.href = url; a.download = nomFichierExcel(d);
+        a.href = url; a.download = `${n.dossier}.zip`;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 5000);
     };

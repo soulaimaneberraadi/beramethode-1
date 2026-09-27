@@ -175,6 +175,8 @@ export async function ecrireDansDossier(
     cle: string,
     nomFichier: string,
     contenu: Blob,
+    /** Sous-dossier cree au besoin (le dossier du modele). */
+    sousDossier?: string,
 ): Promise<ResultatEcriture> {
     if (!estSupporte()) return 'non-supporte';
 
@@ -191,7 +193,8 @@ export async function ecrireDansDossier(
 
     const nom = assainirNomFichier(nomFichier);
     try {
-        const fileHandle = await handle.getFileHandle(nom, { create: true });
+        const cible = sousDossier ? await handle.getDirectoryHandle(assainirNomFichier(sousDossier), { create: true }) : handle;
+        const fileHandle = await cible.getFileHandle(nom, { create: true });
         const writable = await fileHandle.createWritable();
         await writable.write(contenu);
         await writable.close();

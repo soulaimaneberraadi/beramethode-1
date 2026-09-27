@@ -12,6 +12,7 @@ import SheetModal from '../shared/SheetModal';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import { lireClasseurCoupe, type FeuilleImportee } from '../../lib/importCoupeExcel';
+import { lireSerieExcel, type LigneSerieLue } from '../../lib/serieEtiquetage';
 
 export interface ChoixImport {
     feuille: FeuilleImportee;
@@ -19,6 +20,8 @@ export interface ChoixImport {
     couleur: string;
     nouvelleCouleur: string;
     remplacer: boolean;
+    /** Lignes de la feuille SERIE du meme classeur, s'il en a une. */
+    serie?: LigneSerieLue[];
 }
 
 interface Props {
@@ -40,11 +43,14 @@ export default function ImportExcelCoupe({ couleurs, onImporter, onClose }: Prop
     const [nouvelleCouleur, setNouvelleCouleur] = useState('');
     const [remplacer, setRemplacer] = useState(false);
     const [survol, setSurvol] = useState(false);
+    const [serie, setSerie] = useState<LigneSerieLue[]>([]);
 
     const lire = async (f: File) => {
         setErreur(''); setLecture(true); setNomFichier(f.name); setFeuilles([]);
         try {
-            const r = await lireClasseurCoupe(await f.arrayBuffer());
+            const octets = await f.arrayBuffer();
+            const r = await lireClasseurCoupe(octets);
+            setSerie(await lireSerieExcel(octets).catch(() => []));
             if (!r.length) setErreur(L('Aucune feuille lisible : ni REPARTOS du client, ni feuille de coupe de l’atelier.', 'لا توجد ورقة مقروءة: لا REPARTOS الزبون ولا ورقة قص الورشة.', 'No readable sheet.'));
             setFeuilles(r);
             setChoix(0);
@@ -76,7 +82,7 @@ export default function ImportExcelCoupe({ couleurs, onImporter, onClose }: Prop
                     <button
                         type="button"
                         disabled={!f || (!couleur && !nouvelleCouleur.trim())}
-                        onClick={() => f && onImporter({ feuille: f, couleur, nouvelleCouleur: nouvelleCouleur.trim(), remplacer })}
+                        onClick={() => f && onImporter({ feuille: f, couleur, nouvelleCouleur: nouvelleCouleur.trim(), remplacer, serie: serie.length ? serie : undefined })}
                         className="h-10 px-4 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white text-[12px] font-bold hover:bg-emerald-700 disabled:opacity-40"
                     >
                         <Check className="w-4 h-4" />{L('Importer', 'استيراد', 'Import')}
@@ -167,6 +173,12 @@ export default function ImportExcelCoupe({ couleurs, onImporter, onClose }: Prop
                                     </div>
                                 </div>
                             ))}
+
+                            {serie.length > 0 && (
+                                <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                                    {L(`Feuille SERIE : ${serie.length} ligne(s) — date, lot, entree, sortie et chaine seront reprises sur les paquets.`, `ورقة SERIE: ${serie.length} سطر — التاريخ والدفعة والدخول والخروج والسلسلة ستُؤخذ للحزم.`, `SERIE sheet: ${serie.length} row(s) will be applied to bundles.`)}
+                                </p>
+                            )}
 
                             {f.alertes.length > 0 && (
                                 <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300 space-y-0.5">

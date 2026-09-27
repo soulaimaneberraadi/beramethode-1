@@ -8,11 +8,11 @@
  * suivent. La chaine proposee est celle que le Planning a donnee au modele.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Tag, ChevronDown, CalendarCheck, LogIn, LogOut, X, Factory } from 'lucide-react';
+import { Tag, ChevronDown, CalendarCheck, LogIn, LogOut, X, Factory, FileSpreadsheet, Loader2 } from 'lucide-react';
 import type { MatelasLine, SaisiePaquet, SerieEtiquetage as Serie } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
-import { paquetsSerie, piecesParChaine, saisieDe } from '../../lib/serieEtiquetage';
+import { lireSerieExcel, paquetsSerie, piecesParChaine, saisieDe, saisiesDepuisSerie } from '../../lib/serieEtiquetage';
 
 interface Props {
     lignes: MatelasLine[];
@@ -22,17 +22,40 @@ interface Props {
     chaines: { id: string; name: string }[];
     /** Chaine du modele au Planning, proposee d'office. */
     chainePlanifiee?: string;
+    onMessage?: (texte: string, type: 'success' | 'error' | 'info') => void;
 }
 
 const aujourdhui = () => new Date().toLocaleDateString('fr-FR');
 
-export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chaines, chainePlanifiee }: Props) {
+export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chaines, chainePlanifiee, onMessage }: Props) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
     const depart = serie?.depart && serie.depart > 0 ? serie.depart : 1;
     const paquets = useMemo(() => paquetsSerie(lignes, tailles, depart), [lignes, tailles, depart]);
     const nomChaine = (id?: string) => chaines.find(c => c.id === id)?.name || id || '';
     const parChaine = useMemo(() => piecesParChaine(paquets, serie), [paquets, serie]);
+
+    /*
+     * Reprendre une feuille SERIE deja tenue dans Excel : chaque ligne retrouve
+     * son paquet (N° paquet + taille + rang) et y depose date, pieces, lot,
+     * entree, sortie et chaine. Les numeros, eux, restent ceux des matelas.
+     */
+    const entreeExcel = useRef<HTMLInputElement>(null);
+    const [lectureExcel, setLectureExcel] = useState(false);
+    const importerExcel = async (f: File) => {
+        setLectureExcel(true);
+        try {
+            const lues = await lireSerieExcel(await f.arrayBuffer());
+            if (!lues.length) { onMessage?.(L('Aucune feuille SERIE lisible (titres N° PAQ, TAILLE, SERIE).', 'لا توجد ورقة SERIE مقروءة.', 'No readable SERIE sheet.'), 'error'); return; }
+            const r = saisiesDepuisSerie(paquets, lues, chaines);
+            onChange({ ...(serie || {}), saisies: { ...(serie?.saisies || {}), ...r.saisies } });
+            onMessage?.(`${r.reprises} ${L('paquet(s) repris depuis Excel', 'حزمة أُخذت من Excel', 'bundle(s) taken from Excel')}${r.sansPaquet ? ` · ${r.sansPaquet} ${L('ligne(s) sans paquet correspondant ici', 'سطر بلا حزمة مقابلة هنا', 'row(s) with no matching bundle')}` : ''}`, r.sansPaquet ? 'info' : 'success');
+        } catch {
+            onMessage?.(L('Fichier illisible (il faut un .xlsx).', 'ملف غير مقروء (يلزم ‎.xlsx).', 'Unreadable file (.xlsx needed).'), 'error');
+        } finally {
+            setLectureExcel(false);
+        }
+    };
 
     const [choisis, setChoisis] = useState<Set<string>>(new Set());
     const ancre = useRef<number | null>(null);
@@ -121,6 +144,10 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
                         <Factory className="w-3.5 h-3.5" />{L('Paquets sans chaine', 'حزم بلا سلسلة', 'Bundles without line')} → {nomChaine(chainePlanifiee)} ({L('planning', 'التخطيط', 'planning')})
                     </button>
                 )}
+                <input ref={entreeExcel} type="file" accept=".xlsx,.xlsm" className="hidden" onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) importerExcel(f); }} />
+                <button type="button" disabled={lectureExcel} onClick={() => entreeExcel.current?.click()} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white dark:bg-dk-surface text-[12px] font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50" title={L('Reprendre une feuille SERIE tenue dans Excel', 'استيراد ورقة SERIE من Excel', 'Import a SERIE sheet from Excel')}>
+                    {lectureExcel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileSpreadsheet className="w-3.5 h-3.5" />}{L('Importer Excel', 'استيراد Excel', 'Import Excel')}
+                </button>
                 <div className="flex flex-wrap gap-1.5 ml-auto">
                     {Object.entries(parChaine).map(([c, n]) => (
                         <span key={c} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-[12px] font-semibold text-indigo-700 dark:text-indigo-300">
