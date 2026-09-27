@@ -6,7 +6,7 @@
  * maximum pour ce placement. Deposer le PLT remplit seul les tailles, la
  * laize, la longueur et l'efficience ecrites par Optitex dans l'en-tete.
  */
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Eye, FileText, Plus, Trash2, Upload, X, AlertTriangle, RotateCcw, Files } from 'lucide-react';
 import type { MatelasFichier, PlacementCoupe } from '../../types';
 import { tx } from '../../lib/i18n';
@@ -130,6 +130,30 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
     const [survol, setSurvol] = useState<string | null>(null);
     // Saisie du nom en cours : on n'ecrase pas ce que l'operateur tape tant que ce n'est pas lisible.
     const [brouillons, setBrouillons] = useState<Record<string, string>>({});
+    /*
+     * Modele ecrit dans l'en-tete de chaque trace (« 1384--------GG--------L » -> 1384,
+     * « 4-57PHR » -> 4-57PHR). Un trace d'un autre modele glisse parmi les autres
+     * coupe les pieces d'un autre vetement : on le signale face a la majorite.
+     */
+    const autreModele = useMemo(() => {
+        const racine: Record<string, string> = {};
+        for (const p of placements) {
+            if (!p.fichier?.data) continue;
+            try {
+                const a = analyserFichier(p.fichier);
+                const m = a ? lireEntete(a.entete).modele : undefined;
+                const r = m ? m.split(/-{2,}/)[0].trim().toUpperCase() : '';
+                if (r) racine[p.id] = r;
+            } catch { /* illisible : rien a comparer */ }
+        }
+        const compte: Record<string, number> = {};
+        for (const r of Object.values(racine)) compte[r] = (compte[r] || 0) + 1;
+        const [majorite, n] = Object.entries(compte).sort((a, b) => b[1] - a[1])[0] || ['', 0];
+        const out: Record<string, { lui: string; autres: string }> = {};
+        if (n < 2) return out;
+        for (const [id, r] of Object.entries(racine)) if (r !== majorite) out[id] = { lui: r, autres: majorite };
+        return out;
+    }, [placements]);
 
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
 
@@ -286,8 +310,8 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                             <th className="py-2 px-2 text-left min-w-[200px]">{L('Trace PLT', 'ملف PLT', 'PLT marker')}</th>
                             <th className="py-2 px-2 text-center w-20" title={L('Longueur du trace = consommation d’un pli', 'طول التفصيلة = استهلاك الطيّة', 'Marker length = one ply')}>{L('Long. (m)', 'الطول (م)', 'Length (m)')}</th>
                             <th className="py-2 px-2 text-center w-20" title={L('Tissu d’une piece : longueur du trace / pieces par pli', 'ثوب القطعة الواحدة: طول التفصيلة ÷ قطع الطيّة', 'Fabric per piece: marker length / pieces per ply')}>{L('Conso/pc', 'استهلاك/قطعة', 'Use/pc')}</th>
-                            <th className="py-2 px-2 text-center w-16">{L('Plis max', 'أقصى طيّات', 'Max plies')}</th>
-                            <th className="py-2 px-2 text-center w-24" title={L('Tissu de tous les matelas de ce placement', 'ثوب كل مفرشات هذه التركيبة', 'Fabric of all lays of this placement')}>{L('Matelas · m', 'مفرشات · م', 'Lays · m')}</th>
+                            <th className="py-2 px-2 text-center w-16" title={L('Plis au plus dans un matelas de ce placement (hauteur de la table, lame) : au-dela, le calcul fait un matelas de plus', 'أقصى عدد طيّات في مفرشة واحدة من هذه التركيبة؛ ما زاد يصير مفرشة أخرى', 'Most plies in one lay of this placement; beyond that, another lay')}>{L('Plis max', 'أقصى طيّات', 'Max plies')}</th>
+                            <th className="py-2 px-2 text-center w-24" title={L('Nombre de matelas de ce placement, et le tissu qu’ils consomment ensemble (plis × (longueur + 3 cm d’amorce))', 'عدد مفرشات هذه التركيبة، والثوب الذي تستهلكه كلها (الطيّات × (الطول + 3 سم))', 'Number of lays of this placement, and the fabric they use together')}>{L('Matelas · m', 'مفرشات · م', 'Lays · m')}</th>
                             <th className="py-2 px-2 text-center w-20"></th>
                         </tr>
                     </thead>
@@ -370,6 +394,26 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                                     {p.efficience ? <span className="px-1 rounded bg-slate-100 dark:bg-dk-elevated">E {p.efficience}%</span> : null}
                                                     {rouleauM && p.longueurM ? <span className="px-1 rounded bg-slate-100 dark:bg-dk-elevated" title={L('Plis qu\u2019un rouleau donne', 'طيّات يعطيها الرولو', 'Plies per roll')}>{Math.floor(rouleauM / (p.longueurM + AMORCE_PAR_PLI_M))} {L('plis/rouleau', 'طيّة/رولو', 'plies/roll')}</span> : null}
                                                 </div>
+                                                {autreModele[p.id] && (
+                                                    <div className="flex items-start gap-1 mt-0.5 px-1.5 py-1 rounded bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-[10px] font-semibold text-rose-700 dark:text-rose-300 leading-tight">
+                                                        <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                                                        <span>{L('Trace du modele', 'ملف الموديل', 'Marker of model')} <b>{autreModele[p.id].lui}</b> — {L('les autres traces sont', 'باقي الملفات من', 'the others are')} <b>{autreModele[p.id].autres}</b></span>
+                                                    </div>
+                                                )}
+                                                {(() => {
+                                                    // Le meme trace sur deux lignes : le calcul les voit comme deux placements
+                                                    // et partage les plis entre eux sans raison.
+                                                    const nom = p.fichier!.nom.trim().toUpperCase();
+                                                    const autre = placements.find(x => x.id !== p.id && x.fichier && x.fichier.nom.trim().toUpperCase() === nom);
+                                                    if (!autre) return null;
+                                                    const nomAutre = autre.code || nomPlacement(autre.ratios || {}, tailles);
+                                                    return (
+                                                        <div className="flex items-center gap-1 mt-0.5 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-[10px] font-semibold text-amber-700 dark:text-amber-300" title={L('Deux lignes avec le meme fichier : gardez-en une, sinon ses matelas se repartissent sur les deux.', 'سطران بنفس الملف: احتفظ بواحد، وإلا توزّعت مفرشاته على الاثنين.', 'Two rows with the same file: keep one.')}>
+                                                            <AlertTriangle className="w-3 h-3 shrink-0" />
+                                                            {L('Meme fichier que', 'نفس ملف', 'Same file as')} {nomAutre}
+                                                        </div>
+                                                    );
+                                                })()}
                                                 {laizeTissuCm && p.laizeCm && p.laizeCm > laizeTissuCm + 0.5 ? (
                                                     <div className="flex items-center gap-1 mt-0.5 px-1.5 py-1 rounded bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
                                                         <AlertTriangle className="w-3 h-3 shrink-0" />
@@ -486,11 +530,16 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                         />
                                     </td>
                                     <td className="py-1 px-1 text-center tabular-nums text-[11px]">
-                                        <span className="font-bold text-slate-700 dark:text-dk-text-soft">{nbMatelas[p.id] || 0}</span>
-                                        <span className="text-slate-400"> · </span>
-                                        {(p.longueurM || 0) > 0 || !(nbMatelas[p.id] > 0)
-                                            ? <span className="font-semibold text-indigo-600 dark:text-indigo-400">{(consoTotale[p.id] || 0).toFixed(1)}</span>
-                                            : <span className="font-bold text-amber-600" title={L('Sans longueur, le tissu de ces matelas ne peut pas etre calcule.', 'بلا طول لا يمكن حساب قماش هذه المفرشات.', 'Without a length the fabric of these lays cannot be computed.')}>? m</span>}
+                                        {!(nbMatelas[p.id] > 0) ? (
+                                            <span className="text-slate-300 dark:text-dk-muted" title={L('Aucun matelas ne vient de ce placement', 'لا توجد مفرشة من هذه التركيبة', 'No lay uses this placement')}>—</span>
+                                        ) : (
+                                            <span className="inline-flex flex-col items-center leading-tight">
+                                                <span className="font-bold text-slate-700 dark:text-dk-text-soft">{nbMatelas[p.id]} <span className="font-medium text-slate-400">{L('mat.', 'مفرشة', 'lays')}</span></span>
+                                                {(p.longueurM || 0) > 0
+                                                    ? <span className="font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{(consoTotale[p.id] || 0).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} m</span>
+                                                    : <span className="font-bold text-amber-600" title={L('Sans longueur, le tissu de ces matelas ne peut pas etre calcule.', 'بلا طول لا يمكن حساب قماش هذه المفرشات.', 'Without a length the fabric of these lays cannot be computed.')}>? m</span>}
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="py-1 px-1 text-center whitespace-nowrap">
                                         <button
