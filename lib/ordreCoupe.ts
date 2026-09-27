@@ -332,6 +332,26 @@ export function nomFichierMatelas(p: Pick<PlacementCoupe, 'nom' | 'fichier'>, ti
  * on numerote dans l'ordre du tableau (le numero qu'elles avaient deja), et
  * le metrage recu devient celui du tissu principal. Rien n'est supprime.
  */
+/**
+ * Placements enregistres avant les codes : ils n'affichaient qu'un exemple
+ * grise (« TE-01 ») que rien ne portait — ni le rattachement des traces par nom
+ * de fichier, ni la feuille TRACES de l'Excel. On leur donne ce code-la, dans
+ * l'ordre du tableau, apres ceux deja pris.
+ */
+export function avecCodes(tissus: TissuCoupe[], placements: PlacementCoupe[]): PlacementCoupe[] {
+    if (placements.every(p => p.code)) return placements;
+    const pris = new Map<string, (string | undefined)[]>();
+    for (const p of placements) pris.set(tissuDe(p), [...(pris.get(tissuDe(p)) || []), p.code]);
+    return placements.map(p => {
+        if (p.code) return p;
+        const t = tissus.find(x => x.id === tissuDe(p)) || { id: tissuDe(p), nom: 'Tissu' };
+        const codes = pris.get(tissuDe(p)) || [];
+        const code = codeTraceSuivant(codeMatiere(t), codes);
+        codes.push(code);
+        return { ...p, code };
+    });
+}
+
 export function migrerOrdre(o: OrdreCoupe, tailles: string[]): OrdreCoupe {
     const tissus: TissuCoupe[] = o.tissus && o.tissus.length
         ? o.tissus
@@ -339,7 +359,7 @@ export function migrerOrdre(o: OrdreCoupe, tailles: string[]): OrdreCoupe {
     const placements: PlacementCoupe[] = [...(o.placements || [])];
     const lignes = o.matelasLines || [];
     if (lignes.every(l => l.placementId || !Object.values(l.ratios || {}).some(v => Number(v) > 0)) && o.tissus && o.placements) {
-        return { ...o, tissus, placements, matelasLines: lignes.map((l, i) => (l.numero ? l : { ...l, numero: String(i + 1) })) };
+        return { ...o, tissus, placements: avecCodes(tissus, placements), matelasLines: lignes.map((l, i) => (l.numero ? l : { ...l, numero: String(i + 1) })) };
     }
 
     const parCle = new Map<string, PlacementCoupe>();
@@ -370,5 +390,5 @@ export function migrerOrdre(o: OrdreCoupe, tailles: string[]): OrdreCoupe {
         return { ...l, numero, placementId: p.id, tissu: tissuDe(l) === TISSU_PRINCIPAL ? undefined : l.tissu };
     });
     for (const p of placements) if (!p.fichier && fichierPar.has(p.id)) p.fichier = fichierPar.get(p.id);
-    return { ...o, tissus, placements, matelasLines: nouvelles };
+    return { ...o, tissus, placements: avecCodes(tissus, placements), matelasLines: nouvelles };
 }

@@ -687,6 +687,8 @@ export interface OrdreCoupe {
   modeleFichier?: MatelasFichier; // reference file/photo of the model itself (not tied to a matelas line)
   /** Corrections manuelles du suivi coupe, par `${couleur}__${taille}`. */
   suiviManuel?: Record<string, { cut?: number; rem?: number }>;
+  /** Corrections a la main de la simulation fournitures (besoin, consomme, stock), par matiere : enregistrees avec l'ordre. */
+  simulationManuelle?: Record<string, { besoin?: number; cons?: number; stock?: number }>;
   /** Matieres coupees ; la premiere (id « principal ») porte les pieces du vetement. */
   tissus?: TissuCoupe[];
   /**

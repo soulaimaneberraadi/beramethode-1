@@ -12,7 +12,8 @@ import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const RACINE = process.cwd();
-const IGNORES = new Set(['node_modules', 'dist', 'build', '.git', 'public', 'assets']);
+// .claude : copies de travail (worktrees) d'anciennes sessions — leurs suites perimees rendaient le tout rouge.
+const IGNORES = new Set(['node_modules', 'dist', 'build', '.git', 'public', 'assets', '.claude']);
 
 const trouverTests = (dossier) => {
     const out = [];

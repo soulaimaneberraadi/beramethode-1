@@ -2028,9 +2028,19 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const setSuiviEdits = (maj: (prev: Record<string, { cut?: number; rem?: number }>) => Record<string, { cut?: number; rem?: number }>) =>
         setOrdre(prev => ({ ...prev, suiviManuel: maj(prev.suiviManuel || {}) }));
 
-    // La simulation reste un brouillon, mais un brouillon par modele.
-    const [simEdits, setSimEdits] = useState<Record<string, { besoin?: number; cons?: number; stock?: number }>>({});
-    useEffect(() => { setSimEdits({}); }, [selectedModel?.id]);
+    /* La simulation fournitures suit la meme regle : ses corrections sont dans
+       l'ordre, enregistrees avec lui (elles se perdaient a la fermeture). Un
+       champ vide rend la valeur calculee. */
+    const simEdits = ordre.simulationManuelle || {};
+    const corrigerSim = (matiere: string, champ: 'besoin' | 'cons' | 'stock', brut: string) =>
+        setOrdre(prev => {
+            const tout = { ...(prev.simulationManuelle || {}) };
+            const ligne = { ...(tout[matiere] || {}) };
+            if (brut.trim() === '' || !Number.isFinite(Number(brut))) delete ligne[champ];
+            else ligne[champ] = Number(brut);
+            if (Object.keys(ligne).length) tout[matiere] = ligne; else delete tout[matiere];
+            return { ...prev, simulationManuelle: Object.keys(tout).length ? tout : undefined };
+        });
 
     // Suivi coupe (par couleur × taille) : découpé / restant selon les lignes confirmées.
     const suiviCoupe = React.useMemo(() => {
@@ -3393,7 +3403,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             <input
                                                                 type="number" min="0" step="0.01"
                                                                 value={effBesoin}
-                                                                onChange={e => setSimEdits(prev => ({ ...prev, [key]: { ...prev[key], besoin: Number(e.target.value) } }))}
+                                                                onChange={e => corrigerSim(key, 'besoin', e.target.value)}
                                                                 title={tx(lang, { fr: 'Besoin', ar: 'الاحتياج', en: 'Need', es: 'Necesidad', pt: 'Necessidade', tr: 'İhtiyaç' })}
                                                                 className="w-20 text-center py-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-bold text-indigo-600 dark:text-dk-accent-text outline-none focus:bg-white focus:border-indigo-400"
                                                             />
@@ -3403,7 +3413,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             <input
                                                                 type="number" min="0" step="0.01"
                                                                 value={effCons}
-                                                                onChange={e => setSimEdits(prev => ({ ...prev, [key]: { ...prev[key], cons: Number(e.target.value) } }))}
+                                                                onChange={e => corrigerSim(key, 'cons', e.target.value)}
                                                                 title={tx(lang, { fr: 'Consommé', ar: 'المستهلك', en: 'Consumed', es: 'Consumido', pt: 'Consumido', tr: 'Tüketilen' })}
                                                                 className={`w-20 text-center py-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-bold outline-none focus:bg-white focus:border-amber-400 ${effCons > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-dk-muted'}`}
                                                             />
@@ -3413,7 +3423,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             <input
                                                                 type="number" min="0" step="0.01"
                                                                 value={effStock}
-                                                                onChange={e => setSimEdits(prev => ({ ...prev, [key]: { ...prev[key], stock: Number(e.target.value) } }))}
+                                                                onChange={e => corrigerSim(key, 'stock', e.target.value)}
                                                                 title={tx(lang, { fr: 'Stock', ar: 'المخزون', en: 'Stock', es: 'Stock', pt: 'Estoque', tr: 'Stok' })}
                                                                 className={`w-20 text-center py-1 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded text-[12px] font-bold outline-none focus:bg-white focus:border-slate-400 ${effStock > 0 ? 'text-slate-800 dark:text-dk-text' : 'text-slate-400 dark:text-dk-muted'}`}
                                                             />

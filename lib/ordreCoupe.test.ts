@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import type { MatelasLine, OrdreCoupe } from '../types';
 import {
-    associerTailles, estPrincipal, lireEntete, lireNotation, matelasDuPlacement, migrerOrdre,
+    associerTailles, avecCodes, estPrincipal, lireEntete, lireNotation, matelasDuPlacement, migrerOrdre,
     nomFichierMatelas, numeroSuivant, plisPourPlacements, renumeroter, TISSU_PRINCIPAL,
 } from './ordreCoupe';
 
@@ -134,6 +134,20 @@ const T = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
     assert.equal(n.matelasLines!.length, 4, 'rien n est supprime');
     // Deja migre : rien ne bouge.
     assert.deepEqual(migrerOrdre(n, ['XS', 'S', 'M', 'XL']).placements, n.placements);
+}
+
+{
+    // Placements d'avant les codes : ils recoivent le code que l'ecran montrait en exemple.
+    const tissus = [{ id: TISSU_PRINCIPAL, nom: 'Tissu' }, { id: 'T2', nom: 'Doublure (foro)' }];
+    const pls = [
+        { id: 'a', tissu: TISSU_PRINCIPAL, nom: 'S', ratios: { S: 1 } },
+        { id: 'b', tissu: TISSU_PRINCIPAL, nom: 'M', ratios: { M: 1 }, code: 'TE-05' },
+        { id: 'c', tissu: 'T2', nom: 'S', ratios: { S: 1 } },
+        { id: 'd', tissu: TISSU_PRINCIPAL, nom: 'L', ratios: { L: 1 } },
+    ];
+    assert.deepEqual(avecCodes(tissus, pls).map(p => p.code), ['TE-06', 'TE-05', 'FO-01', 'TE-07']);
+    const tous = avecCodes(tissus, pls);
+    assert.equal(avecCodes(tissus, tous), tous, 'deja codes : meme tableau');
 }
 
 console.log('ordreCoupe: OK');
