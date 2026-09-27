@@ -61,6 +61,9 @@ const CLE_PLEIN_ECRAN = 'bera_numerotation_plein_ecran';
 
 type Vue = { x: number; y: number; w: number; h: number };
 
+/** Trait du cadre dans l'apercu : couleurs ecrites en clair (une classe fabriquee a la volee disparait du CSS compile). */
+const TRAIT_STATUT: Record<StatutPlacement, string> = { ok: '#059669', deplace: '#2563eb', reduit: '#d97706', force: '#e11d48' };
+
 const COULEUR_STATUT: Record<StatutPlacement, string> = {
     ok: 'text-emerald-600 dark:text-emerald-400',
     deplace: 'text-blue-600 dark:text-blue-400',
@@ -724,7 +727,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                         const actif = selection === index;
                                         const hauteur = placement.hauteurCm * 10 * lecture!.unitesParMm;
                                         const ecrit = placement.texte ?? texteNumero(numero.trim() || '—', style, contexte);
-                                        const cadre = style.cercle ? cadreTexte(ecrit.length, placement.largeurCm, placement.hauteurCm, lecture!.unitesParMm) : null;
+                                        const cadre = style.cercle && !placement.sansCadre ? cadreTexte(ecrit.length, placement.largeurCm, placement.hauteurCm, lecture!.unitesParMm) : null;
                                         return (
                                             <React.Fragment key={`${index}-${rang}`}>
                                             {cadre && (
@@ -737,7 +740,7 @@ export default function AnnotationPlt({ numeroInitial = '', fichierInitial = nul
                                                     fill="none"
                                                     opacity={opacite / 100}
                                                     strokeWidth={hauteur * 0.06}
-                                                    className={`${actif ? 'stroke-indigo-700 dark:stroke-indigo-300' : COULEUR_STATUT[placement.statut].replace('text-', 'stroke-')}`}
+                                                    stroke={actif ? '#4338ca' : TRAIT_STATUT[placement.statut]}
                                                     pointerEvents="none"
                                                 />
                                             )}

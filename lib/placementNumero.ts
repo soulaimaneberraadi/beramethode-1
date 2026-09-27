@@ -35,6 +35,8 @@ export interface Placement {
     statut: StatutPlacement;
     /** Texte reellement pose, s'il differe du texte demande (numero seul sur une petite piece). */
     texte?: string;
+    /** Le cadre ne tenait pas : numero pose sans cadre, a sa taille (lisible d'abord). */
+    sansCadre?: boolean;
 }
 
 /**
@@ -328,6 +330,16 @@ function boite(x: number, y: number, nb: number, largeurCm: number, hauteurCm: n
  * seulement en dernier recours une taille plus petite.
  */
 export function placerNumero(d: DemandePlacement): Placement {
+    const brut = placerNumeroBrut(d);
+    if (!d.cercle || brut.statut === 'ok' || brut.statut === 'deplace') return brut;
+    // Le cadre fait reduire ou forcer le numero : sans cadre il tient peut-etre a sa taille.
+    // Un grand numero lisible vaut mieux qu'un petit numero encadre.
+    const sans = placerNumeroBrut({ ...d, cercle: false });
+    if (sans.statut === 'ok' || sans.statut === 'deplace' || (brut.statut === 'force' && sans.statut !== 'force')) return { ...sans, sansCadre: true };
+    return brut;
+}
+
+function placerNumeroBrut(d: DemandePlacement): Placement {
     const { etiquette: e, contour, texte, unitesParMm } = d;
     const nb = Math.max(1, texte.length);
     const sens = e.directionX < 0 ? -1 : 1;
@@ -416,7 +428,7 @@ export function placerNumero(d: DemandePlacement): Placement {
 
     // 5. Piece trop petite pour tout le texte : le numero seul.
     if (d.texteCourt && d.texteCourt.length < texte.length) {
-        const court = placerNumero({ ...d, texte: d.texteCourt, texteCourt: undefined });
+        const court = placerNumeroBrut({ ...d, texte: d.texteCourt, texteCourt: undefined });
         if (court.statut !== 'force') return { ...court, texte: d.texteCourt };
     }
 
@@ -462,6 +474,7 @@ export function placerNumeros(d: DemandePlacement, repetitions: number): Placeme
     if (voulu === 1 || !d.contour || d.positionLibre) return [premier];
 
     const { etiquette: e, contour, unitesParMm } = d;
+    const cadre = !!d.cercle && !premier.sansCadre;
     const nb = Math.max(1, (premier.texte ?? d.texte).length);
     const hNum = premier.hauteurCm * 10 * unitesParMm;
     // Air entre deux numeros, et marge a garder avec la ligne de coupe.
@@ -470,14 +483,14 @@ export function placerNumeros(d: DemandePlacement, repetitions: number): Placeme
 
     const poses: Placement[] = [premier];
     const emprises: Rectangle[] = [
-        boite(premier.x, premier.y, nb, premier.largeurCm, premier.hauteurCm, e.directionX, unitesParMm, d.cercle),
+        boite(premier.x, premier.y, nb, premier.largeurCm, premier.hauteurCm, e.directionX, unitesParMm, cadre),
         empriseTexte(e.x, e.y, e.texte.length, e.largeurCm ?? 0.4, e.hauteurCm ?? 0.6, e.directionX, unitesParMm, e.origine),
     ];
 
     // Places possibles, une fois : le numero y tient (avec sa marge au bord si possible).
     const candidats: Array<{ x: number; y: number; r: Rectangle; marge: boolean }> = [];
     for (const [x, y] of grilleFine(contour, 20)) {
-        const r = boite(x, y, nb, premier.largeurCm, premier.hauteurCm, e.directionX, unitesParMm, d.cercle);
+        const r = boite(x, y, nb, premier.largeurCm, premier.hauteurCm, e.directionX, unitesParMm, cadre);
         if (!rectangleDansContour(contour, r)) continue;
         candidats.push({ x, y, r, marge: rectangleDansContour(contour, agrandir(r, margeBord)) });
     }

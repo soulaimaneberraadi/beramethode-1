@@ -227,7 +227,7 @@ export function numeroterPlt(a: AnalysePlt, numero: string, r: ReglagesNumero, c
             directionY: etiquette.directionY,
             plume: etiquette.plume,
             inclinaison: r.inclinaison || 0,
-            cadre: r.cercle ? cadreTexte((placement.texte ?? texte).length, placement.largeurCm, placement.hauteurCm, u) : undefined,
+            cadre: r.cercle && !placement.sansCadre ? cadreTexte((placement.texte ?? texte).length, placement.largeurCm, placement.hauteurCm, u) : undefined,
         };
         // Gras : le meme numero repasse avec un decalage d'un trait de plume (~0,4 mm).
         // Optitex, lui, y lit deux textes : a eviter pour un fichier qui y repasse.
