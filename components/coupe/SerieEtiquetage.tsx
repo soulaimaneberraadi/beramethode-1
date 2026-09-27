@@ -8,7 +8,7 @@
  * suivent. La chaine proposee est celle que le Planning a donnee au modele.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Tag, ChevronDown, CalendarCheck, LogIn, LogOut, X, Factory, FileSpreadsheet, Loader2, Download } from 'lucide-react';
+import { Tag, ChevronDown, CalendarCheck, LogIn, LogOut, X, Factory, FileSpreadsheet, Loader2, Download, Lock } from 'lucide-react';
 import type { MatelasLine, SaisiePaquet, SerieEtiquetage as Serie } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
@@ -33,7 +33,7 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
     const depart = serie?.depart && serie.depart > 0 ? serie.depart : 1;
-    const paquets = useMemo(() => paquetsSerie(lignes, tailles, depart), [lignes, tailles, depart]);
+    const paquets = useMemo(() => paquetsSerie(lignes, tailles, depart, serie?.figes), [lignes, tailles, depart, serie?.figes]);
     const nomChaine = (id?: string) => chaines.find(c => c.id === id)?.name || id || '';
     const parChaine = useMemo(() => piecesParChaine(paquets, serie), [paquets, serie]);
 
@@ -127,7 +127,6 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
 
     /* Cellule saisissable facon Excel : sans cadre, la grille du tableau fait les bords. */
     const champ = 'w-full h-full min-h-[26px] px-1 bg-transparent outline-none text-center text-[12px] tabular-nums focus:bg-white dark:focus:bg-dk-surface focus:ring-2 focus:ring-inset focus:ring-emerald-500';
-    const dernier = paquets[paquets.length - 1];
 
     return (
         <div className="space-y-2">
@@ -145,7 +144,7 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
                     />
                 </label>
                 <div className="h-9 px-3 inline-flex items-center rounded-lg bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border text-[12px] text-slate-600 dark:text-dk-text-soft whitespace-nowrap">
-                    <b>{paquets.length}</b>&nbsp;{L('paquets', 'حزمة', 'bundles')}&nbsp;·&nbsp;{L('serie', 'السلسلة', 'series')}&nbsp;<b className="tabular-nums text-blue-700 dark:text-blue-300">{paquets[0].debut} → {dernier.fin}</b>
+                    <b>{paquets.length}</b>&nbsp;{L('paquets', 'حزمة', 'bundles')}&nbsp;·&nbsp;{L('serie', 'السلسلة', 'series')}&nbsp;<b className="tabular-nums text-blue-700 dark:text-blue-300">{Math.min(...paquets.map(p => p.debut))} → {Math.max(...paquets.map(p => p.fin))}</b>
                 </div>
                 {chainePlanifiee && paquets.some(p => !saisieDe(serie, p.cle).chaine) && (
                     <button type="button" onClick={() => saisir(paquets.filter(p => !saisieDe(serie, p.cle).chaine).map(p => p.cle), { chaine: chainePlanifiee })} className="h-9 px-3 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-[12px] font-semibold text-emerald-700 hover:bg-emerald-100">
@@ -230,7 +229,7 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
                                     <td className={td}><input value={s.date || ''} onChange={e => saisir([p.cle], { date: e.target.value })} className={champ} /></td>
                                     <td className={`${td} font-bold text-slate-900 dark:text-dk-text`}>{p.paquet}</td>
                                     <td className={`${td} tabular-nums`}>{p.plis}</td>
-                                    <td className={`${td} tabular-nums`}>{p.debut}</td>
+                                    <td className={`${td} tabular-nums`} title={p.fige ? L('Plage figee a la coupe : elle ne bouge plus', 'نطاق ثابت منذ القص: لا يتغيّر', 'Range fixed at cutting') : undefined}>{p.fige && <Lock className="inline w-3 h-3 -mt-0.5 mr-1 text-slate-400" />}{p.debut}</td>
                                     <td className={`${td} tabular-nums`}>{p.fin}</td>
                                     <td className={`${td} font-semibold`}>{p.taille}</td>
                                     <td className={td}>

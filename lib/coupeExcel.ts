@@ -224,6 +224,8 @@ interface OptionsCellule {
     border?: boolean;
     fill?: string;
     numFmt?: string;
+    /** Texte plus long que la colonne : Excel le reduit pour qu'il tienne (date, client). */
+    reduire?: boolean;
 }
 
 /** Écrit une cellule avec le style commun à tout le classeur (Calibri 11, centré, bordures fines). */
@@ -231,7 +233,7 @@ function ecrire(ws: Feuille, r: number, c: number, valeur: ValeurCellule, opts: 
     const cell = ws.getCell(r, c);
     cell.value = valeur;
     cell.font = { name: 'Calibri', size: 11, bold: !!opts.bold, color: { argb: opts.color || FONT_NOIR } };
-    cell.alignment = { vertical: 'middle', horizontal: opts.align || 'center' };
+    cell.alignment = { vertical: 'middle', horizontal: opts.align || 'center', ...(opts.reduire ? { shrinkToFit: true } : {}) };
     if (opts.border !== false) cell.border = toutesBordures;
     if (opts.fill) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: opts.fill } };
     if (opts.numFmt) cell.numFmt = opts.numFmt;
@@ -511,7 +513,7 @@ function construireFeuilleMatiere(wb: Classeur, d: DonneesExcelCoupe, tissu: Tis
 /* ------------------------------------------------------------------ */
 
 function construireFeuilleSerie(wb: Classeur, d: DonneesExcelCoupe, serie: SerieCoupe, nomFeuille: string): void {
-    const ws: Feuille = wb.addWorksheet(nomFeuille, { pageSetup: { ...PAGE_SETUP } });
+    const ws: Feuille = wb.addWorksheet(nomFeuille, { pageSetup: { ...PAGE_SETUP, orientation: 'portrait', paperSize: 9 } });
     ws.properties.defaultRowHeight = HAUTEUR_LIGNE;
 
     // Largeurs relevees sur la feuille SERIE de l'atelier (ZINTURA).
@@ -526,15 +528,18 @@ function construireFeuilleSerie(wb: Classeur, d: DonneesExcelCoupe, serie: Serie
     ecrire(ws, 2, 3, 'Cliente', { bold: true, border: false });
     ws.mergeCells(2, 4, 2, 5);
     ecrire(ws, 2, 4, 'Articulo', { bold: true, border: false });
+    // « Ref proveedor » deborde de sa colonne : F et G reunies, sinon Excel le coupe.
+    ws.mergeCells(2, 6, 2, 7);
     ecrire(ws, 2, 6, 'Ref proveedor', { bold: true, border: false });
     ecrire(ws, 2, 12, 'PEDIDO', { bold: true, border: false });
 
-    ecrire(ws, 3, 2, d.date || '', { bold: true, border: false });
-    ecrire(ws, 3, 3, d.client || '', { bold: true, border: false });
+    ecrire(ws, 3, 2, d.date || '', { bold: true, border: false, reduire: true });
+    ecrire(ws, 3, 3, d.client || '', { bold: true, border: false, reduire: true });
     ws.mergeCells(3, 4, 3, 5);
-    ecrire(ws, 3, 4, d.modele || d.reference || '', { bold: true, border: false });
-    ecrire(ws, 3, 6, d.refFournisseur || '', { bold: true, border: false });
-    ecrire(ws, 3, 12, numOuTexte(d.pedido), { bold: true, border: false });
+    ecrire(ws, 3, 4, d.modele || d.reference || '', { bold: true, border: false, reduire: true });
+    ws.mergeCells(3, 6, 3, 7);
+    ecrire(ws, 3, 6, d.refFournisseur || '', { bold: true, border: false, reduire: true });
+    ecrire(ws, 3, 12, numOuTexte(d.pedido), { bold: true, border: false, reduire: true });
 
     ws.getRow(4).height = HAUTEUR_LIGNE;
     const entetes = ['DATE', 'N° PAQ', 'PLI', 'SERIE', 'SERIE2', 'TAILLE', 'PIECES (-/+)', 'N', 'ENTREE', 'LOTE', 'SORTE', 'CHAINE'];
@@ -546,18 +551,18 @@ function construireFeuilleSerie(wb: Classeur, d: DonneesExcelCoupe, serie: Serie
         ws.getRow(r).height = HAUTEUR_LIGNE;
         ecrire(ws, r, 1, ligne.date || undefined);
         ecrire(ws, r, 2, numOuTexte(ligne.paquet));
-        ecrire(ws, r, 3, ligne.plis, { numFmt: FMT_ENTIER });
+        ecrire(ws, r, 3, ligne.plis);
 
         const contigu = idx > 0 && !!precedente && ligne.debut === precedente.fin + 1;
         if (contigu) {
-            ecrire(ws, r, 4, { formula: `${colLetter(5)}${r - 1}+1`, result: ligne.debut }, { numFmt: FMT_ENTIER });
+            ecrire(ws, r, 4, { formula: `${colLetter(5)}${r - 1}+1`, result: ligne.debut });
         } else {
-            ecrire(ws, r, 4, ligne.debut, { numFmt: FMT_ENTIER });
+            ecrire(ws, r, 4, ligne.debut);
         }
-        ecrire(ws, r, 5, { formula: `${colLetter(4)}${r}+${colLetter(3)}${r}-1`, result: ligne.fin }, { numFmt: FMT_ENTIER });
+        ecrire(ws, r, 5, { formula: `${colLetter(4)}${r}+${colLetter(3)}${r}-1`, result: ligne.fin });
 
         ecrire(ws, r, 6, ligne.taille);
-        ecrire(ws, r, 7, typeof ligne.pieces === 'number' ? ligne.pieces : undefined, { numFmt: FMT_ENTIER });
+        ecrire(ws, r, 7, typeof ligne.pieces === 'number' ? ligne.pieces : undefined);
         ecrire(ws, r, 8, ligne.n || undefined);
         ecrire(ws, r, 9, ligne.entree || undefined);
         ecrire(ws, r, 10, ligne.lote || undefined);

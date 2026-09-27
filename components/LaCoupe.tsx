@@ -30,7 +30,7 @@ import {
 import ImportExcelCoupe, { type ChoixImport } from './coupe/ImportExcelCoupe';
 import SerieEtiquetage from './coupe/SerieEtiquetage';
 import { appliquerImport } from '../lib/appliquerImport';
-import { paquetsSerie, saisieDe, saisiesDepuisSerie } from '../lib/serieEtiquetage';
+import { figerSerie, paquetsSerie, saisieDe, saisiesDepuisSerie } from '../lib/serieEtiquetage';
 import TablePlacements from './coupe/TablePlacements';
 import TableMatelas from './coupe/TableMatelas';
 import { grilleClavier } from './coupe/grilleClavier';
@@ -760,7 +760,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             const line = lignes[i];
             if (line.fait) {
                 lignes[i] = { ...line, fait: false, fin: undefined };
-                return { ...prev, matelasLines: lignes };
+                return { ...prev, matelasLines: lignes, serie: figerSerie(prev.serie, lignes, sizes, [id], false) };
             }
             // Rouleau fini, defaut : on note ce qui a vraiment ete coupe, et le reste repart en matelas.
             const prevus = line.plis || 0;
@@ -788,7 +788,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     metresReels: undefined,
                 });
             }
-            return { ...prev, matelasLines: lignes };
+            // Ses paquets gardent desormais leur plage : les etiquettes sont collees.
+            return { ...prev, matelasLines: lignes, serie: figerSerie(prev.serie, lignes, sizes, [id], true) };
         });
         if (pointage?.groupe) setDernierGroupe(pointage.groupe);
         setToggleFaitConfirmId(null);
@@ -808,15 +809,15 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     /** Plusieurs matelas choisis : coupes (vert) ou pas, d'un coup. */
     const confirmerLignes = (ids: string[], fait: boolean) => {
         const maintenant = new Date().toISOString();
-        setOrdre(prev => ({
-            ...prev,
-            matelasLines: (prev.matelasLines || []).map(l => {
+        setOrdre(prev => {
+            const matelasLines = (prev.matelasLines || []).map(l => {
                 if (!ids.includes(l.id) || !!l.fait === fait) return l;
                 return fait
                     ? { ...l, fait: true, groupe: l.groupe || dernierGroupe, debut: l.debut || l.envoyeLe, fin: maintenant }
                     : { ...l, fait: false, fin: undefined };
-            }),
-        }));
+            });
+            return { ...prev, matelasLines, serie: figerSerie(prev.serie, matelasLines, sizes, ids, fait) };
+        });
     };
 
     /** Le groupe commence l'etalage : on retient l'heure, la fin viendra en cochant « coupe ». */
@@ -1090,7 +1091,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         let ordreImporte = r.ordre;
         if (c.serie?.length) {
             const depart = c.serie[0].debut && c.serie[0].debut > 0 ? c.serie[0].debut : (r.ordre.serie?.depart || 1);
-            const paquets = paquetsSerie(r.ordre.matelasLines || [], r.tailles, depart);
+            const paquets = paquetsSerie(r.ordre.matelasLines || [], r.tailles, depart, r.ordre.serie?.figes);
             const { saisies } = saisiesDepuisSerie(paquets, c.serie, chainesAtelier);
             ordreImporte = { ...r.ordre, serie: { ...(r.ordre.serie || {}), depart, saisies: { ...(r.ordre.serie?.saisies || {}), ...saisies } } };
         }
@@ -1126,7 +1127,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             tailles: sizes,
             repartition,
             serie: (() => {
-                const paquets = paquetsSerie(o.matelasLines || [], sizes, o.serie?.depart || 1);
+                const paquets = paquetsSerie(o.matelasLines || [], sizes, o.serie?.depart || 1, o.serie?.figes);
                 if (!paquets.length) return undefined;
                 return {
                     lignes: paquets.map(pq => {
@@ -4076,6 +4077,16 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     <p className="text-[12px] text-slate-500 dark:text-dk-muted mt-1">
                         {tx(lang, { fr: `Les ${lignesTissu.filter(l => !l.fait).length} matelas pas encore coupes de « ${tissuCourant.nom} » seront remplaces. Les matelas coupes restent, et le calcul ne porte que sur ce qui reste a couper.`, ar: `ستُستبدل ${lignesTissu.filter(l => !l.fait).length} مفرشة غير مقصوصة من «${tissuCourant.nom}». المفرشات المقصوصة تبقى، والحساب يشمل ما بقي للقص فقط.`, en: `The ${lignesTissu.filter(l => !l.fait).length} uncut lays of "${tissuCourant.nom}" will be replaced. Cut lays stay.` })}
                     </p>
+                    {(() => {
+                        // Saisies de la serie (date, entree, chaine...) posees sur des matelas qui vont etre remplaces.
+                        const remplaces = new Set(lignesTissu.filter(l => !l.fait).map(l => l.id));
+                        const perdues = Object.entries(ordre.serie?.saisies || {}).filter(([k, v]) => remplaces.has(k.slice(0, k.indexOf(':'))) && Object.values(v || {}).some(x => x !== undefined && x !== '')).length;
+                        return perdues > 0 ? (
+                            <p className="mt-3 px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-[12px] font-semibold text-rose-700 dark:text-rose-300">
+                                {tx(lang, { fr: `${perdues} paquet(s) de la serie ont deja une date, une entree ou une chaine : ces saisies partiront avec leurs matelas. Confirmez d\u2019abord les matelas deja coupes.`, ar: `${perdues} حزمة في السلسلة عليها تاريخ أو دخول أو سلسلة: ستضيع مع مفرشاتها. أكّد أولاً المفرشات المقصوصة.`, en: `${perdues} bundle(s) already have a date, entry or line: they will be lost with their lays. Confirm cut lays first.` })}
+                            </p>
+                        ) : null;
+                    })()}
                     <div className="flex justify-end gap-2 mt-5">
                         <button type="button" onClick={() => setConfirmCalcul(false)} className="h-10 px-4 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">{tx(lang, { fr: 'Annuler', ar: 'إلغاء', en: 'Cancel' })}</button>
                         <button type="button" onClick={calculerMatelas} className="h-10 px-4 rounded-lg text-[12px] font-semibold bg-slate-900 text-white hover:bg-slate-800">{tx(lang, { fr: 'Recalculer', ar: 'إعادة الحساب', en: 'Recompute' })}</button>

@@ -11,6 +11,7 @@
  * Les plages ne se saisissent pas : elles se recalculent des matelas. Un pli
  * de plus ou de moins dans un matelas, et les etiquettes suivent — c'etait la
  * source des erreurs de numeros en salle quand la feuille etait tenue a la main.
+ * Une fois le matelas coupe, ses plages se figent : ses etiquettes sont collees.
  */
 import type { MatelasLine, SaisiePaquet, SerieEtiquetage } from '../types';
 import { estPrincipal } from './ordreCoupe';
@@ -29,6 +30,8 @@ export interface PaquetSerie {
     couleur?: string;
     /** Le matelas est coupe. */
     fait?: boolean;
+    /** Plage figee a la coupe : elle ne bouge plus. */
+    fige?: boolean;
 }
 
 const numeroTri = (l: MatelasLine) => {
@@ -36,8 +39,20 @@ const numeroTri = (l: MatelasLine) => {
     return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
 };
 
-/** Paquets du tissu principal, dans l'ordre des numeros de matelas, avec leurs plages. */
-export function paquetsSerie(lignes: MatelasLine[], tailles: string[], depart = 1): PaquetSerie[] {
+/**
+ * Paquets du tissu principal, dans l'ordre des numeros de matelas, avec leurs plages.
+ * Un paquet fige (matelas deja coupe) garde sa plage ; les autres suivent en
+ * sautant les plages figees, sans jamais les chevaucher.
+ */
+export function paquetsSerie(lignes: MatelasLine[], tailles: string[], depart = 1, figes?: SerieEtiquetage['figes']): PaquetSerie[] {
+    const bloquees = Object.values(figes || {}).filter(f => Number.isFinite(f?.debut) && Number.isFinite(f?.fin)).sort((a, b) => a.debut - b.debut);
+    const libre = (n: number, plis: number) => {
+        for (let bouge = true; bouge;) {
+            bouge = false;
+            for (const f of bloquees) if (f.debut <= n + plis - 1 && f.fin >= n) { n = f.fin + 1; bouge = true; }
+        }
+        return n;
+    };
     const principales = lignes
         .map((l, rang) => ({ l, rang }))
         .filter(({ l }) => estPrincipal(l) && (Number(l.plis) || 0) > 0 && Object.values(l.ratios || {}).some(v => Number(v) > 0))
@@ -50,22 +65,34 @@ export function paquetsSerie(lignes: MatelasLine[], tailles: string[], depart = 
         for (const taille of tailles) {
             const fois = Math.max(0, Math.floor(Number(l.ratios?.[taille]) || 0));
             for (let k = 0; k < fois; k++) {
-                out.push({
-                    cle: `${l.id}:${taille}:${k}`,
-                    matelasId: l.id,
-                    paquet: l.numero || String(rang + 1),
-                    plis,
-                    debut: n,
-                    fin: n + plis - 1,
-                    taille,
-                    couleur: l.couleur,
-                    fait: !!l.fait,
-                });
-                n += plis;
+                const cle = `${l.id}:${taille}:${k}`;
+                const fige = figes?.[cle];
+                const debut = fige ? fige.debut : libre(n, plis);
+                const fin = fige ? fige.fin : debut + plis - 1;
+                out.push({ cle, matelasId: l.id, paquet: l.numero || String(rang + 1), plis, debut, fin, taille, couleur: l.couleur, fait: !!l.fait, fige: !!fige });
+                n = Math.max(n, fin + 1);
             }
         }
     }
     return out;
+}
+
+/**
+ * Coupe (ou decoupe) des matelas : leurs paquets figent la plage qu'ils ont a
+ * cet instant, ou la relachent. `lignes` = les matelas APRES le changement
+ * (les plis reellement coupes font la plage).
+ */
+export function figerSerie(serie: SerieEtiquetage | undefined, lignes: MatelasLine[], tailles: string[], ids: string[], figer: boolean): SerieEtiquetage {
+    const figes = { ...(serie?.figes || {}) };
+    const cibles = new Set(ids);
+    if (figer) {
+        for (const p of paquetsSerie(lignes, tailles, serie?.depart || 1, figes)) {
+            if (cibles.has(p.matelasId) && !figes[p.cle]) figes[p.cle] = { debut: p.debut, fin: p.fin };
+        }
+    } else {
+        for (const k of Object.keys(figes)) if (cibles.has(k.slice(0, k.indexOf(':')))) delete figes[k];
+    }
+    return { ...(serie || {}), figes };
 }
 
 /** Les saisies d'un paquet (vide si rien n'a ete note). */

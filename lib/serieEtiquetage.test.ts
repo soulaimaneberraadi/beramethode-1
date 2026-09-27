@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import type { MatelasLine } from '../types';
-import { lireSerieExcel, paquetsSerie, piecesParChaine, saisiesDepuisSerie } from './serieEtiquetage';
+import { figerSerie, lireSerieExcel, paquetsSerie, piecesParChaine, saisiesDepuisSerie } from './serieEtiquetage';
 
 const T = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const m = (id: string, numero: string, plis: number, ratios: Record<string, number>, extra: Partial<MatelasLine> = {}): MatelasLine =>
@@ -38,6 +38,32 @@ const m = (id: string, numero: string, plis: number, ratios: Record<string, numb
     // Pieces par chaine (avec les pieces en plus/moins).
     const s = { saisies: { [p[0].cle]: { chaine: 'CHAINE 1' }, [p[1].cle]: { chaine: 'CHAINE 1', pieces: -2 }, [p[2].cle]: { chaine: 'CHAINE 2' } } };
     assert.deepEqual(piecesParChaine(p, s), { 'CHAINE 1': 162, 'CHAINE 2': 82 });
+}
+
+// Matelas coupe : ses etiquettes sont collees, ses plages ne bougent plus.
+{
+    const avant = [m('a', '22', 100, { M: 2 }), m('b', '25', 100, { S: 1 })];
+    const coupe = avant.map(l => (l.id === 'a' ? { ...l, fait: true } : l));
+    const serie = figerSerie(undefined, coupe, T, ['a'], true);
+    assert.deepEqual(serie.figes, { 'a:M:0': { debut: 1, fin: 100 }, 'a:M:1': { debut: 101, fin: 200 } });
+
+    // On ajoute ensuite des XL numerotes avant (1, 2) : le 22 garde 1-200, les autres sautent sa plage.
+    const apres = [m('x', '1', 100, { XL: 1 }), m('y', '2', 50, { XL: 1 }), ...coupe];
+    const p = paquetsSerie(apres, T, 1, serie.figes);
+    assert.deepEqual(p.map(x => [x.paquet, x.taille, x.debut, x.fin, !!x.fige]), [
+        ['1', 'XL', 201, 300, false],
+        ['2', 'XL', 301, 350, false],
+        ['22', 'M', 1, 100, true],
+        ['22', 'M', 101, 200, true],
+        ['25', 'S', 351, 450, false],
+    ], 'plages figees intactes, jamais chevauchees');
+
+    // Une plage libre assez grande avant la plage figee reste utilisee.
+    const petit = paquetsSerie([m('x', '1', 100, { XL: 1 }), ...coupe], T, 1, { 'a:M:0': { debut: 301, fin: 400 }, 'a:M:1': { debut: 401, fin: 500 } });
+    assert.deepEqual(petit.map(x => [x.debut, x.fin]), [[1, 100], [301, 400], [401, 500], [501, 600]]);
+
+    // Decoupe (erreur de clic) : la plage est relachee.
+    assert.deepEqual(figerSerie(serie, coupe, T, ['a'], false).figes, {});
 }
 
 // Feuille SERIE de l'atelier relue depuis Excel, reposee sur les paquets.

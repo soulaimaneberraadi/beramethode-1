@@ -715,6 +715,12 @@ export interface SerieEtiquetage {
   depart?: number;
   /** Saisies par paquet (cle : `${matelasId}:${taille}:${rang}`). */
   saisies?: Record<string, SaisiePaquet>;
+  /**
+   * Plages figees au moment ou le matelas est coupe (meme cle que les saisies).
+   * Les etiquettes de ces paquets sont deja collees : un matelas ajoute ou
+   * renumerote ensuite ne doit plus deplacer leurs numeros.
+   */
+  figes?: Record<string, { debut: number; fin: number }>;
 }
 
 export interface SaisiePaquet {
