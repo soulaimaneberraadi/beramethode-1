@@ -231,7 +231,7 @@ export default function SerieEtiquetage({ lignes, tailles, serie, onChange, chai
                                     <td className={`${td} tabular-nums`}>{p.plis}</td>
                                     <td className={`${td} tabular-nums`} title={p.fige ? L('Plage figee a la coupe : elle ne bouge plus', 'نطاق ثابت منذ القص: لا يتغيّر', 'Range fixed at cutting') : undefined}>{p.fige && <Lock className="inline w-3 h-3 -mt-0.5 mr-1 text-slate-400" />}{p.debut}</td>
                                     <td className={`${td} tabular-nums`}>{p.fin}</td>
-                                    <td className={`${td} font-semibold`}>{p.taille}</td>
+                                    <td className={`${td} font-semibold uppercase`}>{p.taille}</td>
                                     <td className={td}>
                                         <input
                                             inputMode="numeric"

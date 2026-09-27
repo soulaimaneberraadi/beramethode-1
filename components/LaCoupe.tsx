@@ -21,7 +21,7 @@ import {
     CartesAccueil, PageOrdres, PageTissu, PageGroupes, useRhDuJour, ChampHeure, ChoixGroupe,
     isoDepuisHeure, heureLocale, type PageAccueil,
 } from './coupe/AccueilCoupe';
-import { AMORCE_PAR_PLI_M, presenceGroupes } from '../lib/coupeAtelier';
+import { metresPlis, presenceGroupes } from '../lib/coupeAtelier';
 import { planifierPlacements, decouperEnMatelas, nomPlacement, repartirPlis } from '../lib/planMatelas';
 import {
     TISSU_PRINCIPAL, TISSUS_PROPOSES, tissuDe, estPrincipal, migrerOrdre, appliquerPlacement, matelasDuPlacement,
@@ -617,7 +617,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             });
             totalPieces += (line.plis || 0) * lineRatioSum;
             // Une ligne sans pièces (ratios à 0) ne consomme pas de tissu.
-            if (lineRatioSum > 0) totalFabric += (line.plis || 0) * ((line.longTracee || 0) + AMORCE_PAR_PLI_M);
+            if (lineRatioSum > 0) totalFabric += metresPlis(line.plis, line.longTracee);
         });
 
         return { totalPieces, totalFabric, perSize };
@@ -1167,7 +1167,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                             pieces,
                             total,
                             cumul,
-                            consoM: total > 0 ? (l.plis || 0) * ((l.longTracee || 0) + AMORCE_PAR_PLI_M) : 0,
+                            consoM: total > 0 ? metresPlis(l.plis, l.longTracee) : 0,
                             fait: !!l.fait,
                             groupe: groupesCoupe.find(g => g.id === l.groupe)?.nom,
                             debut: heureLocale(l.debut) || undefined,
@@ -1918,7 +1918,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         let ratioSum = 0;
         sizes.forEach(s => { ratioSum += Number(line.ratios?.[s]) || 0; });
         const pieces = (line.plis || 0) * ratioSum;
-        const cons = ratioSum > 0 ? (line.plis || 0) * ((line.longTracee || 0) + AMORCE_PAR_PLI_M) : 0;
+        const cons = ratioSum > 0 ? metresPlis(line.plis, line.longTracee) : 0;
         const matPhoto = line.matiere ? matierePhoto(line.matiere) : null;
         // Le ticket suit le paquet coupé et peut sortir de l'atelier (sous-traitance,
         // client) : il porte le nom de l'entreprise, jamais celui du logiciel.
@@ -2008,7 +2008,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             let ratioSum = 0;
             sizes.forEach(s => { ratioSum += Number(line.ratios?.[s]) || 0; });
             if (ratioSum > 0) {
-                const cons = (line.plis || 0) * ((line.longTracee || 0) + AMORCE_PAR_PLI_M);
+                const cons = metresPlis(line.plis, line.longTracee);
                 map[line.matiere] = (map[line.matiere] || 0) + cons;
             }
         });
@@ -2997,7 +2997,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         placements={placementsTissu}
                                         tailles={sizes}
                                         nbMatelas={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id).length]))}
-                                        consoTotale={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id).reduce((acc, l) => acc + (l.plis || 0) * ((l.longTracee || 0) + AMORCE_PAR_PLI_M), 0)]))}
+                                        consoTotale={Object.fromEntries(placementsTissu.map(p => [p.id, (ordre.matelasLines || []).filter(l => l.placementId === p.id).reduce((acc, l) => acc + metresPlis(l.plis, l.longTracee), 0)]))}
                                         maxPlisDefaut={Number(autoMaxPly) || 100}
                                         rouleauM={tissuCourant.rouleauM}
                                         laizeTissuCm={tissuCourant.laizeCm}
@@ -3907,7 +3907,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                     inputMode="decimal"
                                                     value={metresMesures}
                                                     onChange={e => setMetresMesures(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
-                                                    placeholder={targetLine ? ((typeof plisCoupes === 'number' && plisCoupes > 0 ? plisCoupes : targetLine.plis || 0) * ((targetLine.longTracee || 0) + AMORCE_PAR_PLI_M)).toFixed(2) : ''}
+                                                    placeholder={targetLine && (targetLine.longTracee || 0) > 0 ? metresPlis(typeof plisCoupes === 'number' && plisCoupes > 0 ? plisCoupes : targetLine.plis, targetLine.longTracee).toFixed(2) : ''}
                                                     title={tx(lang, { fr: 'Mesure au rouleau : elle remplace le calcul et montre l\u2019ecart', ar: 'القياس من الرولو: يعوّض الحساب ويُظهر الفارق', en: 'Measured on the roll: replaces the computed value' })}
                                                     className="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[14px] font-semibold tabular-nums outline-none focus:border-indigo-400"
                                                 />

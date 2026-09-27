@@ -12,10 +12,11 @@ import { Eye, Download, Send, GripVertical, ChevronDown, AlertTriangle, CheckCir
 import type { MatelasFichier, MatelasLine, PlacementCoupe, ReglagesNumero, TissuCoupe } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
-import { AMORCE_PAR_PLI_M } from '../../lib/coupeAtelier';
+import { metresPlis, longueurManquante } from '../../lib/coupeAtelier';
 import { codeMatiere, nomFichierMatelas } from '../../lib/ordreCoupe';
 import { analyserFichier, numeroterPlt, reglagesAvecDefaut } from '../../lib/numerotationPlt';
 import { grilleClavier } from './grilleClavier';
+import { problemeTrace } from './TablePlacements';
 
 interface Props {
     lignes: MatelasLine[];
@@ -175,14 +176,19 @@ export default function TableMatelas({
     };
 
     const placementDe = (l: MatelasLine) => placements.find(p => p.id === l.placementId);
+    /** Trace qui ne correspond pas a sa ligne (taille hors commande, tailles differentes) : signale sur chaque matelas. */
+    const problemes = useMemo(() => Object.fromEntries(placements.map(p => [p.id, problemeTrace(p, tailles)])), [placements, tailles]);
     const piecesTaille = (l: MatelasLine, t: string) => (l.plis || 0) * (Number(l.ratios?.[t]) || 0);
     const piecesLigne = (l: MatelasLine) => tailles.reduce((s, t) => s + piecesTaille(l, t), 0);
-    const consoTheorique = (l: MatelasLine) => (piecesLigne(l) > 0 ? (l.plis || 0) * ((l.longTracee || 0) + AMORCE_PAR_PLI_M) : 0);
+    const consoTheorique = (l: MatelasLine) => (piecesLigne(l) > 0 ? metresPlis(l.plis, l.longTracee) : 0);
     /** Mesure au rouleau si elle a ete notee, sinon le calcul. */
     const consoLigne = (l: MatelasLine) => (l.metresReels && l.metresReels > 0 ? l.metresReels : consoTheorique(l));
     const celluleConso = (l: MatelasLine) => {
         const t = consoTheorique(l);
-        if (!(l.metresReels && l.metresReels > 0)) return <span>{t.toFixed(2)}</span>;
+        if (!(l.metresReels && l.metresReels > 0)) {
+            if (longueurManquante(l)) return <span className="text-amber-600 font-bold" title={L('Longueur du placement inconnue : deposez son trace PLT ou saisissez LONG. (M)', 'طول التركيبة غير معروف: ضع ملف PLT أو أدخل الطول', 'Placement length unknown: drop its PLT or enter LONG. (M)')}>—</span>;
+            return <span>{t.toFixed(2)}</span>;
+        }
         const e = l.metresReels - t;
         return (
             <span title={`${L('Mesure', 'مقيس', 'Measured')} ${l.metresReels.toFixed(2)} m · ${L('calcule', 'محسوب', 'computed')} ${t.toFixed(2)} m`}>
@@ -197,12 +203,13 @@ export default function TableMatelas({
         const total: Record<string, number> = {};
         const cmd: Record<string, number> = {};
         tailles.forEach(t => { total[t] = 0; cmd[t] = 0; });
-        let plis = 0, pieces = 0, conso = 0;
+        let plis = 0, pieces = 0, conso = 0, sansLongueur = 0;
         for (const l of lignes) {
             tailles.forEach(t => { total[t] += piecesTaille(l, t); });
             plis += l.plis || 0;
             pieces += piecesLigne(l);
             conso += consoLigne(l);
+            if (!(l.metresReels && l.metresReels > 0) && longueurManquante(l)) sansLongueur++;
         }
         const parCouleur = couleurs.map(c => {
             const cc = commande(c);
@@ -213,7 +220,7 @@ export default function TableMatelas({
             });
             return { couleur: c, ecart, exact: tailles.every(t => ecart[t] === 0) };
         }).filter(x => tailles.some(t => (Number(commande(x.couleur)[t]) || 0) > 0) || lignes.some(l => l.couleur === x.couleur));
-        return { total, cmd, plis, pieces, conso, parCouleur };
+        return { total, cmd, plis, pieces, conso, sansLongueur, parCouleur };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lignes, tailles, couleurs, commande]);
 
@@ -251,10 +258,19 @@ export default function TableMatelas({
         marquerEnvoye([l]);
     };
 
+    /** Un trace qui ne correspond pas a sa ligne ne part pas au traceur : la table couperait autre chose que ce qui est compte. */
+    const traceBloque = (ls: MatelasLine[]): boolean => {
+        const faux = ls.map(l => placementDe(l)).find(p => p && problemes[p.id]);
+        if (!faux) return false;
+        onMessage(`${problemes[faux.id]}. ${L('Corrigez le placement (ou « C’est voulu ») avant d’envoyer au traceur.', 'صحّح التركيبة (أو «مقصود») قبل الإرسال إلى الـ traceur.', 'Fix the placement (or mark it intended) before plotting.')}`, 'error');
+        return true;
+    };
+
     const envoyer = async (l: MatelasLine) => {
         const g = generer(l);
         if (!g) { rienANumeroter(); return; }
         if (!deposer) return;
+        if (traceBloque([l])) return;
         setEnvoi(l.id);
         try {
             const r = await deposer(g.nom, g.octets);
@@ -289,6 +305,7 @@ export default function TableMatelas({
         if (!deposer) return;
         const fs = fichiersChoisis();
         if (!fs.length) { rienANumeroter(); return; }
+        if (traceBloque(lignes.filter(l => choisies.has(l.id)))) return;
         setOccupe(true);
         let ok = 0; const echecs: string[] = [];
         try {
@@ -576,7 +593,7 @@ export default function TableMatelas({
                                             {tailles.map(t => (
                                                 <React.Fragment key={t}>
                                                     <th className={`${th} text-right min-w-[52px] text-emerald-700 dark:text-emerald-300 border-l border-slate-100 dark:border-dk-border`}>{t}</th>
-                                                    {avecCumuls && <th className={`${th} text-right min-w-[58px] text-slate-400 font-semibold normal-case`} title={L(`Cumul ${t} pour la couleur de la ligne`, `متراكم ${t} للون السطر`, `${t} running total for the row colour`)}>Σ {t}</th>}
+                                                    {avecCumuls && <th className={`${th} text-right min-w-[58px] text-slate-400 font-semibold`} title={L(`Cumul ${t} pour la couleur de la ligne`, `متراكم ${t} للون السطر`, `${t} running total for the row colour`)}>Σ {t}</th>}
                                                 </React.Fragment>
                                             ))}
                                             <th className={`${th} text-right border-l border-slate-200 dark:border-dk-border`} style={{ minWidth: 64 }}>{L('Total', 'المجموع', 'Total')}</th>
@@ -704,6 +721,11 @@ export default function TableMatelas({
                                                             <GripVertical className="w-3 h-3 text-indigo-400 shrink-0" />
                                                             <span className="text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 truncate">{nomSortie(l, p!)}</span>
                                                         </span>
+                                                        {problemes[p!.id] && (
+                                                            <span className="p-1 text-rose-600 shrink-0" title={`${problemes[p!.id]} — ${L('verifiez le placement avant de tracer', 'راجع التركيبة قبل الإرسال', 'check the placement before plotting')}`}>
+                                                                <AlertTriangle className="w-3.5 h-3.5" />
+                                                            </span>
+                                                        )}
                                                         <button type="button" onClick={() => onApercu(l, p!)} className="p-1.5 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50" title={L('Voir le numero dans les pieces', 'معاينة الرقم في القطع', 'Preview')}><Eye className="w-3.5 h-3.5" /></button>
                                                         <button type="button" onClick={() => telecharger(l)} className="p-1.5 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" title={L('Telecharger', 'تنزيل', 'Download')}><Download className="w-3.5 h-3.5" /></button>
                                                         {deposer && (
@@ -746,9 +768,22 @@ export default function TableMatelas({
                                         ))}
                                         <td className={`${tf} bg-slate-100 dark:bg-dk-elevated text-right tabular-nums`}>{bilan.pieces}</td>
                                         <td className={`${tf} bg-slate-100 dark:bg-dk-elevated`}></td>
-                                        <td className={`${tf} bg-slate-100 dark:bg-dk-elevated text-right tabular-nums`}>{bilan.conso.toFixed(2)}</td>
+                                        <td className={`${tf} bg-slate-100 dark:bg-dk-elevated text-right tabular-nums`}>
+                                            {bilan.conso.toFixed(2)}
+                                            {bilan.sansLongueur > 0 && (
+                                                <span className="block text-[9px] font-bold text-amber-600" title={L('Ces matelas n ont pas de longueur de trace : leur tissu n est pas compte dans ce total.', 'هذه المفرشات بلا طول: قماشها غير محسوب في هذا المجموع.', 'These lays have no marker length: their fabric is not in this total.')}>
+                                                    {L(`+ ${bilan.sansLongueur} sans longueur`, `+ ${bilan.sansLongueur} بلا طول`, `+ ${bilan.sansLongueur} without length`)}
+                                                </span>
+                                            )}
+                                        </td>
                                         <td colSpan={2} className={`${tf} bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-muted font-semibold`}>
-                                            {tissu.recuM ? `${L('Recu', 'المستلم', 'Received')} ${tissu.recuM} m · ${L('reste', 'الباقي', 'left')} ${(tissu.recuM - bilan.conso).toFixed(2)} m` : ''}
+                                            {tissu.recuM ? (
+                                                <>
+                                                    {L('Recu', 'المستلم', 'Received')} {tissu.recuM} m · {tissu.recuM - bilan.conso >= 0
+                                                        ? `${L('reste', 'الباقي', 'left')} ${(tissu.recuM - bilan.conso).toFixed(2)} m`
+                                                        : <span className="text-rose-600">{L('manque', 'الخصاص', 'short')} {(bilan.conso - tissu.recuM).toFixed(2)} m</span>}
+                                                </>
+                                            ) : ''}
                                         </td>
                                     </tr>
                                     <tr className="bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted">

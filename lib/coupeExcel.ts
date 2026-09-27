@@ -278,8 +278,8 @@ function construireNotation(m: MatelasCoupe, tailles: string[]): string {
     if (actives.length === 0) return '';
     const valeurs = actives.map(t => ratios[t]);
     const identiques = valeurs.every(v => v === valeurs[0]);
-    if (identiques) return `${actives.join('-')}*${valeurs[0]}`;
-    return actives.map(t => `${t}*${ratios[t]}`).join('-');
+    if (identiques) return `${actives.join("-").toUpperCase()}*${valeurs[0]}`;
+    return actives.map(t => `${t.toUpperCase()}*${ratios[t]}`).join('-');
 }
 
 /* ------------------------------------------------------------------ */
@@ -381,7 +381,7 @@ function construireFeuilleMatiere(wb: Classeur, d: DonneesExcelCoupe, tissu: Tis
     // Ligne 4 : en-tête bloc TALLAS
     ws.getRow(4).height = HAUTEUR_LIGNE;
     ecrire(ws, 4, 2, 'TALLAS', { bold: true });
-    tailles.forEach((t, k) => ecrire(ws, 4, colQuantiteTaille(k), t, { bold: true, color: COULEUR_BLEU }));
+    tailles.forEach((t, k) => ecrire(ws, 4, colQuantiteTaille(k), t.toUpperCase(), { bold: true, color: COULEUR_BLEU }));
     ecrire(ws, 4, last, 'TOTAL', { bold: true });
 
     // Lignes 5..derniereCouleur : une par couleur (padding à 4 lignes minimum)
@@ -439,8 +439,8 @@ function construireFeuilleMatiere(wb: Classeur, d: DonneesExcelCoupe, tissu: Tis
     ecrire(ws, H, 5, 'Largo', { bold: true });
     ecrire(ws, H, 6, 'M.Gastado', { bold: true });
     tailles.forEach((t, k) => {
-        ecrire(ws, H, colValeurTaille(k), t, { bold: true, color: COULEUR_BLEU });
-        ecrire(ws, H, colPaireTaille(k), `TOTAL ${t}`, { bold: true });
+        ecrire(ws, H, colValeurTaille(k), t.toUpperCase(), { bold: true, color: COULEUR_BLEU });
+        ecrire(ws, H, colPaireTaille(k), `TOTAL ${t.toUpperCase()}`, { bold: true });
     });
     ecrire(ws, H, last, 'TOTAL', { bold: true });
 
@@ -561,7 +561,7 @@ function construireFeuilleSerie(wb: Classeur, d: DonneesExcelCoupe, serie: Serie
         }
         ecrire(ws, r, 5, { formula: `${colLetter(4)}${r}+${colLetter(3)}${r}-1`, result: ligne.fin });
 
-        ecrire(ws, r, 6, ligne.taille);
+        ecrire(ws, r, 6, String(ligne.taille).toUpperCase());
         ecrire(ws, r, 7, typeof ligne.pieces === 'number' ? ligne.pieces : undefined);
         ecrire(ws, r, 8, ligne.n || undefined);
         ecrire(ws, r, 9, ligne.entree || undefined);

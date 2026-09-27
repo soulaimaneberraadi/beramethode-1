@@ -21,9 +21,22 @@ export const sommeRatios = (l: MatelasLine): number =>
 
 export const piecesLigne = (l: MatelasLine): number => (l.plis || 0) * sommeRatios(l);
 
-/** Un matelas sans aucune taille ne s'etale pas : il ne consomme rien. */
-export const metresLigne = (l: MatelasLine): number =>
-    sommeRatios(l) > 0 ? (l.plis || 0) * ((l.longTracee || 0) + AMORCE_PAR_PLI_M) : 0;
+/**
+ * Metres theoriques d'un matelas : plis x (longueur du trace + amorce).
+ * Sans taille il ne s'etale pas ; sans longueur de trace on ne sait pas ce
+ * qu'il consomme — compter l'amorce seule affichait 3 m pour 100 plis, un
+ * chiffre faux qui passait dans les totaux et le reste du rouleau. On rend 0,
+ * et l'ecran dit « longueur manquante » (voir longueurManquante).
+ */
+export const metresPlis = (plis: number | undefined, longTracee: number | undefined): number =>
+    (longTracee || 0) > 0 ? (plis || 0) * ((longTracee || 0) + AMORCE_PAR_PLI_M) : 0;
+
+export const metresLigne = (l: Pick<MatelasLine, 'plis' | 'longTracee' | 'ratios'>): number =>
+    sommeRatios(l as MatelasLine) > 0 ? metresPlis(l.plis, l.longTracee) : 0;
+
+/** Matelas a etaler dont la longueur du trace n'est pas connue : sa conso ne peut pas etre chiffree. */
+export const longueurManquante = (l: Pick<MatelasLine, 'plis' | 'longTracee' | 'ratios'>): boolean =>
+    sommeRatios(l as MatelasLine) > 0 && (l.plis || 0) > 0 && !((l.longTracee || 0) > 0);
 
 /** Minutes entre debut et fin, ou null si l'une manque ou si l'ecart est absurde. */
 export const dureeMinutes = (l: Pick<MatelasLine, 'debut' | 'fin'>): number | null => {

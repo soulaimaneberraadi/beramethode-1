@@ -80,6 +80,22 @@ const taillesDuTrace = (p: PlacementCoupe, tailles: string[]): Record<string, nu
 /** « XS×2 » tel que le fichier l'ecrit, meme pour une taille que la commande n'a pas. */
 const nomBrut = (brut: Record<string, number>) => nomPlacement(brut, Object.keys(brut));
 
+/**
+ * Ce qui cloche entre le trace PLT et sa ligne, en une phrase — ou null.
+ * Sert aussi au tableau des matelas : un trace faux ne doit pas partir au
+ * traceur sous un nom de matelas propre, sans que rien ne le signale.
+ */
+export function problemeTrace(p: PlacementCoupe, tailles: string[]): string | null {
+    if (!p.fichier) return null;
+    const lu = lectureTrace(p, tailles);
+    if (!lu) return null;
+    if (lu.inconnues.length) return `Trace ${nomBrut(lu.brut).toUpperCase()} : ${lu.inconnues.join(', ')} absente(s) de la commande`;
+    const trace = Object.keys(lu.ratios).length ? lu.ratios : null;
+    if (!trace || memesRatios(p.ratios || {}, trace)) return null;
+    if (p.ecartAccepte === signatureEcart(trace, p.ratios || {})) return null;
+    return `Trace ${nomPlacement(trace, tailles).toUpperCase()} different de la ligne ${(p.nom || nomPlacement(p.ratios || {}, tailles)).toUpperCase()}`;
+}
+
 const lireDataUrl = (f: File) => new Promise<string>((ok, ko) => {
     const r = new FileReader();
     r.onload = () => ok(String(r.result || ''));
@@ -471,7 +487,9 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                     <td className="py-1 px-1 text-center tabular-nums text-[11px]">
                                         <span className="font-bold text-slate-700 dark:text-dk-text-soft">{nbMatelas[p.id] || 0}</span>
                                         <span className="text-slate-400"> · </span>
-                                        <span className="font-semibold text-indigo-600 dark:text-indigo-400">{(consoTotale[p.id] || 0).toFixed(1)}</span>
+                                        {(p.longueurM || 0) > 0 || !(nbMatelas[p.id] > 0)
+                                            ? <span className="font-semibold text-indigo-600 dark:text-indigo-400">{(consoTotale[p.id] || 0).toFixed(1)}</span>
+                                            : <span className="font-bold text-amber-600" title={L('Sans longueur, le tissu de ces matelas ne peut pas etre calcule.', 'بلا طول لا يمكن حساب قماش هذه المفرشات.', 'Without a length the fabric of these lays cannot be computed.')}>? m</span>}
                                     </td>
                                     <td className="py-1 px-1 text-center whitespace-nowrap">
                                         <button
