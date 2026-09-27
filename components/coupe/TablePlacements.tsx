@@ -48,6 +48,10 @@ const memesRatios = (a: Record<string, number>, b: Record<string, number>) => {
     return true;
 };
 
+/** « L1,M1,S1|L1 » : les tailles du fichier et celles de la ligne, pour retenir un ecart voulu. */
+const cleTailles = (r: Record<string, number>) => Object.entries(r).filter(([, v]) => Number(v) > 0).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}${v}`).join(',');
+const signatureEcart = (trace: Record<string, number>, ratios: Record<string, number>) => `${cleTailles(trace)}|${cleTailles(ratios)}`;
+
 /**
  * Tailles ecrites dans l'en-tete du trace. Lues aussi pour les fichiers
  * deposes avant ce controle : un vieux fichier n'echappe pas a la verification.
@@ -334,6 +338,14 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                                     const trace = taillesDuTrace(p, tailles);
                                                     if (!trace || memesRatios(p.ratios || {}, trace)) return null;
                                                     const pcsTrace = Object.values(trace).reduce((a, v) => a + (Number(v) || 0), 0);
+                                                    const signature = signatureEcart(trace, p.ratios || {});
+                                                    // Ecart declare voulu : une mention discrete, annulable, au lieu de l'alerte.
+                                                    if (p.ecartAccepte === signature) return (
+                                                        <div className="flex items-center gap-1 mt-0.5 text-[10px] text-slate-400">
+                                                            <span>{L('Fichier', 'الملف', 'File')} <b className="uppercase">{nomPlacement(trace, tailles)}</b> · {L('ecart voulu', 'فرق مقصود', 'intended')}</span>
+                                                            <button type="button" onClick={() => onModifier(p.id, { ecartAccepte: undefined })} className="underline hover:text-slate-600" title={L('Remettre l\u2019alerte', 'إرجاع التنبيه', 'Restore the warning')}>{L('annuler', 'إلغاء', 'undo')}</button>
+                                                        </div>
+                                                    );
                                                     return (
                                                         <div className="mt-0.5 px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                                                             <div className="flex items-start gap-1">
@@ -344,9 +356,14 @@ export default function TablePlacements({ placements, tailles, nbMatelas, consoT
                                                             </div>
                                                             <div className="flex items-center justify-between gap-2 mt-1">
                                                                 <span className="text-[9px] text-amber-700 dark:text-amber-400">{L('Mauvais fichier ? Remplacez-le.', 'ملف خاطئ؟ استبدله.', 'Wrong file? Replace it.')}</span>
-                                                                <button type="button" onClick={() => onModifier(p.id, { ratios: { ...trace }, nom: nomPlacement(trace, tailles), taillesTrace: trace })} className="shrink-0 h-6 px-2 rounded bg-amber-600 text-white text-[10px] font-bold hover:bg-amber-700">
-                                                                    {L('Prendre les tailles du fichier', 'اعتماد مقاسات الملف', 'Use the file sizes')}
-                                                                </button>
+                                                                <div className="flex items-center gap-1 shrink-0">
+                                                                    <button type="button" onClick={() => onModifier(p.id, { ecartAccepte: signature })} className="h-6 px-2 rounded border border-amber-300 bg-white dark:bg-dk-surface text-amber-800 dark:text-amber-300 text-[10px] font-bold hover:bg-amber-100" title={L('La ligne est juste telle quelle : garder ses tailles et ne plus alerter', 'السطر صحيح كما هو: تبقى مقاساته ولا يعود التنبيه', 'The row is right as is')}>
+                                                                        {L('C\u2019est voulu', 'مقصود', 'Intended')}
+                                                                    </button>
+                                                                    <button type="button" onClick={() => onModifier(p.id, { ratios: { ...trace }, nom: nomPlacement(trace, tailles), taillesTrace: trace })} className="h-6 px-2 rounded bg-amber-600 text-white text-[10px] font-bold hover:bg-amber-700">
+                                                                        {L('Prendre les tailles du fichier', 'اعتماد مقاسات الملف', 'Use the file sizes')}
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     );

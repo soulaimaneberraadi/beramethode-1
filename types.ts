@@ -647,6 +647,12 @@ export interface PlacementCoupe {
    * doit jamais changer en silence les quantites de ses matelas.
    */
   taillesTrace?: Record<string, number>;
+  /**
+   * Ecart fichier / ligne declare voulu par l'atelier (« tailles du fichier|tailles
+   * de la ligne »). Il ne vaut que pour ces tailles-la : changer le fichier ou la
+   * ligne fait revenir l'alerte.
+   */
+  ecartAccepte?: string;
   /** Plis au plus par matelas pour ce placement. */
   maxPlis?: number;
   numerotation?: ReglagesNumero;
