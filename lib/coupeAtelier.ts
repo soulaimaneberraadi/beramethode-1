@@ -311,3 +311,51 @@ export const presenceGroupes = (
 /** Date du jour AAAA-MM-JJ en heure locale : c'est la date ecrite dans le pointage. */
 export const aujourdhui = (d = new Date()): string =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/* ------------------------------------------------------------------ */
+/* Temps standard d'un matelas, appris des matelas chronometres          */
+/* ------------------------------------------------------------------ */
+
+export interface TempsStandard {
+    /** Matelas chronometres qui ont servi au calcul. */
+    n: number;
+    /** Minutes fixes par matelas (mise en place, papier, amorce). */
+    fixeMin: number;
+    /** Minutes par metre de tissu etale. */
+    minParMetre: number;
+}
+
+/**
+ * minutes ≈ fixe + k × metres, ajuste sur les matelas dont on a debut et fin.
+ * Moins de 5 points, ou une droite absurde (pente nulle, fixe negatif) : on
+ * garde le simple rapport minutes / metres de l'atelier, sans part fixe.
+ * Moins de 3 points : pas de standard — un chiffre invente serait pire que rien.
+ */
+export const tempsStandard = (executes: Pick<MatelasExecute, 'minutes' | 'metres'>[]): TempsStandard | null => {
+    const pts = executes.filter(x => x.minutes !== null && x.minutes > 0 && x.metres > 0) as { minutes: number; metres: number }[];
+    if (pts.length < 3) return null;
+    const n = pts.length;
+    const sx = pts.reduce((s, p) => s + p.metres, 0);
+    const sy = pts.reduce((s, p) => s + p.minutes, 0);
+    const rapport: TempsStandard = { n, fixeMin: 0, minParMetre: sy / sx };
+    if (n < 5) return rapport;
+    const mx = sx / n, my = sy / n;
+    let sxx = 0, sxy = 0;
+    for (const p of pts) { sxx += (p.metres - mx) ** 2; sxy += (p.metres - mx) * (p.minutes - my); }
+    if (sxx <= 0) return rapport;
+    const k = sxy / sxx, fixe = my - k * mx;
+    if (!(k > 0) || fixe < 0) return rapport;
+    return { n, fixeMin: fixe, minParMetre: k };
+};
+
+/** Minutes prevues pour etaler et couper `metres` de tissu (0 si rien a etaler). */
+export const minutesPrevues = (t: TempsStandard, metres: number): number =>
+    metres > 0 ? t.fixeMin + t.minParMetre * metres : 0;
+
+/** « 3 h 20 », « 45 min ». */
+export const texteDuree = (minutes: number): string => {
+    const m = Math.round(minutes);
+    if (m < 60) return `${m} min`;
+    const h = Math.floor(m / 60), r = m % 60;
+    return r ? `${h} h ${String(r).padStart(2, '0')}` : `${h} h`;
+};

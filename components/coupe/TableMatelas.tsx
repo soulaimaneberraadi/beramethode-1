@@ -12,7 +12,7 @@ import { Eye, Download, Send, GripVertical, ChevronDown, AlertTriangle, CheckCir
 import type { MatelasFichier, MatelasLine, PlacementCoupe, ReglagesNumero, TissuCoupe } from '../../types';
 import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
-import { metresPlis, longueurManquante } from '../../lib/coupeAtelier';
+import { metresPlis, longueurManquante, minutesPrevues, texteDuree, type TempsStandard } from '../../lib/coupeAtelier';
 import { codeMatiere, nomFichierMatelas } from '../../lib/ordreCoupe';
 import { analyserFichier, numeroterPlt, reglagesAvecDefaut } from '../../lib/numerotationPlt';
 import { grilleClavier } from './grilleClavier';
@@ -47,6 +47,8 @@ interface Props {
     renderEtat: (l: MatelasLine) => React.ReactNode;
     renderMatiere: (l: MatelasLine) => React.ReactNode;
     renderActions: (l: MatelasLine) => React.ReactNode;
+    /** Temps standard appris des matelas chronometres : donne la duree de coupe qui reste. */
+    tempsStd?: TempsStandard | null;
 }
 
 /** Colonnes collees a gauche : largeurs fixes, sinon la seconde chevauche la suite en defilant. */
@@ -96,7 +98,7 @@ function Choix({ valeur, options, onChoisir, vide, cellule }: { valeur: React.Re
 export default function TableMatelas({
     lignes, placements, tissu, tailles, couleurs, commande, pastille, fichierDe,
     onModifier, onInserer, onApercu, onMessage, deposer, renderEtat, renderMatiere, renderActions,
-    onSupprimerLignes, onDupliquerLignes, onDeplacerLigne, reglagesDefaut, onConfirmerLignes,
+    onSupprimerLignes, onDupliquerLignes, onDeplacerLigne, reglagesDefaut, onConfirmerLignes, tempsStd,
 }: Props) {
     const { lang } = useLang();
     const L = (fr: string, ar: string, en: string) => tx(lang, { fr, ar, en });
@@ -203,13 +205,14 @@ export default function TableMatelas({
         const total: Record<string, number> = {};
         const cmd: Record<string, number> = {};
         tailles.forEach(t => { total[t] = 0; cmd[t] = 0; });
-        let plis = 0, pieces = 0, conso = 0, sansLongueur = 0;
+        let plis = 0, pieces = 0, conso = 0, sansLongueur = 0, resteMin = 0;
         for (const l of lignes) {
             tailles.forEach(t => { total[t] += piecesTaille(l, t); });
             plis += l.plis || 0;
             pieces += piecesLigne(l);
             conso += consoLigne(l);
             if (!(l.metresReels && l.metresReels > 0) && longueurManquante(l)) sansLongueur++;
+            if (tempsStd && !l.fait) resteMin += minutesPrevues(tempsStd, consoTheorique(l));
         }
         const parCouleur = couleurs.map(c => {
             const cc = commande(c);
@@ -220,9 +223,9 @@ export default function TableMatelas({
             });
             return { couleur: c, ecart, exact: tailles.every(t => ecart[t] === 0) };
         }).filter(x => tailles.some(t => (Number(commande(x.couleur)[t]) || 0) > 0) || lignes.some(l => l.couleur === x.couleur));
-        return { total, cmd, plis, pieces, conso, sansLongueur, parCouleur };
+        return { total, cmd, plis, pieces, conso, sansLongueur, resteMin, parCouleur };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [lignes, tailles, couleurs, commande]);
+    }, [lignes, tailles, couleurs, commande, tempsStd]);
 
     /* Le trace numerote d'un matelas : celui du placement + le numero de la ligne. */
     const nomSortie = (l: MatelasLine, p: PlacementCoupe) => nomFichierMatelas(p, tissu.nom, l.numero || '0');
@@ -784,6 +787,18 @@ export default function TableMatelas({
                                                         : <span className="text-rose-600">{L('manque', 'الخصاص', 'short')} {(bilan.conso - tissu.recuM).toFixed(2)} m</span>}
                                                 </>
                                             ) : ''}
+                                            {tempsStd && bilan.resteMin > 0 && (
+                                                <span
+                                                    className="block text-[10px] text-slate-500 dark:text-dk-muted"
+                                                    title={L(
+                                                        `Temps standard de l'atelier : ${tempsStd.fixeMin.toFixed(0)} min + ${tempsStd.minParMetre.toFixed(2)} min/m, appris de ${tempsStd.n} matelas chronometres`,
+                                                        `الوقت المعياري للورشة: ${tempsStd.fixeMin.toFixed(0)} د + ${tempsStd.minParMetre.toFixed(2)} د/م، من ${tempsStd.n} مفرشة موقّتة`,
+                                                        `Workshop standard: ${tempsStd.fixeMin.toFixed(0)} min + ${tempsStd.minParMetre.toFixed(2)} min/m, from ${tempsStd.n} timed lays`,
+                                                    )}
+                                                >
+                                                    ≈ {texteDuree(bilan.resteMin)} {L('de coupe restante', 'قص متبقٍّ', 'of cutting left')}{bilan.sansLongueur > 0 ? ' +' : ''}
+                                                </span>
+                                            )}
                                         </td>
                                     </tr>
                                     <tr className="bg-white dark:bg-dk-surface text-slate-500 dark:text-dk-muted">

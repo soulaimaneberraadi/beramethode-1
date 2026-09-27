@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import type { GroupeCoupe, MatelasLine, ModelData } from '../types';
 import {
-    AMORCE_PAR_PLI_M, consoTissu, dureeMinutes, estOuvert, matelasExecutes, metresLigne,
+    AMORCE_PAR_PLI_M, consoTissu, minutesPrevues, tempsStandard, texteDuree, dureeMinutes, estOuvert, matelasExecutes, metresLigne,
     piecesLigne, presenceGroupes, resumerOrdre, statsGroupes,
 } from './coupeAtelier';
 
@@ -146,6 +146,22 @@ const groupes: GroupeCoupe[] = [
     assert.equal(par.B.membres[0].statut, 'NON_POINTE', 'pointage d un autre jour ignore');
     assert.ok(!par.B.estPresent);
     assert.ok(!par.C.estPresent);
+}
+
+{
+    // Temps standard : droite fixe + k x metres sur les matelas chronometres.
+    const pts = [10, 20, 30, 40, 50].map(m => ({ metres: m, minutes: 5 + 2 * m }));
+    const t = tempsStandard(pts)!;
+    presque(t.fixeMin, 5); presque(t.minParMetre, 2);
+    presque(minutesPrevues(t, 100), 205);
+    assert.equal(minutesPrevues(t, 0), 0);
+    assert.equal(tempsStandard(pts.slice(0, 2)), null, 'deux points : pas de standard');
+    const r = tempsStandard([{ metres: 10, minutes: 30 }, { metres: 30, minutes: 50 }, { metres: 20, minutes: null }, { metres: 20, minutes: 40 }])!;
+    assert.equal(r.fixeMin, 0, 'moins de 5 points : rapport simple');
+    presque(r.minParMetre, 120 / 60);
+    assert.equal(texteDuree(45), '45 min');
+    assert.equal(texteDuree(200), '3 h 20');
+    assert.equal(texteDuree(120), '2 h');
 }
 
 console.log('coupeAtelier: OK');

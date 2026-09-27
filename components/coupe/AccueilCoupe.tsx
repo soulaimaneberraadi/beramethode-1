@@ -20,7 +20,7 @@ import { tx } from '../../lib/i18n';
 import { useLang } from '../../src/context/LanguageContext';
 import {
     aujourdhui, consoTissu, estAuTravail, estOuvert, matelasExecutes, presenceGroupes,
-    resumerOrdre, statsGroupes, type OuvrierRh, type PointageRh, type PresenceGroupe, type StatutPresence,
+    resumerOrdre, statsGroupes, tempsStandard, minutesPrevues, texteDuree, type OuvrierRh, type PointageRh, type PresenceGroupe, type StatutPresence,
 } from '../../lib/coupeAtelier';
 
 export type PageAccueil = 'ordres' | 'groupes' | 'tissu';
@@ -572,6 +572,8 @@ export function PageGroupes({ models, groupes, setGroupes, rh, onBack }: {
     const executes = useMemo(() => matelasExecutes(models), [models]);
     const depuis = debutPeriode(periode);
     const stats = useMemo(() => statsGroupes(executes, groupes, depuis), [executes, groupes, depuis]);
+    /** Temps standard, appris de tout l'historique chronometre (pas seulement la periode affichee). */
+    const standard = useMemo(() => tempsStandard(executes), [executes]);
     const nomGroupe = (id: string) => groupes.find(g => g.id === id)?.nom || tx(lang, { fr: 'Groupe supprimé', ar: 'مجموعة محذوفة', en: 'Deleted group' });
 
     const debutJour = debutPeriode('jour')!;
@@ -741,6 +743,20 @@ export function PageGroupes({ models, groupes, setGroupes, rh, onBack }: {
                         ))}
                     </tbody>
                 </table>
+            </div>
+
+            {/* Temps standard : ce que la base des matelas chronometres permet de prevoir */}
+            <div className="mb-5 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-dk-border bg-slate-50 dark:bg-dk-bg text-[12px] text-slate-600 dark:text-dk-muted">
+                <span className="font-semibold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Temps standard d’un matelas', ar: 'الوقت المعياري للمفرشة', en: 'Standard lay time' })} : </span>
+                {standard ? (
+                    <>
+                        {standard.fixeMin > 0 && <>{Math.round(standard.fixeMin)} min + </>}
+                        {standard.minParMetre.toFixed(2)} min/m
+                        <span className="text-slate-400"> · {tx(lang, { fr: 'ex. 100 m ≈', ar: 'مثلاً 100 م ≈', en: 'e.g. 100 m ≈' })} {texteDuree(minutesPrevues(standard, 100))} · {standard.n} {tx(lang, { fr: 'matelas chronométrés', ar: 'مفرشة موقّتة', en: 'timed lays' })}</span>
+                    </>
+                ) : (
+                    <span className="text-slate-400">{tx(lang, { fr: 'il faut au moins 3 matelas avec début et fin pointés.', ar: 'يلزم 3 مفرشات على الأقل سُجّلت بدايتها ونهايتها.', en: 'needs at least 3 lays with start and end.' })}</span>
+                )}
             </div>
 
             {/* Journal : la base de temps des matelas */}

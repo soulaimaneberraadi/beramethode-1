@@ -21,7 +21,7 @@ import {
     CartesAccueil, PageOrdres, PageTissu, PageGroupes, useRhDuJour, ChampHeure, ChoixGroupe,
     isoDepuisHeure, heureLocale, type PageAccueil,
 } from './coupe/AccueilCoupe';
-import { metresPlis, presenceGroupes } from '../lib/coupeAtelier';
+import { matelasExecutes, metresPlis, presenceGroupes, tempsStandard } from '../lib/coupeAtelier';
 import { planifierPlacements, decouperEnMatelas, nomPlacement, repartirPlis } from '../lib/planMatelas';
 import {
     TISSU_PRINCIPAL, TISSUS_PROPOSES, tissuDe, estPrincipal, migrerOrdre, appliquerPlacement, matelasDuPlacement,
@@ -234,6 +234,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         tissuRecu: 0
     });
 
+    /** Temps standard d'un matelas, appris de tous les matelas chronometres de l'atelier. */
+    const tempsStd = useMemo(() => tempsStandard(matelasExecutes(models || [])), [models]);
     const coupeModels = (models || []).filter(m =>
         m && m.meta_data && (m.workflowStatus === 'COUPE' || m.isPublishedToLibrary === false || !m.workflowStatus)
     );
@@ -3091,6 +3093,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                         onDeplacerLigne={deplacerLigne}
                                         onConfirmerLignes={confirmerLignes}
                                         reglagesDefaut={settings?.numerotationDefaut}
+                                        tempsStd={tempsStd}
                                         deposer={traceur.disponible ? traceur.deposer : undefined}
                                         onApercu={(l, p) => setApercuMatelas({ placementId: p.id, numero: l.numero || '', nom: nomFichierMatelas(p, tissuCourant.nom, l.numero || '0') })}
                                         onMessage={showToast}
