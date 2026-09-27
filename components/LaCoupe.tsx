@@ -163,9 +163,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const [sortBy, setSortBy] = useState<'date' | 'name' | 'status' | 'qty'>('date');
     const [sortAsc, setSortAsc] = useState(false);
 
+    const minuteurToast = useRef<ReturnType<typeof setTimeout> | null>(null);
     const showToast = useCallback((text: string, type: 'success' | 'error' | 'info' = 'success') => {
         setToastMessage({ text, type });
-        setTimeout(() => setToastMessage(null), 3500);
+        if (minuteurToast.current) clearTimeout(minuteurToast.current);
+        minuteurToast.current = setTimeout(() => setToastMessage(null), Math.min(12000, Math.max(3500, text.length * 55)));
     }, []);
 
     const saveModelToServer = useCallback(async (model: ModelData, successMessage?: string) => {
@@ -1242,7 +1244,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const calculerMatelas = () => {
         setConfirmCalcul(false);
         const nouvelles: MatelasLine[] = [];
-        const manques: string[] = [];
+        const manques: { couleur: string; tailles: [string, number][] }[] = [];
         for (const g of ciblesParCouleur()) {
             const reste = resteACouper(g.couleur, g.targets);
             const r = plisPourPlacements(placementsTissu, reste, sizes);
@@ -1250,7 +1252,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 const plis = r.plis[p.id] || 0;
                 if (plis > 0) nouvelles.push(...matelasDuPlacement(p, g.couleur, plis, Number(autoMaxPly) || 100, 0));
             }
-            if (!r.exact) manques.push(`${g.couleur || ''} ${sizes.filter(s => r.ecart[s] !== 0).map(s => `${s} ${r.ecart[s]}`).join(' ')}`.trim());
+            if (!r.exact) manques.push({ couleur: g.couleur || '', tailles: sizes.filter(s => (r.ecart[s] || 0) < 0).map(s => [s, -r.ecart[s]] as [string, number]) });
         }
         nouvelles.forEach(l => { if (l.tissu === TISSU_PRINCIPAL) l.tissu = undefined; });
         setOrdre(prev => {
@@ -1259,7 +1261,18 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             return { ...prev, matelasLines: renumeroter(lignes, tissuCourant.id, departNumeros(lignes), sensNum) };
         });
         if (manques.length) {
-            showToast(`${tx(lang, { fr: 'Vos placements ne couvrent pas toute la commande :', ar: 'تركيباتك لا تغطّي الطلب كله:', en: 'Your placements do not cover the whole order:' })} ${manques.join(' · ')}`, 'error');
+            // Ce qui reste a couper, puis pourquoi : une taille qu'aucun placement ne contient,
+            // ou un reste plus petit que ce qu'un pli donne (S×2 ne coupe jamais un S seul).
+            const contenues = new Set(placementsTissu.flatMap(p => Object.entries(p.ratios || {}).filter(([, v]) => (Number(v) || 0) > 0).map(([t]) => t)));
+            const manquantes = [...new Set(manques.flatMap(m => m.tailles.map(([t]) => t)))];
+            const sansPlacement = manquantes.filter(t => !contenues.has(t)).map(t => t.toUpperCase());
+            const resteCourt = manquantes.filter(t => contenues.has(t)).map(t => t.toUpperCase());
+            const detail = manques.map(m => `${m.couleur ? `${m.couleur} : ` : ''}${m.tailles.map(([t, n]) => `${t.toUpperCase()} ${n.toLocaleString('fr-FR')}`).join(', ')}`).join(' · ');
+            showToast([
+                `${tx(lang, { fr: 'Pieces encore sans matelas', ar: 'قطع بلا مفرشة بعد', en: 'Pieces still without a lay' })} — ${detail}.`,
+                sansPlacement.length ? `${sansPlacement.join(', ')} : ${tx(lang, { fr: 'aucun placement de cette matiere ne contient cette taille, ajoutez-le.', ar: 'لا توجد تركيبة في هذه المادة تحتوي هذا المقاس، أضفها.', en: 'no placement of this material holds this size; add one.' })}` : '',
+                resteCourt.length ? `${resteCourt.join(', ')} : ${tx(lang, { fr: 'le reste est plus petit que ce qu\u2019un pli donne (ajoutez un placement a 1 piece ou coupez-le a part).', ar: 'الباقي أقلّ ممّا تعطيه طيّة واحدة (أضف تركيبة بقطعة واحدة أو اقطعه وحده).', en: 'the remainder is smaller than one ply gives.' })}` : '',
+            ].filter(Boolean).join(' '), 'error');
         } else {
             showToast(tx(lang, { fr: `${nouvelles.length} matelas crees, commande couverte exactement.`, ar: `أُنشئت ${nouvelles.length} مفرشة، والطلب مغطّى بالضبط.`, en: `${nouvelles.length} lays created, order covered exactly.` }), 'success');
         }
