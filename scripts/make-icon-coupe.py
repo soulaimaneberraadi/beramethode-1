@@ -179,4 +179,9 @@ if __name__ == '__main__':
     s = svg()
     (RACINE / 'electron' / 'build' / 'beracoupe.svg').write_text(s, encoding='utf-8')
     (RACINE / 'public' / 'beracoupe-icon.svg').write_text(s, encoding='utf-8')
+    # Le splash d'Electron embarque l'icone (sa CSP n'autorise aucun fichier externe).
+    splash = RACINE / 'electron' / 'splash.html'
+    html = splash.read_text(encoding='utf-8')
+    html = re.sub(r'const ICONE_COUPE = `[^`]*`;', lambda _m: 'const ICONE_COUPE = `' + s + '`;', html)
+    splash.write_text(html, encoding='utf-8')
     print('icones BERACOUPE ecrites')

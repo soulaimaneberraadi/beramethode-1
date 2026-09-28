@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Scissors, Building2, ArrowRight, Loader2, AlertTriangle } from 'lucide-react';
+import { Building2, ArrowRight, Loader2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { tx } from '../../lib/i18n';
@@ -142,9 +142,7 @@ export default function CoupeBoot() {
         <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-dk-bg px-4 py-10" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
             <div className="max-w-sm w-full bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border rounded-3xl p-7 sm:p-9 shadow-[0_25px_50px_-12px_rgba(15,23,42,0.08)]">
                 <div className="flex flex-col items-center text-center mb-7">
-                    <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 flex items-center justify-center text-red-600 dark:text-red-400 mb-4">
-                        <Scissors className="w-7 h-7" />
-                    </div>
+                    <img src="/beracoupe-icon.svg" alt="" className="w-20 h-20 rounded-[22px] shadow-[0_14px_34px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-200 dark:ring-dk-border mb-4 select-none" draggable={false} />
                     <h1 className="select-none text-2xl font-extrabold tracking-tight text-slate-900 dark:text-dk-text">
                         BERA<span className="text-red-600 dark:text-red-400">COUPE</span>
                     </h1>
