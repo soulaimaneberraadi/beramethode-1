@@ -788,7 +788,7 @@ export const createClientInvoice = (req: Request, res: Response) => {
         const discount = Math.max(0, Math.min(totalBrut, Number(body.discount) || 0));
         const totalHt = totalBrut - discount;
         const exonere = body.exonere === true;
-        const tauxTva = exonere ? 0 : (Number(body.taux_tva) || 0);
+        const tauxTva = exonere ? 0 : Math.max(0, Number(body.taux_tva) || 0);
         const totalTva = totalHt * (tauxTva / 100);
         const totalTtc = totalHt + totalTva;
         const statut = ['BROUILLON', 'ENVOYEE', 'PAYEE'].includes(body.statut) ? body.statut : 'ENVOYEE';

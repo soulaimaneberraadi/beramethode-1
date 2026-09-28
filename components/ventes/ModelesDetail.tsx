@@ -94,7 +94,7 @@ const LigneModele: React.FC<{
             <span className={`block text-[10px] font-bold tabular-nums ${m.joursAvantRupture != null && m.joursAvantRupture <= 14
                 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-dk-muted'}`}>
                 {textes.stock} {nf(m.stock)}
-                {m.joursAvantRupture != null ? ` · ${nf(m.joursAvantRupture)} ${textes.jours}` : ''}
+                {m.joursAvantRupture != null ? ` · ${m.joursAvantRupture > 365 ? '> 365' : nf(m.joursAvantRupture)} ${textes.jours}` : ''}
             </span>
         </div>
     </button>

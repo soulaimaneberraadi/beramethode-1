@@ -256,7 +256,7 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
         // fiche, pas forcement dans le meme champ — « tanger-mers, Tanger »
         // colle une adresse et une ville et ne correspondait a AUCUN champ
         // pris isolement.
-        const mots = q.split(/[s,;]+/).filter(Boolean);
+        const mots = q.split(/[\s,;]+/).filter(Boolean);
         return clients.filter(c => matchesRole(c)).filter(c => {
             const cree = dateDe(c);
             const meule = norm([c.nom, c.ice, c.rc, c.tel, c.ville, c.adresse, c.type, cree, lisible(cree)].filter(Boolean).join(' '));
@@ -331,7 +331,10 @@ const ClientsPanel: React.FC<ClientsPanelProps> = ({
     const remove = async (c: AtelierClient) => {
         setSaving(true);
         try {
-            await fetch(`/api/subcontract/clients/${c.id}`, { method: 'DELETE', credentials: 'include' });
+            const res = await fetch(`/api/subcontract/clients/${c.id}`, { method: 'DELETE', credentials: 'include' });
+            // Un refus du serveur (fiche d'un autre compte, lien réseau coupé)
+            // passait pour une réussite : la fenêtre se fermait sans un mot.
+            if (!res.ok) throw new Error(String(res.status));
             await load();
             // Le formulaire d'édition pointait sur cette fiche : elle n'existe
             // plus, il doit se fermer avec elle, sinon "Enregistrer" ressusciterait

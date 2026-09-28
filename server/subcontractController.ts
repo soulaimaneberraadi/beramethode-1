@@ -50,6 +50,11 @@ const validateOrderPayload = (body: any, existing?: any): string | null => {
     // commande). Refuser cet écart au moment de la CLÔTURE bloquait des
     // commandes parfaitement légitimes avec « La clôture a échoué ».
     const qtyProvided = ['qtyAccepted', 'qtyToRepair', 'qtyRejected'].some(k => body[k] !== undefined);
+    // Une quantité négative masquait un excès ailleurs : +1000 acceptées et
+    // -1000 rejetées passaient le contrôle de la somme.
+    for (const k of ['qtyAccepted', 'qtyToRepair', 'qtyRejected']) {
+        if (body[k] !== undefined && qty(k) < 0) return `${k} ne peut pas être négatif`;
+    }
     if (total !== null && qtyProvided) {
         const sum = qty('qtyAccepted') + qty('qtyToRepair') + qty('qtyRejected');
         if (sum > total) {
@@ -132,7 +137,7 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
             notes || null,
             tissuStatus || 'PENDING',
             fournituresStatus || 'PENDING',
-            ficheTechniqueSent !== undefined ? ficheTechniqueSent : 0,
+            ficheTechniqueSent !== undefined ? Number(ficheTechniqueSent) || 0 : 0, // better-sqlite3 refuse un boolean
             qtyAccepted !== undefined ? qtyAccepted : 0,
             qtyToRepair !== undefined ? qtyToRepair : 0,
             qtyRejected !== undefined ? qtyRejected : 0,
@@ -143,7 +148,7 @@ export const createSubcontractOrder = (req: Request, res: Response) => {
             tissuFournisseur || 'CLIENT',
             fournituresFournisseur || 'CLIENT',
             conditionnementFournisseur || 'CLIENT',
-            protoRequired !== undefined ? protoRequired : 1,
+            protoRequired !== undefined ? Number(protoRequired) || 0 : 1, // better-sqlite3 refuse un boolean
             protoStatus || 'PENDING',
             paymentTerms || 'AVANCE_RECEPTION',
             defectRateAccepted !== undefined ? defectRateAccepted : 1.5,
@@ -375,7 +380,8 @@ export const getSubcontractorGroups = (req: Request, res: Response) => {
         const rows = stmt.all(companyId) as any[];
         res.json(rows.map(r => ({
             ...r,
-            subcontractor_names: JSON.parse(r.subcontractor_names || '[]')
+            // Une ligne illisible ne doit pas faire tomber toute la liste.
+            subcontractor_names: (() => { try { return JSON.parse(r.subcontractor_names || '[]'); } catch { return []; } })()
         })));
     } catch (error) {
         console.error('Get subcontractor groups error:', error);

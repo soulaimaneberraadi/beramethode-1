@@ -50,7 +50,10 @@ const PanneauDetail: React.FC<{
                 onClick={onFermer}
                 className="sm:hidden h-14 w-full shrink-0"
             />
-            <div className="flex-1 min-h-0 flex flex-col rounded-t-2xl sm:rounded-2xl bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border shadow-2xl overflow-hidden">
+            {/* `clip` et non seulement `hidden` : un conteneur `hidden` se laisse
+                quand meme defiler par le navigateur (focus, scrollIntoView) — la
+                feuille entiere glissait alors de cote, titre et chiffres coupes. */}
+            <div style={{ overflow: 'clip' }} className="flex-1 min-h-0 min-w-0 flex flex-col rounded-t-2xl sm:rounded-2xl bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border shadow-2xl overflow-hidden">
                 <header className={`shrink-0 px-3.5 sm:px-5 pb-3 pt-1.5 sm:pt-3 border-b ${empile
                     ? 'bg-slate-900 border-slate-800'
                     : 'bg-white dark:bg-dk-surface border-slate-200 dark:border-dk-border'}`}>
@@ -105,7 +108,7 @@ const PanneauDetail: React.FC<{
                     </div>
                     {barre && <div className="max-w-5xl mx-auto w-full mt-2.5">{barre}</div>}
                 </header>
-                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-2.5 sm:px-5 py-3">
+                <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain px-2.5 sm:px-5 py-3">
                     {/* Une colonne de lecture, et non toute la largeur de
                         l'ecran : sur un moniteur large, une liste de quatre
                         lignes etalee sur 1900 px oblige l'oeil a traverser le

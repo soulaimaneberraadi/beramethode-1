@@ -539,6 +539,28 @@ const decodeSheetTarget = (raw: string): SheetTarget | null => {
   return null;
 };
 
+/** Un modèle peut porter plusieurs commandes : la plus récente fait foi pour sa
+ *  fiche de coût (tarif, mode, frais, quantité). */
+const derniereCommandeParModele = (orders: SubcontractOrder[]): Map<string, SubcontractOrder> => {
+  const latest = new Map<string, SubcontractOrder>();
+  orders.forEach(o => {
+    if (!o.modelId || o.modelId === 'MANUAL') return;
+    const prev = latest.get(o.modelId);
+    if (!prev || String(o.created_at || '') > String(prev.created_at || '')) latest.set(o.modelId, o);
+  });
+  return latest;
+};
+
+/** Vrai si `order` est (ou devient) la commande la plus récente de son modèle.
+ *  Une commande qui vient d'être créée n'a pas encore de date ni de place dans
+ *  la liste : elle est forcément la plus récente. */
+const estDerniereCommande = (order: SubcontractOrder, orders: SubcontractOrder[]): boolean => {
+  const latest = derniereCommandeParModele(orders).get(order.modelId);
+  if (!latest || !order.id || latest.id === order.id) return true;
+  if (!order.created_at) return true;
+  return String(order.created_at) >= String(latest.created_at || '');
+};
+
 export default function SousTraitance({ models, setModels, settings, onLoadModel, onNavigate, onCreateNewProject }: SousTraitanceProps) {
   // Navigation Tabs — l onglet vit dans l URL : #/sous-traitance/<onglet>
   // Retour/avant du navigateur et lien partageable fonctionnent sans etat local.
@@ -662,6 +684,17 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   const [formModelId, setFormModelId] = useState('');
   const [formClientName, setFormClientName] = useState('');
   const [formSubcontractorName, setFormSubcontractorName] = useState('');
+  /** Le regroupement par sous-traitant compare les noms à l'identique : un
+   *  espace ou une majuscule de trop à la modification détachait la commande de
+   *  son atelier (nouvelle fiche, historique et note coupés en deux). On
+   *  retombe donc sur l'orthographe déjà connue quand le nom est le même. */
+  const nomSousTraitantCanonique = (brut: string): string => {
+    const nom = brut.trim().replace(/\s+/g, ' ');
+    const cle = nom.toLocaleLowerCase();
+    const connu = [...subcontractorProfiles.map(p => p.name), ...orders.map(o => o.subcontractorName)]
+      .find(n => typeof n === 'string' && n.trim().replace(/\s+/g, ' ').toLocaleLowerCase() === cle);
+    return connu ?? nom;
+  };
   const [formPricePerPiece, setFormPricePerPiece] = useState<number>(0);
   const [formTotalQuantity, setFormTotalQuantity] = useState<number>(0);
   const [formNotes, setFormNotes] = useState('');
@@ -3711,8 +3744,20 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  En mode statique (pas de serveur Express) la prop `models` EST la source de
    *  vérité et `setModels` déclenche la persistance.
    *
-   *  N'écrit rien si le patch est un no-op : ni requête, ni re-render inutile. */
-  const writeModelSoustraitance = async (modelId: string, patch: StPatch): Promise<void> => {
+   *  N'écrit rien si le patch est un no-op : ni requête, ni re-render inutile.
+   *
+   *  Les écritures d'un même modèle passent l'une après l'autre : la synchro du
+   *  tarif et celle des frais partent ensemble au chargement, et chacune relisait
+   *  le modèle AVANT que l'autre n'ait écrit — la seconde effaçait la première
+   *  (tarif ou frais perdu selon l'ordre d'arrivée des réponses). */
+  const modelWriteChain = useRef(new Map<string, Promise<void>>());
+  const writeModelSoustraitance = (modelId: string, patch: StPatch): Promise<void> => {
+    const prev = modelWriteChain.current.get(modelId) || Promise.resolve();
+    const next = prev.catch(() => {}).then(() => writeModelSoustraitanceNow(modelId, patch));
+    modelWriteChain.current.set(modelId, next);
+    return next;
+  };
+  const writeModelSoustraitanceNow = async (modelId: string, patch: StPatch): Promise<void> => {
     if (!modelId || modelId === 'MANUAL') return;
     const local = models.find(m => m.id === modelId);
     if (!local) return;
@@ -3732,21 +3777,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       // entre-temps, auquel cas il n'y a plus rien à faire.
       if (stPatchIsNoop((base.ficheData as any)?.soustraitance, patch)) return;
 
-      const updated: ModelData = {
-        ...base,
+      const appliquer = (m: ModelData): ModelData => ({
+        ...m,
         ficheData: {
-          ...(base.ficheData as any),
+          ...(m.ficheData as any),
           soustraitance: {
             // Valeurs de repli : un patch qui ne porte que des frais ne doit pas
             // produire un bloc sous-traitance incomplet.
             active: false, mode: 'facon' as StMode, prix: 0,
-            ...((base.ficheData as any)?.soustraitance || {}),
+            ...((m.ficheData as any)?.soustraitance || {}),
             ...patch,
           },
         },
         updatedAt: new Date().toISOString(),
-      };
+      });
       if (!IS_STATIC) {
+        const updated = appliquer(base);
         const res = await fetch('/api/models', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3754,8 +3800,14 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           body: JSON.stringify(updated),
         });
         if (!res.ok) return;
+        setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
+      } else {
+        // Sans serveur, la liste en mémoire EST la source : on applique le patch
+        // sur sa version courante, pas sur la copie capturée à l'appel — sinon
+        // deux écritures rapprochées repartent de la même base et la seconde
+        // efface la première.
+        setModels?.(prev => prev.map(m => (m.id === modelId ? appliquer(m) : m)));
       }
-      setModels?.(prev => prev.map(m => (m.id === updated.id ? updated : m)));
     } catch (err) {
       console.error('[SousTraitance] sync soustraitance → modèle', err);
     }
@@ -4185,6 +4237,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  de coût doit pouvoir distinguer un frais qui pèse sur toute la commande d'un
    *  frais qui ne pèse que sur une partie des pièces. */
   const syncExpensesToModel = async (order: SubcontractOrder, expenses: SubcontractExpense[]) => {
+    if (!estDerniereCommande(order, orders)) return;
     await writeModelSoustraitance(order.modelId, {
       frais: expenses.map(e => ({
         label: e.label,
@@ -4208,7 +4261,11 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
   useEffect(() => {
     if (loading || orders.length === 0 || models.length === 0) return;
 
-    const linked = orders.filter(o => o.modelId && o.modelId !== 'MANUAL' && models.some(m => m.id === o.modelId));
+    // Même commande que la synchro du tarif (la plus récente du modèle) : les
+    // frais, la quantité et le prix doivent venir de la MÊME commande, sinon le
+    // prix de revient divise les frais d'une ancienne commande par sa quantité
+    // et les ajoute au tarif de la nouvelle.
+    const linked = [...derniereCommandeParModele(orders).values()].filter(o => models.some(m => m.id === o.modelId));
     if (linked.length === 0) return;
 
     const signature = linked.map(o => o.id).sort().join('|');
@@ -4373,7 +4430,33 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     // et accepté qui se facture, pas ce qui avait été commandé. À défaut de
     // réception saisie, on retombe sur la quantité commandée.
     const recu = Number(order.qtyAccepted) || 0;
-    setCostInvoiceQty(recu > 0 ? recu : (order.totalQuantity > 0 ? order.totalQuantity : ''));
+    const aFacturer = recu > 0 ? recu : (order.totalQuantity > 0 ? order.totalQuantity : 0);
+    setCostInvoiceQty(aFacturer > 0 ? aFacturer : '');
+    // Une facture partielle a pu déjà partir : on propose ce qui RESTE à
+    // facturer, sinon rouvrir la fenêtre refacturait les premières pièces.
+    if (!IS_STATIC && order.id) {
+      void (async () => {
+        try {
+          const res = await fetch(`/api/facturation/factures?source_module=SOUSTRAITANCE&source_id=${encodeURIComponent(order.id)}`, { credentials: 'include' });
+          if (!res.ok) return;
+          const factures = await res.json();
+          if (!Array.isArray(factures)) return;
+          const dejaFacture = factures
+            .filter((f: any) => f?.type === 'ACHAT' && f?.statut !== 'ANNULEE')
+            .reduce((somme: number, f: any) => {
+              const lignes: any[] = Array.isArray(f.lignes) ? f.lignes : [];
+              // La ligne de façon porte `kind` depuis ce correctif ; avant, c'était
+              // toujours la première ligne, au modèle de la commande.
+              const facon = lignes.find(l => l?.kind === 'facon')
+                ?? (lignes[0]?.product_id === order.modelId && Number(lignes[0]?.quantite) > 1 ? lignes[0] : null);
+              return somme + (Number(facon?.quantite) || 0);
+            }, 0);
+          if (dejaFacture > 0) {
+            setCostInvoiceQty(prev => (prev === aFacturer || prev === '' ? Math.max(0, aFacturer - dejaFacture) || '' : prev));
+          }
+        } catch { /* sans historique lisible, on garde la quantité reçue */ }
+      })();
+    }
     setCostInvoiceTva(20);
     setCostInvoiceSaveError(null);
     setCostInvoiceSavedNumber(null);
@@ -5363,7 +5446,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       modelName,
       clientName: formClientName,
       totalQuantity: effectiveTotalQuantity,
-      subcontractorName: formSubcontractorName,
+      subcontractorName: nomSousTraitantCanonique(formSubcontractorName),
       pricePerPiece: formPricePerPiece,
       deliveryDate: batches[0].deliveryDate || new Date().toISOString().split('T')[0],
       status: 'PENDING',
@@ -5441,14 +5524,22 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  déduit des fournisseurs de la commande (`inferSubcontractMode`, prudent par
    *  défaut). */
   const syncOrderToModel = async (order: SubcontractOrder, mode?: StMode) => {
+    // Retoucher une ANCIENNE commande ne doit pas réécrire le tarif du modèle :
+    // c'est la plus récente qui fait foi.
+    if (!estDerniereCommande(order, orders)) return;
     const price = Number(order.pricePerPiece) || 0;
     await writeModelSoustraitance(order.modelId, {
-      ...(price > 0 ? { active: true } : {}),
+      // Sans tarif, on ne touche NI au prix NI au mode : écrire `prix: 0` sur un
+      // lien déjà actif rendait le prix de revient inconnu, et avec lui le
+      // garde-fou « vente à perte » tombait.
+      ...(price > 0 ? {
+        active: true,
+        mode: mode ?? order.st_mode ?? inferSubcontractMode(order),
+        prix: price,
+      } : {}),
       // `orderId` n'est écrit que s'il est connu : juste après la création, la
       // réponse de l'API peut ne pas le porter — la réconciliation le posera.
       ...(order.id ? { orderId: order.id } : {}),
-      mode: mode ?? order.st_mode ?? inferSubcontractMode(order),
-      prix: price,
       orderQty: Number(order.totalQuantity) || 0,
     });
   };
@@ -5460,16 +5551,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
    *  un no-op et la boucle d'effet se stabilise immédiatement. */
   useEffect(() => {
     if (loading || orders.length === 0 || models.length === 0) return;
-    // Un modèle peut porter plusieurs commandes : la plus récente fait foi.
-    const latestByModel = new Map<string, SubcontractOrder>();
-    orders.forEach(o => {
-      if (!o.modelId || o.modelId === 'MANUAL') return;
-      const prev = latestByModel.get(o.modelId);
-      if (!prev || String(o.created_at || '') > String(prev.created_at || '')) {
-        latestByModel.set(o.modelId, o);
-      }
-    });
-    latestByModel.forEach(o => { void syncOrderToModel(o); });
+    derniereCommandeParModele(orders).forEach(o => { void syncOrderToModel(o); });
   }, [orders, models, loading]);
 
   // Open Edit Order Modal
@@ -5553,7 +5635,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       modelName,
       clientName: formClientName,
       totalQuantity: effectiveTotalQuantity,
-      subcontractorName: formSubcontractorName,
+      subcontractorName: nomSousTraitantCanonique(formSubcontractorName),
       pricePerPiece: formPricePerPiece,
       deliveryDate: batches[0].deliveryDate || selectedOrder.deliveryDate,
       ...gridJson,
@@ -6937,6 +7019,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
     try {
       const lignes: any[] = [
         ...(inv.faconOn ? [{
+          kind: 'facon',
           product_id: order.modelId,
           designation: `${tx(lang,{fr:'Façon',ar:'الخياطة',en:'Making',es:'Confección',pt:'Confeção',tr:'Fason'})} — ${inv.faconView.label}`,
           quantite: inv.qty,
@@ -6956,6 +7039,15 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
           quantite: 1,
           prix_unitaire: e.amount,
           total: e.amount,
+        })),
+        // Les lignes libres entrent dans le total HT : elles doivent donc aussi
+        // figurer dans les lignes stockées, sinon leur somme ne le justifie plus.
+        ...inv.extras.map(x => ({
+          product_id: order.modelId,
+          designation: x.label,
+          quantite: Number(x.qty) || 0,
+          prix_unitaire: Number(x.price) || 0,
+          total: x.amount,
         })),
       ];
       // La remise part comme LIGNE NÉGATIVE : c'est la seule façon que la somme
@@ -7077,7 +7169,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
       lineRows.push(`
               <tr>
                 ${lineCell(tx(lang,{fr:'Matière',ar:'مادة',en:'Material',es:'Material',pt:'Material',tr:'Malzeme'}), m.label, '', inlineThumbHtml(materialPhotoInv(m.label), 16))}
-                <td class="num">${esc(fmt(m.buyQty))} ${esc(m.unit)}</td>
+                <td class="num">${esc(fmt(m.qty))} ${esc(m.unit)}</td>
                 <td class="num">${money(m.unitPrice)}</td>
                 <td class="num strong">${money(m.amount)}</td>
               </tr>`);
@@ -7915,14 +8007,18 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                   {/* View Mode Toggle */}
                   <div className="flex items-center border border-slate-200 dark:border-dk-border rounded-lg overflow-hidden bg-slate-50 dark:bg-dk-bg shrink-0">
                     <button 
+                      type="button"
                       onClick={() => setViewMode('card')}
-                      className="p-2 transition-all"
+                      aria-pressed={viewMode === 'card'}
+                      className={`p-2 transition-all ${viewMode === 'card' ? 'bg-slate-800 dark:bg-dk-accent text-white' : 'text-slate-500 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-elevated'}`}
                     >
                       <LayoutGrid className="w-3.5 h-3.5" />
                     </button>
                     <button 
+                      type="button"
                       onClick={() => setViewMode('table')}
-                      className="p-2 transition-all"
+                      aria-pressed={viewMode === 'table'}
+                      className={`p-2 transition-all ${viewMode === 'table' ? 'bg-slate-800 dark:bg-dk-accent text-white' : 'text-slate-500 dark:text-dk-muted hover:bg-white dark:hover:bg-dk-elevated'}`}
                     >
                       <FileText className="w-3.5 h-3.5" />
                     </button>
@@ -8516,7 +8612,7 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                       <span className="block text-[9px] uppercase tracking-wide text-slate-400 dark:text-dk-muted font-semibold whitespace-nowrap">
                         {tx(lang,{fr:'Valeur du stock (revient)',ar:'قيمة المخزون (بالتكلفة)',en:'Stock value (cost)',es:'Valor del stock (coste)',pt:'Valor do stock (custo)',tr:'Stok degeri (maliyet)'})}
                       </span>
-                      <span className="block font-bold text-slate-800 dark:text-dk-text text-sm whitespace-nowrap">{fmt(stockKpis.value)} {currency}</span>
+                      <span className="block font-bold text-slate-800 dark:text-dk-text text-sm whitespace-nowrap">{Math.round(stockKpis.value).toLocaleString(dateLocale)} {currency}</span>
                     </div>
                   </div>
                 )}
@@ -9459,8 +9555,8 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                       min={0}
                                       max={max || undefined}
                                       value={qty || ''}
-                                      onChange={(e) => handleUpdateGridQty(color, sz, Math.min(max || Infinity, parseInt(e.target.value) || 0))}
-                                      className="w-14 text-center bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border rounded p-1 text-xs focus:border-indigo-500 dark:focus:border-dk-accent outline-none"
+                                      onChange={(e) => handleUpdateGridQty(color, sz, Math.max(0, Math.min(max || Infinity, parseInt(e.target.value) || 0)))}
+                                      className="w-16 min-w-[4rem] tabular-nums text-center bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border rounded p-1 text-xs focus:border-indigo-500 dark:focus:border-dk-accent outline-none"
                                     />
                                     {max > 0 && <span className="text-[9px] text-slate-400 dark:text-dk-muted mt-0.5">/{max}</span>}
                                   </div>
@@ -9845,9 +9941,12 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                                   <td key={sz} className="py-1 px-1">
                                     <input 
                                       type="number"
+                                      min={0}
+                                      inputMode="numeric"
                                       value={sizesObj[sz] || ''}
-                                      onChange={(e) => handleUpdateGridQty(color, sz, parseInt(e.target.value) || 0)}
-                                      className="w-12 text-center bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border rounded p-1 text-xs focus:border-indigo-500 dark:focus:border-dk-accent outline-none"
+                                      placeholder="0"
+                                      onChange={(e) => handleUpdateGridQty(color, sz, Math.max(0, parseInt(e.target.value) || 0))}
+                                      className="w-16 min-w-[4rem] tabular-nums text-center bg-white dark:bg-dk-surface text-slate-800 dark:text-dk-text border border-slate-200 dark:border-dk-border rounded p-1 text-xs focus:border-indigo-500 dark:focus:border-dk-accent outline-none"
                                     />
                                   </td>
                                 ))}
@@ -15055,7 +15154,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </button>
                 <button
                   type="button"
-                  disabled={costInvoiceSaving}
+                  // Case vide ou nulle : on bloque — `buildCostInvoice` retombait
+                  // sinon sur 1 pièce et enregistrait une facture d'une pièce.
+                  disabled={costInvoiceSaving || !(Number(costInvoiceQty) > 0)}
                   onClick={() => handleSaveCostInvoice(order, inv)}
                   className="bg-white dark:bg-dk-surface border border-slate-200 dark:border-dk-border hover:bg-slate-100 dark:hover:bg-dk-elevated text-slate-700 dark:text-dk-text-soft px-5 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 disabled:opacity-50"
                 >
@@ -15064,8 +15165,9 @@ export default function SousTraitance({ models, setModels, settings, onLoadModel
                 </button>
                 <button
                   type="button"
+                  disabled={!(Number(costInvoiceQty) > 0)}
                   onClick={() => handlePrintCostInvoice(order, inv.qty)}
-                  className="bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent"
+                  className="disabled:opacity-50 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent/90 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-md dark:shadow-dk-md flex items-center gap-2 border border-indigo-600 dark:border-dk-accent"
                 >
                   <Printer className="w-4 h-4" />
                   <span>{tx(lang,{fr:'Imprimer',ar:'طباعة',en:'Print',es:'Imprimir',pt:'Imprimir',tr:'Yazdır'})}</span>

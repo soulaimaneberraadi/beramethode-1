@@ -278,6 +278,48 @@ const readCompany = () => {
   };
 };
 
+// ─── Routes qui n'existent que sur le serveur ────────────────────────────────
+// Le stock, les ventes, les clients, les frais, les achats et les factures de la
+// sous-traitance vivent dans des tables du serveur, sans équivalent ici. Leurs
+// adresses (/api/subcontract/clients, /api/subcontract/<id>/expenses...)
+// retombaient sur le magasin des COMMANDES : chaque client, frais, vente ou
+// entrée en stock y était ajouté comme une fausse commande, et l'écran annonçait
+// « enregistré ». Désormais : lecture = liste vide, écriture = refus explicite.
+
+const SOUS_RESSOURCES_SERVEUR = new Set([
+  'clients', 'stock-entries', 'stock-sorties', 'commandes', 'articles', 'achats',
+  'expenses', 'caisse', 'ventes', 'stock',
+]);
+
+const PREFIXES_SERVEUR = ['/api/facturation', '/api/prix', '/api/clients'];
+
+const routeServeurSeulement = (pathname: string): boolean => {
+  const r = resolveTypeAndId(pathname);
+  if (r?.type === 'subcontract' && r.id != null) {
+    return r.id.includes('/') || SOUS_RESSOURCES_SERVEUR.has(r.id);
+  }
+  if (!r) return PREFIXES_SERVEUR.some(p => pathname === p || pathname.startsWith(p + '/'));
+  return false;
+};
+
+const MESSAGE_SANS_SERVEUR = "Indisponible hors ligne : cette operation a besoin du serveur de l'atelier. Rien n'a ete enregistre.";
+
+/** Une vraie commande porte toujours un sous-traitant ou un modèle. Ce qui n'a
+ *  ni l'un ni l'autre est un client, un frais ou une vente égaré ici par
+ *  l'ancien routage : on l'écarte. */
+const estCommandeValide = (o: any): boolean =>
+  !!o && typeof o === 'object' && (!!o.subcontractorName || !!o.modelId);
+
+export const purgerFaussesCommandes = () => {
+  const arr = readArray('subcontract');
+  if (!Array.isArray(arr) || arr.length === 0) return;
+  const propres = arr.filter(estCommandeValide);
+  if (propres.length !== arr.length) {
+    console.warn(`[apiShim] ${arr.length - propres.length} fausse(s) commande(s) de sous-traitance retiree(s)`);
+    writeArray('subcontract', propres);
+  }
+};
+
 const handleGet = (pathname: string): any => {
   // Specials
   if (/^\/api\/auth\/me$/.test(pathname)) return { user: null };
@@ -351,10 +393,12 @@ const handleGet = (pathname: string): any => {
   if (/\/export$/.test(pathname)) {
     return { __status: 501, message: "Export indisponible hors ligne : ouvrez l'application sur le serveur de l'atelier." };
   }
+  if (routeServeurSeulement(pathname)) return [];
   // Generic
   const r = resolveTypeAndId(pathname);
   if (!r) return [];
-  const arr = filterAlive(r.type, readArray(r.type));
+  let arr = filterAlive(r.type, readArray(r.type));
+  if (r.type === 'subcontract') arr = arr.filter(estCommandeValide);
   if (r.id != null) return arr.find((it: any) => String(it.id) === r.id) || null;
   return arr;
 };
@@ -372,6 +416,7 @@ export const installApiShim = () => {
   // Les faux suivis d'avant ce correctif occupent la place et faussent les
   // comptes : on les ecarte au demarrage, une fois pour toutes.
   try { purgerFauxSuivis(); } catch {}
+  try { purgerFaussesCommandes(); } catch {}
   // And every 5 minutes thereafter
   setInterval(() => { try { purgeExpiredTombstones(); } catch {} }, 5 * 60 * 1000);
 
@@ -447,6 +492,9 @@ export const installApiShim = () => {
         return reply({ message: 'Suivis saved successfully', saved: propres.length });
       }
 
+      if (routeServeurSeulement(url.pathname)) {
+        return reply({ ok: false, error: 'no_server', message: MESSAGE_SANS_SERVEUR }, 501);
+      }
       const r = resolveTypeAndId(url.pathname);
       if (!r) return reply({ ok: true, static: true, note: 'no store for path' });
 

@@ -1716,7 +1716,7 @@ const ClientSheet: React.FC<ClientSheetProps> = ({
                                         <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">
                                             {tx(lang, { fr: 'TVA (%)', ar: 'الضريبة (%)', en: 'VAT (%)', es: 'IVA (%)', pt: 'IVA (%)', tr: 'KDV (%)' })}
                                         </label>
-                                        <input type="number" min={0} step="any" disabled={invoiceExo} value={invoiceTva} onChange={e => setInvoiceTva(e.target.value)} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent disabled:opacity-40" />
+                                        <input type="number" min={0} step="any" disabled={invoiceExo} value={invoiceTva} onChange={e => setInvoiceTva(e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value) || 0)))} className="w-full bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-3 py-2 text-[12px] text-slate-800 dark:text-dk-text outline-none focus:border-indigo-500 dark:focus:border-dk-accent disabled:opacity-40" />
                                     </div>
                                     <div>
                                         <label className="block font-bold text-slate-400 dark:text-dk-muted uppercase tracking-widest text-[9px] mb-1">

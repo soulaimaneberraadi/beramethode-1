@@ -240,6 +240,7 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
         stock: tx(lang, { fr: 'Stock', ar: 'الستوك', en: 'Stock', es: 'Stock', pt: 'Stock', tr: 'Stok' }),
         rupture: tx(lang, { fr: 'Rupture dans', ar: 'غادي يسالي فـ', en: 'Runs out in', es: 'Se agota en', pt: 'Acaba em', tr: 'Bitis' }),
         jours: tx(lang, { fr: 'jours', ar: 'يوم', en: 'days', es: 'dias', pt: 'dias', tr: 'gun' }),
+        plusDunAn: tx(lang, { fr: '> 1 an', ar: 'أكثر من سنة', en: '> 1 year', es: '> 1 ano', pt: '> 1 ano', tr: '> 1 yil' }),
         statique: tx(lang, {
             fr: "Cette version en ligne n'a pas de serveur : les ventes, le stock et les clients vivent dans l'installation locale. Ouvrez le tableau de bord depuis le poste ou tourne BERAMETHODE.",
             ar: 'هاد النسخة اللي أونلاين ما عندهاش سيرفر: البيعات والستوك والزبناء كاينين فالتنصيب المحلي. حلّ الداشبورد من الجهاز اللي خدّام فيه BERAMETHODE.',
@@ -880,8 +881,10 @@ export default function VentesDashboard({ lang, currency = 'MAD', detail: detail
                                     <div className="hidden md:block text-right shrink-0 w-[78px]">
                                         {m.joursAvantRupture == null
                                             ? <span className="text-[12px] text-slate-300 dark:text-dk-muted">—</span>
-                                            : <span className={`block text-[12px] font-black tabular-nums ${m.joursAvantRupture <= 7 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-dk-text-soft'}`}>
-                                                {m.joursAvantRupture} {T.jours}
+                                            : <span className={`block text-[12px] font-black tabular-nums ${m.joursAvantRupture <= 7 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-dk-text-soft'}`}>
+                                                {/* Au-dela d'un an, le chiffre exact (12 803 jours...) ne dit
+                                                    rien d'utile : le modele ne se vend quasiment pas. */}
+                                                {m.joursAvantRupture > 365 ? T.plusDunAn : `${m.joursAvantRupture} ${T.jours}`}
                                               </span>}
                                         <span className="block text-[10px] text-slate-400 dark:text-dk-muted">{T.rupture}</span>
                                     </div>
