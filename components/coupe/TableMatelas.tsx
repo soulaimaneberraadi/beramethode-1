@@ -432,7 +432,7 @@ export default function TableMatelas({
         const p = pastille(c);
         return (
             <span className="inline-flex items-center gap-1.5 min-w-0">
-                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${p.hex ? '' : p.dotClass}`} style={p.hex ? { backgroundColor: p.hex } : undefined} />
+                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${p.dotClass}`} style={p.hex ? { backgroundColor: p.hex } : undefined} />
                 <span className="truncate">{c}</span>
             </span>
         );

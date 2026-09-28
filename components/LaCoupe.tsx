@@ -55,6 +55,21 @@ const BADGE_COLORS = [
     { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-800', dot: 'bg-cyan-500' },
 ];
 
+/**
+ * Pastille d'une couleur : son vrai code quand on le connait (id « #... », ou
+ * nom du nuancier : Noir, Blanc, Bleu Marine...), un rond vide pour « Sans
+ * couleur », sinon une teinte de reperage selon le rang. Une couleur sans
+ * teinte connue ne doit pas s'afficher en rouge.
+ */
+const NUANCIER = new Map(TEXTILE_COLORS.map(c => [c.value.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase(), c.code]));
+function pastilleDe(c: any, idx: number): { hex: string | null; dotClass: string } {
+    const nom = String(typeof c === 'string' ? c : c?.name || c?.id || '');
+    if (nom === SANS_COULEUR) return { hex: null, dotClass: 'border border-dashed border-slate-400 dark:border-dk-muted bg-transparent' };
+    const id = typeof c === 'string' ? '' : String(c?.id || '');
+    const hex = id.startsWith('#') ? id : NUANCIER.get(nom.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase()) || null;
+    return { hex, dotClass: hex ? 'ring-1 ring-inset ring-black/15' : BADGE_COLORS[idx % BADGE_COLORS.length].dot };
+}
+
 interface LaCoupeProps {
     models: ModelData[];
     setModels: React.Dispatch<React.SetStateAction<ModelData[]>>;
@@ -1905,10 +1920,11 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     /** Pastille couleur (hex si défini, sinon palette par index) pour un nom de couleur — même logique que la Répartition. */
     const colorDotFor = (cName: string): { hex: string | null; dotClass: string } => {
         const idx = (colors as any[]).findIndex((c: any) => (c.name || (typeof c === 'string' ? c : c.id)) === cName);
-        if (idx === -1) return { hex: null, dotClass: 'bg-slate-300 dark:bg-dk-elevated' };
-        const c: any = (colors as any[])[idx];
-        const cHex = c.id && String(c.id).startsWith('#') ? c.id : null;
-        return { hex: cHex, dotClass: BADGE_COLORS[idx % BADGE_COLORS.length].dot };
+        if (idx === -1) {
+            const p = pastilleDe(cName, 0);
+            return p.hex || cName === SANS_COULEUR ? p : { hex: null, dotClass: 'bg-slate-300 dark:bg-dk-elevated' };
+        }
+        return pastilleDe((colors as any[])[idx], idx);
     };
 
     /** Ticket individuel d'un matelas, au format étiquette 80 mm, pour accompagner le paquet coupé. */
@@ -2727,7 +2743,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                 const cId = c.id || (typeof c === 'string' ? c : c.name);
                                                 const cName = c.name || (typeof c === 'string' ? c : c.id);
                                                 const cHex = c.id && c.id.startsWith('#') ? c.id : null;
-                                                const palette = BADGE_COLORS[cIdx % BADGE_COLORS.length];
+                                                const pd = pastilleDe(c, cIdx);
                                                 return (
                                                     <tr key={`${cId}-${cIdx}`} className="hover:bg-emerald-50/30 dark:hover:bg-emerald-900/30 transition-colors">
                                                         <td
@@ -2747,8 +2763,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             ) : (
                                                                 <div className="flex items-center gap-1.5">
                                                                     <div
-                                                                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${cHex ? '' : palette.dot}`}
-                                                                        style={cHex ? { backgroundColor: cHex } : undefined}
+                                                                        className={`w-2.5 h-2.5 rounded-full shrink-0 ${pd.dotClass}`}
+                                                                        style={pd.hex ? { backgroundColor: pd.hex } : undefined}
                                                                     />
                                                                     <span className="truncate max-w-[100px] text-[12px]">
                                                                         {cHex && (cName.includes('personnalisé') || cName.startsWith('#') || cName.includes('rgb(')) ? hexToColorName(cHex) : cName}
@@ -3264,15 +3280,14 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100 dark:divide-dk-border">
                                                         {suiviCoupe.rows.map((r, cIdx) => {
-                                                            const cHex = r.name && (colors as any[])[cIdx]?.id && String((colors as any[])[cIdx].id).startsWith('#') ? String((colors as any[])[cIdx].id) : null;
-                                                            const palette = BADGE_COLORS[cIdx % BADGE_COLORS.length];
+                                                            const pd = pastilleDe((colors as any[])[cIdx] ?? r.name, cIdx);
                                                             let rowCut = 0;
                                                             let rowRem = 0;
                                                             return (
                                                             <tr key={r.name} className="hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60 transition-colors">
                                                                 <td className="py-2 px-2.5 font-semibold text-slate-700 dark:text-dk-text">
                                                                     <div className="flex items-center gap-1.5">
-                                                                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cHex ? '' : palette.dot}`} style={cHex ? { backgroundColor: cHex } : undefined} />
+                                                                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${pd.dotClass}`} style={pd.hex ? { backgroundColor: pd.hex } : undefined} />
                                                                         <span className="truncate">{r.name}</span>
                                                                     </div>
                                                                 </td>
