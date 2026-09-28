@@ -87,9 +87,22 @@ export interface ResumeOrdre {
     avancement: number;
 }
 
+/**
+ * Quantite commandee : la repartition couleur x taille du modele ; a defaut la
+ * quantite saisie. Pas qteTotale en premier : a l'enregistrement il recoit les
+ * pieces des matelas (planifiees), pas la commande.
+ */
+export const commandeDe = (m: ModelData): number => {
+    const g = (m.ficheData as any)?.gridQuantities || {};
+    let s = 0;
+    for (const v of Object.values(g)) s += Number(v) || 0;
+    if (s > 0) return s;
+    return Number((m.ficheData as any)?.quantity) || Number(m.meta_data?.quantity) || m.ordreCoupe?.qteTotale || 0;
+};
+
 export const resumerOrdre = (m: ModelData): ResumeOrdre => {
     const lignes = lignesUtiles(m);
-    const qte = m.ordreCoupe?.qteTotale || m.meta_data?.quantity || 0;
+    const qte = commandeDe(m);
     let coupees = 0, restant = 0, nbFaits = 0;
     for (const l of lignes) {
         if (l.fait) { coupees += piecesLigne(l); nbFaits++; }

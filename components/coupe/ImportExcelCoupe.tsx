@@ -14,9 +14,12 @@ import { useLang } from '../../src/context/LanguageContext';
 import { lireClasseurCoupe, type FeuilleImportee } from '../../lib/importCoupeExcel';
 import { lireSerieExcel, type LigneSerieLue } from '../../lib/serieEtiquetage';
 
+/** Le classeur ne dit pas la couleur : la repartition le dit aussi, on ne l'invente pas. */
+export const SANS_COULEUR = 'Sans couleur';
+
 export interface ChoixImport {
     feuille: FeuilleImportee;
-    /** Couleur qui recoit les quantites et les matelas ; '' = nouvelle couleur. */
+    /** Couleur qui recoit les quantites et les matelas ; '' = nouvelle couleur, ou aucune (SANS_COULEUR). */
     couleur: string;
     nouvelleCouleur: string;
     remplacer: boolean;
@@ -39,7 +42,9 @@ export default function ImportExcelCoupe({ couleurs, onImporter, onClose }: Prop
     const [nomFichier, setNomFichier] = useState('');
     const [feuilles, setFeuilles] = useState<FeuilleImportee[]>([]);
     const [choix, setChoix] = useState(0);
-    const [couleur, setCouleur] = useState(couleurs[0] || '');
+    // Jamais de couleur choisie a la place de l'utilisateur : une seule couleur au modele, c'est elle ;
+    // sinon rien, et les quantites vont sur « Sans couleur » tant qu'il ne l'a pas dite.
+    const [couleur, setCouleur] = useState(couleurs.length === 1 ? couleurs[0] : '');
     const [nouvelleCouleur, setNouvelleCouleur] = useState('');
     const [remplacer, setRemplacer] = useState(false);
     const [survol, setSurvol] = useState(false);
@@ -81,7 +86,7 @@ export default function ImportExcelCoupe({ couleurs, onImporter, onClose }: Prop
                     <button type="button" onClick={onClose} className="h-10 px-4 rounded-lg text-[12px] font-semibold text-slate-600 hover:bg-slate-100">{L('Annuler', 'إلغاء', 'Cancel')}</button>
                     <button
                         type="button"
-                        disabled={!f || (!couleur && !nouvelleCouleur.trim())}
+                        disabled={!f}
                         onClick={() => f && onImporter({ feuille: f, couleur, nouvelleCouleur: nouvelleCouleur.trim(), remplacer, serie: serie.length ? serie : undefined })}
                         className="h-10 px-4 inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 text-white text-[12px] font-bold hover:bg-emerald-700 disabled:opacity-40"
                     >
@@ -190,6 +195,9 @@ export default function ImportExcelCoupe({ couleurs, onImporter, onClose }: Prop
                                 <div>
                                     <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">{L('Couleur des quantites et des matelas', 'لون الكميات والمفرشات', 'Colour for quantities and lays')}</p>
                                     <div className="flex flex-wrap gap-1.5">
+                                        {!couleurs.includes(SANS_COULEUR) && (
+                                            <button type="button" onClick={() => { setCouleur(''); setNouvelleCouleur(''); }} className={`h-8 px-2.5 rounded-lg border border-dashed text-[11px] font-semibold ${!couleur && !nouvelleCouleur.trim() ? 'border-slate-500 bg-slate-100 text-slate-800' : 'border-slate-300 dark:border-dk-border text-slate-500'}`}>{L('Sans couleur', 'بلا لون', 'No colour')}</button>
+                                        )}
                                         {couleurs.map(c => (
                                             <button key={c} type="button" onClick={() => { setCouleur(c); setNouvelleCouleur(''); }} className={`h-8 px-2.5 rounded-lg border text-[11px] font-semibold ${couleur === c ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-200 dark:border-dk-border text-slate-600'}`}>{c}</button>
                                         ))}
@@ -200,6 +208,9 @@ export default function ImportExcelCoupe({ couleurs, onImporter, onClose }: Prop
                                             className={`h-8 w-36 px-2.5 rounded-lg border text-[11px] font-semibold outline-none ${!couleur && nouvelleCouleur.trim() ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 dark:border-dk-border'}`}
                                         />
                                     </div>
+                                    {!couleur && !nouvelleCouleur.trim() && (
+                                        <p className="mt-1.5 text-[10px] text-slate-500">{L('Le fichier ne donne pas de couleur : les quantites vont sur une ligne « Sans couleur », a renommer quand vous la connaissez (clic droit).', 'الملف لا يذكر اللون: تذهب الكميات إلى سطر «بلا لون»، غيّر اسمه حين تعرفه (نقرة يمنى).', 'The file gives no colour: quantities go on a “No colour” row, rename it once known (right-click).')}</p>
+                                    )}
                                 </div>
                                 <button type="button" onClick={() => setRemplacer(v => !v)} className={`text-left rounded-lg border px-3 py-2 ${remplacer ? 'border-rose-300 bg-rose-50 dark:bg-rose-900/20' : 'border-slate-200 dark:border-dk-border'}`}>
                                     <span className="flex items-center gap-2 text-[12px] font-bold text-slate-800 dark:text-dk-text">

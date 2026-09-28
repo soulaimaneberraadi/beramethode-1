@@ -21,13 +21,15 @@ import {
     CartesAccueil, PageOrdres, PageTissu, PageGroupes, useAtelierCoupe, ChampHeure, ChoixGroupe,
     isoDepuisHeure, heureLocale, type PageAccueil,
 } from './coupe/AccueilCoupe';
-import { matelasExecutes, metresPlis, presenceGroupes, tempsStandard } from '../lib/coupeAtelier';
+import { aujourdhui, commandeDe, matelasExecutes, metresPlis, presenceGroupes, tempsStandard } from '../lib/coupeAtelier';
 import { planifierPlacements, decouperEnMatelas, nomPlacement, repartirPlis } from '../lib/planMatelas';
 import {
     TISSU_PRINCIPAL, TISSUS_PROPOSES, tissuDe, estPrincipal, migrerOrdre, appliquerPlacement, matelasDuPlacement,
     plisPourPlacements, renumeroter, numeroSuivant, nomFichierMatelas, codeMatiere, codeTraceSuivant, creerLaize, changerLaize, laizesDe, placementPourLigne, type SensNumerotation,
 } from '../lib/ordreCoupe';
-import ImportExcelCoupe, { type ChoixImport } from './coupe/ImportExcelCoupe';
+import ImportExcelCoupe, { type ChoixImport, SANS_COULEUR } from './coupe/ImportExcelCoupe';
+import { TableauCoupe, CalendrierCoupe, StatsCoupe } from './coupe/VuesListeCoupe';
+import { classeurOrdresCoupe } from '../lib/exportOrdresCoupe';
 import SerieEtiquetage from './coupe/SerieEtiquetage';
 import { appliquerImport } from '../lib/appliquerImport';
 import { figerSerie, paquetsSerie, saisieDe, saisiesDepuisSerie } from '../lib/serieEtiquetage';
@@ -158,8 +160,6 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
     const [filterStatus, setFilterStatus] = useState<string>('ALL');
     const [showFilters, setShowFilters] = useState(false);
     const [quickActionMenu, setQuickActionMenu] = useState<{ modelId: string; x: number; y: number } | null>(null);
-    const [draggedModel, setDraggedModel] = useState<string | null>(null);
-    const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
     const [sortBy, setSortBy] = useState<'date' | 'name' | 'status' | 'qty'>('date');
     const [sortAsc, setSortAsc] = useState(false);
 
@@ -284,8 +284,8 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     vb = order[b.ordreCoupe?.status || 'EN_PREPARATION'] ?? 0;
                     break;
                 case 'qty':
-                    va = a.ordreCoupe?.qteTotale || a.meta_data?.quantity || 0;
-                    vb = b.ordreCoupe?.qteTotale || b.meta_data?.quantity || 0;
+                    va = commandeDe(a);
+                    vb = commandeDe(b);
                     break;
                 default:
                     va = new Date(a.meta_data?.date_creation || 0).getTime();
@@ -317,36 +317,25 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         return 0;
     };
 
-    const handleExportExcel = () => {
-        const headers = [
-            tx(lang, { fr: 'Référence', ar: 'المرجع', en: 'Reference', es: 'Referencia', pt: 'Referência', tr: 'Referans' }),
-            tx(lang, { fr: 'Nom Modèle', ar: 'اسم النموذج', en: 'Model Name', es: 'Nombre del Modelo', pt: 'Nome do Modelo', tr: 'Model Adı' }),
-            tx(lang, { fr: 'Statut', ar: 'الحالة', en: 'Status', es: 'Estado', pt: 'Status', tr: 'Durum' }),
-            tx(lang, { fr: 'Quantité', ar: 'الكمية', en: 'Quantity', es: 'Cantidad', pt: 'Quantidade', tr: 'Miktar' }),
-            tx(lang, { fr: 'Longueur', ar: 'الطول', en: 'Length', es: 'Longitud', pt: 'Comprimento', tr: 'Uzunluk' }),
-            tx(lang, { fr: 'Consommation', ar: 'الاستهلاك', en: 'Consumption', es: 'Consumo', pt: 'Consumo', tr: 'Tüketim' }),
-            tx(lang, { fr: 'Feuilles', ar: 'الصفائح', en: 'Sheets', es: 'Capas', pt: 'Folhas', tr: 'Tabakalar' }),
-            tx(lang, { fr: 'Matelas', ar: 'المفرشات', en: 'Layers', es: 'Capas', pt: 'Esteiras', tr: 'Katmanlar' }),
-        ];
-        const rows = filteredModels.map(m => [
-            m.ordreCoupe?.refModele || '-',
-            m.meta_data?.nom_modele || '-',
-            m.ordreCoupe?.status || 'EN_PREPARATION',
-            m.ordreCoupe?.qteTotale || 0,
-            m.ordreCoupe?.longueurMatelas || 0,
-            m.ordreCoupe?.consommation || 0,
-            m.ordreCoupe?.nbrFeuilles || 0,
-            m.ordreCoupe?.nbrMatelas || 0,
-        ]);
-        const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ordres_coupe_${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast(tx(lang, { fr: 'Export Excel réussi', ar: 'تم تصدير Excel بنجاح', en: 'Excel export successful', es: 'Exportación Excel exitosa', pt: 'Exportação Excel bem-sucedida', tr: 'Excel dışa aktarma başarılı' }), 'success');
+    const handleExportExcel = async () => {
+        try {
+            const buf = await classeurOrdresCoupe(filteredModels, planningEvents || [], entreprise || undefined);
+            const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ordres_coupe_${aujourdhui()}.xlsx`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            showToast(tx(lang, {
+                fr: `Export Excel : ${filteredModels.length} ordre(s) — Ordres, Couleur x Taille, Matelas`,
+                ar: `تصدير Excel: ${filteredModels.length} أمر — الأوامر، اللون × المقاس، المفرشات`,
+                en: `Excel export: ${filteredModels.length} order(s) — Orders, Colour x Size, Lays`,
+            }), 'success');
+        } catch (e) {
+            console.error('Export ordres coupe', e);
+            showToast(tx(lang, { fr: "Échec de l'export Excel", ar: 'فشل تصدير Excel', en: 'Excel export failed' }), 'error');
+        }
     };
 
     const handlePrint = () => {
@@ -376,10 +365,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         setQuickActionMenu(null);
     };
 
-    const handleDropOnColumn = async (status: string) => {
-        if (!draggedModel) return;
-        const modelToUpdate = models.find(m => m.id === draggedModel);
-        if (!modelToUpdate) return;
+    const changerStatut = async (id: string, status: string) => {
+        const modelToUpdate = models.find(m => m.id === id);
+        if (!modelToUpdate || (modelToUpdate.ordreCoupe?.status || 'EN_PREPARATION') === status) return;
 
         const updatedModel: ModelData = {
             ...modelToUpdate,
@@ -389,17 +377,16 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     longueurMatelas: 0, consommation: 0, nbrFeuilles: 0, nbrMatelas: 0, qteTotale: 0,
                     faisceaux: []
                 }),
-                status: status as any
+                status: status as any,
+                majLe: new Date().toISOString(),
             }
         };
 
         const success = await saveModelToServer(updatedModel);
         if (success) {
-            setModels(prev => prev.map(m => m.id === draggedModel ? updatedModel : m));
+            setModels(prev => prev.map(m => m.id === id ? updatedModel : m));
             showToast(`${tx(lang, { fr: 'Statut modifié', ar: 'تم تغيير الحالة', en: 'Status changed', es: 'Estado modificado', pt: 'Status alterado', tr: 'Durum değiştirildi' })}: ${STATUS_MAP[status as keyof typeof STATUS_MAP]?.label}`, 'success');
         }
-        setDraggedModel(null);
-        setDragOverColumn(null);
     };
 
     const STATUS_MAP = {
@@ -1081,9 +1068,9 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
         const fiche: any = buildFiche();
         const couleursFiche: any[] = [...(fiche.colors || [])];
         const nomDe = (x: any) => (typeof x === 'string' ? x : x.name || x.id);
-        let nomCouleur = c.couleur;
-        if (!nomCouleur) {
-            nomCouleur = c.nouvelleCouleur;
+        // Pas de couleur dans le fichier ni choisie : une ligne « Sans couleur », jamais une couleur inventee.
+        let nomCouleur = c.couleur || c.nouvelleCouleur || SANS_COULEUR;
+        if (!couleursFiche.some(x => nomDe(x) === nomCouleur)) {
             couleursFiche.push(couleursFiche.length && typeof couleursFiche[0] === 'string' ? nomCouleur : { id: Date.now().toString(), name: nomCouleur });
         }
         const r = appliquerImport(ordre, c.feuille, { tailles: fiche.sizes || [], couleur: nomCouleur, remplacer: c.remplacer, maxPlis: Number(autoMaxPly) || 100 });
@@ -1842,7 +1829,12 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
             return c;
         });
         if (newName.trim() === ancien) { setEditingMatrixItem(null); return; }
-        gesteSurLibelle('couleur', ancien, () => applyFicheUpdate({ ...fiche, colors: updatedColors }));
+        // Les matelas portent le NOM de la couleur : ils suivent, sinon ils sortent du suivi par couleur.
+        const nouveau = newName.trim();
+        gesteSurLibelle('couleur', ancien, () => {
+            applyFicheUpdate({ ...fiche, colors: updatedColors });
+            if (ancien) setOrdre(prev => ({ ...prev, matelasLines: (prev.matelasLines || []).map(l => (l.couleur === ancien ? { ...l, couleur: nouveau } : l)) }));
+        });
         setEditingMatrixItem(null);
     };
 
@@ -2172,7 +2164,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     const conf = STATUS_MAP[st as keyof typeof STATUS_MAP] || STATUS_MAP['EN_PREPARATION'];
                     const StatusIcon = conf.icon;
                     const ref = model.ordreCoupe?.refModele || model.meta_data?.reference || '';
-                    const qte = model.ordreCoupe?.qteTotale || model.meta_data?.quantity || 0;
+                    const qte = commandeDe(model);
                     // La reference repete souvent le nom a l'identique : inutile de l'afficher deux fois.
                     const refDistincte = !!ref && ref !== model.meta_data?.nom_modele;
                     const client = clientDe(model);
@@ -3469,22 +3461,17 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                         </div>
                     ) : (
                         viewMode === 'board' ? (
-                            <BoardView
+                            <TableauCoupe
                                 models={filteredModels}
+                                evenements={planningEvents || []}
                                 onOpen={openModel}
-                                onDragStart={setDraggedModel}
-                                onDragEnd={() => { setDraggedModel(null); setDragOverColumn(null); }}
-                                draggedModel={draggedModel}
-                                dragOverColumn={dragOverColumn}
-                                setDragOverColumn={setDragOverColumn}
-                                onDrop={handleDropOnColumn}
-                                getProgress={getProgress}
+                                onChangerStatut={changerStatut}
                                 onQuickAction={(modelId, x, y) => setQuickActionMenu({ modelId, x, y })}
                             />
                         ) : viewMode === 'calendar' ? (
-                            <CalendarView models={filteredModels} onOpen={openModel} getProgress={getProgress} />
+                            <CalendrierCoupe models={filteredModels} evenements={planningEvents || []} onOpen={openModel} />
                         ) : viewMode === 'stats' ? (
-                            <StatsView models={filteredModels} statusMap={STATUS_MAP} />
+                            <StatsCoupe models={filteredModels} evenements={planningEvents || []} onOpen={openModel} />
                         ) : (
                             <EmptyDashboard
                                 models={filteredModels}
@@ -4280,7 +4267,7 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                 >
                     <div
                         className="absolute bg-white dark:bg-dk-surface rounded-lg shadow-xl dark:shadow-dk-elevated border border-slate-200 dark:border-dk-border w-52 py-1.5 text-[12px] text-slate-700 dark:text-dk-text-soft font-medium"
-                        style={{ top: quickActionMenu.y, left: quickActionMenu.x }}
+                        style={{ top: Math.max(8, Math.min(quickActionMenu.y, window.innerHeight - 330)), left: Math.max(8, Math.min(quickActionMenu.x, window.innerWidth - 216)) }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
@@ -4313,6 +4300,20 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                                                             <Layers className="w-3.5 h-3.5" /> {tx(lang, { fr: 'Méthodes', ar: 'الطرق', en: 'Methods', es: 'Métodos', pt: 'Métodos', tr: 'Yöntemler' })}
                         </button>
                         <div className="h-px bg-slate-100 dark:bg-dk-elevated my-1" />
+                        {/* Deplacer sans glisser : au telephone, le glisser-deposer du Tableau ne marche pas. */}
+                        <p className="px-3 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted">{tx(lang, { fr: 'Passer en', ar: 'نقل إلى', en: 'Move to' })}</p>
+                        {(Object.keys(STATUS_MAP) as (keyof typeof STATUS_MAP)[])
+                            .filter(k => (models.find(x => x.id === quickActionMenu.modelId)?.ordreCoupe?.status || 'EN_PREPARATION') !== k)
+                            .map(k => (
+                                <button
+                                    key={k}
+                                    onClick={() => { void changerStatut(quickActionMenu.modelId, k); setQuickActionMenu(null); }}
+                                    className="w-full text-left px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-2"
+                                >
+                                    {React.createElement(STATUS_MAP[k].icon, { className: 'w-3.5 h-3.5 text-slate-400' })} {STATUS_MAP[k].label}
+                                </button>
+                            ))}
+                        <div className="h-px bg-slate-100 dark:bg-dk-elevated my-1" />
                         <button
                             onClick={() => {
                                 setDeleteConfirm(quickActionMenu.modelId);
@@ -4342,452 +4343,6 @@ export default function LaCoupe({ models, setModels, onOpenInAtelier, currentMod
                     to { opacity: 1; transform: scale(1); }
                 }
             `}</style>
-        </div>
-    );
-}
-
-/* ─────── Board View (Kanban) ─────── */
-function BoardView({
-    models, onOpen, onDragStart, onDragEnd, draggedModel, dragOverColumn, setDragOverColumn, onDrop, getProgress, onQuickAction
-}: {
-    models: ModelData[];
-    onOpen: (m: ModelData) => void;
-    onDragStart: (id: string) => void;
-    onDragEnd: () => void;
-    draggedModel: string | null;
-    dragOverColumn: string | null;
-    setDragOverColumn: (s: string | null) => void;
-    onDrop: (status: string) => void;
-    getProgress: (m: ModelData) => number;
-    onQuickAction: (modelId: string, x: number, y: number) => void;
-}) {
-    const { lang } = useLang();
-    const columns = [
-        { key: 'EN_PREPARATION', label: tx(lang, { fr: 'Préparation', ar: 'تحضير', en: 'Preparation', es: 'Preparación', pt: 'Preparação', tr: 'Hazırlık' }), color: 'border-slate-300', bg: 'bg-slate-50 dark:bg-dk-bg', icon: Clock, textColor: 'text-slate-700 dark:text-dk-text-soft', cardBorder: 'hover:border-slate-300', progressColor: 'bg-slate-400' },
-        { key: 'EN_COURS', label: tx(lang, { fr: 'En Cours', ar: 'قيد التنفيذ', en: 'In Progress', es: 'En Curso', pt: 'Em Andamento', tr: 'Devam Ediyor' }), color: 'border-blue-300', bg: 'bg-blue-50 dark:bg-blue-900/30', icon: PlayCircle, textColor: 'text-blue-700', cardBorder: 'hover:border-blue-300', progressColor: 'bg-blue-500' },
-        { key: 'SOUS_TRAITANCE', label: tx(lang, { fr: 'Extériorisé', ar: 'مقاول خارجي', en: 'Subcontracted', es: 'Subcontratado', pt: 'Terceirizado', tr: 'Taşeron' }), color: 'border-purple-300', bg: 'bg-purple-50 dark:bg-purple-900/30', icon: Truck, textColor: 'text-purple-700', cardBorder: 'hover:border-purple-300', progressColor: 'bg-purple-500' },
-        { key: 'VALIDE', label: tx(lang, { fr: 'Validé', ar: 'تم التحقق', en: 'Validated', es: 'Validado', pt: 'Validado', tr: 'Onaylandı' }), color: 'border-emerald-300', bg: 'bg-emerald-50 dark:bg-emerald-900/30', icon: CheckCircle, textColor: 'text-emerald-700', cardBorder: 'hover:border-emerald-300', progressColor: 'bg-emerald-500' },
-    ];
-
-    return (
-        <div className="h-full overflow-x-auto overflow-y-hidden bg-slate-50 dark:bg-dk-bg">
-            <div className="h-full flex gap-3 p-4 min-w-max">
-                {columns.map(col => {
-                    const colModels = models.filter(m => (m.ordreCoupe?.status || 'EN_PREPARATION') === col.key);
-                    const Icon = col.icon;
-                    const isDragOver = dragOverColumn === col.key;
-                    return (
-                        <div
-                            key={col.key}
-                            className={`w-72 shrink-0 flex flex-col bg-white dark:bg-dk-surface rounded-xl border-2 transition-all ${
-                                isDragOver ? 'border-indigo-400 ring-2 ring-indigo-200' : 'border-slate-200 dark:border-dk-border'
-                            }`}
-                            onDragOver={(e) => { e.preventDefault(); setDragOverColumn(col.key); }}
-                            onDragLeave={() => setDragOverColumn(null)}
-                            onDrop={() => onDrop(col.key)}
-                        >
-                            <div className={`px-3 py-2.5 border-b border-slate-100 dark:border-dk-border ${col.bg} flex items-center justify-between rounded-t-xl`}>
-                                <div className="flex items-center gap-2">
-                                    <Icon className={`w-3.5 h-3.5 ${col.textColor}`} />
-                                    <h3 className={`text-[12px] font-bold uppercase tracking-wide ${col.textColor}`}>{col.label}</h3>
-                                </div>
-                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${col.textColor} bg-white dark:bg-dk-surface`}>{colModels.length}</span>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                                {colModels.map(m => {
-                                    const qte = m.ordreCoupe?.qteTotale || m.meta_data?.quantity || 0;
-                                    const ref = m.ordreCoupe?.refModele || m.meta_data?.reference || '';
-                                    const progress = getProgress(m);
-                                    return (
-                                        <div
-                                            key={m.id}
-                                            draggable
-                                            onDragStart={() => onDragStart(m.id)}
-                                            onDragEnd={onDragEnd}
-                                            onClick={() => onOpen(m)}
-                                            className={`bg-white dark:bg-dk-surface border rounded-xl p-3 cursor-pointer transition-all duration-200 group ${
-                                                draggedModel === m.id
-                                                    ? 'opacity-40 scale-95 border-slate-300'
-                                                    : `border-slate-200 dark:border-dk-border hover:shadow-lg dark:hover:shadow-dk-lg hover:shadow-slate-200/50 ${col.cardBorder}`
-                                            }`}
-                                        >
-                                            {/* Thumbnail */}
-                                            <div className="w-full h-28 rounded-lg overflow-hidden bg-slate-100 dark:bg-dk-elevated mb-2.5 relative">
-                                                {m.image || m.images?.front ? (
-                                                    <img src={m.image || m.images?.front} alt="" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-                                                        <Scissors className="w-8 h-8 text-slate-200" />
-                                                    </div>
-                                                )}
-                                                {/* Quick action overlay */}
-                                                <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); onQuickAction(m.id, e.clientX, e.clientY); }}
-                                                        className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm text-slate-500 hover:text-slate-800 shadow-sm dark:shadow-dk-sm"
-                                                    >
-                                                        <MoreVertical className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </div>
-                                                {/* Draft badge */}
-                                                {m.isPublishedToLibrary === false && (
-                                                    <div className="absolute top-1.5 left-1.5">
-                                                        <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase bg-amber-400 text-white rounded-md shadow-sm dark:shadow-dk-sm">{tx(lang, { fr: 'Draft', ar: 'مسودة', en: 'Draft', es: 'Borrador', pt: 'Rascunho', tr: 'Taslak' })}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Content */}
-                                            <div className="space-y-1.5">
-                                                <h4 className="text-[12px] font-bold text-slate-800 dark:text-dk-text truncate leading-tight">
-                                                    {m.meta_data?.nom_modele}
-                                                </h4>
-                                                <p className="text-[10px] text-slate-400 dark:text-dk-muted font-medium truncate">{ref || tx(lang, { fr: 'Référence inconnue', ar: 'مرجع غير معروف', en: 'Unknown reference', es: 'Referencia desconocida', pt: 'Referência desconhecida', tr: 'Bilinmeyen referans' })}</p>
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[10px] font-bold text-slate-600 dark:text-dk-text-soft bg-slate-50 dark:bg-dk-bg px-1.5 py-0.5 rounded">{qte > 0 ? `${qte} pcs` : '—'}</span>
-                                                    {m.isPublishedToLibrary !== false && (
-                                                        <CheckCircle className="w-3 h-3 text-emerald-400" />
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Progress */}
-                                            <div className="mt-2.5">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide">{progress}%</span>
-                                                </div>
-                                                <div className="h-1.5 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full transition-all duration-500 ${col.progressColor}`}
-                                                        style={{ width: `${progress}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                                {colModels.length === 0 && (
-                                                                    <div className="text-center py-6 text-[11px] text-slate-400 dark:text-dk-muted italic">
-                                                                        {tx(lang, { fr: 'Aucun ordre', ar: 'لا يوجد أمر', en: 'No orders', es: 'Ninguna orden', pt: 'Nenhuma ordem', tr: 'Emir yok' })}
-                                                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
-
-/* ─────── Calendar View ─────── */
-function CalendarView({ models, onOpen, getProgress }: {
-    models: ModelData[];
-    onOpen: (m: ModelData) => void;
-    getProgress: (m: ModelData) => number;
-}) {
-    const { lang } = useLang();
-    const [currentMonth, setCurrentMonth] = useState(new Date());
-
-    const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
-    const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
-    const monthName = currentMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-
-    const days = [];
-    for (let i = 0; i < firstDayOfMonth; i++) {
-        days.push(null);
-    }
-    for (let i = 1; i <= daysInMonth; i++) {
-        days.push(i);
-    }
-
-    const getOrdersForDay = (day: number) => {
-        return models.filter(m => {
-            const dateStr = m.meta_data?.date_creation;
-            if (!dateStr) return false;
-            const d = new Date(dateStr);
-            return d.getDate() === day && d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
-        });
-    };
-
-    const statusDotColors: Record<string, string> = {
-        'EN_PREPARATION': 'bg-slate-400',
-        'EN_COURS': 'bg-blue-500',
-        'SOUS_TRAITANCE': 'bg-purple-500',
-        'VALIDE': 'bg-emerald-500',
-        'REJETE': 'bg-rose-500',
-    };
-
-    const prev = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-    const next = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
-
-    return (
-        <div className="p-4 md:p-6 w-full max-w-[1920px] mx-auto">
-            <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border overflow-hidden">
-                <div className="px-4 md:px-6 py-4 border-b border-slate-100 dark:border-dk-border flex items-center justify-between">
-                    <h3 className="text-[14px] font-semibold text-slate-800 dark:text-dk-text capitalize">{monthName}</h3>
-                    <div className="flex items-center gap-1">
-                        <button onClick={prev} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-600 dark:text-dk-text-soft">
-                            <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => setCurrentMonth(new Date())} className="h-8 px-3 text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft hover:bg-slate-100 rounded-md">
-                            {tx(lang, { fr: "Aujourd'hui", ar: 'اليوم', en: 'Today', es: 'Hoy', pt: 'Hoje', tr: 'Bugün' })}
-                        </button>
-                        <button onClick={next} className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-600 dark:text-dk-text-soft">
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
-                    </div>
-                </div>
-                <div className="grid grid-cols-7 border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg">
-                    {(() => {
-                        const dayNames: Record<string, string[]> = {
-                            fr: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
-                            ar: ['الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'],
-                            en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                            es: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
-                            pt: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
-                            tr: ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'],
-                        };
-                        return (dayNames[lang] || dayNames.fr);
-                    })().map(d => (
-                        <div key={d} className="py-2 text-center text-[10px] font-bold text-slate-500 dark:text-dk-muted uppercase tracking-wide">{d}</div>
-                    ))}
-                </div>
-                <div className="grid grid-cols-7">
-                    {days.map((day, idx) => {
-                        if (day === null) {
-                            return <div key={idx} className="h-24 border-r border-b border-slate-100 dark:border-dk-border bg-slate-50 dark:bg-dk-bg/30" />;
-                        }
-                        const dayModels = getOrdersForDay(day);
-                        const isToday = day === new Date().getDate() &&
-                            currentMonth.getMonth() === new Date().getMonth() &&
-                            currentMonth.getFullYear() === new Date().getFullYear();
-                        return (
-                            <div key={idx} className={`h-28 border-r border-b border-slate-100 dark:border-dk-border p-1.5 overflow-y-auto transition-colors ${isToday ? 'bg-indigo-50 dark:bg-dk-accent/40' : 'bg-white dark:bg-dk-surface hover:bg-slate-50/50'}`}>
-                                <div className={`text-[11px] font-bold mb-1 flex items-center justify-between ${isToday ? 'text-indigo-600 dark:text-dk-accent-text' : 'text-slate-500 dark:text-dk-muted'}`}>
-                                    <span>{day}</span>
-                                    {isToday && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />}
-                                </div>
-                                <div className="space-y-1">
-                                    {dayModels.slice(0, 3).map(m => {
-                                        const st = m.ordreCoupe?.status || 'EN_PREPARATION';
-                                        return (
-                                            <button
-                                                key={m.id}
-                                                onClick={() => onOpen(m)}
-                                                className="w-full text-left px-1.5 py-1 rounded-md text-[10px] font-semibold bg-white border border-slate-200 dark:border-dk-border text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 dark:bg-dk-accent/20 hover:text-indigo-700 dark:text-dk-accent-text truncate transition-all flex items-center gap-1"
-                                            >
-                                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDotColors[st] || 'bg-slate-400'}`} />
-                                                <span className="truncate">{m.meta_data?.nom_modele}</span>
-                                            </button>
-                                        );
-                                    })}
-                                    {dayModels.length > 3 && (
-                                        <div className="text-[9px] text-indigo-500 dark:text-indigo-400 font-semibold px-1">+{dayModels.length - 3} {tx(lang, { fr: 'de plus', ar: 'أخرى', en: 'more', es: 'más', pt: 'mais', tr: 'daha fazla' })}</div>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-/* ─────── Stats View ─────── */
-function StatsView({ models, statusMap }: { models: ModelData[]; statusMap: any }) {
-    const { lang } = useLang();
-    const stats = useMemo(() => {
-        const byStatus: Record<string, number> = {};
-        const qtyByStatus: Record<string, number> = {};
-        let totalQty = 0;
-        let totalDrafts = 0;
-        let totalPublished = 0;
-        let totalWaste = 0;
-        let countWaste = 0;
-        models.forEach(m => {
-            const st = m.ordreCoupe?.status || 'EN_PREPARATION';
-            byStatus[st] = (byStatus[st] || 0) + 1;
-            const qte = m.ordreCoupe?.qteTotale || m.meta_data?.quantity || 0;
-            qtyByStatus[st] = (qtyByStatus[st] || 0) + qte;
-            totalQty += qte;
-            if (m.isPublishedToLibrary === false) totalDrafts++;
-            else totalPublished++;
-            if (m.ordreCoupe?.consommation && m.ordreCoupe?.longueurMatelas) {
-                const theoretical = m.ordreCoupe.longueurMatelas * (m.ordreCoupe.nbrFeuilles || 1) * (m.ordreCoupe.nbrMatelas || 1);
-                const real = m.ordreCoupe.consommation * qte;
-                if (theoretical > 0) {
-                    totalWaste += ((theoretical - real) / theoretical) * 100;
-                    countWaste++;
-                }
-            }
-        });
-        const avgWaste = countWaste > 0 ? (totalWaste / countWaste).toFixed(1) : '0';
-        return { byStatus, qtyByStatus, totalQty, totalDrafts, totalPublished, avgWaste: Number(avgWaste) };
-    }, [models]);
-
-    const statusColors: Record<string, string> = {
-        'EN_PREPARATION': 'bg-slate-400',
-        'EN_COURS': 'bg-blue-500',
-        'SOUS_TRAITANCE': 'bg-purple-500',
-        'VALIDE': 'bg-emerald-500',
-        'REJETE': 'bg-rose-500',
-    };
-
-    const maxCount = Math.max(...Object.values(stats.byStatus), 1);
-
-    // Donut chart data
-    const donutTotal = models.length || 1;
-    const donutSegments = Object.entries(statusMap).map(([key, config]: [string, any]) => ({
-        key,
-        label: config.label,
-        count: stats.byStatus[key] || 0,
-        color: statusColors[key] || 'bg-slate-400',
-        pct: ((stats.byStatus[key] || 0) / donutTotal) * 100,
-    }));
-
-    let cumulativePct = 0;
-    const conicGradient = donutSegments.map(s => {
-        const start = cumulativePct;
-        cumulativePct += s.pct;
-        const colorVar = s.key === 'EN_PREPARATION' ? '#94a3b8' : s.key === 'EN_COURS' ? '#3b82f6' : s.key === 'SOUS_TRAITANCE' ? '#a855f7' : s.key === 'VALIDE' ? '#10b981' : '#f43f5e';
-        return `${colorVar} ${start}% ${cumulativePct}%`;
-    }).join(', ');
-
-    return (
-        <div className="p-4 md:p-6 w-full max-w-[1920px] mx-auto space-y-4">
-            {/* Top stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatCard label={tx(lang, { fr: 'Total Ordres', ar: 'إجمالي الأوامر', en: 'Total Orders', es: 'Total Órdenes', pt: 'Total Ordens', tr: 'Toplam Emirler' })} value={models.length} icon={Layers} color="bg-slate-900" />
-                <StatCard label={tx(lang, { fr: 'Brouillons', ar: 'مسودات', en: 'Drafts', es: 'Borradores', pt: 'Rascunhos', tr: 'Taslaklar' })} value={stats.totalDrafts} icon={FileText} color="bg-amber-500" />
-                <StatCard label={tx(lang, { fr: 'Publiés', ar: 'منشور', en: 'Published', es: 'Publicados', pt: 'Publicados', tr: 'Yayınlanan' })} value={stats.totalPublished} icon={CheckCircle2} color="bg-emerald-500" />
-                <StatCard label={tx(lang, { fr: 'Total Pièces', ar: 'إجمالي القطع', en: 'Total Pieces', es: 'Total Piezas', pt: 'Total Peças', tr: 'Toplam Adet' })} value={stats.totalQty} icon={PackageSearch} color="bg-indigo-500" />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Donut chart */}
-                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 md:p-6">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Target className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
-                        <h3 className="text-[14px] font-semibold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Répartition', ar: 'التوزيع', en: 'Distribution', es: 'Distribución', pt: 'Distribuição', tr: 'Dağılım' })}</h3>
-                    </div>
-                    <div className="flex items-center justify-center gap-6">
-                        <div
-                            className="w-32 h-32 rounded-full relative flex items-center justify-center"
-                            style={{ background: `conic-gradient(${conicGradient || '#e2e8f0 0% 100%'})` }}
-                        >
-                            <div className="w-20 h-20 bg-white dark:bg-dk-surface rounded-full flex items-center justify-center flex-col">
-                                <span className="text-xl font-bold text-slate-800 dark:text-dk-text">{models.length}</span>
-                                <span className="text-[9px] text-slate-400 dark:text-dk-muted font-bold uppercase">{tx(lang, { fr: 'Ordres', ar: 'أوامر', en: 'Orders', es: 'Órdenes', pt: 'Ordens', tr: 'Emirler' })}</span>
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            {donutSegments.filter(s => s.count > 0).map(s => (
-                                <div key={s.key} className="flex items-center gap-2">
-                                    <span className={`w-2.5 h-2.5 rounded-full ${s.color}`} />
-                                    <span className="text-[11px] font-semibold text-slate-600 dark:text-dk-text-soft w-24">{s.label}</span>
-                                    <span className="text-[11px] font-bold text-slate-800 dark:text-dk-text">{s.count}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Avg waste + Production qty */}
-                <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 md:p-6">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Zap className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-                        <h3 className="text-[14px] font-semibold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Performance', ar: 'الأداء', en: 'Performance', es: 'Rendimiento', pt: 'Desempenho', tr: 'Performans' })}</h3>
-                    </div>
-                    <div className="space-y-4">
-                        <div>
-                            <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-[11px] font-semibold text-slate-500 dark:text-dk-muted">{tx(lang, { fr: 'Taux de chute moyen', ar: 'متوسط نسبة الفاقد', en: 'Avg waste rate', es: 'Tasa de desperdicio media', pt: 'Taxa de desperdício média', tr: 'Ort. fire oranı' })}</span>
-                                <span className={`text-[13px] font-bold ${stats.avgWaste > 10 ? 'text-rose-600 dark:text-rose-400' : stats.avgWaste > 5 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                    {stats.avgWaste}%
-                                </span>
-                            </div>
-                            <div className="h-2 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full transition-all ${stats.avgWaste > 10 ? 'bg-rose-500' : stats.avgWaste > 5 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                                    style={{ width: `${Math.min(stats.avgWaste * 5, 100)}%` }}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Qty by status */}
-                        <div>
-                            <span className="text-[11px] font-semibold text-slate-500 dark:text-dk-muted block mb-2">{tx(lang, { fr: 'Production par statut', ar: 'الإنتاج حسب الحالة', en: 'Production by status', es: 'Producción por estado', pt: 'Produção por status', tr: 'Duruma göre üretim' })}</span>
-                            <div className="space-y-2">
-                                {Object.entries(stats.qtyByStatus).map(([key, qty]) => {
-                                    const maxQty = Math.max(...Object.values(stats.qtyByStatus), 1);
-                                    return (
-                                        <div key={key} className="flex items-center gap-2">
-                                            <span className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted w-16 truncate">{(statusMap[key] as any)?.label || key}</span>
-                                            <div className="flex-1 h-2 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">
-                                                <div
-                                                    className={`h-full rounded-full transition-all ${statusColors[key] || 'bg-slate-400'}`}
-                                                    style={{ width: `${((qty as number) / maxQty) * 100}%` }}
-                                                />
-                                            </div>
-                                            <span className="text-[10px] font-bold text-slate-700 dark:text-dk-text-soft w-12 text-right">{(qty as number).toLocaleString()}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Detailed status bars */}
-            <div className="bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border p-4 md:p-6">
-                <div className="flex items-center gap-2 mb-4">
-                    <BarChart3 className="w-4 h-4 text-slate-400 dark:text-dk-muted" />
-                    <h3 className="text-[14px] font-semibold text-slate-800 dark:text-dk-text">{tx(lang, { fr: 'Détail par Statut', ar: 'تفاصيل حسب الحالة', en: 'Detail by Status', es: 'Detalle por Estado', pt: 'Detalhe por Status', tr: 'Duruma Göre Detay' })}</h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-                    {Object.entries(statusMap).map(([key, config]: [string, any]) => {
-                        const count = stats.byStatus[key] || 0;
-                        const pct = models.length > 0 ? ((count / models.length) * 100).toFixed(0) : '0';
-                        const Icon = config.icon;
-                        return (
-                            <div key={key} className="bg-slate-50 dark:bg-dk-bg rounded-lg p-3 text-center border border-slate-100 dark:border-dk-border">
-                                <div className={`w-8 h-8 ${statusColors[key]} rounded-lg flex items-center justify-center mx-auto mb-2`}>
-                                    <Icon className="w-4 h-4 text-white" />
-                                </div>
-                                <div className="text-lg font-bold text-slate-800 dark:text-dk-text">{count}</div>
-                                <div className="text-[10px] font-semibold text-slate-500 dark:text-dk-muted mt-0.5">{config.label}</div>
-                                <div className="text-[9px] font-bold text-slate-400 dark:text-dk-muted mt-0.5">{pct}%</div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function StatCard({ label, value, icon: Icon, color, delay }: {
-    label: string;
-    value: number | string;
-    icon: any;
-    color: string;
-    delay?: number;
-}) {
-    return (
-        <div
-            className="bg-white dark:bg-dk-surface rounded-lg sm:rounded-xl border border-slate-200 dark:border-dk-border p-2.5 sm:p-4 hover:shadow-md dark:hover:shadow-dk-md transition-all duration-200 hover:border-slate-300 group min-w-0"
-            style={{ animation: 'coupe-fade-in 300ms ease-out forwards', animationDelay: `${delay || 0}ms`, opacity: 0 }}
-        >
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2 gap-1">
-                <span className="text-[8px] sm:text-[10px] font-bold text-slate-400 dark:text-dk-muted uppercase tracking-wide truncate">{label}</span>
-                <div className={`w-6 h-6 sm:w-8 sm:h-8 shrink-0 ${color} rounded-md sm:rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                    <Icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                </div>
-            </div>
-            <div className="text-base sm:text-2xl font-bold text-slate-800 dark:text-dk-text tabular-nums truncate">{typeof value === 'number' ? value.toLocaleString() : value}</div>
         </div>
     );
 }
@@ -4888,7 +4443,7 @@ function EmptyDashboard({
                             const st = m.ordreCoupe?.status || 'EN_PREPARATION';
                             const conf = statusMap[st] || statusMap['EN_PREPARATION'];
                             const Icon = conf.icon;
-                            const qte = m.ordreCoupe?.qteTotale || m.meta_data?.quantity || 0;
+                            const qte = commandeDe(m);
                             const progress = getProgress(m);
                             const ref = m.ordreCoupe?.refModele || '';
                             return (
