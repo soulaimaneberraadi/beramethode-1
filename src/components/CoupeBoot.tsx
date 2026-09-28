@@ -105,6 +105,10 @@ export default function CoupeBoot() {
                 body: JSON.stringify({ entreprise: nom }),
             });
             const data = await res.json().catch(() => null) as { ok?: boolean; user?: any; message?: string } | null;
+            // Deja cree (un autre poste, ou une fenetre restee ouverte) : on entre, on ne recree rien.
+            if (res.status === 409) {
+                if (await tenterSessionSilencieuse()) return;
+            }
             if (!res.ok || !data?.ok || !data.user) {
                 throw new Error(data?.message || 'setup failed');
             }

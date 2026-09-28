@@ -85,16 +85,16 @@ def b_de_beramethode():
     return [[tr(p) for p in s] for s in lire_chemin(d)], (730.34155 * 1.291906 - 512.65149) * 0.24 * 1.3333333 * VUE / 500
 
 # ------------------------------------------------------------------ C rouge
-# Le C : un anneau incline exactement comme la barre verte de BERAMETHODE,
-# tranche a droite par une droite parallele a la coupe du B (le meme geste de
-# coupe que le logo d'origine), bouche ouverte vers le B.
+# Le C : dos arrondi, deux bras droits qui filent jusqu'au B, le tout incline
+# exactement comme la barre verte de BERAMETHODE ; les deux bras sont tranches
+# par une droite parallele a la coupe du B (le meme geste de coupe que le logo
+# d'origine). Dessin voulu par Soulaimane : un C « qui tient » le B.
 PENTE = 0.379                 # inclinaison de la barre de BERAMETHODE (dx/dy)
 HAUT, BAS = 58.0, 205.0
 CY, RY = (HAUT + BAS) / 2, (BAS - HAUT) / 2
-CX, RX = 84.0, 64.0           # centre et demi-largeur exterieure
+CX, RX = 80.0, 62.0           # centre du dos arrondi et demi-largeur exterieure
 EP_X, EP_Y = 35.0, 31.0       # epaisseur du trait (comme la barre et le B)
 ECART = 10.0                  # air entre le C et la coupe du B
-BOUCHE = 18.0                 # demi-hauteur de l'ouverture
 COUPE_B = 121.0               # a gauche : l'ancienne barre du trace d'origine, ecartee
 
 def bord_b(y):
@@ -104,15 +104,21 @@ def bord_b(y):
 def cisaille(x, y):
     return (x + (CY - y) * PENTE, y)
 
-def ellipse(rx, ry, n=720):
+def stade(rx, ry, haut, bas, n=180):
+    """Demi-ellipse a gauche + bande droite vers la droite (hors champ), cisaillee."""
     import math
-    return [cisaille(CX + rx * math.cos(2 * math.pi * i / n), CY - ry * math.sin(2 * math.pi * i / n)) for i in range(n)]
+    pts = [(CX + rx * math.cos(math.radians(90 + 180 * i / n)), CY - ry * math.sin(math.radians(90 + 180 * i / n))) for i in range(n + 1)]
+    pts += [(VUE * 2, bas), (VUE * 2, haut)]
+    return [cisaille(x, y) for x, y in pts]
+
+def exterieur():
+    return stade(RX, RY, HAUT, BAS)
+
+def interieur():
+    return stade(RX - EP_X, RY - EP_Y, HAUT + EP_Y, BAS - EP_Y)
 
 def zone_gauche():
     return [(0, 0), (bord_b(0) - ECART, 0), (bord_b(VUE) - ECART, VUE), (0, VUE)]
-
-def bouche():
-    return [(CX + BOUCHE * PENTE, CY - BOUCHE), (VUE, CY - BOUCHE), (VUE, CY + BOUCHE), (CX - BOUCHE * PENTE, CY + BOUCHE)]
 
 # ------------------------------------------------------------------ rendu
 def rendu(taille, fond=True):
@@ -138,9 +144,8 @@ def rendu(taille, fond=True):
     # C
     mc = Image.new('L', (M, M), 0)
     d = ImageDraw.Draw(mc)
-    d.polygon(pt(ellipse(RX, RY)), fill=255)
-    d.polygon(pt(ellipse(RX - EP_X, RY - EP_Y)), fill=0)
-    d.polygon(pt(bouche()), fill=0)
+    d.polygon(pt(exterieur()), fill=255)
+    d.polygon(pt(interieur()), fill=0)
     gauche = Image.new('L', (M, M), 0)
     ImageDraw.Draw(gauche).polygon(pt(zone_gauche()), fill=255)
     mc = ImageChops.multiply(mc, gauche)
@@ -151,15 +156,14 @@ def svg():
     sous, _ = b_de_beramethode()
     chemin_b = ' '.join('M' + ' L'.join(f'{x:.2f},{y:.2f}' for x, y in sp) + ' Z' for sp in sous)
     poly = lambda pts: ' '.join(f'{x:.2f},{y:.2f}' for x, y in pts)
-    anneau = ('M' + ' L'.join(f'{x:.2f},{y:.2f}' for x, y in ellipse(RX, RY, 180)) + ' Z '
-              + 'M' + ' L'.join(f'{x:.2f},{y:.2f}' for x, y in ellipse(RX - EP_X, RY - EP_Y, 180)) + ' Z')
+    forme_c = ('M' + ' L'.join(f'{x:.2f},{y:.2f}' for x, y in exterieur()) + ' Z '
+               + 'M' + ' L'.join(f'{x:.2f},{y:.2f}' for x, y in interieur()) + ' Z')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {VUE} {VUE}" width="512" height="512">'
             f'<defs><clipPath id="b"><rect x="{COUPE_B}" y="0" width="{VUE}" height="{VUE}"/></clipPath>'
-            f'<clipPath id="g"><polygon points="{poly(zone_gauche())}"/></clipPath>'
-            f'<mask id="o"><rect width="{VUE}" height="{VUE}" fill="#fff"/><polygon points="{poly(bouche())}" fill="#000"/></mask></defs>'
+            f'<clipPath id="g"><polygon points="{poly(zone_gauche())}"/></clipPath></defs>'
             f'<rect width="{VUE}" height="{VUE}" rx="{VUE * 0.22:.1f}" fill="#fff"/>'
             f'<path d="{chemin_b}" fill="#000" fill-rule="evenodd" clip-path="url(#b)"/>'
-            f'<g clip-path="url(#g)"><path d="{anneau}" fill="#DC2626" fill-rule="evenodd" mask="url(#o)"/></g></svg>')
+            f'<g clip-path="url(#g)"><path d="{forme_c}" fill="#DC2626" fill-rule="evenodd"/></g></svg>')
 
 if __name__ == '__main__':
     if '--apercu' in sys.argv:

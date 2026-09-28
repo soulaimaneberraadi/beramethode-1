@@ -1388,12 +1388,19 @@ export const startCloudSync = (userId: string) => {
   // IMPORTANT: on n'utilise PAS postgres_changes (décodage WAL du blob ~2 Mo)
   // qui saturait la base free-tier jusqu'au crash.
   if (syncChannel) syncChannel.unsubscribe();
-  syncChannel = supabase
-    .channel(`bera_sync_${userId}`, { config: { broadcast: { self: false } } })
-    .on('broadcast', { event: 'updated' }, () => {
-      if (!isApplyingRemote) void recupererApresAvoirEnvoye();
-    })
-    .subscribe();
+  // Le navigateur peut refuser le WebSocket (page http sur le reseau local) :
+  // le pull de secours ci-dessus prend alors le relais, la page reste debout.
+  try {
+    syncChannel = supabase
+      .channel(`bera_sync_${userId}`, { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'updated' }, () => {
+        if (!isApplyingRemote) void recupererApresAvoirEnvoye();
+      })
+      .subscribe();
+  } catch (e) {
+    syncChannel = null;
+    console.warn('[cloudSync] temps reel indisponible, pull periodique seul :', e);
+  }
 };
 
 export const stopCloudSync = () => {

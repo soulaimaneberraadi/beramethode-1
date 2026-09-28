@@ -240,9 +240,16 @@ export const markTicketReadByUser = async (ticketId: string): Promise<void> => {
 
 /** Écoute les réponses du master pour ce worker. Retourne une fonction de désinscription. */
 export const subscribeUserSupport = (userId: string, onPing: () => void): (() => void) => {
-  const ch = supabase.channel(userChannel(userId));
-  ch.on('broadcast', { event: SUPPORT_EVENT }, () => onPing()).subscribe();
-  return () => { try { supabase.removeChannel(ch); } catch { /* ignore */ } };
+  // Page servie en http sur le reseau local (telephone de l'atelier) : le
+  // navigateur peut refuser le WebSocket (« The operation is insecure »). Le
+  // support n'est alors pas en direct, mais la page ne doit pas tomber.
+  try {
+    const ch = supabase.channel(userChannel(userId));
+    ch.on('broadcast', { event: SUPPORT_EVENT }, () => onPing()).subscribe();
+    return () => { try { supabase.removeChannel(ch); } catch { /* ignore */ } };
+  } catch {
+    return () => { /* rien a fermer */ };
+  }
 };
 
 // ─── Aide UI : ticket non lu côté worker ───────────────────────────────────────

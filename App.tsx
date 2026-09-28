@@ -430,9 +430,13 @@ export default function App() {
     const COUPE_ALLOWED_VIEWS = ['library', 'coupe', 'config'];
     const coupeHidden = IS_COUPE ? defaultNavOrder.filter(v => !COUPE_ALLOWED_VIEWS.includes(v)) : [];
     const allExtraHidden = coupeHidden.length ? [...new Set([...extraHidden, ...coupeHidden])] : extraHidden;
-    const effectiveNavConfig = allExtraHidden.length
-        ? { ...navConfig, hidden: [...new Set([...navConfig.hidden, ...allExtraHidden])] }
-        : navConfig;
+    const effectiveNavConfig = IS_COUPE
+        // BERACOUPE n'a que trois pages : pas de categories deroulantes, trois
+        // onglets directs (La Coupe d'abord), sans le bouton Admin.
+        ? { ...navConfig, style: 'flat' as const, order: ['coupe', 'library', 'config'], hidden: [...new Set([...navConfig.hidden.filter(v => COUPE_ALLOWED_VIEWS.includes(v) === false), ...allExtraHidden, 'admin'])] }
+        : allExtraHidden.length
+            ? { ...navConfig, hidden: [...new Set([...navConfig.hidden, ...allExtraHidden])] }
+            : navConfig;
 
 
     const [routeTokens, setRouteTokens] = useState<string[]>([]);

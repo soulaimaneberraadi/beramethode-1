@@ -398,7 +398,25 @@ async function createWindow(port: number) {
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
+// Un seul programme a la fois : deux copies ouvraient chacune un serveur sur la
+// meme base, sur deux ports differents — et la fenetre de la seconde repartait
+// sur une autre adresse, sans ce qu'on venait de saisir. Relancer ramene donc
+// la fenetre deja ouverte au premier plan.
+const verrou = app.requestSingleInstanceLock();
+if (!verrou) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 app.whenReady().then(async () => {
+  if (!verrou) return;
   // Désactiver le menu natif pour un look premium et moderne
   Menu.setApplicationMenu(null);
   nettoyerGlisser();

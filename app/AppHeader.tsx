@@ -424,11 +424,14 @@ export default function AppHeader({
 
                     {/* Une copie hors ligne ne doit jamais passer pour l'etat du
                         jour. A cote de la synchro, pas en travers du contenu. */}
-                    <BandeauHorsLigne />
+                    {/* BERACOUPE est local, sans nuage ni support en ligne : ces trois
+                        pieces ouvraient un WebSocket Supabase qui fait tomber la page
+                        sur un telephone du reseau local (http). */}
+                    {!IS_COUPE && <BandeauHorsLigne />}
 
-                    <SyncIndicator />
+                    {!IS_COUPE && <SyncIndicator />}
 
-                    <SupportWidget user={user} />
+                    {!IS_COUPE && <SupportWidget user={user} />}
 
                     {/* User Profile - Compact */}
                     <button

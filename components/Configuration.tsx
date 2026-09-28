@@ -173,14 +173,28 @@ export default function Configuration({ settings, setSettings, lang, machines, n
             setSettings(merged); // applique le brouillon fusionné au reste de l'app
             touchedKeysRef.current.clear();
             setIsDirty(false);
-            setShowSaveToast(true);
-            setTimeout(() => setShowSaveToast(false), 3000);
+            setErreurSave(false);
         } catch (e) {
             console.error('Erreur sauvegarde settings:', e);
+            setErreurSave(true);
         } finally {
             setIsSaving(false);
         }
     };
+
+    /*
+     * Enregistrement automatique : plus de bouton « Enregistrer » qu'on oublie.
+     * Chaque modification part une demi-seconde apres la derniere frappe, avec
+     * la meme fusion par cles touchees (rien d'ecrase de ce que l'Admin change).
+     */
+    const [erreurSave, setErreurSave] = useState(false);
+    const saveRef = React.useRef(handleSave);
+    saveRef.current = handleSave;
+    React.useEffect(() => {
+        if (!isDirty) return;
+        const t = setTimeout(() => { saveRef.current(); }, 600);
+        return () => clearTimeout(t);
+    }, [draft, isDirty]);
 
     React.useEffect(() => {
         const handleOpenAgenda = () => {
@@ -210,26 +224,20 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                     <div>
                         <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-dk-text tracking-tight">{t.title}</h1>
                         <p className="text-xs sm:text-sm text-slate-500 dark:text-dk-muted font-medium mt-1">{t.desc}</p>
-                        {isDirty && !isSaving && (
-                            <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                {tx(lang, { fr: 'Modifications non enregistrées', ar: 'تعديلات غير محفوظة', en: 'Unsaved changes', es: 'Cambios sin guardar', pt: 'Alterações não guardadas', tr: 'Kaydedilmemiş değişiklikler' })}
-                            </p>
-                        )}
                     </div>
                 </div>
-                <button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 sm:px-8 py-3 bg-indigo-600 dark:bg-dk-accent hover:bg-indigo-700 dark:hover:bg-dk-accent-hover disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all shadow-lg dark:shadow-dk-lg shadow-indigo-600/30 active:scale-95 group relative overflow-hidden">
-                    <span className="absolute inset-0 w-full h-full bg-white/20 dark:bg-dk-surface/20 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></span>
-                    {isSaving ? (
-                        <Loader2 className="w-5 h-5 relative z-10 animate-spin" />
+                <span
+                    className={`shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[11px] font-semibold border ${erreurSave ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300' : isSaving || isDirty ? 'bg-slate-50 dark:bg-dk-bg border-slate-200 dark:border-dk-border text-slate-500 dark:text-dk-muted' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'}`}
+                    aria-live="polite"
+                >
+                    {erreurSave ? (
+                        <><X className="w-3.5 h-3.5" />{tx(lang, { fr: 'Non enregistré — réessai à la prochaine modification', ar: 'لم يُحفظ — سيُعاد عند التعديل التالي', en: 'Not saved — retried on next change' })}</>
+                    ) : isSaving || isDirty ? (
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" />{tx(lang, { fr: 'Enregistrement…', ar: 'جارٍ الحفظ…', en: 'Saving…' })}</>
                     ) : (
-                        <Save className="w-5 h-5 relative z-10 group-hover:scale-110 transition-transform" />
+                        <><CheckCircle className="w-3.5 h-3.5" />{tx(lang, { fr: 'Enregistré automatiquement', ar: 'يُحفظ تلقائياً', en: 'Saved automatically' })}</>
                     )}
-                    <span className="relative z-10">{isSaving ? '...' : t.save}</span>
-                    {isDirty && !isSaving && (
-                        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                    )}
-                </button>
+                </span>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 w-full">
@@ -247,6 +255,7 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                             {/* Les horaires (heures, jours ouvrables, pauses + exceptions par jour comme le
                                 vendredi) ne s'éditent plus ici : un seul endroit, pour ne plus jamais avoir
                                 deux brouillons qui s'écrasent l'un l'autre. */}
+                            {!IS_COUPE && (<>
                             <p className="text-xs text-slate-500 dark:text-dk-muted bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl px-4 py-3">
                                 {tx(lang, {
                                     fr: 'Les horaires de travail (heures, jours ouvrables, pauses) se règlent désormais uniquement dans Admin → Paramètres entreprise.',
@@ -383,11 +392,12 @@ export default function Configuration({ settings, setSettings, lang, machines, n
                                     );
                                 })()}
                             </div>
+                            </>)}
 
                             <div className="mt-auto pt-4 border-t border-slate-100 dark:border-dk-border">
                                 <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20 text-indigo-700 dark:text-dk-accent-text p-4 rounded-xl text-sm font-medium border border-indigo-100 flex items-start gap-3">
                                     <Settings className="w-5 h-5 shrink-0 mt-0.5" />
-                                    <p>{tx(lang, { fr: "L'apparence et la langue s'appliquent instantanément. Les paramètres d'entreprise (devise, coût minute, horaires, structure) sont désormais dans la page Admin.", ar: 'المظهر واللغة يُطبَّقان فوراً. إعدادات الشركة (العملة، تكلفة الدقيقة، أوقات العمل، الهيكلة) أصبحت في صفحة المشرف.', en: 'Appearance and language apply instantly. Company settings (currency, cost/minute, working hours, structure) are now in the Admin page.', es: 'La apariencia y el idioma se aplican al instante. Los ajustes de empresa (moneda, coste/minuto, horarios, estructura) están ahora en la página de Admin.', pt: 'A aparência e o idioma aplicam-se instantaneamente. As definições da empresa (moeda, custo/minuto, horários, estrutura) estão agora na página de Admin.', tr: 'Görünüm ve dil anında uygulanır. Şirket ayarları (para birimi, dakika maliyeti, çalışma saatleri, yapı) artık Admin sayfasında.' })}</p>
+                                    <p>{IS_COUPE ? tx(lang, { fr: "Tout s'enregistre tout seul et s'applique tout de suite, sur ce poste et sur les appareils du réseau local.", ar: 'كل شيء يُحفظ تلقائياً ويُطبَّق فوراً، على هذا الجهاز وعلى أجهزة الشبكة المحلية.', en: 'Everything saves by itself and applies at once, on this PC and on local-network devices.' }) : tx(lang, { fr: "L'apparence et la langue s'appliquent instantanément. Les paramètres d'entreprise (devise, coût minute, horaires, structure) sont désormais dans la page Admin.", ar: 'المظهر واللغة يُطبَّقان فوراً. إعدادات الشركة (العملة، تكلفة الدقيقة، أوقات العمل، الهيكلة) أصبحت في صفحة المشرف.', en: 'Appearance and language apply instantly. Company settings (currency, cost/minute, working hours, structure) are now in the Admin page.', es: 'La apariencia y el idioma se aplican al instante. Los ajustes de empresa (moneda, coste/minuto, horarios, estructura) están ahora en la página de Admin.', pt: 'A aparência e o idioma aplicam-se instantaneamente. As definições da empresa (moeda, custo/minuto, horários, estrutura) estão agora na página de Admin.', tr: 'Görünüm ve dil anında uygulanır. Şirket ayarları (para birimi, dakika maliyeti, çalışma saatleri, yapı) artık Admin sayfasında.' })}</p>
                                 </div>
                             </div>
                         </div>
