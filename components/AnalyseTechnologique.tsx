@@ -308,22 +308,25 @@ export default function AnalyseTechnologique({
                 <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-3">
                     <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang, { fr: 'Ouvriers', ar: 'العمال', en: 'Workers', es: 'Obreros', pt: 'Trabalhadores', tr: 'İşçiler' })}</span>
                     <input
-                        type="number" 
-                        min="1" 
-                        value={Math.round(numWorkers)} 
-                        onChange={(e) => setNumWorkers(Math.max(1, Math.round(Number(e.target.value))))} 
-                        className="w-12 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft outline-none text-sm p-0" 
+                        type="number"
+                        min="1"
+                        value={numWorkers || ''}
+                        placeholder="1"
+                        onChange={(e) => { const v = e.target.value; setNumWorkers(v === '' ? 0 : Math.round(Number(v))); }}
+                        onBlur={() => setNumWorkers(prev => Math.max(1, Math.round(prev) || 1))}
+                        className="w-12 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft outline-none text-sm p-0"
                     />
                 </div>
                 <div className="flex flex-col items-center">
                     <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang, { fr: 'Heures', ar: 'الساعات', en: 'Hours', es: 'Horas', pt: 'Horas', tr: 'Saat' })}</span>
                     <input
-                        type="number" 
-                        min="0" 
-                        step="0.5" 
-                        value={presenceTime / 60} 
-                        onChange={(e) => setPresenceTime(Math.max(0, Number(e.target.value)) * 60)} 
-                        className="w-10 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft outline-none text-sm p-0" 
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={presenceTime / 60 || ''}
+                        placeholder="0"
+                        onChange={(e) => { const v = e.target.value; setPresenceTime(v === '' ? 0 : Math.max(0, Number(v)) * 60); }}
+                        className="w-10 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft outline-none text-sm p-0"
                     />
                 </div>
             </div>
@@ -350,12 +353,14 @@ export default function AnalyseTechnologique({
             <div className="flex flex-col items-center px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/50 rounded-lg border border-indigo-100 shrink-0">
                 <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang, { fr: '% Rendu', ar: 'الإنتاجية %', en: 'Efficiency %', es: '% Rendimiento', pt: '% Rendimento', tr: 'Verim %' })}</span>
                 <div className="flex items-baseline gap-0.5">
-                    <input 
-                        type="number" 
-                        min="1" max="100" 
-                        value={efficiency} 
-                        onChange={(e) => setEfficiency(Math.max(1, Math.min(100, Number(e.target.value))))} 
-                        className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-sm border-b border-indigo-200 p-0" 
+                    <input
+                        type="number"
+                        min="1" max="100"
+                        value={efficiency || ''}
+                        placeholder="100"
+                        onChange={(e) => { const v = e.target.value; setEfficiency(v === '' ? 0 : Number(v)); }}
+                        onBlur={() => setEfficiency(prev => Math.max(1, Math.min(100, prev || 100)))}
+                        className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-sm border-b border-indigo-200 p-0"
                     />
                     <span className="text-[10px] font-bold text-indigo-400">%</span>
                 </div>

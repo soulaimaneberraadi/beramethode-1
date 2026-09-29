@@ -1223,7 +1223,7 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                         companyLogo={companyLogo}
                         baseTime={baseTime} cutTime={cutTime} packTime={packTime}
                         totalTime={totalTime} settings={settings}
-                        materials={materials} laborCost={laborCost}
+                        materials={materials} totalMaterials={totalMaterials} laborCost={laborCost}
                         costPrice={costPrice} sellPriceHT={sellPriceHT}
                         sellPriceTTC={sellPriceTTC} boutiquePrice={boutiquePrice}
                         orderQty={orderQty} wasteRate={wasteRate}
@@ -1653,7 +1653,7 @@ ${tx(lang, {fr: "NON déduit (absent du magasin)", ar: "لم يُخصم (غير 
                                             companyLogo={companyLogo}
                                             baseTime={baseTime} cutTime={cutTime} packTime={packTime}
                                             totalTime={totalTime} settings={settings}
-                                            materials={materials} laborCost={laborCost}
+                                            materials={materials} totalMaterials={totalMaterials} laborCost={laborCost}
                                             costPrice={costPrice} sellPriceHT={sellPriceHT}
                                             sellPriceTTC={sellPriceTTC} boutiquePrice={boutiquePrice}
                                             orderQty={orderQty} wasteRate={wasteRate}

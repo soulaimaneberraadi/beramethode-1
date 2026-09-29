@@ -6,6 +6,7 @@ import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 import { fmt } from '../app/constants';
 import SheetModal from './shared/SheetModal';
+import NumberInput from './ui/NumberInput';
 
 interface MaterialsListProps {
     t: any;
@@ -505,8 +506,8 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                     <div className="grid grid-cols-3 gap-2 mb-1.5">
                         <div className="min-w-0">
                             <label className="text-[9px] sm:text-[10px] text-slate-500 dark:text-dk-muted uppercase mb-0.5 block font-medium">{tx(lang, {fr:'Prix',ar:'السعر',en:'Price',es:'Precio',pt:'Preço',tr:'Fiyat'})}</label>
-                            <input type="number" inputMode="decimal" min="0" value={item.unitPrice}
-                                onChange={(e) => updateMaterial(item.id, 'unitPrice', e.target.value)}
+                            <NumberInput inputMode="decimal" min={0} value={item.unitPrice}
+                                onValueChange={(n) => updateMaterial(item.id, 'unitPrice', n)}
                                 className={`${inputCls} text-center font-mono text-[13px]`} />
                         </div>
                         <div className="min-w-0">
@@ -519,8 +520,8 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                                     </button>
                                 </div>
                             ) : (
-                                <input type="number" inputMode="decimal" min="0" step="0.001" value={item.qty}
-                                    onChange={(e) => updateMaterial(item.id, 'qty', e.target.value)}
+                                <NumberInput inputMode="decimal" min={0} step="0.001" value={item.qty}
+                                    onValueChange={(n) => updateMaterial(item.id, 'qty', n)}
                                     className={`${inputCls} text-center font-mono text-[13px]`} />
                             )}
                         </div>
@@ -739,8 +740,8 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
 
             {/* PRIX */}
             <td className="px-3 py-1.5 align-middle text-center">
-                <input type="number" min="0" value={item.unitPrice}
-                    onChange={(e) => updateMaterial(item.id, 'unitPrice', e.target.value)}
+                <NumberInput min={0} value={item.unitPrice}
+                    onValueChange={(n) => updateMaterial(item.id, 'unitPrice', n)}
                     className={`${inputCls} text-center font-mono w-20`} />
             </td>
 
@@ -755,8 +756,8 @@ const MaterialRow: React.FC<MaterialRowProps> = ({
                             </button>
                         </div>
                     ) : (
-                        <input type="number" min="0" step="0.001" value={item.qty}
-                            onChange={(e) => updateMaterial(item.id, 'qty', e.target.value)}
+                        <NumberInput min={0} step="0.001" value={item.qty}
+                            onValueChange={(n) => updateMaterial(item.id, 'qty', n)}
                             className={`${inputCls} text-center w-20 font-mono`} />
                     )}
                     <select value={item.unit} onChange={(e) => updateMaterial(item.id, 'unit', e.target.value)}

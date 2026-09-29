@@ -24,6 +24,12 @@ interface CompactCostSheetProps {
     totalTime: number;
     settings: AppSettings;
     materials: Material[];
+    /** Coût matière PAR PIÈCE déjà calculé par CostCalculator (moyenne pondérée
+     *  par couleur quand des matières sont affectées à des couleurs précises).
+     *  Impératif de le recevoir en prop : une re-somme locale de `materials`
+     *  ignore l'affectation par couleur et gonfle le total (double-compte les
+     *  matières scopées à des couleurs différentes). Voir totalMaterials plus bas. */
+    totalMaterials: number;
     laborCost: number;
     costPrice: number;
     sellPriceHT: number;
@@ -56,7 +62,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
     t, currency, productName, displayDate, docRef,
     companyName, companyAddress, companyLegal = '', companyLogo = '',
     baseTime, cutTime, packTime, totalTime, settings,
-    materials, laborCost, costPrice, sellPriceHT, sellPriceTTC, boutiquePrice,
+    materials, totalMaterials, laborCost, costPrice, sellPriceHT, sellPriceTTC, boutiquePrice,
     orderQty, wasteRate, purchasingData, totalPurchasingMatCost,
     productImage, soustraitanceActive = false, stPrix = 0, stMode,
     stFrais = [], stFraisPerPiece = 0, stFraisQty = 0,
@@ -64,8 +70,6 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
 }, ref) => {
     const { lang } = useLang();
     const _ = (m: TxMap) => tx(lang, m);
-
-    const totalMaterials = materials.reduce((acc, m) => acc + m.unitPrice * m.qty, 0);
 
     const threadMats = materials.filter(m => m.unit === 'bobine');
     const otherMats = materials.filter(m => m.unit !== 'bobine');
@@ -75,6 +79,12 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
         const sizeCount = sizes.length;
         const commandeTotal = Object.values(gridQuantities).reduce((acc: number, v) => acc + (Number(v) || 0), 0);
         const factor = commandeTotal > 0 ? (orderQty / commandeTotal) : 1;
+        // Couleurs connues de la fiche : un fil dont le `threadColor` ne correspond
+        // à AUCUNE d'elles (couleur renommée/supprimée après le Calcul Fil) doit
+        // être traité comme une matière globale — sinon il disparaît purement et
+        // simplement de « Achats par PIDIDO » alors qu'il reste dans le budget
+        // total des « Prévisions Achat » juste au-dessus, sur la même page.
+        const knownColorNames = new Set(colors.map(c => c.name));
         const seen = new Set<string>();
         return colors.map(c => {
             if (seen.has(c.id)) return null;
@@ -86,7 +96,7 @@ const CompactCostSheet = forwardRef<HTMLDivElement, CompactCostSheetProps>(({
             const pieces = Math.round(scaled);
             const mats = materials.filter(m => {
                 if (m.scope?.colors?.length) return m.scope.colors.includes(c.id);
-                if (m.threadColor) return m.threadColor === c.name;
+                if (m.threadColor && knownColorNames.has(m.threadColor)) return m.threadColor === c.name;
                 return true;
             }).map(m => {
                 const withWaste = m.qty * scaled * (1 + wasteRate / 100);

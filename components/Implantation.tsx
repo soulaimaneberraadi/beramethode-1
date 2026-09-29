@@ -584,7 +584,9 @@ export default function Implantation({
     const [denseFullscreen, toggleDenseFullscreen] = useSheetFullscreen();
 
     const tolerance = ficheData?.toleranceSaturation ?? 115;
-    const toleranceRatio = tolerance / 100;
+    // Le champ peut etre vide (0) ou a moitie tape (« 1 » avant « 115 ») : le calcul
+    // garde une tolerance valide, sinon ceil(nTheo / 0) = Infinity faisait tomber la page.
+    const toleranceRatio = Math.min(200, Math.max(50, tolerance || 115)) / 100;
 
     // --- CALCULATIONS FOR HEADER ---
     const totalMin = useMemo(() => operations.reduce((sum, op) => sum + (op.time || 0), 0), [operations]);
@@ -2164,6 +2166,13 @@ export default function Implantation({
         return [];
     }, [operations, bf, assignments, postes, isManualMode]);
 
+    // --- ÉTAT VIDE / DÉGÉNÉRÉ : basé sur les temps des opérations, pas sur postes.length ---
+    // (Un poste peut exister avec une opération à 0s — l'équilibrage la place quand même,
+    // cf. lib/equilibrageAuto. L'état vide plein écran ne concerne que le cas où AUCUNE
+    // opération n'a de temps, ou qu'il n'y a aucune opération du tout.)
+    const opsWithoutTimeCount = useMemo(() => operations.filter(op => !(op.time > 0)).length, [operations]);
+    const hasNoTimedOps = operations.length > 0 && opsWithoutTimeCount === operations.length;
+
     const waitingStations = useMemo(() => {
         if (!isManualMode || !postes) return [];
         return postes.filter(p => !p.isPlaced && p.machine !== 'VIDE').map((p, idx) => {
@@ -2783,8 +2792,10 @@ export default function Implantation({
                         <input
                             type="number"
                             min="1"
-                            value={Math.round(numWorkers)}
-                            onChange={(e) => setNumWorkers(Math.max(1, Math.round(Number(e.target.value))))}
+                            value={numWorkers || ''}
+                            placeholder="1"
+                            onChange={(e) => { const v = e.target.value; setNumWorkers(v === '' ? 0 : Math.round(Number(v))); }}
+                            onBlur={() => setNumWorkers(prev => Math.max(1, Math.round(prev) || 1))}
                             className="w-12 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft outline-none text-sm p-0"
                         />
                     </div>
@@ -2794,8 +2805,9 @@ export default function Implantation({
                             type="number"
                             min="0"
                             step="0.5"
-                            value={presenceTime / 60}
-                            onChange={(e) => setPresenceTime(Math.max(0, Number(e.target.value)) * 60)}
+                            value={presenceTime / 60 || ''}
+                            placeholder="0"
+                            onChange={(e) => { const v = e.target.value; setPresenceTime(v === '' ? 0 : Math.max(0, Number(v)) * 60); }}
                             className="w-10 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft outline-none text-sm p-0"
                         />
                     </div>
@@ -2842,8 +2854,10 @@ export default function Implantation({
                         <input
                             type="number"
                             min="1" max="100"
-                            value={efficiency}
-                            onChange={(e) => setEfficiency(Math.max(1, Math.min(100, Number(e.target.value))))}
+                            value={efficiency || ''}
+                            placeholder="100"
+                            onChange={(e) => { const v = e.target.value; setEfficiency(v === '' ? 0 : Number(v)); }}
+                            onBlur={() => setEfficiency(prev => Math.max(1, Math.min(100, prev || 100)))}
                             className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-sm border-b border-indigo-200 p-0"
                         />
                         <span className="text-[10px] font-bold text-indigo-400">%</span>
@@ -2858,8 +2872,10 @@ export default function Implantation({
                             <input
                                 type="number"
                                 min="50" max="200"
-                                value={tolerance}
-                                onChange={(e) => setFicheData(prev => ({ ...prev, toleranceSaturation: Math.max(50, Math.min(200, Number(e.target.value))) }))}
+                                value={tolerance || ''}
+                                placeholder="115"
+                                onChange={(e) => { const v = e.target.value; setFicheData(prev => ({ ...prev, toleranceSaturation: v === '' ? 0 : Number(v) })); }}
+                                onBlur={() => setFicheData(prev => ({ ...prev, toleranceSaturation: Math.max(50, Math.min(200, prev.toleranceSaturation || 115)) }))}
                                 className="w-10 text-center bg-transparent font-black text-rose-600 dark:text-rose-400 outline-none text-sm border-b border-rose-200 p-0"
                             />
                             <span className="text-[10px] font-bold text-rose-400">%</span>
@@ -2911,7 +2927,7 @@ export default function Implantation({
                     {/* TOOLBAR & CONTROLS (Hidden in ReadOnly) */}
                     {!readOnly && (
                         <>
-                            <div className="bg-slate-50 dark:bg-dk-bg/80 rounded-2xl border-2 border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-2.5 flex flex-wrap items-center gap-2 shrink-0 z-30 mb-2 mt-4 relative max-w-full overflow-hidden">
+                            <div className="bg-slate-50 dark:bg-dk-bg/80 rounded-2xl border-2 border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm p-2.5 flex flex-nowrap items-center gap-2 shrink-0 z-30 mb-2 mt-4 relative max-w-full overflow-x-auto no-scrollbar overscroll-x-contain touch-pan-x">
                                 {/* Mode Toggle */}
                                 <div className="flex bg-slate-100 dark:bg-dk-elevated p-0.5 rounded-lg border border-slate-200 dark:border-dk-border">
                                     <button onClick={activateAutoMode} className={`flex items-center justify-center px-3 py-1.5 rounded-md font-bold transition-all text-xs ${!isManualMode ? 'bg-emerald-500 text-white shadow-sm dark:shadow-dk-sm' : 'text-slate-500 hover:text-slate-800'}`}>
@@ -2988,6 +3004,11 @@ export default function Implantation({
                                     <span>{tx(lang,{fr:'postes',ar:'محطات',en:'stations',es:'puestos',pt:'postos',tr:'istasyon'})}</span>
                                     {isManualMode && waitingStations.length > 0 && (
                                         <span className="text-amber-500 ml-0.5">({waitingStations.length} {tx(lang,{fr:'en attente',ar:'بالانتظار',en:'waiting',es:'en espera',pt:'à espera',tr:'bekleyen'})})</span>
+                                    )}
+                                    {opsWithoutTimeCount > 0 && (
+                                        <span className="flex items-center gap-1 text-amber-500 ml-0.5" title={tx(lang,{fr:`${opsWithoutTimeCount} opération(s) sans temps (0s)`,ar:`${opsWithoutTimeCount} عملية بدون وقت (0 ثانية)`,en:`${opsWithoutTimeCount} operation(s) with no time (0s)`,es:`${opsWithoutTimeCount} operación(es) sin tiempo (0s)`,pt:`${opsWithoutTimeCount} operação(ões) sem tempo (0s)`,tr:`${opsWithoutTimeCount} operasyonda süre yok (0sn)`})}>
+                                            <AlertCircle className="w-3 h-3" /> {opsWithoutTimeCount}
+                                        </span>
                                     )}
                                 </div>
 
@@ -3215,6 +3236,23 @@ export default function Implantation({
                                     cursor: isPanning ? 'grabbing' : (isSpacePressed ? 'grab' : 'default')
                                 }}
                             />
+
+                            {/* ÉTAT VIDE : aucune opération, ou aucune n'a de temps chronométré */}
+                            {(operations.length === 0 || hasNoTimedOps) && (
+                                <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 px-6 text-center pointer-events-none">
+                                    <AlertCircle className="w-7 h-7 text-slate-400 dark:text-dk-muted" />
+                                    <p className="text-sm font-bold text-slate-600 dark:text-dk-text-soft max-w-md">
+                                        {operations.length === 0
+                                            ? tx(lang,{fr:'Aucune opération dans la Gamme',ar:'لا توجد عملية في المسار',en:'No operation in the routing',es:'Ninguna operación en la gama',pt:'Nenhuma operação na gama',tr:'Rota içinde operasyon yok'})
+                                            : tx(lang,{fr:'Aucune opération chronométrée',ar:'لا توجد عملية مقاسة زمنياً',en:'No timed operation',es:'Ninguna operación cronometrada',pt:'Nenhuma operação cronometrada',tr:'Süresi ölçülen operasyon yok'})}
+                                    </p>
+                                    <p className="text-xs text-slate-400 dark:text-dk-muted max-w-sm">
+                                        {operations.length === 0
+                                            ? tx(lang,{fr:'Ajoutez des opérations dans la Gamme, puis équilibrez la ligne pour générer les postes.',ar:'أضف عمليات في المسار، ثم وازن الخط لإنشاء المحطات.',en:'Add operations in the routing, then balance the line to generate stations.',es:'Añada operaciones en la gama, luego equilibre la línea para generar los puestos.',pt:'Adicione operações na gama, depois equilibre a linha para gerar os postos.',tr:'Rotaya operasyon ekleyin, ardından istasyonları oluşturmak için hattı dengeleyin.'})
+                                            : tx(lang,{fr:`${opsWithoutTimeCount} opération(s) sur ${operations.length} sans temps (0s). Complétez les temps dans la Gamme ou le Chronométrage pour générer les postes.`,ar:`${opsWithoutTimeCount} عملية من أصل ${operations.length} بدون وقت (0 ثانية). أكمل الأوقات في المسار أو التوقيت لإنشاء المحطات.`,en:`${opsWithoutTimeCount} of ${operations.length} operation(s) have no time (0s). Complete the times in the routing or time study to generate stations.`,es:`${opsWithoutTimeCount} de ${operations.length} operación(es) sin tiempo (0s). Complete los tiempos en la gama o el cronometraje para generar los puestos.`,pt:`${opsWithoutTimeCount} de ${operations.length} operação(ões) sem tempo (0s). Complete os tempos na gama ou no cronometragem para gerar os postos.`,tr:`${operations.length} operasyondan ${opsWithoutTimeCount} tanesinde süre yok (0sn). İstasyonları oluşturmak için rota veya kronometraj içindeki süreleri tamamlayın.`})}
+                                    </p>
+                                </div>
+                            )}
 
                             {/* DROPPABLE AREA FOR MANUAL MODE - CHANGED HERE TO FIX ZOOM ALIGNMENT */}
                             <div

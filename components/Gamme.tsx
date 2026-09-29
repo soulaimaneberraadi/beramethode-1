@@ -1402,6 +1402,9 @@ export default function Gamme({
 
   // --- RECALCULATE ALL WHEN FABRIC SETTINGS CHANGE ---
   useEffect(() => {
+      // Garde-fou : si le catalogue machines n'est pas encore charge (ex. reinitialisation de compte),
+      // ne pas ecraser les temps deja enregistres (forces ou chronometres) par un calcul base sur des valeurs par defaut.
+      if (machines.length === 0) return;
       setOperations(prev => prev.map(op => {
           const { T_Total } = calculateOpTimes(op, op.machineId || '', machines);
           return { ...op, time: T_Total };
@@ -1594,7 +1597,23 @@ export default function Gamme({
   };
 
   const deleteOperation = (id: string) => {
-    setOperations(prev => prev.filter(o => o.id !== id));
+    setOperations(prev => {
+      const opToDelete = prev.find(o => o.id === id);
+      let next = prev.filter(o => o.id !== id);
+      // Si la suppression laisse un seul membre du groupe, on le degroupe :
+      // sinon il garde un groupId orphelin et s'affiche indefiniment en "N.1".
+      if (opToDelete?.groupId) {
+          const remainingInGroup = next.filter(o => o.groupId === opToDelete.groupId);
+          if (remainingInGroup.length === 1) {
+              next = next.map(o => o.id === remainingInGroup[0].id ? { ...o, groupId: undefined } : o);
+          }
+      }
+      // Nettoyer les liens de flux qui pointaient vers l'operation supprimee (sinon badge "Vers N°?").
+      next = next.map(o => o.targetOperationId === id ? { ...o, targetOperationId: undefined } : o);
+      // Reindexation pour garder un ordre contigu apres suppression.
+      next.forEach((op, i) => { op.order = i + 1; });
+      return next;
+    });
   };
 
   const applyGlobalGuide = () => {
@@ -1760,8 +1779,26 @@ export default function Gamme({
   };
 
   // --- CALCULATIONS FOR HEADER ---
-  const totalMin = operations.reduce((sum, op) => sum + (op.time || 0), 0);
-  const tempsArticle = totalMin * 1.20; 
+  // Recalcul a la volee (pas op.time stocke) pour rester juste meme apres un changement
+  // global (penalite tissu, F.Guide...) sans que chaque operation ait ete re-touchee.
+  let opsWithoutTimeCount = 0;
+  const totalMin = operations.reduce((sum, op) => {
+    const machineValue = op.machineName || (op.machineId ? machines.find(m => m.id === op.machineId)?.name : '') || '';
+    let matchedMachine = machines.find(m => m.id === op.machineId);
+    if (!matchedMachine && machineValue) {
+        const val = machineValue.trim().toLowerCase();
+        matchedMachine = machines.find(m => (m.name || '').toLowerCase().includes(val) || (m.classe || '').toLowerCase().includes(val));
+    }
+    const { T_Total } = calculateOpTimes(op, matchedMachine ? matchedMachine.id : '', machines);
+    const isForced = op.forcedTime !== undefined && op.forcedTime !== null;
+    const isBlankOpRow = !op.description?.trim() && !machineValue.trim();
+    if (T_Total <= 0 && !isForced && !isBlankOpRow) opsWithoutTimeCount++;
+    // Le total reste celui des temps ENREGISTRES (op.time) : c'est lui que lisent
+    // Equilibrage, Couts et la sauvegarde. Un total recalcule ici seulement
+    // afficherait en tete de Gamme un chiffre different de la fiche de cout.
+    return sum + (op.time || 0);
+  }, 0);
+  const tempsArticle = totalMin * 1.20;
   const pH100 = Math.round((tempsArticle > 0 && presenceTime > 0) ? ((presenceTime * numWorkers) / tempsArticle) / (presenceTime / 60) : 0);
   const pHDerivedNoPresence = Math.round(tempsArticle > 0 ? (numWorkers * 60) / tempsArticle : 0);
   const pHReal = Math.round(pH100 * (efficiency / 100));
@@ -1807,17 +1844,19 @@ export default function Gamme({
                 </div>
                 <div className="flex flex-col items-center">
                     <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Heures',ar:'ساعات',en:'Hours',es:'Horas',pt:'Horas',tr:'Saatler'})}</span>
-                    <input 
-                        type="number" 
-                        min="0" 
-                        step="0.5" 
-                        value={presenceTime / 60} 
+                    <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={presenceTime === 0 ? '' : presenceTime / 60}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => {
                           const nextHours = Math.max(0, Number(e.target.value));
                           const nextPresenceTime = nextHours * 60;
                           setPresenceTime(nextPresenceTime);
-                        }} 
-                        className="w-10 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text outline-none text-sm p-0" 
+                        }}
+                        placeholder={tx(lang,{fr:'0',ar:'0',en:'0',es:'0',pt:'0',tr:'0'})}
+                        className="w-10 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft dark:text-dk-text outline-none text-sm p-0 placeholder:text-slate-300 dark:placeholder:text-dk-muted"
                     />
                 </div>
             </div>
@@ -1871,6 +1910,18 @@ export default function Gamme({
                     <span className="text-[10px] font-bold text-indigo-400 dark:text-indigo-300">{tx(lang,{fr:'%',ar:'%',en:'%',es:'%',pt:'%',tr:'%'})}</span>
                 </div>
             </div>
+
+            {opsWithoutTimeCount > 0 && (
+                <div
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-900/40 shrink-0"
+                    title={tx(lang,{fr:'Opérations sans machine choisie ou sans donnée suffisante pour calculer un temps',ar:'عمليات بدون آلة مختارة أو بدون بيانات كافية لحساب الوقت',en:'Operations without a chosen machine or without enough data to calculate a time',es:'Operaciones sin máquina elegida o sin datos suficientes para calcular un tiempo',pt:'Operações sem máquina escolhida ou sem dados suficientes para calcular um tempo',tr:'Seçilmiş makinesi veya süre hesaplamak için yeterli verisi olmayan işlemler'})}
+                >
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 shrink-0" />
+                    <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 whitespace-nowrap">
+                        {opsWithoutTimeCount} {tx(lang,{fr:'opération(s) sans temps',ar:'عملية بلا وقت',en:'op(s) without time',es:'operación(es) sin tiempo',pt:'operação(ões) sem tempo',tr:'süresiz işlem'})}
+                    </span>
+                </div>
+            )}
 
             <div className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-800 shrink-0">
                 <div className="flex flex-col items-center border-r border-purple-200 dark:border-purple-800 pr-3 mr-1">
@@ -2129,9 +2180,17 @@ export default function Gamme({
                 const currentChronoSec = Math.round(T_Total * 60);
                 
                 const isForced = op.forcedTime !== undefined && op.forcedTime !== null;
-                const chronoInputClass = isForced 
+                // Ligne "touchee" (description ou machine renseignee) mais temps toujours a 0 : on le signale
+                // calmement plutot que de laisser un 0 muet sans explication (cf. cas machine vide).
+                const isBlankOpRow = !op.description?.trim() && !machineValue.trim();
+                const needsTimeAttention = T_Total <= 0 && !isForced && !isBlankOpRow;
+                const noTimeReasonTitle = !machineValue.trim()
+                    ? tx(lang,{fr:'Choisir une machine pour calculer le temps',ar:'اختر آلة لحساب الوقت',en:'Choose a machine to calculate the time',es:'Elija una máquina para calcular el tiempo',pt:'Escolha uma máquina para calcular o tempo',tr:'Süreyi hesaplamak için bir makine seçin'})
+                    : tx(lang,{fr:'Renseigner L/Qté ou saisir un temps pour calculer le temps',ar:'أدخل L/الكمية أو أدخل وقتاً لحساب الوقت',en:'Fill in L/Qty or enter a time to calculate the time',es:'Complete L/Cant. o indique un tiempo para calcular el tiempo',pt:'Preencha L/Qtd ou informe um tempo para calcular o tempo',tr:'Süreyi hesaplamak için L/Mikt girin veya bir süre girin'});
+                const chronoInputClass = isForced
                     ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 focus:border-purple-500 focus:bg-purple-100 dark:focus:bg-purple-900/50 font-black shadow-sm dark:shadow-dk-sm"
-                    : (isMachine ? 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft dark:text-dk-text border-slate-200 dark:border-dk-border focus:bg-white dark:focus:bg-dk-elevated focus:border-indigo-300' : 'bg-emerald-50 dark:bg-emerald-900/40 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-300 focus:border-emerald-500 focus:bg-white dark:focus:bg-dk-surface');
+                    : (needsTimeAttention ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 focus:border-amber-400 focus:bg-amber-100 dark:focus:bg-amber-900/50'
+                    : (isMachine ? 'bg-slate-50 dark:bg-dk-bg dark:bg-dk-surface text-slate-600 dark:text-dk-text-soft dark:text-dk-text border-slate-200 dark:border-dk-border focus:bg-white dark:focus:bg-dk-elevated focus:border-indigo-300' : 'bg-emerald-50 dark:bg-emerald-900/40 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-300 focus:border-emerald-500 focus:bg-white dark:focus:bg-dk-surface'));
 
                 const currentGuide = op.guideFactor ?? 1.1;
                 const assignedGuideName = op.guideName || (op.guideId ? guides.find(g => g.id === op.guideId)?.name : '') || '';
@@ -2315,7 +2374,9 @@ export default function Gamme({
                           {/* USING EXCEL INPUT FOR DESCRIPTION */}
                           <div className="flex flex-col">
                               <ExcelInput
-                                suggestions={fullVocabulary}
+                                suggestions={isAutocompleteEnabled ? fullVocabulary : []}
+                                rankWeights={wordUsageRef.current}
+                                spaceAfterAccept
                                 value={op.description}
                                 onChange={(val) => handleDescriptionChange(val, op.id)}
                                 onBlur={(e) => handleDescriptionBlur(e.target.value)}
@@ -2471,7 +2532,7 @@ export default function Gamme({
                             disabled={isLinkingMode}
                             className={`w-full border rounded-lg px-2 py-2 text-center text-xs font-mono outline-none transition-all placeholder:text-emerald-200 ${chronoInputClass}`}
                             placeholder={tx(lang,{fr:'0',ar:'0',en:'0',es:'0',pt:'0',tr:'0'})}
-                            title={isForced ? tx(lang,{fr:'Temps forcé manuellement',ar:'وقت إجباري يدوي',en:'Manually forced time',es:'Tiempo forzado manualmente',pt:'Tempo forçado manualmente',tr:'Manuel zorlanmış süre'}) : tx(lang,{fr:'Temps calculé',ar:'وقت محسوب',en:'Calculated time',es:'Tiempo calculado',pt:'Tempo calculado',tr:'Hesaplanan süre'})}
+                            title={isForced ? tx(lang,{fr:'Temps forcé manuellement',ar:'وقت إجباري يدوي',en:'Manually forced time',es:'Tiempo forzado manualmente',pt:'Tempo forçado manualmente',tr:'Manuel zorlanmış süre'}) : (needsTimeAttention ? noTimeReasonTitle : tx(lang,{fr:'Temps calculé',ar:'وقت محسوب',en:'Calculated time',es:'Tiempo calculado',pt:'Tempo calculado',tr:'Hesaplanan süre'}))}
                           />
                        </div>
                     </td>

@@ -327,7 +327,9 @@ export default function Library({
                     <>
                         {viewMode === 'grid' ? (
                             <div className="grid gap-4 transition-all duration-200 ease-out"
-                                style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${cardSize}px, 1fr))` }}
+                                // `min(…, 100%)` : sur un telephone de 360 px, une colonne de 340 px
+                                // plus les marges debordait et la page defilait de cote.
+                                style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(${cardSize}px, 100%), 1fr))` }}
                             >
                                 {filteredModels.map((model) => (
                                     <div
@@ -512,8 +514,8 @@ export default function Library({
                         que la liste defile dessous. */}
                     {isMobileMenu && activeModel && (
                         <div className="shrink-0 px-4 pb-2.5 mb-1 border-b border-slate-100 dark:border-dk-border flex items-center gap-3">
-                            {activeModel.image
-                                ? <img src={activeModel.image} alt="" className="w-11 h-11 rounded-xl object-cover border border-slate-200 dark:border-dk-border shrink-0" />
+                            {getModelPreview(activeModel)
+                                ? <img src={getModelPreview(activeModel)!} alt="" className="w-11 h-11 rounded-xl object-cover border border-slate-200 dark:border-dk-border shrink-0" />
                                 : <span className="w-11 h-11 rounded-xl shrink-0 flex items-center justify-center bg-slate-100 dark:bg-dk-elevated border border-slate-200 dark:border-dk-border text-[11px] font-black text-slate-400 dark:text-dk-muted">
                                     {(activeModel.meta_data?.nom_modele || activeModel.filename || '?').slice(0, 2).toUpperCase()}
                                   </span>}

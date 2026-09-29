@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { Operation, Poste, Machine, FicheData } from '../types';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
+import { grouperOperations, decouperPoste, type OpAGrouper } from '../lib/equilibrageAuto';
 import SheetModal from './shared/SheetModal';
 import { 
   Users, 
@@ -169,6 +170,15 @@ const getStatusColor = (saturation: number, tolerance = 115) => {
 
 const getDefaultPosteColorName = (index: number) => POSTE_COLORS[index % POSTE_COLORS.length].name;
 
+// Machine normalisee d'une operation (MANUEL -> MAN), pour le regroupement automatique.
+const opsAGrouper = (ops: Operation[], machines: Machine[]): OpAGrouper[] => ops.map(op => {
+    let raw = op.machineName;
+    if (!raw && op.machineId) raw = machines.find(m => m.id === op.machineId)?.name;
+    let m = (raw || 'MAN').trim().toUpperCase();
+    if (!m || m.includes('MANUEL')) m = 'MAN';
+    return { id: op.id, time: op.time || 0, machine: m };
+});
+
 const getPosteColor = (poste: Poste, index: number) => {
   if (poste.colorName) {
     const existingColor = POSTE_COLORS.find(color => color.name === poste.colorName);
@@ -193,33 +203,6 @@ const calculatePostRequirements = (
     return requirements;
 };
 
-const splitPostOperations = (ops: Operation[], nReq: number): Operation[][] => {
-    const splits: Operation[][] = Array.from({ length: nReq }, () => []);
-    if (ops.length === 0) return splits;
-    if (nReq <= 1) {
-        splits[0] = ops;
-        return splits;
-    }
-
-    const totalTime = ops.reduce((sum, op) => sum + (op.time || 0), 0);
-    const targetTime = totalTime / nReq;
-
-    let currentSplitIdx = 0;
-    let currentSplitTime = 0;
-
-    ops.forEach(op => {
-        const opTime = op.time || 0;
-        if (currentSplitIdx < nReq - 1 && currentSplitTime > 0 && (currentSplitTime + opTime / 2) > targetTime) {
-            currentSplitIdx++;
-            currentSplitTime = 0;
-        }
-        splits[currentSplitIdx].push(op);
-        currentSplitTime += opTime;
-    });
-
-    return splits;
-};
-
 const splitPostesAndAssignments = (
     currPostes: Poste[],
     currAssignments: Record<string, string[]>,
@@ -240,12 +223,14 @@ const splitPostesAndAssignments = (
     let newPostIdx = 1;
 
     currPostes.forEach(p => {
-        const nReq = postRequirements[p.id] || 0;
-        if (nReq <= 0) return;
-
         const postOps = sortedOps.filter(op => (currAssignments[op.id] || []).includes(p.id));
+        if (postOps.length === 0) return;
+        // Un poste dont le temps n'est pas encore connu garde ses operations :
+        // elles restent a faire. Avant, il disparaissait et ses operations
+        // n'etaient plus affectees nulle part (Implantation vide).
+        const nReq = Math.max(1, postRequirements[p.id] || 0);
 
-        if (nReq === 1 || postOps.length <= 1) {
+        if (nReq === 1) {
             const newPosteId = `P${newPostIdx}`;
             const newPosteName = `P${newPostIdx}`;
             newPostes.push({
@@ -259,7 +244,11 @@ const splitPostesAndAssignments = (
             });
             newPostIdx++;
         } else {
-            const splits = splitPostOperations(postOps, nReq);
+            // Une operation plus longue que la part d'un ouvrier ne se coupe pas :
+            // les ouvriers la font en parallele (doublage). Avant, un poste d'une
+            // seule operation a 300 % restait a UN ouvrier.
+            const splits = decouperPoste(postOps.map(op => ({ id: op.id, time: op.time || 0 })), nReq)
+                .map(ids => postOps.filter(op => ids.includes(op.id)));
             splits.forEach((splitOps, sIdx) => {
                 if (splitOps.length === 0) return;
 
@@ -308,7 +297,9 @@ export default function Balancing({
   const { lang } = useLang();
 
   const tolerance = ficheData?.toleranceSaturation ?? 115;
-  const toleranceRatio = tolerance / 100;
+  // Le champ peut etre vide (0) ou a moitie tape (« 1 » avant « 115 ») : le calcul
+  // garde une tolerance valide, sinon ceil(nTheo / 0) = Infinity faisait tomber la page.
+  const toleranceRatio = Math.min(200, Math.max(50, tolerance || 115)) / 100;
 
   const roundedOperations = useMemo(() => {
     return operations.map(op => ({
@@ -437,111 +428,11 @@ export default function Balancing({
       while (attempts < maxAttempts) {
           const limitMax = Math.min(baseLimitMax * adjustmentFactor, hardLimitMax);
 
-          const simAssignments: Record<string, string[]> = {};
-          const simPostes: { id: string, machine: string }[] = [];
-          let currentPosteOps: Operation[] = [];
-          let currentTotalTime = 0;
-          let currentMachine = '';
-          let posteIdx = 1;
-
-          // Textile: 1 ouvrier = 1 machine. Jamais mélanger deux machines réelles (seul MAN absorbé).
-          const relaxMachine = false;
-
-          const flushSim = () => {
-              if (currentPosteOps.length === 0) return;
-              const posteId = `P${posteIdx}`;
-              const postMachine = relaxMachine ? getCombinedMachineName(currentPosteOps) : (currentMachine || 'MAN');
-              simPostes.push({ id: posteId, machine: postMachine });
-              currentPosteOps.forEach(op => {
-                  simAssignments[op.id] = [posteId];
-              });
-              posteIdx++;
-              currentPosteOps = [];
-              currentTotalTime = 0;
-              currentMachine = '';
-          };
-
-          sortedOperations.forEach(op => {
-              let primaryMachine = 'MAN';
-              let rawName = op.machineName;
-              if (!rawName && op.machineId) {
-                  const foundM = machines.find(m => m.id === op.machineId);
-                  if (foundM) rawName = foundM.name;
-              }
-              if (rawName) {
-                  let m = rawName.trim().toUpperCase();
-                  if (m.includes('MANUEL')) m = 'MAN';
-                  primaryMachine = m;
-              }
-
-              const blockTime = op.time || 0;
-              
-              let isSameMachine = false;
-              let nextMachine = currentMachine;
-
-              if (relaxMachine) {
-                  isSameMachine = true;
-              } else {
-                  if (currentPosteOps.length === 0) {
-                      isSameMachine = true;
-                      nextMachine = primaryMachine;
-                  } else {
-                      const cleanCurrent = (currentMachine || '').trim().toUpperCase();
-                      const cleanPrimary = (primaryMachine || '').trim().toUpperCase();
-                      
-                      if (cleanCurrent === cleanPrimary) {
-                          isSameMachine = true;
-                          nextMachine = currentMachine;
-                      } else if (cleanPrimary === 'MAN') {
-                          isSameMachine = true;
-                          nextMachine = currentMachine;
-                      } else if (cleanCurrent === 'MAN') {
-                          isSameMachine = true;
-                          nextMachine = primaryMachine;
-                      }
-                  }
-              }
-
-              const fits = (currentTotalTime + blockTime) <= limitMax;
-
-              if (isSameMachine && fits) {
-                  currentPosteOps.push(op);
-                  currentTotalTime += blockTime;
-                  currentMachine = nextMachine;
-              } else {
-                  flushSim();
-                  currentPosteOps = [op];
-                  currentTotalTime = blockTime;
-                  currentMachine = primaryMachine;
-              }
-          });
-          flushSim();
-
-          const stats: Record<string, { time: number }> = {};
-          simPostes.forEach(p => {
-              stats[p.id] = { time: 0 };
-          });
-
-          operations.forEach(op => {
-              const assignedIds = simAssignments[op.id] || [];
-              const count = assignedIds.length;
-              if (count > 0) {
-                  const timeShare = (op.time || 0) / count;
-                  assignedIds.forEach(pid => {
-                      if (stats[pid]) {
-                          stats[pid].time += timeShare;
-                      }
-                  });
-              }
-          });
-
+          const groupes = grouperOperations(opsAGrouper(sortedOperations, machines), limitMax);
           let simTotalRequiredWorkers = 0;
-          simPostes.forEach(p => {
-              const time = stats[p.id]?.time || 0;
-              const sam = time * SAM_MAJORATION;
-              const nTheo = testBF > 0 ? sam / testBF : 0;
-              const nReq = nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
-              simTotalRequiredWorkers += nReq;
+          groupes.forEach(g => {
+              const nTheo = testBF > 0 ? (g.time * SAM_MAJORATION) / testBF : 0;
+              simTotalRequiredWorkers += nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
           });
 
           finalRequired = simTotalRequiredWorkers;
@@ -631,128 +522,32 @@ export default function Balancing({
     let adjustmentFactor = 1.0;
     let attempts = 0;
     const maxAttempts = 50;
+    const aGrouper = opsAGrouper(sortedOperations, machines);
 
     let finalAssignments: Record<string, string[]> = {};
     let finalPostes: Poste[] = [];
 
     while (attempts < maxAttempts) {
         const limitMax = Math.min(baseLimitMax * adjustmentFactor, hardLimitMax);
+        // Regroupement « agent de methodes » : retour court vers la meme machine,
+        // fusion des petits postes voisins, lissage de charge (lib/equilibrageAuto).
+        const groupes = grouperOperations(aGrouper, limitMax);
         const currentAssignments: Record<string, string[]> = {};
-        const currentPostes: Poste[] = [];
-        let currentPosteOps: Operation[] = [];
-        let currentTotalTime = 0;
-        let currentMachine = '';
-        let posteIdx = 1;
-
-        // Textile: 1 ouvrier = 1 machine. Pas de fusion automatique de deux machines réelles.
-        const relaxMachine = false;
-
-        const flush = () => {
-            if (currentPosteOps.length === 0) return;
-            
-            const posteId = `P${posteIdx}`;
-            const posteName = `P${posteIdx}`;
-            const postMachine = relaxMachine ? getCombinedMachineName(currentPosteOps) : (currentMachine || 'MAN');
-
-            currentPostes.push({ 
-                id: posteId, 
-                name: posteName, 
-                machine: postMachine,
-                colorName: existingColorByName.get(posteName) || getDefaultPosteColorName(posteIdx - 1)
-            });
-            
-            currentPosteOps.forEach(op => {
-                currentAssignments[op.id] = [posteId];
-            });
-
-            posteIdx++;
-            currentPosteOps = [];
-            currentTotalTime = 0;
-            currentMachine = '';
-        };
-
-        sortedOperations.forEach(op => {
-            let primaryMachine = 'MAN';
-            let rawName = op.machineName;
-            if (!rawName && op.machineId) {
-                const foundM = machines.find(m => m.id === op.machineId);
-                if (foundM) rawName = foundM.name;
-            }
-            if (rawName) {
-                let m = rawName.trim().toUpperCase();
-                if (m.includes('MANUEL')) m = 'MAN';
-                primaryMachine = m;
-            }
-
-            const blockTime = op.time || 0;
-            
-            let isSameMachine = false;
-            let nextMachine = currentMachine;
-
-            if (relaxMachine) {
-                isSameMachine = true;
-            } else {
-                if (currentPosteOps.length === 0) {
-                    isSameMachine = true;
-                    nextMachine = primaryMachine;
-                } else {
-                    const cleanCurrent = (currentMachine || '').trim().toUpperCase();
-                    const cleanPrimary = (primaryMachine || '').trim().toUpperCase();
-                    
-                    if (cleanCurrent === cleanPrimary) {
-                        isSameMachine = true;
-                        nextMachine = currentMachine;
-                    } else if (cleanPrimary === 'MAN') {
-                        isSameMachine = true;
-                        nextMachine = currentMachine;
-                    } else if (cleanCurrent === 'MAN') {
-                        isSameMachine = true;
-                        nextMachine = primaryMachine;
-                    }
-                }
-            }
-
-            const fits = (currentTotalTime + blockTime) <= limitMax;
-
-            if (isSameMachine && fits) {
-                currentPosteOps.push(op);
-                currentTotalTime += blockTime;
-                currentMachine = nextMachine;
-            } else {
-                flush();
-                currentPosteOps = [op];
-                currentTotalTime = blockTime;
-                currentMachine = primaryMachine;
-            }
-        });
-        flush();
-
-        // Calculate stats for this iteration to get simulated required workers
-        const stats: Record<string, { time: number }> = {};
-        currentPostes.forEach(p => {
-            stats[p.id] = { time: 0 };
-        });
-
-        roundedOperations.forEach(op => {
-            const assignedIds = currentAssignments[op.id] || [];
-            const count = assignedIds.length;
-            if (count > 0) {
-                const timeShare = (op.time || 0) / count;
-                assignedIds.forEach(pid => {
-                    if (stats[pid]) {
-                        stats[pid].time += timeShare;
-                    }
-                });
-            }
+        const currentPostes: Poste[] = groupes.map((g, i) => {
+            const posteName = `P${i + 1}`;
+            g.opIds.forEach(id => { currentAssignments[id] = [posteName]; });
+            return {
+                id: posteName,
+                name: posteName,
+                machine: g.machine || 'MAN',
+                colorName: existingColorByName.get(posteName) || getDefaultPosteColorName(i)
+            };
         });
 
         let simTotalRequiredWorkers = 0;
-        currentPostes.forEach(p => {
-            const time = stats[p.id]?.time || 0;
-            const sam = time * SAM_MAJORATION;
-            const nTheo = targetBF > 0 ? sam / targetBF : 0;
-            const nReq = nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
-            simTotalRequiredWorkers += nReq;
+        groupes.forEach(g => {
+            const nTheo = targetBF > 0 ? (g.time * SAM_MAJORATION) / targetBF : 0;
+            simTotalRequiredWorkers += nTheo > 0 ? Math.max(1, Math.ceil(nTheo / toleranceRatio)) : 0;
         });
 
         finalAssignments = currentAssignments;
@@ -1130,9 +925,15 @@ export default function Balancing({
     });
     return total;
   }, [postes, posteStats, toleranceRatio]);
-  
+
   const tempsArticle = roundedOperations.reduce((sum, op) => sum + (op.time || 0), 0) * 1.20;
-  
+
+  // --- ÉTAT VIDE / DÉGÉNÉRÉ : toutes les opérations sont sans temps chronométré ---
+  // (Basé sur les temps des opérations, pas sur postes.length : un poste peut exister
+  // avec une opération à 0s — l'équilibrage la place quand même, cf. equilibrageAuto.)
+  const opsWithoutTimeCount = useMemo(() => roundedOperations.filter(op => !(op.time > 0)).length, [roundedOperations]);
+  const hasEmptyResult = roundedOperations.length > 0 && opsWithoutTimeCount === roundedOperations.length;
+
   // --- CHART DATA PREP ---
   const chartData = useMemo(() => {
     const virtualPoints: any[] = [];
@@ -1252,23 +1053,26 @@ export default function Balancing({
             <div className="flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5 bg-slate-50 dark:bg-dk-bg rounded-lg border border-slate-100 dark:border-dk-border shrink-0">
                 <div className="flex flex-col items-center border-r border-slate-200 dark:border-dk-border pr-3 mr-3">
                     <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Ouvriers',ar:'العمال',en:'Workers',es:'Obreros',pt:'Trabalhadores',tr:'İşçiler'})}</span>
-                    <input 
-                        type="number" 
-                        min="1" 
-                        value={Math.round(numWorkers)} 
-                        onChange={(e) => setNumWorkers(Math.max(1, Math.round(Number(e.target.value))))} 
-                        className="w-12 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft outline-none text-sm p-0" 
+                    <input
+                        type="number"
+                        min="1"
+                        value={numWorkers || ''}
+                        placeholder="1"
+                        onChange={(e) => { const v = e.target.value; setNumWorkers(v === '' ? 0 : Math.round(Number(v))); }}
+                        onBlur={() => setNumWorkers(prev => Math.max(1, Math.round(prev) || 1))}
+                        className="w-12 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft outline-none text-sm p-0"
                     />
                 </div>
                 <div className="flex flex-col items-center">
                     <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'Heures',ar:'ساعات',en:'Hours',es:'Horas',pt:'Horas',tr:'Saatler'})}</span>
-                    <input 
-                        type="number" 
-                        min="0" 
-                        step="0.5" 
-                        value={presenceTime / 60} 
-                        onChange={(e) => setPresenceTime(Math.max(0, Number(e.target.value)) * 60)} 
-                        className="w-10 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft outline-none text-sm p-0" 
+                    <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={presenceTime / 60 || ''}
+                        placeholder="0"
+                        onChange={(e) => { const v = e.target.value; setPresenceTime(v === '' ? 0 : Math.max(0, Number(v)) * 60); }}
+                        className="w-10 text-center bg-transparent font-black text-slate-700 dark:text-dk-text-soft outline-none text-sm p-0"
                     />
                 </div>
             </div>
@@ -1289,7 +1093,7 @@ export default function Balancing({
             <div className="flex flex-col items-center px-3 py-1.5 bg-orange-50 dark:bg-orange-900/50 rounded-lg border border-orange-100 shrink-0">
                 <span className="text-[9px] font-bold text-orange-400 uppercase">{tx(lang,{fr:'P/H (100%)',ar:'ق/س (100%)',en:'P/H (100%)',es:'P/H (100%)',pt:'P/H (100%)',tr:'A/S (100%)'})}</span>
                 <span className="font-black text-orange-500 text-sm leading-none mt-1">
-                    {tempsArticle > 0 ? Math.round((presenceTime * numWorkers) / tempsArticle / (presenceTime / 60)) : 0}
+                    {tempsArticle > 0 && presenceTime > 0 ? Math.round((presenceTime * numWorkers) / tempsArticle / (presenceTime / 60)) : 0}
                 </span>
             </div>
 
@@ -1304,7 +1108,7 @@ export default function Balancing({
                 <div className="flex flex-col items-center">
                     <span className="text-[9px] font-bold text-slate-400 dark:text-dk-muted uppercase">{tx(lang,{fr:'P/H',ar:'ق/س',en:'P/H',es:'P/H',pt:'P/H',tr:'A/S'})}</span>
                     <span className="font-black text-slate-700 dark:text-dk-text-soft text-sm leading-none mt-1">
-                        {tempsArticle > 0 ? Math.round(((presenceTime * numWorkers) / tempsArticle / (presenceTime / 60)) * (efficiency / 100)) : 0}
+                        {tempsArticle > 0 && presenceTime > 0 ? Math.round(((presenceTime * numWorkers) / tempsArticle / (presenceTime / 60)) * (efficiency / 100)) : 0}
                     </span>
                 </div>
             </div>
@@ -1313,12 +1117,14 @@ export default function Balancing({
             <div className="flex flex-col items-center px-2 py-1 sm:px-3 sm:py-1.5 bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/50 rounded-lg border border-indigo-100 shrink-0">
                 <span className="text-[9px] font-bold text-indigo-400 uppercase">{tx(lang,{fr:'% Rendu',ar:'% الإنتاجية',en:'% Yield',es:'% Rendimiento',pt:'% Rendimento',tr:'% Verim'})}</span>
                 <div className="flex items-baseline gap-0.5">
-                    <input 
-                        type="number" 
-                        min="1" max="100" 
-                        value={efficiency} 
-                        onChange={(e) => setEfficiency(Math.max(1, Math.min(100, Number(e.target.value))))} 
-                        className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-sm border-b border-indigo-200 p-0" 
+                    <input
+                        type="number"
+                        min="1" max="100"
+                        value={efficiency || ''}
+                        placeholder="100"
+                        onChange={(e) => { const v = e.target.value; setEfficiency(v === '' ? 0 : Number(v)); }}
+                        onBlur={() => setEfficiency(prev => Math.max(1, Math.min(100, prev || 100)))}
+                        className="w-8 text-center bg-transparent font-black text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text outline-none text-sm border-b border-indigo-200 p-0"
                     />
                     <span className="text-[10px] font-bold text-indigo-400">%</span>
                 </div>
@@ -1376,6 +1182,21 @@ export default function Balancing({
         </div>
       )}
 
+      {/* Opérations sans temps : l'équilibrage les place quand même (poste conservé), mais ne peut pas les chiffrer — on le signale sans bloquer */}
+      {!hasEmptyResult && opsWithoutTimeCount > 0 && (
+        <div className="flex items-center gap-2 px-3 py-1.5 mx-2 bg-amber-50/70 dark:bg-amber-900/20 rounded-lg border border-amber-200/70 text-amber-700 text-[11px] font-bold">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <span>{tx(lang,{
+              fr:`${opsWithoutTimeCount} opération(s) sans temps — l'équilibrage les place mais ne peut pas les chiffrer. Complétez les temps dans la Gamme ou le Chronométrage.`,
+              ar:`${opsWithoutTimeCount} عملية بدون وقت — التوازن يضعها لكن لا يمكنه احتسابها. أكمل الأوقات في المسار أو التوقيت.`,
+              en:`${opsWithoutTimeCount} operation(s) with no time — balancing still places them but can't measure them. Complete the times in the routing or time study.`,
+              es:`${opsWithoutTimeCount} operación(es) sin tiempo — el equilibrio las coloca pero no puede medirlas. Complete los tiempos en la gama o el cronometraje.`,
+              pt:`${opsWithoutTimeCount} operação(ões) sem tempo — o balanceamento as coloca mas não consegue medi-las. Complete os tempos na gama ou no cronometragem.`,
+              tr:`${opsWithoutTimeCount} operasyonda süre yok — dengeleme yine de yerleştiriyor ama ölçemiyor. Rota veya kronometraj içindeki süreleri tamamlayın.`
+          })}</span>
+        </div>
+      )}
+
       {/* 2. CONTROLS (VIEW SWITCHER + ACTIONS) */}
       <div className="flex flex-col sm:flex-row justify-between items-end gap-3 px-2">
          <div className="flex bg-slate-100/80 p-1 rounded-xl shadow-inner border border-slate-200 dark:border-dk-border">
@@ -1425,7 +1246,24 @@ export default function Balancing({
       </div>
 
        {/* 3. MAIN CONTENT (CONDITIONAL VIEW) */}
-       {viewMode === 'matrix' ? (
+       {hasEmptyResult ? (
+           <div className="flex flex-col items-center justify-center gap-2 py-16 px-4 mx-2 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl text-center">
+               <AlertCircle className="w-7 h-7 text-slate-400 dark:text-dk-muted" />
+               <p className="text-sm font-bold text-slate-600 dark:text-dk-text-soft">
+                   {tx(lang,{fr:'Aucune opération chronométrée',ar:'لا توجد عملية مقاسة زمنياً',en:'No timed operation',es:'Ninguna operación cronometrada',pt:'Nenhuma operação cronometrada',tr:'Süresi ölçülen operasyon yok'})}
+               </p>
+               <p className="text-xs text-slate-400 dark:text-dk-muted max-w-md">
+                   {tx(lang,{
+                       fr:`${opsWithoutTimeCount} opération(s) sur ${roundedOperations.length} sans temps (0s). Complétez les temps dans la Gamme ou le Chronométrage pour lancer l'équilibrage.`,
+                       ar:`${opsWithoutTimeCount} عملية من أصل ${roundedOperations.length} بدون وقت (0 ثانية). أكمل الأوقات في المسار أو التوقيت لبدء التوازن.`,
+                       en:`${opsWithoutTimeCount} of ${roundedOperations.length} operation(s) have no time (0s). Complete the times in the routing or time study to run balancing.`,
+                       es:`${opsWithoutTimeCount} de ${roundedOperations.length} operación(es) sin tiempo (0s). Complete los tiempos en la gama o el cronometraje para lanzar el equilibrio.`,
+                       pt:`${opsWithoutTimeCount} de ${roundedOperations.length} operação(ões) sem tempo (0s). Complete os tempos na gama ou no cronometragem para iniciar o balanceamento.`,
+                       tr:`${roundedOperations.length} operasyondan ${opsWithoutTimeCount} tanesinde süre yok (0sn). Dengelemeyi başlatmak için rota veya kronometraj içindeki süreleri tamamlayın.`
+                   })}
+               </p>
+           </div>
+       ) : viewMode === 'matrix' ? (
            <div className="flex flex-col gap-6">
                 <div className="bg-white dark:bg-dk-surface rounded-[1rem] border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm overflow-hidden h-[450px] sm:h-[600px]">
                     <div className="overflow-auto w-full h-full relative custom-scrollbar pb-2">

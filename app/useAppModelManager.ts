@@ -6,6 +6,10 @@ const launchDateTimeIso = (date: string, launchTime?: string) => {
     return `${date}T${t}:00`;
 };
 const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true';
+// Date du jour en heure LOCALE (AAAA-MM-JJ). `toISOString()` donne la date UTC :
+// au Maroc (UTC+1), entre minuit et 1 h, le modele naissait date de la veille.
+const jourLocal = (d = new Date()) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 import { AUTO_SAVE_KEY } from './constants';
 import { lsRemove } from '../lib/storageKeys';
 import { addTombstone } from '../src/lib/apiShim';
@@ -217,9 +221,20 @@ export function useAppModelManager({
                 typeMarche: model.ficheData.typeMarche ?? 'Local'
             });
         } else {
-            setFicheData(prev => ({
-                ...prev,
-                date: model.meta_data.date_lancement || new Date().toISOString().split('T')[0],
+            // Ancien modele sans fiche : on part d'une fiche VIERGE. Partir de `prev`
+            // recopiait client, matieres, grille et prix du modele ouvert juste avant.
+            setFicheData(() => ({
+                client: '',
+                designation: '',
+                color: '',
+                chaine: '',
+                unitCost: 0,
+                clientPrice: 0,
+                observations: '',
+                costMinute: 0.85,
+                gridQuantities: {},
+                materials: [],
+                date: model.meta_data.date_lancement || jourLocal(),
                 launchTime: model.meta_data.heure_lancement ?? '08:00',
                 category: model.meta_data.category || '',
                 sizes: model.meta_data.sizes || [],
@@ -316,16 +331,27 @@ export function useAppModelManager({
             try { addTombstone('models', id); } catch { /* non bloquant */ }
         };
         if (user && !IS_STATIC) {
+            const echec = () => showToast(tx(lang, { fr: "Suppression refusée par le serveur : le modèle est conservé.", ar: 'رفض الخادم الحذف: تم الإبقاء على النموذج.', en: 'The server refused the deletion: the model was kept.', es: 'El servidor rechazó la eliminación: el modelo se conserva.', pt: 'O servidor recusou a exclusão: o modelo foi mantido.', tr: 'Sunucu silmeyi reddetti: model korundu.' }), 'error');
             fetch(`/api/models/${id}`, { credentials: 'include', method: 'DELETE' })
-                .then(res => { if (res.ok) removeLocal(); })
-                .catch(err => console.error(err));
+                .then(res => { if (res.ok) removeLocal(); else echec(); })
+                .catch(err => { console.error(err); echec(); });
         } else {
             removeLocal();
         }
-    }, [currentModelId, setCurrentModelId, setModels, user]);
+    }, [currentModelId, lang, setCurrentModelId, setModels, showToast, user]);
 
     const duplicateModel = useCallback((model: ModelData) => {
-        const copy = { ...model, id: Date.now().toString(), meta_data: { ...model.meta_data, nom_modele: model.meta_data.nom_modele + ' (Copie)' }, updatedAt: new Date().toISOString() };
+        // La copie est un modele NEUF : elle se range en tete de « Recent » et ne
+        // reste pas rattachee a la commande de sous-traitance de l'original (sinon
+        // les deux fiches ecrivaient dans la meme commande).
+        const st: any = model.ficheData?.soustraitance;
+        const copy = {
+            ...model,
+            id: Date.now().toString(),
+            meta_data: { ...model.meta_data, nom_modele: model.meta_data.nom_modele + ' (Copie)', date_creation: new Date().toISOString() },
+            ficheData: model.ficheData && st ? { ...model.ficheData, soustraitance: { ...st, orderId: undefined } } : model.ficheData,
+            updatedAt: new Date().toISOString(),
+        };
         saveManualLinksByModel(copy.id, loadManualLinksByModel(model.id));
         setModels(prev => [copy, ...prev]);
         void creerModeleSurServeur(copy, user);
@@ -363,8 +389,15 @@ export function useAppModelManager({
         setActiveLayout('double-zigzag');
         setManualLinks([]);
         setChronoData({});
+        // Sans ces remises a zero, un nouveau modele heritait de l'effectif, du
+        // rendement et des postes de chrono du modele precedent — et les
+        // enregistrait avec lui a la premiere sauvegarde.
+        setNumWorkers(1);
+        setEfficiency(85);
+        setChronoCustomStations([]);
+        setChronoLayoutSide('both');
         setFicheData({
-            date: new Date().toISOString().split('T')[0],
+            date: jourLocal(),
             launchTime: '08:00',
             client: '',
             category: '',
@@ -384,15 +417,18 @@ export function useAppModelManager({
             todm: '',
             kisba: 'NON_LANCE',
             hala: 'EN_ATTENTE',
-            facteurPlanning: 1,
-            bufferLancement: 0,
+            // 60 % comme partout ailleurs (Planning, ouverture d'un modele). A 1, le
+            // Planning calculait avec un rendement de 0,85 % : un nouveau modele
+            // durait 60 fois trop longtemps sur le Gantt.
+            facteurPlanning: 60,
+            bufferLancement: 120,
             statutProduction: 'En Attente',
             typeMarche: 'Local',
         });
         setHistory([{ operations: [], assignments: {}, postes: [] }]);
         setHistoryIndex(0);
         setCurrentView('ingenierie');
-    }, [setActiveLayout, setArticleName, setAssignments, setChronoData, setCurrentModelId, setCurrentView, setFicheData, setFicheImages, setHistory, setHistoryIndex, setLayoutMemory, setManualLinks, setOperations, setPostes]);
+    }, [setActiveLayout, setArticleName, setAssignments, setChronoData, setChronoCustomStations, setChronoLayoutSide, setCurrentModelId, setCurrentView, setEfficiency, setFicheData, setFicheImages, setHistory, setHistoryIndex, setLayoutMemory, setManualLinks, setNumWorkers, setOperations, setPostes]);
 
     return {
         saveCurrentModel,

@@ -285,7 +285,10 @@ export default function Pedido({
             }
         });
 
-        const today = new Date().toISOString().split('T')[0];
+        // Date locale (pas toISOString/UTC) : au Maroc (UTC+1), entre 00h et 01h du matin
+        // toISOString() renvoie encore la veille et décalait la date de lancement par défaut.
+        const nowLocal = new Date();
+        const today = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`;
         setEditDraft({
             id: `PE-${Date.now()}`,
             modelId: currentModelId || '',
@@ -420,12 +423,17 @@ export default function Pedido({
         return { rowTotals, colTotals, grandTotal };
     }, [sizes, colors, gridQuantities]);
 
-    // Update Global Quantity when matrix changes
+    // Update Global Quantity when matrix changes. La grille devient la source de vérité dès
+    // qu'elle a porté une quantité : si on la vide ensuite, data.quantity suit jusqu'à 0 (sinon
+    // il restait bloqué sur l'ancien total). Mais une grille VIDE à l'ouverture ne remet jamais
+    // à 0 une quantité saisie ailleurs (sous-traitance, coupe, ancien modèle sans grille).
+    const grilleRemplieRef = useRef(false);
     useEffect(() => {
-        if (matrixStats.grandTotal > 0) {
-            setData(prev => ({ ...prev, quantity: matrixStats.grandTotal }));
+        if (matrixStats.grandTotal > 0) grilleRemplieRef.current = true;
+        if (sizes.length > 0 && colors.length > 0 && grilleRemplieRef.current) {
+            setData(prev => (prev.quantity === matrixStats.grandTotal ? prev : { ...prev, quantity: matrixStats.grandTotal }));
         }
-    }, [matrixStats.grandTotal, setData]);
+    }, [matrixStats.grandTotal, sizes.length, colors.length, setData]);
 
     const planifiedTotals = useMemo(() => {
         const totals: Record<string, Record<string, number>> = {};
@@ -950,12 +958,12 @@ export default function Pedido({
                         >
                             <span className="min-w-0">
                                 <span className="block text-[12px] font-extrabold text-slate-800 dark:text-dk-text">
-                                    {tx(lang, { fr: 'Ajouter au planning automatique', ar: 'Ø¥Ø¶Ø§ÙØ© Ø¥Ù„Ù‰ Ø§Ù„ØªØ®Ø·ÙŠØ· Ø§Ù„ØªÙ„Ù‚Ø§Ø¦ÙŠ', en: 'Add to automatic planning', es: 'AÃ±adir a planificaciÃ³n automÃ¡tica', pt: 'Adicionar ao planeamento automÃ¡tico', tr: 'Otomatik planlamaya ekle' })}
+                                    {tx(lang, { fr: 'Ajouter au planning automatique', ar: 'إضافة إلى التخطيط التلقائي', en: 'Add to automatic planning', es: 'Añadir a planificación automática', pt: 'Adicionar ao planeamento automático', tr: 'Otomatik planlamaya ekle' })}
                                 </span>
                                 <span className="mt-0.5 block text-[11px] font-semibold text-slate-500 dark:text-dk-muted">
                                     {newLotAutoPlanningEnabled
-                                        ? tx(lang, { fr: 'Actif : ce lot sera ajoute au planning.', ar: 'Ù…ÙØ¹Ù„: Ø³ØªØªÙ… Ø¥Ø¶Ø§ÙØ© Ù‡Ø°Ù‡ Ø§Ù„Ø¯ÙØ¹Ø© Ø¥Ù„Ù‰ Ø§Ù„ØªØ®Ø·ÙŠØ·.', en: 'On: this lot will be added to planning.', es: 'Activo: este lote se aÃ±adirÃ¡ al planning.', pt: 'Ativo: este lote sera adicionado ao planeamento.', tr: 'AÃ§Ä±k: bu parti planlamaya eklenecek.' })
-                                        : tx(lang, { fr: 'Eteint par defaut : rien ne sera ajoute tant que tu ne l actives pas.', ar: 'Ù…Ø·ÙØ£ Ø§ÙØªØ±Ø§Ø¶ÙŠØ§: Ù„Ù† ÙŠØªÙ…Øª Ø£ÙŠ Ø¥Ø¶Ø§ÙØ© Ø­ØªÙ‰ ØªÙØ¹Ù„Ù‡.', en: 'Off by default: nothing is added until you turn it on.', es: 'Apagado por defecto: no se aÃ±ade nada hasta activarlo.', pt: 'Desligado por defeito: nada e adicionado ate ativar.', tr: 'VarsayÄ±lan kapalÄ±: aÃ§ana kadar hiÃ§bir ÅŸey eklenmez.' })}
+                                        ? tx(lang, { fr: 'Actif : ce lot sera ajouté au planning.', ar: 'مفعَّل: ستتم إضافة هذه الدفعة إلى التخطيط.', en: 'On: this lot will be added to planning.', es: 'Activo: este lote se añadirá al planning.', pt: 'Ativo: este lote será adicionado ao planeamento.', tr: 'Açık: bu parti planlamaya eklenecek.' })
+                                        : tx(lang, { fr: 'Éteint par défaut : rien ne sera ajouté tant que tu ne l\'actives pas.', ar: 'مطفَأ افتراضيًا: لن تتم أي إضافة حتى تفعِّله.', en: 'Off by default: nothing is added until you turn it on.', es: 'Apagado por defecto: no se añade nada hasta activarlo.', pt: 'Desligado por padrão: nada é adicionado até ativar.', tr: 'Varsayılan kapalı: açana kadar hiçbir şey eklenmez.' })}
                                 </span>
                             </span>
                             <span className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${newLotAutoPlanningEnabled ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300 bg-slate-200 dark:border-dk-border dark:bg-dk-elevated'}`}>
@@ -1049,7 +1057,7 @@ export default function Pedido({
                                     {tx(lang, { fr: 'Total Commandé (Cible)', ar: 'إجمالي الطلب الأصلي', en: 'Total Ordered (Target)', es: 'Total Pedido (Objetivo)', pt: 'Total Encomendado (Alvo)', tr: 'Toplam Sipariş (Hedef)' })}
                                 </span>
                                 <span className="text-lg font-bold text-slate-900 dark:text-dk-text tabular-nums block">
-                                    {totalCible.toLocaleString()} <span className="text-xs font-medium text-slate-400 dark:text-dk-muted">pcs</span>
+                                    {totalCible.toLocaleString('fr-FR')} <span className="text-xs font-medium text-slate-400 dark:text-dk-muted">pcs</span>
                                 </span>
                             </div>
                             <div className="bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/80 p-2.5 rounded-xl text-indigo-500">
@@ -1064,12 +1072,14 @@ export default function Pedido({
                                     {tx(lang, { fr: 'Total Planifié (Lots)', ar: 'الكمية المخططة', en: 'Total Planned (Lots)', es: 'Total Planificado (Lotes)', pt: 'Total Planeado (Lotes)', tr: 'Toplam Planlanan (Partiler)' })}
                                 </span>
                                 <span className="text-lg font-bold text-slate-900 dark:text-dk-text tabular-nums block">
-                                    {totalPlanified.toLocaleString()} <span className="text-xs font-medium text-slate-400 dark:text-dk-muted">pcs</span>
+                                    {totalPlanified.toLocaleString('fr-FR')} <span className="text-xs font-medium text-slate-400 dark:text-dk-muted">pcs</span>
                                 </span>
                                 <span className="text-[9px] block font-medium leading-none">
                                     {totalPlanified === totalCible
                                         ? <span className="text-emerald-600 dark:text-emerald-400">✓ {tx(lang, { fr: 'Aligné', ar: 'مطابق', en: 'Aligned', es: 'Alineado', pt: 'Alinhado', tr: 'Hizalı' })}</span>
-                                        : <span className="text-amber-600 dark:text-amber-400">{tx(lang, { fr: `Écart : ${totalPlanified - totalCible}`, ar: `فرق: ${totalPlanified - totalCible}`, en: `Gap: ${totalPlanified - totalCible}`, es: `Diferencia: ${totalPlanified - totalCible}`, pt: `Diferença: ${totalPlanified - totalCible}`, tr: `Fark: ${totalPlanified - totalCible}` })}</span>
+                                        : totalPlanified < totalCible
+                                            ? <span className="text-amber-600 dark:text-amber-400">{tx(lang, { fr: `Reste à planifier : ${(totalCible - totalPlanified).toLocaleString('fr-FR')}`, ar: `الباقي للتخطيط: ${(totalCible - totalPlanified).toLocaleString('fr-FR')}`, en: `Left to plan: ${(totalCible - totalPlanified).toLocaleString('fr-FR')}`, es: `Falta planificar: ${(totalCible - totalPlanified).toLocaleString('fr-FR')}`, pt: `Falta planear: ${(totalCible - totalPlanified).toLocaleString('fr-FR')}`, tr: `Planlanacak kalan: ${(totalCible - totalPlanified).toLocaleString('fr-FR')}` })}</span>
+                                            : <span className="text-indigo-600 dark:text-indigo-400">{tx(lang, { fr: `Excédent : ${(totalPlanified - totalCible).toLocaleString('fr-FR')}`, ar: `فائض: ${(totalPlanified - totalCible).toLocaleString('fr-FR')}`, en: `Surplus: ${(totalPlanified - totalCible).toLocaleString('fr-FR')}`, es: `Excedente: ${(totalPlanified - totalCible).toLocaleString('fr-FR')}`, pt: `Excedente: ${(totalPlanified - totalCible).toLocaleString('fr-FR')}`, tr: `Fazlalık: ${(totalPlanified - totalCible).toLocaleString('fr-FR')}` })}</span>
                                     }
                                 </span>
                             </div>
@@ -1085,7 +1095,7 @@ export default function Pedido({
                                     {tx(lang, { fr: 'Total Produit (Réalisé)', ar: 'الكمية المنتجة', en: 'Total Produced (Done)', es: 'Total Producido (Realizado)', pt: 'Total Produzido (Realizado)', tr: 'Toplam Üretilen (Gerçekleşen)' })}
                                 </span>
                                 <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums block">
-                                    {totalProduced.toLocaleString()} <span className="text-xs font-medium text-emerald-400">pcs</span>
+                                    {totalProduced.toLocaleString('fr-FR')} <span className="text-xs font-medium text-emerald-400">pcs</span>
                                 </span>
                                 <span className="text-[9px] text-indigo-500 font-medium block leading-none">
                                     {globalCompletionPct}% {tx(lang, { fr: 'Prêt', ar: 'جاهز', en: 'Ready', es: 'Listo', pt: 'Pronto', tr: 'Hazır' })}
@@ -1332,15 +1342,18 @@ export default function Pedido({
                                     const lotSuffix = evt.modelName?.includes(' — ') ? evt.modelName.split(' — ').slice(1).join(' — ') : '';
                                     const displayModelName = evt.modelName?.includes(' — ') ? evt.modelName.split(' — ')[0] : (evt.modelName || articleName);
                                     
-                                    const matAv = getMaterialAvailability(lang, evt.modelId, [{ id: evt.modelId, ficheData: data } as any], evt.qteTotal, evt.qteTotal);
-                                    
+                                    // Anciens OF : qteTotal peut être absent (seul totalQuantity existait alors) →
+                                    // évite un crash ".toLocaleString() of undefined" plus bas.
+                                    const totalQty = evt.qteTotal ?? evt.totalQuantity ?? 0;
+                                    const matAv = getMaterialAvailability(lang, evt.modelId, [{ id: evt.modelId, ficheData: data } as any], totalQty, totalQty);
+
                                     const launchDateStr = (evt.startDate || evt.dateLancement || '').split('T')[0];
                                     const matArrivalDateStr = (evt.fournisseurDate || '').split('T')[0];
                                     const hasConflict = launchDateStr && matArrivalDateStr && launchDateStr < matArrivalDateStr;
 
                                     const isExpanded = expandedLotId === evt.id;
                                     const produced = evt.producedQuantity ?? evt.qteProduite ?? 0;
-                                    const pct = evt.qteTotal > 0 ? Math.round((produced / evt.qteTotal) * 1000) / 10 : 0;
+                                    const pct = totalQty > 0 ? Math.round((produced / totalQty) * 1000) / 10 : 0;
 
                                     return (
                                         <div key={evt.id} className={`relative border-b border-slate-100 dark:border-dk-border last:border-b-0 transition-colors ${isExpanded ? 'bg-indigo-50 dark:bg-indigo-900/30 dark:bg-dk-accent/20' : 'hover:bg-slate-50/50 dark:hover:bg-dk-elevated/60'}`}>
@@ -1368,7 +1381,7 @@ export default function Pedido({
                                                             <span className={`w-1.5 h-1.5 rounded-full ${statusMeta.dot}`} />
                                                             {statusMeta.label}
                                                         </span>
-                                                        <span className="text-[11px] tabular-nums font-semibold text-slate-500 dark:text-dk-muted">{evt.qteTotal} pcs</span>
+                                                        <span className="text-[11px] tabular-nums font-semibold text-slate-500 dark:text-dk-muted">{totalQty.toLocaleString('fr-FR')} pcs</span>
                                                         {pct > 0 && (
                                                             <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text tabular-nums">{pct}%</span>
                                                         )}
@@ -1479,7 +1492,7 @@ export default function Pedido({
                                                         <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-dk-muted">
                                                             <span>{tx(lang, { fr: 'Production', ar: 'التقدم', en: 'Production', es: 'Producción', pt: 'Produção', tr: 'Üretim' })}</span>
                                                             <span className="tabular-nums text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text">
-                                                                {produced.toLocaleString()} / {evt.qteTotal.toLocaleString()} ({pct}%)
+                                                                {produced.toLocaleString('fr-FR')} / {totalQty.toLocaleString('fr-FR')} ({pct}%)
                                                             </span>
                                                         </div>
                                                         <div className="w-full h-1.5 bg-slate-100 dark:bg-dk-elevated rounded-full overflow-hidden">

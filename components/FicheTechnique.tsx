@@ -659,9 +659,10 @@ export default function FicheTechnique({
                                         <input
                                             type="number"
                                             min="0"
-                                            value={numWorkers}
-                                            onChange={(e) => setNumWorkers(Math.max(0, Number(e.target.value)))}
-                                            className="w-full bg-transparent text-xl font-black text-slate-700 dark:text-dk-text outline-none"
+                                            value={numWorkers || ''}
+                                            onChange={(e) => setNumWorkers(Math.max(0, Number(e.target.value) || 0))}
+                                            placeholder="0"
+                                            className="w-full bg-transparent text-xl font-black text-slate-700 dark:text-dk-text outline-none placeholder:text-slate-300 dark:placeholder:text-dk-muted"
                                         />
                                     </div>
                                 </div>
@@ -676,9 +677,10 @@ export default function FicheTechnique({
                                                 <Activity className="w-3.5 h-3.5 text-emerald-500" />
                                                 <input
                                                     type="number"
-                                                    value={efficiency}
-                                                    onChange={(e) => setEfficiency(Number(e.target.value))}
-                                                    className="w-full text-sm font-bold text-emerald-700 dark:text-emerald-300 bg-transparent outline-none"
+                                                    value={efficiency || ''}
+                                                    onChange={(e) => setEfficiency(Number(e.target.value) || 0)}
+                                                    placeholder="0"
+                                                    className="w-full text-sm font-bold text-emerald-700 dark:text-emerald-300 bg-transparent outline-none placeholder:text-emerald-300 dark:placeholder:text-emerald-700"
                                                 />
                                                 <span className="text-xs text-emerald-500 dark:text-emerald-400 font-bold">%</span>
                                             </div>

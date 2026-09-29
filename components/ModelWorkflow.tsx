@@ -346,8 +346,17 @@ export default function ModelWorkflow({
     const activeStepRef = useRef<HTMLButtonElement>(null);
     const stepperRef = useRef<HTMLDivElement>(null);
 
+    // On fait defiler la SEULE barre d'etapes. `scrollIntoView` faisait aussi
+    // defiler tous les conteneurs parents, meme en `overflow-hidden` : sur les
+    // dernieres etapes (Equilibrage, Pedido) toute la page glissait vers la
+    // gauche et le bouton Annuler sortait de l'ecran.
     useEffect(() => {
-        activeStepRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        const bar = stepperRef.current;
+        const el = activeStepRef.current;
+        if (!bar || !el) return;
+        const decalage = el.getBoundingClientRect().left - bar.getBoundingClientRect().left;
+        const cible = bar.scrollLeft + decalage - (bar.clientWidth - el.offsetWidth) / 2;
+        bar.scrollTo({ left: Math.max(0, cible), behavior: 'smooth' });
     }, [currentStep]);
 
     const scrollSteps = (direction: 'left' | 'right') => {

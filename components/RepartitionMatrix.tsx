@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Grid3X3, Plus, X, Trash2, Palette } from 'lucide-react';
 import { FicheData } from '../types';
 import { TEXTILE_COLORS } from '../data/textileData';
@@ -66,12 +66,16 @@ export default function RepartitionMatrix({ data, setData, lang = 'fr', syncQuan
         return { rowTotals, colTotals, grandTotal };
     }, [sizes, colors, gridQuantities]);
 
-    // Met à jour la quantité globale du modèle quand la matrice change.
+    // Met à jour la quantité globale du modèle quand la matrice change. La grille devient la
+    // source de vérité dès qu'elle a porté une quantité (vidée ensuite → la quantité suit jusqu'à 0),
+    // mais une grille vide à l'ouverture n'efface jamais une quantité saisie ailleurs.
+    const grilleRemplieRef = useRef(false);
     useEffect(() => {
-        if (syncQuantity && matrixStats.grandTotal > 0) {
+        if (matrixStats.grandTotal > 0) grilleRemplieRef.current = true;
+        if (syncQuantity && sizes.length > 0 && colors.length > 0 && grilleRemplieRef.current) {
             setData(prev => (prev.quantity === matrixStats.grandTotal ? prev : { ...prev, quantity: matrixStats.grandTotal }));
         }
-    }, [syncQuantity, matrixStats.grandTotal, setData]);
+    }, [syncQuantity, matrixStats.grandTotal, sizes.length, colors.length, setData]);
 
     // Nettoie les couleurs en double (même id) héritées d'anciens modèles. Les
     // doublons partagent la même grille (clés `${id}_${taille}`), donc supprimer

@@ -63,6 +63,31 @@ const CostSanityCheck: React.FC<CostSanityCheckProps> = ({
             detail: settings.costMinute > 0 ? `${fmt(settings.costMinute)} ${currency}/min` : tx(lang, {fr:'Coût Minute = 0 → main d\'œuvre nulle', ar:'تكلفة الدقيقة = 0 → أجور معدومة', en:'Cost per minute = 0 → zero labor cost', es:'Costo minuto = 0 → mano de obra nula', pt:'Custo minuto = 0 → mão de obra nula', tr:'Dakika maliyeti = 0 → işçilik maliyeti sıfır'}),
         });
 
+        // Une formule juste à 0 = 0 reste « cohérente » au sens arithmétique, mais
+        // cachait le vrai problème : temps de couture pas encore chronométré/saisi
+        // (ou façon à 0). Sans cette ligne, la bannière affichait « tout est
+        // cohérent » en vert sur une fiche vide, ce qui est trompeur.
+        rows.push({
+            status: laborCost > 0 ? 'ok' : 'warn',
+            label: tx(lang, {fr:'Main d\'œuvre renseignée', ar:'الأجور محددة', en:'Labor cost entered', es:'Mano de obra informada', pt:'Mão de obra informada', tr:'İşçilik girilmiş'}),
+            detail: laborCost > 0
+                ? `${fmt(laborCost)} ${currency}`
+                : tx(lang, {fr:'Main d\'œuvre = 0 → temps de couture (ou prix façon) non renseigné', ar:'الأجور = 0 → وقت الخياطة (أو ثمن التصنيع) غير محدد', en:'Labor cost = 0 → sewing time (or subcontract price) not entered', es:'Mano de obra = 0 → tiempo de costura (o precio de maquila) no informado', pt:'Mão de obra = 0 → tempo de costura (ou preço de fação) não informado', tr:'İşçilik = 0 → dikiş süresi (veya fason fiyatı) girilmemiş'}),
+        });
+
+        // Idem pour les matières : un modèle sans aucune ligne (hors Export/sous-
+        // traitance « tout compris », où elles sont volontairement absentes) n'est
+        // pas « cohérent », il est juste vide.
+        if (!isExport) {
+            rows.push({
+                status: materials.length > 0 ? 'ok' : 'warn',
+                label: tx(lang, {fr:'Matières renseignées', ar:'المواد محددة', en:'Materials entered', es:'Materiales informados', pt:'Materiais informados', tr:'Malzemeler girilmiş'}),
+                detail: materials.length > 0
+                    ? `${materials.length} ${tx(lang, {fr:'matière(s)', ar:'مادة/مواد', en:'material(s)', es:'material(es)', pt:'material(is)', tr:'malzeme(ler)'})}`
+                    : tx(lang, {fr:'Aucune matière ajoutée → prix de revient incomplet', ar:'ما زادش حتى مادة → سعر التكلفة ناقص', en:'No material added → incomplete cost price', es:'Ningún material añadido → precio de costo incompleto', pt:'Nenhum material adicionado → preço de custo incompleto', tr:'Hiç malzeme eklenmemiş → maliyet fiyatı eksik'}),
+            });
+        }
+
         const staleThread = materials.filter(m => m.unit === 'bobine' && m.threadMeters > STALE_THREAD);
         rows.push({
             status: staleThread.length === 0 ? 'ok' : 'warn',
