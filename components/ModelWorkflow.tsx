@@ -88,6 +88,8 @@ interface ModelWorkflowProps {
 
     // Autocomplete
     isAutocompleteEnabled: boolean;
+    /** Descriptions de gamme de tous les modeles (base des propositions de saisie). */
+    descriptionsGammes?: string[];
     userVocabulary: string[];
     setUserVocabulary: React.Dispatch<React.SetStateAction<string[]>>;
 
@@ -242,7 +244,7 @@ export default function ModelWorkflow({
     articleName, setArticleName, efficiency, setEfficiency, numWorkers, setNumWorkers, presenceTime, setPresenceTime, bf, globalStats,
     ficheData, setFicheData, ficheImages, setFicheImages,
     assignments, setAssignments, postes, setPostes,
-    isAutocompleteEnabled, userVocabulary, setUserVocabulary,
+    isAutocompleteEnabled, userVocabulary, setUserVocabulary, descriptionsGammes,
     chronoData, setChronoData,
     chronoCustomStations, setChronoCustomStations, chronoLayoutSide, setChronoLayoutSide,
     layoutMemory, setLayoutMemory,
@@ -566,6 +568,7 @@ export default function ModelWorkflow({
                             guides={guides}
                             setGuides={setGuides}
                             isAutocompleteEnabled={isAutocompleteEnabled}
+                            descriptionsGammes={descriptionsGammes}
                             userVocabulary={userVocabulary} setUserVocabulary={setUserVocabulary}
                             // Pass fabric settings
                             fabricSettings={fabricSettings}

@@ -1,6 +1,7 @@
 
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { sansAccents, type PropositionSaisie } from '../lib/saisieGamme';
 
 interface ExcelInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   value: string;
@@ -12,15 +13,15 @@ interface ExcelInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElemen
   /** Ajoute une espace apres un mot choisi (saisie de phrases, ex. description de gamme). */
   spaceAfterAccept?: boolean;
   maxSuggestions?: number;
+  /**
+   * Moteur de propositions propre au champ (ex. gamme : operations deja
+   * ecrites dans tous les modeles + mot suivant). Remplace la recherche dans
+   * `suggestions`.
+   */
+  proposer?: (texte: string, caret: number) => PropositionSaisie[];
 }
 
-interface Proposition {
-  label: string;
-  /** Portion du texte remplacee par la proposition : [from, to). */
-  from: number;
-  to: number;
-  rang: number;
-}
+type Proposition = PropositionSaisie;
 
 /**
  * Distance d'edition limitee (Levenshtein) : sert a retrouver le bon mot
@@ -42,7 +43,6 @@ function distance(a: string, b: string): number {
   return prev[n];
 }
 
-const sansAccents = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 /**
  * Champ texte avec liste de propositions.
@@ -68,6 +68,7 @@ export default function ExcelInput({
   rankWeights,
   spaceAfterAccept = false,
   maxSuggestions = 6,
+  proposer,
   onBlur,
   onFocus,
   onKeyDown,
@@ -79,6 +80,8 @@ export default function ExcelInput({
   const [items, setItems] = useState<Proposition[]>([]);
   const [active, setActive] = useState(0);
   const [pos, setPos] = useState<{ left: number; top: number; width: number; above: boolean } | null>(null);
+  // Curseur en fin de texte : condition pour afficher la suite en gris dans le champ
+  const [finCurseur, setFinCurseur] = useState(false);
   const listId = useId();
 
   // Replace le curseur apres l'insertion d'un mot choisi
@@ -90,8 +93,28 @@ export default function ExcelInput({
   });
 
   const fermer = () => { setItems([]); setActive(0); };
+  // Suite en gris : la partie de la proposition active qui reste a taper.
+  // Seulement curseur en fin de champ, et si le texte tient dans le champ.
+  const actif = active >= 0 ? items[active] : undefined;
+  const el = inputRef.current;
+  const deborde = !!el && el.scrollWidth > el.clientWidth + 1;
+  let fantome = '';
+  if (actif && finCurseur && !deborde && actif.to >= value.length) {
+    const tape = value.slice(actif.from);
+    if (actif.label.length > tape.length && sansAccents(actif.label).startsWith(sansAccents(tape))) {
+      fantome = actif.label.slice(tape.length);
+    }
+  }
 
   const calculer = (texte: string, caret: number) => {
+    setFinCurseur(caret === texte.length);
+    if (proposer) {
+      const liste = proposer(texte, caret).slice(0, maxSuggestions);
+      setItems(liste);
+      // Preselection (ce qui s'affiche en gris) : une vraie suite, jamais une correction de faute
+      setActive(liste[0] && liste[0].rang <= 1 ? 0 : -1);
+      return;
+    }
     const avant = texte.slice(0, caret);
     const debutMot = avant.search(/\S+$/);
     if (debutMot < 0) { fermer(); return; }
@@ -171,9 +194,12 @@ export default function ExcelInput({
     const reste = value.slice(p.to);
     const espace = (parTab || spaceAfterAccept) && !/^\s/.test(reste) ? ' ' : '';
     const nouveau = value.slice(0, p.from) + p.label + espace + reste;
-    cursorRef.current = p.from + p.label.length + espace.length;
+    const curseur = p.from + p.label.length + espace.length;
+    cursorRef.current = curseur;
     onChange(nouveau);
-    fermer();
+    // Avec un moteur, on enchaine sur la suite (mot suivant) comme un clavier de telephone
+    if (proposer) calculer(nouveau, curseur);
+    else fermer();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,9 +213,17 @@ export default function ExcelInput({
       if (e.key === 'ArrowDown') { e.preventDefault(); setActive(i => (i + 1) % items.length); return; }
       if (e.key === 'ArrowUp') { e.preventDefault(); setActive(i => (i <= 0 ? items.length - 1 : i - 1)); return; }
       if (e.key === 'Escape') { e.preventDefault(); fermer(); return; }
-      if ((e.key === 'Enter' || e.key === 'Tab') && items[active]) {
+      const choisi = items[active];
+      // Tab ne valide pas un mot SUIVANT predit : sinon impossible de quitter le
+      // champ avec Tab, chaque appui ajoutant un mot de plus.
+      if (choisi && (e.key === 'Enter' || (e.key === 'Tab' && !choisi.prochain))) {
         e.preventDefault();
-        accepter(items[active], e.key === 'Tab');
+        accepter(choisi, e.key === 'Tab');
+        return;
+      }
+      if (e.key === 'ArrowRight' && fantome) {
+        e.preventDefault();
+        accepter(choisi!, false);
         return;
       }
     }
@@ -208,6 +242,17 @@ export default function ExcelInput({
 
   return (
     <div className={`relative w-full ${containerClassName || ''}`}>
+      {fantome && (
+        // Par-dessus le champ (son fond peut etre opaque au focus), transparent
+        // sur le texte deja tape : seule la suite apparait, en gris.
+        <div
+          aria-hidden="true"
+          className={`${className || ''} pointer-events-none select-none`}
+          style={{ position: 'absolute', inset: 0, zIndex: 20, color: 'transparent', background: 'transparent', borderColor: 'transparent', boxShadow: 'none', whiteSpace: 'pre', overflow: 'hidden', display: 'flex', alignItems: 'center' }}
+        >
+          <span>{value}</span><span className="text-slate-400 dark:text-dk-muted">{fantome}</span>
+        </div>
+      )}
       <input
         {...props}
         ref={inputRef}
@@ -216,7 +261,12 @@ export default function ExcelInput({
         onChange={handleChange}
         onKeyDown={handleKeyDownInternal}
         onKeyUp={handleKeyUp}
-        onBlur={(e) => { fermer(); onBlur?.(e); }}
+        onBlur={(e) => {
+          fermer();
+          // L'espace laisse apres un mot choisi ne doit pas finir dans la donnee
+          if (spaceAfterAccept && /\s$/.test(value)) onChange(value.trimEnd());
+          onBlur?.(e);
+        }}
         onFocus={onFocus}
         role="combobox"
         aria-autocomplete="list"

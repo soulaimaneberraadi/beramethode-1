@@ -60,6 +60,7 @@ import { analyzeTextileContext, suggestTextileVocabulary } from '../services/gem
 import { VOCABULARY } from '../data/vocabulary';
 import { compressImage } from '../utils';
 import ExcelInput from './ExcelInput';
+import { construireCorpus, proposerSaisie } from '../lib/saisieGamme';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import { tx } from '../lib/i18n';
 import { useLang } from '../src/context/LanguageContext';
@@ -198,6 +199,8 @@ interface GammeProps {
   // Autocomplete Props
   isAutocompleteEnabled: boolean;
   userVocabulary: string[];
+  /** Descriptions de gamme de tous les modeles de l'atelier. */
+  descriptionsGammes?: string[];
   setUserVocabulary: React.Dispatch<React.SetStateAction<string[]>>;
   // Fabric Settings (Lifted Up)
   fabricSettings: FabricSettings;
@@ -226,6 +229,7 @@ export default function Gamme({
   setGuides,
   isAutocompleteEnabled,
   userVocabulary,
+  descriptionsGammes,
   setUserVocabulary,
   fabricSettings,
   setFabricSettings,
@@ -385,6 +389,15 @@ export default function Gamme({
       .trim()
       .replace(/[.,;:!?()[\]{}"']/g, '')
       .replace(/\s+/g, ' ');
+
+  // Base des propositions de la description : operations deja ecrites dans
+  // TOUS les modeles (phrases, mots, mot suivant) + mots appris + socle technique.
+  // Les lignes du modele en cours n'y entrent pas : le mot a moitie tape se
+  // proposerait lui-meme.
+  const corpusSaisie = useMemo(
+    () => construireCorpus([...(descriptionsGammes || []), ...userVocabulary, ...remoteVocabulary], VOCABULARY),
+    [descriptionsGammes, userVocabulary, remoteVocabulary]
+  );
 
   // Combine base, learned and remote textile suggestions
   const fullVocabulary = useMemo(
@@ -2375,7 +2388,7 @@ export default function Gamme({
                           <div className="flex flex-col">
                               <ExcelInput
                                 suggestions={isAutocompleteEnabled ? fullVocabulary : []}
-                                rankWeights={wordUsageRef.current}
+                                proposer={isAutocompleteEnabled ? (texte, caret) => proposerSaisie(corpusSaisie, texte, caret) : undefined}
                                 spaceAfterAccept
                                 value={op.description}
                                 onChange={(val) => handleDescriptionChange(val, op.id)}

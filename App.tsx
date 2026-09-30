@@ -1592,6 +1592,13 @@ export default function App() {
         chronoCustomStations, setChronoCustomStations, chronoLayoutSide, setChronoLayoutSide
     });
 
+    // Toutes les operations deja ecrites dans les gammes de l'atelier : la base
+    // des propositions de saisie de la Gamme (plus il y a de modeles, mieux elle propose).
+    const descriptionsGammes = useMemo(
+        () => models.flatMap(m => (m?.gamme_operatoire || []).map(op => op?.description || '')).filter(Boolean),
+        [models]
+    );
+
     // Export / import / suppression d'un modele AVEC ses donnees liees
     // (Planning, suivi, sous-traitance...) depuis la Bibliotheque.
     const { exportModels, importFiles, getLinkedSummary, deleteModelWithScope } = useModelBundles({
@@ -2176,6 +2183,7 @@ export default function App() {
                             setPostes={setPostesWithHistory}
 
                             isAutocompleteEnabled={isAutocompleteEnabled}
+                            descriptionsGammes={descriptionsGammes}
                             userVocabulary={userVocabulary}
                             setUserVocabulary={setUserVocabulary}
 
