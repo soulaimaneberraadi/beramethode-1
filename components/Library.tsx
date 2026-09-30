@@ -5,11 +5,12 @@ import { useLang } from '../src/context/LanguageContext';
 import { tx } from '../lib/i18n';
 import { lsGet, lsSet, lsGetMig } from '../lib/storageKeys';
 import { deshydraterModeles, rehydraterModeles } from '../lib/photosLocales';
-import { Search, FolderOpen, MoreVertical, FileJson, Clock, Users, Calendar, Download, Copy, Trash2, Edit2, SortAsc, Scissors, Filter, Upload, AlertTriangle, Plus, Share2, LayoutGrid, ZoomIn, ZoomOut, List as ListIcon, Database, UploadCloud, DownloadCloud, CheckCircle2, Loader2, FileText, X } from 'lucide-react';
+import { Search, FolderOpen, MoreVertical, FileJson, Clock, Users, Calendar, Download, Copy, Trash2, Edit2, SortAsc, Scissors, Filter, Upload, AlertTriangle, Plus, Share2, LayoutGrid, ZoomIn, ZoomOut, List as ListIcon, Database, UploadCloud, DownloadCloud, CheckCircle2, Loader2, FileText, X, Check, CheckSquare } from 'lucide-react';
 import InlineInvoiceList from './InlineInvoiceList';
 import SheetModal, { useSheetFullscreen } from './shared/SheetModal';
 import { useIsMobile } from './planning/shared/useIsMobile';
 import { ModelData } from '../types';
+import { LinkedSummary, DeleteScope } from '../lib/modelBundle';
 
 function getModelAbbrev(model: ModelData): string {
     if (model?.meta_data?.reference) return model.meta_data.reference.toUpperCase().slice(0, 6);
@@ -46,11 +47,41 @@ function modelMatchesLibrarySearch(m: ModelData, rawQuery: string): boolean {
     return tokens.every(tok => haystack.includes(tok));
 }
 
+/** Clé de la carte à supprimer dans la fenêtre en deux étapes : un modèle
+ *  (menu contextuel) ou plusieurs (barre de sélection). */
+interface DeleteDialogState {
+    ids: string[];
+    names: string[];
+    step: 1 | 2;
+    scope: DeleteScope | null;
+    summary: LinkedSummary | null;
+    loadingSummary: boolean;
+}
+
+/** Libellés des catégories de données liées, affichées dans l'étape 1
+ *  (seules les catégories non nulles sont montrées). */
+const LINKED_LABELS: Record<Exclude<keyof LinkedSummary, 'total'>, { fr: string; ar: string; en: string; es: string; pt: string; tr: string }> = {
+    planning: { fr: "OF Planning", ar: "أوامر التخطيط", en: "Planning work orders", es: "Órdenes de planificación", pt: "Ordens de planejamento", tr: "Planlama iş emirleri" },
+    suivis: { fr: "Suivis de production", ar: "متابعات الإنتاج", en: "Production tracking records", es: "Registros de seguimiento de producción", pt: "Registros de acompanhamento de produção", tr: "Üretim takip kayıtları" },
+    demandes: { fr: "Demandes d'appro", ar: "طلبات الإمداد", en: "Supply requests", es: "Solicitudes de suministro", pt: "Solicitações de suprimento", tr: "Tedarik talepleri" },
+    sousTraitance: { fr: "Commandes de sous-traitance", ar: "أوامر الاستعانة بمصادر خارجية", en: "Subcontracting orders", es: "Órdenes de subcontratación", pt: "Ordens de subcontratação", tr: "Taşeronluk siparişleri" },
+    postesSuivi: { fr: "Relevés suivi par poste", ar: "بيانات متابعة محطات العمل", en: "Workstation tracking records", es: "Registros de seguimiento por puesto", pt: "Registros de acompanhamento por posto", tr: "İstasyon takip kayıtları" },
+    liensImplantation: { fr: "Liens d'implantation", ar: "روابط التوطين", en: "Layout links", es: "Enlaces de implantación", pt: "Vínculos de implantação", tr: "Yerleşim bağlantıları" },
+};
+
+const CARD_SIZE_STORAGE_KEY = 'bera_library_card_size';
+
 interface LibraryProps {
     models: ModelData[];
     onLoadModel: (model: ModelData) => void;
     onImportModel: (file: File) => void;
-    onDeleteModel: (id: string) => void;
+    /** Import d'un ou plusieurs fichiers .json (modèle unique ou paquet de plusieurs). */
+    onImportFiles?: (files: File[]) => Promise<void> | void;
+    /** Télécharge UN .json contenant les modèles choisis + toutes leurs données liées. */
+    onExportModels?: (ids: string[]) => Promise<void> | void;
+    /** Comptes des données liées à ces modèles (Planning, suivi, sous-traitance...). */
+    onGetLinkedSummary?: (ids: string[]) => Promise<LinkedSummary>;
+    onDeleteModel: (id: string, scope?: DeleteScope) => void;
     onDuplicateModel: (model: ModelData) => void;
     onRenameModel: (id: string, newName: string) => void;
     onCreateNewProject: () => void;
@@ -60,7 +91,7 @@ interface LibraryProps {
 }
 
 export default function Library({
-    models, onLoadModel, onImportModel, onDeleteModel, onDuplicateModel, onRenameModel, onCreateNewProject, onTransferToCoupe, onTransferToPlanning, onStartSuivi
+    models, onLoadModel, onImportModel, onImportFiles, onExportModels, onGetLinkedSummary, onDeleteModel, onDuplicateModel, onRenameModel, onCreateNewProject, onTransferToCoupe, onTransferToPlanning, onStartSuivi
 }: LibraryProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [sortBy, setSortBy] = useState<"date" | "name" | "time">("date");
@@ -71,9 +102,15 @@ export default function Library({
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; modelId: string } | null>(null);
     const [renamingId, setRenamingId] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState("");
-    const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, name: string } | null>(null);
+    const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null);
     const [dbStatus, setDbStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
     const [invoiceModalModelId, setInvoiceModalModelId] = useState<string | null>(null);
+    /* Mode sélection : export ou suppression groupée. */
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+    const [exportBusy, setExportBusy] = useState(false);
+    const [importBusy, setImportBusy] = useState(false);
     /* Préférence d'agrandissement partagée avec le reste du programme :
        qui agrandit une fiche ailleurs retrouve ici le même confort. */
     const [libFullscreen, toggleLibFullscreen] = useSheetFullscreen();
@@ -84,14 +121,64 @@ export default function Library({
     const IS_STATIC = import.meta.env.VITE_STATIC_MODE === 'true' || !window.location.hostname.includes('localhost');
 
     useEffect(() => {
-        const handleClick = () => setContextMenu(null);
+        const handleClick = () => { setContextMenu(null); setMoreMenuOpen(false); };
         window.addEventListener("click", handleClick);
         return () => window.removeEventListener("click", handleClick);
     }, []);
 
+    /* Préférence de taille de carte, retenue d'une session à l'autre. */
+    useEffect(() => {
+        try {
+            const saved = window.localStorage.getItem(CARD_SIZE_STORAGE_KEY);
+            const n = saved ? Number(saved) : NaN;
+            if (n === 240 || n === 340 || n === 440) setCardSize(n);
+        } catch { /* stockage indisponible : on garde la valeur par défaut */ }
+    }, []);
+
+    const changeCardSize = (size: number) => {
+        setCardSize(size);
+        try { window.localStorage.setItem(CARD_SIZE_STORAGE_KEY, String(size)); } catch { /* tant pis, non bloquant */ }
+    };
+
+    /* Échap quitte le mode sélection (bureau) — sauf pendant la fenêtre de
+       suppression, qui gère son propre cycle Annuler/Retour. */
+    useEffect(() => {
+        if (!selectionMode || deleteDialog) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') exitSelectionMode(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectionMode, deleteDialog]);
+
+    const enterSelectionMode = () => { setSelectionMode(true); setSelectedIds(new Set()); setMoreMenuOpen(false); setContextMenu(null); };
+    const exitSelectionMode = () => { setSelectionMode(false); setSelectedIds(new Set()); };
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const handleFilesSelected = async (fileList: FileList | null) => {
+        if (!fileList || fileList.length === 0) return;
+        const files = Array.from(fileList);
+        setImportBusy(true);
+        try {
+            if (onImportFiles) {
+                await onImportFiles(files);
+            } else {
+                for (const f of files) await onImportModel(f);
+            }
+        } finally {
+            setImportBusy(false);
+        }
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) onImportModel(file);
+        const files = e.target.files;
+        void handleFilesSelected(files);
+        e.target.value = '';
     };
 
     const triggerFileInput = () => {
@@ -189,6 +276,35 @@ export default function Library({
         setContextMenu(null);
     };
 
+    /** Export « avec données liées » : passe par le paquet complet si le
+     *  parent le fournit, sinon revient au JSON simple modèle par modèle. */
+    const exportModelsWithFallback = async (ids: string[]) => {
+        if (onExportModels) { await onExportModels(ids); return; }
+        ids.forEach(id => { const m = models.find(mm => mm.id === id); if (m) handleExport(m); });
+    };
+
+    const handleExportLinked = async (model: ModelData) => {
+        setContextMenu(null);
+        setExportBusy(true);
+        try { await exportModelsWithFallback([model.id]); } finally { setExportBusy(false); }
+    };
+
+    const handleExportAllDisplayed = async () => {
+        setMoreMenuOpen(false);
+        if (filteredModels.length === 0) return;
+        setExportBusy(true);
+        try { await exportModelsWithFallback(filteredModels.map(m => m.id)); } finally { setExportBusy(false); }
+    };
+
+    const handleExportSelected = async () => {
+        if (selectedIds.size === 0) return;
+        setExportBusy(true);
+        try {
+            await exportModelsWithFallback(Array.from(selectedIds));
+            exitSelectionMode();
+        } finally { setExportBusy(false); }
+    };
+
     const handleShare = async (model: ModelData) => {
         setContextMenu(null);
         try {
@@ -197,8 +313,65 @@ export default function Library({
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({ title: model.meta_data.nom_modele, text: `${tx(lang, { fr: "Fiche Technique", ar: "البطاقة التقنية", en: "Technical Sheet", es: "Ficha Técnica", pt: "Ficha Técnica", tr: "Teknik Föy" })}: ${model.meta_data.nom_modele}`, files: [file] });
             } else { throw new Error(tx(lang, { fr: "Partage natif non supporté", ar: "المشاركة الأصلية غير مدعومة", en: "Native sharing not supported", es: "Uso compartido nativo no compatible", pt: "Compartilhamento nativo não suportado", tr: "Yerel paylaşım desteklenmiyor" })); }
-        } catch (error) { console.log('Share failed, falling back to download:', error); handleExport(model); }
+        } catch (error) { console.log('Share failed, falling back to download:', error); void handleExportLinked(model); }
     };
+
+    /* ------------------------------------------------------------------ */
+    /* Suppression en deux étapes : quoi supprimer, puis confirmation.    */
+    /* ------------------------------------------------------------------ */
+
+    const openDeleteDialog = (ids: string[]) => {
+        if (ids.length === 0) return;
+        const names = ids.map(id => models.find(m => m.id === id)?.meta_data?.nom_modele || '').filter(Boolean);
+        setContextMenu(null);
+        setDeleteDialog({ ids, names, step: 1, scope: null, summary: null, loadingSummary: !!onGetLinkedSummary });
+        if (onGetLinkedSummary) {
+            const key = ids.join(',');
+            onGetLinkedSummary(ids)
+                .then(summary => setDeleteDialog(prev => (prev && prev.ids.join(',') === key) ? { ...prev, summary, loadingSummary: false } : prev))
+                .catch(() => setDeleteDialog(prev => (prev && prev.ids.join(',') === key) ? { ...prev, summary: null, loadingSummary: false } : prev));
+        }
+    };
+
+    const handleDeleteSelected = () => { if (selectedIds.size > 0) openDeleteDialog(Array.from(selectedIds)); };
+
+    const confirmDeleteFinal = () => {
+        if (!deleteDialog || !deleteDialog.scope) return;
+        deleteDialog.ids.forEach(id => onDeleteModel(id, deleteDialog.scope as DeleteScope));
+        setDeleteDialog(null);
+        if (selectionMode) exitSelectionMode();
+    };
+
+    const deleteTargetLabel = deleteDialog
+        ? (deleteDialog.ids.length === 1
+            ? `"${deleteDialog.names[0] || ''}"`
+            : tx(lang, {
+                fr: `${deleteDialog.ids.length} modèles`,
+                ar: `${deleteDialog.ids.length} نماذج`,
+                en: `${deleteDialog.ids.length} models`,
+                es: `${deleteDialog.ids.length} modelos`,
+                pt: `${deleteDialog.ids.length} modelos`,
+                tr: `${deleteDialog.ids.length} model`,
+            }))
+        : '';
+
+    const deleteSummarySentence = deleteDialog?.scope === 'all'
+        ? tx(lang, {
+            fr: `${deleteTargetLabel} et toutes les données liées (Planning, suivi, sous-traitance…) seront supprimés définitivement.`,
+            ar: `سيتم حذف ${deleteTargetLabel} وكل البيانات المرتبطة به (التخطيط، المتابعة، الاستعانة بمصادر خارجية...) نهائياً.`,
+            en: `${deleteTargetLabel} and all linked data (Planning, tracking, subcontracting…) will be permanently deleted.`,
+            es: `${deleteTargetLabel} y todos los datos vinculados (Planificación, seguimiento, subcontratación…) se eliminarán definitivamente.`,
+            pt: `${deleteTargetLabel} e todos os dados vinculados (Planejamento, acompanhamento, subcontratação…) serão excluídos definitivamente.`,
+            tr: `${deleteTargetLabel} ve bağlı tüm veriler (Planlama, takip, taşeronluk…) kalıcı olarak silinecek.`,
+        })
+        : tx(lang, {
+            fr: `${deleteTargetLabel} et toutes ses pages (fiche, gamme, chrono, équilibrage, coûts, pedido) seront supprimés. Les données liées (Planning, suivi, sous-traitance) seront conservées.`,
+            ar: `سيتم حذف ${deleteTargetLabel} وكل صفحاته (البطاقة، الغامة، الكرونو، التوازن، التكاليف، البيديدو). ستبقى البيانات المرتبطة (التخطيط، المتابعة، الاستعانة بمصادر خارجية) محفوظة.`,
+            en: `${deleteTargetLabel} and all its pages (sheet, routing, chrono, balancing, costs, pedido) will be deleted. Linked data (Planning, tracking, subcontracting) will be kept.`,
+            es: `${deleteTargetLabel} y todas sus páginas (ficha, gama, crono, equilibrado, costos, pedido) se eliminarán. Los datos vinculados (Planificación, seguimiento, subcontratación) se conservarán.`,
+            pt: `${deleteTargetLabel} e todas as suas páginas (ficha, gama, crono, balanceamento, custos, pedido) serão excluídos. Os dados vinculados (Planejamento, acompanhamento, subcontratação) serão mantidos.`,
+            tr: `${deleteTargetLabel} ve tüm sayfaları (föy, rota, kronometraj, dengeleme, maliyetler, pedido) silinecek. Bağlı veriler (Planlama, takip, taşeronluk) korunacak.`,
+        });
 
     /**
      * Le temps du modele, ecrit sans jamais faire tomber la page.
@@ -228,101 +401,282 @@ export default function Library({
             return 0;
         });
 
+    const allFilteredSelected = filteredModels.length > 0 && filteredModels.every(m => selectedIds.has(m.id));
+    const selectAllFiltered = () => setSelectedIds(new Set(filteredModels.map(m => m.id)));
+    const deselectAllFiltered = () => setSelectedIds(new Set());
+
     const activeModel = models.find(m => m.id === contextMenu?.modelId);
 
-    return (
-        <div className="h-full overflow-y-auto bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-bg/50 custom-scrollbar flex flex-col">
-            <div className="p-4 pb-2 shrink-0">
-                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 bg-white dark:bg-dk-surface p-3 rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated">
-                    <div>
-                        <h1 className="text-xl font-bold text-slate-800 dark:text-dk-text flex items-center gap-2">
-                            <FolderOpen className="w-5 h-5 text-indigo-500 dark:text-dk-accent" />
-                            {tx(lang, { fr: "Bibliothèque", ar: "المكتبة", en: "Library", es: "Biblioteca", pt: "Biblioteca", tr: "Kütüphane" })}
-                        </h1>
-                        <p className="text-slate-500 dark:text-dk-text-soft text-xs mt-0.5">{tx(lang, { fr: "Gérez vos modèles de production sauvegardés", ar: "أدِر نماذج الإنتاج المحفوظة", en: "Manage your saved production models", es: "Gestione sus modelos de producción guardados", pt: "Gerencie seus modelos de produção salvos", tr: "Kayıtlı üretim modellerinizi yönetin" })}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2 w-full xl:w-auto items-center">
-                        <button onClick={onCreateNewProject} className="flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md dark:shadow-dk-md shadow-emerald-200 dark:shadow-dk-elevated transition-all active:scale-95">
-                            <Plus className="w-4 h-4" />
-                            <span>{tx(lang, { fr: "Nouveau Modèle", ar: "نموذج جديد", en: "New Model", es: "Nuevo Modelo", pt: "Novo Modelo", tr: "Yeni Model" })}</span>
-                        </button>
-                        <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-lg p-0.5 border border-slate-200 dark:border-dk-border">
-                            <button
-                                onClick={handleBackupDatabase}
-                                disabled={dbStatus === 'processing'}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${dbStatus === 'success' ? 'bg-emerald-500 text-white' : 'hover:bg-white dark:hover:bg-dk-surface text-slate-600 dark:text-dk-text-soft'}`}
-                                title={tx(lang, { fr: "Sauvegarder toute la base de données (Backup)", ar: "حفظ كامل قاعدة البيانات (Backup)", en: "Back up the entire database (Backup)", es: "Respaldar toda la base de datos (Backup)", pt: "Fazer backup de todo o banco de dados (Backup)", tr: "Tüm veritabanını yedekle (Backup)" })}
-                            >
-                                {dbStatus === 'processing' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (dbStatus === 'success' ? <CheckCircle2 className="w-3.5 h-3.5" /> : <DownloadCloud className="w-3.5 h-3.5" />)}
-                                <span className="hidden sm:inline">Backup</span>
-                            </button>
-                            <div className="w-px h-4 bg-slate-300 dark:bg-dk-border mx-1"></div>
-                            <button
-                                onClick={() => dbInputRef.current?.click()}
-                                disabled={dbStatus === 'processing'}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold hover:bg-white dark:hover:bg-dk-surface text-slate-600 dark:text-dk-text-soft transition-all"
-                                title={tx(lang, { fr: "Restaurer une base de données", ar: "استعادة قاعدة بيانات", en: "Restore a database", es: "Restaurar una base de datos", pt: "Restaurar um banco de dados", tr: "Bir veritabanını geri yükle" })}
-                            >
-                                <UploadCloud className="w-3.5 h-3.5" />
-                                <span className="hidden sm:inline">{tx(lang, { fr: "Restaurer", ar: "استعادة", en: "Restore", es: "Restaurar", pt: "Restaurar", tr: "Geri Yükle" })}</span>
-                            </button>
-                            <input type="file" accept=".json" ref={dbInputRef} className="hidden" onChange={handleRestoreDatabase} aria-label={tx(lang, { fr: "Restaurer une base de données", ar: "استعادة قاعدة بيانات", en: "Restore a database", es: "Restaurar una base de datos", pt: "Restaurar um banco de dados", tr: "Bir veritabanını geri yükle" })} />
-                        </div>
-                        <input type="file" accept=".json" ref={fileInputRef} className="hidden" onChange={handleFileChange} aria-label={tx(lang, { fr: "Importer un modèle", ar: "استيراد نموذج", en: "Import a model", es: "Importar un modelo", pt: "Importar um modelo", tr: "Bir model içe aktar" })} />
-                        <button
-                            onClick={triggerFileInput}
-                            className="p-2 bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-500 dark:text-dk-text-soft rounded-xl border border-slate-200 dark:border-dk-border transition-colors"
-                            title={tx(lang, { fr: "Importer un modèle unique", ar: "استيراد نموذج واحد", en: "Import a single model", es: "Importar un solo modelo", pt: "Importar um único modelo", tr: "Tek bir model içe aktar" })}
-                        >
-                            <Upload className="w-4 h-4" />
-                        </button>
-                        <div className="flex bg-slate-100 dark:bg-dk-elevated rounded-lg p-0.5 border border-slate-200 dark:border-dk-border">
-                            <button
-                                onClick={() => setViewMode('grid')}
-                                className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft'}`}
-                                title={tx(lang, { fr: "Vue Grille", ar: "عرض الشبكة", en: "Grid View", es: "Vista de Cuadrícula", pt: "Visualização em Grade", tr: "Izgara Görünümü" })}
-                            >
-                                <LayoutGrid className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                                onClick={() => setViewMode('list')}
-                                className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft'}`}
-                                title={tx(lang, { fr: "Vue Liste", ar: "عرض القائمة", en: "List View", es: "Vista de Lista", pt: "Visualização em Lista", tr: "Liste Görünümü" })}
-                            >
-                                <ListIcon className="w-3.5 h-3.5" />
-                            </button>
-                        </div>
-                        <div className="relative flex-1 min-w-[150px] xl:min-w-[220px]">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />
-                            <input
-                                type="text"
-                                placeholder={tx(lang, { fr: "Nom, client, mot gamme, chiffre…", ar: "الاسم، العميل، كلمة من الغامة، رقم…", en: "Name, client, routing word, number…", es: "Nombre, cliente, palabra de gama, número…", pt: "Nome, cliente, palavra da gama, número…", tr: "Ad, müşteri, rota kelimesi, sayı…" })}
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                title={tx(lang, { fr: "Plusieurs mots : chaque mot doit être trouvé (fiche + lignes de gamme).", ar: "عدّة كلمات: يجب إيجاد كل كلمة (البطاقة + خطوط الغامة).", en: "Multiple words: each word must be found (sheet + routing lines).", es: "Varias palabras: cada palabra debe encontrarse (ficha + líneas de gama).", pt: "Várias palavras: cada palavra deve ser encontrada (ficha + linhas da gama).", tr: "Birden fazla kelime: her kelime bulunmalıdır (föy + rota satırları)." })}
-                                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl text-xs outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white dark:focus:bg-dk-surface transition-all text-slate-700 dark:text-dk-text"
-                            />
-                        </div>
-                        <div className="relative">
-                            <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                                <SortAsc className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />
-                            </div>
-                            <select
-                                value={sortBy}
-                                aria-label={tx(lang, { fr: "Trier par", ar: "الترتيب حسب", en: "Sort by", es: "Ordenar por", pt: "Ordenar por", tr: "Sırala" })}
-                                onChange={(e) => setSortBy(e.target.value as any)}
-                                className="pl-8 pr-7 py-1.5 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl text-xs font-bold text-slate-600 dark:text-dk-text-soft outline-none focus:border-indigo-500 dark:focus:border-dk-accent cursor-pointer appearance-none"
-                            >
-                                <option value="date">{tx(lang, { fr: "Récent", ar: "الأحدث", en: "Recent", es: "Reciente", pt: "Recente", tr: "Son" })}</option>
-                                <option value="name">{tx(lang, { fr: "Nom", ar: "الاسم", en: "Name", es: "Nombre", pt: "Nome", tr: "Ad" })}</option>
-                                <option value="time">{tx(lang, { fr: "Temps", ar: "الوقت", en: "Time", es: "Tiempo", pt: "Tempo", tr: "Süre" })}</option>
-                            </select>
-                            <Filter className="absolute right-2 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-slate-400 dark:text-dk-muted pointer-events-none" />
-                        </div>
-                    </div>
+    /* ------------------------------------------------------------------ */
+    /* Menu ⋮ de la barre d'outils : Sélection / Export / Import / Backup /
+       Restaurer / Taille des cartes. Le même contenu sert au menu déroulant
+       (bureau) et à la feuille basse (téléphone). */
+    /* ------------------------------------------------------------------ */
+    const moreMenuBody = (
+        <>
+            <button
+                type="button"
+                onClick={() => enterSelectionMode()}
+                className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-3 transition-colors"
+            >
+                <CheckSquare className="w-4 h-4" /> {tx(lang, { fr: "Sélectionner des modèles", ar: "اختيار نماذج", en: "Select models", es: "Seleccionar modelos", pt: "Selecionar modelos", tr: "Modelleri seç" })}
+            </button>
+            <button
+                type="button"
+                disabled={exportBusy || filteredModels.length === 0}
+                onClick={handleExportAllDisplayed}
+                className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-3 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+                {exportBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {tx(lang, { fr: "Exporter tous les modèles affichés", ar: "تصدير كل النماذج المعروضة", en: "Export all displayed models", es: "Exportar todos los modelos mostrados", pt: "Exportar todos os modelos exibidos", tr: "Görüntülenen tüm modelleri dışa aktar" })}
+            </button>
+            <button
+                type="button"
+                onClick={() => { setMoreMenuOpen(false); triggerFileInput(); }}
+                className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-3 transition-colors"
+            >
+                <Upload className="w-4 h-4" /> {tx(lang, { fr: "Importer des modèles", ar: "استيراد نماذج", en: "Import models", es: "Importar modelos", pt: "Importar modelos", tr: "Model içe aktar" })}
+            </button>
+            <div className="h-px bg-slate-100 dark:bg-dk-elevated my-1" />
+            <button
+                type="button"
+                disabled={dbStatus === 'processing'}
+                onClick={() => { setMoreMenuOpen(false); void handleBackupDatabase(); }}
+                className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-3 transition-colors disabled:opacity-40"
+            >
+                {dbStatus === 'processing' ? <Loader2 className="w-4 h-4 animate-spin" /> : (dbStatus === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <DownloadCloud className="w-4 h-4" />)} {tx(lang, { fr: "Sauvegarde complète (Backup)", ar: "نسخة احتياطية كاملة (Backup)", en: "Full backup (Backup)", es: "Copia de seguridad completa (Backup)", pt: "Backup completo (Backup)", tr: "Tam yedekleme (Backup)" })}
+            </button>
+            <button
+                type="button"
+                disabled={dbStatus === 'processing'}
+                onClick={() => { setMoreMenuOpen(false); dbInputRef.current?.click(); }}
+                className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-3 transition-colors disabled:opacity-40"
+            >
+                <UploadCloud className="w-4 h-4" /> {tx(lang, { fr: "Restaurer une sauvegarde", ar: "استعادة نسخة احتياطية", en: "Restore a backup", es: "Restaurar una copia de seguridad", pt: "Restaurar um backup", tr: "Bir yedeği geri yükle" })}
+            </button>
+            <div className="h-px bg-slate-100 dark:bg-dk-elevated my-1" />
+            <div className="px-4 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-dk-muted mb-1.5">{tx(lang, { fr: "Taille des cartes", ar: "حجم البطاقات", en: "Card size", es: "Tamaño de las tarjetas", pt: "Tamanho dos cartões", tr: "Kart boyutu" })}</p>
+                <div className="flex items-center bg-slate-100 dark:bg-dk-elevated rounded-lg p-0.5 border border-slate-200 dark:border-dk-border">
+                    <button
+                        type="button"
+                        onClick={() => changeCardSize(240)}
+                        aria-pressed={cardSize === 240}
+                        className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-bold transition-all ${cardSize === 240 ? 'bg-white dark:bg-dk-surface shadow-sm text-indigo-600 dark:text-dk-accent' : 'text-slate-500 dark:text-dk-text-soft'}`}
+                    >
+                        <ZoomOut className="w-3 h-3" /> {tx(lang, { fr: "Petite", ar: "صغيرة", en: "Small", es: "Pequeña", pt: "Pequeno", tr: "Küçük" })}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => changeCardSize(340)}
+                        aria-pressed={cardSize === 340}
+                        className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-bold transition-all ${cardSize === 340 ? 'bg-white dark:bg-dk-surface shadow-sm text-indigo-600 dark:text-dk-accent' : 'text-slate-500 dark:text-dk-text-soft'}`}
+                    >
+                        <LayoutGrid className="w-3 h-3" /> {tx(lang, { fr: "Moyenne", ar: "متوسطة", en: "Medium", es: "Mediana", pt: "Médio", tr: "Orta" })}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => changeCardSize(440)}
+                        aria-pressed={cardSize === 440}
+                        className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-bold transition-all ${cardSize === 440 ? 'bg-white dark:bg-dk-surface shadow-sm text-indigo-600 dark:text-dk-accent' : 'text-slate-500 dark:text-dk-text-soft'}`}
+                    >
+                        <ZoomIn className="w-3 h-3" /> {tx(lang, { fr: "Grande", ar: "كبيرة", en: "Large", es: "Grande", pt: "Grande", tr: "Büyük" })}
+                    </button>
                 </div>
             </div>
-            <div className="flex-1 p-4 pt-0 pb-20">
+        </>
+    );
+
+    const moreMenuLabel = tx(lang, { fr: "Plus d'options", ar: "المزيد من الخيارات", en: "More options", es: "Más opciones", pt: "Mais opções", tr: "Daha fazla seçenek" });
+
+    return (
+        <div className="h-full overflow-y-auto overflow-x-hidden bg-slate-50 dark:bg-dk-bg/50 dark:bg-dk-bg/50 custom-scrollbar flex flex-col">
+            <div className="p-4 pb-2 shrink-0 min-w-0">
+                <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-dk-surface p-3 rounded-2xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated min-w-0">
+                    {/* Ligne 1 (tel.) : titre + Nouveau. Reste en tête sur bureau aussi. */}
+                    <div className="order-1 min-w-0 shrink max-md:flex-1 max-md:basis-0">
+                        <h1 className="text-xl font-bold text-slate-800 dark:text-dk-text flex items-center gap-2">
+                            <FolderOpen className="w-5 h-5 text-indigo-500 dark:text-dk-accent shrink-0" />
+                            <span className="truncate">{tx(lang, { fr: "Bibliothèque", ar: "المكتبة", en: "Library", es: "Biblioteca", pt: "Biblioteca", tr: "Kütüphane" })}</span>
+                        </h1>
+                        <p className="text-slate-500 dark:text-dk-text-soft text-xs mt-0.5 truncate">{tx(lang, { fr: "Gérez vos modèles de production sauvegardés", ar: "أدِر نماذج الإنتاج المحفوظة", en: "Manage your saved production models", es: "Gestione sus modelos de producción guardados", pt: "Gerencie seus modelos de produção salvos", tr: "Kayıtlı üretim modellerinizi yönetin" })}</p>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onCreateNewProject}
+                        title={tx(lang, { fr: "Créer un nouveau modèle", ar: "إنشاء نموذج جديد", en: "Create a new model", es: "Crear un nuevo modelo", pt: "Criar um novo modelo", tr: "Yeni bir model oluştur" })}
+                        className="order-2 shrink-0 flex items-center gap-2 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md dark:shadow-dk-md shadow-emerald-200 dark:shadow-dk-elevated transition-all active:scale-95"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>{tx(lang, { fr: "Nouveau Modèle", ar: "نموذج جديد", en: "New Model", es: "Nuevo Modelo", pt: "Novo Modelo", tr: "Yeni Model" })}</span>
+                    </button>
+
+                    {/* Recherche : pleine largeur (ligne 2) sur téléphone, s'étire à partir de md. */}
+                    <div className="order-3 md:order-6 basis-full md:basis-auto md:flex-1 min-w-0 md:min-w-[150px] xl:min-w-[220px] relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />
+                        <input
+                            type="text"
+                            placeholder={tx(lang, { fr: "Nom, client, mot gamme, chiffre…", ar: "الاسم، العميل، كلمة من الغامة، رقم…", en: "Name, client, routing word, number…", es: "Nombre, cliente, palabra de gama, número…", pt: "Nome, cliente, palavra da gama, número…", tr: "Ad, müşteri, rota kelimesi, sayı…" })}
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            title={tx(lang, { fr: "Plusieurs mots : chaque mot doit être trouvé (fiche + lignes de gamme).", ar: "عدّة كلمات: يجب إيجاد كل كلمة (البطاقة + خطوط الغامة).", en: "Multiple words: each word must be found (sheet + routing lines).", es: "Varias palabras: cada palabra debe encontrarse (ficha + líneas de gama).", pt: "Várias palavras: cada palavra deve ser encontrada (ficha + linhas da gama).", tr: "Birden fazla kelime: her kelime bulunmalıdır (föy + rota satırları)." })}
+                            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl text-xs outline-none focus:border-indigo-500 dark:focus:border-dk-accent focus:bg-white dark:focus:bg-dk-surface transition-all text-slate-700 dark:text-dk-text"
+                        />
+                    </div>
+
+                    {/* Ligne 3 (tel.) : Importer, Exporter, grille/liste, tri, ⋮ — dans cet ordre. */}
+                    <button
+                        type="button"
+                        onClick={triggerFileInput}
+                        disabled={importBusy}
+                        aria-label={tx(lang, { fr: "Importer des modèles", ar: "استيراد نماذج", en: "Import models", es: "Importar modelos", pt: "Importar modelos", tr: "Model içe aktar" })}
+                        title={tx(lang, { fr: "Importer un ou plusieurs modèles (.json)", ar: "استيراد نموذج واحد أو عدة نماذج (.json)", en: "Import one or several models (.json)", es: "Importar uno o varios modelos (.json)", pt: "Importar um ou vários modelos (.json)", tr: "Bir veya birden fazla model içe aktar (.json)" })}
+                        className="order-4 md:order-3 shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft rounded-xl border border-slate-200 dark:border-dk-border transition-colors text-xs font-bold disabled:opacity-50"
+                    >
+                        {importBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                        <span className="hidden sm:inline">{tx(lang, { fr: "Importer", ar: "استيراد", en: "Import", es: "Importar", pt: "Importar", tr: "İçe Aktar" })}</span>
+                    </button>
+                    <input type="file" accept=".json,application/json" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} aria-label={tx(lang, { fr: "Importer des modèles", ar: "استيراد نماذج", en: "Import models", es: "Importar modelos", pt: "Importar modelos", tr: "Model içe aktar" })} />
+
+                    <button
+                        type="button"
+                        onClick={() => { if (selectionMode) exitSelectionMode(); else enterSelectionMode(); }}
+                        aria-label={tx(lang, { fr: "Exporter des modèles", ar: "تصدير نماذج", en: "Export models", es: "Exportar modelos", pt: "Exportar modelos", tr: "Model dışa aktar" })}
+                        title={tx(lang, { fr: "Sélectionner des modèles à exporter", ar: "اختيار نماذج للتصدير", en: "Select models to export", es: "Seleccionar modelos para exportar", pt: "Selecionar modelos para exportar", tr: "Dışa aktarılacak modelleri seç" })}
+                        className={`order-5 md:order-4 shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border transition-colors text-xs font-bold ${selectionMode ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-600 dark:text-dk-text-soft border-slate-200 dark:border-dk-border'}`}
+                    >
+                        <Download className="w-4 h-4" />
+                        <span className="hidden sm:inline">{tx(lang, { fr: "Exporter", ar: "تصدير", en: "Export", es: "Exportar", pt: "Exportar", tr: "Dışa Aktar" })}</span>
+                    </button>
+
+                    <div className="order-6 md:order-5 shrink-0 flex bg-slate-100 dark:bg-dk-elevated rounded-lg p-0.5 border border-slate-200 dark:border-dk-border">
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('grid')}
+                            aria-label={tx(lang, { fr: "Vue Grille", ar: "عرض الشبكة", en: "Grid View", es: "Vista de Cuadrícula", pt: "Visualização em Grade", tr: "Izgara Görünümü" })}
+                            title={tx(lang, { fr: "Vue Grille", ar: "عرض الشبكة", en: "Grid View", es: "Vista de Cuadrícula", pt: "Visualização em Grade", tr: "Izgara Görünümü" })}
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft'}`}
+                        >
+                            <LayoutGrid className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setViewMode('list')}
+                            aria-label={tx(lang, { fr: "Vue Liste", ar: "عرض القائمة", en: "List View", es: "Vista de Lista", pt: "Visualização em Lista", tr: "Liste Görünümü" })}
+                            title={tx(lang, { fr: "Vue Liste", ar: "عرض القائمة", en: "List View", es: "Vista de Lista", pt: "Visualização em Lista", tr: "Liste Görünümü" })}
+                            className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-dk-surface shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated text-indigo-600 dark:text-indigo-400 dark:text-dk-accent-text dark:text-dk-accent' : 'text-slate-400 dark:text-dk-muted hover:text-slate-600 dark:hover:text-dk-text-soft'}`}
+                        >
+                            <ListIcon className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+
+                    <div className="order-7 shrink-0 relative">
+                        <div className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <SortAsc className="w-3.5 h-3.5 text-slate-400 dark:text-dk-muted" />
+                        </div>
+                        <select
+                            value={sortBy}
+                            aria-label={tx(lang, { fr: "Trier par", ar: "الترتيب حسب", en: "Sort by", es: "Ordenar por", pt: "Ordenar por", tr: "Sırala" })}
+                            title={tx(lang, { fr: "Trier par", ar: "الترتيب حسب", en: "Sort by", es: "Ordenar por", pt: "Ordenar por", tr: "Sırala" })}
+                            onChange={(e) => setSortBy(e.target.value as any)}
+                            className="pl-8 pr-7 py-1.5 bg-slate-50 dark:bg-dk-bg border border-slate-200 dark:border-dk-border rounded-xl text-xs font-bold text-slate-600 dark:text-dk-text-soft outline-none focus:border-indigo-500 dark:focus:border-dk-accent cursor-pointer appearance-none"
+                        >
+                            <option value="date">{tx(lang, { fr: "Récent", ar: "الأحدث", en: "Recent", es: "Reciente", pt: "Recente", tr: "Son" })}</option>
+                            <option value="name">{tx(lang, { fr: "Nom", ar: "الاسم", en: "Name", es: "Nombre", pt: "Nome", tr: "Ad" })}</option>
+                            <option value="time">{tx(lang, { fr: "Temps", ar: "الوقت", en: "Time", es: "Tiempo", pt: "Tempo", tr: "Süre" })}</option>
+                        </select>
+                        <Filter className="absolute right-2 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-slate-400 dark:text-dk-muted pointer-events-none" />
+                    </div>
+
+                    <div className="order-8 shrink-0 relative">
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setMoreMenuOpen(v => !v); }}
+                            aria-haspopup="menu"
+                            aria-expanded={moreMenuOpen}
+                            aria-label={moreMenuLabel}
+                            title={moreMenuLabel}
+                            className="p-2 bg-white dark:bg-dk-surface hover:bg-slate-50 dark:hover:bg-dk-elevated/60 text-slate-500 dark:text-dk-text-soft rounded-xl border border-slate-200 dark:border-dk-border transition-colors"
+                        >
+                            <MoreVertical className="w-4 h-4" />
+                        </button>
+                        {moreMenuOpen && !isMobileMenu && (
+                            <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-dk-surface rounded-xl shadow-2xl dark:shadow-dk-lg dark:shadow-dk-elevated border border-slate-100 dark:border-dk-border z-[60] py-1.5 max-h-[80vh] overflow-y-auto overflow-x-hidden"
+                            >
+                                {moreMenuBody}
+                            </div>
+                        )}
+                    </div>
+                    {moreMenuOpen && isMobileMenu && createPortal(
+                        <>
+                            <div className="fixed inset-0 z-[9998] bg-black/40 dark:bg-black/60 bera-sheet-fade" onClick={() => setMoreMenuOpen(false)} />
+                            <div
+                                className="fixed inset-x-0 bottom-0 z-[9999] bg-white dark:bg-dk-surface rounded-t-3xl shadow-2xl dark:shadow-dk-lg border-t border-slate-100 dark:border-dk-border pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] max-h-[75dvh] flex flex-col bera-sheet-up"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <div className="mx-auto mb-1.5 h-1 w-9 rounded-full bg-slate-300 dark:bg-dk-muted shrink-0" />
+                                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar [&_button]:py-2.5 [&_button]:text-[13px] [&_button]:gap-2.5">
+                                    {moreMenuBody}
+                                </div>
+                            </div>
+                        </>,
+                        document.body
+                    )}
+
+                    <input type="file" accept=".json" ref={dbInputRef} className="hidden" onChange={handleRestoreDatabase} aria-label={tx(lang, { fr: "Restaurer une base de données", ar: "استعادة قاعدة بيانات", en: "Restore a database", es: "Restaurar una base de datos", pt: "Restaurar um banco de dados", tr: "Bir veritabanını geri yükle" })} />
+                </div>
+            </div>
+
+            <div className={`flex-1 p-4 pt-0 ${selectionMode && isMobileMenu ? 'pb-40' : 'pb-20'}`}>
+                {selectionMode && (
+                    <div className={isMobileMenu
+                        ? "fixed inset-x-0 bottom-0 z-[70] bg-white dark:bg-dk-surface border-t border-slate-200 dark:border-dk-border shadow-2xl dark:shadow-dk-lg px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-wrap items-center gap-3"
+                        : "sticky top-0 z-30 bg-white/95 dark:bg-dk-surface/95 backdrop-blur border border-slate-200 dark:border-dk-border rounded-xl shadow-sm dark:shadow-dk-sm px-4 py-2.5 mb-3 flex flex-wrap items-center gap-3"}
+                    >
+                        <div className="flex items-center gap-3 flex-wrap min-w-0">
+                            <span className="text-xs font-bold text-slate-700 dark:text-dk-text shrink-0">
+                                {tx(lang, { fr: `${selectedIds.size} sélectionné(s)`, ar: `${selectedIds.size} مختار`, en: `${selectedIds.size} selected`, es: `${selectedIds.size} seleccionado(s)`, pt: `${selectedIds.size} selecionado(s)`, tr: `${selectedIds.size} seçildi` })}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={allFilteredSelected ? deselectAllFiltered : selectAllFiltered}
+                                className="text-[11px] font-bold text-indigo-600 dark:text-dk-accent hover:underline shrink-0"
+                            >
+                                {allFilteredSelected
+                                    ? tx(lang, { fr: "Tout désélectionner", ar: "إلغاء تحديد الكل", en: "Deselect all", es: "Deseleccionar todo", pt: "Desmarcar tudo", tr: "Tüm seçimi kaldır" })
+                                    : tx(lang, { fr: "Tout sélectionner", ar: "تحديد الكل", en: "Select all", es: "Seleccionar todo", pt: "Selecionar tudo", tr: "Tümünü seç" })}
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-2 ml-auto flex-wrap">
+                            <button
+                                type="button"
+                                disabled={selectedIds.size === 0 || exportBusy}
+                                onClick={handleExportSelected}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                                {exportBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} {tx(lang, { fr: `Exporter (${selectedIds.size})`, ar: `تصدير (${selectedIds.size})`, en: `Export (${selectedIds.size})`, es: `Exportar (${selectedIds.size})`, pt: `Exportar (${selectedIds.size})`, tr: `Dışa Aktar (${selectedIds.size})` })}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={selectedIds.size === 0}
+                                onClick={handleDeleteSelected}
+                                className="flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" /> {tx(lang, { fr: `Supprimer (${selectedIds.size})`, ar: `حذف (${selectedIds.size})`, en: `Delete (${selectedIds.size})`, es: `Eliminar (${selectedIds.size})`, pt: `Excluir (${selectedIds.size})`, tr: `Sil (${selectedIds.size})` })}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={exitSelectionMode}
+                                className="px-3 py-2 bg-slate-100 dark:bg-dk-elevated text-slate-600 dark:text-dk-text-soft rounded-lg text-xs font-bold hover:bg-slate-200 dark:hover:bg-dk-elevated/70 transition-colors"
+                            >
+                                {tx(lang, { fr: "Annuler", ar: "إلغاء", en: "Cancel", es: "Cancelar", pt: "Cancelar", tr: "İptal" })}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {filteredModels.length > 0 ? (
                     <>
                         {viewMode === 'grid' ? (
@@ -331,14 +685,28 @@ export default function Library({
                                 // plus les marges debordait et la page defilait de cote.
                                 style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(${cardSize}px, 100%), 1fr))` }}
                             >
-                                {filteredModels.map((model) => (
+                                {filteredModels.map((model) => {
+                                    const isSelected = selectedIds.has(model.id);
+                                    return (
                                     <div
                                         key={model.id}
-                                        onClick={() => { if (renamingId !== model.id) onLoadModel(model); }}
+                                        onClick={() => { if (renamingId === model.id) return; if (selectionMode) { toggleSelect(model.id); return; } onLoadModel(model); }}
                                         onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, modelId: model.id }); }}
-                                        className="group bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated hover:shadow-md dark:hover:shadow-dk-elevated hover:border-indigo-300 dark:hover:border-dk-accent hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col h-full"
+                                        className={`group bg-white dark:bg-dk-surface rounded-xl border ${isSelected ? 'border-indigo-400 dark:border-indigo-500 ring-2 ring-indigo-300 dark:ring-indigo-600' : 'border-slate-200 dark:border-dk-border'} shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated hover:shadow-md dark:hover:shadow-dk-elevated hover:border-indigo-300 dark:hover:border-dk-accent hover:-translate-y-1 transition-all duration-200 cursor-pointer overflow-hidden flex flex-col h-full`}
                                     >
                                         <div className="aspect-[4/3] bg-slate-50 dark:bg-dk-bg border-b border-slate-100 dark:border-dk-border flex items-center justify-center group-hover:bg-indigo-50 dark:bg-dk-accent/20 dark:group-hover:bg-dk-elevated/20 transition-colors relative overflow-hidden">
+                                            {selectionMode && (
+                                                <button
+                                                    type="button"
+                                                    role="checkbox"
+                                                    aria-checked={isSelected}
+                                                    aria-label={tx(lang, { fr: "Sélectionner ce modèle", ar: "اختيار هذا النموذج", en: "Select this model", es: "Seleccionar este modelo", pt: "Selecionar este modelo", tr: "Bu modeli seç" })}
+                                                    onClick={(e) => { e.stopPropagation(); toggleSelect(model.id); }}
+                                                    className={`absolute top-2 left-2 z-10 w-7 h-7 rounded-lg border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white/90 dark:bg-dk-surface/90 border-slate-300 dark:border-dk-border text-transparent'}`}
+                                                >
+                                                    <Check className="w-4 h-4" />
+                                                </button>
+                                            )}
                                             {getModelPreview(model) ? (
                                                 <img src={getModelPreview(model)!} alt={model.meta_data.nom_modele} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                                             ) : (
@@ -349,15 +717,17 @@ export default function Library({
                                                     <span className="text-xs text-slate-600 dark:text-dk-muted font-medium">{tx(lang, { fr: "Aucun aperçu", ar: "لا توجد معاينة", en: "No preview", es: "Sin vista previa", pt: "Sem pré-visualização", tr: "Önizleme yok" })}</span>
                                                 </div>
                                             )}
-                                            <div className="absolute top-2 right-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10 flex gap-2">
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, modelId: model.id }); }}
-                                                    aria-label={tx(lang, { fr: "Options du modèle", ar: "خيارات النموذج", en: "Model options", es: "Opciones del modelo", pt: "Opções do modelo", tr: "Model seçenekleri" })}
-                                                    className="p-1.5 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm rounded-full shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-dk-accent hover:bg-white dark:hover:bg-dk-surface"
-                                                >
-                                                    <MoreVertical className="w-4 h-4" />
-                                                </button>
-                                            </div>
+                                            {!selectionMode && (
+                                                <div className="absolute top-2 right-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10 flex gap-2">
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, modelId: model.id }); }}
+                                                        aria-label={tx(lang, { fr: "Options du modèle", ar: "خيارات النموذج", en: "Model options", es: "Opciones del modelo", pt: "Opções do modelo", tr: "Model seçenekleri" })}
+                                                        className="p-1.5 bg-white/90 dark:bg-dk-surface/90 backdrop-blur-sm rounded-full shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated text-slate-600 dark:text-dk-text-soft hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-dk-accent hover:bg-white dark:hover:bg-dk-surface"
+                                                    >
+                                                        <MoreVertical className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            )}
                                             {model.meta_data.category && (
                                                 <div className="absolute bottom-2 left-2 bg-black/60 dark:bg-black/80 backdrop-blur-md text-white px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide flex items-center gap-1 shadow-sm dark:shadow-dk-sm max-w-[90%]">
                                                     <LayoutGrid className="w-2.5 h-2.5 shrink-0" />
@@ -406,17 +776,32 @@ export default function Library({
                                             </div>
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         ) : (
                             <div className="flex flex-col gap-2">
-                                {filteredModels.map((model) => (
+                                {filteredModels.map((model) => {
+                                    const isSelected = selectedIds.has(model.id);
+                                    return (
                                     <div
                                         key={model.id}
-                                        onClick={() => { if (renamingId !== model.id) onLoadModel(model); }}
+                                        onClick={() => { if (renamingId === model.id) return; if (selectionMode) { toggleSelect(model.id); return; } onLoadModel(model); }}
                                         onContextMenu={(e) => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, modelId: model.id }); }}
-                                        className="group bg-white dark:bg-dk-surface rounded-xl border border-slate-200 dark:border-dk-border shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated hover:shadow-md dark:hover:shadow-dk-elevated hover:border-indigo-300 dark:hover:border-dk-accent flex items-center p-2 gap-4 cursor-pointer transition-all duration-200"
+                                        className={`group bg-white dark:bg-dk-surface rounded-xl border ${isSelected ? 'border-indigo-400 dark:border-indigo-500 ring-2 ring-indigo-300 dark:ring-indigo-600' : 'border-slate-200 dark:border-dk-border'} shadow-sm dark:shadow-dk-sm dark:shadow-dk-elevated hover:shadow-md dark:hover:shadow-dk-elevated hover:border-indigo-300 dark:hover:border-dk-accent flex items-center p-2 gap-4 cursor-pointer transition-all duration-200`}
                                     >
+                                        {selectionMode && (
+                                            <button
+                                                type="button"
+                                                role="checkbox"
+                                                aria-checked={isSelected}
+                                                aria-label={tx(lang, { fr: "Sélectionner ce modèle", ar: "اختيار هذا النموذج", en: "Select this model", es: "Seleccionar este modelo", pt: "Selecionar este modelo", tr: "Bu modeli seç" })}
+                                                onClick={(e) => { e.stopPropagation(); toggleSelect(model.id); }}
+                                                className={`w-7 h-7 shrink-0 rounded-lg border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white dark:bg-dk-surface border-slate-300 dark:border-dk-border text-transparent'}`}
+                                            >
+                                                <Check className="w-4 h-4" />
+                                            </button>
+                                        )}
                                         <div className="w-16 h-16 shrink-0 bg-slate-50 dark:bg-dk-bg rounded-lg overflow-hidden border border-slate-100 dark:border-dk-border flex items-center justify-center relative">
                                             {getModelPreview(model) ? (
                                                 <img src={getModelPreview(model)!} alt={model.meta_data.nom_modele} className="w-full h-full object-cover" />
@@ -458,14 +843,18 @@ export default function Library({
                                                 <span className="text-sm font-bold text-slate-700 dark:text-dk-text">{model.meta_data.effectif ?? 0} {tx(lang, { fr: "Op.", ar: "عامل", en: "Op.", es: "Op.", pt: "Op.", tr: "Op." })}</span>
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, modelId: model.id }); }}
-                                            className="p-2 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-dk-accent transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
-                                        >
-                                            <MoreVertical className="w-4 h-4" />
-                                        </button>
+                                        {!selectionMode && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setContextMenu({ x: e.clientX, y: e.clientY, modelId: model.id }); }}
+                                                aria-label={tx(lang, { fr: "Options du modèle", ar: "خيارات النموذج", en: "Model options", es: "Opciones del modelo", pt: "Opções do modelo", tr: "Model seçenekleri" })}
+                                                className="p-2 hover:bg-slate-100 dark:hover:bg-dk-elevated rounded-full text-slate-400 dark:text-dk-muted hover:text-indigo-600 dark:text-dk-accent-text dark:hover:text-dk-accent transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                                            >
+                                                <MoreVertical className="w-4 h-4" />
+                                            </button>
+                                        )}
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </>
@@ -599,15 +988,16 @@ export default function Library({
                             </button>
                             <button
                                 type="button"
-                                onClick={() => handleExport(activeModel)}
-                                className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-3 transition-colors"
+                                disabled={exportBusy}
+                                onClick={() => handleExportLinked(activeModel)}
+                                className="w-full text-left px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-dk-text-soft hover:bg-slate-50 dark:hover:bg-dk-elevated/60 flex items-center gap-3 transition-colors disabled:opacity-40"
                             >
-                                <Download className="w-4 h-4" /> {tx(lang, { fr: "Exporter (JSON)", ar: "تصدير (JSON)", en: "Export (JSON)", es: "Exportar (JSON)", pt: "Exportar (JSON)", tr: "Dışa Aktar (JSON)" })}
+                                {exportBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} {tx(lang, { fr: "Exporter avec ses données liées", ar: "تصدير مع بياناته المرتبطة", en: "Export with linked data", es: "Exportar con sus datos vinculados", pt: "Exportar com seus dados vinculados", tr: "Bağlı verileriyle dışa aktar" })}
                             </button>
                             <div className="h-px bg-slate-100 dark:bg-dk-elevated dark:border-dk-border my-1"></div>
                             <button
                                 type="button"
-                                onClick={() => { setDeleteConfirm({ id: activeModel.id, name: activeModel.meta_data?.nom_modele || '' }); setContextMenu(null); }}
+                                onClick={() => openDeleteDialog([activeModel.id])}
                                 className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-600 dark:text-rose-400 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20 flex items-center gap-3 transition-colors"
                             >
                                 <Trash2 className="w-4 h-4" /> {tx(lang, { fr: "Supprimer", ar: "حذف", en: "Delete", es: "Eliminar", pt: "Excluir", tr: "Sil" })}
@@ -619,13 +1009,99 @@ export default function Library({
                 </>,
                 document.body
             )}
-            {deleteConfirm && (
-                /* Confirmation de suppression : pas d'en-tête ni de plein écran —
-                   agrandir une question de deux lignes n'aurait aucun sens. Le fond
-                   n'est pas cliquable : une suppression de modèle (avec sa gamme et
-                   ses coûts) ne doit pas s'annuler ni se déclencher par mégarde. */
+            {deleteDialog && deleteDialog.step === 1 && (
+                /* Étape 1 : que supprimer ? Modèle seul, ou modèle + données liées.
+                   Le fond n'est pas cliquable : une suppression ne doit ni se
+                   déclencher ni s'annuler par mégarde. */
                 <SheetModal
-                    onClose={() => setDeleteConfirm(null)}
+                    onClose={() => setDeleteDialog(null)}
+                    size="md"
+                    zClass="z-[100]"
+                    closeOnBackdrop={false}
+                    bodyClassName="flex-1 overflow-y-auto min-h-0 p-5 sm:p-6"
+                >
+                    <h3 className="text-lg font-bold text-slate-800 dark:text-dk-text mb-1 text-center">{tx(lang, { fr: "Que voulez-vous supprimer ?", ar: "ماذا تريدون حذفه؟", en: "What do you want to delete?", es: "¿Qué desea eliminar?", pt: "O que deseja excluir?", tr: "Neyi silmek istiyorsunuz?" })}</h3>
+                    <p className="text-xs text-slate-500 dark:text-dk-text-soft text-center mb-4 truncate">{deleteTargetLabel}</p>
+
+                    <div className="space-y-3">
+                        <button
+                            type="button"
+                            onClick={() => setDeleteDialog(d => d ? { ...d, scope: 'model' } : d)}
+                            className={`w-full text-left p-3.5 rounded-xl border-2 transition-colors ${deleteDialog.scope === 'model' ? 'border-indigo-500 bg-indigo-50 dark:bg-dk-elevated' : 'border-slate-200 dark:border-dk-border hover:border-slate-300 dark:hover:border-dk-muted'}`}
+                        >
+                            <div className="flex items-start gap-3">
+                                <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${deleteDialog.scope === 'model' ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-text-soft'}`}>
+                                    <FileJson className="w-4 h-4" />
+                                </span>
+                                <span className="min-w-0">
+                                    <span className="block text-sm font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: "Le modèle seulement", ar: "النموذج فقط", en: "The model only", es: "Solo el modelo", pt: "Somente o modelo", tr: "Sadece model" })}</span>
+                                    <span className="block text-[11px] text-slate-500 dark:text-dk-text-soft mt-0.5 leading-relaxed">{tx(lang, { fr: "Le modèle et toutes ses pages (fiche, gamme, chrono, équilibrage, implantation, coûts, pedido) sont supprimés. Le Planning, le suivi et la sous-traitance restent intacts.", ar: "يُحذف النموذج وكل صفحاته (البطاقة، الغامة، الكرونو، التوازن، التوطين، التكاليف، البيديدو). يبقى التخطيط والمتابعة والاستعانة بمصادر خارجية سليمين.", en: "The model and all its pages (sheet, routing, chrono, balancing, layout, costs, pedido) are deleted. Planning, tracking and subcontracting stay intact.", es: "El modelo y todas sus páginas (ficha, gama, crono, equilibrado, implantación, costos, pedido) se eliminan. Planificación, seguimiento y subcontratación permanecen intactos.", pt: "O modelo e todas as suas páginas (ficha, gama, crono, balanceamento, implantação, custos, pedido) são excluídos. Planejamento, acompanhamento e subcontratação permanecem intactos.", tr: "Model ve tüm sayfaları (föy, rota, kronometraj, dengeleme, yerleşim, maliyetler, pedido) silinir. Planlama, takip ve taşeronluk bozulmadan kalır." })}</span>
+                                </span>
+                            </div>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setDeleteDialog(d => d ? { ...d, scope: 'all' } : d)}
+                            className={`w-full text-left p-3.5 rounded-xl border-2 transition-colors ${deleteDialog.scope === 'all' ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/10' : 'border-slate-200 dark:border-dk-border hover:border-slate-300 dark:hover:border-dk-muted'}`}
+                        >
+                            <div className="flex items-start gap-3">
+                                <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${deleteDialog.scope === 'all' ? 'bg-rose-600 text-white' : 'bg-slate-100 dark:bg-dk-elevated text-slate-500 dark:text-dk-text-soft'}`}>
+                                    <Database className="w-4 h-4" />
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block text-sm font-bold text-slate-800 dark:text-dk-text">{tx(lang, { fr: "Le modèle et tout ce qui lui est lié", ar: "النموذج وكل ما هو مرتبط به", en: "The model and everything linked to it", es: "El modelo y todo lo que está vinculado a él", pt: "O modelo e tudo o que está vinculado a ele", tr: "Model ve ona bağlı her şey" })}</span>
+
+                                    {deleteDialog.loadingSummary ? (
+                                        <span className="mt-2 flex flex-col gap-1.5">
+                                            <span className="block h-3 bg-slate-200 dark:bg-dk-elevated rounded animate-pulse w-full" />
+                                            <span className="block h-3 bg-slate-200 dark:bg-dk-elevated rounded animate-pulse w-4/5" />
+                                            <span className="block h-3 bg-slate-200 dark:bg-dk-elevated rounded animate-pulse w-3/5" />
+                                        </span>
+                                    ) : deleteDialog.summary ? (
+                                        deleteDialog.summary.total === 0 ? (
+                                            <span className="block mt-2 text-[11px] text-slate-400 dark:text-dk-muted italic">{tx(lang, { fr: "Rien d'autre n'est lié à ce modèle", ar: "لا يوجد شيء آخر مرتبط بهذا النموذج", en: "Nothing else is linked to this model", es: "No hay nada más vinculado a este modelo", pt: "Nada mais está vinculado a este modelo", tr: "Bu modele başka bağlı bir şey yok" })}</span>
+                                        ) : (
+                                            <span className="block mt-2 space-y-1">
+                                                {(Object.keys(LINKED_LABELS) as Array<Exclude<keyof LinkedSummary, 'total'>>)
+                                                    .filter(k => (deleteDialog.summary as LinkedSummary)[k] > 0)
+                                                    .map(k => (
+                                                        <span key={k} className="flex items-center justify-between text-[11px] text-slate-600 dark:text-dk-text-soft">
+                                                            <span>{tx(lang, LINKED_LABELS[k])}</span>
+                                                            <span className="font-bold text-slate-800 dark:text-dk-text">{(deleteDialog.summary as LinkedSummary)[k]}</span>
+                                                        </span>
+                                                    ))}
+                                            </span>
+                                        )
+                                    ) : null}
+
+                                    <span className="block mt-2 text-[10px] text-slate-400 dark:text-dk-muted italic">{tx(lang, { fr: "Les factures ne sont jamais supprimées.", ar: "لا يتم حذف الفواتير أبداً.", en: "Invoices are never deleted.", es: "Las facturas nunca se eliminan.", pt: "As faturas nunca são excluídas.", tr: "Faturalar asla silinmez." })}</span>
+                                </span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div className="flex gap-3 mt-5">
+                        <button
+                            onClick={() => setDeleteDialog(null)}
+                            className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text hover:bg-slate-200 dark:hover:bg-dk-elevated rounded-xl font-bold text-sm transition-colors"
+                        >
+                            {tx(lang, { fr: "Annuler", ar: "إلغاء", en: "Cancel", es: "Cancelar", pt: "Cancelar", tr: "İptal" })}
+                        </button>
+                        <button
+                            disabled={!deleteDialog.scope}
+                            onClick={() => setDeleteDialog(d => d ? { ...d, step: 2 } : d)}
+                            className="flex-1 px-4 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl font-bold text-sm shadow-lg dark:shadow-dk-lg shadow-indigo-200 dark:shadow-dk-elevated transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+                        >
+                            {tx(lang, { fr: "Continuer", ar: "متابعة", en: "Continue", es: "Continuar", pt: "Continuar", tr: "Devam et" })}
+                        </button>
+                    </div>
+                </SheetModal>
+            )}
+            {deleteDialog && deleteDialog.step === 2 && (
+                /* Étape 2 : confirmation finale, tons rouges — irréversible. */
+                <SheetModal
+                    onClose={() => setDeleteDialog(null)}
                     size="sm"
                     zClass="z-[100]"
                     closeOnBackdrop={false}
@@ -636,23 +1112,22 @@ export default function Library({
                             <Trash2 className="w-8 h-8" />
                         </div>
                         <h3 className="text-xl font-bold text-slate-800 dark:text-dk-text mb-2">{tx(lang, { fr: "Confirmer la suppression", ar: "تأكيد الحذف", en: "Confirm Deletion", es: "Confirmar la eliminación", pt: "Confirmar exclusão", tr: "Silmeyi Onayla" })}</h3>
-                        <p className="text-slate-500 dark:text-dk-text-soft text-sm mb-6 leading-relaxed">
-                            {tx(lang, { fr: "Êtes-vous sûr de vouloir supprimer le modèle", ar: "هل تريد بالتأكيد حذف النموذج", en: "Are you sure you want to delete the model", es: "¿Está seguro de que desea eliminar el modelo", pt: "Tem certeza de que deseja excluir o modelo", tr: "Modeli silmek istediğinizden emin misiniz" })} <br />
-                            <span className="font-bold text-slate-800 dark:text-dk-text">"{deleteConfirm.name}"</span> ? <br />
-                            <span className="text-rose-500 dark:text-rose-300 font-medium text-xs">{tx(lang, { fr: "Cette action est irréversible.", ar: "هذا الإجراء لا رجعة فيه.", en: "This action cannot be undone.", es: "Esta acción es irreversible.", pt: "Esta ação é irreversível.", tr: "Bu işlem geri alınamaz." })}</span>
+                        <p className="text-slate-600 dark:text-dk-text-soft text-sm mb-3 leading-relaxed">{deleteSummarySentence}</p>
+                        <p className="text-rose-500 dark:text-rose-300 font-bold text-xs mb-6 flex items-center justify-center gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {tx(lang, { fr: "Cette action est irréversible.", ar: "هذا الإجراء لا رجعة فيه.", en: "This action cannot be undone.", es: "Esta acción es irreversible.", pt: "Esta ação é irreversível.", tr: "Bu işlem geri alınamaz." })}
                         </p>
                         <div className="flex gap-3">
                             <button
-                                onClick={() => setDeleteConfirm(null)}
+                                onClick={() => setDeleteDialog(d => d ? { ...d, step: 1 } : d)}
                                 className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-dk-elevated text-slate-700 dark:text-dk-text hover:bg-slate-200 dark:hover:bg-dk-elevated rounded-xl font-bold text-sm transition-colors"
                             >
-                                {tx(lang, { fr: "Annuler", ar: "إلغاء", en: "Cancel", es: "Cancelar", pt: "Cancelar", tr: "İptal" })}
+                                {tx(lang, { fr: "Retour", ar: "رجوع", en: "Back", es: "Volver", pt: "Voltar", tr: "Geri" })}
                             </button>
                             <button
-                                onClick={() => { onDeleteModel(deleteConfirm.id); setDeleteConfirm(null); }}
+                                onClick={confirmDeleteFinal}
                                 className="flex-1 px-4 py-2.5 bg-rose-600 text-white hover:bg-rose-700 rounded-xl font-bold text-sm shadow-lg dark:shadow-dk-lg shadow-rose-200 dark:shadow-dk-elevated transition-colors"
                             >
-                                {tx(lang, { fr: "Supprimer", ar: "حذف", en: "Delete", es: "Eliminar", pt: "Excluir", tr: "Sil" })}
+                                {tx(lang, { fr: "Supprimer définitivement", ar: "حذف نهائي", en: "Delete permanently", es: "Eliminar definitivamente", pt: "Excluir definitivamente", tr: "Kalıcı olarak sil" })}
                             </button>
                         </div>
                     </div>

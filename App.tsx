@@ -88,6 +88,7 @@ import AppHeader, { VIEW_DEFS } from './app/AppHeader';
 import NavConfirmModal from './app/NavConfirmModal';
 import EnvoiPlanningModal from './app/EnvoiPlanningModal';
 import { useAppModelManager } from './app/useAppModelManager';
+import { useModelBundles } from './app/useModelBundles';
 
 /** Valeurs initiales globales — identiques à `DEFAULT_CALENDAR_APP_SETTINGS` (calendrier + App). */
 const DEFAULT_SETTINGS: AppSettings = DEFAULT_CALENDAR_APP_SETTINGS;
@@ -1591,6 +1592,13 @@ export default function App() {
         chronoCustomStations, setChronoCustomStations, chronoLayoutSide, setChronoLayoutSide
     });
 
+    // Export / import / suppression d'un modele AVEC ses donnees liees
+    // (Planning, suivi, sous-traitance...) depuis la Bibliotheque.
+    const { exportModels, importFiles, getLinkedSummary, deleteModelWithScope } = useModelBundles({
+        user, models, setModels, planningEvents, setPlanningEvents, suivis, setSuivis,
+        demandesAppro, setDemandesAppro, deleteModel, showToast,
+    });
+
     // Champs de `ficheData.soustraitance` qui appartiennent à la COMMANDE de
     // sous-traitance et jamais à l'atelier : frais additionnels, quantité commandée
     // et rattachement. Ils ne se saisissent que sur la fiche de commande.
@@ -2205,7 +2213,10 @@ export default function App() {
                             models={models}
                             onLoadModel={loadModel}
                             onImportModel={importModel}
-                            onDeleteModel={deleteModel}
+                            onImportFiles={importFiles}
+                            onExportModels={exportModels}
+                            onGetLinkedSummary={getLinkedSummary}
+                            onDeleteModel={(id, scope) => { void deleteModelWithScope(id, scope); }}
                             onDuplicateModel={duplicateModel}
                             onRenameModel={renameModel}
                             onCreateNewProject={createNewProject}
